@@ -1,0 +1,11 @@
+Merriweather. Copyright (c) Sorkin Type Co
+Licensed under the SIL Open Font License, Version 1.1.
+https://openfontlicense.org  ·  https://fonts.google.com/specimen/Merriweather
+
+Used for the OriginMarker wordmark. This is the same family NIH sets its own display
+type in: nih.gov runs the U.S. Web Design System (theme nih2_uswds), whose stylesheet
+declares "Merriweather Web" as its serif and ships Latin-Merriweather-Italic.woff2.
+
+Self-hosted (rather than loaded from a CDN) so the app makes no third-party request at
+page load and renders identically offline. Imported from src/ so Vite fingerprints the
+filename and a cached stale copy is impossible.

@@ -1,0 +1,26 @@
+# Secrets. docker compose reads .env from beside docker-compose.yml, so a real key
+# WILL land here the moment one is configured - it must never be committable.
+.env
+.env.*
+!.env.example
+*.pem
+credentials*.json
+
+.claude/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+web/dist/
+.panelbuilder_cache/
+*.tgz
+
+# data/maps (the genetic map) and tests/fixtures (recorded API responses, gzipped) are
+# committed on purpose: the image builds and the suite runs with no network. Do not ignore.
+
+# Host-specific: internal hostnames, LAN addresses, a tunnel id, uid pinning. Kept out of
+# the public repo; `docker compose up -d --build` is the whole public story. The deploy
+# tarball ships them because it copies the working tree, not the git index.
+deploy/README-deploy.md
+docker-compose.override.yml

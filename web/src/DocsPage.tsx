@@ -1,0 +1,731 @@
+import { useEffect, type ReactNode } from 'react'
+import { Alert, Anchor, Button, Code, Group, List, Paper, Table, Text, Title } from '@mantine/core'
+import { CITATIONS, formatCitation } from './citations'
+import type { Health } from './api'
+
+export const REPO_URL = 'https://github.com/ekruges/originmarker'
+export const HOME_URL = 'https://ezrakruger.cc/'
+const CONTACT = 'kruger.ezra.s@gmail.com'
+
+/** GitHub's mark, inlined. currentColor so one CSS rule drives its resting and hover grey. */
+const GithubMark = () => (
+  <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden focusable="false">
+    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
+      0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
+      1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95
+      0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27
+      2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
+      2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0
+      .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+  </svg>
+)
+
+// Numbering comes from CITATIONS key order, so inline markers and the reference list
+// cannot drift apart: there is one ordering, not two.
+const ORDER = Object.keys(CITATIONS)
+const numberOf = (id: string) => ORDER.indexOf(id) + 1
+
+/** In-page anchor href. The app routes on the hash, so a bare `href="#sources"` would
+ *  replace the route and throw the reader back to the landing page: anchors stay
+ *  namespaced under '#/docs/...'. */
+const docHref = (id: string) => `#/docs/${id}`
+
+/** The section id from a '#/docs/<id>' hash, or '' on the bare docs route. */
+export function docSectionFromHash(hash: string): string {
+  const m = /^#\/docs\/([\w:.-]+)$/.exec(hash)
+  return m ? m[1] : ''
+}
+
+/** Inline citation marker: [n], linking to its entry in the reference list. */
+function Ref({ id }: { id: string }) {
+  const n = numberOf(id)
+  if (n < 1) return null // an unknown id renders as nothing rather than a fake number
+  return (
+    <Anchor href={docHref(`ref-${id}`)} className="om-mono" style={{ fontSize: 11 }} aria-label={`reference ${n}`}>
+      [{n}]
+    </Anchor>
+  )
+}
+
+const SECTIONS = [
+  { id: 'what', label: 'What this is' },
+  { id: 'not', label: 'Scope and limits' },
+  { id: 'pipeline', label: 'How a panel is built' },
+  { id: 'ld', label: 'Linkage disequilibrium and rare variants' },
+  { id: 'prior', label: 'Expected heterozygosity is a prior' },
+  { id: 'recomb', label: 'Recombination and the genetic map' },
+  { id: 'layerb', label: 'Using the panel in the lab' },
+  { id: 'sources', label: 'Data sources and versions' },
+  { id: 'conventions', label: 'Conventions' },
+  { id: 'limits', label: 'Known limitations' },
+  { id: 'example', label: 'Worked example' },
+  { id: 'api', label: 'API' },
+  { id: 'references', label: 'References' },
+]
+
+// R8: a byte-for-byte copy of pb.DISCLAIMER, never a paraphrase. Used only when
+// /api/health is unreachable.
+const FALLBACK_DISCLAIMER =
+  'Research use only. Candidate markers require validation and per-family phasing in a qualified genetics laboratory. Not a clinical diagnostic.'
+
+const FALLBACK_STEPS = [
+  'Genotype the carrier parent at these candidate markers.',
+  'Keep only the markers where that carrier is actually heterozygous. Expected heterozygosity is a population average, not this individual’s genotype.',
+  'Phase the retained markers against an informative relative (an affected or unaffected child, a proband, or a grandparent), or by read-based sequencing. OriginMarker cannot determine phase.',
+  'Genotype the embryo biopsy at the phased markers.',
+  'Require at least two concordant markers per side before calling parental origin.',
+  'Use markers on both sides: one side alone cannot reveal a recombination between the marker and the locus, and per-side redundancy guards against allele dropout.',
+]
+
+const ENDPOINTS: [string, string][] = [
+  ['GET /api/health', 'Versions, build, gnomAD dataset, genetic-map source, the disclaimer and the lab protocol steps. Feature flags for the optional LD annotation and free-text search.'],
+  ['POST /api/resolve', 'Resolve an HGVS expression or rsID to a canonical variant record: rsID, gene, strand, GRCh38 coordinate, VCF ref/alt, clinical significance. Also returns the rarity verdict. Returns 400 on unresolvable input.'],
+  ['POST /api/panel', 'Start a panel build. Returns 202 and a job_id; the build itself runs off the request path.'],
+  ['GET /api/panel/{job_id}/stream', 'Server-sent events: progress frames per pipeline stage, then done or error. Heartbeats keep the stream alive behind a proxy.'],
+  ['GET /api/panel/{job_id}', 'Poll a job. Returns status, current stage and fraction, and the full result once done. Works as a fallback where SSE is buffered.'],
+  ['GET /api/export/{job_id}.{csv|xlsx|json|pdf}', 'Download a finished panel. Every export carries the build, the provenance stamp, the disclaimer and the lab protocol.'],
+  ['POST /api/nl', 'Parse free text to a typed query: which variant, how wide a window, which ancestry. Intent only; it has no coordinate fields.'],
+  ['GET /api/genes', 'Exact gene-symbol lookup for the search box.'],
+  ['GET /api/ld', 'Optional LD annotation between two common SNPs. Refuses rare-variant queries.'],
+]
+
+export function DocsPage({ health }: { health: Health | null }) {
+  const ensembl = health?.ensembl_release ?? '-'
+  const gnomad = health?.gnomad_dataset ?? 'gnomad_r4'
+  const build = health?.build ?? 'GRCh38'
+  const mapSource = health?.map_source ?? 'deCODE 2019 sex-averaged (Beagle GRCh38 liftover, plink format)'
+  const steps = health?.layer_b_steps?.length ? health.layer_b_steps : FALLBACK_STEPS
+
+  // The hash is a route, not an element id, so the browser will not scroll for us.
+  useEffect(() => {
+    const jump = () => {
+      const id = docSectionFromHash(window.location.hash)
+      if (!id) return
+      // Wait a frame: on a cold deep-link the section may not be mounted yet.
+      requestAnimationFrame(() => {
+        document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+      })
+    }
+    jump()
+    window.addEventListener('hashchange', jump)
+    return () => window.removeEventListener('hashchange', jump)
+  }, [])
+
+  return (
+    <div className="om-docs-wrap" style={{ display: 'flex', gap: 24, maxWidth: 1100, margin: '0 auto', padding: 12, alignItems: 'flex-start' }}>
+      <nav
+        className="om-docs-nav"
+        aria-label="Documentation sections"
+        style={{ position: 'sticky', top: 12, flex: '0 0 200px', alignSelf: 'flex-start' }}
+      >
+        <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
+          {SECTIONS.map((s, i) => (
+            <li key={s.id}>
+              <a href={docHref(s.id)}>
+                <span className="om-mono" style={{ marginRight: 6 }}>
+                  {i + 1}
+                </span>
+                {s.label}
+              </a>
+            </li>
+          ))}
+        </ol>
+        <Text size="xs" c="dimmed" mt={10} pl={8} className="om-mono">
+          {build} · {gnomad} · Ensembl {ensembl}
+        </Text>
+
+        <div className="om-docs-links">
+          <a href={REPO_URL} target="_blank" rel="noreferrer" aria-label="Source on GitHub" title="Source on GitHub">
+            <GithubMark />
+          </a>
+          <a href={HOME_URL} aria-label="ezrakruger.cc" title="ezrakruger.cc">
+            <span className="om-avatar" />
+          </a>
+        </div>
+      </nav>
+
+      <article className="om-docs-body" style={{ flex: 1, minWidth: 0 }}>
+        <Title order={1} mb={4}>
+          OriginMarker documentation
+        </Title>
+        <Text size="xs" c="dimmed" mb="md">
+          Candidate flanking-SNP panels for PGT-M linkage, built from population data. Research decision
+          support, not a diagnostic.
+        </Text>
+
+        <Section id="what" title="1 · What this is">
+          <Text mb={8}>
+            A carrier parent transmits either the wild-type or the mutant allele. After an embryo is
+            edited, a wild-type read at the variant site is ambiguous: the egg may have been
+            wild-type-fertilized, in which case the editor did nothing, or mutant-fertilized and
+            corrected. Reading the variant site alone cannot separate those two histories.
+          </Text>
+          <Text mb={8}>
+            SNPs flanking the variant do separate them. They were not the editing target, so genotyping
+            them reports which parental chromosome came in regardless of what happened at the variant
+            itself. That is established PGT-M linkage and karyomapping methodology{' '}
+            <Ref id="karyomapping" /> <Ref id="eshre_pgt_m" />, repurposed here for editing attribution.
+          </Text>
+          <Text>
+            OriginMarker does the part population data can answer: pulling candidate SNPs from gnomAD,
+            annotating their frequencies, ranking them and laying them out against the locus, which is
+            work a scientist otherwise does by hand across gnomAD, Ensembl and ClinVar. Genotyping the
+            carrier and phasing the markers in the family is bench work, and no app can do it. The output
+            is a menu of candidates.
+          </Text>
+        </Section>
+
+        <Section id="not" title="2 · Scope and limits">
+          <List spacing={4} mb={8}>
+            <List.Item>No editing-reagent, guide-RNA or gamete design.</List.Item>
+            <List.Item>
+              No phase determination. Phase requires family samples or read-based sequencing; the app
+              cannot infer it.
+            </List.Item>
+            <List.Item>No clinical interpretation and no diagnosis.</List.Item>
+            <List.Item>No patient data storage. Nothing about a family is submitted or retained.</List.Item>
+            <List.Item>
+              No claim that a marker is informative in a specific family. Population frequency cannot
+              establish that; only genotyping the actual carrier can.
+            </List.Item>
+          </List>
+          <Alert color="gray" variant="light" title="Disclaimer">
+            <Text size="xs">{health?.disclaimer ?? FALLBACK_DISCLAIMER}</Text>
+          </Alert>
+        </Section>
+
+        <Section id="pipeline" title="3 · How a panel is built">
+          <List spacing={5} type="ordered" mb={10}>
+            <List.Item>
+              <b>Resolve.</b> The variant is looked up live against ClinVar, falling back to Ensembl for a
+              bare rsID, producing a canonical record: rsID, gene, strand, {build} coordinate, VCF ref/alt,
+              clinical significance, review status, accession. Input that cannot be resolved returns an
+              error; no panel is built on an approximation.
+            </List.Item>
+            <List.Item>
+              <b>Rarity.</b> The gnomAD single-variant record and the 1000 Genomes allele count decide
+              whether population LD with this allele is even defined. For a pathogenic variant the answer
+              is almost always no (see <Anchor href={docHref('ld')}>section 4</Anchor>).
+            </List.Item>
+            <List.Item>
+              <b>Enumerate.</b> A ±250 kb window by default, pulled from gnomAD as 20 kb region chunks
+              fetched concurrently. Only SNPs are kept, and only where gnomAD genome AN ≥ 10,000, which
+              discards sites whose frequency rests on a poor call rate, and where MAF ≥ 0.05, which is the
+              floor for a marker worth genotyping.
+            </List.Item>
+            <List.Item>
+              <b>Annotate.</b> Global and per-ancestry MAF; expected heterozygosity 2pq; signed distance
+              from the variant; genomic side; tier; and cM, recombination fraction and a hotspot flag
+              interpolated from the bundled genetic map.
+            </List.Item>
+            <List.Item>
+              <b>Rank and select.</b> Ranked by expected heterozygosity, then by proximity. A balanced set
+              is chosen from distance bands on each side independently, so a dense cluster on one side
+              cannot crowd the other out, plus distant sentinels near the window edge.
+            </List.Item>
+            <List.Item>
+              <b>Cross-check.</b> The nearest markers' positions are re-verified against Ensembl, an
+              independent source from the one that supplied them. A disagreement is flagged.
+            </List.Item>
+          </List>
+          <Text mb={8}>
+            <b>Tiers</b> group candidates by absolute distance: <b>A</b> core, under 2 kb; <b>B</b> near,
+            2–30 kb; <b>C</b> flank, 30 kb and beyond. Closer is better, since there is less chance of a
+            recombination between marker and locus, but a panel of only the closest markers is fragile:
+            one nearby crossover can mislead all of them at once. Distant sentinels catch that. A marker
+            that disagrees with its near neighbours on the same side localizes the crossover.
+          </Text>
+          <Text>
+            Selection is balanced across both genomic sides. A one-sided panel cannot detect a
+            recombination between the variant and the markers, so a side with fewer than two markers within
+            30 kb raises a coverage flag.
+          </Text>
+        </Section>
+
+        <Section id="ld" title="4 · Linkage disequilibrium and rare variants">
+          <Text mb={8}>
+            Linkage disequilibrium (r² or D′) between a marker and the pathogenic variant is{' '}
+            <b>undefined</b> when the pathogenic variant is rare. LD is a property of a haplotype
+            frequency distribution estimated from a reference panel <Ref id="thousand_g" />. If the
+            pathogenic allele appears once in that panel, as in the worked example below, there is no
+            distribution to estimate from. The statistic is not weak or noisy; it does not exist.
+          </Text>
+          <Text mb={8}>
+            So LD cannot rank candidate markers here and cannot call parental origin. The ranking key
+            never sees an LD value. Origin comes from per-family phasing.
+          </Text>
+          <Text>
+            The optional LDlink annotation <Ref id="ldlink" /> is a different measurement: a labelled
+            prior <b>between two common SNPs</b>, which says only whether two markers carry redundant
+            information. It is never computed against the pathogenic variant; the query is refused when
+            either allele is rare.
+          </Text>
+        </Section>
+
+        <Section id="prior" title="5 · Expected heterozygosity is a prior">
+          <Text mb={8}>
+            Expected heterozygosity, 2pq under Hardy-Weinberg, is the probability that a randomly drawn
+            individual from a reference population is heterozygous at the site. That is the entire content
+            of the number.
+          </Text>
+          <Text mb={8}>
+            It is <b>not</b> a statement about your carrier. A marker with 2pq = 0.5 is not half
+            heterozygous in one person; that person is heterozygous or homozygous, and population data
+            cannot say which. A marker is informative for a family only if the carrier is in fact
+            heterozygous at it. Otherwise the marker reports nothing about which chromosome was
+            transmitted, whatever its frequency in gnomAD.
+          </Text>
+          <Text>
+            Ranking by 2pq maximizes the chance a candidate survives carrier genotyping. It does not
+            substitute for it.
+          </Text>
+        </Section>
+
+        <Section id="recomb" title="6 · Recombination and the genetic map">
+          <Text mb={8}>
+            A crossover between a marker and the pathogenic allele makes the marker report the wrong
+            parental chromosome. Each candidate carries its cM distance from the variant, interpolated
+            from the bundled map <Ref id="decode_map" />. Physical distance in bp is a poor proxy for that
+            risk: recombination rate varies by orders of magnitude along the genome.
+          </Text>
+          <Text mb={8}>
+            The recombination fraction θ is derived from cM by Haldane's map function <Ref id="haldane" />,
+            θ = 0.5(1 − e<sup>−2d</sup>) with d in Morgans. Haldane assumes no interference, so at the same
+            cM it returns a slightly higher θ than Kosambi <Ref id="kosambi" />. That is the conservative
+            direction: it overstates the risk of a marker rather than understating it.
+          </Text>
+          <Text mb={8}>
+            A hotspot between the marker and the variant is flagged explicitly rather than left implicit
+            in the cM value.
+          </Text>
+          <Text>
+            The map is <b>population-averaged</b>. It describes expected recombination across many meioses
+            in a reference cohort, not what happened in the meiosis that produced the embryo being tested.
+            Like 2pq, it is a prior. A low recombination fraction means a marker is likely to have stayed
+            in phase; it is not a guarantee that it did. That is why the protocol below requires two
+            concordant markers per side, and both sides.
+          </Text>
+        </Section>
+
+        <Section id="layerb" title="7 · Using the panel in the lab">
+          <Text mb={8}>
+            The panel is a starting point. To actually call parental origin:
+          </Text>
+          <List spacing={5} type="ordered" mb={10}>
+            {steps.map((s, i) => (
+              <List.Item key={i}>{s}</List.Item>
+            ))}
+          </List>
+          <Text mb={8}>
+            Two markers per side means a genotyping error, a mis-assigned phase or a crossover shows up as
+            disagreement instead of a confident wrong answer. If the two sides disagree, a crossover
+            occurred between them.
+          </Text>
+          <Text>
+            Per-side redundancy also covers allele dropout, in which one allele fails to amplify from a
+            single-cell or few-cell biopsy and a heterozygote is read as a homozygote <Ref id="ado" />. A
+            dropout is silent: the genotype it yields looks clean and is wrong. Only a second marker on the
+            same side, disagreeing with it, catches that.
+          </Text>
+        </Section>
+
+        <Section id="sources" title="8 · Data sources and versions">
+          <Text mb={8}>
+            ClinVar, Ensembl and gnomAD are queried when you build a panel, so a panel is a snapshot of
+            those databases at that moment, and every result carries its pull timestamp. The genetic map
+            is bundled and versioned below.
+          </Text>
+          <Wide>
+          <Table className="om-table" withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Source</Table.Th>
+                <Table.Th>What it provides</Table.Th>
+                <Table.Th>Version</Table.Th>
+                <Table.Th>Ref</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              <Table.Tr>
+                <Table.Td>ClinVar</Table.Td>
+                <Table.Td style={{ whiteSpace: 'normal' }}>
+                  Variant identity, clinical significance, review status, accession, and the GRCh37/GRCh38
+                  mapping used when a build conversion is needed.
+                </Table.Td>
+                <Table.Td className="om-mono">live (E-utilities)</Table.Td>
+                <Table.Td>
+                  <Ref id="clinvar" />
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>Ensembl</Table.Td>
+                <Table.Td style={{ whiteSpace: 'normal' }}>
+                  Gene model and strand, 1000 Genomes frequencies, gene lookup, and the independent
+                  position cross-check on the top markers.
+                </Table.Td>
+                <Table.Td className="om-mono">release {ensembl}</Table.Td>
+                <Table.Td>
+                  <Ref id="ensembl" /> <Ref id="ensembl_rest" />
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>gnomAD</Table.Td>
+                <Table.Td style={{ whiteSpace: 'normal' }}>
+                  Allele frequencies, global and per-ancestry, and the region enumeration that produces the
+                  candidate pool.
+                </Table.Td>
+                <Table.Td className="om-mono">{gnomad}</Table.Td>
+                <Table.Td>
+                  <Ref id="gnomad_v4" />
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>dbSNP</Table.Td>
+                <Table.Td style={{ whiteSpace: 'normal' }}>
+                  The rsID namespace every marker is reported in, and the identifier the outbound record
+                  links resolve against.
+                </Table.Td>
+                <Table.Td className="om-mono">via rsID</Table.Td>
+                <Table.Td>
+                  <Ref id="dbsnp" />
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>1000 Genomes</Table.Td>
+                <Table.Td style={{ whiteSpace: 'normal' }}>
+                  The reference panel whose allele count decides whether population LD with the pathogenic
+                  variant is defined at all.
+                </Table.Td>
+                <Table.Td className="om-mono">via Ensembl</Table.Td>
+                <Table.Td>
+                  <Ref id="thousand_g" />
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>Genetic map</Table.Td>
+                <Table.Td style={{ whiteSpace: 'normal' }}>
+                  cM distance, recombination fraction and hotspot flags. Bundled and offline, so a build
+                  needs no network for it and stays reproducible.
+                </Table.Td>
+                <Table.Td className="om-mono" style={{ whiteSpace: 'normal' }}>
+                  {mapSource}
+                </Table.Td>
+                <Table.Td>
+                  <Ref id="decode_map" />
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td>LDlink</Table.Td>
+                <Table.Td style={{ whiteSpace: 'normal' }}>
+                  Optional labelled LD prior between two common SNPs. Disabled without a token, which
+                  removes the annotation and nothing else.
+                </Table.Td>
+                <Table.Td className="om-mono">{health ? (health.ldlink_enabled ? 'enabled' : 'not configured') : '-'}</Table.Td>
+                <Table.Td>
+                  <Ref id="ldlink" />
+                </Table.Td>
+              </Table.Tr>
+            </Table.Tbody>
+          </Table>
+          </Wide>
+          <Text size="xs" c="dimmed" mt={8}>
+            API {health ? `v${health.version}` : '-'} · genome build {build} · every coordinate is
+            stamped with its build, in the interface and in every export.
+          </Text>
+
+          {health?.release && (
+            <Paper mt={12} p={8} withBorder>
+              <Text size="xs" fw={600}>
+                {health.release}
+              </Text>
+              <Text size="xs" c="dimmed" mt={2}>
+                {health.release_gloss}
+              </Text>
+            </Paper>
+          )}
+          <Text size="xs" c="dimmed" mt={4}>
+            Where a chromosome has no map data, cM is approximated at a uniform 1 cM/Mb and marked as an
+            approximation everywhere it appears.
+          </Text>
+        </Section>
+
+        <Section id="conventions" title="9 · Conventions">
+          <Text mb={8}>
+            <b>Nomenclature.</b> Variants are written per the HGVS recommendations{' '}
+            <Ref id="hgvs" />, with the transcript accession included, as in{' '}
+            <span className="om-mono">NM_000352.6(ABCC8):c.3989-9G&gt;A</span>. A c. description without a
+            transcript is ambiguous and is not accepted as sufficient.
+          </Text>
+          <Text mb={8}>
+            <b>Strand.</b> HGVS c. descriptions are in transcript sense; VCF is in genomic sense, on the
+            plus strand. For a minus-strand gene these disagree by complementation, and the app shows both
+            with an explicit label rather than assuming they match. ABCC8 is on the minus strand, so the
+            transcript-sense change <span className="om-mono">G&gt;A</span> is the genomic change{' '}
+            <span className="om-mono">C&gt;T</span>. The complement is computed from the resolved strand,
+            never assumed.
+          </Text>
+          <Text mb={8}>
+            <b>Build.</b> Everything is computed on {build}. Builds are never silently mixed. GRCh37 input
+            is converted explicitly through ClinVar's own assembly mapping and the conversion is labelled
+            on the record; a GRCh37 position, when shown, is display-only and marked as such.
+          </Text>
+          <Text>
+            <b>Sides.</b> The two flanks are named by <b>coordinate</b>, not by strand and not by
+            chromosome arm: <b>lower coordinate</b> and <b>higher coordinate</b>, counted in the API
+            payload as <span className="om-mono">lower_count</span> and{' '}
+            <span className="om-mono">higher_count</span>. Upstream and downstream would flip meaning
+            with gene orientation; a signed bp distance and a coordinate-based side name mean the same
+            thing on every gene. No side name here implies a chromosome arm: which flank runs toward the
+            telomere depends on where the centromere sits relative to the locus, and nothing in this tool
+            looks that up.
+          </Text>
+        </Section>
+
+        <Section id="limits" title="10 · Known limitations">
+          <Text mb={8}>
+            Everything below is a real property of this tool or its data, not a hypothetical. It is
+            listed because a plausible wrong answer is worse than an error: an error gets
+            investigated, a plausible wrong answer gets used. This list is not exhaustive.
+          </Text>
+
+          <Title order={3} mt={12} mb={4}>The genetic map describes a population, not your carrier</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              The autosomal map is <b>sex-averaged</b>, so it describes neither parent. Linkage runs
+              through one carrier, of known sex. Female recombination exceeds male genome-wide and the
+              ratio varies by region, so cM and θ here can err in <b>either direction</b> for the
+              carrier being tested.
+            </List.Item>
+            <List.Item>
+              <b>chrX is the female map</b>, not a sex-averaged one: deCODE reports X distances in
+              female meioses. It is correct for a female carrier and overstates recombination for a
+              male one, whose X passes to each daughter as a single haplotype outside the
+              pseudoautosomal regions.
+            </List.Item>
+            <List.Item>
+              The maps stop short of the telomeres. Beyond either end, cM is <b>extrapolated</b> at a
+              uniform 1 cM/Mb and flagged <span className="om-mono">map_approx</span>. chrY and chrM
+              have no map at all and use the same fallback throughout.
+            </List.Item>
+            <List.Item>
+              A hotspot verdict on an approximated stretch means <b>not assessed</b>, never
+              <i> no hotspot</i>. The uniform fallback can never reach the hotspot threshold.
+            </List.Item>
+          </List>
+
+          <Title order={3} mt={12} mb={4}>Frequencies are priors, and some are thin</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              2pq is the chance a <i>random</i> member of a population is heterozygous. Your carrier
+              either is or is not. A 2pq of 0.5 marker is a coin flip, not a guarantee, and the only
+              way to know is to genotype them.
+            </List.Item>
+            <List.Item>
+              gnomAD population sizes differ by orders of magnitude. A per-population floor of AN 200
+              (100 people) applies, but at that floor a four-decimal frequency rests on very few
+              individuals. Every export carries the <span className="om-mono">an_*</span> columns so
+              you can see which figures to lean on.
+            </List.Item>
+            <List.Item>
+              With no ancestry selected, ranking uses the <b>global</b> 2pq. That is a real quantity
+              for the whole cohort and a poor one for any particular family: if you know the ancestry,
+              select it.
+            </List.Item>
+          </List>
+
+          <Title order={3} mt={12} mb={4}>Resolution and data</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              ClinVar's search is a <b>relevance ranking</b>, not a lookup. Every candidate record is
+              reconciled against the query before use, and unreconcilable input is refused rather than
+              approximated, but a variant whose record ClinVar does not surface will not resolve. The
+              rsID or the VCV accession always resolves directly.
+            </List.Item>
+            <List.Item>
+              An rsID can name <b>more than one allele</b> at a position (rs334 covers both HbS and
+              HbC). Records describing combinations of variants (haplotypes, compound heterozygotes)
+              are refused: this tool anchors on one point variant.
+            </List.Item>
+            <List.Item>
+              Structural and copy-number variants are <b>not supported</b>. They have no single
+              reference and alternate allele to anchor on.
+            </List.Item>
+            <List.Item>
+              The 1000 Genomes allele count is joined by notation, and Ensembl writes indels
+              differently from ClinVar and gnomAD. The join can fail; when it does the count reads
+              <i> unavailable</i>, never zero.
+            </List.Item>
+            <List.Item>
+              Responses are cached. Every panel reports both when it was built and how old its data
+              is: check <span className="om-mono">queried_utc</span> against
+              <span className="om-mono"> built_utc</span> before treating a rebuild as a re-check.
+              Classifications are revised and frequencies are re-called upstream.
+            </List.Item>
+            <List.Item>
+              The independent position cross-check runs only on the nearest few shortlisted markers,
+              because it costs a request each. A blank cross-check means <b>not checked</b>, not
+              agreement.
+            </List.Item>
+          </List>
+
+          <Title order={3} mt={12} mb={4}>Method</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              Markers are ranked by heterozygosity and proximity only. Genetic distance and hotspot
+              status are <b>reported but not ranked on</b>, so a well-placed marker can still sit
+              behind a hotspot. The coverage card says how many do.
+            </List.Item>
+            <List.Item>
+              Linkage disequilibrium is never a ranking key, by design. LD is a population statistic
+              and cannot substitute for phasing the family.
+            </List.Item>
+            <List.Item>
+              No side name implies a chromosome arm. Nothing here knows where the centromere is.
+            </List.Item>
+            <List.Item>
+              Loading a CSV with <span className="om-mono">pandas.read_csv(comment='#')</span> strips
+              every caveat in the header, including the disclaimer. The JSON and XLSX exports carry
+              the same fields as data.
+            </List.Item>
+          </List>
+        </Section>
+
+        <Section id="example" title="11 · Worked example">
+          <Text mb={8}>The reference case, end to end.</Text>
+          <Wide>
+          <Table className="om-table" withTableBorder>
+            <Table.Tbody>
+              <ExRow k="Query" v="NM_000352.6(ABCC8):c.3989-9G>A" mono />
+              <ExRow k="Resolves to" v="rs151344623" mono />
+              <ExRow k="Gene" v="ABCC8, chr11, minus strand, 11p15.1" />
+              <ExRow k="Coordinate" v="GRCh38 chr11:17,397,055" mono />
+              <ExRow k="VCF" v="11-17397055-C-T" mono />
+              <ExRow k="Transcript sense" v="G>A (genomic C>T; minus-strand gene)" mono />
+              <ExRow k="ClinVar" v="VCV000009088. Pathogenic, multiple submitters, no conflicts" />
+              <ExRow k="gnomAD genome AF" v="≈1.8e-4" mono />
+              <ExRow k="1000 Genomes AC" v="1 (LD with this allele is undefined)" mono />
+              <ExRow k="Candidate pool" v="~~1,200 SNPs with MAF ≥ 0.05 in ±250 kb" />
+              <ExRow k="Nearest strong candidate" v="rs757110 at chr11:17,396,930 (−125 bp)" mono />
+              <ExRow k="Distant sentinels" v="rs615358 (~−208 kb), rs1476699 (~+209 kb)" mono />
+              <ExRow k="Coverage" v="both sides covered; no flags" />
+            </Table.Tbody>
+          </Table>
+          </Wide>
+          <Text mb={8}>
+            An allele count of 1 puts this variant in the undefined-LD case of{' '}
+            <Anchor href={docHref('ld')}>section 4</Anchor>, so ranking is on 2pq and proximity.
+            rs757110 sits 125 bp from the variant, so recombination between them is negligible. It still
+            has to be heterozygous in the carrier, and it still needs a partner on its own side and
+            coverage on the other.
+          </Text>
+          <Text>
+            For context only: ABCC8 variants cause congenital hyperinsulinism <Ref id="abcc8_chi" />. That
+            is background, not an interpretation of this variant in any individual.
+          </Text>
+        </Section>
+
+        <Section id="api" title="12 · API">
+          <Wide>
+          <Table className="om-table" withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Endpoint</Table.Th>
+                <Table.Th>Purpose</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {ENDPOINTS.map(([ep, what]) => (
+                <Table.Tr key={ep}>
+                  <Table.Td className="om-mono" style={{ verticalAlign: 'top' }}>
+                    {ep}
+                  </Table.Td>
+                  <Table.Td style={{ whiteSpace: 'normal' }}>{what}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+          </Wide>
+          <Text mb={8}>
+            The engine, <Code>panelbuilder</Code>, is importable on its own, with no web framework:
+          </Text>
+          <Paper p={8} mb={10} style={{ background: 'var(--om-zebra)' }}>
+            <pre className="om-mono" style={{ margin: 0, whiteSpace: 'pre-wrap' }}>
+              {`import panelbuilder as pb
+r = pb.build("NM_000352.6(ABCC8):c.3989-9G>A", window=250_000, ancestry="NFE")
+r.rarity.population_LD_usable   # False -> per-family phasing required
+r.recommended                   # balanced, both-sided candidate panel`}
+            </pre>
+          </Paper>
+          <Text>
+            The free-text endpoint is typed as <Code>pb.StructuredQuery</Code>, which has no chromosome,
+            position, ref, alt or strand field: it carries the variant as an identifier that is looked up
+            live, exactly as the manual path does. Other consumers (a CLI, a bot, an MCP server) can be
+            built against the same contract without touching the genetics code.
+          </Text>
+        </Section>
+
+        <Section id="references" title="13 · References">
+          <ol style={{ margin: 0, paddingLeft: 22 }}>
+            {ORDER.map((id) => {
+              const c = CITATIONS[id]
+              return (
+                <li key={id} id={`ref-${id}`} style={{ marginBottom: 5, fontSize: 12, lineHeight: 1.45 }}>
+                  {formatCitation(c)}{' '}
+                  {c.doi ? (
+                    <Anchor href={`https://doi.org/${c.doi}`} target="_blank" rel="noopener noreferrer" size="xs" className="om-mono">
+                      doi:{c.doi}
+                    </Anchor>
+                  ) : (
+                    <Text span size="xs" c="dimmed">
+                      {c.note}
+                    </Text>
+                  )}
+                </li>
+              )
+            })}
+          </ol>
+        </Section>
+
+        <Group justify="space-between" align="center" mt="xl" pt={12}
+               style={{ borderTop: '1px solid var(--om-border)' }} wrap="wrap" gap={8}>
+          <Text size="xs" c="dimmed">
+            Questions, corrections, or a bug in a panel?
+          </Text>
+          <Button component="a" href={`mailto:${CONTACT}?subject=OriginMarker`}
+                  variant="default" size="xs">
+            Contact
+          </Button>
+        </Group>
+
+        <Text size="xs" c="dimmed" mt="lg" pt={8} style={{ borderTop: '1px solid var(--om-border)' }}>
+          {health?.disclaimer ?? FALLBACK_DISCLAIMER}
+        </Text>
+      </article>
+    </div>
+  )
+}
+
+function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
+  return (
+    <section id={id} style={{ scrollMarginTop: 12, marginBottom: 22 }}>
+      <Title order={2} mb={6} pb={3} style={{ borderBottom: '1px solid var(--om-border)' }}>
+        {title}
+      </Title>
+      {children}
+    </section>
+  )
+}
+
+/** Scroll box for tables, which do not fit the prose column's measure. */
+const Wide = ({ children }: { children: ReactNode }) => (
+  <div style={{ overflowX: 'auto', marginBottom: 10 }}>{children}</div>
+)
+
+const ExRow = ({ k, v, mono }: { k: string; v: string; mono?: boolean }) => (
+  <Table.Tr>
+    <Table.Td style={{ width: 190, color: 'var(--om-text-dim)' }}>{k}</Table.Td>
+    <Table.Td className={mono ? 'om-mono' : undefined} style={{ whiteSpace: 'normal' }}>
+      {v}
+    </Table.Td>
+  </Table.Tr>
+)

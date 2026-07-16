@@ -1,0 +1,23 @@
+# Secrets: never bake a key into an image layer. Keys arrive at RUNTIME via
+# docker compose `environment:`, which reads .env at `up` time on the host - the
+# image itself stays clean and is safe to rebuild, tag or push.
+.env
+.env.*
+*.pem
+credentials*.json
+
+.git
+.venv
+node_modules
+web/node_modules
+tests/fixtures
+.panelbuilder_cache
+__pycache__
+*.pyc
+.pytest_cache
+*.tgz
+web/dist
+deploy
+
+# data/maps IS copied into the image (genetic_map.py reads it from disk at runtime).
+# web/dist is excluded on purpose: stage 1 rebuilds it from source.

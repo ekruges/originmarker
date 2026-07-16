@@ -1,0 +1,30 @@
+# OriginMarker. `docker compose up -d --build`, then http://localhost:8091.
+#
+# For a reverse-proxy or subpath deployment, add a docker-compose.override.yml: compose
+# merges it automatically and it stays out of this file.
+
+services:
+  originmarker:
+    build: .
+    image: originmarker:local
+    restart: unless-stopped
+    ports:
+      - "8091:8000"
+    environment:
+      PANELBUILDER_CACHE: /cache
+      # All optional. Unset keys pass through as empty and the app degrades gracefully:
+      # panel builds, every export and rsID/HGVS input work without any of them.
+      #   NCBI_API_KEY / NCBI_CONTACT_EMAIL  raise the ClinVar rate limit
+      #   LDLINK_TOKEN                       enables the optional LD annotation
+      #   ANTHROPIC_API_KEY                  enables free-text search (deploy/enable-nl-search.md)
+      NCBI_API_KEY: ${NCBI_API_KEY:-}
+      NCBI_CONTACT_EMAIL: ${NCBI_CONTACT_EMAIL:-}
+      LDLINK_TOKEN: ${LDLINK_TOKEN:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+    volumes:
+      # Warm loci survive restarts. A named volume rather than a bind mount: some NAS
+      # filesystems refuse a bind unless the container uid matches the host file owner.
+      - cache:/cache
+
+volumes:
+  cache:

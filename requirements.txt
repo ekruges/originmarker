@@ -1,0 +1,15 @@
+# OriginMarker runtime. panelbuilder/genetic_map are stdlib-only by design (urllib,
+# not requests) - everything below is the web/export/NL layer on top of them.
+fastapi==0.139.0
+uvicorn[standard]==0.51.0
+
+# app/exports.py
+openpyxl==3.1.5          # .xlsx
+reportlab==5.0.0         # .pdf
+
+# app/nl.py - intent parsing only; never emits a coordinate (R1)
+anthropic==0.116.0
+
+# tests: fastapi.testclient is a thin wrapper over httpx
+httpx==0.28.1
+pytest==9.1.1

@@ -1,0 +1,314 @@
+/* Merriweather Italic, the wordmark face.
+
+   This is what NIH actually sets its own display type in: nih.gov runs the U.S. Web
+   Design System (theme nih2_uswds), whose stylesheet declares "Merriweather Web" as the
+   serif (with Source Sans Pro for body and Roboto Mono for code) and ships
+   Latin-Merriweather-Italic.woff2. Same family, same SIL OFL licence, self-hosted here.
+
+   Imported from src/ rather than served out of public/ so Vite fingerprints the filename.
+   An unhashed asset path is a permanent hostage to any cache that ever saw it 404: the
+   old font URL got a 200 + index.html cached at the edge for 4h before the file shipped,
+   and every visitor in that window silently fell back to a system face. A content hash
+   means a changed font is a changed URL and can never be served stale. */
+@font-face {
+  font-family: 'Merriweather';
+  font-style: italic;
+  font-weight: 400;
+  font-display: swap;
+  src: url('./assets/merriweather-italic-400.woff2') format('woff2');
+}
+
+@font-face {
+  font-family: 'Merriweather';
+  font-style: italic;
+  font-weight: 700;
+  font-display: swap;
+  src: url('./assets/merriweather-italic-700.woff2') format('woff2');
+}
+
+:root {
+  --om-border: #d0d7de;
+  --om-border-strong: #adb4bc;
+  --om-blue: #2e6da4;
+  --om-blue-light: #337ab7;
+  --om-head-bg: #f2f5f8;
+  --om-zebra: #fafbfc;
+  --om-lower: #2e6da4;
+  --om-higher: #a6572e;
+  --om-text-dim: #6b727b;
+  color-scheme: light;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: #fff;
+  color: #1d2126;
+  font-size: 13px;
+  -webkit-font-smoothing: antialiased;
+}
+
+.om-mono {
+  font-family: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Dense scientific table: tight rows, header rule, subtle zebra. */
+.om-table thead th {
+  background: var(--om-head-bg);
+  border-bottom: 1px solid var(--om-border-strong) !important;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+  color: #4d545c;
+  white-space: nowrap;
+  padding-top: 4px !important;
+  padding-bottom: 4px !important;
+}
+
+.om-table tbody tr:nth-child(even) td {
+  background: var(--om-zebra);
+}
+
+.om-table tbody td {
+  border-bottom: 1px solid #eceef0 !important;
+  padding-top: 2px !important;
+  padding-bottom: 2px !important;
+  white-space: nowrap;
+}
+
+.om-table tbody tr:hover td {
+  background: #eef4fa;
+}
+
+.om-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.om-sortable:hover {
+  color: var(--om-blue);
+}
+
+/* Section header strip, Ensembl-style. */
+.om-section-title {
+  background: var(--om-head-bg);
+  border-bottom: 1px solid var(--om-border);
+  padding: 4px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #333940;
+}
+
+.om-track {
+  display: block;
+  width: 100%;
+  user-select: none;
+  touch-action: none;
+}
+
+.om-track text {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+}
+
+/* Visible focus ring for keyboard users everywhere. */
+:focus-visible {
+  outline: 2px solid var(--om-blue-light);
+  outline-offset: 1px;
+}
+
+/* The resolved-variant card is a key/value table: a fixed label column plus
+   `white-space: nowrap` on every cell. That is right on a desktop and impossible on a
+   phone, where it silently truncated the value column and took the transcript-sense
+   reading, its minus-strand badge and the GRCh37 coordinate off the right edge with it.
+   R6 and R7 information, present but unreachable. Below 700px the pairs stack: label on
+   its own line, value underneath, free to wrap. */
+.om-kv-k {
+  width: 170px;
+}
+
+@media (max-width: 700px) {
+  .om-kv tbody tr {
+    display: block;
+    border-bottom: 1px solid var(--om-border);
+    padding: 4px 0;
+  }
+
+  .om-kv tbody td {
+    display: block;
+    width: auto !important;
+    white-space: normal !important;
+    background: none !important;
+    border: 0 !important;
+    padding: 1px 0 !important;
+  }
+
+  .om-kv-k {
+    width: auto;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+
+  /* Long identifiers (HGVS, VCF ids) must break rather than push the row wide. */
+  .om-kv tbody td .om-mono,
+  .om-kv tbody td span {
+    overflow-wrap: anywhere;
+  }
+}
+
+/* Any table that is genuinely too wide to reflow scrolls inside its own box, so the page
+   itself never scrolls sideways. The marker table has 14 columns and no honest way to
+   fit; scrolling it beats hiding columns a reader came for. */
+.om-scroll-x {
+  overflow-x: auto;
+  max-width: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ---------------------------------------------------------------- wordmark */
+
+.om-logo {
+  font-family: 'Merriweather', Georgia, Cambria, 'Times New Roman', Times, serif;
+  font-style: italic;
+  font-weight: 700;
+  /* Merriweather runs wide and sets loose by default; pulling the tracking in slightly
+     makes a two-word mark read as one object instead of two. */
+  letter-spacing: -0.015em;
+  white-space: nowrap;
+}
+
+/* Two-tone, one step apart on the existing palette rather than a new blue. */
+.om-logo-origin {
+  color: var(--om-blue);
+}
+
+.om-logo-marker {
+  color: var(--om-blue-light);
+}
+
+/* ---------------------------------------------------------------- homepage */
+
+.om-hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 62vh;
+  padding: 0 16px;
+}
+
+/* The one oversized control on the page. A researcher's whole job here starts by
+   pasting an identifier, so the box gets the room. */
+.om-hero-input input {
+  height: 44px !important;
+  font-size: 15px !important;
+  padding-left: 12px !important;
+}
+
+.om-docs-body {
+  max-width: 68ch;
+}
+
+.om-docs-nav a {
+  display: block;
+  padding: 2px 0;
+  font-size: 12px;
+  color: var(--om-text-dim);
+  text-decoration: none;
+  border-left: 2px solid transparent;
+  padding-left: 8px;
+}
+
+.om-docs-nav a:hover {
+  color: var(--om-blue);
+  border-left-color: var(--om-border-strong);
+}
+
+/* ------------------------------------------------------------------ phone */
+
+@media (max-width: 700px) {
+  /* The hero is sized for a desktop's vertical middle. On a phone the keyboard eats the
+     bottom half, so pull the content up rather than centring it under a keyboard. */
+  .om-hero {
+    min-height: auto;
+    padding: 24px 12px 0;
+  }
+
+  /* iOS zooms the page in on focus for any input under 16px. That zoom does not undo
+     itself, so the user is left panned into a search box. Nothing else needs 16px. */
+  .om-hero-input input {
+    font-size: 16px !important;
+  }
+
+  /* 14 columns of genomic data at 375px: the presets and the filter each want a line. */
+  /* The docs are a sidebar next to an article. At 375px that is one column with the
+     contents on top, not a 200px rail squeezing the prose to nothing.
+     flex-wrap alone does NOT do this: the article carries min-width:0 (which it needs, so
+     its wide tables can scroll rather than stretch the page), and a flex item that may
+     shrink to zero will shrink rather than wrap. It collapsed to a ~50px column setting
+     one word per line. Stacking the axis is unambiguous. */
+  .om-docs-wrap {
+    flex-direction: column;
+    gap: 0 !important;
+  }
+
+  .om-docs-nav {
+    position: static !important;
+    flex: none !important;
+    width: 100%;
+    border-bottom: 1px solid var(--om-border);
+    padding-bottom: 8px;
+    margin-bottom: 8px;
+  }
+
+  .om-docs-nav ol {
+    columns: 2;
+  }
+
+  .om-docs-body {
+    max-width: 100%;
+  }
+
+  /* Coordinates and rsIDs are the point of this interface; keep them legible rather than
+     shrinking them to fit a phone. Density is a desktop luxury. */
+  .om-table tbody td,
+  .om-table thead th {
+    font-size: 12px;
+  }
+}
+
+/* Repo and homepage links under the docs chapter list. */
+.om-docs-links {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 14px;
+  padding: 10px 0 0 8px;
+  border-top: 1px solid var(--om-border);
+}
+.om-docs-links a {
+  display: inline-flex;
+  color: var(--om-text-dim);
+  opacity: 0.6;
+  transition: opacity 120ms ease;
+}
+.om-docs-links a:hover {
+  opacity: 1;
+}
+/* Deliberately empty: a placeholder avatar, not a picture of anyone. */
+.om-avatar {
+  display: block;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  background: transparent;
+}
