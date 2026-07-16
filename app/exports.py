@@ -22,11 +22,18 @@ import panelbuilder as pb
 # gnomAD ancestry codes, in the engine's own order (AFR AMR ASJ EAS FIN NFE SAS MID).
 POPS = list(pb.GNOMAD_POPS.values())
 
+# The engine owns the star: the per-marker verdict, the rule and its words are all its to
+# define. Exports read them and never recompute the predicate, so the page, the workbook
+# and the web cannot drift into three different stars.
+STAR_FIELD = pb.FLANKING_CRITERIA["field"]
+
+
 def _columns(anc=None) -> list:
     """Column names, parallel to _row(): keep the two in step, in order.
 
     Every quantity that decides in_recommended_panel must be a column, so the
-    ancestry-matched 2pq joins the table whenever one was selected.
+    ancestry-matched 2pq joins the table whenever one was selected. The same rule already
+    covers the star: every quantity STAR_FIELD is decided on is a column below.
     """
     return (["rsid", "chrom", "pos_grch38", "ref", "alt", "signed_dist_bp", "side", "tier",
              "maf", "af", "gnomad_an", "het_2pq_prior_global", "het_2pq_prior_max_pop"]
@@ -34,7 +41,7 @@ def _columns(anc=None) -> list:
             + [f"maf_{p}" for p in POPS]
             + [f"an_{p}" for p in POPS]
             + ["cm_to_variant", "recomb_fraction", "hotspot_between", "map_approx",
-               "ensembl_pos_check", "in_recommended_panel"])
+               "ensembl_pos_check", "in_recommended_panel", STAR_FIELD])
 
 
 CSV_COLUMNS = tuple(_columns())            # the shape when no ancestry was selected
@@ -57,6 +64,63 @@ def _ranking_key(result) -> str:
 def _rank_pop(result):
     """The ancestry the panel was ranked for, or None."""
     return result.provenance.get("ancestry_rank")
+
+
+def _starred(m) -> bool:
+    """Does this marker get the glyph? True only on the engine's own True: nothing here
+    re-decides it, so an export cannot star a marker the engine did not."""
+    return getattr(m, STAR_FIELD, None) is True
+
+
+def _star_cell(m):
+    """The verdict as DATA: True, False, or None where the engine never judged it.
+
+    Three states, not two. The predicate runs over the shortlist and this column is written
+    for every candidate, so flattening None to False would print a failing verdict on ~1200
+    markers nobody assessed, several of them nearer the variant than the starred ones.
+    """
+    return getattr(m, STAR_FIELD, None)
+
+
+def _flanking(result) -> dict:
+    """The rule this panel was built under, as the engine stamped it into provenance.
+
+    Read from the result, not from pb: the artifact must describe the rule that produced
+    THIS panel, not whichever one the code holds when it is exported.
+    """
+    return result.provenance.get("flanking_criteria") or {}
+
+
+def _star_legend(result, markers) -> list[str]:
+    """The engine's own words for what the star claims, verbatim, or [] when no marker in
+    markers carries one: a legend for an absent glyph teaches a symbol and then leaves the
+    reader hunting the page for it.
+    """
+    if not any(_starred(m) for m in markers):
+        return []
+    return list(_flanking(result).get("note")
+                or ["Star: the rule behind it is not reported by this build."])
+
+
+def _star_count_text(result) -> str:
+    """Per-side counts of markers meeting the criteria, read off the engine's coverage.
+
+    Never recounted here: the count and the engine's own under-coverage flag have to be one
+    verdict. ESHRE's minimum is per side, so a total would answer a question nobody asked.
+    """
+    cov, n = result.coverage, _flanking(result).get("min_per_side")
+    counts = "; ".join(f"{cov[k]} {k.split('_')[0]}-coordinate"
+                       for k in ("lower_flanking_count", "higher_flanking_count") if k in cov)
+    return (f"{counts or 'not reported by this build'}. ESHRE recommends at least "
+            f"{n if n is not None else 'three'} SNPs on each side of the pathogenic variant.")
+
+
+def _star_facts(result) -> list[tuple[str, str]]:
+    """The star's legend and per-side count, or nothing at all when nothing is starred."""
+    note = _star_legend(result, result.candidates)
+    return [] if not note else [(f"Star ({STAR_FIELD})", " ".join(note)),
+                                ("Markers meeting the flanking criteria",
+                                 _star_count_text(result))]
 
 
 def _nl_caveat(result):
@@ -161,6 +225,8 @@ def _facts(result) -> list[tuple[str, str]]:
         ("Coverage lower / higher coord", f"{cov['lower_count']} / {cov['higher_count']} markers; "
                                f"core-near {cov['lower_core_near']} / {cov['higher_core_near']}"),
         ("Coverage flags (R5)", "; ".join(cov["flags"]) or "none"),
+        # Beside the coverage flags: both are per-side statements about the same shortlist.
+        *_star_facts(result),
         ("Source: ClinVar", src["clinvar"]),
         ("Source: Ensembl", src["ensembl"]),
         ("Source: gnomAD", src["gnomad"]),
@@ -187,7 +253,7 @@ def _row(m, recommended_ids: set, anc=None) -> list:
             + [m.per_pop_maf.get(p) for p in POPS]
             + [m.per_pop_an.get(p) for p in POPS]
             + [m.cm, m.recomb_fraction, m.hotspot_between, m.map_approx,
-               m.ensembl_pos_check, m.variant_id in recommended_ids])
+               m.ensembl_pos_check, m.variant_id in recommended_ids, _star_cell(m)])
 
 
 def FILENAME(result, ext: str) -> str:
@@ -260,6 +326,8 @@ def to_json(result) -> bytes:
     for m, md in zip(result.candidates, d["candidates"]):
         assert md["variant_id"] == m.variant_id, "to_dict() reordered candidates"
         md["in_recommended_panel"] = md["variant_id"] in rec
+        # STAR_FIELD needs no line here: it is a Marker field, so asdict() already carried
+        # it, and provenance["flanking_criteria"] already carries the engine's words for it.
         # Via _rank_het, the same expression the other three formats use: only _rank_het is
         # pinned to the engine's ranking key by the self-check.
         if anc:
@@ -487,6 +555,22 @@ def _autosize(ws, cap=28):
 # PDF
 # --------------------------------------------------------------------------- #
 
+# U+2605, the engine's own glyph, and ZapfDingbats is the only standard PDF font that has
+# it. Hand reportlab the CHARACTER and it encodes it to that font's code point; hand it
+# that code point ("H") and it silently draws a different dingbat.
+STAR = "★"
+
+
+def _star_glyph(c, x, y, size) -> None:
+    """The star, baseline-left at (x, y). Shape only: it takes the caller's fill colour.
+
+    This page gets printed and filed, so the star has to carry its meaning in its outline.
+    A hue is the first thing a black-and-white printer throws away.
+    """
+    c.setFont("ZapfDingbats", size)
+    c.drawString(x, y, STAR)
+
+
 def to_pdf(result) -> bytes:
     from reportlab.lib import colors
     from reportlab.lib.pagesizes import letter
@@ -526,13 +610,13 @@ def to_pdf(result) -> bytes:
         if state["y"] - h < BOT:
             new_page()
 
-    def text(s, size=8, font="Helvetica", gap=2, colour=colors.black):
+    def text(s, size=8, font="Helvetica", gap=2, colour=colors.black, x0=L):
         need(size + gap)
         c.setFont(font, size)
         c.setFillColor(colour)
-        for line in _wrap(s, font, size, R - L, stringWidth):
+        for line in _wrap(s, font, size, R - x0, stringWidth):
             need(size + gap)
-            c.drawString(L, state["y"] - size, line)
+            c.drawString(x0, state["y"] - size, line)
             state["y"] -= size + gap
         c.setFillColor(colors.black)
 
@@ -609,8 +693,12 @@ def to_pdf(result) -> bytes:
     # page stamped with an ancestry reads as the global figure. The global stays alongside,
     # since it is the fallback.
     dec_col = f"2pq {anc}" if anc else "2pq global"
-    cols = ([("rsID", 58, "l"), ("pos " + v.build, 58, "r"), ("dist bp", 46, "r"),
-             ("side", 42, "l"), ("tier", 52, "l"), ("2pq global", 42, "r")]
+    # The star column exists only when the page carries a star to explain. It leads, so the
+    # eye finds it down the left edge without reading eleven columns first.
+    star_legend = _star_legend(result, result.recommended)
+    cols = (([(STAR, 14, "l")] if star_legend else [])
+            + [("rsID", 58, "l"), ("pos " + v.build, 58, "r"), ("dist bp", 46, "r"),
+               ("side", 42, "l"), ("tier", 52, "l"), ("2pq global", 42, "r")]
             + ([(dec_col, 46, "r")] if anc else [])
             + [("MAF", 32, "r"), ("cM" + approx, 36, "r"),
                ("hotspot", 34, "l"), ("pos chk", 72, "l")])
@@ -621,7 +709,11 @@ def to_pdf(result) -> bytes:
         c.setFont("Helvetica-Bold", 6.8)
         x = L
         for name, w_, al in cols:
-            c.drawString(x, state["y"] - 7, name)
+            if name == STAR:
+                _star_glyph(c, x, state["y"] - 7, 6.8)
+                c.setFont("Helvetica-Bold", 6.8)
+            else:
+                c.drawString(x, state["y"] - 7, name)
             x += w_
         state["y"] -= 9
         c.setLineWidth(0.4)
@@ -637,7 +729,8 @@ def to_pdf(result) -> bytes:
         # Render m.side; never derive an arm from the sign of m.dist. Nothing here knows
         # where the centromere is, and below a q-arm locus is centromeric, not telomeric.
         rh = _rank_het(m, anc)
-        vals = ([m.rsid, f"{m.pos:,}", f"{m.dist:+,}", m.side, m.tier, f"{m.het:.3f}"]
+        vals = (([STAR if _starred(m) else ""] if star_legend else [])
+                + [m.rsid, f"{m.pos:,}", f"{m.dist:+,}", m.side, m.tier, f"{m.het:.3f}"]
                 + ([("-" if rh is None else f"{rh:.3f}")] if anc else [])
                 + [f"{m.maf:.3f}",
                    "n/a" if m.cm is None else f"{m.cm:.4f}",
@@ -647,7 +740,12 @@ def to_pdf(result) -> bytes:
                        m.ensembl_pos_check.startswith("MISMATCH") else colors.black)
         x = L
         for (name, w_, al), val in zip(cols, vals):
-            if al == "r":
+            if name == STAR:
+                # The row's own colour, so a disputed row's star is as red as its warning.
+                if val:
+                    _star_glyph(c, x, state["y"] - 7, 7)
+                    c.setFont("Helvetica", 6.8)
+            elif al == "r":
                 c.drawRightString(x + w_ - 6, state["y"] - 7, str(val))
             else:
                 c.drawString(x, state["y"] - 7, str(val))
@@ -664,6 +762,20 @@ def to_pdf(result) -> bytes:
     if _map_approx(result):
         note += " *cM approximate: 1 cM/Mb fallback outside the map."
     text(note, 6.5, "Helvetica-Oblique", 2, colors.grey)
+
+    # --- star legend --------------------------------------------------------
+    # Black, not grey: this defines a symbol printed beside a marker, so it outranks the
+    # note above it. The engine's paragraphs open with a literal U+2605 that no standard PDF
+    # text font carries, so the glyph is drawn and the words are rendered from after it.
+    if star_legend:
+        state["y"] -= 6
+        for i, para in enumerate(star_legend):
+            need(24)                       # keeps the glyph with its own first line
+            if not i:
+                _star_glyph(c, L, state["y"] - 7, 7.5)
+            text(para.lstrip("★ "), 6.4, "Helvetica-Oblique", 1.7, colors.black, L + 11)
+        text(f"Markers meeting the flanking criteria: {_star_count_text(result)}",
+             6.4, "Helvetica-Oblique", 1.7, colors.black, L + 11)
 
     # --- the wet-lab hand-off -----------------------------------------------
     state["y"] -= 8
@@ -1094,9 +1206,15 @@ if __name__ == "__main__":
     # A floor, not the geometry: the M is a real outlined glyph and no redraw of one runs
     # to this many points, so this fails if the mark is ever swapped for an approximation.
     assert len(pts) > 20, f"the PDF's mark is down to {len(pts)} points: a redraw, not a glyph"
-    # The masthead sits above the report, not through it: the golden case fits one page
-    # today, so a mark that pushed the card's first line off it would show up here.
-    assert len(_pdf_streams(blobs["pdf"])) == 1, "the masthead pushed the report to page 2"
+    # The masthead sits above the report, not through it: it can only displace what it sits
+    # on top of, which is the card, so the card is what this pins.
+    page1 = "\n".join(re.findall(r"\((.*?)\) Tj", _pdf_streams(blobs["pdf"])[0]))
+    assert page1.startswith("OriginMarker - candidate linkage markers for PGT-M\n"
+                            "rs151344623 ABCC8"), "the masthead displaced the variant card"
+    for lbl in (r"Genomic \(VCF\):", r"Coverage \(R5\):"):     # first and last card rows
+        assert lbl in page1, f"the masthead pushed {lbl!r} off page 1"
+    # Length is a canary, not a target: any growth trips this and gets looked at.
+    assert len(_pdf_streams(blobs["pdf"])) == 2, "the golden report changed length"
     assert min(p[1] for p in pts) > letter[1] - 72, "the mark left the top inch of the page"
 
     # Page 1 only. A mark on every page is noise, and the multipage branch is where a
@@ -1155,6 +1273,102 @@ if __name__ == "__main__":
     assert wb3.sheetnames[0] == "Recommended panel"          # ...which is sheet1.xml
     assert wb3["Recommended panel"]["A1"].value == pb.DISCLAIMER, "R8 text must be untouched"
     assert wb3["Recommended panel"]["A1"].alignment.indent >= 2, "the mark covers the disclaimer"
+
+    # 11. The star. The engine decides it and words it; exports read both and re-decide
+    # neither, so the seam is pinned to pb rather than to a copy of its text written here.
+    NOTE = pb.FLANKING_CRITERIA["note"]
+    assert _flanking(r)["field"] == STAR_FIELD and _flanking(r)["note"] == NOTE, \
+        "exports and the engine disagree about the star's field or its words"
+    star_n = sum(_starred(m) for m in r.recommended)
+    assert 0 < star_n < len(r.recommended), \
+        "the golden panel must star SOME markers and not all, or this proves nothing"
+
+    star_pdf = _pdf_text(blobs["pdf"])
+    star_xl = load_workbook(io.BytesIO(blobs["xlsx"]))
+    # _wrap breaks a paragraph across drawString calls and a content stream escapes its
+    # parens: undo both, so what is compared is the sentence the reader sees.
+    star_flat = " ".join(star_pdf.split()).replace("\\(", "(").replace("\\)", ")")
+    for fmt, body in (("csv", blobs["csv"].decode()), ("json", blobs["json"].decode()),
+                      ("pdf", star_flat),
+                      ("xlsx", "\n".join(str(c.value) for ws in star_xl
+                                         for row in ws.iter_rows()
+                                         for c in row if c.value is not None))):
+        # Verbatim, from the engine. An export's own retelling of the criteria is what
+        # drifts, and the star is the half that would still be printed after it did.
+        for para in NOTE:
+            want = para.lstrip("★ ") if fmt == "pdf" else para
+            assert " ".join(want.split()) in body, \
+                f"{fmt} does not render the engine's own words for the star"
+
+    # A real column, and it survives the reader who strips the header block:
+    # pandas.read_csv(comment='#') deletes every word of the legend above it.
+    bare = [l for l in blobs["csv"].decode().split("\n") if not l.startswith("#") and l]
+    star_i = bare[0].split(",").index(STAR_FIELD)
+    # Three states, not two. The predicate runs over the shortlist only, so a candidate it
+    # never judged must print EMPTY: a False there is a failing verdict on a marker nobody
+    # assessed, and several unjudged ones sit nearer the variant than the starred ones.
+    for m, line in zip(r.candidates, bare[1:]):
+        cell = line.split(",")[star_i]
+        want = "" if _star_cell(m) is None else str(_star_cell(m))
+        assert cell == want, \
+            f"csv: wrong {STAR_FIELD} under its own header for {m.rsid}: {cell!r} != {want!r}"
+    judged = [m for m in r.candidates if _star_cell(m) is not None]
+    assert len(judged) == len(r.recommended), "the verdict is the shortlist's, and only its"
+    assert sum(1 for l in bare[1:] if l.split(",")[star_i] == "") \
+        == len(r.candidates) - len(r.recommended), "unjudged candidates must print empty"
+    assert sum(l.split(",")[star_i] == "True" for l in bare[1:]) == star_n, "csv star count"
+    xl_rec = star_xl["Recommended panel"]
+    xl_c = [c.value for c in xl_rec[3]].index(STAR_FIELD)
+    assert [row[xl_c] for row in xl_rec.iter_rows(min_row=4, values_only=True)] \
+        == [_starred(m) for m in r.recommended], "xlsx: wrong value under the star header"
+    sj = {c["variant_id"]: c for c in json.loads(blobs["json"])["candidates"]}
+    assert [sj[m.variant_id][STAR_FIELD] for m in r.recommended] \
+        == [_starred(m) for m in r.recommended], "json: wrong star per marker"
+
+    # The PDF prints a SHAPE, in a standard font that has one: no text font carries U+2605,
+    # and a colour is the first thing the printer this page is filed off throws away.
+    # Read back the CODE ZapfDingbats encoded U+2605 to, never the character handed in:
+    # passing that code instead of the character draws a different dingbat just as quietly.
+    STAR_CODE = "H"
+    assert b"/ZapfDingbats" in blobs["pdf"], "the PDF does not carry the star's font"
+    star_rows = star_pdf.split("\n")
+    for m in r.recommended:
+        i = star_rows.index(m.rsid)
+        assert (star_rows[i - 1] == STAR_CODE) == _starred(m), \
+            f"PDF star on {m.rsid} is {star_rows[i - 1]!r}, the engine says {_starred(m)}"
+    # Per side, against ESHRE's per-side minimum: a total answers the wrong question.
+    for k in ("lower_flanking_count", "higher_flanking_count"):
+        assert f"{r.coverage[k]} {k.split('_')[0]}-coordinate" in star_flat, \
+            f"the PDF does not read out coverage[{k!r}]"
+
+    # An unstarred panel says NOTHING: no legend, no glyph, no restated rule. Synthesised,
+    # because the golden panel stars markers and no fixture reaches a panel that stars none.
+    none_starred = copy.deepcopy(r)
+    for m in none_starred.candidates:
+        setattr(m, STAR_FIELD, False)
+    assert _star_legend(none_starred, none_starred.candidates) == []
+    none_csv = to_csv(none_starred).decode()
+    assert "hropen" not in none_csv and "informativity" not in none_csv, \
+        "a legend for a star the panel does not show"
+    assert STAR_CODE not in _pdf_text(to_pdf(none_starred)).split("\n"), \
+        "an empty star column on the PDF"
+    assert STAR_FIELD in none_csv, "the column is data and must stay whatever the verdict"
+
+    # The words come from the RESULT's stamped rule, not from whatever pb holds at export
+    # time: a re-worded rule must not silently re-label a panel built under the old one.
+    reworded = copy.deepcopy(r)
+    reworded.provenance["flanking_criteria"] = dict(_flanking(r), note=["SENTINEL-NOTE ★ x"])
+    assert "SENTINEL-NOTE" in to_csv(reworded).decode()
+    assert "SENTINEL-NOTE" in " ".join(_pdf_text(to_pdf(reworded)).split())
+    # ...and a build that stamps no rule prints the marked fallback rather than inventing
+    # a meaning for a glyph it is still drawing.
+    unnamed = copy.deepcopy(r)
+    del unnamed.provenance["flanking_criteria"]
+    assert "not reported by this build" in _star_legend(unnamed, unnamed.recommended)[0]
+    for k in ("lower_flanking_count", "higher_flanking_count"):
+        del unnamed.coverage[k]
+    assert "not reported by this build" in _star_count_text(unnamed), \
+        "an uncounted side must say so, never read as zero"
 
     # An allele frequency is prose on the PDF and a data cell in the CSV: the PDF renders
     # it via fmt_af, the CSV column keeps the exact float.

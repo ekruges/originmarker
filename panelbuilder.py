@@ -460,6 +460,14 @@ class Marker:
     hotspot_between: Optional[bool] = None   # a recombination hotspot sits in between
     # True => cm is a 1 cM/Mb approximation, not a map reading. Must be labelled as such.
     map_approx: Optional[bool] = None
+    # ESHRE's structural criteria, as a predicate: see FLANKING_CRITERIA. Not a rank, not a
+    # score, not a genotype claim (R3, R4). build() sets it; nothing may recompute it.
+    #
+    # None, not False: the predicate is only evaluated over the shortlist, and every export
+    # writes this column for all ~1200 candidates. A default of False asserts that a marker
+    # fails criteria nobody judged it against, which is the same false-is-not-unassessed
+    # error this file refuses for hotspot_between. None prints empty and claims nothing.
+    meets_eshre_flanking_criteria: Optional[bool] = None
 
 
 @dataclass
@@ -1180,6 +1188,67 @@ def annotate(variants: dict[str, dict], v: VariantRecord,
 # Step 4: rank + select balanced panel (R2, R5) + cross-check (R1)
 # --------------------------------------------------------------------------- #
 
+# ESHRE's two structural numbers for marker selection. They are the paper's, not
+# OriginMarker's, and the wording below states them as such.
+ESHRE_FLANK_MAX_BP = 1_000_000     # recommended limit from the variant (~1 cM)
+ESHRE_MIN_PER_SIDE = 3             # at least 3 SNPs on each flanking side
+
+# The rule, its parameters and its words in one place, stamped into provenance. Exports and
+# the UI render `note`/`legend` verbatim and must never restate the rule in their own words:
+# the engine names what the flag means, everyone else reads that name out. The prose and the
+# numbers above have to agree, so they live together.
+FLANKING_CRITERIA = {
+    "field": "meets_eshre_flanking_criteria",
+    "max_dist_bp": ESHRE_FLANK_MAX_BP,
+    "min_per_side": ESHRE_MIN_PER_SIDE,
+    "legend": (
+        "★ Meets ESHRE flanking criteria: within 1 Mb, no hotspot between it and the "
+        "variant on the deCODE map, position not disputed. OriginMarker's check of ESHRE's "
+        "criteria, not an informativity rank: that needs the family's genotypes, which "
+        "this tool does not have."),
+    "note": [
+        "★ Flanking criteria met. OriginMarker's own check of the structural "
+        "marker-selection criteria stated in the ESHRE PGT Consortium good practice "
+        "recommendations (Carvalho et al., Hum Reprod Open 2020;2020, "
+        "doi:10.1093/hropen/hoaa018). ESHRE has not reviewed this tool. A star means all "
+        "of: the marker lies within 1 Mb of the pathogenic variant, which is ESHRE's "
+        "recommended limit (~1 cM); no recombination hotspot was detected between the "
+        "marker and the variant on the bundled deCODE map; and its GRCh38 position is not "
+        "disputed between gnomAD and Ensembl.",
+        "A star is NOT an informativity rank. ESHRE marker informativity (Tables I and II "
+        "of that paper) is computed from the couple's and relatives' actual genotypes. "
+        "OriginMarker has no genotypes and cannot compute it. A star is not evidence that "
+        "this carrier is heterozygous at the marker: 2pq is a population prior (R4). "
+        "Starred markers are not ordered and no starred marker is preferred over another. "
+        "An unstarred marker is not unusable; ESHRE recommends at least three SNPs on each "
+        "side, and unstarred markers may still be needed to reach that.",
+    ],
+}
+
+
+def _hotspot_assessed(m: Marker) -> bool:
+    """True only where the bundled map actually judged the span between marker and variant.
+
+    The 1 cM/Mb fallback can never reach the hotspot threshold, so its False means "not
+    assessed", which is not "no hotspot" and must never be counted as one.
+    """
+    return m.hotspot_between is not None and m.map_approx is False
+
+
+def _meets_eshre_flanking_criteria(m: Marker) -> bool:
+    """ESHRE's structural criteria as a predicate: within 1 Mb, no hotspot found between
+    marker and variant on the bundled map, GRCh38 position not disputed. No cap and no
+    ordering, so there is nothing to tiebreak and no marker is preferred over another.
+    """
+    return (abs(m.dist) <= ESHRE_FLANK_MAX_BP
+            and _hotspot_assessed(m) and not m.hotspot_between
+            # `None` is "not cross-checked", never "disputed": only the nearest few markers
+            # are ever checked, and an Ensembl outage sets every check back to None.
+            # Requiring "ok" would delete flags on a network timeout, which reads as a
+            # scientific downgrade.
+            and not (m.ensembl_pos_check or "").startswith("MISMATCH"))
+
+
 def _rank_key(ancestry: Optional[str]):
     """Sort key: 2pq for the ancestry asked about, else the global 2pq. Never het_max_pop.
 
@@ -1248,14 +1317,9 @@ def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
         "higher_core_near": sum(1 for m in higher if abs(m.dist) < 30_000),
         "flags": [],
     }
-    # The 1 cM/Mb fallback can never reach the hotspot threshold, so its False means "not
-    # assessed", which is not "no hotspot" and must never be counted as one.
-    def assessed(m: Marker) -> bool:
-        return m.hotspot_between is not None and m.map_approx is False
-
     for side, label in ((lower, "lower-coordinate"), (higher, "higher-coordinate")):
         near = [m for m in side if abs(m.dist) < 30_000]
-        judged = [m for m in near if assessed(m)]
+        judged = [m for m in near if _hotspot_assessed(m)]
         clear = [m for m in judged if not m.hotspot_between]
         if not side:
             coverage["flags"].append(
@@ -1269,13 +1333,13 @@ def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
                 f"Fewer than 2 markers within 30 kb on the {label} side are clear of an "
                 f"intervening recombination hotspot ({len(clear)} of {len(judged)}).")
 
-    hot = [m for m in recommended if assessed(m) and m.hotspot_between]
+    hot = [m for m in recommended if _hotspot_assessed(m) and m.hotspot_between]
     if hot:
         coverage["flags"].append(
             f"{len(hot)} of the {len(recommended)} shortlisted markers have a "
             f"recombination hotspot between them and the variant, so they are the most "
             f"likely to have lost phase with it.")
-    unjudged = [m for m in recommended if not assessed(m)]
+    unjudged = [m for m in recommended if not _hotspot_assessed(m)]
     if unjudged:
         coverage["flags"].append(
             f"Recombination hotspots were not assessed for {len(unjudged)} of the "
@@ -1419,6 +1483,26 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
                 f"cannot place is not safe to genotype against: confirm the position "
                 f"before ordering it, or drop it.")
 
+    # The flanking criteria are applied HERE and not in select_panel, for the same reason the
+    # flag above is worded here: one clause of the rule reads ensembl_pos_check, which does
+    # not exist until the cross-check above has run. Applied any earlier, a marker its own
+    # sources cannot place would meet the criteria. One pass, one field: nothing downstream
+    # may recompute this.
+    for m in recommended:
+        m.meets_eshre_flanking_criteria = _meets_eshre_flanking_criteria(m)
+    # Per side, against ESHRE's minimum. Never relax the rule when few qualify: the same flag
+    # would then mean different things on different panels, and a reader cannot tell which
+    # panel he is holding. Say how few instead.
+    for want_higher, side in ((False, "lower"), (True, "higher")):
+        met = [m for m in recommended
+               if (m.dist > 0) == want_higher and m.meets_eshre_flanking_criteria]
+        coverage[f"{side}_flanking_count"] = len(met)
+        if len(met) < ESHRE_MIN_PER_SIDE:
+            coverage.setdefault("flags", []).append(
+                f"Fewer than {ESHRE_MIN_PER_SIDE} markers on the {side}-coordinate side "
+                f"meet the flanking criteria ({len(met)} of {ESHRE_MIN_PER_SIDE}). ESHRE "
+                f"recommends at least three SNPs on each side of the pathogenic variant.")
+
     # R5: a clamped flank is a COVERAGE fact, so it belongs on the coverage card beside the
     # per-side counts, which is where a reader checks whether both sides are covered.
     # enumerate_candidates detects and words the truncation; this is the pickup.
@@ -1441,6 +1525,7 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         "ancestry_rank": q.ancestry, "candidate_n": len(markers),
         "requested_build": q.build,
         "ranking_key": _ranking_key_label(q.ancestry),
+        "flanking_criteria": FLANKING_CRITERIA,
         "queried_utc": _utc(_flog["oldest"]) or _utc(time.time()),
         "built_utc": _utc(time.time()),
         "source_responses_from_cache": _flog["from_cache"],
@@ -1491,6 +1576,38 @@ if __name__ == "__main__":
 
     assert _ranking_key_label(None) == "global 2pq (het)"
     assert _ranking_key_label("EAS").startswith("2pq in EAS")
+
+    # The flanking criteria, offline and synthetic: chr11 is fully mapped and the golden
+    # panel disputes nothing, so it reaches neither the approximated map nor the disputed
+    # position, and both of those are branches that must NOT produce a flag.
+    def _cand(**kw) -> Marker:
+        base = dict(rsid="rs_cand", variant_id="1-300-A-G", chrom="1", pos=300, ref="A",
+                    alt="G", af=0.4, maf=0.4, het=0.48, het_max_pop=0.48, dist=5_000,
+                    side="higher coord", tier=_tier(5_000), hotspot_between=False,
+                    map_approx=False)
+        return Marker(**{**base, **kw})
+
+    assert _meets_eshre_flanking_criteria(_cand())
+    # The one thing that breaks phase with the locus.
+    assert not _meets_eshre_flanking_criteria(_cand(hotspot_between=True))
+    # An approximated stretch cannot reach the hotspot threshold, so its False is "not
+    # assessed". Both of these pass a bare `not m.hotspot_between`, which is why the rule
+    # asks whether the map judged the span at all before it reads the verdict.
+    assert not _meets_eshre_flanking_criteria(_cand(map_approx=True))
+    assert not _meets_eshre_flanking_criteria(_cand(hotspot_between=None, map_approx=None))
+    # ...and a real hotspot on a span that straddles the map edge is still a hotspot.
+    assert not _meets_eshre_flanking_criteria(_cand(hotspot_between=True, map_approx=True))
+    # ESHRE's 1 Mb, on the signed distance: binding only at the larger windows the UI allows.
+    assert _meets_eshre_flanking_criteria(_cand(dist=-ESHRE_FLANK_MAX_BP))
+    assert not _meets_eshre_flanking_criteria(_cand(dist=ESHRE_FLANK_MAX_BP + 1))
+    # Disputed is excluded. Unchecked is not disputed: only the nearest few markers are ever
+    # checked, and an Ensembl outage returns every check to None.
+    assert not _meets_eshre_flanking_criteria(_cand(ensembl_pos_check="MISMATCH:99999999"))
+    assert _meets_eshre_flanking_criteria(_cand(ensembl_pos_check=None))
+    assert _meets_eshre_flanking_criteria(_cand(ensembl_pos_check="ok"))
+    # 2pq is a population prior (R4), so it is not a criterion: a low-2pq marker that clears
+    # the pool's MAF floor still meets the STRUCTURAL criteria, and the words say only that.
+    assert _meets_eshre_flanking_criteria(_cand(het=0.02, het_max_pop=0.02))
 
     # Cache poisoning, offline. Points at a dead port so the refetch is guaranteed to fail:
     # the assertion is that the poison is DROPPED rather than served, not that a retry
@@ -1667,6 +1784,33 @@ if __name__ == "__main__":
     q = sys.argv[1] if len(sys.argv) > 1 else "NM_000352.6(ABCC8):c.3989-9G>A"
     r = build(q)
     assert r.provenance["ranking_key"] == _ranking_key_label(None), r.provenance["ranking_key"]
+
+    # The flag has to reach the caller, since one nothing picks up annotates nothing, and the
+    # rule's own words have to travel with it or an export states the rule in its own voice.
+    assert r.provenance["flanking_criteria"]["field"] == "meets_eshre_flanking_criteria"
+    assert (r.coverage["lower_flanking_count"] + r.coverage["higher_flanking_count"]
+            == sum(m.meets_eshre_flanking_criteria for m in r.recommended))
+    # Order is load-bearing: the criteria read a cross-check verdict that does not exist
+    # until after selection, so a disputed marker meets them if they are applied any earlier.
+    # Injected, because a clean panel passes either way.
+    _starred = [m for m in r.recommended if m.meets_eshre_flanking_criteria]
+    if _starred:                     # a panel on an unmapped chromosome has none, correctly
+        _target = _starred[0].variant_id
+        _saved_cc = cross_check_ensembl
+
+        def _dispute(markers, top_n: int = 8) -> None:
+            for m in markers:
+                if m.variant_id == _target:
+                    m.ensembl_pos_check = "MISMATCH:99999999"
+
+        cross_check_ensembl = _dispute
+        try:
+            _d = build(q)
+        finally:
+            cross_check_ensembl = _saved_cc
+        assert not [m for m in _d.recommended if m.variant_id == _target
+                    and m.meets_eshre_flanking_criteria], \
+            f"{_target} met the flanking criteria with its position disputed"
 
     # The nl_* fields are provenance and nothing else: they must reach prov and leave the
     # resolved variant and the selected panel identical. A build that read them diverges here.

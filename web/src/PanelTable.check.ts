@@ -23,19 +23,19 @@ const mk = (o: Partial<Marker> & { rsid: string }): Marker => ({
   recomb_fraction: null, hotspot_between: null, map_approx: null, ...o,
 })
 
-const panel = (ms: Marker[]): PanelResult => ({
+const panel = (ms: Marker[], prov: Partial<PanelResult['provenance']> = {}): PanelResult => ({
   variant: {} as PanelResult['variant'],
   rarity: {} as PanelResult['rarity'],
   candidates: ms,
   recommended: ms,
   coverage: { lower_count: 0, higher_count: 0, lower_core_near: 0, higher_core_near: 0, flags: [] },
   params: {} as PanelResult['params'],
-  provenance: {} as PanelResult['provenance'],
+  provenance: prov as PanelResult['provenance'],
 })
 
-const render = (ms: Marker[]) =>
+const render = (ms: Marker[], prov?: Partial<PanelResult['provenance']>) =>
   renderToStaticMarkup(
-    h(MantineProvider, null, h(PanelTable, { result: panel(ms), ancestry: null })),
+    h(MantineProvider, null, h(PanelTable, { result: panel(ms, prov), ancestry: null })),
   )
 
 const text = (html: string) =>
@@ -97,5 +97,60 @@ assert.doesNotMatch(text(table), /rs_offpage/, 'setup: expected rs_offpage off p
 assert.match(paged, /role="alert"/)
 assert.match(banner(paged), /rs_offpage/)     // named though its row is not rendered
 assert.match(banner(paged), /4,200 bp apart/)
+
+// --- 4. The star: the engine's verdict and the engine's words, neither restated. ----
+// The legend text here is a SENTINEL, not the real ESHRE wording: the table must read the
+// rule out of provenance, and asserting the true text would pass just as well on a table
+// that hardcoded its own copy of it.
+const RULE = {
+  field: 'meets_eshre_flanking_criteria',
+  max_dist_bp: 1_000_000,
+  min_per_side: 3,
+  legend: '★ SENTINEL: the engine names the rule and the table reads it out.',
+  note: [],
+}
+const rowsOf = (html: string) => html.slice(html.indexOf('<table'))
+const stars = (html: string) =>
+  (rowsOf(html).match(/aria-label="meets ESHRE flanking criteria"/g) ?? []).length
+
+// Counted against the markers the verdict marks true, never against a fixed number: the
+// rule is a predicate with no cap, so a panel may carry any count, zero included.
+for (const yes of [0, 1, 3, 5]) {
+  const ms = Array.from({ length: 5 }, (_, i) =>
+    mk({ rsid: `rs_${i}`, dist: i + 1, meets_eshre_flanking_criteria: i < yes }))
+  const html = render(ms, { flanking_criteria: RULE })
+  assert.equal(stars(html), yes, `expected ${yes} stars`)
+  // The legend stands even at zero: there the engine judged and found none, and that is a
+  // verdict a reader must be able to read. Only a panel with no rule drops it.
+  assert.match(text(html), /SENTINEL: the engine names the rule and the table reads it out/)
+}
+
+// --- 5. No rule: no stars AND no legend. --------------------------------------------
+// An older panel, or a server that never shipped the rule, must not render as a judged
+// panel that happened to qualify nothing. Absent is silence, not false.
+const unjudged = render([
+  mk({ rsid: 'rs_old', dist: 1, meets_eshre_flanking_criteria: true }),
+  mk({ rsid: 'rs_old2', dist: 2 }),
+])
+assert.equal(stars(unjudged), 0, 'a rowful of verdicts cannot star itself without a rule')
+assert.doesNotMatch(text(unjudged), /ESHRE|flanking criteria/)
+
+// --- 6. A renamed field takes the whole star with it. -------------------------------
+// The rule names the field it writes to. If that stops being the field read here, the
+// verdicts are unreadable, and the panel must lose its legend too: a legend over rows that
+// quietly lost their stars reads as "none qualified", which is the one lie to avoid.
+const renamed = render([mk({ rsid: 'rs_x', dist: 1, meets_eshre_flanking_criteria: true })], {
+  flanking_criteria: { ...RULE, field: 'meets_eshre_flanking_criteria_v2' },
+})
+assert.equal(stars(renamed), 0)
+assert.doesNotMatch(text(renamed), /SENTINEL/)
+
+// --- 7. The star is not carried by colour alone. ------------------------------------
+// It must survive a greyscale print and a screen reader: a shape and a label, not a hue.
+const one = render([mk({ rsid: 'rs_star', dist: 1, meets_eshre_flanking_criteria: true })],
+  { flanking_criteria: RULE })
+const cell = one.slice(one.indexOf('<tbody'), one.indexOf('rs_star'))
+assert.match(cell, /<svg/, 'the star must be a shape, not a coloured character')
+assert.match(cell, /aria-label="meets ESHRE flanking criteria"/, 'the star must state its claim')
 
 console.log('PanelTable.check.ts: all assertions passed')

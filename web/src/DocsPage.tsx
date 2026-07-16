@@ -370,7 +370,7 @@ export function DocsPage({ health }: { health: Health | null }) {
             <List.Item>
               <b>Rarity.</b> The gnomAD single-variant record and the 1000 Genomes allele count decide
               whether population LD with this allele is even defined. For a pathogenic variant the answer
-              is almost always no (see <Anchor href={docHref('ld')}>section 4</Anchor>).
+              is almost always no (see <Anchor href={docHref('ld')}>section 5</Anchor>).
             </List.Item>
             <List.Item>
               <b>Enumerate.</b> A ±250 kb window by default, pulled from gnomAD as 20 kb region chunks
@@ -677,11 +677,11 @@ export function DocsPage({ health }: { health: Health | null }) {
           <Text mb={8}>
             It cannot hand you a coordinate. Not a chromosome, not a position, not an allele, not a
             strand. The typed query it fills, <Code>pb.StructuredQuery</Code>, has no field for any of
-            them (see <Anchor href={docHref('api')}>section 13</Anchor>). That is a property of the
+            them (see <Anchor href={docHref('api')}>section 14</Anchor>). That is a property of the
             code, not a rule the model is asked to observe: there is nowhere to put a coordinate, so a
             recalled one has no route into a panel. Whichever path you arrive by, the coordinate on
             your panel came from the same live lookup described in{' '}
-            <Anchor href={docHref('pipeline')}>section 3</Anchor>.
+            <Anchor href={docHref('pipeline')}>section 4</Anchor>.
           </Text>
           <Text mb={8}>
             What it does decide is <b>which variant you meant</b>, and it can be wrong. A gene may
@@ -921,7 +921,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Wide>
           <Text mb={8}>
             An allele count of 1 puts this variant in the undefined-LD case of{' '}
-            <Anchor href={docHref('ld')}>section 4</Anchor>, so ranking is on 2pq and proximity.
+            <Anchor href={docHref('ld')}>section 5</Anchor>, so ranking is on 2pq and proximity.
             rs757110 sits 125 bp from the variant, so recombination between them is negligible. It still
             has to be heterozygous in the carrier, and it still needs a partner on its own side and
             coverage on the other.

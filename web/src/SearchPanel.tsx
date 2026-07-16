@@ -1,9 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  ActionIcon, Alert, Autocomplete, Button, Checkbox, Group, NumberInput,
-  Paper, SegmentedControl, Select, Text, TextInput, Tooltip,
+  ActionIcon, Alert, Autocomplete, Button, Checkbox, CloseButton, Combobox, Group,
+  NumberInput, Paper, SegmentedControl, Select, Text, TextInput, Tooltip, useCombobox,
 } from '@mantine/core'
 import { ANCESTRIES, api, ApiError, type Health, type NLResponse, type StructuredQuery } from './api'
+import { clearHistory, forgetQuery, readHistory, recordQuery, type Entry } from './history'
 
 const EXAMPLE = 'NM_000352.6(ABCC8):c.3989-9G>A'
 
@@ -45,6 +46,20 @@ const FADE_MS = 320
 
 type Mode = 'search' | 'manual'
 
+/** A stored query can be longer than the box. It truncates rather than wrapping the row to
+ *  two lines or pushing the count and the ex off the edge. */
+const ROW_TEXT = {
+  flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+} as const
+
+/** History rows worth offering for what is in the box: everything, until there is something
+ *  to narrow on. Matched case-insensitively, which is a search over a list, not the verbatim
+ *  identity `history.ts` stores entries under. */
+const matching = (es: Entry[], text: string) => {
+  const t = text.trim().toLowerCase()
+  return t ? es.filter((e) => e.text.toLowerCase().includes(t)) : es
+}
+
 interface Props {
   health: Health | null
   busy: boolean
@@ -60,6 +75,25 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
   const [text, setText] = useState('')
   const [nlError, setNlError] = useState<string | null>(null)
   const [parsing, setParsing] = useState(false)
+
+  // Read once, at mount: localStorage is synchronous, and re-reading it per render would
+  // put a disk hit on every keystroke for a list this component already holds.
+  const [entries, setEntries] = useState<Entry[]>(readHistory)
+  const combobox = useCombobox({ onDropdownClose: () => combobox.resetSelectedOption() })
+  const shown = matching(entries, text)
+
+  // The selected index is a ref into the LIVE option list, so any change to `shown` leaves
+  // it aimed at whichever row now sits at that index: Enter would then submit a query the
+  // user never highlighted. Reset it wherever the rows change, not per writer of text or
+  // entries. Left open over an emptied list, the input would also claim aria-expanded over
+  // a listbox that is gone.
+  useEffect(() => {
+    combobox.resetSelectedOption()
+    if (!shown.length) combobox.closeDropdown()
+    // `shown` is a pure function of these two. useCombobox returns a fresh object every
+    // render, so listing it here would reset the selection mid-keystroke and kill the arrows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [text, entries])
 
   // Manual mode: every StructuredQuery knob, no parsing in the way.
   const [q, setQ] = useState<Required<Omit<StructuredQuery, 'gene' | 'ancestry'>> & {
@@ -101,13 +135,17 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
    *  /api/nl costs nothing for text carrying an identifier: it reads it by regex, and only
    *  reaches the model when nothing else can. The rate limiter meters the model, not this.
    */
-  const submitSearch = async () => {
-    const t = text.trim()
+  const submitSearch = async (pick?: string) => {
+    const t = (pick ?? text).trim()
     if (!t) return
+    combobox.closeDropdown()
     setNlError(null)
     setParsing(true)
     try {
       const r = await api.nl(t)
+      // Recorded once the parse stands, so the half-typed identifier that failed on the way
+      // to this one does not push a real query out of a capped list.
+      setEntries(recordQuery(t, r.query.variant))
       // Provenance only when a model actually chose the variant, so a typed identifier
       // does not carry a caveat about a model that never ran.
       onResolve(r.query, r.used_llm ? r : undefined)
@@ -258,6 +296,16 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
                     {forms[slot]?.text ?? EXAMPLE}
                   </span>
                 )}
+              {/* Not in a portal: the dropdown's own buttons are then reachable by Tab from
+                  the input, which is the only keyboard path to Clear all. */}
+              <Combobox
+                store={combobox}
+                withinPortal={false}
+                position="bottom-start"
+                width="target"
+                onOptionSubmit={(v) => { setText(v); submitSearch(v) }}
+              >
+                <Combobox.Target withExpandedAttribute withKeyboardNavigation={false}>
               <TextInput
                 ref={inputRef}
                 style={{ width: '100%' }}
@@ -266,12 +314,116 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
                 aria-label="Variant: HGVS, rsID, or free text"
                 value={text}
                 disabled={busy}
-                onChange={(e) => setText(e.currentTarget.value)}
-                onKeyDown={(e) => e.key === 'Enter' && submitSearch()}
+                onChange={(e) => {
+                  // Reset here, not in an effect keyed on `text`: the store's index is a ref
+                  // into the option list, an effect runs after paint, and an Enter arriving
+                  // in between reads an index aimed at whichever row now sits there. That
+                  // submits a variant the user never highlighted.
+                  combobox.resetSelectedOption()
+                  setText(e.currentTarget.value)
+                }}
+                // Opened by click, never by focus: the box focuses itself on mount and the
+                // ex button focuses it again, and neither is someone asking for a list.
+                onClick={() => shown.length && combobox.openDropdown()}
+                // Every key handled here, with Combobox.Target's own navigation switched
+                // off. Sharing the input between two handlers means relying on which one
+                // cloneElement keeps, and the answer was neither: the arrows silently did
+                // nothing while both sides looked correct in isolation.
+                onKeyDown={(e) => {
+                  const open = combobox.dropdownOpened && shown.length > 0
+                  const active = open ? combobox.getSelectedOptionIndex() : -1
+                  if (e.key === 'ArrowDown') {
+                    e.preventDefault()
+                    if (!open && shown.length) combobox.openDropdown()
+                    combobox.selectNextOption()
+                    return
+                  }
+                  if (e.key === 'ArrowUp') {
+                    e.preventDefault()
+                    if (open) combobox.selectPreviousOption()
+                    return
+                  }
+                  if (e.key === 'Escape') {
+                    if (open) { e.preventDefault(); combobox.closeDropdown() }
+                    return
+                  }
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    // A highlighted row wins; a plain Enter submits what was typed. Reading
+                    // the row out of `shown` rather than the index alone: the index is a ref
+                    // into a list that re-filters as the user types.
+                    // Trustworthy because onChange resets the index in the same tick it
+                    // changes the list: nothing can land in between aiming it at a row that
+                    // moved. An effect could not promise that, and did not.
+                    const row = active >= 0 ? shown[active] : undefined
+                    if (row) { setText(row.text); submitSearch(row.text) } else submitSearch()
+                    return
+                  }
+                  // The row's own ex is a pointer affordance. This is its keyboard twin.
+                  if (e.key === 'Delete' && shown[active]) {
+                    e.preventDefault()
+                    setEntries(forgetQuery(shown[active].text))
+                  }
+                }}
               />
+                </Combobox.Target>
+                {shown.length > 0 && (
+                  <Combobox.Dropdown>
+                    <Combobox.Options>
+                      {shown.map((e) => (
+                        <Combobox.Option
+                          key={e.text}
+                          value={e.text}
+                          // An option's children are presentational, so the count and the ex
+                          // are not read from the row: the row has to say it itself.
+                          aria-label={e.count === undefined ? e.text : `${e.text}, ${e.count} candidates`}
+                        >
+                          <Group gap={8} wrap="nowrap">
+                            <Text size="xs" className="om-mono" style={ROW_TEXT}>{e.text}</Text>
+                            {e.count !== undefined && (
+                              <Text
+                                size="xs"
+                                className="om-mono"
+                                c="dimmed"
+                                title={`${e.count} candidates in the panel built from this query`}
+                              >
+                                {e.count}
+                              </Text>
+                            )}
+                            <CloseButton
+                              size="xs"
+                              c="black"
+                              tabIndex={-1}
+                              aria-hidden
+                              title={`Forget ${e.text}`}
+                              // Or the row underneath reads the click as "run this query".
+                              onClick={(ev) => {
+                                ev.stopPropagation()
+                                setEntries(forgetQuery(e.text))
+                              }}
+                            />
+                          </Group>
+                        </Combobox.Option>
+                      ))}
+                    </Combobox.Options>
+                    <Combobox.Footer>
+                      <Group justify="space-between" wrap="nowrap" gap={8}>
+                        <Text size="xs" c="dimmed">Kept in this browser only</Text>
+                        <Button
+                          variant="subtle"
+                          size="compact-xs"
+                          onClick={() => setEntries(clearHistory())}
+                        >
+                          Clear all
+                        </Button>
+                      </Group>
+                    </Combobox.Footer>
+                  </Combobox.Dropdown>
+                )}
+              </Combobox>
               </div>
               <Button
-                onClick={submitSearch}
+                onClick={() => submitSearch()}
                 loading={parsing}
                 disabled={busy || !text.trim()}
                 size={hero ? 'md' : 'xs'}

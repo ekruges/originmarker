@@ -9,6 +9,71 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.2.0 "Zygotene"
+
+The substage where homologues find each other and begin to pair.
+
+### Added
+
+- **Local query history.** Click the search box and your previous queries drop down, each
+  with its candidate count and an x to forget it, plus Clear all. It lives in your browser
+  and goes nowhere: no account, no server, nothing about anyone leaves the page. Storage
+  that is full, disabled, or holding another version's garbage degrades to an empty list
+  rather than taking the search box down.
+- **A star on markers that meet ESHRE's flanking criteria**, in the table and in all four
+  exports. What it means, exactly: within 1 Mb of the variant, no recombination hotspot in
+  between on an assessed map, and no position disagreement between gnomAD and Ensembl. It
+  is a structural check, not a ranking, and not a claim about any carrier's genotype.
+
+### Why the star is a predicate and not a top-three
+
+**There is no convention for a "top 3".** ESHRE's PGT-M recommendations (doi:
+10.1093/hropen/hoaa018) do give real numbers, but a different shape: *at least three SNPs
+proximal and three SNPs distal*, within 1 Mb of the variant, avoiding known hotspots. That
+is six, per side, as a minimum count, not a ranking. ESHRE's own informativity rank is a
+function of the couple's actual genotypes, which this tool structurally cannot have: it
+proposes candidates and has no genotypes (R3), and 2pq is a population prior, not a
+genotype (R4). So "strongest" in the only sense the convention defines is not computable
+here, and claiming it would be an invented recommendation printed on a filed PDF.
+
+**Starring the top 3 by the existing rank would have been actively harmful.** On the
+reference ABCC8 panel, the three top-ranked markers are all on the same side and all three
+have a recombination hotspot between them and the variant. Starring them would endorse
+exactly the markers the tool's own coverage flag warns about, and violate the both-sides
+rule on the same page that states it.
+
+**So the star is a predicate, and it is not capped.** Every marker meeting the criteria
+gets one; the count per side is reported against ESHRE's minimum of three. A cap would
+force an ordering, and no source gives an exchange rate between heterozygosity and
+distance: on the reference panel, capping at three would star a marker 24 kb away over one
+125 bp away on a 0.01 difference in a population prior. The five unstarred qualifiers are
+not worse than the three starred ones, and a star saying so would be a fabrication.
+
+The label says "meets ESHRE's structural criteria". It never says strongest, best, or
+recommended.
+
+### Fixed
+
+- **The history dropdown could submit a variant you never named.** Highlight a row, type a
+  character that filters it out, press Enter, and the panel built for whichever row had
+  slid into that index: a plausible wrong answer, produced silently. The selection index is
+  a reference into a list that re-filters as you type, and resetting it in an effect runs
+  after paint, which is too late for the keypress that follows. It resets in the same
+  handler that changes the list now.
+- **The arrow keys did nothing.** The input's own key handler and the combobox's collided,
+  and the result was neither: navigation silently never ran. All keys are handled in one
+  place now.
+- **The export contradicted itself on 349 rows.** The criteria are evaluated over the
+  shortlist, and the column is written for every candidate, so ~1,200 markers nobody judged
+  shipped a False verdict. Several were nearer the variant than the starred ones, and the
+  printed note routes a reader looking for a fourth marker straight into them. The field is
+  None where it was not assessed, and the column prints empty: False is an assertion,
+  absence is not.
+- Four documentation cross-references named the wrong section number after the previous
+  release inserted a section. A check now derives them from the section list.
+
+---
+
 ## 1.1.0 "Leptotene"
 
 The beginning of prophase I, where chromosomes first condense into threads.

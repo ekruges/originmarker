@@ -1,0 +1,391 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+                        
+<ClinVarResult-Set><VariationArchive VariationID="143701" VariationName="NM_001110792.2(MECP2):c.844C&gt;G (p.Arg282Gly)" VariationType="single nucleotide variant" Accession="VCV000143701" Version="1" RecordType="classified" NumberOfSubmissions="2" NumberOfSubmitters="2" DateLastUpdated="2026-04-13" DateCreated="2014-08-17" MostRecentSubmission="2025-02-08">
+  <RecordStatus>current</RecordStatus>
+  <Species>Homo sapiens</Species>
+  <ClassifiedRecord>
+    <SimpleAllele AlleleID="153433" VariationID="143701">
+      <GeneList>
+        <Gene Symbol="MECP2" FullName="methyl-CpG binding protein 2" GeneID="4204" HGNC_ID="HGNC:6990" Source="submitted" RelationshipType="within single gene">
+          <Location>
+            <CytogeneticLocation>Xq28</CytogeneticLocation>
+            <SequenceLocation Assembly="GRCh38" AssemblyAccessionVersion="GCF_000001405.38" AssemblyStatus="current" Chr="X" Accession="NC_000023.11" start="154021573" stop="154097717" display_start="154021573" display_stop="154097717" Strand="-"/>
+            <SequenceLocation Assembly="GRCh37" AssemblyAccessionVersion="GCF_000001405.25" AssemblyStatus="previous" Chr="X" Accession="NC_000023.10" start="153287263" stop="153363187" display_start="153287263" display_stop="153363187" Strand="-"/>
+          </Location>
+          <OMIM>300005</OMIM>
+          <Haploinsufficiency last_evaluated="2021-02-22" ClinGen="https://www.ncbi.nlm.nih.gov/projects/dbvar/ISCA/isca_gene.cgi?sym=MECP2">Sufficient evidence for dosage pathogenicity</Haploinsufficiency>
+          <Triplosensitivity last_evaluated="2021-02-22" ClinGen="https://www.ncbi.nlm.nih.gov/projects/dbvar/ISCA/isca_gene.cgi?sym=MECP2">No evidence available</Triplosensitivity>
+        </Gene>
+      </GeneList>
+      <Name>NM_001110792.2(MECP2):c.844C&gt;G (p.Arg282Gly)</Name>
+      <CanonicalSPDI>NC_000023.11:154031019:G:C</CanonicalSPDI>
+      <VariantType>single nucleotide variant</VariantType>
+      <Location>
+        <CytogeneticLocation>Xq28</CytogeneticLocation>
+        <SequenceLocation Assembly="GRCh38" AssemblyAccessionVersion="GCF_000001405.38" forDisplay="true" AssemblyStatus="current" Chr="X" Accession="NC_000023.11" start="154031020" stop="154031020" display_start="154031020" display_stop="154031020" variantLength="1" positionVCF="154031020" referenceAlleleVCF="G" alternateAlleleVCF="C"/>
+        <SequenceLocation Assembly="GRCh37" AssemblyAccessionVersion="GCF_000001405.25" AssemblyStatus="previous" Chr="X" Accession="NC_000023.10" start="153296471" stop="153296471" display_start="153296471" display_stop="153296471" variantLength="1" positionVCF="153296471" referenceAlleleVCF="G" alternateAlleleVCF="C"/>
+      </Location>
+      <OtherNameList>
+        <Name>NM_001110792.2(MECP2):c.844C&gt;G</Name>
+        <Name>p.Arg282Gly</Name>
+      </OtherNameList>
+      <ProteinChange>R270G</ProteinChange>
+      <ProteinChange>R282G</ProteinChange>
+      <ProteinChange>R177G</ProteinChange>
+      <ProteinChange>R47G</ProteinChange>
+      <HGVSlist>
+        <HGVS Assembly="GRCh37" Type="genomic, top-level">
+          <NucleotideExpression sequenceAccessionVersion="NC_000023.10" sequenceAccession="NC_000023" sequenceVersion="10" change="g.153296471G&gt;C" Assembly="GRCh37">
+            <Expression>NC_000023.10:g.153296471G&gt;C</Expression>
+          </NucleotideExpression>
+        </HGVS>
+        <HGVS Assembly="GRCh38" Type="genomic, top-level">
+          <NucleotideExpression sequenceAccessionVersion="NC_000023.11" sequenceAccession="NC_000023" sequenceVersion="11" change="g.154031020G&gt;C" Assembly="GRCh38">
+            <Expression>NC_000023.11:g.154031020G&gt;C</Expression>
+          </NucleotideExpression>
+        </HGVS>
+        <HGVS Type="genomic">
+          <NucleotideExpression sequenceAccessionVersion="NG_007107.3" sequenceAccession="NG_007107" sequenceVersion="3" change="g.111084C&gt;G">
+            <Expression>NG_007107.3:g.111084C&gt;G</Expression>
+          </NucleotideExpression>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001110792.2" sequenceAccession="NM_001110792" sequenceVersion="2" change="c.844C&gt;G" MANESelect="true">
+            <Expression>NM_001110792.2:c.844C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001104262.1" sequenceAccession="NP_001104262" sequenceVersion="1" change="p.Arg282Gly" singleLetterProteinChange="R282G">
+            <Expression>NP_001104262.1:p.Arg282Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001316337.2" sequenceAccession="NM_001316337" sequenceVersion="2" change="c.529C&gt;G">
+            <Expression>NM_001316337.2:c.529C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001303266.1" sequenceAccession="NP_001303266" sequenceVersion="1" change="p.Arg177Gly" singleLetterProteinChange="R177G">
+            <Expression>NP_001303266.1:p.Arg177Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001369391.2" sequenceAccession="NM_001369391" sequenceVersion="2" change="c.529C&gt;G">
+            <Expression>NM_001369391.2:c.529C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001356320.1" sequenceAccession="NP_001356320" sequenceVersion="1" change="p.Arg177Gly" singleLetterProteinChange="R177G">
+            <Expression>NP_001356320.1:p.Arg177Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001369392.2" sequenceAccession="NM_001369392" sequenceVersion="2" change="c.529C&gt;G">
+            <Expression>NM_001369392.2:c.529C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001356321.1" sequenceAccession="NP_001356321" sequenceVersion="1" change="p.Arg177Gly" singleLetterProteinChange="R177G">
+            <Expression>NP_001356321.1:p.Arg177Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001369393.2" sequenceAccession="NM_001369393" sequenceVersion="2" change="c.529C&gt;G">
+            <Expression>NM_001369393.2:c.529C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001356322.1" sequenceAccession="NP_001356322" sequenceVersion="1" change="p.Arg177Gly" singleLetterProteinChange="R177G">
+            <Expression>NP_001356322.1:p.Arg177Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001369394.2" sequenceAccession="NM_001369394" sequenceVersion="2" change="c.529C&gt;G">
+            <Expression>NM_001369394.2:c.529C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001356323.1" sequenceAccession="NP_001356323" sequenceVersion="1" change="p.Arg177Gly" singleLetterProteinChange="R177G">
+            <Expression>NP_001356323.1:p.Arg177Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001386137.1" sequenceAccession="NM_001386137" sequenceVersion="1" change="c.139C&gt;G">
+            <Expression>NM_001386137.1:c.139C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001373066.1" sequenceAccession="NP_001373066" sequenceVersion="1" change="p.Arg47Gly" singleLetterProteinChange="R47G">
+            <Expression>NP_001373066.1:p.Arg47Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001386138.1" sequenceAccession="NM_001386138" sequenceVersion="1" change="c.139C&gt;G">
+            <Expression>NM_001386138.1:c.139C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001373067.1" sequenceAccession="NP_001373067" sequenceVersion="1" change="p.Arg47Gly" singleLetterProteinChange="R47G">
+            <Expression>NP_001373067.1:p.Arg47Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001386139.1" sequenceAccession="NM_001386139" sequenceVersion="1" change="c.139C&gt;G">
+            <Expression>NM_001386139.1:c.139C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001373068.1" sequenceAccession="NP_001373068" sequenceVersion="1" change="p.Arg47Gly" singleLetterProteinChange="R47G">
+            <Expression>NP_001373068.1:p.Arg47Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_004992.4" sequenceAccession="NM_004992" sequenceVersion="4" change="c.808C&gt;G" MANEPlusClinical="true">
+            <Expression>NM_004992.4:c.808C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_004983.1" sequenceAccession="NP_004983" sequenceVersion="1" change="p.Arg270Gly" singleLetterProteinChange="R270G">
+            <Expression>NP_004983.1:p.Arg270Gly</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="genomic">
+          <NucleotideExpression sequenceAccessionVersion="LRG_764" sequenceAccession="LRG_764">
+            <Expression>LRG_764:g.111084C&gt;G</Expression>
+          </NucleotideExpression>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="LRG_764t1" sequenceAccession="LRG_764t1">
+            <Expression>LRG_764t1:c.844C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="LRG_764p1" sequenceAccession="LRG_764p1" change="p.Arg282Gly">
+            <Expression>LRG_764p1:p.Arg282Gly</Expression>
+          </ProteinExpression>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="LRG_764t2" sequenceAccession="LRG_764t2">
+            <Expression>LRG_764t2:c.808C&gt;G</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="LRG_764p2" sequenceAccession="LRG_764p2" change="p.Arg270Gly">
+            <Expression>LRG_764p2:p.Arg270Gly</Expression>
+          </ProteinExpression>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="AJ132917.1" sequenceAccession="AJ132917" sequenceVersion="1" change="c.808C&gt;G">
+            <Expression>AJ132917.1:c.808C&gt;G</Expression>
+          </NucleotideExpression>
+        </HGVS>
+      </HGVSlist>
+      <XRefList>
+        <XRef ID="CA233010" DB="ClinGen"/>
+        <XRef Type="rs" ID="61750240" DB="dbSNP"/>
+      </XRefList>
+      <AlleleFrequencyList>
+        <AlleleFrequency Value="0.00001" Source="Exome Aggregation Consortium (ExAC)"/>
+        <AlleleFrequency Value="0.00001" Source="The Genome Aggregation Database (gnomAD), exomes"/>
+      </AlleleFrequencyList>
+    </SimpleAllele>
+    <RCVList>
+      <RCVAccession Title="NM_001110792.2(MECP2):c.844C&gt;G (p.Arg282Gly) AND not provided" Accession="RCV000133242" Version="1">
+        <ClassifiedConditionList TraitSetID="9460">
+          <ClassifiedCondition DB="MedGen" ID="C3661900">not provided</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>no classification provided</ReviewStatus>
+            <Description SubmissionCount="1">not provided</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_001110792.2(MECP2):c.844C&gt;G (p.Arg282Gly) AND Rett syndrome" Accession="RCV005053922" Version="1">
+        <ClassifiedConditionList TraitSetID="3215">
+          <ClassifiedCondition DB="MedGen" ID="C0035372">Rett syndrome</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+            <Description DateLastEvaluated="2025-01-03" SubmissionCount="1">Uncertain significance</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+    </RCVList>
+    <Classifications>
+      <GermlineClassification DateLastEvaluated="2025-01-03" NumberOfSubmissions="2" NumberOfSubmitters="2" DateCreated="2014-08-17" MostRecentSubmission="2025-02-08">
+        <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+        <Description>Uncertain significance</Description>
+        <Explanation DataSource="ClinVar" Type="public">Uncertain significance (1)</Explanation>
+        <DescriptionHistory Dated="2025-02-04">
+          <Description>not provided</Description>
+        </DescriptionHistory>
+        <ConditionList>
+          <TraitSet ID="9460" Type="Disease" ContributesToAggregateClassification="false">
+            <Trait ID="17556" Type="Disease">
+              <Name>
+                <ElementValue Type="Preferred">not provided</ElementValue>
+                <XRef ID="13DG0619" DB="Genomic Medicine Center of Excellence, King Faisal Specialist Hospital and Research Centre"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">none provided</ElementValue>
+              </Name>
+              <AttributeSet>
+                <Attribute Type="public definition">The term 'not provided' is registered in MedGen to support identification of submissions to ClinVar for which no condition was named when assessing the variant. 'not provided' differs from 'not specified', which is used when a variant is asserted to be benign, likely benign, or of uncertain significance for conditions that have not been specified.</Attribute>
+              </AttributeSet>
+              <XRef ID="C3661900" DB="MedGen"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="3215" Type="Disease" ContributesToAggregateClassification="true">
+            <Trait ID="3622" Type="Disease">
+              <Name>
+                <ElementValue Type="Alternate">AUTISM, DEMENTIA, ATAXIA, AND LOSS OF PURPOSEFUL HAND USE</ElementValue>
+                <XRef Type="MIM" ID="312750" DB="OMIM"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Rett's disorder</ElementValue>
+                <XRef ID="68618008" DB="SNOMED CT"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Preferred">Rett syndrome</ElementValue>
+                <XRef ID="MONDO:0010726" DB="MONDO"/>
+                <XRef ID="778" DB="Orphanet"/>
+              </Name>
+              <Symbol>
+                <ElementValue Type="Alternate">RTS</ElementValue>
+                <XRef Type="MIM" ID="312750" DB="OMIM"/>
+              </Symbol>
+              <Symbol>
+                <ElementValue Type="Preferred">RTT</ElementValue>
+                <XRef Type="MIM" ID="312750" DB="OMIM"/>
+              </Symbol>
+              <AttributeSet>
+                <Attribute Type="keyword">MECP2-Related Disorders</Attribute>
+                <XRef ID="NBK1497" DB="GeneReviews"/>
+              </AttributeSet>
+              <AttributeSet>
+                <Attribute Type="GARD id" integerValue="5696"/>
+                <XRef ID="5696" DB="Office of Rare Diseases"/>
+              </AttributeSet>
+              <AttributeSet>
+                <Attribute Type="public definition">The spectrum of MECP2-related phenotypes in females ranges from classic Rett syndrome to variant Rett syndrome with a broader clinical phenotype (either milder or more severe than classic Rett syndrome) to mild learning disabilities; the spectrum in males ranges from severe neonatal encephalopathy to pyramidal signs, parkinsonism, and macroorchidism (PPM-X) syndrome to severe syndromic/nonsyndromic intellectual disability. Females: Classic Rett syndrome, a progressive neurodevelopmental disorder primarily affecting girls, is characterized by apparently normal psychomotor development during the first six to 18 months of life, followed by a short period of developmental stagnation, then rapid regression in language and motor skills, followed by long-term stability. During the phase of rapid regression, repetitive, stereotypic hand movements replace purposeful hand use. Additional findings include fits of screaming and inconsolable crying, autistic features, panic-like attacks, bruxism, episodic apnea and/or hyperpnea, gait ataxia and apraxia, tremors, seizures, and acquired microcephaly. Males: Severe neonatal-onset encephalopathy, the most common phenotype in affected males, is characterized by a relentless clinical course that follows a metabolic-degenerative type of pattern, abnormal tone, involuntary movements, severe seizures, and breathing abnormalities. Death often occurs before age two years.</Attribute>
+                <XRef ID="NBK1497" DB="GeneReviews"/>
+              </AttributeSet>
+              <Citation Type="review" Abbrev="GeneReviews">
+                <ID Source="PubMed">20301670</ID>
+                <ID Source="BookShelf">NBK1497</ID>
+              </Citation>
+              <Citation Type="general" Abbrev="ACMG, 2008">
+                <ID Source="pmc">3111012</ID>
+              </Citation>
+              <Citation Type="general" Abbrev="ACMG, 2013">
+                <ID Source="PubMed">23519317</ID>
+              </Citation>
+              <XRef ID="3095" DB="Orphanet"/>
+              <XRef ID="778" DB="Orphanet"/>
+              <XRef ID="C0035372" DB="MedGen"/>
+              <XRef ID="MONDO:0010726" DB="MONDO"/>
+              <XRef Type="MIM" ID="312750" DB="OMIM"/>
+            </Trait>
+          </TraitSet>
+        </ConditionList>
+      </GermlineClassification>
+    </Classifications>
+    <ClinicalAssertionList>
+      <ClinicalAssertion ID="311045" SubmissionDate="2012-08-08" ContributesToAggregateClassification="false" DateLastUpdated="2014-08-17" DateCreated="2014-08-17">
+        <ClinVarSubmissionID localKey="808C&gt;G"/>
+        <ClinVarAccession Accession="SCV000188245" DateUpdated="2014-08-17" DateCreated="2014-08-17" Type="SCV" Version="1" SubmitterName="RettBASE" OrgID="504290" OrganizationCategory="locus-specific database (LSDB)"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification>
+          <ReviewStatus>no classification provided</ReviewStatus>
+          <GermlineClassification>not provided</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>not provided</Origin>
+              <Species>human</Species>
+              <AffectedStatus>not provided</AffectedStatus>
+              <NumberTested>1</NumberTested>
+            </Sample>
+            <Method>
+              <MethodType>not provided</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">AJ132917.1:c.808C&gt;G</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">not provided</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>CHWRETT_2012_1_30</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="10938991" SubmissionDate="2025-02-02" ContributesToAggregateClassification="true" DateLastUpdated="2025-02-08" DateCreated="2025-02-08">
+        <ClinVarSubmissionID localKey="6450984e-6e60-40a4-aa07-831c3730ca1a" localKeyIsSubmitted="1" submittedAssembly="GRCh38"/>
+        <ClinVarAccession Accession="SCV005687586" DateUpdated="2025-02-08" DateCreated="2025-02-08" Type="SCV" Version="1" SubmitterName="Centre for Population Genomics, CPG" OrgID="509293" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2025-01-03">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Uncertain significance</GermlineClassification>
+          <Comment>Based on the classification scheme defined by the ClinGen Rett/Angelman-like Expert Panel for Rett/AS-like Disorders Specifications to the ACMG/AMP Variant Interpretation Guidelines VCEP 3.0, this variant is classified as a variant of uncertain significance. At least the following criteria are met: This variant is absent from gnomAD (PM2_Supporting).</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="ModeOfInheritance">X-linked inheritance</Attribute>
+        </AttributeSet>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">McKnight et al. (Hum Mutat. 2022)</Attribute>
+          <Citation>
+            <ID Source="PubMed">34837432</ID>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>curation</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MECP2"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <OtherNameList>
+            <Name>NM_001110792.2(MECP2):c.844C&gt;G</Name>
+            <Name>p.Arg282Gly</Name>
+          </OtherNameList>
+          <AttributeSet>
+            <Attribute Type="HGVS">NC_000023.11:g.154031020G&gt;C</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="MONDO" ID="MONDO:0010726"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB15056820</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+    </ClinicalAssertionList>
+    <TraitMappingList>
+      <TraitMapping ClinicalAssertionID="311045" TraitType="Disease" MappingType="Name" MappingValue="not provided" MappingRef="Preferred">
+        <MedGen CUI="C3661900" Name="not provided"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="10938991" TraitType="Disease" MappingType="XRef" MappingValue="MONDO:0010726" MappingRef="MONDO">
+        <MedGen CUI="C0035372" Name="Rett syndrome"/>
+      </TraitMapping>
+    </TraitMappingList>
+  </ClassifiedRecord>
+</VariationArchive>
+</ClinVarResult-Set>

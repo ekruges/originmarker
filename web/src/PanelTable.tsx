@@ -3,7 +3,10 @@ import {
   Alert, Anchor, Badge, Group, List, Pagination, Paper, Select, Table, Text, TextInput,
   Tooltip,
 } from '@mantine/core'
-import { isUpper, links, posMismatch, TIER_LABEL, type Marker, type PanelResult } from './api'
+import {
+  flankingRule, isUpper, links, posMismatch, starred, TIER_LABEL, type Marker,
+  type PanelResult,
+} from './api'
 import { int, num, sig2, signedBp } from './fmt'
 import { ancestryHet, applyPreset, type Preset, PRESETS } from './rank'
 
@@ -23,6 +26,29 @@ const ensemblPos = (check: string | null) => {
  * threshold, so `hotspot_between === false` there means "not assessed", not "no hotspot".
  */
 const hotspotAssessed = (m: Marker) => m.hotspot_between != null && m.map_approx === false
+
+/** What the star claims, for a reader who cannot see it. Short because a screen reader
+ *  reads it once per starred row; the engine's full wording is the legend, in page text. */
+const STAR_CLAIM = 'meets ESHRE flanking criteria'
+
+/** The engine's legend opens with a literal ★ naming the glyph. The words are rendered
+ *  verbatim; only that one character is dropped, because the real glyph is drawn in its
+ *  place. A legend without the prefix loses nothing. */
+const legendWords = (legend: string) => legend.replace(/^\s*★\s*/, '')
+
+/** Shape, not colour, carries the star: it survives a greyscale print and a colour-blind
+ *  reader. Yellow is decoration only, and the dark rim is what makes it legible on white. */
+const Star = () => (
+  <svg width={11} height={11} viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+    <path
+      d="M10 1.6l2.6 5.2 5.8.9-4.2 4.1 1 5.7-5.2-2.7-5.2 2.7 1-5.7-4.2-4.1 5.8-.9z"
+      fill="#f5b301"
+      stroke="#6b5200"
+      strokeWidth={1.4}
+      strokeLinejoin="round"
+    />
+  </svg>
+)
 
 type SortKey = 'pos' | 'dist' | 'maf' | 'het' | 'anc' | 'cm' | 'theta'
 
@@ -46,6 +72,10 @@ export function PanelTable({ result, ancestry }: Props) {
   // not be silenceable by filtering or switching scope. The engine cross-checks positions
   // after selecting the panel, so a disputed marker is still shortlisted.
   const disputed = useMemo(() => candidates.filter(posMismatch), [candidates])
+
+  // The rule gates the glyph and its words together: no rule, no stars at all, whatever the
+  // rows happen to carry. A star the page cannot explain is worse than no star.
+  const rule = flankingRule(result.provenance)
 
   useEffect(() => setPage(1), [scope, preset, q, ancestry, sort])
 
@@ -191,6 +221,13 @@ export function PanelTable({ result, ancestry }: Props) {
         </Text>
       </Group>
 
+      {rule && (
+        <Group gap={6} px={8} pb={8} wrap="nowrap" align="flex-start">
+          <span style={{ lineHeight: 0, paddingTop: 2 }}><Star /></span>
+          <Text size="xs" c="dimmed">{legendWords(rule.legend)}</Text>
+        </Group>
+      )}
+
       <div style={{ overflowX: 'auto' }}>
         <Table className="om-table" striped="even" highlightOnHover stickyHeader>
           <Table.Thead>
@@ -235,6 +272,17 @@ export function PanelTable({ result, ancestry }: Props) {
                       {recSet.has(m.variant_id) && scope === 'all' && (
                         <Tooltip label="shortlisted" withArrow>
                           <span style={{ color: 'var(--om-blue)' }} aria-label="shortlisted">●</span>
+                        </Tooltip>
+                      )}
+                      {rule && starred(m) && (
+                        <Tooltip label={rule.legend} withArrow multiline w={300}>
+                          <span
+                            role="img"
+                            aria-label={STAR_CLAIM}
+                            style={{ lineHeight: 0, cursor: 'help' }}
+                          >
+                            <Star />
+                          </span>
                         </Tooltip>
                       )}
                       {m.rsid}

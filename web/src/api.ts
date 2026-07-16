@@ -81,9 +81,45 @@ export interface Marker {
   recomb_fraction: number | null
   hotspot_between: boolean | null
   map_approx: boolean | null
+  /** The engine's verdict that this marker meets ESHRE's structural flanking criteria
+   *  (panelbuilder.FLANKING_CRITERIA). Never recomputed here: the engine applies the rule
+   *  once, and a mirror is a place to drift. Absent on a panel built before the rule
+   *  shipped, which is silence, not false. */
+  meets_eshre_flanking_criteria?: boolean
 }
 
 export const isUpper = (m: Marker) => m.dist > 0
+
+/** The Marker field the star rule writes to, as panelbuilder.FLANKING_CRITERIA["field"]
+ *  names it. Read through this so `flankingRule`'s name check governs the actual access. */
+const STAR_FIELD = 'meets_eshre_flanking_criteria'
+
+/** The engine judged this marker and said yes. Anything else, absent included, is not a
+ *  star: only `true` may print one. */
+export const starred = (m: Marker) => m[STAR_FIELD] === true
+
+/** The engine's own statement of the star rule: its field, its numbers and its words. The
+ *  UI renders `legend` verbatim and never restates the rule. */
+export interface FlankingCriteria {
+  field: string
+  max_dist_bp: number
+  min_per_side: number
+  legend: string
+  note: string[]
+}
+
+/**
+ * The star rule this panel was built under, or null if the star cannot be honestly drawn.
+ *
+ * Null on an older panel that has no rule, and on a rule whose verdict no longer lands in
+ * the field read here: a renamed field would otherwise show as a legend above rows that
+ * quietly lost their stars, which reads as "none qualified". Both are silence, and silence
+ * must render as nothing at all rather than as a rule the page cannot show the results of.
+ */
+export const flankingRule = (p: Provenance): FlankingCriteria | null => {
+  const fc = p.flanking_criteria
+  return fc && fc.field === STAR_FIELD && fc.legend ? fc : null
+}
 
 /**
  * Two independent sources disagree about where this marker IS.
@@ -100,6 +136,11 @@ export interface Coverage {
   higher_count: number
   lower_core_near: number
   higher_core_near: number
+  /** Shortlisted markers meeting the flanking criteria, per side. The engine also flags a
+   *  side that falls under its own minimum into `flags`, so a reader is told without these
+   *  being rendered. Absent on a panel built before the rule shipped. */
+  lower_flanking_count?: number
+  higher_flanking_count?: number
   flags: string[]
 }
 
@@ -111,6 +152,9 @@ export interface Provenance {
   ancestry_rank: string | null
   candidate_n: number
   requested_build: string
+  /** The star rule, in the engine's words. Read it through `flankingRule`, never directly:
+   *  its presence alone does not mean the star is safe to draw. */
+  flanking_criteria?: FlankingCriteria
   /** The Ensembl release THIS panel was built against. Optional: older panels carry none
    *  and must render as unknown. Never substitute the live server's release, which is a
    *  fact about now, not about this panel. */
