@@ -1,0 +1,3011 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+                        
+<ClinVarResult-Set><VariationArchive VariationID="3520" VariationName="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val)" VariationType="single nucleotide variant" Accession="VCV000003520" Version="141" RecordType="classified" NumberOfSubmissions="23" NumberOfSubmitters="23" DateLastUpdated="2026-07-15" DateCreated="2014-11-13" MostRecentSubmission="2026-06-27">
+  <RecordStatus>current</RecordStatus>
+  <Species>Homo sapiens</Species>
+  <ClassifiedRecord>
+    <SimpleAllele AlleleID="18559" VariationID="3520">
+      <GeneList>
+        <Gene Symbol="MTHFR" FullName="methylenetetrahydrofolate reductase" GeneID="4524" HGNC_ID="HGNC:7436" Source="submitted" RelationshipType="within single gene">
+          <Location>
+            <CytogeneticLocation>1p36.22</CytogeneticLocation>
+            <SequenceLocation Assembly="GRCh38" AssemblyAccessionVersion="GCF_000001405.38" AssemblyStatus="current" Chr="1" Accession="NC_000001.11" start="11785723" stop="11805964" display_start="11785723" display_stop="11805964" Strand="-"/>
+            <SequenceLocation Assembly="GRCh37" AssemblyAccessionVersion="GCF_000001405.25" AssemblyStatus="previous" Chr="1" Accession="NC_000001.10" start="11845786" stop="11866159" display_start="11845786" display_stop="11866159" Strand="-"/>
+          </Location>
+          <OMIM>607093</OMIM>
+          <Haploinsufficiency last_evaluated="2016-08-22" ClinGen="https://www.ncbi.nlm.nih.gov/projects/dbvar/ISCA/isca_gene.cgi?sym=MTHFR">Gene associated with autosomal recessive phenotype</Haploinsufficiency>
+          <Triplosensitivity last_evaluated="2016-08-22" ClinGen="https://www.ncbi.nlm.nih.gov/projects/dbvar/ISCA/isca_gene.cgi?sym=MTHFR">Not yet evaluated</Triplosensitivity>
+        </Gene>
+      </GeneList>
+      <Name>NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val)</Name>
+      <CanonicalSPDI>NC_000001.11:11796320:G:A</CanonicalSPDI>
+      <VariantType>single nucleotide variant</VariantType>
+      <Location>
+        <CytogeneticLocation>1p36.22</CytogeneticLocation>
+        <SequenceLocation Assembly="GRCh38" AssemblyAccessionVersion="GCF_000001405.38" forDisplay="true" AssemblyStatus="current" Chr="1" Accession="NC_000001.11" start="11796321" stop="11796321" display_start="11796321" display_stop="11796321" variantLength="1" positionVCF="11796321" referenceAlleleVCF="G" alternateAlleleVCF="A"/>
+        <SequenceLocation Assembly="GRCh37" AssemblyAccessionVersion="GCF_000001405.25" AssemblyStatus="previous" Chr="1" Accession="NC_000001.10" start="11856378" stop="11856378" display_start="11856378" display_stop="11856378" variantLength="1" positionVCF="11856378" referenceAlleleVCF="G" alternateAlleleVCF="A"/>
+      </Location>
+      <OtherNameList>
+        <Name>MTHFR, 677C-T, ALA222VAL (rs1801133)</Name>
+        <Name>C667T</Name>
+      </OtherNameList>
+      <ProteinChange>A222V</ProteinChange>
+      <ProteinChange>A263V</ProteinChange>
+      <HGVSlist>
+        <HGVS Type="genomic">
+          <NucleotideExpression sequenceAccessionVersion="LRG_726" sequenceAccession="LRG_726">
+            <Expression>LRG_726:g.14783C&gt;T</Expression>
+          </NucleotideExpression>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="LRG_726t1" sequenceAccession="LRG_726t1">
+            <Expression>LRG_726t1:c.665C&gt;T</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="LRG_726p1" sequenceAccession="LRG_726p1" change="p.Ala222Val">
+            <Expression>LRG_726p1:p.Ala222Val</Expression>
+          </ProteinExpression>
+        </HGVS>
+        <HGVS Type="protein">
+          <ProteinExpression sequenceAccessionVersion="P42898" sequenceAccession="P42898" change="p.Ala222Val">
+            <Expression>P42898:p.Ala222Val</Expression>
+          </ProteinExpression>
+        </HGVS>
+        <HGVS Assembly="GRCh37" Type="genomic, top-level">
+          <NucleotideExpression sequenceAccessionVersion="NC_000001.10" sequenceAccession="NC_000001" sequenceVersion="10" change="g.11856378G&gt;A" Assembly="GRCh37">
+            <Expression>NC_000001.10:g.11856378G&gt;A</Expression>
+          </NucleotideExpression>
+        </HGVS>
+        <HGVS Assembly="GRCh38" Type="genomic, top-level">
+          <NucleotideExpression sequenceAccessionVersion="NC_000001.11" sequenceAccession="NC_000001" sequenceVersion="11" change="g.11796321G&gt;A" Assembly="GRCh38">
+            <Expression>NC_000001.11:g.11796321G&gt;A</Expression>
+          </NucleotideExpression>
+        </HGVS>
+        <HGVS Type="genomic">
+          <NucleotideExpression sequenceAccessionVersion="NG_013351.1" sequenceAccession="NG_013351" sequenceVersion="1" change="g.14783C&gt;T">
+            <Expression>NG_013351.1:g.14783C&gt;T</Expression>
+          </NucleotideExpression>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_001330358.2" sequenceAccession="NM_001330358" sequenceVersion="2" change="c.788C&gt;T">
+            <Expression>NM_001330358.2:c.788C&gt;T</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_001317287.1" sequenceAccession="NP_001317287" sequenceVersion="1" change="p.Ala263Val" singleLetterProteinChange="A263V">
+            <Expression>NP_001317287.1:p.Ala263Val</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+        <HGVS Type="coding">
+          <NucleotideExpression sequenceAccessionVersion="NM_005957.5" sequenceAccession="NM_005957" sequenceVersion="5" change="c.665C&gt;T" MANESelect="true">
+            <Expression>NM_005957.5:c.665C&gt;T</Expression>
+          </NucleotideExpression>
+          <ProteinExpression sequenceAccessionVersion="NP_005948.3" sequenceAccession="NP_005948" sequenceVersion="3" change="p.Ala222Val" singleLetterProteinChange="A222V">
+            <Expression>NP_005948.3:p.Ala222Val</Expression>
+          </ProteinExpression>
+          <MolecularConsequence ID="SO:0001583" Type="missense variant" DB="SO"/>
+        </HGVS>
+      </HGVSlist>
+      <XRefList>
+        <XRef ID="GTR000327733" DB="Genetic Testing Registry (GTR)"/>
+        <XRef ID="GTR000330970" DB="Genetic Testing Registry (GTR)"/>
+        <XRef ID="GTR000500035" DB="Genetic Testing Registry (GTR)"/>
+        <XRef ID="GTR000500809" DB="Genetic Testing Registry (GTR)"/>
+        <XRef ID="GTR000569929" DB="Genetic Testing Registry (GTR)"/>
+        <XRef ID="GTR000593372" DB="Genetic Testing Registry (GTR)"/>
+        <XRef ID="GTR000613302" DB="Genetic Testing Registry (GTR)"/>
+        <XRef ID="GTR000619762" DB="Genetic Testing Registry (GTR)"/>
+        <XRef ID="P42898#VAR_009528" DB="UniProtKB"/>
+        <XRef Type="Allelic variant" ID="607093.0003" DB="OMIM"/>
+        <XRef Type="rs" ID="1801133" DB="dbSNP"/>
+        <XRef ID="981204929" DB="ClinPGx Clinical Annotation"/>
+        <XRef ID="981220481" DB="ClinPGx Clinical Annotation"/>
+        <XRef ID="CA170990" DB="ClinGen"/>
+      </XRefList>
+      <AlleleFrequencyList>
+        <AlleleFrequency Value="0.24541" Source="1000 Genomes Project"/>
+        <AlleleFrequency Value="0.24625" Source="1000 Genomes Project 30x"/>
+        <AlleleFrequency Value="0.27057" Source="NHLBI Exome Sequencing Project (ESP) Exome Variant Server"/>
+        <AlleleFrequency Value="0.27358" Source="The Genome Aggregation Database (gnomAD)"/>
+        <AlleleFrequency Value="0.27446" Source="The Genome Aggregation Database (gnomAD)"/>
+        <AlleleFrequency Value="0.29124" Source="Trans-Omics for Precision Medicine (TOPMed)"/>
+        <AlleleFrequency Value="0.30367" Source="Exome Aggregation Consortium (ExAC)"/>
+        <AlleleFrequency Value="0.31486" Source="The Genome Aggregation Database (gnomAD), exomes"/>
+        <AlleleFrequency Value="0.32334" Source="The Genome Aggregation Database (gnomAD), exomes"/>
+      </AlleleFrequencyList>
+      <GlobalMinorAlleleFrequency Value="0.24541" Source="1000 Genomes Project" MinorAllele="A"/>
+    </SimpleAllele>
+    <RCVList>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND MTHFR THERMOLABILE POLYMORPHISM" Accession="RCV000003697" Version="18">
+        <ClassifiedConditionList TraitSetID="916">
+          <ClassifiedCondition DB="MedGen" ID="C1856059">MTHFR THERMOLABILE POLYMORPHISM</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>no assertion criteria provided</ReviewStatus>
+            <Description DateLastEvaluated="2023-09-29" SubmissionCount="2">Conflicting classifications of pathogenicity</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND Gastrointestinal stromal tumor" Accession="RCV000144921" Version="9">
+        <ClassifiedConditionList TraitSetID="6607">
+          <ClassifiedCondition DB="MedGen" ID="C0238198">Gastrointestinal stromal tumor</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>no assertion criteria provided</ReviewStatus>
+            <Description SubmissionCount="1">Uncertain significance</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND not provided" Accession="RCV000153516" Version="56">
+        <ClassifiedConditionList TraitSetID="9460">
+          <ClassifiedCondition DB="MedGen" ID="C3661900">not provided</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>criteria provided, multiple submitters, no conflicts</ReviewStatus>
+            <Description DateLastEvaluated="2024-11-22" SubmissionCount="3">Uncertain significance; association; other</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND Neural tube defects, folate-sensitive" Accession="RCV000259890" Version="12">
+        <ClassifiedConditionList TraitSetID="6564">
+          <ClassifiedCondition DB="MedGen" ID="C1866558">Neural tube defects, folate-sensitive</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>criteria provided, conflicting classifications</ReviewStatus>
+            <Description DateLastEvaluated="2025-07-16" SubmissionCount="3">Conflicting classifications of pathogenicity</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND not specified" Accession="RCV000428048" Version="14">
+        <ClassifiedConditionList TraitSetID="9590">
+          <ClassifiedCondition DB="MedGen" ID="CN169374">not specified</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+            <Description DateLastEvaluated="2016-04-25" SubmissionCount="4">Benign</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND Homocystinuria due to methylene tetrahydrofolate reductase deficiency" Accession="RCV001030751" Version="29">
+        <ClassifiedConditionList TraitSetID="6457">
+          <ClassifiedCondition DB="MedGen" ID="C1856061">Homocystinuria due to methylene tetrahydrofolate reductase deficiency</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>criteria provided, conflicting classifications</ReviewStatus>
+            <Description DateLastEvaluated="2026-02-04" SubmissionCount="6">Conflicting classifications of pathogenicity</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND methotrexate response - Toxicity" Accession="RCV001847567" Version="12">
+        <ClassifiedConditionList TraitSetID="20110">
+          <ClassifiedCondition DB="MedGen" ID="C0568062">methotrexate response - Toxicity</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>reviewed by expert panel</ReviewStatus>
+            <Description DateLastEvaluated="2021-03-24" SubmissionCount="1">drug response</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND See cases" Accession="RCV004584309" Version="3">
+        <ClassifiedConditionList TraitSetID="16994">
+          <ClassifiedCondition>See cases</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+            <Description DateLastEvaluated="2022-01-06" SubmissionCount="1">Uncertain significance</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND Thrombophilia due to thrombin defect" Accession="RCV005419857" Version="2">
+        <ClassifiedConditionList TraitSetID="103327">
+          <ClassifiedCondition DB="MedGen" ID="C3160733">Thrombophilia due to thrombin defect</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>no assertion criteria provided</ReviewStatus>
+            <Description DateLastEvaluated="2017-12-30" SubmissionCount="1">Uncertain significance</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+      <RCVAccession Title="NM_005957.5(MTHFR):c.665C&gt;T (p.Ala222Val) AND Stroke disorder" Accession="RCV006707576" Version="1">
+        <ClassifiedConditionList TraitSetID="23978">
+          <ClassifiedCondition DB="MedGen" ID="C0038454">Stroke disorder</ClassifiedCondition>
+        </ClassifiedConditionList>
+        <RCVClassifications>
+          <GermlineClassification>
+            <ReviewStatus>no assertion criteria provided</ReviewStatus>
+            <Description DateLastEvaluated="2026-06-08" SubmissionCount="1">Likely risk allele</Description>
+          </GermlineClassification>
+        </RCVClassifications>
+      </RCVAccession>
+    </RCVList>
+    <Classifications>
+      <GermlineClassification DateLastEvaluated="2021-03-24" NumberOfSubmissions="23" NumberOfSubmitters="23" DateCreated="2014-11-13" MostRecentSubmission="2026-06-27">
+        <ReviewStatus>reviewed by expert panel</ReviewStatus>
+        <Description>drug response</Description>
+        <Explanation DataSource="ClinVar" Type="public">drug response (1)</Explanation>
+        <Citation Type="general">
+          <ID Source="PubMed">10196703</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">10323741</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">10440833</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">10679944</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">10732818</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">10869114</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">10930360</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11121176</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11140843</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11418485</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11710708</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11781870</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11807890</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11863127</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11888585</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">11929966</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12080391</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12095808</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12154064</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12165282</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12196644</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12221667</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12356947</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12383688</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12384649</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12387655</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12400059</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12406076</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12428084</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12453860</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12529699</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12560871</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12673793</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12796225</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">12915598</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15054400</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15103709</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15154859</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15173232</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">1522835</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15534175</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15565101</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15704130</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15729744</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15806605</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">15808177</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16172608</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16365871</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16402130</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16432849</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16470725</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16501586</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16712703</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16800002</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">16870553</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">17284634</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">17350979</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">17436239</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">17488658</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">17512587</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">17543893</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">17726486</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">17898028</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">18381794</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">18458567</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">18583979</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">19031955</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">19648163</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">20154341</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">20472929</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">20514079</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">20595278</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">20863444</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">21534867</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">21644011</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">21931346</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">22074251</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">22143415</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">23089671</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">23095111</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">23488607</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">23648444</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">24241962</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25007187</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25110820</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25162892</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25177243</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25227144</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25736335</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25778468</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25856670</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">26872964</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">27104192</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">27217051</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">27399166</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">27781293</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">27992285</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">28696419</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">29589488</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">29911750</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">30684021</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">32612964</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">32695297</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">7564788</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">7647779</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">7741859</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8542260</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8554053</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8554066</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8616944</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8771990</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8826441</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8837319</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8892013</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8903338</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8981967</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">8994411</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9133512</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9192280</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9244205</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9341863</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9372726</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9453374</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9545395</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9545406</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9737770</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9789068</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9798595</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9843036</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">9863598</ID>
+        </Citation>
+        <Citation Type="general">
+          <URL>http://www.egl-eurofins.com/emvclass/emvclass.php?approved_symbol=MTHFR</URL>
+        </Citation>
+        <Citation Type="general">
+          <URL>https://www.pharmgkb.org/clinicalAnnotation/655385307</URL>
+        </Citation>
+        <Citation Type="general">
+          <URL>https://www.pharmgkb.org/clinicalAnnotation/827848365</URL>
+        </Citation>
+        <Citation Type="general">
+          <URL>https://www.pharmgkb.org/variant/PA166153644</URL>
+        </Citation>
+        <ConditionList>
+          <TraitSet ID="103327" Type="Disease" ContributesToAggregateClassification="false">
+            <Trait ID="24727" Type="Disease">
+              <Name>
+                <ElementValue Type="Alternate">Prothrombin Thrombophilia</ElementValue>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Thrombosis susceptibility</ElementValue>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">THROMBOPHILIA DUE TO FACTOR 2 DEFECT</ElementValue>
+                <XRef Type="MIM" ID="188050" DB="OMIM"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Prothrombin-Related Thrombophilia (Factor II)</ElementValue>
+              </Name>
+              <Name>
+                <ElementValue Type="Preferred">Thrombophilia due to thrombin defect</ElementValue>
+                <XRef ID="MONDO:0008559" DB="MONDO"/>
+              </Name>
+              <Symbol>
+                <ElementValue Type="Preferred">THPH1</ElementValue>
+                <XRef ID="GTR000500321" DB="Genetic Testing Registry (GTR)"/>
+                <XRef Type="MIM" ID="188050" DB="OMIM"/>
+              </Symbol>
+              <AttributeSet>
+                <Attribute Type="public definition">Prothrombin thrombophilia is characterized by venous thromboembolism (VTE) manifest most commonly in adults as deep-vein thrombosis (DVT) in the legs or pulmonary embolism. The clinical expression of prothrombin thrombophilia is variable; many individuals heterozygous or homozygous for the 20210G&gt;A F2 variant never develop thrombosis, and while most heterozygotes who develop thrombotic complications remain asymptomatic until adulthood, some have recurrent thromboembolism before age 30 years. The relative risk for DVT in adults heterozygous for the 20210G&gt;A variant is two- to fivefold increased; in children, the relative risk for thrombosis is three- to fourfold increased. Heterozygosity for 20210G&gt;A has at most a modest effect on recurrence risk after a first episode. Although prothrombin thrombophilia may increase the risk for pregnancy loss, its association with preeclampsia and other complications of pregnancy such as intrauterine growth restriction and placental abruption remains controversial. Factors that predispose to thrombosis in prothrombin thrombophilia include: the number of 20210G&gt;A alleles; presence of coexisting genetic abnormalities including factor V Leiden; and acquired thrombophilic disorders (e.g., antiphospholipid antibodies). Circumstantial risk factors for thrombosis include pregnancy and oral contraceptive use. Some evidence suggests that the risk for VTE in 20210G&gt;A heterozygotes increases after air travel.</Attribute>
+                <XRef ID="NBK1148" DB="GeneReviews"/>
+              </AttributeSet>
+              <AttributeSet>
+                <Attribute Type="disease mechanism" integerValue="274">gain of function</Attribute>
+                <XRef ID="GTR000520021" DB="Genetic Testing Registry (GTR)"/>
+                <XRef ID="GTR000025288" DB="Genetic Testing Registry (GTR)"/>
+                <XRef ID="GTR000521660" DB="Genetic Testing Registry (GTR)"/>
+                <XRef ID="GTR000552060" DB="Genetic Testing Registry (GTR)"/>
+                <XRef ID="GTR000174333" DB="Genetic Testing Registry (GTR)"/>
+                <XRef ID="GTR000502122" DB="Genetic Testing Registry (GTR)"/>
+                <XRef ID="GTR000520078" DB="Genetic Testing Registry (GTR)"/>
+              </AttributeSet>
+              <AttributeSet>
+                <Attribute Type="disease mechanism" integerValue="273">loss of function</Attribute>
+                <XRef ID="GTR000323271" DB="Genetic Testing Registry (GTR)"/>
+              </AttributeSet>
+              <AttributeSet>
+                <Attribute Type="GARD id" integerValue="10815"/>
+                <XRef ID="10815" DB="Office of Rare Diseases"/>
+              </AttributeSet>
+              <Citation Type="review" Abbrev="GeneReviews">
+                <ID Source="PubMed">20301327</ID>
+                <ID Source="BookShelf">NBK1148</ID>
+              </Citation>
+              <Citation Type="general" Abbrev="ACOG, 2011">
+                <ID Source="PubMed">21860314</ID>
+              </Citation>
+              <Citation Type="general" Abbrev="Brit Cmt Stand Hematol, 2010">
+                <ID Source="PubMed">20128794</ID>
+              </Citation>
+              <Citation Type="general" Abbrev="ACOG, 2018">
+                <ID Source="PubMed">30247353</ID>
+              </Citation>
+              <Citation Type="general" Abbrev="BSH, 2022">
+                <ID Source="PubMed">35645034</ID>
+              </Citation>
+              <XRef ID="C3160733" DB="MedGen"/>
+              <XRef ID="MONDO:0008559" DB="MONDO"/>
+              <XRef Type="MIM" ID="188050" DB="OMIM"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="20110" Type="Disease" ContributesToAggregateClassification="true">
+            <Trait ID="32453" Type="DrugResponse">
+              <Name>
+                <ElementValue Type="Preferred">methotrexate response - Toxicity</ElementValue>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Methotrexate poisoning</ElementValue>
+                <XRef ID="290680001" DB="SNOMED CT"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Methotrexate toxicity</ElementValue>
+                <XRef ID="MONDO:0034212" DB="MONDO"/>
+              </Name>
+              <XRef ID="565782" DB="Orphanet"/>
+              <XRef ID="C0568062" DB="MedGen"/>
+              <XRef ID="MONDO:0034212" DB="MONDO"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="9590" Type="Disease" ContributesToAggregateClassification="false">
+            <Trait ID="16789" Type="Disease">
+              <Name>
+                <ElementValue Type="Alternate">AllHighlyPenetrant</ElementValue>
+              </Name>
+              <Name>
+                <ElementValue Type="Preferred">not specified</ElementValue>
+              </Name>
+              <AttributeSet>
+                <Attribute Type="public definition">The term 'not specified' was created for use in ClinVar so that submitters can convey the concept that a variant is benign, likely benign, or of uncertain significance for an unspecified set of disorders.  This usage was introduced in 2014 to replace AllHighlyPenetrant.</Attribute>
+              </AttributeSet>
+              <XRef ID="CN169374" DB="MedGen"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="9460" Type="Disease" ContributesToAggregateClassification="false">
+            <Trait ID="17556" Type="Disease">
+              <Name>
+                <ElementValue Type="Preferred">not provided</ElementValue>
+                <XRef ID="13DG0619" DB="Genomic Medicine Center of Excellence, King Faisal Specialist Hospital and Research Centre"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">none provided</ElementValue>
+              </Name>
+              <AttributeSet>
+                <Attribute Type="public definition">The term 'not provided' is registered in MedGen to support identification of submissions to ClinVar for which no condition was named when assessing the variant. 'not provided' differs from 'not specified', which is used when a variant is asserted to be benign, likely benign, or of uncertain significance for conditions that have not been specified.</Attribute>
+              </AttributeSet>
+              <XRef ID="C3661900" DB="MedGen"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="6457" Type="Disease" ContributesToAggregateClassification="false">
+            <Trait ID="1657" Type="Disease">
+              <Name>
+                <ElementValue Type="Alternate">Homocystinuria due to Deficiency of N(5,10)-Methylenetetrahydrofolate Reductase Activity</ElementValue>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">HOMOCYSTEINURIA DUE TO MTHFR DEFICIENCY</ElementValue>
+                <XRef Type="Allelic variant" ID="607093.0010" DB="OMIM"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Preferred">Homocystinuria due to methylene tetrahydrofolate reductase deficiency</ElementValue>
+                <XRef ID="MONDO:0009353" DB="MONDO"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Homocystinuria due to MTHFR deficiency</ElementValue>
+              </Name>
+              <AttributeSet>
+                <Attribute Type="GARD id" integerValue="2734"/>
+                <XRef ID="2734" DB="Office of Rare Diseases"/>
+              </AttributeSet>
+              <AttributeSet>
+                <Attribute Type="public definition">Homocystinuria due to deficiency of N(5,10)-methylenetetrahydrofolate reductase (MTHFR) activity can present in the neonatal period, adolescence, or adulthood. Neonatal onset is typically characterized by postnatal microcephaly, developmental delays, feeding difficulties, growth deficiency, seizures, intellectual disability, neonatal apneas, motor and gait abnormalities, psychiatric manifestations, a history of stroke, and progressive neurologic deterioration. Individuals with adolescent or adult onset may present with milder clinical manifestations, which may include thromboembolic events, lens dislocation, and less commonly cognitive decline, psychiatric manifestations, seizures, and/or motor and gait abnormalities.</Attribute>
+                <XRef ID="NBK615089" DB="GeneReviews"/>
+              </AttributeSet>
+              <Citation Type="review" Abbrev="Medical Genetics Summaries">
+                <ID Source="BookShelf">NBK66131</ID>
+              </Citation>
+              <Citation Type="review" Abbrev="GeneReviews">
+                <ID Source="PubMed">40440437</ID>
+                <ID Source="BookShelf">NBK615089</ID>
+              </Citation>
+              <XRef ID="395" DB="Orphanet"/>
+              <XRef ID="C1856061" DB="MedGen"/>
+              <XRef ID="MONDO:0009353" DB="MONDO"/>
+              <XRef Type="MIM" ID="236250" DB="OMIM"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="6564" Type="Disease" ContributesToAggregateClassification="false">
+            <Trait ID="3449" Type="Disease">
+              <Name>
+                <ElementValue Type="Preferred">Neural tube defects, folate-sensitive</ElementValue>
+                <XRef ID="MONDO:0011120" DB="MONDO"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">NTD, FOLATE-SENSITIVE</ElementValue>
+                <XRef Type="MIM" ID="601634" DB="OMIM"/>
+              </Name>
+              <Symbol>
+                <ElementValue Type="Preferred">NTDFS</ElementValue>
+                <XRef Type="MIM" ID="601634" DB="OMIM"/>
+              </Symbol>
+              <AttributeSet>
+                <Attribute Type="GARD id" integerValue="24774"/>
+                <XRef ID="24774" DB="Office of Rare Diseases"/>
+              </AttributeSet>
+              <XRef ID="823" DB="Orphanet"/>
+              <XRef ID="C1866558" DB="MedGen"/>
+              <XRef ID="MONDO:0011120" DB="MONDO"/>
+              <XRef Type="MIM" ID="601634" DB="OMIM"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="6607" Type="Disease" ContributesToAggregateClassification="false">
+            <Trait ID="2160" Type="Disease">
+              <Name>
+                <ElementValue Type="Preferred">Gastrointestinal stromal tumor</ElementValue>
+                <XRef ID="MONDO:0011719" DB="MONDO"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Gastrointestinal stromal tumor, somatic</ElementValue>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Gastrointestinal stroma tumor</ElementValue>
+                <XRef ID="HP:0100723" DB="Human Phenotype Ontology"/>
+              </Name>
+              <Symbol>
+                <ElementValue Type="Alternate">GIST</ElementValue>
+                <XRef Type="MIM" ID="606764" DB="OMIM"/>
+              </Symbol>
+              <AttributeSet>
+                <Attribute Type="GARD id" integerValue="8598"/>
+                <XRef ID="8598" DB="Office of Rare Diseases"/>
+              </AttributeSet>
+              <AttributeSet>
+                <Attribute Type="keyword">Hereditary cancer syndrome</Attribute>
+              </AttributeSet>
+              <Citation Type="general" Abbrev="UK NEQAS, 2012">
+                <ID Source="PubMed">22685257</ID>
+              </Citation>
+              <Citation Type="general" Abbrev="ACMG/NSGC, 2015">
+                <ID Source="PubMed">25394175</ID>
+              </Citation>
+              <Citation Type="general" Abbrev="EGTM, 2014">
+                <ID Source="PubMed">23852704</ID>
+              </Citation>
+              <Citation Type="practice guideline" Abbrev="NCCN, 2023">
+                <URL>https://www.nccn.org/professionals/physician_gls/pdf/gist.pdf</URL>
+                <CitationText>NCCN Clinical Practice Guidelines in Oncology (NCCN Guidelines®) Gastrointestinal Stromal Tumors, 2023</CitationText>
+              </Citation>
+              <Citation Type="practice guideline" Abbrev="NCCN, 2024">
+                <URL>https://www.nccn.org/professionals/physician_gls/pdf/sarcoma.pdf</URL>
+                <CitationText>NCCN Clinical Practice Guidelines in Oncology (NCCN Guidelines®), Soft Tissue Sarcoma, 2024</CitationText>
+              </Citation>
+              <XRef ID="44890" DB="Orphanet"/>
+              <XRef ID="C0238198" DB="MedGen"/>
+              <XRef ID="D046152" DB="MeSH"/>
+              <XRef ID="MONDO:0011719" DB="MONDO"/>
+              <XRef Type="MIM" ID="606764" DB="OMIM"/>
+              <XRef Type="primary" ID="HP:0100723" DB="Human Phenotype Ontology"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="916" Type="Disease" ContributesToAggregateClassification="false">
+            <Trait ID="9286" Type="Disease">
+              <Name>
+                <ElementValue Type="Preferred">MTHFR THERMOLABILE POLYMORPHISM</ElementValue>
+                <XRef Type="Allelic variant" ID="607093.0003" DB="OMIM"/>
+                <XRef Type="Allelic variant" ID="607093.0004" DB="OMIM"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">MTHFR DEFICIENCY, THERMOLABILE TYPE</ElementValue>
+                <XRef ID="236250" DB="OMIM"/>
+              </Name>
+              <AttributeSet>
+                <Attribute Type="public definition">Methylenetetrahydrofolate Reductase (MTHFR) Deficiency is the most common genetic cause of elevated levels of homocysteine in the plasma (hyperhomocysteinemia). The MTHFR enzyme plays an important role in processing amino acids, specifically, the conversion of homocysteine to methionine. Genetic variations in the MTHFR gene can lead to impaired function or inactivation of this enzyme, which results in mildly elevated levels of homocysteine, especially in individuals who are also deficient in folate. In these individuals, a daily supplement of low dose folic acid may reduce and often normalize their homocysteine levels, but this has not been demonstrated to improve health outcomes. A common genetic variant in the MTHFR gene is a 677C&gt;T polymorphism (NM_005957.4:c.665C&gt;T, rs1801133). This variant encodes a thermolabile enzyme that is less active at higher temperatures. Individuals who carry two copies of this variant (“TT homozygous”) tend to have higher homocysteine levels and lower serum folate levels compared to controls. More than 25% of Hispanics and around 10-15% of North America Caucasians are estimated to be homozygous for the “thermolabile” variant (TT genotype). The TT genotype is least common in individuals of African descent (6%). Another common MTHFR variant, 1298A&gt;C (NM_005957.4:c.1286A&gt;C, rs1801131), does not cause increased homocysteine levels in heterozygous or homozygous individuals, but combined heterozygosity of 1298A&gt;C and 677C&gt;T results in an outcome similar to TT homozygous individuals. Until recently, it was thought that MTHFR deficiency, by causing elevated homocysteine levels, led to an increased risk of venous thrombosis, coronary heart disease, and recurrent pregnancy loss. However, more recent analysis has not found an association between elevated homocysteine levels and the risk of venous thrombosis or the risk of coronary heart disease. MTHFR polymorphism genotyping should not be ordered as part of the clinical evaluation for thrombophilia, recurrent pregnancy loss, or for at-risk family members. Rarely, more severe variants in the MTHFR gene can be a cause of an autosomal recessive inborn error or metabolism where extremely high levels of homocysteine accumulate in the urine and plasma. This can cause developmental delay, eye disorders, thrombosis, and osteoporosis. But more commonly, homocystinuria is caused by variants in a different gene (cystathionine beta-synthase, CBS).</Attribute>
+                <XRef ID="NBK66131" DB="Medical Genetics Summaries"/>
+              </AttributeSet>
+              <Citation Type="review" Abbrev="Medical Genetics Summaries">
+                <ID Source="BookShelf">NBK66131</ID>
+              </Citation>
+              <XRef ID="C1856059" DB="MedGen"/>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="16994" Type="PhenotypeInstruction" ContributesToAggregateClassification="false">
+            <Trait ID="18728" Type="PhenotypeInstruction">
+              <Name>
+                <ElementValue Type="Preferred">See cases</ElementValue>
+              </Name>
+            </Trait>
+          </TraitSet>
+          <TraitSet ID="23978" Type="Finding" ContributesToAggregateClassification="false">
+            <Trait ID="35588" Type="Disease">
+              <Name>
+                <ElementValue Type="Preferred">Stroke disorder</ElementValue>
+                <XRef ID="MONDO:0005098" DB="MONDO"/>
+              </Name>
+              <Name>
+                <ElementValue Type="Alternate">Stroke</ElementValue>
+                <XRef ID="HP:0001297" DB="Human Phenotype Ontology"/>
+              </Name>
+              <Citation Type="practice guideline" Abbrev="NICE, 2019">
+                <URL>https://www.nice.org.uk/guidance/ng128</URL>
+                <CitationText>UK NICE Guideline NG128, Stroke and transient ischaemic attack in over 16s: diagnosis and initial management, 2019</CitationText>
+              </Citation>
+              <Citation Type="practice guideline" Abbrev="NICE, 2020">
+                <URL>https://www.nice.org.uk/guidance/dg41</URL>
+                <CitationText>UK NICE Diagnostics Guidance DG41, Implantable cardiac monitors to detect atrial fibrillation after cryptogenic stroke, 2020</CitationText>
+              </Citation>
+              <Citation Type="practice guideline" Abbrev="NICE, 2023">
+                <URL>https://www.nice.org.uk/guidance/ng236</URL>
+                <CitationText>UK NICE Guideline (NG236), Stroke rehabilitation in adults, 2023</CitationText>
+              </Citation>
+              <Citation Type="practice guideline" Abbrev="NICE, 2023">
+                <URL>https://www.nice.org.uk/guidance/cg148</URL>
+                <CitationText>UK NICE Clinical guideline (CG148), Urinary incontinence in neurological disease: assessment and management, 2023</CitationText>
+              </Citation>
+              <XRef ID="C0038454" DB="MedGen"/>
+              <XRef ID="D020521" DB="MeSH"/>
+              <XRef ID="MONDO:0005098" DB="MONDO"/>
+              <XRef Type="primary" ID="HP:0001297" DB="Human Phenotype Ontology"/>
+              <XRef Type="secondary" ID="HP:0002452" DB="Human Phenotype Ontology"/>
+            </Trait>
+          </TraitSet>
+        </ConditionList>
+      </GermlineClassification>
+    </Classifications>
+    <ClinicalAssertionList>
+      <ClinicalAssertion ID="2240970" SubmissionDate="2019-10-22" ContributesToAggregateClassification="false" DateLastUpdated="2020-01-09" DateCreated="2020-01-09">
+        <ClinVarSubmissionID localKey="NC_000001.10:g.11856378G&gt;A|OMIM:601634" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001135171" DateUpdated="2020-01-09" DateCreated="2020-01-09" Type="SCV" Version="1" SubmitterName="Mendelics" OrgID="500035" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2019-05-28">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Likely benign</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">Mendelics Assertion Criteria 2017</Attribute>
+          <Citation>
+            <URL>https://submit.ncbi.nlm.nih.gov/ft/byid/chhjzatu/mendelics_assertion_criteria_2017.pdf</URL>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>unknown</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NC_000001.10:g.11856378G&gt;A</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="OMIM" ID="601634" Type="MIM"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>MENDELICS_CLINVAR_020</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="2805664" SubmissionDate="2020-04-24" ContributesToAggregateClassification="false" DateLastUpdated="2020-07-19" DateCreated="2020-07-19">
+        <ClinVarSubmissionID localKey="NM_005957.4:c.665C&gt;T|Homocystinuria due to methylene tetrahydrofolate reductase deficiency" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001423141" DateUpdated="2020-07-19" DateCreated="2020-07-19" Type="SCV" Version="1" SubmitterName="Neurology Department, Peking University First Hospital" OrgID="505977" OrganizationCategory="clinic"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2020-04-23">
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Uncertain significance</GermlineClassification>
+          <Citation>
+            <ID Source="PubMed">7647779</ID>
+          </Citation>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>research</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.4:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">Homocystinuria due to methylene tetrahydrofolate reductase deficiency</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB7325825</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="2694687" SubmissionDate="2020-11-24" ContributesToAggregateClassification="false" DateLastUpdated="2020-12-12" DateCreated="2020-07-06">
+        <ClinVarSubmissionID localKey="NM_005957.4:c.665C&gt;T|OMIM:236250" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001366606" DateUpdated="2020-12-12" DateCreated="2020-07-06" Type="SCV" Version="2" SubmitterName="Centre for Mendelian Genomics, University Medical Centre Ljubljana" OrgID="505952" OrganizationCategory="clinic" OrgAbbreviation="CMG-UMCL"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2019-01-17">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Pathogenic</GermlineClassification>
+          <Comment>This variant was classified as: Pathogenic. The following ACMG criteria were applied in classifying this variant: No criteria apply. This variant was detected in homozygous state.</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">ACMG Guidelines, 2015</Attribute>
+          <Citation>
+            <ID Source="PubMed">25741868</ID>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>unknown</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.4:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="OMIM" ID="236250" Type="MIM"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB8622351</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="4966726" SubmissionDate="2022-06-02" ContributesToAggregateClassification="false" DateLastUpdated="2022-06-24" DateCreated="2022-06-24">
+        <ClinVarSubmissionID localKey="NC_000001.10:g.11856378G&gt;A|Neural tube defects, folate-sensitive" submittedAssembly="NCBI36"/>
+        <ClinVarAccession Accession="SCV002538647" DateUpdated="2022-06-24" DateCreated="2022-06-24" Type="SCV" Version="1" SubmitterName="iDNA Genomics" OrgID="508306" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification>
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Likely benign</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>unknown</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>reference population</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NC_000001.10:g.11856378G&gt;A</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">Neural tube defects, folate-sensitive</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB11561077</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="361011" SubmissionDate="2018-09-19" ContributesToAggregateClassification="false" DateLastUpdated="2025-04-13" DateCreated="2015-02-02">
+        <ClinVarSubmissionID localKey="8162_000000" localKeyIsSubmitted="1" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV000203040" DateUpdated="2025-04-13" DateCreated="2015-02-02" Type="SCV" Version="8" SubmitterName="Eurofins Ntd Llc (ga)" OrgID="500060" OrganizationCategory="laboratory" OrgAbbreviation="EGL"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2017-01-13">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>other</GermlineClassification>
+          <ExplanationOfClassification>Variant classified as "other reportable" ??? variant is clinically benign (not associated with disease) but is reported when observed (e.g. pseudodeficiency alleles).</ExplanationOfClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">EGL Classification Definitions 2015</Attribute>
+          <Citation>
+            <URL>https://submit.ncbi.nlm.nih.gov/ft/byid/ahdynye1/egl_classification_definitions_2015.pdf</URL>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+              <Sex>mixed</Sex>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="VariantAlleles" integerValue="244"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Homozygote" integerValue="45"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="SingleHeterozygote" integerValue="196"/>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>single nucleotide variant</VariantType>
+          <Location>
+            <SequenceLocation Assembly="GRCh37" Chr="1" alternateAllele="A" referenceAllele="G" start="11856378" stop="11856378" variantLength="1"/>
+            <GeneLocation>NM_005957.4:Ex5</GeneLocation>
+          </Location>
+          <XRefList>
+            <XRef DB="HGMD" ID="CM950819"/>
+            <XRef DB="dbSNP" ID="1801133" Type="rsNumber"/>
+          </XRefList>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">not provided</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <Citation>
+          <URL>http://www.egl-eurofins.com/emvclass/emvclass.php?approved_symbol=MTHFR</URL>
+        </Citation>
+        <SubmissionNameList>
+          <SubmissionName>SUB4534263</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="2354498" SubmissionDate="2026-05-06" ContributesToAggregateClassification="false" DateLastUpdated="2026-05-09" DateCreated="2020-04-06">
+        <ClinVarSubmissionID localKey="533|OMIM:236250"/>
+        <ClinVarAccession Accession="SCV001194043" DateUpdated="2026-05-09" DateCreated="2020-04-06" Type="SCV" Version="2" SubmitterName="Myriad Genetics, Inc." OrgID="507240" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2019-12-16">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Pathogenic</GermlineClassification>
+          <Comment Type="public">NM_005957.4(MTHFR):c.665C&gt;T(A222V) is a common variant present in approximately 30% of the general population. While many individuals who are homozygous for this variant are asymptomatic, some may have mild MTHFR deficiency associated with increased plasma homocysteine. Sources cited for classification include the following: PMID 7647779, 8837319, 9545406, 11781870, 12560871, 8903338, 9789068, 11929966, 15565101, 17436239, 12356947, 9133512, 12196644 and 9798595. Classification of NM_005957.4(MTHFR):c.665C&gt;T(A222V) is based on the following criteria: This is a well-established variant in the literature that has been observed more frequently in patients with mild MTHFR deficiency than in healthy populations and there is functional data showing deficient protein function. Please note: this variant was assessed in the context of healthy population screening.</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">Myriad Autosomal Dominant, Autosomal Recessive and X-Linked Classification Criteria (2023)</Attribute>
+          <Citation>
+            <URL>https://submit.ncbi.nlm.nih.gov/ft/byid/8ufcwsf2/myriad_genetics_classification_criteria_2023.pdf</URL>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>unknown</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <Location>
+            <SequenceLocation Assembly="hg19" Chr="1" alternateAllele="A" referenceAllele="G" start="11856378" stop="11856378"/>
+          </Location>
+          <OtherNameList>
+            <Name Type="SubmitterVariantId">533</Name>
+          </OtherNameList>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="OMIM" ID="236250" Type="MIM"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB16169814</SubmissionName>
+          <SubmissionName>SUB6849778</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="339358" SubmissionDate="2014-07-16" ContributesToAggregateClassification="false" DateLastUpdated="2014-11-13" DateCreated="2014-11-13">
+        <ClinVarSubmissionID localKey="rs1801133"/>
+        <ClinVarAccession Accession="SCV000187678" DateUpdated="2014-11-13" DateCreated="2014-11-13" Type="SCV" Version="1" SubmitterName="Department of Pharmacy and Biotechnology, University of Bologna" OrgID="505267" OrganizationCategory="other"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification>
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Uncertain significance</GermlineClassification>
+          <Citation Type="general">
+            <ID Source="PubMed">25227144</ID>
+          </Citation>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>case-control</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="VariantAlleles" integerValue="38"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Homozygote" integerValue="10"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="SingleHeterozygote" integerValue="28"/>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NC_000001.11:g.11796321G&gt;A</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">Gastrointestinal Stromal Tumors</ElementValue>
+            </Name>
+            <XRef DB="OMIM" ID="606764" Type="MIM"/>
+          </Trait>
+        </TraitSet>
+        <Citation Type="general">
+          <ID Source="PubMed">25227144</ID>
+        </Citation>
+        <Citation Type="general">
+          <ID Source="PubMed">25227144</ID>
+        </Citation>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="183447" SubmissionDate="2017-03-08" ContributesToAggregateClassification="false" DateLastUpdated="2017-03-08" DateCreated="2017-03-08">
+        <ClinVarSubmissionID localKey="NM_005957.4:c.665C&gt;T|MedGen:C1856059" submittedAssembly="not applicable"/>
+        <ClinVarAccession Accession="SCV000106043" DateUpdated="2017-03-08" DateCreated="2017-03-08" Type="SCV" Version="1" SubmitterName="FirmaLab, FirmaLab" OrgID="256489" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification>
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Pathogenic</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+            </Sample>
+            <Method>
+              <XRef DB="GTR" ID="GTR000327733" URL="http://www.ncbi.nlm.nih.gov/gtr/tests/327733/"/>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <OtherNameList>
+            <Name>p.Ala222Val</Name>
+          </OtherNameList>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.4:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="MedGen" ID="C1856059" Type="CUI"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>FirmaLab_clinical_tests_from_GTR</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="984917" SubmissionDate="2018-03-26" ContributesToAggregateClassification="false" DateLastUpdated="2017-03-08" DateCreated="2017-03-08">
+        <ClinVarSubmissionID localKey="GDX:570299|Not Provided" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV000519504" DateUpdated="2017-03-08" DateCreated="2017-03-08" Type="SCV" Version="4" SubmitterName="GeneDx" OrgID="26957" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2016-04-25">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Benign</GermlineClassification>
+          <Comment>This variant is considered likely benign or benign based on one or more of the following criteria: it is a conservative change, it occurs at a poorly conserved position in the protein, it is predicted to be benign by multiple in silico algorithms, and/or has population frequency not consistent with disease.</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">GeneDx Variant Classification (06012015)</Attribute>
+          <Citation>
+            <URL>https://submit.ncbi.nlm.nih.gov/ft/byid/dhtz9flo/genedx_interprules_final_061215.pdf</URL>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <Location>
+            <SequenceLocation Assembly="GRCh37" Chr="1" alternateAllele="A" referenceAllele="G" start="11856378" stop="11856378" variantLength="1"/>
+          </Location>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.4:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">not specified</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB3839901</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="3782586" SubmissionDate="2021-09-23" ContributesToAggregateClassification="false" DateLastUpdated="2021-09-26" DateCreated="2021-09-26">
+        <ClinVarSubmissionID localKey=":Chr.1_11856378_11856378_G_A|not specified" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001917884" DateUpdated="2021-09-26" DateCreated="2021-09-26" Type="SCV" Version="1" SubmitterName="Clinical Genetics, Academic Medical Center" OrgID="319965" OrganizationCategory="laboratory" OrgAbbreviation="KG-DNA AMC"/>
+        <AdditionalSubmitters>
+          <SubmitterDescription OrgID="506382" SubmitterName="Diagnostic Laboratory, Department of Genetics, University Medical Center Groningen" Type="behalf" OrganizationCategory="laboratory"/>
+        </AdditionalSubmitters>
+        <RecordStatus>current</RecordStatus>
+        <Classification>
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Benign</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <Location>
+            <SequenceLocation Assembly="GRCh37" Chr="1" alternateAllele="A" referenceAllele="G" start="11856378" stop="11856378" variantLength="1"/>
+          </Location>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">not specified</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <StudyName>VKGL Data-share Consensus</StudyName>
+        <SubmissionNameList>
+          <SubmissionName>SUB10399984</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="3786957" SubmissionDate="2021-09-23" ContributesToAggregateClassification="false" DateLastUpdated="2021-09-26" DateCreated="2021-09-26">
+        <ClinVarSubmissionID localKey=":Chr.1_11856378_11856378_G_A|not specified" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001930296" DateUpdated="2021-09-26" DateCreated="2021-09-26" Type="SCV" Version="1" SubmitterName="Genome Diagnostics Laboratory, University Medical Center Utrecht" OrgID="274978" OrganizationCategory="laboratory" OrgAbbreviation="GDL-UMCU"/>
+        <AdditionalSubmitters>
+          <SubmitterDescription OrgID="506382" SubmitterName="Diagnostic Laboratory, Department of Genetics, University Medical Center Groningen" Type="behalf" OrganizationCategory="laboratory"/>
+        </AdditionalSubmitters>
+        <RecordStatus>current</RecordStatus>
+        <Classification>
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Benign</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <Location>
+            <SequenceLocation Assembly="GRCh37" Chr="1" alternateAllele="A" referenceAllele="G" start="11856378" stop="11856378" variantLength="1"/>
+          </Location>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">not specified</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <StudyName>VKGL Data-share Consensus</StudyName>
+        <SubmissionNameList>
+          <SubmissionName>SUB10419633</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="3984216" SubmissionDate="2021-11-18" ContributesToAggregateClassification="true" DateLastUpdated="2021-12-12" DateCreated="2021-12-12">
+        <ClinVarSubmissionID localKey="1451429818|methotrexate response - Toxicity" submittedAssembly="GRCh38"/>
+        <ClinVarAccession Accession="SCV002031239" DateUpdated="2021-12-12" DateCreated="2021-12-12" Type="SCV" Version="1" SubmitterName="ClinPGx" OrgID="500295" OrganizationCategory="resource" OrgAbbreviation="PharmGKB"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2021-03-24">
+          <ReviewStatus>reviewed by expert panel</ReviewStatus>
+          <GermlineClassification>drug response</GermlineClassification>
+          <ExplanationOfClassification>Drug-variant association: Toxicity</ExplanationOfClassification>
+          <Citation>
+            <ID Source="PubMed">11418485</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">11710708</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">12453860</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">12915598</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">16501586</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">16870553</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">17488658</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">17512587</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">18381794</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">18458567</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">19031955</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">19648163</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">20472929</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">20514079</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">20595278</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">20863444</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">21534867</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">21644011</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">21931346</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">22074251</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">22143415</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">23089671</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">23095111</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">23488607</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">23648444</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">24241962</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">25007187</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">25110820</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">25177243</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">25778468</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">27104192</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">27217051</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">27399166</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">27781293</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">27992285</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">28696419</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">29589488</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">29911750</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">30684021</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">32612964</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">32695297</ID>
+          </Citation>
+          <Citation>
+            <URL>https://www.pharmgkb.org/clinicalAnnotation/655385307</URL>
+          </Citation>
+          <Citation>
+            <URL>https://www.pharmgkb.org/clinicalAnnotation/827848365</URL>
+          </Citation>
+          <Comment Type="public">PharmGKB Level of Evidence 2A: Variants in Level 2A clinical annotations are found in PharmGKB’s Tier 1 Very Important Pharmacogenes (VIPs). These variants are in known pharmacogenes, implying causation of drug phenotype is more likely. These clinical annotations describe variant-drug combinations with a moderate level of evidence supporting the association. For example, the association may be found in multiple cohorts, but there may be a minority of studies that do not support the majority assertion. Level 2A clinical annotations must be supported by at least two independent publications.</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">Pharmacogenomics knowledge for personalized medicine</Attribute>
+          <Citation>
+            <ID Source="PubMed">22992668</ID>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>curation</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <XRefList>
+            <XRef DB="dbSNP" ID="1801133" Type="rsNumber"/>
+          </XRefList>
+          <AttributeSet>
+            <Attribute Type="HGVS">NC_000001.11:g.11796321G&gt;A</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="DrugResponse">
+          <Trait Type="DrugResponse">
+            <Name>
+              <ElementValue Type="Preferred">methotrexate response - Toxicity</ElementValue>
+            </Name>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Arthritis, Juvenile Rheumatoid</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Arthritis, Psoriatic</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Arthritis, Rheumatoid</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Drug Toxicity</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Leukopenia</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Neoplasms</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Neutropenia</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Osteosarcoma</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Precursor Cell Lymphoblastic Leukemia-Lymphoma</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Thrombocytopenia</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">Toxic liver disease</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">hematotoxicity</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">mucositis</ElementValue>
+              </Name>
+            </TraitRelationship>
+            <TraitRelationship Type="DrugResponseAndDisease">
+              <Name>
+                <ElementValue Type="Preferred">primary central nervous system lymphoma</ElementValue>
+              </Name>
+            </TraitRelationship>
+          </Trait>
+        </TraitSet>
+        <Citation>
+          <URL>https://www.pharmgkb.org/variant/PA166153644</URL>
+        </Citation>
+        <Comment Type="public">Drug is not necessarily used to treat response condition</Comment>
+        <SubmissionNameList>
+          <SubmissionName>PharmGKB-SNP 2021-11</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="23860" SubmissionDate="2019-06-11" ContributesToAggregateClassification="false" DateLastUpdated="2023-10-03" DateCreated="2013-04-04">
+        <ClinVarSubmissionID localKey="607093.0003_MTHFR THERMOLABILE POLYMORPHISM" title="MTHFR, 677C-T, ALA222VAL (rs1801133)_MTHFR THERMOLABILE POLYMORPHISM"/>
+        <ClinVarAccession Accession="SCV000023860" DateUpdated="2023-10-03" DateCreated="2013-04-04" Type="SCV" Version="7" SubmitterName="OMIM" OrgID="3" OrganizationCategory="resource"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2023-09-29">
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Benign</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species>human</Species>
+              <AffectedStatus>not provided</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>literature only</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">Frosst et al. (1995) identified a 677C-T mutation in the MTHFR gene, resulting in an ala222-to-val (A222V) substitution. The alteration created a HinfI site that was used to screen 114 unselected French Canadian chromosomes; the allele frequency of the substitution was 0.38. The mutation in the heterozygous or homozygous state correlated with reduced enzyme activity and increased thermolability in lymphocyte extracts; in vitro expression of the mutagenized cDNA containing the mutation confirmed its effect on thermolability of MTHFR. Individuals homozygous for the mutation had significantly elevated plasma homocysteine levels. Thus, the 677C-T mutation may represent an important genetic risk factor in vascular disease.</Attribute>
+              <Citation>
+                <ID Source="PubMed">7647779</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a study of 101 Caucasians and 102 African Americans, McAndrew et al. (1996) found that the allele frequency for the thermolabile form, 677T, was 0.30 in Caucasians and 0.10 in African Americans. No val/val homozygotes were found among the African Americans and 9 were found among the Caucasians.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8837319</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Mogk et al. (2000) used DNA from Guthrie blood spots to determine the frequency of various MTHFR genotypes in Manitoba. Of 977 newborns, 7% were homozygous T/T. The frequency of the T allele was calculated as 0.2497.</Attribute>
+              <Citation>
+                <ID Source="PubMed">11140843</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Schneider et al. (1998) found the 677C-T polymorphism in every population tested. Unlike other mutations, such as factor V Leiden (612309.0001), the CCR5 deletion (601273.0001), and the HFE cys282-to-tyr (235200.0001) and his63-to-asp (235200.0002) hemochromatosis mutations, which are common only in Europe, the 677C-T mutation was found to have a relatively high frequency throughout the world. Schneider et al. (1998) pointed out that the frequency of 677C-T was lowest in Africa (6.6%) compared with Europe and Asia.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9545406</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Rosenberg et al. (2002) analyzed the question of whether the MTHFR 677T alteration has an ancestral origin or has occurred repeatedly. They analyzed the frequency distribution of the previously described polymorphism 1298A/C (607093.0004) in exon 7 and of 3 intronic dimorphisms, in white Israelis (Jews and Arabs), Japanese, and Ghanaian Africans. Remarkably, the 677T allele was associated with 1 haplotype in white and Japanese homozygotes. Among the Africans, analysis of maximum likelihood also disclosed an association with the same haplotype, although none of the 174 subjects examined was homozygous for MTHFR 677T. These result suggested that the MTHFR 677T alteration occurred on a founder haplotype that may have had a selective advantage.</Attribute>
+              <Citation>
+                <ID Source="PubMed">11781870</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Both the 677C-T and 1298A-C SNPs in the MTHFR gene decrease the activity of the enzyme, leading to hyperhomocysteinemia (603174), particularly in folate-deficient states. Ogino and Wilson (2003) calculated the haplotype frequencies of the polymorphisms at nucleotides 677 and 1298 in pooled general populations derived from data published in 16 articles. They found that most 677T and 1298C alleles were associated with 1298A and 677C alleles, respectively. There may be an increased frequency of the very rare cis 677T/1298C haplotype in some parts of the United Kingdom and Canada, possibly due to a founder effect.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12560871</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="603174" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Stevenson et al. (1997) provided data on the frequency of the 677C-T polymorphism of MTHFR. Among 151 consecutively born white infants in South Carolina, 20 were homozygous and 65 were heterozygous for T; among consecutive black newborns, none of 146 were homozygous, and 31 were heterozygous. The estimated allele frequency of the mutation was 0.35 among white newborns and 0.11 among black newborns.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8981967</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In 1992 and 1993, Guttormsen et al. (1996) screened 18,043 subjects, aged 40 to 67, and found 67 cases (0.4%) with total plasma homocysteine equal to or greater than 40 micromol/l. Compared to 329 controls, the cases had lower plasma folate and cobalamin levels, lower intake of vitamin supplements, consumed more coffee, and were more frequently smokers. Homozygosity for the 677C-T mutation in the methylenetetrahydrofolate reductase gene was observed in 73.1% of the cases and 10.2% of controls. Two years after screening, 58 subjects were reinvestigated; 41 still had homocysteine levels greater than 20 mmol/l, and in 37 of these, intervention with low dose folic acid (0.2 mg/d) was started. Notably, 34 of 37 (92%) had homozygosity for the 677C-T mutation. Plasma homocysteine was reduced in all but 2 after 7 weeks and became normal within 7 months in 21 of 37 subjects. Most of their remaining subjects obtained a normal homocysteine level with 5 mg/d of folic acid. Guttormsen et al. (1996) concluded that most subjects with hyperhomocysteinemia greater than 40 micromol/l in the general population have the 677C-T mutation combined with low folate status. They concluded that daily supplement of low-dose folic acid will reduce and often normalize their homocysteine levels.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8903338</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Folate acts to stabilize the thermolabile enzyme with the 677C-T mutation (Frosst et al., 1995). Serum folate levels greater than 15.4 nM appeared to neutralize the effects of 677C-T mutations (Jacques et al., 1996).</Attribute>
+              <Citation>
+                <ID Source="PubMed">7647779</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">8616944</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Bagley and Selhub (1998) used a chromatographic method for folate analysis to test the hypothesis that the 677C-T mutation is associated with altered distribution of red blood cell (RBC) folates. An alteration was found as manifested by the presence of formylated tetrahydrofolate polyglutamates in addition to methylated derivatives in the RBCs from homozygous mutant individuals. 5-Methylenetetrahydrofolate polyglutamates were the only folate form found in RBCs from individuals with the wildtype genotype. Existence of formulated folates in RBCs only from individuals with the thermolabile MTHFR is consistent with the hypothesis that there is in vivo impairment in the activity of the thermolabile variant of MTHFR and that this impairment results in an altered distribution of RBC folates.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9789068</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Friso et al. (2002) sought to determine the effect of folate status on genomic DNA methylation with an emphasis on interaction with the common 677C-T mutation in the MTHFR gene. They used the liquid chromatography/mass spectrometry method for the analysis of nucleotide bases to assess genomic DNA methylation in peripheral blood mononuclear cell DNA from 105 subjects homozygous for the TT genotype and 187 homozygous for the wildtype (CC) MTHFR genotype. The results showed the genomic DNA methylation directly correlates with folate status and inversely with plasma homocysteine levels (P less than 0.01). TT genotypes had a diminished level of DNA methylation compared with those with the CC wildtype. When analyzed according to folate status, however, only the TT subjects with low levels of folate accounted for the diminished DNA methylation. Moreover, in TT subjects DNA methylation status correlated with the methylated proportion of red blood cell folate and was inversely related to the formylated proportion of red blood cell folates that is known to be solely represented in those individuals. These results indicated that the MTHFR 677C-T polymorphism influences DNA methylation status through interaction with folate status.</Attribute>
+              <Citation>
+                <ID Source="PubMed">11929966</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Kvittingen et al. (1997) observed a child with typical features of methionine synthase deficiency (see 156570) but no hemolytic anemia, which is usually a feature of that disorder. They found that the child was also homozygous for the 677C-T mutation and suggested that this polymorphism protected the patient against anemia. Furthermore, they speculated that it may account for the dissociation between the hematologic and neurologic disease seen in some patients with vitamin B12 deficiency.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9453374</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="156570" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Fletcher and Kessling (1998) performed a metaanalysis of 19 case-control studies seeking an association between thermolabile MTHFR, raised plasma homocysteine, and/or arteriosclerotic disease. They also tabulated homozygote percentage and allele frequency of the thermolabile variant in different healthy populations. A review of the data from individual case-control studies neither confirmed nor dismissed an association between thermolabile MTHFR, raised homocysteine levels, and/or vascular disease. They pointed out the overwhelming predominance of investigations conducted in white Caucasian populations and the paucity of detail given about the population of origin. Population specificity of allelic association is well established and has been the cause of several errors of inference in association studies.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9737770</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Among control individuals from 2 groups, Rozen et al. (1999) found that the percentage of females with the homozygous 677C-T mutation was decreased from the expected 50%. The combined percentage of females from both control groups was 33% (p less than 0.01). The authors suggested that decreased viability in utero for 677C-T homozygotes, particularly females, requires further consideration and study. Anderson et al. (2005) also reported a decreased number of female 677TT homozygotes compared to males in a study of 559 Caucasian individuals: 13.9% of males were TT homozygotes compared to 7.8% of females. However, a metaanalysis performed using a literature search of 20 previous reports showed no consistent gender difference in homozygosity for the 677C-T polymorphism. Anderson et al. (2005) concluded that there is no prenatal selection against female 677TT homozygotes and that the results obtained by their own study and that of Rozen et al. (1999) must have reflected sampling error.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8892013</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">15704130</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In Leiden, Holland, Heijmans et al. (1999) studied the effect of the val/val genotype on mortality by comparing its frequency in 365 subjects, aged 85 years or over, and 250 blood donors, aged 18 to 40 years. The val/val genotype was underrepresented in the elderly as compared to the younger subjects (frequency of 0.3 and 0.36, respectively; p = 0.03); the association was only present in men.</Attribute>
+              <Citation>
+                <ID Source="PubMed">10196703</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Bagley and Selhub (1998) discussed the inconsistent findings of the thermolabile MTHFR variant as a risk factor for coronary artery disease or neural tube defects. They suggested that some of the inconsistency may be attributable to improper selection of control populations but that some may also be caused by factors that affect the activity of the thermolabile enzyme in its natural milieu. In their study, wide differences were found in the proportion of formylated folate between individuals in the homozygous T/T group, suggesting that other factors affect the synthesis of 5-methyltetrahydrofolate by the thermolabile MTHFR.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9789068</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">The 677C-T polymorphism of MTHFR was investigated in the analysis of Ioannidis et al. (2004), which undertook to study the genetic effects of 43 validated gene-disease associations across populations of various descents. They found that the frequencies of the genetic marker of interest in control populations often (58%) showed large heterogeneity (i.e., statistical variability) between 'races.' Conversely, they saw large heterogeneity in the genetic effects (odds ratios) between 'races' in only 14% of cases. Thus, genetic markers for gene-associations varied in frequency across populations, but their biologic impact on the risk for common diseases may usually be consistent across traditional 'racial' boundaries.</Attribute>
+              <Citation>
+                <ID Source="PubMed">17898028</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Goldstein and Hirschhorn (2004) reported allele frequency differences between African Americans and European Americans for pharmacogenetic polymorphisms, i.e., variants reported to influence drug response. The difference in allele frequencies for MTHFR was more than 35%. The biologic impact in the 2 ethnic groups was consistent.</Attribute>
+              <Citation>
+                <ID Source="PubMed">15565101</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a study of 10,601 adults from the Norwegian Colorectal Cancer Prevention Cohort, Hustad et al. (2007) found that the mean concentrations of total plasma homocysteine were 10.4 micromol/liter, 10.9 micromol/liter, and 13.3 micromol/liter in subjects with the CC (51%), CT (41%), and TT (8%) genotypes, respectively. The authors concluded that individuals with the TT genotype were particularly sensitive to the status of several B vitamins and suggested that they might be considered candidates for individualized nutritional recommendations.</Attribute>
+              <Citation>
+                <ID Source="PubMed">17436239</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a population-based study with a cross-sectional design that included 10,601 healthy men and women aged 50 to 64 years, Holm et al. (2007) studied the effect of betaine total homocysteine (tHcy) concentration within the frame of variable B-vitamin status and according to the MTHFR 677C-T genotype. Betaine was a strong determinant of plasma tHcy in subjects with low serum folate and the MTHFR TT genotype. The association was further strengthened at low levels in the circulation of the other B vitamins (B2, B6, and B12). Thus, in subjects with the combination of serum folate in the lowest quartile, low vitamin B2, B6, and B12 status, and the MTHFR TT genotype, the difference in tHcy (mean, 95% confidence interval) across extreme plasma betaine quartiles was 8.8 (1.3-16.2) mol/liter.</Attribute>
+              <Citation>
+                <ID Source="PubMed">17284634</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Lange et al. (2010) performed a genomewide association study for plasma homocysteine (Hcy) in 1,786 unrelated Filipino women from the Cebu Longitudinal Health and Nutrition Survey (CLHNS). The most strongly associated single-nucleotide polymorphism (SNP), rs7422339 (p = 4.7 x 10(-13)), encodes thr1405 to asn in CPS1 (608307.0006) and explained 3.0% of variation in the Hcy level. The widely studied MTHFR C677T SNP (rs1801133) was also highly significant (p = 8.7 x 10(-10)) and explained 1.6% of the trait variation. In a follow-up genotyping of these 2 SNPs in 1,679 CLHNS gender-combined young adult offspring, the MTHFR C677T SNP was strongly associated (p = 1.9 x 10(-26)) with Hcy and explained 5.1% of the variation. In contrast, the CPS1 variant was significant only in females. Combined analysis of all samples confirmed that the MTHFR variant was more strongly associated with Hcy in the offspring. Although there was evidence for a positive synergistic effect between the CPS1 and MTHFR SNPs in the offspring, there was no significant evidence for an interaction in the mothers. The authors suggested that genetic effects on Hcy may differ across developmental stages.</Attribute>
+              <Citation>
+                <ID Source="PubMed">20154341</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Vascular Disease</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">From studies of the 677C-T mutation in cardiovascular patients and controls, Kluijtmans et al. (1996) concluded that homozygosity for this frequent mutation in the MTHFR gene is associated with a 3-fold increase in risk for premature cardiovascular disease.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8554066</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Morita et al. (1997) studied 362 Japanese male patients with angiographically confirmed coronary artery disease and 778 controls. They reported a significantly higher frequency of the rarer 677C-T allele, corresponding to a valine substitution, in the disease group. The association was stronger in homozygotes than in heterozygotes, which, Morita et al. (1997) concluded, suggests that the 677C-T polymorphism may be a risk factor for coronary artery disease. van Bockxmeer et al. (1997) did not, however, find such a relationship in their study of 555 white Western Australians with angiographically documented coronary artery disease and 143 unrelated controls. Schwartz et al. (1997) studied allele frequencies of the MTHFR 677C-T polymorphism in 69 non-Hispanic white female survivors of myocardial infarction and 338 controls. They found a similar distribution of alleles in both groups. Schwartz et al. (1997) concluded that this polymorphism was not a risk factor for myocardial infarction in their population.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9133512</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">8994411</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">9244205</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Kelly et al. (2002) performed a metaanalysis to determine the risk for ischemic stroke (601367) associated with hyperhomocyst(e)inemia and the 677C-T polymorphism of MTHFR. They concluded that the data support an association between mild to moderate hyperhomocyst(e)inemia and ischemic stroke. The MTHFR TT genotype may have a small influence in determining the susceptibility to ischemic stroke.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12196644</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="601367" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Klerk et al. (2002) performed a metaanalysis of the risk of coronary heart disease related to the 677C-T polymorphism. They concluded that individuals with the 677TT genotype have a significantly higher risk of coronary heart disease, particularly in the setting of low folate status. These results supported the hypothesis that impaired folate metabolism, resulting in high homocysteine levels, is causally related to increased risk of coronary heart disease.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12387655</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Neural Tube Defects</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Motulsky (1996) reviewed the possible role of homocysteine elevations in general and the MTHFR polymorphism specifically in vascular disease and neural tube defects (NTD; 601634). He cited evidence from the Centers for Disease Control ( Anonymous, 1992) that folic acid given before and during the first 4 weeks of pregnancy can prevent 50% or more of neural tube defects. Mills et al. (1995) showed that mothers of infants with neural tube defects have increased homocysteine levels. Furthermore, van der Put et al. (1995) found that the frequency of the homozygous MTHFR polymorphism was 2 to 3 times increased among Dutch mothers, fathers, and patients with neural tube defect. The lower frequency (approximately 1% homozygotes) of the MTHFR polymorphism among the African American population is of some interest, in view of the lower incidence of neural tube defects among blacks.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8554053</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">1522835</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">7741859</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">7564788</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="601634" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Stevenson et al. (1997) cited unpublished observations indicating that the prevalence of neural tube defects in South Carolina is 16 in 10,000 pregnancies in whites and 10 in 10,000 pregnancies in blacks.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8981967</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Ou et al. (1996) studied fibroblast cultures from 41 NTD-affected fetuses and compared their genotypes with 109 blood specimens from the general population. They demonstrated that 677C-T homozygosity was associated with a 7.2-fold increased risk for NTD (p = 0.001). Ou et al. (1996) concluded that the 677C-T polymorphism of MTHFR may provide a partial biologic explanation for the prevention of neural tube defects by folic acid.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8826441</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a study of French patients with neural tube defects prenatally diagnosed, Mornet et al. (1997) could find no higher frequency of the 677C-T mutation than in controls. Likewise, Speer et al. (1997) investigated the MTHFR thermolabile variant in 65 sporadic American Caucasian patients with lumbosacral NTD and their unaffected parents, using both case-control design and assessment of linkage disequilibrium. They found no evidence to support variation in MTHFR as a significant risk factor for NTD in this population. De Franchis et al. (1998) studied 203 living individuals with spina bifida and 583 controls in Italy. They found an odds ratio for spina bifida associated with individuals homozygous for the 677C-T mutation of 1.73 and no increased risk for patients heterozygous for this mutation.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9341863</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">10732818</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">9863598</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Christensen et al. (1999) stated that the 677C-T polymorphism of the MTHFR gene was the first genetic risk factor for neural tube defects identified at the molecular level. Homozygosity for the 677C-T allele has been shown to be more prevalent in individuals with NTD and in their parents, as compared to controls (van der Put et al., 1995, 1997; Whitehead et al., 1995; Ou et al., 1996). Christensen et al. (1999) assessed genotypes and folate status in 56 patients with spina bifida, 62 mothers of patients, 97 children without NTDs (controls), and 90 mothers of controls to determine the impact of these factors on NTD risk. In 20% of cases and 18% of case mothers, they found homozygosity for the MTHFR polymorphism, compared to 11% of controls and 11% of control mothers, indicating that the mutant genotype conferred an increased risk for NTDs. The risk was further increased if both mother and child had this genotype. RBC folate was lower in cases and in case mothers, compared to their respective controls. The combination of homozygous mutant MTHFR genotype and RBC folate in the lowest quartile conferred an odds ratio for being an NTD case of 13.43 and an odds ratio for having a child with NTD of 3.28. Christensen et al. (1999) proposed that the genetic-nutrient interaction, i.e., MTHFR polymorphism and low folate status, is associated with a greater risk for NTDs than either variable alone.</Attribute>
+              <Citation>
+                <ID Source="PubMed">10323741</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">8542260</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">8826441</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Munoz-Moran et al. (1998) studied the evolution with age of the allele and genotype frequencies of the A222V mutation, which they called A225V, in a healthy population of 695 individuals in southern Spain. They excluded persons older than 40 years to prevent changes in frequency due to the possible implication of this gene in different pathologies and to nutritional habits. All the individuals were genotyped for the insertion/deletion polymorphism of the ACE gene (106180.0001) to assess the genetic homogeneity of the adult and young populations. The allele and genotype frequencies of the ACE polymorphism did not differ significantly between the 2 populations. Unexpectedly, Munoz-Moran et al. (1998) found a substantial increase in frequency of the VV homozygous genotype in individuals younger than 20 years. They found a shift in the VV genotype frequency, from 13% to 26%, that started in people born between 1977 and 1982 and that remained at this high proportion. They also found that the population from which these individuals were derived was in Hardy-Weinberg equilibrium. In 1982, early folate treatment for all pregnant women was recommended by the Spanish national health service to prevent neural tube defects. Munoz-Moran et al. (1998) hypothesized an association between early folate supplementation during pregnancy and an increased number of babies born with the VV genotype, especially in VV mothers.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9798595</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Reyes-Engel et al. (2002) assessed the effect of the 677C-T and 1298A-C (607093.0004) polymorphisms of the MTHFR gene in relation to possible selection for these polymorphisms. Based on random pairs and linkage disequilibrium of the 2 polymorphisms, they estimated the rate of fetal nonviability according to the combinations of these 2 polymorphisms to be 4.63% for the group more than 24 years of age and 6.31% for the group less than 24 years of age. They detected an increased frequency of mutant alleles in the youngest age group, coincident with a generally increased folate intake by pregnant women in Spain. The genetic selection detected would lead to an increase in mutated individuals, the number of whom the authors predicted could increase 4-fold within 75 years. Although generally reduced in the younger age groups, the homocysteine plasma levels were shown to increase in individuals according to the number of mutations, especially those of the 677T allele.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12356947</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Cleft Lip/Palate</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Shaw et al. (1998) hypothesized that infants homozygous for the 677C-T genotype would be at increased risk for cleft lip with or without cleft palate (CL/P; see 119530) because of lower MTHFR enzymatic activity. In their study of 310 infants with isolated CL/P and 383 control infants without a congenital anomaly, analysis of DNA (which was available from newborn screening blood specimens) did not indicate an increased risk for CL/P among 677C-T homozygotes, nor did the results indicate an interaction between infant 677C-T genotype and maternal multivitamin use on the occurrence of CL/P.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9843036</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="119530" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Mills et al. (1999) examined the prevalence of the 677C-T mutation in subjects with oral cleft from a national Irish support group and an anonymous control group randomly selected from a neonatal screening program covering all births in Ireland. Among 848 control subjects, 83 (9.8%) were homozygous (TT) thermolabile MTHFR. This genotype was almost 3 times as common in the 27 subjects (25.9%) with isolated cleft palate and somewhat more common in the 66 subjects with cleft lip with or without cleft palate. When the 2 groups with different etiologies were combined, the overall odds ratio was 2.06. Thus, in the Irish population, homozygosity for the common folate-related polymorphism associated with thermolabile MTHFR is significantly more frequent in those with isolated cleft palate, and could be etiologically important.</Attribute>
+              <Citation>
+                <ID Source="PubMed">10440833</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Zhu et al. (2006) studied the thermolabile 677C-T polymorphism in 170 Chinese case-parent trios and observed a moderate association between the polymorphism and nonsyndromic cleft lip/palate in families from northern China but not in those from southern China. Heterozygous parents in the north were about twice as likely to transmit the high-risk T allele to affected cases as parents in the south (OR = 2.24). Zhu et al. (2006) suggested that there may be genetic heterogeneity in the development of nonsyndromic cleft lip/palate among northern and southern populations in China.</Attribute>
+              <Citation>
+                <ID Source="PubMed">16470725</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Mostowska et al. (2006) did not find a significant association between the 677C-T polymorphism and cleft lip/palate among 122 Polish women with affected children.</Attribute>
+              <Citation>
+                <ID Source="PubMed">16712703</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a case-control study of Brazilian families with CL/P, Gaspar et al. (2004) observed that with the presence of a maternal MTHFR 677T allele there was an increased likelihood of offspring having the less common non-135-bp BCL3 (109560) allele (OR, 2.3, 95% CI, 1.1-4.8, p = 0.03). Gaspar et al. (2004) suggested that maternal MTHFR genotype plays a significant role in susceptibility to CL/P, but its teratogenic effect depends on the genotype of the offspring.</Attribute>
+              <Citation>
+                <ID Source="PubMed">15054400</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="109560" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Hypertension</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Nishio et al. (1996) provided information on the frequency of the MTHFR 677C-T polymorphism in the Japanese population. They could find no significant relationship between the polymorphism and hypertension.</Attribute>
+              <Citation>
+                <ID Source="PubMed">8771990</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Qian et al. (2007) performed a metaanalysis of 25 published studies involving the C677T MTHFR polymorphism and more than 2,800 hypertensive individuals from Caucasian and Asian populations and found evidence for a significant association in both populations. The authors suggested that C677T is an independent risk factor for hypertension.</Attribute>
+              <Citation>
+                <ID Source="PubMed">17726486</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Preeclampsia Susceptibility</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Sohda et al. (1997) found that the 677T allele and homozygosity for the 677T allele was significantly increased in a group of patients with preeclampsia (189800). They concluded that the 677T variant of the MTHFR gene is one of the genetic risk factors for preeclampsia.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9192280</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="189800" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a study of 101 Japanese women with hypertension in pregnancy, including 73 cases of preeclampsia, and 215 normal pregnancy controls, Kobashi et al. (2000) found no association between the 677T MTHFR variant and preeclampsia. The authors hypothesized that the lack of association in their population may be secondary to differences in dietary folate intake and suggested that dietary factors and/or folate levels be analyzed in future studies of MTHFR and preeclampsia.</Attribute>
+              <Citation>
+                <ID Source="PubMed">10869114</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Thrombosis</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Tonetti et al. (2002) described 2 sisters who were homozygous for the 677C-T mutation and heterozygous for 3 other mutations: 2 missense mutations inherited from the father and a donor splice site mutation causing skipping of exon 6 inherited from the mother. The abnormalities of the MTHFR gene became evident when 1 of the sisters, an obese 27-year-old woman, developed pulmonary embolism due to venous thrombosis (see 188050) 8 months after taking oral contraceptives. She had walking problems since childhood and had encountered difficulties at school. Neurologic examination revealed bilateral Babinski signs. Computerized tomography studies revealed bilateral pulmonary embolism and duplex ultrasonography revealed left iliac vein thrombosis. Fibrinolysis treatment restored cardiopulmonary capacity. However, massive hyperhomocysteinemia and homocystinuria associated with hypomethioninemia were found. She became progressively confused and disoriented with walking difficulties. Severe MTHFR deficiency was diagnosed and she was treated with folic acid, hydroxocobalamin, betaine, and fluindione. Her clinical status improved gradually and she recovered superior intellectual functions. Her sister, aged 26 years, had intellectual retardation and a slow gait. At the age of 5 years, she developed seizures, walking difficulties, and mental retardation, and showed bilateral pyramidal syndrome of the lower limbs. Hyperhomocysteinemia was treated as in her sister, but her symptoms did not respond to folic acid treatment. The parents, both 54 years of age, were in professional occupations. Neurologic assessment was normal in both. The father had developed myocardial infarction at the age of 48 years. He had been treated with folic acid because of moderate hyperhomocysteinemia. The mother had never experienced venous or arterial thrombosis but had been treated with folic acid because of mild hyperhomocysteinemia.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12406076</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="188050" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Queffeulou et al. (2002) reported a case of renal artery thrombosis in a 42-year-old man who was homozygous for the 677C-T mutation and had a low folate level. They suggested that smoking contributed to the pathogenesis of renal arterial thrombosis.</Attribute>
+              <Citation>
+                <ID Source="PubMed">11863127</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a study in Greece of venous thromboembolism, Zalavras et al. (2002) found that homozygosity for the 677T allele of the MTHFR gene was slightly more prevalent in patients compared to controls; however, they could not establish an association with venous thromboembolism.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12384649</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Quere et al. (2002) found a strong concentration-dependent association between concentrations of methylfolate in RBCs and risk of venous thromboembolism that varied according to 677C-T genotype. Their method for measurement of RBC methylfolate was criticized by Lucock and Yates (2002).</Attribute>
+              <Citation>
+                <ID Source="PubMed">11888585</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">12383688</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Lu et al. (2002) could find no evidence that the 677C-T mutation was a risk factor for pulmonary thromboembolism in a Chinese population.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12165282</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Keijzer et al. (2002) concluded that both hyperhomocysteinemia due to the 677C-T mutation and factor V Leiden are risk factors for recurrent venous thrombosis. They found that the risk of thrombosis appeared higher for individuals who had both risk factors.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12428084</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a study in China, Li et al. (2002) investigated the role of hyperhomocysteinemia and the 677C-T mutation in patients with Budd-Chiari syndrome (600880). They compared 41 affected patients with 80 sex- and age-matched healthy controls. The mean plasma homocysteine level was significantly higher in affected patients compared with normal controls. The frequency of 677TT homozygotes was significantly increased, and the frequency of 677C-T heterozygotes was not increased, compared with controls.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12221667</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="600880" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a comprehensive metaanalysis of 22 case-control studies including 3,387 white adult patients, Casas et al. (2004) found a statistically significant association between ischemic stroke (601367) and the 677C-T substitution (odds ratio of 1.24).</Attribute>
+              <Citation>
+                <ID Source="PubMed">15534175</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="601367" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Retinal Artery Occlusion</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Talmon et al. (1997) described retinal arterial occlusion in a child heterozygous for the factor V R506Q mutation (612309.0001) and homozygous for thermolabile methylene tetrahydrofolate reductase. Thus the coexistence of 2 mild hereditary thrombophilic states can result in severe thrombotic manifestations in young people. Although factor V Leiden had been associated clearly with venous thrombosis, most studies had failed to demonstrate an association between isolated factor V Leiden and arterial thrombosis.</Attribute>
+              <Citation>
+                <ID Source="PubMed">9372726</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Weger et al. (2002) investigated whether hyperhomocysteinemia and/or homozygosity for the C677T mutation in the MTHFR gene were associated with an increased risk for retinal artery occlusion. They found that mean plasma homocysteine levels were significantly higher in patients with retinal artery occlusion compared with normal controls. However, the prevalence of the homozygous genotype of the C677T mutation did not differ significantly between patients and controls.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12095808</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Down Syndrome</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Hobbs et al. (2000) found that the MTHFR 677C-T polymorphism is more prevalent among mothers of children with Down syndrome (190685) than among control mothers, with an odds ratio of 1.91. In addition, the homozygous MTRR 66A-G polymorphism (602568.0003) was independently associated with a 2.57-fold increase in estimated risk. The combined presence of both polymorphisms was associated with a greater risk of Down syndrome than was the presence of either alone. The 2 polymorphisms appeared to act without a multiplicative interaction. O'Leary et al. (2002) examined the prevalence of the MTHFR 677C-T variant among 48 mothers who had given birth to a child with Down syndrome and 192 control mothers. The frequency of the MTHFR 677C-T genotype was not significantly higher in mothers of children with Down syndrome (p = 0.74). However, mothers who were heterozygous or homozygous for the MTHFR variant and homozygous for the 66A-G variant in MTRR (602568.0003) had a 2.98-fold risk of having a child with Down syndrome (p = 0.02).</Attribute>
+              <Citation>
+                <ID Source="PubMed">10930360</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">11807890</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="190685" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Stuppia et al. (2002) studied the presence of the MTHFR 677C-T polymorphism in 64 mothers of children with trisomy 21 and 112 control mothers from central Italy. The frequency of the T allele was higher in control mothers (48%) than in trisomy 21 mothers (44%). The results did not support the presence of an increased risk of Down syndrome among carriers of the T allele in the Italian population.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12080391</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Hobbs et al. (2002) examined the transmission frequencies of the MTHFR 677T and 677C alleles from heterozygous parents to children with Down syndrome in 202 Caucasian families. The results indicated that the 677T allele was transmitted to children with Down syndrome at a significantly higher rate than would be expected based on mendelian inheritance patterns, and the C allele was transmitted at a significantly lower rate (P less than 0.009). The authors also examined transmission frequencies independently for maternally and paternally transmitted alleles to assess potential parent-of-origin effects. Because the vast majority of conceptions with trisomy 21 end in pregnancy loss, Hobbs et al. (2002) questioned whether the observed preferential transmission of the T allele for this population of liveborn infants with Down syndrome could reflect a survival advantage. They presented a plausible biochemical interpretation of these results based on a maternal-fetal MTHFR 677T allele interaction in the context of the constitutive overexpression of 3 copies of the cystathionine beta-synthase gene (CBS; 236200) in the trisomy 21 fetus.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12400059</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="236200" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Yanamandra et al. (2003) analyzed 22 pregnant Caucasian patients with fetal karyotype of trisomy 21 and 375 control Caucasian infants for the MTHFR 677C-T polymorphism. Homozygosity for the 677T allele in the Down syndrome pregnancies was 13.6% as compared to 13.3% in the control infants, and the frequency of the mutant 677T allele was 0.364 in the Down syndrome pregnancies versus 0.356 in the controls (odds ratio of 1 for both). Yanamandra et al. (2003) found no correlation of MTHFR mutant 677TT homozygosity or mutant 677T allele frequency with prenatal Down syndrome cases.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12529699</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Among Turkish women, Boduroglu et al. (2004) could find no support for a relationship between the 677C-T and 1298A-C SNPs in the MTHFR gene and risk of having a child with Down syndrome.</Attribute>
+              <Citation>
+                <ID Source="PubMed">15103709</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Cancer</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Aberrant DNA methylation is a common feature of human neoplasia. Paz et al. (2002) studied interindividual inherited susceptibility to the epigenetic processes of CpG island hypermethylation and global genomic hypomethylation, which are observed simultaneously in cancer cells. They genotyped 233 patients with colorectal, breast, or lung tumors for 4 germline variants in 3 key genes involved in the metabolism of the methyl group. A positive association was found between aberrant methylation and the 677T allele. A second association of aberrant methylation was with homozygosity for the 2756G allele of methionine synthase (156570.0008).</Attribute>
+              <Citation>
+                <ID Source="PubMed">12154064</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Castro et al. (2004) investigated the effect of the 677C-T and 1298A-C MTHFR polymorphisms on leukocyte genomic DNA methylation status in 96 healthy unrelated white Portuguese subjects. The authors found that both mutations when homozygous were associated with decreased DNA methylation status, although the effect was slightly less pronounced for the 1298A-C transversion. Regression analyses corroborated the concept that mutant 677C-T MTHFR activity is mediated by folate availability. Castro et al. (2004) suggested that the 1298CC MTHFR genotype, independently of folate availability, and the 677TT MTHFR genotype with concomitant low folate levels, might be potential risk factors for disease states associated with DNA hypomethylation status.</Attribute>
+              <Citation>
+                <ID Source="PubMed">15173232</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Hubner et al. (2007) analyzed the microsatellite instability (MSI) phenotype in 1,685 colorectal cancer (CRC) specimens and MTHFR 677C-T genotype in germline DNA for all cases and 2,692 cancer-free controls. Compared to homozygous wildtype individuals, those with the 677TT genotype were more likely to have MSI than microsatellite stable (MSS) CRC (odds ratio (OR), 1.90). When MTHFR 677C-T genotype frequencies in MSS CRC cases were compared to controls, individuals with a 677TT genotype were at 19% reduced risk of cancer compared to wildtype (OR, 0.81). Conversely, when MSI CRC cases were compared to controls, individuals with 1 or 2 677T alleles were at 42% increased cancer risk (OR, 1.42). Hubner et al. (2007) concluded that MTHFR 677TT homozygous individuals are more likely to develop MSI CRC than those with wildtype genotype, and that this common polymorphism has differential influences on MSI and MSS CRC risk.</Attribute>
+              <Citation>
+                <ID Source="PubMed">17350979</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Depression</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Bjelland et al. (2003) examined the association between folate, total homocysteine, vitamin B12, and the MTHFR 677C/T polymorphism and anxiety and depression (see 608516) in a large population-based study. Using the Hospital Anxiety and Depression Scale, Bjelland et al. (2003) measured anxiety and depression in 5,948 subjects, aged 46 to 49 years and 70 to 74 years, from the Hordaland Homocysteine Study cohort. Hyperhomocysteinemia (plasma total homocysteine level greater than or equal to 15.0 micromol/L) and the T/T genotype, but not low plasma folate or B12 levels, were significantly related to depression without comorbid anxiety disorder. Bjelland et al. (2003) concluded that the results provided evidence for impaired 1-carbon metabolism in depression.</Attribute>
+              <Citation>
+                <ID Source="PubMed">12796225</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="608516" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Lewis et al. (2006) genotyped the 677C/T polymorphism in 3,478 women in the British Women's Heart and Health Study to look for an association between genotype and 3 indicators of depression: ever diagnosed as depressed, currently taking antidepressants, and the EuroQol mood question. Subsequently, they performed a systematic review and metaanalysis of all published studies associated with this polymorphism. In the British Women's Heart and Health Study, they found an increased risk of having been diagnosed as depressed in TT compared to CC individuals (OR, 1.35; 95% CI, 1.01, 1.80). A metaanalysis of the other studies combined with this study yielded an OR of 1.36 (95% CI, 1.11, 1.67, p = 0.003), suggesting that folate or its derivatives may be causally related to risk of depression.</Attribute>
+              <Citation>
+                <ID Source="PubMed">16402130</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Schizophrenia</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Lewis et al. (2005) conducted a metaanalysis of 6 studies (1,119 cases, 1,308 controls) involving the MTHFR 677CT polymorphism and schizophrenia (181500) risk. They found that TT homozygotes had a significantly increased risk (odds ratio, 1.48; 95% CI, 1.18-1.86), supporting the role of this gene and folate metabolism as schizophrenia risk factors.</Attribute>
+              <Citation>
+                <ID Source="PubMed">15729744</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="181500" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Muntjewerff et al. (2005) conducted a case-control study to quantify the risk of schizophrenia in the presence of elevated homocysteine concentrations and the 677TT MTHFR haplotype in 254 patients with schizophrenia and 414 healthy controls of Dutch ancestry. Homocysteine concentrations were stratified into quartiles, revealing that the risk of schizophrenia increased in the fourth and third quartile versus the lowest quartile (OR, 3.3, 95% CI, 1.2-9.2 and OR, 3.1, 95% CI, 1.2-8.0, respectively). A significant dose-response relationship of increasing homocysteine levels and increasing risk of schizophrenia was observed (p = 0.036). The 677TT genotype was associated with an odds ratio of 1.6 (95% CI, 0.96-2.8) of having schizophrenia. Heterozygosity for the T allele compared to homozygosity for the C allele accounted for an odds ratio of 1.3 (95% CI, 0.91-1.8). Elevated homocysteine levels and the TT genotype were associated with increased risk of schizophrenia.</Attribute>
+              <Citation>
+                <ID Source="PubMed">16172608</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Muntjewerff et al. (2006) conducted a metaanalysis of retrospective studies of homocysteine concentrations (812 cases and 2,113 controls) to examine the association between homocysteine in schizophrenia. In addition, a metaanalysis of 10 studies (2,265 cases and 2,721 controls) on the MTHFR 677C/T polymorphism was carried out to assess if this association was causal. A 5 micromol/l higher homocysteine level was associated with a 70% (95% CI, 27-129) higher risk of schizophrenia. The TT genotype was associated with a 36% (95% CI, 7-72) higher risk of schizophrenia compared to the CC genotype. Evidence for the association of homocysteine with schizophrenia and the association of schizophrenia with the homozygous 677TT genotype of the MTHFR gene provides support for causality between disturbed homocysteine metabolism and the risk of schizophrenia.</Attribute>
+              <Citation>
+                <ID Source="PubMed">15806605</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In an SzGene metaanalysis (1,211 patients, 1,729 controls), Allen et al. (2008) found an association between susceptibility to schizophrenia and 2 MTHFR variants, 677C-T (1801133) and 2298C-T (607093.0004). The authors noted that both substitutions had been found to reduce MTHFR enzyme activity.</Attribute>
+              <Citation>
+                <ID Source="PubMed">18583979</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In a study of 200 outpatients with schizophrenia who were evaluated with the Positive and Negative Syndrome Scale (PANSS), Roffman et al. (2008) found that negative symptom scores were significantly related with the 677T allele dose, with T/T subjects exhibiting the most pronounced symptoms (likelihood ratio test (LRT) = 4.18, p = 0.041); protection against positive symptoms was related to a higher 677T allele load (LRT = 5.07, p = 0.024). The effect of the 677T allele on negative symptom severity correlated with serum folate levels.</Attribute>
+              <Citation>
+                <ID Source="PubMed">17543893</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Migraine with Aura</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Among Japanese patients with migraine, 22 with aura (MA) and 52 without aura (MO) (see 157300), Kowa et al. (2000) found an association between the 677TT genotype and MA (odds ratio of 6.5).</Attribute>
+              <Citation>
+                <ID Source="PubMed">11121176</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="157300" Type="MIM"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">In Spanish patients with migraine (78 MA and 152 MO), Oterino et al. (2004) found that the 677TT genotype was more common in those with MA compared to MO (odds ratio of 2.34). However, there was no association between migraine and the 677CT polymorphism overall when compared to 204 controls.</Attribute>
+              <Citation>
+                <ID Source="PubMed">15154859</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Among 187 Dutch MA patients, 226 MO patients and 1,212 controls, Scher et al. (2006) found that the TT genotype was associated with increased risk for MA (odds ratio of 2.05). There was a significant trend for the number of T alleles and MA, but not MO. The association was not mediated by cardiovascular risk factors or by plasma levels of folate or vitamin B12, which are involved in homocysteine metabolism, although the odds ratio was decreased slightly after adjustment for total homocysteine levels. In contrast, Todt et al. (2006) found no association between the T allele and migraine with aura among 656 German patients with MA and 625 controls. There was also no association in an independent family-based study of 155 German MA trios.</Attribute>
+              <Citation>
+                <ID Source="PubMed">16365871</ID>
+              </Citation>
+              <Citation>
+                <ID Source="PubMed">16800002</ID>
+              </Citation>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Glaucoma</Attribute>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Description">Junemann et al. (2005) estimated the prevalence of the C677T single-nucleotide polymorphism in the MTHFR gene in primary open-angle glaucoma (POAG; 137760) and pseudoexfoliation open-angle glaucoma (PEXG; see 177650). The authors found significant evidence of a higher prevalence of C677T in POAG (9% homozygotes, 49% heterozygote, 42% wildtype, p = 0.01, OR = 2.38) than in PEXG (9% homozygotes, 41% heterozygote, 50% wildtype, p = 0.09, OR 1.78) compared with controls (3% homozygotes, 34% heterozygote, 63% wildtype). Thus, Junemann et al. (2005) concluded that the MTHFR C677T variant leading to moderate hyperhomocysteinemia might play a role as a genetic risk factor in the pathogenesis of POAG.</Attribute>
+              <Citation>
+                <ID Source="PubMed">15808177</ID>
+              </Citation>
+              <XRef DB="OMIM" ID="137760" Type="MIM"/>
+              <XRef DB="OMIM" ID="177650" Type="MIM"/>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <Name>MTHFR, 677C-T, ALA222VAL (rs1801133)</Name>
+          <VariantType>Variation</VariantType>
+          <OtherNameList>
+            <Name Type="NonHGVS">677C-T, ALA222VAL (rs1801133)</Name>
+          </OtherNameList>
+          <XRefList>
+            <XRef DB="OMIM" ID="607093.0003" Type="Allelic variant"/>
+          </XRefList>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">MTHFR THERMOLABILE POLYMORPHISM</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="1730401" SubmissionDate="2025-01-28" ContributesToAggregateClassification="false" DateLastUpdated="2025-03-11" DateCreated="2016-12-06">
+        <ClinVarSubmissionID localKey="74380|MedGen:C3661900" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV000884146" DateUpdated="2025-03-11" DateCreated="2016-12-06" Type="SCV" Version="8" SubmitterName="ARUP Laboratories, Molecular Genetics and Genomics, ARUP Laboratories" OrgID="25969" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2024-11-22">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Association</GermlineClassification>
+          <Comment>The MTHFR c.665C&gt;T; p.Ala222Val variant (rs1801133), also known as C677T or the thermolabile variant, is listed in the ClinVar database (Variation ID: 3520) and is observed in the general population with an overall allele frequency of 30.8% (87,234/282,784 alleles including 15,819 homozygotes) in the Genome Aggregation Database. The thermolabile c.665C&gt;T variant in the homozygous state has been correlated with reduced enzyme activity and increased homocysteine (Frosst 1995). The practice guidelines from The American College of Medical Genetics state that this variant in the heterozygous state is unlikely to be of clinical significance (Hickey 2013); however, a possible effect of this variant when paired with a pathogenic MTHFR variant on the opposite chromosome cannot be excluded. Additionally, the practice guidelines state that an individual who is homozygous for the c.665C&gt;T; p.Ala222Val variant and has elevated homocysteine may be at mildly increased risk for venous thromboembolism and recurrent pregnancy loss (Hickey 2013). The variant is considered a ''susceptibility'' or an ''association'' variant. REFERENCES Frosst P et al. A candidate genetic risk factor for vascular disease: a common mutation in methylenetetrahydrofolate reductase. Nat Genet. 1995 May;10(1):111-3. PMID: 7647779. Hickey SE et al. ACMG Practice Guideline: lack of evidence for MTHFR polymorphism testing. Genet Med. 2013 Feb;15(2):153-6. PMID: 23288205.</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">ARUP Molecular Germline Variant Investigation Process 2024</Attribute>
+          <Citation>
+            <URL>https://submit.ncbi.nlm.nih.gov/api/2.0/files/xwiqgyug/arup_molecular_germline_variant_investigation_process_arup-info-0022_2024.pdf/?format=attachment</URL>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NC_000001.10:g.11856378G&gt;A</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="MedGen" ID="C3661900" Type="CUI"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>2020 ARUP</SubmissionName>
+          <SubmissionName>2023 ARUP ClinVar submission</SubmissionName>
+          <SubmissionName>2024 ARUP ClinVar Submission</SubmissionName>
+          <SubmissionName>ARUP Molecular 2021</SubmissionName>
+          <SubmissionName>Aug 2019 ARUP</SubmissionName>
+          <SubmissionName>May 2022</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="4902088" SubmissionDate="2024-06-28" ContributesToAggregateClassification="false" DateLastUpdated="2025-04-13" DateCreated="2022-05-07">
+        <ClinVarSubmissionID localKey="1328612|see cases" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV002506425" DateUpdated="2025-04-13" DateCreated="2022-05-07" Type="SCV" Version="3" SubmitterName="Centre of Medical Genetics, University Hospital Muenster" OrgID="507439" OrganizationCategory="clinic" OrgAbbreviation="IHG"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2022-01-06">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Uncertain significance</GermlineClassification>
+          <Citation>
+            <ID Source="PubMed">9545395</ID>
+          </Citation>
+          <Comment Type="public">ACMG categories: PS3,PS4,PM1,BA1</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">ACMG Guidelines, 2015</Attribute>
+          <Citation>
+            <ID Source="PubMed">25741868</ID>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>unknown</Origin>
+              <Tissue>blood</Tissue>
+              <Species TaxonomyId="9606">human</Species>
+              <Age Type="minimum" age_unit="years">10</Age>
+              <Age Type="maximum" age_unit="years">19</Age>
+              <AffectedStatus>yes</AffectedStatus>
+              <Sex>male</Sex>
+            </Sample>
+            <Method>
+              <NamePlatform>NextSeq 500</NamePlatform>
+              <TypePlatform>next-gen sequencing</TypePlatform>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="VariantAlleles" integerValue="1"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="SingleHeterozygote" integerValue="1"/>
+            </ObservedData>
+            <TraitSet Type="Finding">
+              <Trait ClinicalFeaturesAffectedStatus="present" Type="Finding">
+                <XRef DB="HP" ID="HP:0002156"/>
+              </Trait>
+            </TraitSet>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <Location>
+            <SequenceLocation Assembly="GRCh37" Chr="1" alternateAllele="A" referenceAllele="G" start="11856378" stop="11856378" variantLength="1"/>
+          </Location>
+          <XRefList>
+            <XRef DB="dbSNP" ID="1801133" Type="rsNumber"/>
+          </XRefList>
+        </SimpleAllele>
+        <TraitSet Type="PhenotypeInstruction">
+          <Trait Type="PhenotypeInstruction">
+            <Name>
+              <ElementValue Type="Preferred">see cases</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB11427717</SubmissionName>
+          <SubmissionName>SUB14571546</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="3393998" SubmissionDate="2026-02-06" ContributesToAggregateClassification="false" DateLastUpdated="2026-03-07" DateCreated="2021-06-15">
+        <ClinVarSubmissionID localKey="29507|MedGen:C1856058" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001733273" DateUpdated="2026-03-07" DateCreated="2021-06-15" Type="SCV" Version="6" SubmitterName="Labcorp Genetics (formerly Invitae), Labcorp" OrgID="500031" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2026-02-04">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Benign</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">Invitae Variant Classification Sherloc (09022015)</Attribute>
+          <Citation>
+            <ID Source="PubMed">28492532</ID>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NC_000001.10:g.11856378G&gt;A</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="MedGen" ID="C1856058" Type="CUI"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB11431369</SubmissionName>
+          <SubmissionName>SUB12507860</SubmissionName>
+          <SubmissionName>SUB14200283</SubmissionName>
+          <SubmissionName>SUB15075391</SubmissionName>
+          <SubmissionName>SUB15990429</SubmissionName>
+          <SubmissionName>SUB8755776</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="14500573" SubmissionDate="2026-04-23" ContributesToAggregateClassification="false" DateLastUpdated="2026-05-16" DateCreated="2026-05-16">
+        <ClinVarSubmissionID localKey="NM_005957.5:c.665C&gt;T|OMIM:236250" submittedAssembly="GRCh38"/>
+        <ClinVarAccession Accession="SCV007593630" DateUpdated="2026-05-16" DateCreated="2026-05-16" Type="SCV" Version="1" SubmitterName="Variantyx, Inc." OrgID="506526" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2025-06-20">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Likely Pathogenic</GermlineClassification>
+          <Citation>
+            <ID Source="PubMed">25736335</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">26872964</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">10679944</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">12673793</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">25162892</ID>
+          </Citation>
+          <Citation>
+            <ID Source="PubMed">25856670</ID>
+          </Citation>
+          <Comment Type="public">This is a nonsynonymous variant in the MTHFR gene (OMIM: 607093). Pathogenic variants in this gene have been associated with autosomal recessive homocystinuria due to methylenetetrahydrofolate reductase (MTHFR) deficiency. Homozygosity of this variant may result in mild-to-moderate hyperhomocysteinemia, which has been associated with an increased risk of venous thrombosis, ischemic stroke, coronary heart disease, and obstetrical complications (PMID: 18990318, 9869152, 9878639, 12196644). A study suggests that lifelong moderate homocysteine elevation may have little to no effect on the risk of coronary heart disease (PMID 22363213). Functional studies have shown that this variant alters MTHFR protein function (PMID: 27743313) (PS3) and multiple computational algorithms predict a deleterious effect for this variant (REVEL score: 0.842) (PP3_Moderate). This variant has a 47.7744% maximum allele frequency in control populations (gnomAD, https://gnomad.broadinstitute.org/) (BS1). The MTHFR c.665C&gt;T; p.Ala222Val variant (rs1801133), also known as C677T or the "thermolabile" variant, is listed in the ClinVar database (Variation ID: 3520), it was reviewed by expert panel (3 stars in clinVar) for drug response. This variant has been found to influence methotrexate metabolism in individuals treated for autoimmune disease or hematological malignancies, with both heterozygous and homozygous individuals having an increased risk of adverse drug reaction (https://www.pharmgkb.org/variant/PA16615364). Based on the current evidence, this variant is classified as likely pathogenic.</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="ModeOfInheritance">Autosomal recessive inheritance</Attribute>
+        </AttributeSet>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">Variantyx Assertion Criteria 2022</Attribute>
+          <Citation>
+            <URL>https://submit.ncbi.nlm.nih.gov/api/2.0/files/2zdwovk5/variantyx_assertion_criteria_2022.pdf/?format=attachment</URL>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>no</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.5:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="OMIM" ID="236250" Type="MIM"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB16140641</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="11355338" SubmissionDate="2026-06-02" ContributesToAggregateClassification="false" DateLastUpdated="2026-06-20" DateCreated="2025-04-13">
+        <ClinVarSubmissionID localKey="1-11796321-G-A|OMIM:601634" submittedAssembly="GRCh38"/>
+        <ClinVarAccession Accession="SCV005904943" DateUpdated="2026-06-20" DateCreated="2025-04-13" Type="SCV" Version="2" SubmitterName="3billion" OrgID="507830" OrganizationCategory="other" OrgAbbreviation="3billion"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2025-07-16">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Uncertain significance</GermlineClassification>
+          <Comment Type="public">The variant is observed as homozygous in at least two unrelated individuals/adults in the gnomAD v4.1.0 dataset. Predicted Consequence/Location: Missense variant In silico tool predictions suggest damaging effect of the variant on gene or gene product [REVEL: 0.84 (&gt;=0.6, sensitivity 0.68 and specificity 0.92)]. The variant has been reportedas being highly correlated with development of neural tube defects in thegeneralpopulation. (PMID: 32536242, ClinVar ID: VCV000003520). Therefore, this variant is classified as Risk allele according to the recommendation of ACMG/AMP guideline.</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">ACMG Guidelines, 2015</Attribute>
+          <Citation>
+            <ID Source="PubMed">25741868</ID>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <TypePlatform>exome sequencing</TypePlatform>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.5:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="OMIM" ID="601634" Type="MIM"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB15201286</SubmissionName>
+          <SubmissionName>SUB16220023</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="1747332" SubmissionDate="2018-10-25" ContributesToAggregateClassification="false" DateLastUpdated="2019-03-24" DateCreated="2019-03-24">
+        <ClinVarSubmissionID localKey="NM_005957.4:c.665C&gt;T|OMIM:188050" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV000891532" DateUpdated="2019-03-24" DateCreated="2019-03-24" Type="SCV" Version="1" SubmitterName="Department of Genetics, Sultan Qaboos University Hospital" OrgID="506653" OrganizationCategory="laboratory" OrgAbbreviation="SQUH-Genetics"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2017-12-30">
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Uncertain significance</GermlineClassification>
+          <Citation>
+            <ID Source="PubMed">16432849</ID>
+          </Citation>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>unknown</Origin>
+              <GeographicOrigin>Middle East</GeographicOrigin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>curation</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.4:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Finding">
+          <Trait Type="Finding">
+            <XRef DB="OMIM" ID="188050" Type="MIM"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB4684823</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="2878442" SubmissionDate="2020-12-28" ContributesToAggregateClassification="false" DateLastUpdated="2021-01-02" DateCreated="2021-01-02">
+        <ClinVarSubmissionID localKey="NM_005957.4:c.665C&gt;T|Homocystinuria due to MTHFR deficiency" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001463167" DateUpdated="2021-01-02" DateCreated="2021-01-02" Type="SCV" Version="1" SubmitterName="Natera, Inc." OrgID="500034" OrganizationCategory="laboratory" OrgAbbreviation="Natera"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2019-12-07">
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Benign</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>unknown</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <VariantType>Variation</VariantType>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.4:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">Homocystinuria due to MTHFR deficiency</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>SUB8808661</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="3050088" SubmissionDate="2021-03-31" ContributesToAggregateClassification="false" DateLastUpdated="2021-04-13" DateCreated="2021-04-13">
+        <ClinVarSubmissionID localKey="chr1:11856377-11856378:1d909d722c2f594054aa9df6b5d07fbf" localKeyIsSubmitted="1" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001549379" DateUpdated="2021-04-13" DateCreated="2021-04-13" Type="SCV" Version="1" SubmitterName="Department of Pathology and Laboratory Medicine, Sinai Health System" OrgID="506152" OrganizationCategory="laboratory" OrgAbbreviation="PLM-SHS"/>
+        <AdditionalSubmitters>
+          <SubmitterDescription OrgID="506759" SubmitterName="Franklin by Genoox" Type="secondary" OrganizationCategory="other"/>
+        </AdditionalSubmitters>
+        <RecordStatus>current</RecordStatus>
+        <Classification>
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Benign</GermlineClassification>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>unknown</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="Description">not provided</Attribute>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <Location>
+            <SequenceLocation Assembly="GRCh37" Chr="1" alternateAllele="A" referenceAllele="G" start="11856378" stop="11856378" variantLength="1"/>
+          </Location>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <Name>
+              <ElementValue Type="Preferred">not specified</ElementValue>
+            </Name>
+          </Trait>
+        </TraitSet>
+        <StudyName>The Canadian Open Genetics Repository (COGR)</StudyName>
+        <SubmissionNameList>
+          <SubmissionName>SUB9371647</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="2265337" SubmissionDate="2026-06-01" ContributesToAggregateClassification="false" DateLastUpdated="2026-06-20" DateCreated="2020-02-03">
+        <ClinVarSubmissionID localKey="95|MedGen:CN517202" submittedAssembly="GRCh37"/>
+        <ClinVarAccession Accession="SCV001147149" DateUpdated="2026-06-20" DateCreated="2020-02-03" Type="SCV" Version="37" SubmitterName="CeGaT Center for Human Genetics Tuebingen" OrgID="505870" OrganizationCategory="laboratory" OrgAbbreviation="CHGT"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2024-01-01">
+          <ReviewStatus>criteria provided, single submitter</ReviewStatus>
+          <GermlineClassification>Uncertain significance</GermlineClassification>
+          <Comment Type="public">MTHFR: PM3, PM2:Supporting</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="AssertionMethod">CeGaT Center For Human Genetics Tuebingen Variant Classification Criteria Version 2</Attribute>
+          <Citation>
+            <URL>https://submit.ncbi.nlm.nih.gov/api/2.0/files/0ynenhfo/cegat_center_for_human_genetics_tuebingen_-_variant_classification_criteria_-_version_2.pdf/?format=attachment</URL>
+          </Citation>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+            </Sample>
+            <Method>
+              <MethodType>clinical testing</MethodType>
+            </Method>
+            <ObservedData>
+              <Attribute Type="VariantAlleles" integerValue="9"/>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR"/>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <Location>
+            <SequenceLocation Assembly="GRCh37" Chr="1" alternateAllele="A" referenceAllele="G" start="11856378" stop="11856378" variantLength="1"/>
+          </Location>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="MedGen" ID="CN517202" Type="CUI"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>2021-07</SubmissionName>
+          <SubmissionName>2021-10</SubmissionName>
+          <SubmissionName>2022-01</SubmissionName>
+          <SubmissionName>2022-01-corrected</SubmissionName>
+          <SubmissionName>2022-04</SubmissionName>
+          <SubmissionName>2022-07</SubmissionName>
+          <SubmissionName>2023-01</SubmissionName>
+          <SubmissionName>2023-04</SubmissionName>
+          <SubmissionName>2023-09-add-ACMG-details</SubmissionName>
+          <SubmissionName>2023-10</SubmissionName>
+          <SubmissionName>2024-04</SubmissionName>
+          <SubmissionName>SUB13641132</SubmissionName>
+          <SubmissionName>SUB13985080</SubmissionName>
+          <SubmissionName>SUB14102099</SubmissionName>
+          <SubmissionName>SUB14290090</SubmissionName>
+          <SubmissionName>SUB14426581</SubmissionName>
+          <SubmissionName>SUB14513473</SubmissionName>
+          <SubmissionName>SUB14584463</SubmissionName>
+          <SubmissionName>SUB14636274</SubmissionName>
+          <SubmissionName>SUB14721088</SubmissionName>
+          <SubmissionName>SUB14783021</SubmissionName>
+          <SubmissionName>SUB14928462</SubmissionName>
+          <SubmissionName>SUB15149282</SubmissionName>
+          <SubmissionName>SUB15237316</SubmissionName>
+          <SubmissionName>SUB15302933</SubmissionName>
+          <SubmissionName>SUB15380712</SubmissionName>
+          <SubmissionName>SUB15436669</SubmissionName>
+          <SubmissionName>SUB15585849</SubmissionName>
+          <SubmissionName>SUB15682521</SubmissionName>
+          <SubmissionName>SUB15821677</SubmissionName>
+          <SubmissionName>SUB15914871</SubmissionName>
+          <SubmissionName>SUB16104672</SubmissionName>
+          <SubmissionName>SUB16224911</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+      <ClinicalAssertion ID="14533628" SubmissionDate="2026-06-24" ContributesToAggregateClassification="false" DateLastUpdated="2026-06-27" DateCreated="2026-06-27">
+        <ClinVarSubmissionID localKey="MTHFR_C677T_IschemicStroke_LDEY_2026" submittedAssembly="GRCh38" title="MTHFR_C677T_IschemicStroke_LDEY_2026"/>
+        <ClinVarAccession Accession="SCV007601567" DateUpdated="2026-06-27" DateCreated="2026-06-27" Type="SCV" Version="1" SubmitterName="Department of Clinical Medical Laboratory, The Second Hospital of Lanzhou University" OrgID="510603" OrganizationCategory="laboratory"/>
+        <RecordStatus>current</RecordStatus>
+        <Classification DateLastEvaluated="2026-06-08">
+          <ReviewStatus>no assertion criteria provided</ReviewStatus>
+          <GermlineClassification>Likely risk allele</GermlineClassification>
+          <Comment Type="public">Case-control association study of MTHFR C677T (c.665C&gt;T, rs1801133) and ischemic stroke in a Chinese Han population. Study included 121 ischemic stroke patients (cases) and 121 healthy controls. Genotyping was performed using PCR-RFLP. The T allele frequency was significantly higher in cases (62.40%) than in controls (51.65%). Allelic association: OR=1.55, 95% CI=1.08-2.23, P=0.017 (chi-square test). Genotype distribution in cases: CC=24, CT=43, TT=54; in controls: CC=29, CT=59, TT=33. The control group was in Hardy-Weinberg equilibrium (P=0.794). These results suggest that the MTHFR C677T polymorphism is a risk factor for ischemic stroke.</Comment>
+        </Classification>
+        <Assertion>variation to disease</Assertion>
+        <AttributeSet>
+          <Attribute Type="ModeOfInheritance">Sporadic</Attribute>
+        </AttributeSet>
+        <ObservedInList>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Ethnicity>Han Chinese</Ethnicity>
+              <GeographicOrigin>China</GeographicOrigin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>yes</AffectedStatus>
+              <Sex>mixed</Sex>
+            </Sample>
+            <Method>
+              <TypePlatform>PCR</TypePlatform>
+              <MethodType>case-control</MethodType>
+              <MethodAttribute>
+                <Attribute Type="TestName">PCR-RFLP</Attribute>
+              </MethodAttribute>
+            </Method>
+            <ObservedData>
+              <Attribute Type="VariantAlleles" integerValue="97"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Homozygote" integerValue="54"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="SingleHeterozygote" integerValue="43"/>
+            </ObservedData>
+          </ObservedIn>
+          <ObservedIn>
+            <Sample>
+              <Origin>germline</Origin>
+              <Ethnicity>Han Chinese</Ethnicity>
+              <GeographicOrigin>China</GeographicOrigin>
+              <Species TaxonomyId="9606">human</Species>
+              <AffectedStatus>no</AffectedStatus>
+              <Sex>mixed</Sex>
+            </Sample>
+            <Method>
+              <TypePlatform>PCR</TypePlatform>
+              <MethodType>case-control</MethodType>
+              <MethodAttribute>
+                <Attribute Type="TestName">PCR-RFLP</Attribute>
+              </MethodAttribute>
+            </Method>
+            <ObservedData>
+              <Attribute Type="VariantAlleles" integerValue="92"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="Homozygote" integerValue="33"/>
+            </ObservedData>
+            <ObservedData>
+              <Attribute Type="SingleHeterozygote" integerValue="59"/>
+            </ObservedData>
+          </ObservedIn>
+        </ObservedInList>
+        <SimpleAllele>
+          <GeneList>
+            <Gene Symbol="MTHFR">
+              <Name>methylenetetrahydrofolate reductase</Name>
+            </Gene>
+          </GeneList>
+          <VariantType>Variation</VariantType>
+          <Location>
+            <GeneLocation>NM_005957.4:exon 4</GeneLocation>
+          </Location>
+          <XRefList>
+            <XRef DB="dbSNP" ID="rs1801133"/>
+          </XRefList>
+          <AttributeSet>
+            <Attribute Type="HGVS">NM_005957.4:c.665C&gt;T</Attribute>
+          </AttributeSet>
+        </SimpleAllele>
+        <TraitSet Type="Disease">
+          <Trait Type="Disease">
+            <XRef DB="MeSH" ID="D020521"/>
+          </Trait>
+        </TraitSet>
+        <SubmissionNameList>
+          <SubmissionName>MTHFR_C677T_IschemicStroke_LDEY_2026</SubmissionName>
+        </SubmissionNameList>
+      </ClinicalAssertion>
+    </ClinicalAssertionList>
+    <TraitMappingList>
+      <TraitMapping ClinicalAssertionID="2240970" TraitType="Disease" MappingType="XRef" MappingValue="601634" MappingRef="OMIM">
+        <MedGen CUI="C1866558" Name="Neural tube defects, folate-sensitive"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="2805664" TraitType="Disease" MappingType="Name" MappingValue="Homocystinuria due to methylene tetrahydrofolate reductase deficiency" MappingRef="Preferred">
+        <MedGen CUI="C1856061" Name="Homocystinuria due to methylene tetrahydrofolate reductase deficiency"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="2694687" TraitType="Disease" MappingType="XRef" MappingValue="236250" MappingRef="OMIM">
+        <MedGen CUI="C1856061" Name="Homocystinuria due to methylene tetrahydrofolate reductase deficiency"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="4966726" TraitType="Disease" MappingType="Name" MappingValue="Neural tube defects, folate-sensitive" MappingRef="Preferred">
+        <MedGen CUI="C1866558" Name="Neural tube defects, folate-sensitive"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="361011" TraitType="Disease" MappingType="Name" MappingValue="not provided" MappingRef="Preferred">
+        <MedGen CUI="C3661900" Name="not provided"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="2354498" TraitType="Disease" MappingType="XRef" MappingValue="236250" MappingRef="OMIM">
+        <MedGen CUI="C1856061" Name="Homocystinuria due to methylene tetrahydrofolate reductase deficiency"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="183447" TraitType="Disease" MappingType="XRef" MappingValue="C1856059" MappingRef="MedGen">
+        <MedGen CUI="C1856059" Name="MTHFR THERMOLABILE POLYMORPHISM"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="984917" TraitType="Disease" MappingType="Name" MappingValue="not specified" MappingRef="Preferred">
+        <MedGen CUI="CN169374" Name="not specified"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="3782586" TraitType="Disease" MappingType="Name" MappingValue="not specified" MappingRef="Preferred">
+        <MedGen CUI="CN169374" Name="not specified"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="3786957" TraitType="Disease" MappingType="Name" MappingValue="not specified" MappingRef="Preferred">
+        <MedGen CUI="CN169374" Name="not specified"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="3984216" TraitType="DrugResponse" MappingType="Name" MappingValue="methotrexate response - Toxicity" MappingRef="Preferred">
+        <MedGen CUI="C0568062" Name="methotrexate response - Toxicity"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="23860" TraitType="Disease" MappingType="Name" MappingValue="MTHFR THERMOLABILE POLYMORPHISM" MappingRef="Preferred">
+        <MedGen CUI="C1856059" Name="MTHFR THERMOLABILE POLYMORPHISM"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="1730401" TraitType="Disease" MappingType="XRef" MappingValue="C3661900" MappingRef="MedGen">
+        <MedGen CUI="C3661900" Name="not provided"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="4902088" TraitType="Finding" MappingType="XRef" MappingValue="HP:0002156" MappingRef="HP">
+        <MedGen CUI="C0019880" Name="Homocystinuria"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="4902088" TraitType="PhenotypeInstruction" MappingType="Name" MappingValue="see cases" MappingRef="Preferred">
+        <MedGen CUI="None" Name="See cases"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="3393998" TraitType="Disease" MappingType="XRef" MappingValue="C1856058" MappingRef="MedGen">
+        <MedGen CUI="C1856061" Name="Homocystinuria due to methylene tetrahydrofolate reductase deficiency"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="14500573" TraitType="Disease" MappingType="XRef" MappingValue="236250" MappingRef="OMIM">
+        <MedGen CUI="C1856061" Name="Homocystinuria due to methylene tetrahydrofolate reductase deficiency"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="11355338" TraitType="Disease" MappingType="XRef" MappingValue="601634" MappingRef="OMIM">
+        <MedGen CUI="C1866558" Name="Neural tube defects, folate-sensitive"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="1747332" TraitType="Finding" MappingType="XRef" MappingValue="188050" MappingRef="OMIM">
+        <MedGen CUI="C3160733" Name="Thrombophilia due to thrombin defect"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="2878442" TraitType="Disease" MappingType="Name" MappingValue="Homocystinuria due to MTHFR deficiency" MappingRef="Preferred">
+        <MedGen CUI="C1856061" Name="Homocystinuria due to methylene tetrahydrofolate reductase deficiency"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="3050088" TraitType="Disease" MappingType="Name" MappingValue="not specified" MappingRef="Preferred">
+        <MedGen CUI="CN169374" Name="not specified"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="2265337" TraitType="Disease" MappingType="XRef" MappingValue="CN517202" MappingRef="MedGen">
+        <MedGen CUI="C3661900" Name="not provided"/>
+      </TraitMapping>
+      <TraitMapping ClinicalAssertionID="14533628" TraitType="Disease" MappingType="XRef" MappingValue="D020521" MappingRef="MeSH">
+        <MedGen CUI="C0038454" Name="Stroke disorder"/>
+      </TraitMapping>
+    </TraitMappingList>
+    <DeletedSCVList>
+      <SCV>
+        <Accession Version="1" DateDeleted="2020-11-19">SCV001368806</Accession>
+        <Description>Updated the reporting strategy binding the interpretation to OMIM (instead of HPO)</Description>
+      </SCV>
+      <SCV>
+        <Accession Version="1" DateDeleted="2020-11-19">SCV001366354</Accession>
+        <Description>Updated the reporting strategy binding the interpretation to OMIM (instead of HPO)</Description>
+      </SCV>
+      <SCV>
+        <Accession Version="2" DateDeleted="2022-04-15">SCV000494694</Accession>
+        <Description>not specified</Description>
+      </SCV>
+      <SCV>
+        <Accession Version="2" DateDeleted="2020-07-18">SCV000347807</Accession>
+        <Description>not specified</Description>
+      </SCV>
+      <SCV>
+        <Accession Version="3" DateDeleted="2022-04-15">SCV000268236</Accession>
+        <Description>not specified</Description>
+      </SCV>
+      <SCV>
+        <Accession Version="3" DateDeleted="2022-04-15">SCV000268238</Accession>
+        <Description>not specified</Description>
+      </SCV>
+      <SCV>
+        <Accession Version="1" DateDeleted="2024-12-20">SCV000505736</Accession>
+        <Description>This record was deleted because the classification was outdated and the DoCM project was retired. Classification of these variants is now being addressed by CIViC (civicdb.org).</Description>
+      </SCV>
+      <SCV>
+        <Accession Version="1" DateDeleted="2023-11-01">SCV002031238</Accession>
+        <Description>not specified</Description>
+      </SCV>
+    </DeletedSCVList>
+  </ClassifiedRecord>
+</VariationArchive>
+</ClinVarResult-Set>

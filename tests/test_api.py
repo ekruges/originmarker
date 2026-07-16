@@ -212,6 +212,72 @@ def test_nl_free_path_is_never_metered(monkeypatch):
     assert r.json()["used_llm"] is False
 
 
+def _await_job(job_id):
+    for _ in range(600):
+        s = client.get(f"/api/panel/{job_id}").json()
+        if s["status"] != "running":
+            return s
+        time.sleep(0.1)
+    raise AssertionError(f"job {job_id} never finished")
+
+
+def test_model_chosen_variant_is_disclosed_from_api_nl_to_the_filed_export(monkeypatch,
+                                                                          request):
+    """The disclosure has to survive the whole hop, not just render when handed the flag.
+
+    /api/nl names the model, the client echoes it into /api/panel, build() records it and
+    every export says so. Each side landing separately is what makes this worth pinning:
+    any one of them going quiet leaves a model-chosen panel that reads as hand-typed, and
+    nothing else in the app would notice.
+    """
+    import app.nl
+
+    monkeypatch.setattr(app.nl, "_llm_intent", lambda text: {"variant": GOLDEN})
+    # Both ends: a warm entry would hide the stub, and the stub's answer must not outlive
+    # the test in a cache that another test would read as a real reply.
+    app.nl._cached_intent.cache_clear()
+    request.addfinalizer(app.nl._cached_intent.cache_clear)
+
+    j = client.post("/api/nl", json={"text": "the splice mutation we discussed"}).json()
+    assert j["used_llm"] is True, "prose naming no identifier must take the model path"
+    assert j["model"], "/api/nl must name the model the client has to echo back"
+
+    # Exactly the body the client builds from that response.
+    body = dict(j["query"], nl_text=j["text"], nl_model=j["model"])
+    assert not {"chrom", "pos", "pos_grch38", "ref", "alt"} & set(body), "R1"
+    job_id = client.post("/api/panel", json=body).json()["job_id"]
+    assert _await_job(job_id)["status"] == "done"
+
+    model = j["model"]
+    # Read the strings a human sees, not the raw bytes: reportlab compresses the streams,
+    # so a substring check against the file passes or fails for the wrong reason.
+    from app.exports import _pdf_text
+    pdf = _pdf_text(client.get(f"/api/export/{job_id}.pdf").content)
+    assert model in pdf, "the PDF does not say a model chose the variant"
+    assert "the splice mutation we discussed" in pdf, "the PDF drops the text it was given"
+    for ext in ("csv", "json"):
+        assert model in client.get(f"/api/export/{job_id}.{ext}").text, f"{ext} is silent"
+    # A reader stripping '#' comments must still see it, so it rides a column, not a note.
+    csv_body = client.get(f"/api/export/{job_id}.csv").text
+    rows = [ln for ln in csv_body.splitlines() if ln and not ln.startswith("#")]
+    assert model in rows[0] or model in rows[1], "comment-stripped CSV loses the model"
+
+
+def test_a_typed_identifier_is_never_reported_as_a_model_choice():
+    """Silence is the honest rendering of an absent model: no caveat, and no 'none'."""
+    j = client.post("/api/nl", json={"text": f"panel for {GOLDEN}"}).json()
+    assert j["used_llm"] is False and j["model"] is None
+
+    job_id = client.post("/api/panel", json=dict(j["query"], nl_text=j["text"],
+                                                 nl_model=j["model"])).json()["job_id"]
+    assert _await_job(job_id)["status"] == "done"
+
+    for ext in ("csv", "json", "pdf"):
+        body = client.get(f"/api/export/{job_id}.{ext}").content.decode("latin-1").lower()
+        assert "language model" not in body, f"{ext} caveats a panel the user typed"
+        assert "nl_model: none" not in body, f"{ext} renders a None nl_model"
+
+
 def test_job_errors_do_not_leak_internals(monkeypatch):
     """job.error is served to the browser, so an unforeseen exception must not arrive
     there as a raw traceback string."""

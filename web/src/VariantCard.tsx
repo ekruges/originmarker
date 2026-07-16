@@ -1,5 +1,6 @@
-import { Alert, Anchor, Badge, Button, Group, Paper, Table, Text } from '@mantine/core'
-import { links, type NLResponse, type ResolveResponse } from './api'
+import { useState } from 'react'
+import { Alert, Anchor, Badge, Button, Checkbox, Group, Paper, Table, Text } from '@mantine/core'
+import { geneMismatch, links, type NLResponse, type ResolveResponse } from './api'
 import { coord, sci, strandLabel } from './fmt'
 
 const Row = ({ k, children }: { k: string; children: React.ReactNode }) => (
@@ -34,6 +35,13 @@ export function VariantCard({
   const { variant: v, rarity, transcript_sense, clinvar_url } = data
   const minus = v.strand === -1
 
+  // The user named a gene and got a variant in another one. Not a warning to read past: the
+  // panel would be correct about a locus nobody asked for, so Build is withheld until they
+  // say they meant this. Scoped to this card, which is keyed on the variant upstream.
+  const named = nl?.named_genes ?? []
+  const wrongGene = geneMismatch(v.gene, named)
+  const [meantIt, setMeantIt] = useState(false)
+
   return (
     <Paper mb="sm">
       <Group justify="space-between" className="om-section-title" wrap="nowrap">
@@ -49,11 +57,16 @@ export function VariantCard({
             variant={nl.used_llm ? 'filled' : 'light'}
             title={nl.used_llm ? 'A language model chose this variant' : 'Parsed from your wording'}
           >
+            {/* Two claims, kept apart on purpose. WHICH variant is the model's, recalled
+                from its own memory rather than read off anything the user typed. The
+                coordinate is not the model's at all. Merging them either accuses the
+                position of being invented or lets the choice pass as looked-up. */}
             {nl.used_llm && (
               <Text size="sm" fw={600} mb={6}>
-                Check the record below is the variant you meant. A model reading your wording can
-                pick the wrong one, and every number that follows would then be right about the
-                wrong locus.
+                Nothing you typed named a variant, so a model named one from its own memory. The
+                position and alleles below were then looked up live from that identifier, not
+                taken from the model: they are right about the variant the model named. Check
+                that is the variant you meant.
               </Text>
             )}
             <Text size="xs" className="om-mono">
@@ -68,6 +81,25 @@ export function VariantCard({
                 {nl.note}
               </Text>
             )}
+          </Alert>
+        )}
+
+        {wrongGene && (
+          <Alert color="red" variant="filled" mb={8} role="alert" title="That is not the gene you named">
+            <Text size="sm" fw={600}>
+              You asked about {named.join(' or ')}. That identifier is a variant in {v.gene}.
+            </Text>
+            <Text size="xs" mt={6}>
+              The record below is what {v.query} resolves to, live. Read it before you decide.
+              If you did mean a variant in {v.gene}, say so and Build turns on.
+            </Text>
+            <Checkbox
+              mt={8}
+              size="xs"
+              checked={meantIt}
+              onChange={(e) => setMeantIt(e.currentTarget.checked)}
+              label={`I meant this variant in ${v.gene}, not ${named.join(' or ')}.`}
+            />
           </Alert>
         )}
 
@@ -176,9 +208,20 @@ export function VariantCard({
         </Table>
 
         <Group mt={8} gap={8}>
-          <Button onClick={onBuild} loading={busy}>Build panel</Button>
+          {/* Never the default action once the gene disagrees: withheld until acknowledged,
+              and still not the primary button afterwards. */}
+          <Button
+            onClick={onBuild}
+            loading={busy}
+            disabled={wrongGene && !meantIt}
+            variant={wrongGene ? 'default' : 'filled'}
+          >
+            Build panel
+          </Button>
           <Text size="xs" c="dimmed">
-            Pulls every common SNP in the window from gnomAD. Typically 20 to 60 s.
+            {wrongGene && !meantIt
+              ? `Withheld: you named ${named.join(' or ')} and this variant is in ${v.gene}.`
+              : 'Pulls every common SNP in the window from gnomAD. Typically 20 to 60 s.'}
           </Text>
         </Group>
       </div>

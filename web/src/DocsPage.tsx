@@ -57,6 +57,7 @@ const SECTIONS = [
   { id: 'layerb', label: 'Using the panel in the lab' },
   { id: 'sources', label: 'Data sources and versions' },
   { id: 'conventions', label: 'Conventions' },
+  { id: 'freetext', label: 'Free text and the model' },
   { id: 'limits', label: 'Known limitations' },
   { id: 'example', label: 'Worked example' },
   { id: 'api', label: 'API' },
@@ -481,7 +482,150 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="limits" title="10 · Known limitations">
+        <Section id="freetext" title="10 · Free text and the model">
+          <Text mb={8}>
+            The search box takes free text. What happens to it turns on one thing: whether your text
+            contains a variant identifier. The two paths are not the same feature with different
+            wording, and the difference is worth knowing before you trust an answer from either.
+          </Text>
+
+          <Title order={3} mt={12} mb={4}>You named it: a regex reads it, and no model runs</Title>
+          <Text mb={8}>
+            If your text contains an rsID, an HGVS expression or a ClinVar accession, a regular
+            expression lifts it out verbatim and nothing is sent to a model. The same local reading
+            picks up your modifiers: window size, ancestry, MAF floor. The identifier that reaches the
+            pipeline is the one you typed, character for character, and the request costs nothing.
+            Text naming two identifiers is refused rather than settled by guesswork, since{' '}
+            <i>not rs1, use rs2</i> and <i>rs1, or maybe rs2</i> read alike to a regex. This is the
+            path nearly every real request takes.
+          </Text>
+
+          <Title order={3} mt={12} mb={4}>You described it: a model is asked, and it answers from memory</Title>
+          <Text mb={8}>
+            If no identifier is present, the text goes to a small model (Haiku, at temperature 0) with
+            one question: which variant did this person mean. The model is not extracting the answer
+            from your text, because the answer is not in your text. It answers from its own training.
+            That is a knowledge claim rather than a reading, and it is the only place in this app where
+            something other than a database decides what you are looking at.
+          </Text>
+
+          <Title order={3} mt={12} mb={4}>What the model can and cannot touch</Title>
+          <Text mb={8}>
+            It cannot hand you a coordinate. Not a chromosome, not a position, not an allele, not a
+            strand. The typed query it fills, <Code>pb.StructuredQuery</Code>, has no field for any of
+            them (see <Anchor href={docHref('api')}>section 13</Anchor>). That is a property of the
+            code, not a rule the model is asked to observe: there is nowhere to put a coordinate, so a
+            recalled one has no route into a panel. Whichever path you arrive by, the coordinate on
+            your panel came from the same live lookup described in{' '}
+            <Anchor href={docHref('pipeline')}>section 3</Anchor>.
+          </Text>
+          <Text mb={8}>
+            What it does decide is <b>which variant you meant</b>, and it can be wrong. A gene may
+            carry hundreds of pathogenic variants, and <i>the ABCC8 splice mutation</i> does not name
+            one of them uniquely. So read the result in two parts: the panel around the variant is as
+            trustworthy as any other panel this tool builds, and <b>which variant it is a panel about</b>
+            {' '}is the part that needs your eyes.
+          </Text>
+
+          <Title order={3} mt={12} mb={4}>Safeguards</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              <b>The query type has no coordinate fields.</b> The strongest one, because it is
+              structural rather than a promise: there is no field to carry a fabricated position, so
+              nothing downstream has to be careful.
+            </List.Item>
+            <List.Item>
+              <b>Coordinate-shaped output is refused.</b> What the model returns must match an
+              allow-list of identifier shapes: rsID, HGVS, ClinVar accession. An allow-list, not a
+              list of forbidden coordinate formats, because a list of the ways a position can be
+              written is never complete, whereas anything not recognisable as an identifier is refused
+              by construction. <span className="om-mono">chr11:17397055</span> and{' '}
+              <span className="om-mono">11-17397055-C-T</span> do not pass; they raise.
+            </List.Item>
+            <List.Item>
+              <b>The identifier is looked up live</b>, by the same code path a typed one takes, and the
+              record that comes back is reconciled against that identifier. A ClinVar hit whose dbSNP
+              ids, accession or variant name are not the ones asked for is refused rather than
+              reported.
+            </List.Item>
+            <List.Item>
+              <b>The gene is cross-checked against a gene you named.</b> A gene symbol written the way
+              HGNC writes it, capitalised, as <Code>ABCC8</Code>, is read out of your text by the same
+              local regex, never by the model, and compared against the gene the lookup returns. If you asked about ABCC8 and the identifier turns out to be
+              a variant in another gene, that is not a note to read past: Build is withheld until you
+              tick a box saying you meant it. The check is worth exactly what you put into it, since
+              the gene it compares against is one you typed rather than one the model chose.
+            </List.Item>
+            <List.Item>
+              <b>Nothing is built without you.</b> The resolved variant appears as a card (rsID, gene,
+              strand, {build} coordinate, clinical significance) and no panel exists until you click
+              Build. When the model supplied the identifier, that card carries a caveat saying so,
+              naming the identifier and stating plainly that you did not type it.
+            </List.Item>
+            <List.Item>
+              <b>Every export says so.</b> A model-chosen panel carries the model's id and the text it
+              was given into the CSV, XLSX, JSON and PDF, so the caveat survives the download and
+              reaches whoever opens the file next. In the CSV it is a column on every row rather than a
+              header comment, which is what makes it survive{' '}
+              <span className="om-mono">read_csv(comment='#')</span>.
+            </List.Item>
+            <List.Item>
+              <b>The model path is metered before it runs.</b> Per-client and global caps are checked
+              ahead of the call, and only text that would actually reach a model is counted against
+              them.
+            </List.Item>
+          </List>
+
+          <Title order={3} mt={12} mb={4}>What this cannot do</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              The model is small, and it is being asked to recall one specific variant out of
+              everything it has ever read. It can recall the wrong one, and the risk is worst for
+              exactly the genes you are most likely to ask about: the well-studied ones with many
+              known pathogenic variants.
+            </List.Item>
+            <List.Item>
+              <b>It cannot tell you when it is unsure.</b> A confidently wrong identifier looks exactly
+              like a right one, and there is no score here that separates them. The live lookup is no
+              help: it faithfully returns the correct record for the wrong variant. The reconciliation
+              above confirms the record matches the identifier, but it cannot know whether the
+              identifier was what you meant, and the gene check above only fires when the gene differs
+              too.
+            </List.Item>
+            <List.Item>
+              <b>Name no gene and the cross-check has nothing to check against.</b> It compares the
+              answer to a gene you typed, so if you typed none it stays silent, and silence here is not
+              approval. That is reason enough to name the gene even when the variant is obvious to you.
+              Name it as <Code>ABCC8</Code> and not as <Code>abcc8</Code>: capitalisation is what
+              distinguishes a symbol from an ordinary word here, so a lowercased symbol reads as prose
+              and the check stays silent exactly as if you had named no gene. Symbols that carry
+              lowercase by convention, as <Code>C9orf72</Code> and <Code>MT-ND1</Code>, are read
+              correctly.
+            </List.Item>
+            <List.Item>
+              The cross-check only catches the wrong <i>gene</i>. Ask for the wrong variant{' '}
+              <i>within</i> the gene you named and every check in this section passes: the gene agrees,
+              the record is real, the coordinate is live and correct. That is the failure this section
+              exists to warn you about, and you are the only one who can catch it.
+            </List.Item>
+          </List>
+          <Text mb={8}>
+            The remedy is one line long: <b>if you know the rsID or the HGVS, type it.</b> It is free,
+            it is exact, and it skips this entire section.
+          </Text>
+
+          <Title order={3} mt={12} mb={4}>Cost, and switching it off</Title>
+          <Text>
+            An identifier never reaches a model, so ordinary use of this box costs nothing to run. The
+            feature is optional and the app is fully functional without it: with no API key configured
+            the box asks for an identifier instead of prose, and nothing else changes. That is why an
+            absent key degrades the search box rather than breaking the tool. Free text is currently{' '}
+            <b>{health ? (health.nl_enabled ? 'enabled' : 'not configured') : 'unknown'}</b> on this
+            deployment.
+          </Text>
+        </Section>
+
+        <Section id="limits" title="11 · Known limitations">
           <Text mb={8}>
             Everything below is a real property of this tool or its data, not a hypothetical. It is
             listed because a plausible wrong answer is worse than an error: an error gets
@@ -590,7 +734,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </List>
         </Section>
 
-        <Section id="example" title="11 · Worked example">
+        <Section id="example" title="12 · Worked example">
           <Text mb={8}>The reference case, end to end.</Text>
           <Wide>
           <Table className="om-table" withTableBorder>
@@ -624,7 +768,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="api" title="12 · API">
+        <Section id="api" title="13 · API">
           <Wide>
           <Table className="om-table" withTableBorder>
             <Table.Thead>
@@ -664,7 +808,7 @@ r.recommended                   # balanced, both-sided candidate panel`}
           </Text>
         </Section>
 
-        <Section id="references" title="13 · References">
+        <Section id="references" title="14 · References">
           <ol style={{ margin: 0, paddingLeft: 22 }}>
             {ORDER.map((id) => {
               const c = CITATIONS[id]

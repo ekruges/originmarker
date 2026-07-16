@@ -312,3 +312,30 @@ body {
   border: 1px solid currentColor;
   background: transparent;
 }
+
+/* Rotating ghost examples. A real element, not ::placeholder: Chrome does not reliably
+   animate ::placeholder opacity, so transitioning it swapped the text with no tween and
+   read as a flash. Positioned over the input's own text origin, so it must track the
+   input's font and horizontal padding. */
+.om-ghost-text {
+  position: absolute;
+  left: 0;
+  top: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  color: var(--om-text-dim);
+  opacity: 0.85;
+  transition: opacity 300ms ease;
+  pointer-events: none;
+  white-space: nowrap;
+  overflow: hidden;
+  max-width: 100%;
+}
+.om-ghost-out {
+  opacity: 0;
+}
+.om-hero-input + .om-ghost-text,
+.om-ghost-text {
+  z-index: 1;
+}

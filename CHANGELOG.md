@@ -9,6 +9,62 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.0.0 "Synaptonemal"
+
+The protein scaffold that zips paired homologues together along their length.
+
+**First public release.** Open source under Apache 2.0. Versioning restarts at semver here:
+the 1.x/2.x numbers below were pre-release build counters, not compatibility promises.
+
+### Added
+
+- **Free-text input.** Two paths, and the difference is not cosmetic. Name an identifier
+  (rsID, HGVS, ClinVar accession) and a regex reads it: no model runs, and it costs
+  nothing. Describe the variant in words and a model is asked what you meant, answering
+  from its own knowledge.
+- **The model cannot touch a coordinate.** The typed query it fills has no field for a
+  chromosome, position, strand or allele, so the coordinate on every panel came from a live
+  lookup regardless of how the variant was named. This is a property of the code rather
+  than a promise, and it was attacked specifically: extra coordinate keys are ignored,
+  coordinate-shaped identifiers are refused by an allow-list.
+- **A gene cross-check.** Any gene symbol in your own text is compared against the gene of
+  the record that actually resolved. Ask for "the ABCC8 splice mutation" and get a variant
+  in HBB, and it refuses rather than warns. It reads the resolved record, never the model's
+  claim about itself: a model wrong about the variant can be wrong about its gene in the
+  same breath.
+- **Model provenance in every export.** A panel whose variant a model chose says so, in the
+  CSV, JSON, XLSX and on the PDF variant card, and it says the two things separately: the
+  model chose which variant, and it did not supply the coordinate. Previously a panel built
+  from prose was byte-identical to one typed by hand.
+- **An intent cache**, so identical prose is not billed twice.
+- Documentation of all of the above, including what it cannot do.
+- The monogram: a geometric sans ring around the wordmark's own serif M, outlined from the
+  Merriweather glyph rather than redrawn. It is the site icon and the corner mark.
+- Rotating input examples cycling the accepted forms.
+
+### Fixed
+
+- **The search box accepted one character at a time.** A component declared inside the
+  render body took a fresh identity every render, so React remounted the whole subtree on
+  each keystroke and destroyed the input's focus.
+- **The gene extractor could not read `C9orf72`.** HGNC's Cxorfy convention carries
+  lowercase, which a capitals-only pattern reads straight past. The commonest genetic cause
+  of ALS was invisible to the safeguard.
+- `MB` was excluded as a unit, but it is also myoglobin. Units are now stripped before gene
+  extraction, so `500MB` is a window and `MB` is a gene.
+- Ordinary report jargon (NIPT, CVS, WES, MLPA and others) read as gene symbols and refused
+  correct answers, after billing for them.
+- Legitimate aliases (`SUR1` for ABCC8, `ND1` for MT-ND1) were refused with no way past it.
+
+### Known limitations
+
+A gene symbol you lowercase reads as prose, and the cross-check then stays silent exactly
+as if you had named no gene. Capitalisation is what separates a symbol from an ordinary
+word here, and relaxing that makes every English word a symbol. Documented rather than
+papered over.
+
+---
+
 ## 2.4 "Bivalent"
 
 A pair of synapsed homologues, held together by the chiasmata between them.

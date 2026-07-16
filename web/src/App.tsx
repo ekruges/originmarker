@@ -4,8 +4,8 @@ import {
   Select, Skeleton, Text,
 } from '@mantine/core'
 import {
-  ANCESTRIES, api, ApiError, type Health, type NLResponse, type PanelResult,
-  type ResolveResponse, type StructuredQuery,
+  ANCESTRIES, api, ApiError, withNlProvenance, type Health, type NLResponse,
+  type PanelRequest, type PanelResult, type ResolveResponse, type StructuredQuery,
 } from './api'
 import { int, orUnknown, utc } from './fmt'
 import { SearchPanel } from './SearchPanel'
@@ -33,7 +33,7 @@ export default function App() {
   const [health, setHealth] = useState<Health | null>(null)
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
-  const [query, setQuery] = useState<StructuredQuery | null>(null)
+  const [query, setQuery] = useState<PanelRequest | null>(null)
   // Held here, not in SearchPanel: that component unmounts when the landing view collapses
   // into the results view, and the model-chosen-variant caveat has to outlive it.
   const [nl, setNl] = useState<NLResponse | null>(null)
@@ -87,7 +87,11 @@ export default function App() {
     setResolved(null)
     setResult(null)
     setJobId(null)
-    setQuery(q)
+    // Stamped here, the one point where the query and the parse that produced it are both
+    // in hand. `query` is the build request from now on, so every later path that reaches
+    // /api/panel (Build, Rebuild on an ancestry) carries the provenance without knowing it
+    // exists.
+    setQuery(withNlProvenance(q, parsedBy ?? null))
     // Set unconditionally: a typed identifier must clear the previous query's model caveat.
     setNl(parsedBy ?? null)
     setAncestry(q.ancestry ?? null)
@@ -114,7 +118,7 @@ export default function App() {
 
   // `q` becomes the stored query: `query` must describe the panel actually on screen, or
   // the next build reverts to the previous parameters.
-  const buildPanel = useCallback(async (q?: StructuredQuery) => {
+  const buildPanel = useCallback(async (q?: PanelRequest) => {
     const use = q ?? query
     if (!use) return
     setQuery(use)
@@ -240,7 +244,9 @@ export default function App() {
 
             {atHome ? (
               <div className="om-hero">
-                <Logo size="hero" />
+                {/* Wordmark only. The landing page is the one place the name is already
+                    the largest thing on screen, so the mark adds nothing and competes. */}
+                <Logo size="hero" mark={false} />
                 <Text size="sm" c="dimmed" mt={2} mb={22} ta="center" style={{ maxWidth: '52ch' }}>
                   Candidate flanking-SNP marker panels for determining which parental allele
                   an embryo inherited.
@@ -285,7 +291,12 @@ export default function App() {
         {resolved && phase !== 'resolving' && (
           // Wrapped, not passed by reference: the click event would arrive as buildPanel's
           // query override.
+          // Keyed on the query: the card holds the user's acknowledgement that they meant a
+          // gene they did not name, and that consent is about ONE variant. A new variant
+          // must arrive at a card that has never been acknowledged, whatever the render
+          // conditions above happen to unmount today.
           <VariantCard
+            key={resolved.variant.query}
             data={resolved}
             nl={nl}
             onBuild={() => buildPanel()}

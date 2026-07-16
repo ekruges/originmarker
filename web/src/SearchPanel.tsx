@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 import {
   ActionIcon, Alert, Autocomplete, Button, Checkbox, Group, NumberInput,
   Paper, SegmentedControl, Select, Text, TextInput, Tooltip,
@@ -6,6 +6,20 @@ import {
 import { ANCESTRIES, api, ApiError, type Health, type NLResponse, type StructuredQuery } from './api'
 
 const EXAMPLE = 'NM_000352.6(ABCC8):c.3989-9G>A'
+
+/** Every accepted input form, one per rotation. The last is only offered when free text is
+ *  actually enabled: advertising a form the server will refuse is worse than not showing it. */
+const PLACEHOLDERS: { text: string; nl?: boolean }[] = [
+  { text: EXAMPLE },
+  { text: 'rs334' },
+  { text: 'NM_000518.5(HBB):c.20A>T' },
+  { text: 'VCV000009088' },
+  { text: 'NC_000011.10:g.17397055C>T' },
+  { text: 'the ABCC8 splice variant, in Europeans', nl: true },
+]
+
+const ROTATE_MS = 3600
+const FADE_MS = 320
 
 type Mode = 'search' | 'manual'
 
@@ -98,12 +112,57 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { inputRef.current?.focus() }, [mode])
 
-  const Shell = hero
-    ? ({ children }: { children: React.ReactNode }) => <div>{children}</div>
-    : ({ children }: { children: React.ReactNode }) => <Paper mb="sm">{children}</Paper>
+  // Ghost examples cycle through the accepted input forms, the way a search box does. Only
+  // while the box is empty: a placeholder moving under text someone is composing is noise,
+  // and the element is aria-hidden from the input's own label anyway.
+  const forms = PLACEHOLDERS.filter((p) => !p.nl || health?.nl_enabled)
+  const [slot, setSlot] = useState(0)
+  const [fading, setFading] = useState(false)
+  const idle = mode === 'search' && !text && !busy
+  const showGhost = idle
 
-  return (
-    <Shell>
+  // Copy the input's own text metrics onto the ghost rather than restate them in CSS: the
+  // input's size comes from Mantine's theme and a hero override, so any constant here is a
+  // guess that drifts. The ghost must sit exactly where the real text will appear, or the
+  // swap to typed text jumps.
+  const ghostRef = useRef<HTMLSpanElement>(null)
+  useLayoutEffect(() => {
+    const el = inputRef.current
+    const g = ghostRef.current
+    if (!el || !g) return
+    const cs = getComputedStyle(el)
+    g.style.fontSize = cs.fontSize
+    g.style.fontFamily = cs.fontFamily
+    g.style.letterSpacing = cs.letterSpacing
+    g.style.paddingLeft = cs.paddingLeft
+    g.style.paddingRight = cs.paddingRight
+  }, [showGhost, hero, slot])
+
+  // Not gated on prefers-reduced-motion. That setting exists for vestibular triggers,
+  // which are changes to perceived size, shape or position; a cross-fade changes only
+  // opacity and is what the guidance recommends motion be REPLACED with.
+  useEffect(() => {
+    if (!idle || forms.length < 2) return
+    let swap: ReturnType<typeof setTimeout>
+    const tick = setInterval(() => {
+      setFading(true)
+      swap = setTimeout(() => {
+        setSlot((i) => (i + 1) % forms.length)
+        setFading(false)
+      }, FADE_MS)
+    }, ROTATE_MS)
+    return () => {
+      clearInterval(tick)
+      clearTimeout(swap)     // or a half-finished swap lands after the box is gone
+    }
+  }, [idle, forms.length])
+
+  // Wrap inline rather than via a component defined in this body. A component declared
+  // here gets a fresh function identity on every render, and React compares element types
+  // by reference: a new identity is a new type, so the whole subtree unmounts and remounts
+  // on each keystroke, destroying the input and its focus.
+  const body = (
+    <>
       {hero ? (
         <Group justify="flex-end" gap={4} mb={4}>
           <Select
@@ -141,18 +200,33 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
         {mode === 'search' ? (
           <>
             <Group gap={6} wrap="nowrap" align="flex-start">
+              {/* The ghost is a real element, not the native placeholder. ::placeholder
+                  does not reliably animate opacity in Chrome, so transitioning it swapped
+                  the text with no tween: a flash. A span tweens like anything else. It is
+                  aria-hidden and pointer-events:none, so the input keeps its own label and
+                  stays clickable through it. */}
+              <div style={{ flex: 1, position: 'relative' }}>
+                {showGhost && (
+                  <span
+                    ref={ghostRef}
+                    aria-hidden
+                    className={`om-ghost-text om-mono${fading ? ' om-ghost-out' : ''}`}
+                  >
+                    {forms[slot]?.text ?? EXAMPLE}
+                  </span>
+                )}
               <TextInput
                 ref={inputRef}
-                style={{ flex: 1 }}
+                style={{ width: '100%' }}
                 className={hero ? 'om-hero-input' : undefined}
                 classNames={{ input: 'om-mono' }}
                 aria-label="Variant: HGVS, rsID, or free text"
-                placeholder={hero ? EXAMPLE : `${EXAMPLE}   ·   rs151344623   ·   or describe it in words`}
                 value={text}
                 disabled={busy}
                 onChange={(e) => setText(e.currentTarget.value)}
                 onKeyDown={(e) => e.key === 'Enter' && submitSearch()}
               />
+              </div>
               <Button
                 onClick={submitSearch}
                 loading={parsing}
@@ -267,6 +341,8 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
           </>
         )}
       </div>
-    </Shell>
+    </>
   )
+
+  return hero ? <div>{body}</div> : <Paper mb="sm">{body}</Paper>
 }

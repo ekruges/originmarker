@@ -155,10 +155,55 @@ export interface StructuredQuery {
   cross_check?: boolean
 }
 
+/**
+ * The /api/panel body: a StructuredQuery plus how the variant got chosen.
+ *
+ * Separate from StructuredQuery, which mirrors the pb dataclass the engine runs on, and
+ * that dataclass has no provenance field. This is the wire shape only. Note what it still
+ * cannot carry: a coordinate. There is no field for one on either side of the hop.
+ */
+export interface PanelRequest extends StructuredQuery {
+  nl_text?: string
+  /** The model that named `variant` out of its own memory. null is a claim too: it says no
+   *  model chose this variant. Never set it from anything but `NLResponse.used_llm`. */
+  nl_model?: string | null
+}
+
 export interface NLResponse {
   query: StructuredQuery
   used_llm: boolean
   note: string
+  /** The text the user typed. */
+  text?: string
+  /** The model that supplied `query.variant`. Server sends it only when `used_llm`. */
+  model?: string | null
+  /** Gene symbols the USER named. Absent or empty means they named none: that is silence,
+   *  not agreement, and nothing may be inferred from it. */
+  named_genes?: string[]
+}
+
+/**
+ * Fold the parse provenance into the query /api/panel will receive.
+ *
+ * `used_llm` is the sole authority on whether a model chose the variant: a model name in
+ * the response cannot promote a free regex parse into a model's choice, and its absence on
+ * the model path cannot demote one. A query a human typed carries no provenance at all.
+ */
+export const withNlProvenance = (q: StructuredQuery, nl: NLResponse | null): PanelRequest =>
+  nl ? { ...q, nl_text: nl.text, nl_model: nl.used_llm ? nl.model ?? null : null } : q
+
+/**
+ * The user named a gene, and the variant that resolved sits in a different one.
+ *
+ * Three states, and collapsing any two is an error: naming no gene is silence (there is
+ * nothing to disagree with), a record with no gene of its own cannot disagree either, and
+ * only a gene that is present on both sides and differs is a mismatch. Compared case-
+ * insensitively; an alias the user typed reads as a mismatch, which is the safe direction.
+ */
+export const geneMismatch = (resolved: string | null, named?: string[]): boolean => {
+  const want = (named ?? []).map((g) => (g ?? '').trim().toUpperCase()).filter(Boolean)
+  const got = (resolved ?? '').trim().toUpperCase()
+  return want.length > 0 && got !== '' && !want.includes(got)
 }
 
 export interface JobStatus {
@@ -215,7 +260,7 @@ export const api = {
   health: () => req<Health>('/health'),
   resolve: (variant: string, build?: string) =>
     req<ResolveResponse>('/resolve', { method: 'POST', body: JSON.stringify({ variant, build }) }),
-  panel: (q: StructuredQuery) => req<{ job_id: string }>('/panel', { method: 'POST', body: JSON.stringify(q) }),
+  panel: (q: PanelRequest) => req<{ job_id: string }>('/panel', { method: 'POST', body: JSON.stringify(q) }),
   job: (id: string) => req<JobStatus>(`/panel/${encodeURIComponent(id)}`),
   nl: (text: string) => req<NLResponse>('/nl', { method: 'POST', body: JSON.stringify({ text }) }),
   genes: (q: string) => req<{ symbol: string; description: string }[]>(`/genes?q=${encodeURIComponent(q)}`),

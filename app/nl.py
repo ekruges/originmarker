@@ -25,7 +25,8 @@ import json
 import logging
 import os
 import re
-from typing import Optional, Tuple
+from functools import lru_cache
+from typing import NamedTuple, Optional, Tuple
 
 import panelbuilder as pb
 
@@ -52,6 +53,8 @@ _HGVS = re.compile(
     re.I,
 )
 
+_VCV = re.compile(r"\b(?:VCV|RCV)\d+(?:\.\d+)?", re.I)
+
 _CHROM = r"(?:chr)?(?:[1-9]|1\d|2[0-2]|X|Y|MT?)"
 
 # Only for a friendlier error message, NOT the control. The control is _ID_SHAPES.
@@ -68,7 +71,7 @@ _LOOKS_COORDINATE = (
 _ID_SHAPES = (
     _RSID,                                                     # rs151344623
     _HGVS,                                                     # NM_000352.6(ABCC8):c.3989-9G>A
-    re.compile(r"(?:VCV|RCV)\d+(?:\.\d+)?", re.I),             # ClinVar accession
+    _VCV,                                                      # ClinVar accession
     re.compile(r"[A-Z][A-Z0-9-]{1,14}\s*[: ]\s*[cp]\.\S+", re.I),  # ABCC8:c.3989-9G>A / ABCC8 p.R1215Q
 )
 
@@ -100,11 +103,13 @@ def _reject_coordinates(s: str) -> str:
 
 
 def _require_identifier(s: str) -> str:
+    """Narrow _reject_coordinates to the shapes resolve_variant() can actually look up."""
     v = _reject_coordinates(s)
-    if not (_RSID.fullmatch(v) or _HGVS.fullmatch(v)):
+    if not (_RSID.fullmatch(v) or _HGVS.fullmatch(v) or _VCV.fullmatch(v)):
         raise ValueError(
-            f"{s!r} is not an rsID or HGVS identifier. Name the variant the way it "
-            "appears in the report (e.g. rs151344623 or NM_000352.6(ABCC8):c.3989-9G>A)."
+            f"{s!r} is not an rsID, HGVS or ClinVar identifier. Name the variant the way "
+            "it appears in the report (e.g. rs151344623 or "
+            "NM_000352.6(ABCC8):c.3989-9G>A)."
         )
     return v
 
@@ -148,12 +153,13 @@ def _local_variants(text: str) -> list[Tuple[str, Optional[str]]]:
     hgvs = [(m.span(), m.group(0).rstrip(".,;"), (m.group(1) or "").strip() or None)
             for m in _HGVS.finditer(text)]
     hits = [(span[0], v, gene) for span, v, gene in hgvs]
-    for m in _RSID.finditer(text):
-        # HGVS's trailing \S+ is greedy, so an rsID falling inside an HGVS match is the
-        # same variant restated, not a second one.
-        if any(a <= m.start() < b for (a, b), _, _ in hgvs):
-            continue
-        hits.append((m.start(), m.group(0), None))
+    for pat in (_RSID, _VCV):
+        for m in pat.finditer(text):
+            # HGVS's trailing \S+ is greedy, so an identifier falling inside an HGVS match
+            # is the same variant restated, not a second one.
+            if any(a <= m.start() < b for (a, b), _, _ in hgvs):
+                continue
+            hits.append((m.start(), m.group(0), None))
 
     out: list[Tuple[str, Optional[str]]] = []
     seen: set[str] = set()
@@ -161,6 +167,49 @@ def _local_variants(text: str) -> list[Tuple[str, Optional[str]]]:
         if v.upper() not in seen:          # 'rs1 ... RS1' is one variant, not a conflict
             seen.add(v.upper())
             out.append((v, gene))
+    return out
+
+
+# HGNC symbols are uppercase alphanumeric, 2-10 chars, occasionally hyphenated (MT-ND1).
+# The lookbehind keeps HGVS suffixes out ('p.R1215Q' is not a gene called R1215Q); the
+# 10-char cap keeps accessions out (VCV000009088, ENST00000389817).
+# Two shapes: an all-caps symbol (ABCC8, MT-ND1), and HGNC's Cxorfy convention, whose
+# lowercase "orf" a caps-only pattern reads straight past (C9orf72 is the commonest genetic
+# cause of ALS, so missing it is not academic).
+_GENE = re.compile(r"(?<![a-z]\.)\b(?:[A-Z]\d+orf\d+|[A-Z][A-Z0-9]{1,9}(?:-[A-Z0-9]{1,4})?)\b")
+
+# A hand-written exclusion set, not an HGNC download: fetch the real list only if this
+# becomes a losing game. Everything here is jargon a geneticist writes in caps that is not
+# a gene. Note what is absent: MB is myoglobin, a real symbol, so units are stripped before
+# extraction rather than blacklisted here.
+_NOT_GENES = frozenset(pb.GNOMAD_POPS.values()) | {
+    "DNA", "RNA", "SNP", "SNV", "CNV", "INDEL", "PGT", "PGD", "PGS", "IVF",
+    "HGVS", "VCF", "MAF", "LD", "GRCH37", "GRCH38", "HG19", "HG38", "OMIM",
+    "ACMG", "ID", "OK",
+    # Assay and report jargon. Every one of these read as a symbol and produced a
+    # confident complaint that the user had named a gene they had not.
+    "NIPT", "CVS", "PDF", "REI", "WES", "WGS", "NGS", "MLPA", "FISH", "QPCR",
+    "PCR", "IUI", "ART", "ICSI", "TE", "ADO", "SNV", "VUS", "LOH",
+}
+
+
+def _named_genes(text: str) -> list[str]:
+    """Gene symbols the USER typed, uppercase, in the order typed. Regex only, no LLM.
+
+    Deliberately read from the user's own words and never from the model's `gene` field:
+    this is the string the model gets checked against, so it may not come from the model.
+    """
+    # Units first: "500MB" is a window, and MB is also myoglobin. Blacklisting MB would
+    # lose the gene; letting it through would read every window as one. _WINDOW already
+    # knows which is which, so remove what it claims and read genes from the rest.
+    text = _WINDOW.sub(" ", text)
+    out: list[str] = []
+    for m in _GENE.finditer(text):
+        g = m.group(0)
+        # The stem too, so PGT-M and PGT-A fall out with PGT while MT-ND1 stays.
+        if g.upper() in _NOT_GENES or g.split("-")[0].upper() in _NOT_GENES or g in out:
+            continue
+        out.append(g)
     return out
 
 
@@ -286,9 +335,36 @@ def _llm_intent(text: str) -> dict:
         return json.loads(m.group(0))
 
 
+def _norm(text: str) -> str:
+    """Cache key: the same prose asked twice must bill once."""
+    return " ".join(text.split()).casefold()
+
+
+@lru_cache(maxsize=256)
+def _cached_intent(key: str) -> dict:
+    """_llm_intent keyed on normalised prose. The model sees the NORMALISED text.
+
+    Looks _llm_intent up on the module so a monkeypatched stub is honoured; call
+    _cached_intent.cache_clear() when swapping the stub, or the swap is invisible.
+    lru_cache does not memoise exceptions, so a failed call is retried, not pinned.
+    """
+    return _llm_intent(key)
+
+
 # --------------------------------------------------------------------------- #
 # Public entry point
 # --------------------------------------------------------------------------- #
+
+class NLResponse(NamedTuple):
+    """What parse() returns.
+
+    named_genes are the symbols the USER typed. parse() cannot resolve, so it cannot
+    check them against the variant's real gene: the caller must, once it has resolved.
+    """
+    query: pb.StructuredQuery
+    used_llm: bool
+    note: str
+    named_genes: list[str]
 
 def needs_llm(text: str) -> bool:
     """Would this text require a model call? Regex only: no network, no tokens.
@@ -301,8 +377,8 @@ def needs_llm(text: str) -> bool:
     return not _local_variants((text or "").strip())
 
 
-def parse(text: str) -> Tuple[pb.StructuredQuery, bool, str]:
-    """Free text -> (StructuredQuery, used_llm, note). Raises ValueError -> 400.
+def parse(text: str) -> NLResponse:
+    """Free text -> NLResponse. Raises ValueError -> 400.
 
     The returned query carries an opaque `variant` identifier only. Nothing in this
     module knows or asserts where that variant sits in the genome (R1).
@@ -312,6 +388,7 @@ def parse(text: str) -> Tuple[pb.StructuredQuery, bool, str]:
         raise ValueError("empty query")
 
     mods = _local_modifiers(text)
+    named = _named_genes(text)
     found = _local_variants(text)
 
     if len(found) > 1:
@@ -329,11 +406,19 @@ def parse(text: str) -> Tuple[pb.StructuredQuery, bool, str]:
         note = "Matched a variant identifier in your text."
         if _describe(mods):
             note += f" Read: {_describe(mods)}."
-        return q, False, note
+        return NLResponse(q, False, note, named)
 
-    data = _llm_intent(text)
+    data = dict(_cached_intent(_norm(text)))   # copy: the cached dict is shared
     variant = _require_identifier(data.get("variant") or "")
     gene = (data.get("gene") or None)
+
+    # The gene cross-check is NOT done here, against the model's own `gene` field. That
+    # asks the model to validate itself: a model wrong about the variant can be wrong about
+    # its gene in the same breath and pass. It is also unable to distinguish a real
+    # disagreement from an alias the user typed (SUR1 is ABCC8, ND1 is MT-ND1), so it
+    # refused correct answers with no way past it, after billing for them. The check that
+    # means something compares named_genes against the RESOLVED record's gene, which is
+    # authoritative and arrives later. It lives at the resolve step.
 
     # Local reading wins wherever we have one; the model only fills gaps.
     for key in ("window_bp", "ancestry", "common_maf"):
@@ -354,7 +439,7 @@ def parse(text: str) -> Tuple[pb.StructuredQuery, bool, str]:
     )
     if _describe(mods):
         note += f" Read: {_describe(mods)}."
-    return q, True, note
+    return NLResponse(q, True, note, named)
 
 
 # --------------------------------------------------------------------------- #
@@ -365,16 +450,17 @@ if __name__ == "__main__":
     GOLDEN = "NM_000352.6(ABCC8):c.3989-9G>A"
 
     # 1. The golden HGVS parses with no LLM, verbatim, with the gene picked up free.
-    q, used_llm, note = parse(GOLDEN)
+    q, used_llm, note, named = parse(GOLDEN)
     assert q.variant == GOLDEN, q.variant
     assert q.gene == "ABCC8", q.gene
     assert used_llm is False, note
     assert q.build == "GRCh38" and q.window_bp == 250_000
+    assert named == ["ABCC8"], named
 
     # 2. Bare rsID, also free. Also inside a sentence.
-    q, used_llm, _ = parse("rs151344623")
+    q, used_llm, _, _ = parse("rs151344623")
     assert (q.variant, used_llm) == ("rs151344623", False)
-    q, used_llm, _ = parse("please build a panel around rs151344623 for this family")
+    q, used_llm, _, _ = parse("please build a panel around rs151344623 for this family")
     assert (q.variant, used_llm) == ("rs151344623", False)
 
     # 2b. TWO identifiers is a question, not a coin flip.
@@ -409,7 +495,7 @@ if __name__ == "__main__":
     assert _local_modifiers("500000 bp")["window_bp"] == 500_000
 
     # 5. Modifiers ride along the fast path end-to-end, still with no LLM.
-    q, used_llm, _ = parse("rs151344623 +/-100kb with MAF>=0.1 in Europeans")
+    q, used_llm, _, _ = parse("rs151344623 +/-100kb with MAF>=0.1 in Europeans")
     assert (q.window_bp, q.common_maf, q.ancestry, used_llm) == (
         100_000, 0.1, "NFE", False)
 
@@ -467,15 +553,107 @@ if __name__ == "__main__":
 
     # 10. The LLM-path note must disclose that the model supplied an identifier the user
     #     never typed.
-    _real, _llm_intent = _llm_intent, lambda text: {"variant": "rs151344623"}
+    calls: list[str] = []
+
+    def _stub(payload):
+        def f(text):
+            calls.append(text)
+            return payload
+        return f
+
+    def _swap(fn):
+        """Install a stub AND drop the cache: a warm entry hides the swap."""
+        global _llm_intent
+        _llm_intent = fn
+        _cached_intent.cache_clear()
+
+    _real = _llm_intent
     try:
-        q, used_llm, note = parse("markers near the ABCC8 splice mutation in Europeans")
+        _swap(_stub({"variant": "rs151344623"}))
+        q, used_llm, note, named = parse(
+            "markers near the ABCC8 splice mutation in Europeans")
+        assert used_llm is True and q.variant == "rs151344623"
+        assert q.ancestry == "NFE", "local modifiers still win on the LLM path"
+        assert "echoed" not in note, note
+        assert "supplied" in note and "rs151344623" in note, note
+        assert "R1" not in note, "internal rule IDs must not reach the user"
+        assert named == ["ABCC8"], named
+
+        # 11. THE GENE CROSS-CHECK IS NOT MADE HERE. The user said ABCC8 and rs334 is HBB,
+        #     but the only gene this layer could compare against is the model's own claim,
+        #     and a model wrong about the variant can be wrong about its gene in the same
+        #     breath. parse() surfaces what the user named and lets the resolver, which
+        #     has the authoritative gene, make the call.
+        _swap(_stub({"variant": "rs334", "gene": "HBB"}))
+        r = parse("the ABCC8 splice mutation we discussed")
+        assert r.query.variant == "rs334", r.query
+        assert r.named_genes == ["ABCC8"], r.named_genes
+
+        # ...an agreeing gene passes, and so does a model that names no gene at all.
+        _swap(_stub({"variant": "rs151344623", "gene": "ABCC8"}))
+        assert parse("the ABCC8 splice mutation").query.variant == "rs151344623"
+        _swap(_stub({"variant": "rs151344623"}))
+        assert parse("that splice mutation from the report").used_llm is True
+
+        # 12. COST. Identical prose bills once; whitespace and case must not defeat it.
+        _swap(_stub({"variant": "rs151344623"}))
+        calls.clear()
+        for text in ["the  splice   mutation", "The Splice Mutation",
+                     "  the splice mutation  ", "the splice mutation"]:
+            assert parse(text).used_llm is True
+        assert len(calls) == 1, f"intent cache billed {len(calls)} times for one query"
+
+        # ...and the fast path never reaches the model at all, however chatty the text.
+        calls.clear()
+        for text in [GOLDEN, "rs151344623", f"panel around {GOLDEN} please",
+                     "rs151344623 +/-100kb MAF>=0.1 in Europeans",
+                     "VCV000009088 for the ABCC8 family",
+                     "NC_000011.10:g.17397055C>T",
+                     "rs151344623 (aka RS151344623)"]:
+            assert needs_llm(text) is False, text
+            assert parse(text).used_llm is False, text
+        assert calls == [], f"regex fast path reached the model: {calls}"
     finally:
-        _llm_intent = _real
-    assert used_llm is True and q.variant == "rs151344623"
-    assert q.ancestry == "NFE", "local modifiers still win on the LLM path"
-    assert "echoed" not in note, note
-    assert "supplied" in note and "rs151344623" in note, note
-    assert "R1" not in note, "internal rule IDs must not reach the user"
+        _swap(_real)
+
+    # 13. Gene extraction reads the USER, so it must not invent genes out of HGVS,
+    #     accessions, ancestry codes or jargon.
+    assert _named_genes("markers near the ABCC8 splice mutation in Europeans") == ["ABCC8"]
+    assert _named_genes("MT-ND1 and BRCA1 and HBB") == ["MT-ND1", "BRCA1", "HBB"]
+    assert _named_genes("ABCC8 p.R1215Q") == ["ABCC8"], "p.R1215Q is not a gene"
+    assert _named_genes(GOLDEN) == ["ABCC8"]
+    for quiet in ["rs151344623", "VCV000009088", "ENST00000389817.8:c.100A>G",
+                  "NC_000011.10:g.17397055C>T", "SNP panel, GRCh38, MAF 0.1, 250 KB, AFR",
+                  "PGT-M DNA HGVS", "a splice mutation in the middle of the gene"]:
+        assert _named_genes(quiet) == [], (quiet, _named_genes(quiet))
+
+    # Gene extraction, every case an adversarial pass found. Each was a live miss or a
+    # live false alarm, not a hypothetical.
+    assert _named_genes("the ABCC8 splice mutation") == ["ABCC8"]
+    assert _named_genes("C9orf72 repeat expansion carrier") == ["C9orf72"]   # HGNC Cxorfy
+    assert _named_genes("the MB variant") == ["MB"]                          # myoglobin
+    assert _named_genes("rs334 with a 500MB window") == []                   # MB the unit
+    assert _named_genes("markers near HBB, 250kb window") == ["HBB"]
+    assert _named_genes("the splice mutation from the NIPT report") == []
+    assert _named_genes("that mutation from the CVS sample") == []
+    assert _named_genes("the MT-ND1 variant") == ["MT-ND1"]
+    assert _named_genes("PGT-M panel for ABCC8") == ["ABCC8"]
+    # A symbol the user lowercases reads as prose. Known and documented: the caps rule IS
+    # the detector, and relaxing it makes every English word a symbol.
+    assert _named_genes("the abcc8 splice mutation") == []
+
+    # The model's own gene claim is never the thing checked against: a model wrong about
+    # the variant can be wrong about its gene too, and an alias (SUR1 for ABCC8) is not a
+    # disagreement. parse() must not refuse on it.
+    _orig = globals().get("_llm_intent")
+    globals()["_llm_intent"] = lambda t: {"variant": "rs151344623", "gene": "ABCC8"}
+    _cached_intent.cache_clear()
+    try:
+        r = parse("the SUR1 splice mutation we discussed")     # SUR1 is ABCC8's alias
+        assert r.query.variant == "rs151344623", r.query
+        assert r.named_genes == ["SUR1"], r.named_genes
+    finally:
+        globals()["_llm_intent"] = _orig
+        _cached_intent.cache_clear()
 
     print("nl.py self-check OK (no LLM calls, no network)")

@@ -78,6 +78,11 @@ class PanelIn(BaseModel):
     ancestry: Optional[str] = None
     common_maf: float = pb.COMMON_MAF
     cross_check: bool = True
+    # Echoed back by the client from /api/nl so the exports can disclose that a model, not
+    # the user, chose the variant. Provenance only: the build reads neither. Capped here
+    # because both are rendered into the PDF; nl_text matches NLIn.text's ceiling.
+    nl_text: Optional[str] = Field(default=None, max_length=2000)
+    nl_model: Optional[str] = Field(default=None, max_length=60)
 
 
 class NLIn(BaseModel):
@@ -347,7 +352,10 @@ def nl(body: NLIn, request: Request):
                                      "an rsID or HGVS expression; those are always "
                                      "available.")
     try:
-        q, used_llm, note = mod.parse(body.text.strip())
+        # By attribute, never by unpacking: nl.parse owns its return shape, and an exact
+        # unpack turns a field being added there into a 400 whose detail is a Python unpack
+        # error, since the ValueError below reads as the user having sent a bad query.
+        p = mod.parse(body.text.strip())
     except HTTPException:
         raise
     except ValueError as e:
@@ -357,7 +365,14 @@ def nl(body: NLIn, request: Request):
         _log.exception("unexpected failure parsing free text")
         raise HTTPException(400, "That text could not be read as a variant request. Enter "
                                  "an rsID or HGVS expression, for example rs151344623.")
-    return {"query": asdict(q), "used_llm": bool(used_llm), "note": note or ""}
+    # text/model are what the client echoes into /api/panel so an export can disclose that
+    # a model chose the variant. used_llm is the sole authority on that: naming the model
+    # off the regex path would caveat a panel the user typed word for word. Neither field
+    # is a coordinate, and there is still no field here that could carry one.
+    return {"query": asdict(p.query), "used_llm": bool(p.used_llm), "note": p.note or "",
+            "text": body.text.strip(),
+            "model": mod.MODEL if p.used_llm else None,
+            "named_genes": list(getattr(p, "named_genes", []))}
 
 
 @app.get("/api/genes")

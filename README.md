@@ -1,4 +1,4 @@
-# OriginMarker
+<img src="docs/originmarker.svg" alt="OriginMarker" width="340">
 
 Builds a ranked, downloadable menu of candidate flanking SNP markers around a pathogenic
 variant, for determining which parental allele an embryo inherited (PGT-M linkage /

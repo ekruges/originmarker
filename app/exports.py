@@ -57,6 +57,22 @@ def _rank_pop(result):
     return result.provenance.get("ancestry_rank")
 
 
+def _nl_caveat(result):
+    """The one sentence saying a model chose this variant, or None if the user named it.
+
+    None means the user typed the identifier, and every format must then render nothing at
+    all rather than a "none": an absent caveat is the honest rendering of an absent model.
+    """
+    prov = result.provenance
+    model = prov.get("nl_model")
+    if not model:
+        return None
+    return (f"Variant chosen by a language model ({model}) from the text: "
+            f"{(prov.get('nl_text') or '').strip()!r}. The model was not given and did not "
+            f"supply the coordinate, which was looked up live, but WHICH variant this panel "
+            f"is about was its choice. Confirm it is the intended variant.")
+
+
 def _het(maf):
     """2pq from a minor allele frequency. The one place this formula is written."""
     return None if maf is None else round(2 * maf * (1 - maf), 4)
@@ -114,6 +130,10 @@ def _facts(result) -> list[tuple[str, str]]:
         ("ClinVar review status", v.review_status or "n/a"),
         ("ClinVar accession", v.clinvar_accession or "n/a"),
     ]
+    # Directly under Query, since it qualifies the query itself: the identity of the
+    # variant, not a footnote about how it was typed.
+    if caveat := _nl_caveat(result):
+        f.insert(2, ("WARNING: model-chosen variant", caveat))
     if v.pos_grch37:
         # R6: carried for display only; every computation above is on pos_grch38.
         f.append(("GRCh37 position (display only)", f"chr{v.chrom}:{v.pos_grch37}"))
@@ -213,10 +233,16 @@ def to_csv(result) -> bytes:
     c()
 
     anc = _rank_pop(result)
-    w.writerow(_columns(anc))
+    # A column, not just the header block above: pandas.read_csv(comment='#') strips every
+    # line of that block, and the reader who does that is exactly the one who must not lose
+    # this. The model id rides every row because the column, not a footnote, is what
+    # survives; the full caveat stays in the header block for a human.
+    nl_model = result.provenance.get("nl_model")
+    extra = ["variant_chosen_by_language_model"] if nl_model else []
     rec = {m.variant_id for m in result.recommended}
+    w.writerow(_columns(anc) + extra)
     for m in result.candidates:
-        w.writerow(_row(m, rec, anc))
+        w.writerow(_row(m, rec, anc) + ([nl_model] if nl_model else []))
     return buf.getvalue().encode("utf-8")
 
 
@@ -241,6 +267,10 @@ def to_json(result) -> bytes:
                 ranking_excludes="LD with the pathogenic variant is never a ranking key (R2)",
                 het_2pq_semantics="population prior, not a per-carrier genotype claim (R4)",
                 transcript_sense=result.variant.transcript_sense_change())
+    # nl_text/nl_model are already here from build(), stable shape, null when the user
+    # named the variant. The rendered sentence is added only when there IS one to render.
+    if caveat := _nl_caveat(result):
+        prov["nl_caveat"] = caveat
     payload = {
         "provenance": prov,
         "variant": d["variant"],
@@ -439,6 +469,11 @@ def to_pdf(result) -> bytes:
                 need(10)
             c.drawString(L + kw, state["y"] - 8, line)
             state["y"] -= 10
+    # On the card at body size and in red, never a footnote: this is the same class of fact
+    # as the disclaimer, and this is the page that gets printed and filed.
+    if caveat := _nl_caveat(result):
+        state["y"] -= 4
+        text(caveat, 8, "Helvetica-Bold", 2.5, colors.HexColor("#b12222"))
     text(f"Ranked on {_ranking_key(result)}. LD with the pathogenic variant is never a "
          f"ranking key (R2).", 7, "Helvetica-Oblique", 3, colors.grey)
 
@@ -855,6 +890,37 @@ if __name__ == "__main__":
     assert gap_row[i + 6] == "-", f"no-frequency marker must print '-', printed {gap_row[i + 6]!r}"
     assert "no EAS frequency" in _pdf_text(to_pdf(gap)), "PDF must footnote what the dash means"
     assert _row(m_gap, set(), "EAS")[13] is None, "csv/xlsx cell must be empty, never a number"
+
+    # 9. A model-chosen panel must SAY SO in all four formats. Synthesised: the golden
+    # ABCC8 case was named by the user, so no fixture reaches this branch.
+    chosen = copy.deepcopy(r)
+    chosen.provenance["nl_model"] = "claude-test-model-1"
+    chosen.provenance["nl_text"] = "markers near the SENTINEL-PROSE splice mutation"
+    for fmt, body in (("csv", to_csv(chosen).decode()),
+                      ("json", to_json(chosen).decode()),
+                      ("pdf", _pdf_text(to_pdf(chosen))),
+                      ("xlsx", "\n".join(
+                          str(c.value) for ws in load_workbook(io.BytesIO(to_xlsx(chosen)))
+                          for row in ws.iter_rows() for c in row if c.value is not None))):
+        assert "language model" in body, f"{fmt} does not say a model chose the variant"
+        assert "claude-test-model-1" in body, f"{fmt} does not name the model"
+        assert "SENTINEL-PROSE" in body, f"{fmt} does not quote the text the model read"
+    # The CSV caveat trap: pandas.read_csv(comment='#') drops the whole header block, so
+    # the fact has to be in the TABLE as well or that reader never sees it.
+    stripped = "\n".join(l for l in to_csv(chosen).decode().split("\n")
+                         if not l.startswith("#"))
+    assert "variant_chosen_by_language_model" in stripped and "claude-test-model-1" in stripped, \
+        "a reader stripping '#' comments cannot see that a model chose the variant"
+    assert json.loads(to_json(chosen))["provenance"]["nl_model"] == "claude-test-model-1"
+
+    # ...and a panel the user named stays SILENT: no caveat, no "none", no column.
+    assert _nl_caveat(r) is None
+    assert r.provenance["nl_model"] is None, "the golden fixture must not be model-chosen"
+    for fmt, body in (("csv", blobs["csv"].decode()), ("json", blobs["json"].decode()),
+                      ("pdf", pdf_text)):
+        assert "language model" not in body, f"{fmt} caveats a panel the user typed"
+        assert "nl_model: none" not in body.lower(), f"{fmt} renders a None nl_model"
+    assert "variant_chosen_by_language_model" not in blobs["csv"].decode()
 
     # An allele frequency is prose on the PDF and a data cell in the CSV: the PDF renders
     # it via fmt_af, the CSV column keeps the exact float.

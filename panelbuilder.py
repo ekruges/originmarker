@@ -406,7 +406,8 @@ class StructuredQuery:
 
     Note what is absent: no chrom, no pos, no ref/alt, no strand. The variant's identity is
     an opaque HGVS/rsID string that resolve_variant() must look up live, so an NL layer
-    cannot inject a coordinate even if it hallucinates one. R1 by construction.
+    cannot inject a coordinate even if it hallucinates one. R1 by construction. The two
+    nl_* fields below are prose and a model id, so they carry no coordinate either.
     """
     variant: str                        # HGVS or rsID, verbatim from the user
     gene: Optional[str] = None          # hint only; never used to derive coordinates
@@ -415,6 +416,10 @@ class StructuredQuery:
     ancestry: Optional[str] = None      # re-rank by ancestry-matched 2pq
     common_maf: float = COMMON_MAF
     cross_check: bool = True
+    # Provenance, never input: build() must not read these to decide anything. They record
+    # that a model, not the user, chose `variant`, so the exports can say so.
+    nl_text: Optional[str] = None       # the user's original prose, verbatim
+    nl_model: Optional[str] = None      # the model id that proposed the variant
 
     def __post_init__(self):
         if not (self.variant or "").strip():
@@ -1277,6 +1282,11 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         "elapsed_s": round(time.time() - t0, 1),
         "disclaimer": DISCLAIMER,
         "layer_b_steps": LAYER_B_STEPS,
+        # Nothing above was decided by these. Both keys are always present so a consumer
+        # can read one shape; nl_model None means the user named the variant themselves,
+        # and every render must then stay silent rather than say "none".
+        "nl_text": q.nl_text,
+        "nl_model": q.nl_model,
     }
     progress("done", 1.0)
     return PanelResult(v, rarity, ranked, recommended, coverage,
@@ -1422,6 +1432,17 @@ if __name__ == "__main__":
     q = sys.argv[1] if len(sys.argv) > 1 else "NM_000352.6(ABCC8):c.3989-9G>A"
     r = build(q)
     assert r.provenance["ranking_key"] == _ranking_key_label(None), r.provenance["ranking_key"]
+
+    # The nl_* fields are provenance and nothing else: they must reach prov and leave the
+    # resolved variant and the selected panel identical. A build that read them diverges here.
+    assert r.provenance["nl_text"] is None and r.provenance["nl_model"] is None
+    _nl = build(StructuredQuery(variant=q, nl_text="prose a user typed",
+                                nl_model="claude-test-model-1"))
+    assert _nl.provenance["nl_text"] == "prose a user typed", _nl.provenance["nl_text"]
+    assert _nl.provenance["nl_model"] == "claude-test-model-1", _nl.provenance["nl_model"]
+    assert ([m.variant_id for m in _nl.recommended]
+            == [m.variant_id for m in r.recommended]), "build() branched on nl_* provenance"
+    assert _nl.variant.pos_grch38 == r.variant.pos_grch38, "build() branched on nl_* provenance"
     print(f"{r.variant.rsid}  {r.variant.gene}  chr{r.variant.chrom}:{r.variant.pos_grch38}"
           f"  {r.variant.vcf_ref}>{r.variant.vcf_alt}  {r.variant.clinical_significance}")
     print("LD usable:", r.rarity.population_LD_usable, "|", r.rarity.reason)
