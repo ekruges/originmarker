@@ -134,6 +134,22 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => { inputRef.current?.focus() }, [mode])
 
+  /** Fill the box with one of the advertised examples, chosen at random.
+   *
+   *  Drawn from `forms`, not from PLACEHOLDERS: that is the same set the ghost rotates
+   *  through, already filtered, so the button can never offer a free-text example on an
+   *  instance where free text is switched off. Never picks what is already in the box,
+   *  or a click would sometimes look broken.
+   */
+  const fillExample = () => {
+    const pool = forms.filter((f) => f.text !== text)
+    const pick = pool[Math.floor(Math.random() * pool.length)] ?? forms[0]
+    if (!pick) return
+    setText(pick.text)
+    setNlError(null)
+    inputRef.current?.focus()
+  }
+
   // Ghost examples cycle through the accepted input forms, the way a search box does. Only
   // while the box is empty: a placeholder moving under text someone is composing is noise,
   // and the element is aria-hidden from the input's own label anyway.
@@ -263,12 +279,13 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
               >
                 Resolve
               </Button>
-              <Tooltip label={`Use the ABCC8 example: ${EXAMPLE}`} withArrow>
+              <Tooltip label="Fill in a random example" withArrow>
                 <ActionIcon
                   variant="default"
                   size={hero ? 44 : 'lg'}
-                  aria-label="Fill in the ABCC8 example variant"
-                  onClick={() => setText(EXAMPLE)}
+                  disabled={busy}
+                  aria-label="Fill in a random example query"
+                  onClick={fillExample}
                 >
                   <Text size="xs">ex</Text>
                 </ActionIcon>
