@@ -20,6 +20,24 @@ const GithubMark = () => (
   </svg>
 )
 
+/** Person in a circle: the link home. Same 16-unit box and currentColor as the mark beside
+ *  it, so one CSS rule greys both. The shoulders are clipped by the ring rather than drawn
+ *  to meet it, which is what keeps the silhouette reading at 17px. */
+const AvatarMark = () => (
+  <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden focusable="false">
+    <defs>
+      <clipPath id="om-av-clip">
+        <circle cx="8" cy="8" r="7.25" />
+      </clipPath>
+    </defs>
+    <circle cx="8" cy="8" r="7.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
+    <g clipPath="url(#om-av-clip)" fill="currentColor">
+      <circle cx="8" cy="6.1" r="2.6" />
+      <ellipse cx="8" cy="14.6" rx="4.7" ry="3.6" />
+    </g>
+  </svg>
+)
+
 // Numbering comes from CITATIONS key order, so inline markers and the reference list
 // cannot drift apart: there is one ordering, not two.
 const ORDER = Object.keys(CITATIONS)
@@ -141,7 +159,7 @@ export function DocsPage({ health }: { health: Health | null }) {
             <GithubMark />
           </a>
           <a href={HOME_URL} aria-label="ezrakruger.cc" title="ezrakruger.cc">
-            <span className="om-avatar" />
+            <AvatarMark />
           </a>
         </div>
       </nav>

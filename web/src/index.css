@@ -303,15 +303,6 @@ body {
 .om-docs-links a:hover {
   opacity: 1;
 }
-/* Deliberately empty: a placeholder avatar, not a picture of anyone. */
-.om-avatar {
-  display: block;
-  width: 17px;
-  height: 17px;
-  border-radius: 50%;
-  border: 1px solid currentColor;
-  background: transparent;
-}
 
 /* Rotating ghost examples. A real element, not ::placeholder: Chrome does not reliably
    animate ::placeholder opacity, so transitioning it swapped the text with no tween and
