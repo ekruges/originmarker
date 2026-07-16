@@ -55,9 +55,6 @@ interface Props {
   hero?: boolean
 }
 
-/** Detects an identifier we can hand to /api/resolve verbatim; anything else is free text. */
-const looksLikeId = (s: string) => /^rs\d+$/i.test(s.trim()) || /:c\.|:g\.|:n\.|>/.test(s)
-
 export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
   const [mode, setMode] = useState<Mode>('search')
   const [text, setText] = useState('')
@@ -93,24 +90,27 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
     return () => clearTimeout(t)
   }, [q.gene])
 
+  /** Everything typed here goes to /api/nl. There is one parser and it is the server's.
+   *
+   *  This used to shortcut anything "identifier-shaped" straight to /api/resolve, deciding
+   *  with a client-side regex. It was a substring test, so "NM_...:c.20A>T, MAF at least
+   *  0.1" counted as an identifier and the whole line, modifiers included, was sent as the
+   *  variant. It also refused "rs334 in Europeans" when free text was off, though reading
+   *  a modifier needs no model.
+   *
+   *  /api/nl costs nothing for text carrying an identifier: it reads it by regex, and only
+   *  reaches the model when nothing else can. The rate limiter meters the model, not this.
+   */
   const submitSearch = async () => {
     const t = text.trim()
     if (!t) return
     setNlError(null)
-    if (looksLikeId(t)) {
-      onResolve({ variant: t, build: 'GRCh38' })
-      return
-    }
-    if (!health?.nl_enabled) {
-      setNlError(
-        'Free-text parsing is unavailable. Enter an rsID or HGVS string, or use Manual input.',
-      )
-      return
-    }
     setParsing(true)
     try {
       const r = await api.nl(t)
-      onResolve(r.query, r)
+      // Provenance only when a model actually chose the variant, so a typed identifier
+      // does not carry a caveat about a model that never ran.
+      onResolve(r.query, r.used_llm ? r : undefined)
     } catch (e) {
       setNlError(e instanceof ApiError ? e.message : 'Could not parse that request.')
     } finally {
