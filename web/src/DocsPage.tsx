@@ -49,6 +49,7 @@ function Ref({ id }: { id: string }) {
 
 const SECTIONS = [
   { id: 'what', label: 'What this is' },
+  { id: 'using', label: 'Using the site' },
   { id: 'not', label: 'Scope and limits' },
   { id: 'pipeline', label: 'How a panel is built' },
   { id: 'ld', label: 'Linkage disequilibrium and rare variants' },
@@ -176,7 +177,152 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="not" title="2 · Scope and limits">
+        <Section id="using" title="2 · Using the site">
+          <Text mb={10}>
+            Type the variant, check what it resolved to, build the panel, read the warnings,
+            download it. The one step nobody can do for you is the second: confirming that
+            the record on screen is the variant you actually meant.
+          </Text>
+
+          <Title order={3} mt={14} mb={4}>1. Name the variant</Title>
+          <Text mb={6}>
+            One box, five accepted forms. The first four are read by a regex, cost nothing,
+            and are exact:
+          </Text>
+          <Wide>
+            <Table striped withTableBorder>
+              <Table.Tbody>
+                <ExRow k="rsID" v="rs334" mono />
+                <ExRow k="HGVS, with a transcript" v="NM_000352.6(ABCC8):c.3989-9G>A" mono />
+                <ExRow k="HGVS, gene omitted" v="NM_000352.6:c.3989-9G>A" mono />
+                <ExRow k="ClinVar accession" v="VCV000009088" mono />
+                <ExRow k="Plain words" v="the sickle cell mutation, in Africans" />
+              </Table.Tbody>
+            </Table>
+          </Wide>
+          <Text mb={6}>
+            The last one is different in kind: no identifier is in the text, so a language
+            model is asked what you meant and answers from its own knowledge. That is a
+            claim, not a reading, and it is fenced accordingly. See{' '}
+            <Anchor href={docHref('freetext')}>Free text and the model</Anchor> before you
+            rely on it. If you know the rsID, type it: exact, instant, free.
+          </Text>
+          <Text mb={6}>
+            Options go in the same line, and are always read locally whichever form you use:
+          </Text>
+          <Wide>
+            <Table striped withTableBorder>
+              <Table.Tbody>
+                <ExRow k="Ancestry" v="rs6025 in Europeans" mono />
+                <ExRow k="Window" v="rs334 with a 500kb window" mono />
+                <ExRow k="MAF floor" v="NM_000518.5(HBB):c.20A>T, MAF at least 0.1" mono />
+                <ExRow k="Together" v="rs113993960 in East Asians, 100kb, MAF 0.1" mono />
+              </Table.Tbody>
+            </Table>
+          </Wide>
+          <Text mb={8}>
+            The <Code>ex</Code> button fills in a random working example. Prefer knobs to
+            prose? <b>Manual input</b> exposes every parameter as its own field: window, MAF
+            floor, ancestry, build, and whether to cross-check positions against Ensembl.
+          </Text>
+
+          <Title order={3} mt={14} mb={4}>2. Check the resolved variant. This step is yours</Title>
+          <Text mb={6}>
+            Resolve looks the identifier up live and shows you the record: gene and strand,
+            the GRCh38 coordinate, the variant in both genomic and transcript-sense form,
+            ClinVar's classification and review status, the gnomAD frequency, and whether
+            population LD is defined for it. Nothing is built until you press the button, so
+            this is the checkpoint.
+          </Text>
+          <Text mb={6}>
+            <b>Read the gene and the coordinate and confirm they are the variant you mean.</b>{' '}
+            Everything downstream is arithmetic on that record: if it is the wrong variant,
+            the panel will be a technically perfect answer to a question you did not ask.
+            That is the failure this tool cannot catch for you, and it is likelier than it
+            sounds when a gene has many pathogenic variants.
+          </Text>
+          <Text mb={8}>
+            Refusals here are deliberate. A haplotype record, a structural variant, prose
+            that names no identifier, or a genomic position typed as a coordinate are all
+            turned away rather than approximated: the message says what to type instead.
+          </Text>
+
+          <Title order={3} mt={14} mb={4}>3. Build the panel</Title>
+          <Text mb={6}>
+            Typically 20 to 60 seconds, because it pulls every common SNP in the window from
+            gnomAD, which for a 250 kb window is a few hundred thousand rows. Open{' '}
+            <b>Build log</b> to watch it work. Each line carries a tag:
+          </Text>
+          <Wide>
+            <Table striped withTableBorder>
+              <Table.Tbody>
+                <ExRow k="[FETCH]" v="a request going out to ClinVar, Ensembl or gnomAD" />
+                <ExRow k="[CACHE]" v="answered from disk instead, and how old that answer is" />
+                <ExRow k="[INFO]" v="a count: candidates, markers shortlisted, positions confirmed" />
+                <ExRow k="[SKIP]" v="sites dropped, and the reason: MAF floor, QC filters, monomorphic" />
+                <ExRow k="[WARN]" v="something worth reading before you use the panel" />
+                <ExRow k="[DONE]" v="the summary: markers, candidates, elapsed, how much came off the network" />
+              </Table.Tbody>
+            </Table>
+          </Wide>
+          <Text mb={8}>
+            The log is worth opening when a build is slow: it tells you whether you are
+            waiting on gnomAD or on your own window size. It stays available after the build
+            finishes.
+          </Text>
+
+          <Title order={3} mt={14} mb={4}>4. Read the panel, warnings first</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              <b>Flanking coverage</b> is the first thing to read. It says how many markers
+              sit each side, how many are close, and it raises a flag when a side is thin,
+              empty, or separated from the variant by a recombination hotspot. A red flag
+              here is not cosmetic: it is the tool telling you this panel may not do the job.
+            </List.Item>
+            <List.Item>
+              <b>The locus track</b> plots each candidate against the variant: height is the
+              expected heterozygosity, colour is the side.
+            </List.Item>
+            <List.Item>
+              <b>The table</b> lists every candidate, shortlisted ones marked. Sort it, filter
+              it, or apply a preset. <i>Engine rank</i> is the order the panel was actually
+              selected in.
+            </List.Item>
+            <List.Item>
+              <b>Ancestry</b> re-orders the page by that population's own frequencies. It does
+              not re-select the shortlist: to do that, rebuild.
+            </List.Item>
+            <List.Item>
+              <b>Provenance</b> records when the panel was built, how old its data is, which
+              sources answered, and what the ranking keyed on. If <Code>queried_utc</Code> is
+              much older than <Code>built_utc</Code>, the panel came from cache and rebuilding
+              it is not a re-check.
+            </List.Item>
+          </List>
+
+          <Title order={3} mt={14} mb={4}>5. Download it</Title>
+          <Text mb={8}>
+            <b>CSV</b> for a pipeline, <b>XLSX</b> for a spreadsheet, <b>JSON</b> for code,{' '}
+            <b>PDF</b> to read or file. All four carry the same facts: the variant in both
+            forms, the sources and their versions, the timestamps, the wet-lab protocol and
+            the disclaimer. One caveat worth knowing:{' '}
+            <Code>pandas.read_csv(comment='#')</Code> strips the CSV's entire header block,
+            caveats included. The JSON and XLSX carry those as data.
+          </Text>
+
+          <Alert color="gray" variant="light" title="What you have at the end">
+            <Text size="xs">
+              A list of candidates to genotype, not an answer. The panel says which SNPs are
+              worth typing in this family; it cannot say which parental allele an embryo
+              inherited. That needs the carrier genotyped, the uninformative markers dropped,
+              and the rest phased against a relative.{' '}
+              <Anchor href={docHref('layerb')}>Using the panel in the lab</Anchor> is the
+              protocol.
+            </Text>
+          </Alert>
+        </Section>
+
+        <Section id="not" title="3 · Scope and limits">
           <List spacing={4} mb={8}>
             <List.Item>No editing-reagent, guide-RNA or gamete design.</List.Item>
             <List.Item>
@@ -195,7 +341,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Alert>
         </Section>
 
-        <Section id="pipeline" title="3 · How a panel is built">
+        <Section id="pipeline" title="4 · How a panel is built">
           <List spacing={5} type="ordered" mb={10}>
             <List.Item>
               <b>Resolve.</b> The variant is looked up live against ClinVar, falling back to Ensembl for a
@@ -243,7 +389,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="ld" title="4 · Linkage disequilibrium and rare variants">
+        <Section id="ld" title="5 · Linkage disequilibrium and rare variants">
           <Text mb={8}>
             Linkage disequilibrium (r² or D′) between a marker and the pathogenic variant is{' '}
             <b>undefined</b> when the pathogenic variant is rare. LD is a property of a haplotype
@@ -263,7 +409,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="prior" title="5 · Expected heterozygosity is a prior">
+        <Section id="prior" title="6 · Expected heterozygosity is a prior">
           <Text mb={8}>
             Expected heterozygosity, 2pq under Hardy-Weinberg, is the probability that a randomly drawn
             individual from a reference population is heterozygous at the site. That is the entire content
@@ -282,7 +428,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="recomb" title="6 · Recombination and the genetic map">
+        <Section id="recomb" title="7 · Recombination and the genetic map">
           <Text mb={8}>
             A crossover between a marker and the pathogenic allele makes the marker report the wrong
             parental chromosome. Each candidate carries its cM distance from the variant, interpolated
@@ -308,7 +454,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="layerb" title="7 · Using the panel in the lab">
+        <Section id="layerb" title="8 · Using the panel in the lab">
           <Text mb={8}>
             The panel is a starting point. To actually call parental origin:
           </Text>
@@ -330,7 +476,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="sources" title="8 · Data sources and versions">
+        <Section id="sources" title="9 · Data sources and versions">
           <Text mb={8}>
             ClinVar, Ensembl and gnomAD are queried when you build a panel, so a panel is a snapshot of
             those databases at that moment, and every result carries its pull timestamp. The genetic map
@@ -450,7 +596,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="conventions" title="9 · Conventions">
+        <Section id="conventions" title="10 · Conventions">
           <Text mb={8}>
             <b>Nomenclature.</b> Variants are written per the HGVS recommendations{' '}
             <Ref id="hgvs" />, with the transcript accession included, as in{' '}
@@ -482,7 +628,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="freetext" title="10 · Free text and the model">
+        <Section id="freetext" title="11 · Free text and the model">
           <Text mb={8}>
             The search box takes free text. What happens to it turns on one thing: whether your text
             contains a variant identifier. The two paths are not the same feature with different
@@ -625,7 +771,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="limits" title="11 · Known limitations">
+        <Section id="limits" title="12 · Known limitations">
           <Text mb={8}>
             Everything below is a real property of this tool or its data, not a hypothetical. It is
             listed because a plausible wrong answer is worse than an error: an error gets
@@ -734,7 +880,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </List>
         </Section>
 
-        <Section id="example" title="12 · Worked example">
+        <Section id="example" title="13 · Worked example">
           <Text mb={8}>The reference case, end to end.</Text>
           <Wide>
           <Table className="om-table" withTableBorder>
@@ -768,7 +914,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="api" title="13 · API">
+        <Section id="api" title="14 · API">
           <Wide>
           <Table className="om-table" withTableBorder>
             <Table.Thead>
@@ -808,7 +954,7 @@ r.recommended                   # balanced, both-sided candidate panel`}
           </Text>
         </Section>
 
-        <Section id="references" title="14 · References">
+        <Section id="references" title="15 · References">
           <ol style={{ margin: 0, paddingLeft: 22 }}>
             {ORDER.map((id) => {
               const c = CITATIONS[id]
