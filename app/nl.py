@@ -305,7 +305,10 @@ def _llm_intent(text: str) -> dict:
         _log.warning("intent parser unavailable: %s", e)
         raise ValueError(f"Free-text parsing is unavailable. {_NAME_IT}") from e
 
-    client = anthropic.Anthropic()
+    # max_retries, because a 529 "Overloaded" is weather, not a verdict. Observed in
+    # production: three consecutive parses died on it and told the user free text was
+    # unavailable, while the key was fine. Every other network call in this app retries.
+    client = anthropic.Anthropic(max_retries=4)
     try:
         resp = client.messages.create(
             model=MODEL,
@@ -319,9 +322,17 @@ def _llm_intent(text: str) -> dict:
             messages=[{"role": "user", "content": text}],
         )
     except anthropic.APIError as e:
-        # Every failure here is the same to the caller: intent could not be parsed, so
-        # 400, never 500. The provider's message goes to the log, not to the visitor.
-        _log.warning("intent parser unavailable: %s", e)
+        # 400, never 500: the provider's message goes to the log, not to the visitor. But
+        # a busy model and a broken one are different facts, and "unavailable" reads as the
+        # feature being off rather than as something to retry.
+        _log.warning("intent parser failed: %s", e)
+        status = getattr(e, "status_code", None)
+        if status in (429, 529) or isinstance(e, anthropic.APIStatusError) and status and status >= 500:
+            raise ValueError(
+                f"The model is busy right now, and retrying did not clear it. This is a "
+                f"transient failure and says nothing about your text. Try again in a "
+                f"moment, or skip the wait: {_NAME_IT}"
+            ) from e
         raise ValueError(f"Free-text parsing is unavailable. {_NAME_IT}") from e
 
     raw = "".join(b.text for b in resp.content if b.type == "text").strip()

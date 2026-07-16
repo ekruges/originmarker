@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
   ActionIcon, Alert, Autocomplete, Button, Checkbox, Group, NumberInput,
   Paper, SegmentedControl, Select, Text, TextInput, Tooltip,
@@ -7,16 +7,38 @@ import { ANCESTRIES, api, ApiError, type Health, type NLResponse, type Structure
 
 const EXAMPLE = 'NM_000352.6(ABCC8):c.3989-9G>A'
 
-/** Every accepted input form, one per rotation. The last is only offered when free text is
- *  actually enabled: advertising a form the server will refuse is worse than not showing it. */
+/** The rotation: every accepted input form, over a spread of real loci.
+ *
+ *  Every identifier here was resolved against the live APIs before being listed. An
+ *  example that does not resolve is worse than no example, and a genomic HGVS
+ *  (NC_000011.10:g.17397055C>T) was listed here until it turned out ClinVar's search
+ *  cannot find one, so the box was advertising a form that always failed.
+ *
+ *  `nl` marks the ones that need the model, and they are dropped when it is switched off.
+ */
 const PLACEHOLDERS: { text: string; nl?: boolean }[] = [
-  { text: EXAMPLE },
-  { text: 'rs334' },
-  { text: 'NM_000518.5(HBB):c.20A>T' },
-  { text: 'VCV000009088' },
-  { text: 'NC_000011.10:g.17397055C>T' },
-  { text: 'the ABCC8 splice variant, in Europeans', nl: true },
+  { text: EXAMPLE },                                    // HGVS with gene, ABCC8, chr11
+  { text: 'rs334' },                                    // sickle cell, HBB, chr11
+  { text: 'rs113993960' },                              // CF F508del, CFTR, chr7
+  { text: 'rs6025 in Europeans' },                      // factor V Leiden, F5, chr1
+  { text: 'rs1800562' },                                // haemochromatosis, HFE, chr6
+  { text: 'rs80338939 with a 500kb window' },           // GJB2 deafness, chr13
+  { text: 'rs28941770' },                               // Tay-Sachs, HEXA, chr15
+  { text: 'rs61750240' },                               // Rett, MECP2, chrX
+  { text: 'NM_000518.5(HBB):c.20A>T, MAF at least 0.1' },
+  { text: 'VCV000009088' },                             // ClinVar accession
+  { text: 'the sickle cell mutation, in Africans', nl: true },
 ]
+
+/** Fisher-Yates. The first example a visitor sees should not always be the same one. */
+function shuffled<T>(xs: T[]): T[] {
+  const a = [...xs]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
 
 const ROTATE_MS = 3600
 const FADE_MS = 320
@@ -115,7 +137,12 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
   // Ghost examples cycle through the accepted input forms, the way a search box does. Only
   // while the box is empty: a placeholder moving under text someone is composing is noise,
   // and the element is aria-hidden from the input's own label anyway.
-  const forms = PLACEHOLDERS.filter((p) => !p.nl || health?.nl_enabled)
+  // Shuffled once per mount, not per render: a new order on every keystroke would reshuffle
+  // the box under the reader. Recomputed when nl_enabled arrives, since that changes the set.
+  const forms = useMemo(
+    () => shuffled(PLACEHOLDERS.filter((p) => !p.nl || health?.nl_enabled)),
+    [health?.nl_enabled],
+  )
   const [slot, setSlot] = useState(0)
   const [fading, setFading] = useState(false)
   const idle = mode === 'search' && !text && !busy
