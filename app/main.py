@@ -462,17 +462,26 @@ class SPAStatic(StaticFiles):
     Only extensionless paths get the fallback: a blanket "any 404 -> index.html" answers a
     missing .js with 200 + HTML, which looks healthy to curl while the browser fails to
     parse it.
+
+    index.html is served no-store. Everything under /assets carries a content hash in its
+    name, so it is immutable and cached hard, but the html is the file that NAMES those
+    hashes. Sent without a cache directive it gets heuristic caching, and a browser holding
+    an old copy keeps loading the old bundle: a deploy that is live everywhere except in the
+    one browser that matters.
     """
 
     async def get_response(self, path, scope):
         try:
-            return await super().get_response(path, scope)
+            resp = await super().get_response(path, scope)
         except StarletteHTTPException as e:
             if e.status_code != 404:
                 raise
             if Path(path).suffix and Path(path).suffix != ".html":
                 raise
-            return await super().get_response("index.html", scope)
+            resp = await super().get_response("index.html", scope)
+        if not Path(path).suffix or Path(path).suffix == ".html":
+            resp.headers["Cache-Control"] = "no-store, must-revalidate"
+        return resp
 
 
 if (DIST / "index.html").exists():

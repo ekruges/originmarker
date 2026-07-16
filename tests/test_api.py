@@ -472,3 +472,29 @@ def test_log_tags_match_the_frontend():
         f"  engine only: {sorted(set(pb.TAGS) - ui)}\n"
         f"  ui only    : {sorted(ui - set(pb.TAGS))}"
     )
+
+
+def test_index_html_is_never_cached():
+    """index.html names the content-hashed bundles, so a browser holding an old copy loads
+    an old app: a deploy live on the server and invisible in the browser. The assets
+    themselves are immutable by construction and must stay cacheable.
+    """
+    dist = Path(__file__).resolve().parent.parent / "web" / "dist"
+    if not (dist / "index.html").exists():
+        pytest.skip("web/dist not built")
+
+    # "/deep-link" stands for any client route: it 404s in StaticFiles and falls back to
+    # index.html, which must carry the header too. Not "/docs": FastAPI's Swagger owns that
+    # path, and the app's own docs are the hash route "#/docs".
+    for path in ("/", "/index.html", "/deep-link"):
+        r = client.get(path)
+        assert r.status_code == 200, (path, r.status_code)
+        assert "no-store" in r.headers.get("cache-control", ""), (
+            f"{path} served without no-store: {r.headers.get('cache-control')!r}")
+
+    asset = next((p for p in (dist / "assets").glob("index-*.js")), None)
+    if asset:
+        r = client.get(f"/assets/{asset.name}")
+        assert r.status_code == 200
+        assert "no-store" not in r.headers.get("cache-control", ""), (
+            "a content-hashed asset must stay cacheable; only the html is no-store")
