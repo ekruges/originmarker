@@ -7,6 +7,7 @@ PANELBUILDER_CACHE is pointed at fixtures/ before app.main imports panelbuilder,
 """
 import json
 import os
+import re
 import sys
 import time
 from pathlib import Path
@@ -316,6 +317,104 @@ def test_sse_stream_replays_to_a_client_that_subscribed_late():
     assert events.count("progress") > 1, "the buffered log should replay, not just status"
 
 
+def test_build_log_rides_both_transports_and_leaks_nothing():
+    """The log has to survive the poll path, not just SSE, and a late subscriber has to get
+    all of it. The leak needles are the last gate before a line reaches a browser: jobs.py
+    writes the content, but this is where it goes out.
+
+    The log assertions arm themselves once jobs.py buffers lines; until then the shape
+    contract (a list, absent field degrades to empty) is what holds.
+    """
+    job_id = client.post("/api/panel", json={"variant": GOLDEN}).json()["job_id"]
+    for _ in range(600):
+        if jobs.get(job_id).status != "running":
+            break
+        time.sleep(0.1)
+    polled = client.get(f"/api/panel/{job_id}").json()
+    assert polled["status"] == "done", polled.get("error")
+    log = polled["log"]
+    assert isinstance(log, list), "the poller must carry the log: proxies buffer SSE"
+
+    # Subscribed AFTER the job finished: replay must hand over every line, not the tail.
+    streamed, ev = [], None
+    with client.stream("GET", f"/api/panel/{job_id}/stream") as r:
+        for line in r.iter_lines():
+            if line.startswith("event:"):
+                ev = line.partition(":")[2].strip()
+            elif line.startswith("data:") and ev == "log":
+                streamed.append(json.loads(line.partition(":")[2]))
+    assert streamed == log, "a late subscriber must replay the whole log, not join at the end"
+
+    blob = json.dumps(log).lower()
+    for needle in ("traceback", "app.jobs", "panelbuilder.py", "/users/",
+                   "key=", "token=", "authorization"):
+        assert needle not in blob, f"build log leaks {needle!r} to the browser: {blob[:300]}"
+
+
+def test_the_browser_knows_every_tag_the_engine_emits():
+    """LOG_TAGS in web/src/api.ts must list exactly panelbuilder.TAGS.
+
+    The UI renders a tag it does not know as INFO, so a tag the engine adds here reaches
+    the reader disguised as routine chatter rather than as itself, and nothing else fails.
+    Neither side can see the other, which is why the check has to sit across them.
+    """
+    import panelbuilder as pb
+
+    src = (ROOT / "web" / "src" / "api.ts").read_text()
+    m = re.search(r"export const LOG_TAGS = \[(.*?)\] as const", src, re.S)
+    assert m, "LOG_TAGS is not where this check expects it in web/src/api.ts"
+    assert set(re.findall(r"'([A-Z]+)'", m.group(1))) == set(pb.TAGS), (
+        "web/src/api.ts LOG_TAGS and panelbuilder.TAGS disagree: a tag the engine emits "
+        "and the UI does not list renders as INFO"
+    )
+
+
+def test_the_stream_delivers_a_line_that_lands_as_the_job_finishes(monkeypatch):
+    """A build that fails writes its last line and flips status with no event between.
+
+    The stream reads status and the log at different moments, so a line landing between
+    those two reads is the one a reader most needs: on the error path it names the
+    failure. The poller cannot lose it (it re-reads the whole log), which is exactly why
+    the two transports have to be compared, not just the surviving one.
+    """
+    import panelbuilder as pb
+
+    class FlipsWhenStatusIsRead:
+        """Appends its final line at the instant status is read: the writer landing in the
+        window between the stream's two reads, made deterministic.
+
+        It fires on the SECOND read, not the first, so the seeded event and line are
+        already drained by then. A job with anything still undrained keeps the loop going
+        for another pass, which hides the very race this is here to catch.
+        """
+        def __init__(self):
+            self.id, self.stage, self.fraction = "raced", "resolve", 0.1
+            self.events = [{"stage": "resolve", "fraction": 0.1}]
+            self.log = [{"tag": pb.Tag.INFO, "text": "the build started"}]
+            self.result, self.error, self._status = None, None, "running"
+            self.reads = 0
+
+        @property
+        def status(self):
+            self.reads += 1
+            if self.reads > 1 and self._status == "running":
+                self.error = "ApiError: a source refused"
+                self.log.append({"tag": pb.Tag.WARN, "text": self.error})   # jobs.py order
+                self._status = "error"
+            return self._status
+
+    job = FlipsWhenStatusIsRead()
+    monkeypatch.setattr(jobs, "get", lambda _id: job)
+    streamed, ev = [], None
+    with client.stream("GET", "/api/panel/raced/stream") as r:
+        for line in r.iter_lines():
+            if line.startswith("event:"):
+                ev = line.partition(":")[2].strip()
+            elif line.startswith("data:") and ev == "log":
+                streamed.append(json.loads(line.partition(":")[2]))
+    assert streamed == job.log, "the stream dropped a line the poller would have kept"
+
+
 def test_finished_jobs_expire_and_the_registry_is_capped():
     """TTL and MAX_JOBS stop the registry pinning every PanelResult it ever built."""
     # The registry is poked directly: submitting MAX_JOBS+ real builds would take hours.
@@ -350,3 +449,26 @@ def test_unknown_job_404():
 def pb_disclaimer():
     import panelbuilder as pb
     return pb.DISCLAIMER
+
+
+def test_log_tags_match_the_frontend():
+    """The tag set is a wire contract, written twice: once in panelbuilder and once in
+    web/src/api.ts, which colours them. A tag the engine emits and the UI has never heard
+    of renders unstyled, so the drift is invisible until someone squints at a log.
+    """
+    import re
+    from pathlib import Path
+
+    import panelbuilder as pb
+
+    api_ts = Path(__file__).resolve().parent.parent / "web" / "src" / "api.ts"
+    if not api_ts.exists():
+        pytest.skip("web/src/api.ts not present")
+    m = re.search(r"export const LOG_TAGS = \[([^\]]+)\]", api_ts.read_text())
+    assert m, "could not read LOG_TAGS out of api.ts; this check is stale"
+    ui = {t.strip().strip("'\"") for t in m.group(1).split(",") if t.strip()}
+    assert ui == set(pb.TAGS), (
+        f"engine and UI disagree about the log tags.\n"
+        f"  engine only: {sorted(set(pb.TAGS) - ui)}\n"
+        f"  ui only    : {sorted(ui - set(pb.TAGS))}"
+    )

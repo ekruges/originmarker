@@ -189,6 +189,21 @@ def _sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data)}\n\n"
 
 
+def _job_log(job) -> list[dict]:
+    """The engine's tagged build-log lines, verbatim. Empty while jobs.py buffers none.
+
+    Entries are not reshaped: jobs.py owns the shape, and a second one here would drift
+    from it. A non-mapping is wrapped rather than dropped.
+    """
+    log = [ln if isinstance(ln, dict) else {"text": str(ln)}
+           for ln in getattr(job, "log", None) or ()]
+    # This module json.dumps the SSE frames while FastAPI encodes the poll body, and the
+    # two render a value json does not know differently: one silently, as {}. The round
+    # trip makes both transports carry the same line, and keeps a TypeError raised inside
+    # the stream generator from killing it mid-build.
+    return json.loads(json.dumps(log, default=str))
+
+
 # --------------------------------------------------------------------------- #
 # API
 # --------------------------------------------------------------------------- #
@@ -270,6 +285,9 @@ def panel_status(job_id: str):
     if (job := jobs.get(job_id)) is None:
         raise HTTPException(404, f"unknown or expired job {job_id!r}")
     return {"status": job.status, "stage": job.stage, "fraction": job.fraction,
+            # The log rides the poller too: proxies buffer SSE, so a log carried only by
+            # the stream goes missing exactly where the stream already did.
+            "log": _job_log(job),
             "result": job.result.to_dict() if job.result else None,   # serialise at the edge
             "error": job.error}
 
@@ -281,14 +299,27 @@ async def panel_stream(job_id: str, request: Request):
 
     async def gen():
         yield _sse("progress", {"stage": job.stage, "fraction": job.fraction})
-        sent, last = 0, time.monotonic()
+        sent = logged = 0
+        last = time.monotonic()
         while True:
-            if sent < len(job.events):                  # drain before testing status, so a
-                for ev in job.events[sent:]:            # trailing event is never lost
+            # Status is read BEFORE both buffers, and the buffers are snapshotted after:
+            # jobs.py appends every event and line before it flips, so a status still
+            # 'running' here costs one more pass, while a finished one guarantees the
+            # snapshots below are final. Reading it after them loses whatever landed in
+            # between, which on the error path is the line naming the failure.
+            finished = job.status != "running"
+            log = _job_log(job)
+            # Both counters start at 0, so a client that subscribes after the job finished
+            # replays the whole log rather than joining at the end of it.
+            if sent < len(job.events) or logged < len(log):
+                for ev in job.events[sent:]:
                     sent += 1
                     yield _sse("progress", ev)
+                for line in log[logged:]:
+                    logged += 1
+                    yield _sse("log", line)
                 last = time.monotonic()
-            elif job.status != "running":
+            elif finished:
                 break
             else:
                 if await request.is_disconnected():

@@ -206,10 +206,42 @@ export const geneMismatch = (resolved: string | null, named?: string[]): boolean
   return want.length > 0 && got !== '' && !want.includes(got)
 }
 
+// The tags panelbuilder emits, as panelbuilder.TAGS defines them: a line tagged with one
+// the engine has and this list lacks renders as INFO, which reads as routine and hides
+// what the tag was for. Anything genuinely unknown still renders, as INFO: a tag is a hint
+// about a line, never a licence to drop one.
+export const LOG_TAGS = ['FETCH', 'CACHE', 'INFO', 'WARN', 'SKIP', 'DONE'] as const
+export type LogTag = (typeof LOG_TAGS)[number]
+
+export interface LogLine {
+  tag: LogTag
+  text: string
+}
+
+/**
+ * Normalise one build-log frame. Returns null for a frame that is not a log line.
+ *
+ * app/jobs.py owns the wire shape and the API passes it through unreshaped, so this is the
+ * only place that assumes anything about it. A frame with no text is not a line (which is
+ * what keeps a `progress` frame from being read as one); a missing or unknown tag is.
+ */
+export const asLogLine = (d: unknown): LogLine | null => {
+  if (!d || typeof d !== 'object') return null
+  const o = d as Record<string, unknown>
+  const text = typeof o.text === 'string' ? o.text
+    : typeof o.message === 'string' ? o.message : null
+  if (text === null) return null
+  const tag = typeof o.tag === 'string' ? o.tag.trim().toUpperCase() : ''
+  return { tag: (LOG_TAGS as readonly string[]).includes(tag) ? (tag as LogTag) : 'INFO', text }
+}
+
 export interface JobStatus {
   status: 'running' | 'done' | 'error'
   result?: PanelResult
   error?: string
+  /** The whole log so far, not a delta: the poller's copy of the SSE `log` stream, for a
+   *  proxy that buffers SSE. Declared, not trusted: every line goes through asLogLine. */
+  log?: LogLine[]
 }
 
 export interface LDResponse {

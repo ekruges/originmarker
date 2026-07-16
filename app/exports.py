@@ -13,7 +13,9 @@ from __future__ import annotations
 import csv
 import io
 import json
+import pathlib
 import re
+from xml.etree import ElementTree
 
 import panelbuilder as pb
 
@@ -285,11 +287,106 @@ def to_json(result) -> bytes:
 
 
 # --------------------------------------------------------------------------- #
+# The mark. web/public/favicon.svg is the ONE definition of its geometry: the PDF
+# masthead and the XLSX render that file, so neither can drift from the site's
+# monogram. Nothing here may restate its path, its transform or its colours.
+# --------------------------------------------------------------------------- #
+
+# public/ in the repo; dist/ in the container image, where vite has copied public/ in.
+MARK_SVG = [pathlib.Path(__file__).resolve().parent.parent / "web" / d / "favicon.svg"
+            for d in ("public", "dist")]
+_SVG_NS = "{http://www.w3.org/2000/svg}"
+
+
+def _svg_polys(d: str) -> list[list[tuple[float, float]]]:
+    """Sub-paths of an SVG path built from straight lines, absolute commands only.
+
+    Raises on any command it cannot reproduce exactly: a curve flattened to a chord would
+    be a silently wrong mark, and a wrong mark is worse than no mark.
+    """
+    toks = re.findall(r"[A-Za-z]|-?[\d.]+", d)
+    polys, cur, x, y, op, i = [], [], 0.0, 0.0, None, 0
+    while i < len(toks):
+        if toks[i].isalpha():
+            op, i = toks[i], i + 1
+            if op in ("Z", "M") and cur:
+                polys.append(cur)
+                cur = []
+            if op == "Z":
+                continue
+        if op not in ("M", "L", "H", "V"):
+            raise ValueError(f"favicon.svg path: cannot draw command {op!r} exactly")
+        if op in ("M", "L"):
+            x, y, i, op = float(toks[i]), float(toks[i + 1]), i + 2, "L"   # M then implicit L
+        elif op == "H":
+            x, i = float(toks[i]), i + 1
+        else:
+            y, i = float(toks[i]), i + 1
+        cur.append((x, y))
+    if cur:
+        polys.append(cur)
+    return polys
+
+
+def _mark() -> dict | None:
+    """The monogram's geometry and colours, read from favicon.svg. None if it is absent.
+
+    Not a general SVG reader: it takes the ring and the straight-line glyph outline that
+    file holds, and raises on anything else rather than guess.
+    """
+    src = next((p for p in MARK_SVG if p.exists()), None)
+    if src is None:
+        return None
+    svg = ElementTree.fromstring(src.read_bytes())
+    vx, vy, vw, vh = (float(t) for t in svg.get("viewBox").split())
+    assert vw == vh, f"favicon.svg viewBox {vw}x{vh} is not square: the ring is a circle"
+    circle, path = svg.find(_SVG_NS + "circle"), svg.find(_SVG_NS + "path")
+    t = re.fullmatch(r"translate\(([-\d.]+),([-\d.]+)\)\s*scale\(([-\d.]+),([-\d.]+)\)",
+                     (path.get("transform") or "translate(0,0) scale(1,1)").strip())
+    assert t, f"favicon.svg: unreadable path transform {path.get('transform')!r}"
+    return {"viewbox": (vx, vy, vw, vh),
+            "circle": tuple(float(circle.get(k)) for k in ("cx", "cy", "r", "stroke-width")),
+            "ring": circle.get("stroke"),
+            "fill": path.get("fill"),
+            "transform": tuple(float(g) for g in t.groups()),
+            "polys": _svg_polys(path.get("d"))}
+
+
+def _mark_png(px: int) -> bytes | None:
+    """The monogram as a transparent PNG of px square, for formats that take no vector.
+
+    Pillow draws no antialiased edge, hence the supersample. It arrives with reportlab
+    (a hard dependency of it), so this adds nothing to requirements.txt.
+    """
+    from PIL import Image, ImageDraw
+    m = _mark()
+    if m is None:
+        return None
+    SS = 4
+    vx, vy, vw, _ = m["viewbox"]
+    k = px * SS / vw
+    at = lambda ux, uy: ((ux - vx) * k, (uy - vy) * k)     # viewBox units -> pixels, y down
+    img = Image.new("RGBA", (px * SS, px * SS), (0, 0, 0, 0))
+    d = ImageDraw.Draw(img)
+    cx, cy, r, sw = m["circle"]
+    # PIL strokes inward from the bounding box; SVG centres the stroke on r.
+    d.ellipse([*at(cx - r - sw / 2, cy - r - sw / 2), *at(cx + r + sw / 2, cy + r + sw / 2)],
+              outline=m["ring"], width=round(sw * k))
+    tx, ty, sx, sy = m["transform"]
+    for poly in m["polys"]:
+        d.polygon([at(tx + sx * gx, ty + sy * gy) for gx, gy in poly], fill=m["fill"])
+    out = io.BytesIO()
+    img.resize((px, px), Image.LANCZOS).save(out, "PNG")
+    return out.getvalue()
+
+
+# --------------------------------------------------------------------------- #
 # XLSX
 # --------------------------------------------------------------------------- #
 
 def to_xlsx(result) -> bytes:
     from openpyxl import Workbook
+    from openpyxl.drawing.image import Image
     from openpyxl.styles import Alignment, Font
 
     bold = Font(bold=True)
@@ -323,6 +420,16 @@ def to_xlsx(result) -> bytes:
         return ws
 
     ws = table("Recommended panel", result.recommended)
+    # First sheet only, for the same reason the PDF marks only page 1. An openpyxl image
+    # floats over the grid rather than filling a cell, so it goes in a gutter opened by
+    # indenting A1's DISPLAY: the disclaimer's text is untouched (R8) and stays uncovered.
+    if png := _mark_png(54):
+        img = Image(io.BytesIO(png))
+        img.width = img.height = 18
+        img.anchor = "A1"
+        ws.add_image(img)
+        # horizontal is explicit because Excel drops an indent under General alignment.
+        ws["A1"].alignment = Alignment(horizontal="left", indent=3)
     ws["A2"] = (f"Balanced subset, both sides (R5). CANDIDATES ONLY - genotype the carrier, "
                 f"keep heterozygous markers, then phase (R3). het_2pq_prior_* are population "
                 f"priors (R4). Positions {result.variant.build} (R6).")
@@ -431,8 +538,19 @@ def to_pdf(result) -> bytes:
 
     new_page()
 
+    # --- masthead -----------------------------------------------------------
+    # Page 1 only, and never inside new_page(): a mark at the top of the report is a
+    # masthead, a mark on every page is noise the reader has to look past.
+    MARK = 26
+    if _draw_mark(c, L, state["y"], MARK):
+        c.setFont("Helvetica-Bold", 14)
+        c.drawString(L + MARK + 8, state["y"] - 18,
+                     "OriginMarker - candidate linkage markers for PGT-M")
+        state["y"] -= MARK + 4
+    else:
+        text("OriginMarker - candidate linkage markers for PGT-M", 14, "Helvetica-Bold", 4)
+
     # --- variant card -------------------------------------------------------
-    text("OriginMarker - candidate linkage markers for PGT-M", 14, "Helvetica-Bold", 4)
     text(f"{v.rsid or v.query}   {v.gene or ''}   {v.clinical_significance or ''}"
          f"   {v.clinvar_accession or ''}", 9, "Helvetica-Bold", 5)
     state["y"] -= 2
@@ -575,6 +693,35 @@ def to_pdf(result) -> bytes:
     return out.getvalue()
 
 
+def _draw_mark(c, x, y_top, size) -> bool:
+    """Draw the monogram from favicon.svg, top-left at (x, y_top). False if it is absent.
+
+    Points are baked to the page rather than pushed through a CTM, so the coordinates the
+    self-check reads back out of the PDF are the ones the reader sees.
+    """
+    from reportlab.lib import colors
+    m = _mark()
+    if m is None:
+        return False
+    vx, vy, vw, _ = m["viewbox"]
+    k = size / vw
+    at = lambda ux, uy: (x + (ux - vx) * k, y_top - (uy - vy) * k)   # SVG y is down, PDF's up
+    cx, cy, r, sw = m["circle"]
+    c.setStrokeColor(colors.HexColor(m["ring"]))
+    c.setLineWidth(sw * k)
+    c.circle(*at(cx, cy), r * k, stroke=1, fill=0)
+    tx, ty, sx, sy = m["transform"]
+    p = c.beginPath()
+    for poly in m["polys"]:
+        for i, (gx, gy) in enumerate(poly):
+            (p.moveTo if i == 0 else p.lineTo)(*at(tx + sx * gx, ty + sy * gy))
+        p.close()
+    c.setFillColor(colors.HexColor(m["fill"]))
+    c.drawPath(p, stroke=0, fill=1)
+    c.setFillColor(colors.black)
+    return True
+
+
 def _figure(c, result, L, R, state, need, colors):
     """Locus map: axis, dashed line at the variant, lollipops for recommended markers.
 
@@ -663,19 +810,21 @@ def _wrap(text: str, font: str, size: float, width: float, stringWidth) -> list[
 # Self-check: PYTHONPATH=<repo root> PANELBUILDER_CACHE=tests/fixtures python app/exports.py
 # --------------------------------------------------------------------------- #
 
+def _pdf_streams(data: bytes) -> list[str]:
+    """The page content streams, in page order, decoded."""
+    import base64
+    import zlib
+    return [zlib.decompress(base64.a85decode(s)).decode("latin-1")
+            for s in re.findall(rb"stream\r?\n(.*?)~>\s*endstream", data, re.S)]
+
+
 def _pdf_text(data: bytes) -> str:
     """The strings a reader actually sees, pulled back out of the PDF.
 
     Not a general PDF parser: it reads the ASCII85+Flate streams and text-showing
     operators reportlab happens to emit, which is what drawString put there.
     """
-    import base64
-    import zlib
-    out = []
-    for s in re.findall(rb"stream\r?\n(.*?)~>\s*endstream", data, re.S):
-        d = zlib.decompress(base64.a85decode(s))
-        out += [m.decode("latin-1") for m in re.findall(rb"\((.*?)\) Tj", d)]
-    return "\n".join(out)
+    return "\n".join(m for d in _pdf_streams(data) for m in re.findall(r"\((.*?)\) Tj", d))
 
 
 def _pdf_stems(data: bytes) -> list[float]:
@@ -685,12 +834,9 @@ def _pdf_stems(data: bytes) -> list[float]:
     variant's dashed line starts 5pt lower), so they are the up-segments sharing the
     commonest bottom edge. Never assumes where axis_y is, so re-layout cannot break it.
     """
-    import base64
     import collections
-    import zlib
     segs = []
-    for s in re.findall(rb"stream\r?\n(.*?)~>\s*endstream", data, re.S):
-        d = zlib.decompress(base64.a85decode(s)).decode("latin-1")
+    for d in _pdf_streams(data):
         for x1, y1, x2, y2 in re.findall(r"([\d.]+) ([\d.]+) m\s+([\d.]+) ([\d.]+) l", d):
             if abs(float(x1) - float(x2)) < 0.01 and float(y2) > float(y1):
                 segs.append((round(float(y1), 2), float(y2) - float(y1)))
@@ -700,9 +846,23 @@ def _pdf_stems(data: bytes) -> list[float]:
     return [h for y, h in segs if y == axis_y]
 
 
+def _pdf_mark_points(stream: str) -> list[tuple[float, float]]:
+    """Page-space points of the monogram, read off one page's content stream.
+
+    The mark is the only many-sided polygon the report draws: every other straight line on
+    the page is a 2-point segment and every other curve is a bezier, so a moveTo carrying
+    two or more lineTos identifies it without assuming where it was placed.
+    """
+    for x, y, rest in re.findall(r"(-?[\d.]+) (-?[\d.]+) m((?:\s+-?[\d.]+ -?[\d.]+ l)+)", stream):
+        pts = [(float(x), float(y))] + [(float(a), float(b)) for a, b in
+                                        re.findall(r"(-?[\d.]+) (-?[\d.]+) l", rest)]
+        if len(pts) >= 3:
+            return pts
+    return []
+
+
 if __name__ == "__main__":
     import os
-    import pathlib
     import sys
 
     os.environ.setdefault("PANELBUILDER_CACHE",
@@ -921,6 +1081,80 @@ if __name__ == "__main__":
         assert "language model" not in body, f"{fmt} caveats a panel the user typed"
         assert "nl_model: none" not in body.lower(), f"{fmt} renders a None nl_model"
     assert "variant_chosen_by_language_model" not in blobs["csv"].decode()
+
+    # 10. The mark. web/public/favicon.svg is its one definition, so every check here is
+    # that the artifact follows the FILE, never that it matches a literal written here.
+    from reportlab.lib.pagesizes import letter
+
+    mark, real_svg = _mark(), list(MARK_SVG)
+    assert mark, f"favicon.svg not found at any of {[str(p) for p in MARK_SVG]}"
+    pts = _pdf_mark_points(_pdf_streams(blobs["pdf"])[0])
+    assert len(pts) == sum(len(p) for p in mark["polys"]), \
+        f"the PDF drew {len(pts)} points; favicon.svg has {sum(len(p) for p in mark['polys'])}"
+    # A floor, not the geometry: the M is a real outlined glyph and no redraw of one runs
+    # to this many points, so this fails if the mark is ever swapped for an approximation.
+    assert len(pts) > 20, f"the PDF's mark is down to {len(pts)} points: a redraw, not a glyph"
+    # The masthead sits above the report, not through it: the golden case fits one page
+    # today, so a mark that pushed the card's first line off it would show up here.
+    assert len(_pdf_streams(blobs["pdf"])) == 1, "the masthead pushed the report to page 2"
+    assert min(p[1] for p in pts) > letter[1] - 72, "the mark left the top inch of the page"
+
+    # Page 1 only. A mark on every page is noise, and the multipage branch is where a
+    # header leaks into the running pages.
+    big_pages = _pdf_streams(pdf)
+    assert len(big_pages) > 1 and [i for i, s in enumerate(big_pages) if _pdf_mark_points(s)] \
+        == [0], "the mark must be a page-1 masthead, not a running header"
+
+    # A mark it cannot draw exactly is refused, not approximated: a curve flattened to a
+    # chord, or a relative command read as absolute, is a wrong mark drawn confidently.
+    for bad in ("M0 0C10 10 20 20 30 30Z", "m0 0l10 10Z", "M0 0Q5 5 10 0Z"):
+        try:
+            _svg_polys(bad)
+            assert False, f"_svg_polys redrew {bad!r} as straight lines"
+        except ValueError:
+            pass
+
+    # The PDF's mark IS favicon.svg rather than a copy of its numbers: give the loader a
+    # different file and the drawn geometry must follow it, in page space. A right isoceles
+    # triangle on the viewBox pins scale, aspect and the SVG-to-PDF y flip at once; the
+    # real mark's own path cannot, since only the file knows what it should look like.
+    probe = pathlib.Path("/tmp/originmarker_probe_favicon.svg")
+    probe.write_bytes(b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">'
+                      b'<circle cx="50" cy="50" r="38" fill="none" stroke="#2e6da4" '
+                      b'stroke-width="10"/><path d="M0 0L100 0L100 100Z" fill="#337ab7"/></svg>')
+    MARK_SVG = [probe]
+    assert _mark()["polys"] == [[(0.0, 0.0), (100.0, 0.0), (100.0, 100.0)]], "path parse"
+    (x0, y0), (x1, y1), (x2, y2) = _pdf_mark_points(_pdf_streams(to_pdf(r))[0])
+    size = x1 - x0
+    assert size > 0 and abs(y1 - y0) < 0.01, "the mark's top edge is not horizontal"
+    assert abs(x2 - x1) < 0.01 and abs((y1 - y2) - size) < 0.01, \
+        f"the mark is not square and y-flipped onto the page: {(x0, y0), (x1, y1), (x2, y2)}"
+    MARK_SVG = real_svg
+    assert _mark()["polys"] == mark["polys"], "the probe leaked into the real mark"
+
+    # A missing SVG costs the reader a logo, never the report: the data outranks the brand.
+    MARK_SVG = [pathlib.Path("/nonexistent/favicon.svg")]
+    assert _mark() is None and _mark_png(18) is None
+    assert _pdf_text(to_pdf(r)).startswith("OriginMarker - candidate"), \
+        "with no SVG the PDF must still title itself"
+    assert to_xlsx(r)[:2] == b"PK", "with no SVG the workbook must still build"
+    MARK_SVG = real_svg
+
+    # The XLSX carries the mark on its first sheet only, and the bytes it carries are the
+    # ones favicon.svg drew. Read through the zip, NOT through load_workbook: openpyxl's
+    # reader reports one image for a workbook that has one on every sheet, so a check
+    # written against it passes while the file is wrong.
+    import zipfile
+    z = zipfile.ZipFile(io.BytesIO(blobs["xlsx"]))
+    assert z.read("xl/media/image1.png") == _mark_png(54), "the workbook's mark is not the SVG's"
+    assert [n for n in z.namelist() if re.fullmatch(r"xl/drawings/drawing\d+\.xml", n)] \
+        == ["xl/drawings/drawing1.xml"], "the mark repeats past the first sheet"
+    assert b"drawing1.xml" in z.read("xl/worksheets/_rels/sheet1.xml.rels"), \
+        "the mark is not on sheet 1"
+    wb3 = load_workbook(io.BytesIO(blobs["xlsx"]))
+    assert wb3.sheetnames[0] == "Recommended panel"          # ...which is sheet1.xml
+    assert wb3["Recommended panel"]["A1"].value == pb.DISCLAIMER, "R8 text must be untouched"
+    assert wb3["Recommended panel"]["A1"].alignment.indent >= 2, "the mark covers the disclaimer"
 
     # An allele frequency is prose on the PDF and a data cell in the CSV: the PDF renders
     # it via fmt_af, the CSV column keeps the exact float.

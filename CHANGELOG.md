@@ -9,6 +9,64 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.1.0 "Leptotene"
+
+The beginning of prophase I, where chromosomes first condense into threads.
+
+### Added
+
+- **A build log you can watch.** A dropdown beside the progress bar streams what the engine
+  is actually doing, one tagged line per event: `[FETCH]` a request going out, `[CACHE]` one
+  answered from disk and how old that answer is, `[INFO]` a count, `[SKIP]` sites dropped
+  and why, `[WARN]` something worth reading, `[DONE]` the summary. It survives the build
+  finishing, which is when it is most useful, and a late subscriber replays the whole log
+  rather than joining midway.
+- **The monogram on the PDF and XLSX masthead**, rendered from `web/public/favicon.svg` at
+  export time. Page 1 only.
+
+### Fixed
+
+- **A provider URL, with its query string, reached the browser.** A failed call raised an
+  error built from the raw URL, and the job's error text is both shown to the user and
+  appended to the build log. The NCBI api_key travels in that query string. It did not in
+  fact leak, but only because the URL was truncated at 80 characters and the key happens to
+  be appended last: two couplings nothing asserted, one reordered dict away from publishing
+  the key. The error is now built from the same scrubbed label the log uses, and a check
+  drives a real failing call and asserts the key is absent.
+- **`NM_000518.5(HBB):c.20A>T, MAF at least 0.1` did not resolve.** The search box decided
+  client-side whether text was an identifier, and its HGVS test was a substring search, so
+  any text containing `:c.` was posted whole, modifiers included, as the variant. The
+  predicate is deleted: everything goes to the one parser, which is the server's. This also
+  fixes free text being switched off refusing `rs334 in Europeans`, which needs no model.
+
+### Changed
+
+- The monogram's geometry is checked across its three copies. `favicon.svg` feeds the tab
+  icon, the PDF and the spreadsheet; `Mark.tsx` holds a copy because its colours are CSS
+  variables and the favicon's must be literal. Changing one used to leave the other alone,
+  silently, with every gate green. The colours are still allowed to differ; the geometry is
+  not, and a check says so.
+- The log tag set is likewise pinned across Python and TypeScript.
+
+### Performance
+
+**No speedup shipped, and the measurements say why.** A cold build is 6.8 s, about 70% of it
+waiting on the network. The candidates worth trying were tried and rejected on evidence:
+
+- **The fan-out is CPU-bound, not network-bound.** Against a warm cache, one worker takes
+  1,027 ms and eight take 887 ms: eight times the workers buys 1.16x. `json.loads` is 40 ms
+  per 3.7 MB chunk and does not release the GIL, so ~890 ms is a floor no worker count
+  removes. Sixteen workers is slower than eight.
+- **Bigger requests are not fewer costs.** 40 kb chunks (7 requests instead of 13) measured
+  *slower* than 20 kb (1.35 s vs 1.07 s): the cost is bytes and parsing, not round trips.
+  10 kb was far worse at 5.97 s.
+- **Nothing unread is worth removing.** The region query reads every field it asks for.
+  Populations are 68% of the payload and gnomAD cannot filter them server-side.
+- `annotate` is linear, and gnomAD's own run-to-run variance on an identical request is 8x
+  (1.07 s vs 8.67 s), which is the noise floor any future claim here has to clear.
+
+---
+
 ## 1.0.0 "Synaptonemal"
 
 The protein scaffold that zips paired homologues together along their length.

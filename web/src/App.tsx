@@ -4,10 +4,12 @@ import {
   Select, Skeleton, Text,
 } from '@mantine/core'
 import {
-  ANCESTRIES, api, ApiError, withNlProvenance, type Health, type NLResponse,
-  type PanelRequest, type PanelResult, type ResolveResponse, type StructuredQuery,
+  ANCESTRIES, api, ApiError, asLogLine, withNlProvenance, type Health, type JobStatus,
+  type LogLine, type NLResponse, type PanelRequest, type PanelResult, type ResolveResponse,
+  type StructuredQuery,
 } from './api'
 import { int, orUnknown, utc } from './fmt'
+import { BuildLog, LOG_CAP } from './BuildLog'
 import { SearchPanel } from './SearchPanel'
 import { VariantCard } from './VariantCard'
 import { LocusTrack } from './LocusTrack'
@@ -41,6 +43,7 @@ export default function App() {
   const [result, setResult] = useState<PanelResult | null>(null)
   const [jobId, setJobId] = useState<string | null>(null)
   const [progress, setProgress] = useState({ stage: '', fraction: 0 })
+  const [log, setLog] = useState<LogLine[]>([])
   const [ancestry, setAncestry] = useState<string | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -76,6 +79,7 @@ export default function App() {
     setResult(null)
     setJobId(null)
     setProgress({ stage: '', fraction: 0 })
+    setLog([])
     setAncestry(null)
     if (window.location.hash && window.location.hash !== '#/') window.location.hash = '#/'
   }, [])
@@ -105,7 +109,11 @@ export default function App() {
     }
   }, [])
 
-  const settle = useCallback((job: { status: string; result?: PanelResult; error?: string }) => {
+  const settle = useCallback((job: JobStatus) => {
+    // The finished job carries the whole log, so this is a replace, not an append: it is
+    // the same lines the stream delivered, and the only copy when a proxy buffered the
+    // stream away. jobs.py appends every line before it flips the status.
+    if (job.log?.length) setLog(job.log.flatMap((l) => asLogLine(l) ?? []).slice(-LOG_CAP))
     if (job.status === 'done' && job.result) {
       setResult(job.result)
       setAncestry(job.result.provenance.ancestry_rank ?? null)
@@ -125,6 +133,7 @@ export default function App() {
     setPhase('building')
     setError(null)
     setProgress({ stage: 'submitting job', fraction: 0.02 })
+    setLog([])
 
     let id: string
     try {
@@ -140,11 +149,25 @@ export default function App() {
     const es = new EventSource(api.streamUrl(id))
     esRef.current = es
 
+    const push = (line: LogLine | null) => {
+      if (line) setLog((prev) => [...prev, line].slice(-LOG_CAP))
+    }
+
     es.addEventListener('progress', (e) => {
       try {
         const d = JSON.parse((e as MessageEvent).data)
+        // A frame carrying log text is a log line whichever event it rode in on, and is
+        // not a progress update: reading one as progress would blank the stage.
+        const line = asLogLine(d)
+        if (line) return push(line)
         setProgress({ stage: d.stage ?? '', fraction: typeof d.fraction === 'number' ? d.fraction : 0 })
       } catch { /* a malformed frame is not fatal; the next one lands shortly */ }
+    })
+
+    es.addEventListener('log', (e) => {
+      try {
+        push(asLogLine(JSON.parse((e as MessageEvent).data)))
+      } catch { /* as above: one unreadable line, not a failed build */ }
     })
 
     es.addEventListener('done', () => {
@@ -304,25 +327,33 @@ export default function App() {
           />
         )}
 
-        {phase === 'building' && (
+        {/* Outlives the build: once the panel lands, the bar goes and the log stays, because
+            "why did that take 40 seconds" is a question asked afterwards. */}
+        {(phase === 'building' || log.length > 0) && (
           <Paper mb="sm" p={8}>
-            <Group justify="space-between" mb={4}>
-              <Group gap={8}>
-                <Loader size="xs" />
-                <Text size="xs">{progress.stage || 'starting…'}</Text>
-              </Group>
-              <Text size="xs" c="dimmed" className="om-mono">
-                {Math.round(progress.fraction * 100)}%
-              </Text>
-            </Group>
-            <Progress
-              value={progress.fraction * 100}
-              size="sm"
-              radius={2}
-              striped
-              animated
-              aria-label="Panel build progress"
-            />
+            {phase === 'building' && (
+              <>
+                <Group justify="space-between" mb={4}>
+                  <Group gap={8}>
+                    <Loader size="xs" />
+                    <Text size="xs">{progress.stage || 'starting…'}</Text>
+                  </Group>
+                  <Text size="xs" c="dimmed" className="om-mono">
+                    {Math.round(progress.fraction * 100)}%
+                  </Text>
+                </Group>
+                <Progress
+                  value={progress.fraction * 100}
+                  size="sm"
+                  radius={2}
+                  striped
+                  animated
+                  aria-label="Panel build progress"
+                  mb={6}
+                />
+              </>
+            )}
+            <BuildLog lines={log} />
           </Paper>
         )}
 

@@ -34,6 +34,7 @@ import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ET
+from collections import Counter
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Union
@@ -139,6 +140,53 @@ def _note_fetch(epoch: float, cached: bool) -> None:
         flog["from_cache" if cached else "from_network"] += 1
 
 
+class Tag:
+    """The closed set of build-log tags. Call sites name an attribute rather than write the
+    string, so a typo raises instead of inventing a tag the UI cannot colour."""
+    FETCH = "FETCH"     # asked the network
+    CACHE = "CACHE"     # served off disk, at some age
+    INFO = "INFO"       # a count or a decision
+    WARN = "WARN"       # the build goes on, but a reader needs to know
+    SKIP = "SKIP"       # input dropped, with the reason
+    DONE = "DONE"       # terminal
+
+
+TAGS = frozenset({Tag.FETCH, Tag.CACHE, Tag.INFO, Tag.WARN, Tag.SKIP, Tag.DONE})
+
+# This build's log sink, a ContextVar for the same reason the ledger above is one: _http
+# runs inside enumerate_candidates' worker pool, and a thread-local would hand those workers
+# no sink, so every line raised from a region pull would vanish. Needs no lock and no
+# mutable box, unlike the ledger: the workers only READ it, and copy_context() carries the
+# callable in.
+_log_sink: contextvars.ContextVar[Optional[Callable[[str, str], None]]] = \
+    contextvars.ContextVar("log_sink", default=None)
+
+
+def _emit(tag: str, text: str) -> None:
+    """One line to this build's log channel; a no-op when nobody is listening.
+
+    These lines are shown to whoever ran the build, so: never a URL with a query string
+    (the NCBI api_key rides there), never a secret, never a traceback.
+    """
+    assert tag in TAGS, f"unknown log tag {tag!r}"
+    sink = _log_sink.get()
+    if sink is None:
+        return
+    try:
+        sink(tag, text)
+    except Exception:  # noqa: BLE001 - a broken sink must not fail a build it only watches
+        log.exception("build log sink raised")
+
+
+def _fmt_age(seconds: float) -> str:
+    """Coarse age of a cache hit: a reader is judging staleness, not timing a race."""
+    if seconds < 3_600:
+        return f"{seconds / 60:.0f}m"
+    if seconds < 86_400:
+        return f"{seconds / 3_600:.0f}h"
+    return f"{seconds / 86_400:.0f}d"
+
+
 # The span enumerate_candidates actually queried, per side, which is NOT always the window
 # asked for: a variant near a telomere gets a truncated flank, and R5 requires that be
 # disclosed rather than quietly shortened. Thread-local, not a module global, because
@@ -207,10 +255,22 @@ def _cache_read(ck: Path) -> Optional[tuple[str, float, Path]]:
     return None
 
 
+def _log_label(url: str, label: Optional[str]) -> str:
+    """What the build log calls this call. The query string is dropped from the fallback:
+    the NCBI api_key travels there, and these lines are shown to a user."""
+    return label or url.split("?", 1)[0]
+
+
 def _http(method: str, url: str, *, body: Optional[bytes] = None,
           headers: Optional[dict] = None, timeout: int = 60,
-          tries: int = 4, use_cache: bool = True) -> str:
-    """One retrying HTTP call with optional on-disk caching. Returns response text."""
+          tries: int = 4, use_cache: bool = True,
+          label: Optional[str] = None) -> str:
+    """One retrying HTTP call with optional on-disk caching. Returns response text.
+
+    `label` names this call in the build log; callers that know what they are asking for
+    pass one, since a URL alone cannot say which region or which accession.
+    """
+    what = _log_label(url, label)
     ck = _cache_key(method, url, body) if use_cache else None
     hit = _cache_read(ck) if ck else None
     if hit:
@@ -218,12 +278,20 @@ def _http(method: str, url: str, *, body: Optional[bytes] = None,
         txt, mtime, path = hit
         if not _body_is_expected(url, txt):
             path.unlink(missing_ok=True)        # poison: drop it, never serve it
+            _emit(Tag.WARN, f"{what}: cached response was not the content type this "
+                            f"endpoint returns, dropped and refetching")
         elif CACHE_TTL_S and time.time() - mtime > CACHE_TTL_S:
             path.unlink(missing_ok=True)        # stale: refetch below
+            _emit(Tag.INFO, f"{what}: cache entry {_fmt_age(time.time() - mtime)} old, "
+                            f"past the {_fmt_age(CACHE_TTL_S)} TTL, refetching")
         else:
             _note_fetch(mtime, cached=True)
+            _emit(Tag.CACHE, f"{what} (age {_fmt_age(time.time() - mtime)})")
             return txt
 
+    # Before the attempt, not after: a log a reader watches live has to show the call that
+    # is hanging, and a fetch that never returns is exactly the one worth seeing.
+    _emit(Tag.FETCH, what)
     hdrs = {"User-Agent": "panelbuilder", "Accept": "application/json"}
     if headers:
         hdrs.update(headers)
@@ -248,8 +316,18 @@ def _http(method: str, url: str, *, body: Optional[bytes] = None,
             return txt
         except Exception as e:  # noqa: BLE001 - urllib raises a zoo of types
             last = e
+            # The final failure is not logged here: it becomes the ApiError below, which is
+            # what the caller reports. str(e) is truncated and carries no URL: urllib's
+            # message is a status or an errno.
+            if i + 1 < tries:
+                _emit(Tag.WARN, f"{what}: attempt {i + 1} of {tries} failed "
+                                f"({type(e).__name__}: {str(e)[:80]}), retrying")
             time.sleep(1.5 * (i + 1))
-    raise ApiError(f"{method} {url[:80]} failed after {tries} tries: {last}")
+    # `what`, not the raw url. ApiError text reaches the browser (as the job error and as
+    # the log's closing line), and a raw url carries the NCBI api_key in its query string.
+    # url[:80] happened to truncate before the key only because _eutils_params appends it
+    # last: an ordering nothing asserted, one reordered dict away from publishing the key.
+    raise ApiError(f"{method} {what} failed after {tries} tries: {last}")
 
 
 def _get(base: str, path: str, params: Optional[dict] = None, **kw) -> str:
@@ -540,11 +618,15 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     found = json.loads(_get(EUTILS, "/esearch.fcgi",
                             _eutils_params({"db": "clinvar", "term": query,
                                             "retmode": "json",
-                                            "retmax": "50"})))["esearchresult"]
+                                            "retmax": "50"}),
+                            label=f"ClinVar esearch {query!r}"))["esearchresult"]
     ids = found["idlist"]
     total = int(found.get("count") or len(ids))
     if not ids:
+        _emit(Tag.INFO, f"ClinVar has no record for {query!r}; asking Ensembl instead")
         return _resolve_via_ensembl(query, build=build)
+    _emit(Tag.INFO, f"ClinVar matched {total} record(s) for {query!r}; "
+                    f"{len(ids)} examined for a reconciling point variant")
 
     # Take the hit that RECONCILES, not the first one, and consider EVERY id esearch
     # returned: relevance rank is not a ranking of "is this the variant you named", so
@@ -552,7 +634,8 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     # in ONE esummary call however many there are, so checking all of them is one request.
     summaries = json.loads(_get(EUTILS, "/esummary.fcgi",
                                 _eutils_params({"db": "clinvar", "id": ",".join(ids),
-                                                "retmode": "json"})))["result"]
+                                                "retmode": "json"}),
+                                label=f"ClinVar esummary of {len(ids)} record(s)"))["result"]
     # Relevance decides ORDER; order must not decide what KIND of object answers the query.
     # For a well-studied rsID ClinVar ranks combination records first, and a haplotype
     # resolves silently: it hands back one constituent variant's position carrying the
@@ -636,7 +719,8 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     try:
         vcv = _get(EUTILS, "/efetch.fcgi",
                    _eutils_params({"db": "clinvar", "rettype": "vcv",
-                                   "id": cid, "is_variationid": "true"}))
+                                   "id": cid, "is_variationid": "true"}),
+                   label=f"ClinVar efetch VariationID {cid}")
         root = ET.fromstring(vcv)
         acc = next((e.get("Accession") for e in root.iter("VariationArchive")), None)
         sig, rev = _aggregate_classification(root)
@@ -649,6 +733,9 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     except Exception as e:  # noqa: BLE001 - urllib and ElementTree raise a zoo of types
         efetch_err = f"{type(e).__name__}: {e}"
         log.warning("clinvar efetch failed for %s: %s", cid, efetch_err)
+        _emit(Tag.WARN, f"ClinVar efetch failed for VariationID {cid} "
+                        f"({efetch_err[:80]}); the classification and the VCF alleles it "
+                        f"carries were not read")
 
     # An efetch failure must never be diagnosed as a property of the variant: without this
     # branch, empty alleles fall into the structural-variant test below and a routine SNV
@@ -670,6 +757,9 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
             f"alternate allele. OriginMarker builds panels around a point variant, so it "
             f"has nothing to anchor on here. Use a variant with explicit VCF alleles.")
 
+    _emit(Tag.INFO, f"{query!r} resolved to chr{loc38['chr']}:{pos:,} {vcf_ref}>{vcf_alt} "
+                    f"(GRCh38, {acc or 'no accession'}, gene {gene or 'unknown'}, "
+                    f"strand {strand if strand is not None else 'unknown'})")
     return VariantRecord(
         query=query, rsid=_first_rsid(vset), gene=gene, strand=strand,
         chrom=str(loc38["chr"]), pos_grch38=pos,
@@ -719,7 +809,8 @@ def _resolve_via_ensembl(rsid: str, build: str = "GRCh38") -> VariantRecord:
     tries = 2
     try:
         rec = json.loads(_get(ENSEMBL, f"/variation/homo_sapiens/{rsid}",
-                              {"content-type": "application/json"}, tries=tries))
+                              {"content-type": "application/json"}, tries=tries,
+                              label=f"Ensembl variation {rsid}"))
     except ApiError as e:
         # Ensembl reports an unknown id as 400 with {"error": "<id> not found for
         # homo_sapiens"}, NOT as 404, so 404 alone is the wrong discriminator. Anything
@@ -745,6 +836,9 @@ def _resolve_via_ensembl(rsid: str, build: str = "GRCh38") -> VariantRecord:
         raise ApiError(f"{rsid!r} exists but has no GRCh38 mapping, so there is no "
                        f"coordinate to build a panel around.")
     ref, alt = (m["allele_string"].split("/") + ["", ""])[:2]
+    _emit(Tag.INFO, f"{rsid!r} resolved via Ensembl to "
+                    f"chr{m['seq_region_name']}:{int(m['start']):,} {ref}>{alt} (GRCh38); "
+                    f"no ClinVar record, so no classification")
     note = ("Input flagged GRCh37; resolved via Ensembl to GRCh38 coordinates. "
             "All output is GRCh38 (R6)." if build == "GRCh37" else None)
     return VariantRecord(
@@ -757,9 +851,14 @@ def _resolve_via_ensembl(rsid: str, build: str = "GRCh38") -> VariantRecord:
 def _gene_strand(symbol: str) -> Optional[int]:
     try:
         g = json.loads(_get(ENSEMBL, f"/lookup/symbol/homo_sapiens/{symbol}",
-                            {"content-type": "application/json"}))
+                            {"content-type": "application/json"},
+                            label=f"Ensembl gene lookup {symbol}"))
         return int(g.get("strand"))
     except Exception:  # noqa: BLE001
+        # R7: no strand is reported rather than assumed, and the log says so instead of
+        # leaving a reader to read "strand unknown" as "strand not needed".
+        _emit(Tag.WARN, f"Ensembl did not give a strand for {symbol}; transcript-sense "
+                        f"alleles cannot be reconciled and are not shown")
         return None
 
 
@@ -809,7 +908,8 @@ def assess_rarity(v: VariantRecord) -> Rarity:
     vid = f"{v.chrom}-{v.pos_grch38}-{v.vcf_ref}-{v.vcf_alt}"
     g_af = g_ac = g_an = None
     try:
-        j = _graphql(_VARIANT_Q, {"id": vid, "ds": "gnomad_r4"})
+        j = _graphql(_VARIANT_Q, {"id": vid, "ds": "gnomad_r4"},
+                     label=f"gnomAD variant {vid}")
         gv = (j.get("data") or {}).get("variant") or {}
         gen = gv.get("genome") or {}
         g_af, g_ac, g_an = gen.get("af"), gen.get("ac"), gen.get("an")
@@ -820,7 +920,8 @@ def assess_rarity(v: VariantRecord) -> Rarity:
     if v.rsid:
         try:
             rec = json.loads(_get(ENSEMBL, f"/variation/homo_sapiens/{v.rsid}",
-                                  {"pops": "1", "content-type": "application/json"}))
+                                  {"pops": "1", "content-type": "application/json"},
+                                  label=f"Ensembl 1000G frequencies {v.rsid}"))
             kg_all = [p for p in rec.get("populations", [])
                       if p.get("population") == "1000GENOMES:phase_3:ALL"]
             alt_entries = [p for p in kg_all if p.get("allele") == v.vcf_alt]
@@ -905,7 +1006,8 @@ def _fetch_region_chunk(chrom: str, start: int, stop: int) -> list[dict]:
     computed over a hole. A panel built on a partial pull is unsound, so the build fails.
     _http has already retried with backoff before we get here.
     """
-    j = _graphql(_REGION_Q, {"chrom": chrom, "start": start, "stop": stop, "ds": "gnomad_r4"})
+    j = _graphql(_REGION_Q, {"chrom": chrom, "start": start, "stop": stop, "ds": "gnomad_r4"},
+                 label=f"gnomAD region chr{chrom}:{start:,}-{stop:,}")
     if j.get("errors"):
         msg = "; ".join(str(e.get("message", e)) for e in j["errors"])[:200]
         raise ApiError(f"gnomAD rejected the region chr{chrom}:{start}-{stop}: {msg}")
@@ -926,7 +1028,8 @@ def _contig_length(chrom: str) -> Optional[int]:
     """
     try:
         j = json.loads(_get(ENSEMBL, f"/info/assembly/homo_sapiens/{chrom}",
-                            {"content-type": "application/json"}))
+                            {"content-type": "application/json"},
+                            label=f"Ensembl assembly length chr{chrom}"))
         # Only GRCh38's length may clamp a GRCh38 coordinate (R6): a wrong-assembly length
         # would not error, it would restate the telomere, and this reply both moves hi and
         # gets printed as fact. Mismatch takes the advisory path, same as an outage.
@@ -950,17 +1053,27 @@ def enumerate_candidates(v: VariantRecord, window: int = DEFAULT_WINDOW,
     chunks = [(s, min(s + REGION_CHUNK, hi)) for s in range(lo, hi, REGION_CHUNK)]
     out: dict[str, dict] = {}
     done = 0
+    _emit(Tag.INFO, f"gnomAD region pull: chr{v.chrom}:{lo:,}-{hi:,} in {len(chunks)} chunks "
+                    f"of up to {REGION_CHUNK:,} bp, {MAX_WORKERS} at a time")
     with cf.ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
         # copy_context() must be evaluated on the submitting thread: pool workers start with
-        # an empty context and would tally into a ledger nobody reads.
+        # an empty context and would tally into a ledger nobody reads, and raise their log
+        # lines into a sink nobody holds.
         futs = {ex.submit(contextvars.copy_context().run, _fetch_region_chunk, v.chrom, s, e):
                 (s, e) for s, e in chunks}
         for fut in cf.as_completed(futs):
-            for var in fut.result():
+            s, e = futs[fut]
+            got = fut.result()
+            for var in got:
                 out[var["variant_id"]] = var
             done += 1
+            # Completion order, not submission order: chunks land as gnomAD answers them, so
+            # this counts what is finished rather than numbering the span.
+            _emit(Tag.INFO, f"chunk {done}/{len(chunks)} done: chr{v.chrom}:{s:,}-{e:,} "
+                            f"returned {len(got):,} variants")
             if on_progress:
                 on_progress(done, len(chunks))
+    _emit(Tag.INFO, f"{len(out):,} distinct gnomAD sites in the window")
     return out
 
 
@@ -1003,27 +1116,39 @@ def _tier(dist: int) -> str:
 def annotate(variants: dict[str, dict], v: VariantRecord,
              common_maf: float = COMMON_MAF) -> list[Marker]:
     markers: list[Marker] = []
+    # Per-reason, not a single total: "1200 sites dropped" cannot tell a reader whether the
+    # window is quiet or the QC filters ate it. Counted, never logged per site: the window
+    # holds tens of thousands.
+    dropped: Counter = Counter()
     for var in variants.values():
         if not _is_snp(var):
+            dropped["not a SNP (indel or MNV)"] += 1
             continue
         g = var.get("genome") or {}
         af = g.get("af")
-        if af is None or (g.get("an") or 0) < CALL_RATE_AN_FLOOR:
+        if af is None:
+            dropped["no gnomAD genome frequency"] += 1
+            continue
+        if (g.get("an") or 0) < CALL_RATE_AN_FLOOR:
+            dropped[f"genome AN under the call-rate floor ({CALL_RATE_AN_FLOOR:,})"] += 1
             continue
         # gnomAD's own QC verdict: a non-empty filters list means gnomAD failed the site
         # (AC0, or an AS_VQSR artifact). These cannot merely be tolerated: a mismapped site
         # collects spurious heterozygotes, which inflates 2pq, and 2pq is the ranking key,
         # so the sort is drawn toward exactly the sites gnomAD already rejected.
         if g.get("filters"):
+            dropped["gnomAD QC filters"] += 1
             continue
         maf = min(af, 1 - af)
         if maf < common_maf:
+            dropped[f"MAF under the floor ({common_maf})"] += 1
             continue
         dist = var["pos"] - v.pos_grch38
         # A variant does not flank itself: a COMMON pathogenic allele clears the MAF floor
         # and is otherwise recruited into its own panel at +0 bp, where it has no side and
         # is counted on neither, breaking the R5 arithmetic.
         if dist == 0:
+            dropped["the pathogenic variant itself, which does not flank itself"] += 1
             continue
 
         pop, pop_an = _per_pop_maf(var)
@@ -1044,6 +1169,10 @@ def annotate(variants: dict[str, dict], v: VariantRecord,
             tier=_tier(dist), per_pop_maf=pop,
             cm=gm["cm"], recomb_fraction=gm["recomb_fraction"],
             hotspot_between=gm["hotspot_between"], map_approx=gm["map_approx"]))
+    for reason, n in dropped.most_common():
+        _emit(Tag.SKIP, f"{n:,} sites dropped: {reason}")
+    _emit(Tag.INFO, f"{len(markers):,} candidates after the MAF floor, out of "
+                    f"{len(variants):,} sites gnomAD reported")
     return markers
 
 
@@ -1085,6 +1214,9 @@ def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
     # marker. common_maf=0.0 is a legal floor, and would otherwise let monomorphic sites
     # fill a band and satisfy the coverage rule below carrying no information.
     usable = [m for m in markers if max(m.het, m.het_max_pop) > 0]
+    if len(usable) < len(markers):
+        _emit(Tag.SKIP, f"{len(markers) - len(usable):,} monomorphic candidates dropped: "
+                        f"2pq = 0 cannot say which parental haplotype was inherited")
     ranked = sorted(usable, key=_rank_key(ancestry))
 
     # One marker per site: a genotyping assay reads the site once, and multi-allelic sites
@@ -1094,6 +1226,10 @@ def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
     for m in ranked:
         by_site.setdefault(m.pos, m)
     pool = list(by_site.values())
+    if len(pool) < len(ranked):
+        _emit(Tag.SKIP, f"{len(ranked) - len(pool):,} extra alt alleles dropped: an assay "
+                        f"reads a site once, so multi-allelic sites keep their best allele")
+    _emit(Tag.INFO, f"{len(pool):,} sites ranked by {_ranking_key_label(ancestry)}")
 
     bands = [(0, 2_000), (2_000, 10_000), (10_000, 30_000),
              (30_000, 80_000), (80_000, 10**12)]
@@ -1144,6 +1280,13 @@ def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
         coverage["flags"].append(
             f"Recombination hotspots were not assessed for {len(unjudged)} of the "
             f"{len(recommended)} shortlisted markers.")
+    _emit(Tag.INFO, f"{len(recommended)} markers shortlisted: {len(lower)} lower-coord, "
+                    f"{len(higher)} higher-coord ({coverage['lower_core_near']} and "
+                    f"{coverage['higher_core_near']} of them within 30 kb)")
+    # R5's verdict, worded once above and read out here rather than restated: the log must
+    # not be a second, drifting account of coverage.
+    for f in coverage["flags"]:
+        _emit(Tag.WARN, f)
     return ranked, recommended, coverage
 
 
@@ -1152,13 +1295,17 @@ def cross_check_ensembl(markers: list[Marker], top_n: int = 8) -> None:
     subset = sorted(markers, key=lambda m: abs(m.dist))[:top_n]
     ids = [m.rsid for m in subset if m.rsid.startswith("rs")]
     if not ids:
+        _emit(Tag.SKIP, "Ensembl cross-check skipped: no shortlisted marker has an rsID")
         return
     body = json.dumps({"ids": ids}).encode()
     try:
         resp = json.loads(_http("POST", ENSEMBL + "/variation/homo_sapiens",
                                 body=body,
-                                headers={"Content-Type": "application/json"}))
+                                headers={"Content-Type": "application/json"},
+                                label=f"Ensembl cross-check of {len(ids)} rsIDs"))
     except Exception:  # noqa: BLE001
+        _emit(Tag.WARN, "Ensembl cross-check did not answer: the shortlisted positions "
+                        "stand on gnomAD alone, unconfirmed against a second source")
         return
     epos = {}
     for rid, rec in resp.items():
@@ -1169,6 +1316,13 @@ def cross_check_ensembl(markers: list[Marker], top_n: int = 8) -> None:
     for m in subset:
         if m.rsid in epos:
             m.ensembl_pos_check = "ok" if epos[m.rsid] == m.pos else f"MISMATCH:{epos[m.rsid]}"
+            if m.ensembl_pos_check != "ok":
+                _emit(Tag.WARN, f"{m.rsid}: gnomAD places it at {m.pos:,}, Ensembl at "
+                                f"{epos[m.rsid]:,} (GRCh38)")
+    checked = [m for m in subset if m.ensembl_pos_check]
+    _emit(Tag.INFO, f"Ensembl confirms {sum(1 for m in checked if m.ensembl_pos_check == 'ok')}"
+                    f" of {len(checked)} checked positions; {len(ids) - len(checked)} of the "
+                    f"{len(ids)} requested had no GRCh38 mapping to check against")
 
 
 # --------------------------------------------------------------------------- #
@@ -1198,12 +1352,15 @@ LAYER_B_STEPS = [
 def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
           ancestry: Optional[str] = None, common_maf: float = COMMON_MAF,
           cross_check: bool = True,
-          on_progress: Optional[Callable[[str, float], None]] = None) -> PanelResult:
+          on_progress: Optional[Callable[[str, float], None]] = None,
+          on_log: Optional[Callable[[str, str], None]] = None) -> PanelResult:
     """Full Layer-A build. Returns a PanelResult (R1-R7).
 
     `query` is either an HGVS/rsID string or a StructuredQuery, which supplies every other
     parameter and takes precedence over the keyword args. `on_progress(stage, fraction)` is
-    called as the build advances, for a web layer to stream progress from.
+    called as the build advances, for a web layer to stream progress from. `on_log(tag,
+    text)` receives the running account, tag from TAGS; it is called from the region worker
+    pool as well as from this thread, so it must be safe to call concurrently.
     """
     if isinstance(query, StructuredQuery):
         q = query
@@ -1217,11 +1374,18 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
 
     t0 = time.time()
     _reset_fetch_log()          # provenance reports the age of THIS build's data
+    # Set unconditionally, like the ledger reset above: a pool thread is reused across
+    # builds, and an unset sink here would deliver this build's lines to the last one's log.
+    _log_sink.set(on_log)
+    _emit(Tag.INFO, f"build {q.variant!r}: {q.window_bp:,} bp window, MAF floor "
+                    f"{q.common_maf}, ranking {_ranking_key_label(q.ancestry)}, "
+                    f"{q.build} in, GRCh38 out")
     progress("resolving variant", 0.05)
     v = resolve_variant(q.variant, build=q.build)     # R1, R6
 
     progress("confirming rarity", 0.15)
     rarity = assess_rarity(v)                         # R2 driver
+    _emit(Tag.INFO, f"rarity: {rarity.reason}")
 
     progress("pulling population variants", 0.25)
     raw = enumerate_candidates(v, q.window_bp,
@@ -1260,6 +1424,8 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
     # enumerate_candidates detects and words the truncation; this is the pickup.
     span = dict(_span())
     coverage.setdefault("flags", []).extend(span.get("flags", []))
+    for f in span.get("flags", []):
+        _emit(Tag.WARN, f)
     # One read of the ledger, so the data date and the two counts below describe the same
     # snapshot rather than three reads a concurrent fetch could slide between.
     _flog = dict(_fetch_log())
@@ -1288,6 +1454,10 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         "nl_text": q.nl_text,
         "nl_model": q.nl_model,
     }
+    _emit(Tag.DONE, f"{len(recommended)} markers shortlisted from {len(markers):,} "
+                    f"candidates in {prov['elapsed_s']}s: {_flog['from_network']} source "
+                    f"responses off the network, {_flog['from_cache']} from cache, oldest "
+                    f"dated {prov['queried_utc']}")
     progress("done", 1.0)
     return PanelResult(v, rarity, ranked, recommended, coverage,
                        {"window": q.window_bp, "ancestry": q.ancestry,
@@ -1347,6 +1517,60 @@ if __name__ == "__main__":
     assert not _body_is_expected(GNOMAD, "<html>502</html>")
     CACHE_DIR = _saved_dir
 
+    # The log channel, offline. The load-bearing part is the ContextVar: _http emits from
+    # inside enumerate_candidates' worker pool, and a thread-local sink would leave every
+    # line raised there in a context nobody reads, which looks exactly like a quiet build.
+    _lines: list = []
+    _log_sink.set(lambda tag, text: _lines.append((tag, text)))   # noqa: E731
+    with cf.ThreadPoolExecutor(max_workers=4) as _ex:
+        _futs = [_ex.submit(contextvars.copy_context().run, _emit, Tag.FETCH, f"chunk {i}")
+                 for i in range(8)]
+        [f.result() for f in _futs]
+    assert len(_lines) == 8, f"log lines raised in the worker pool vanished: {_lines}"
+
+    # A tag has to come from the closed set, or the UI colours nothing and a typo invents a
+    # channel.
+    try:
+        _emit("FECTH", "typo")
+    except AssertionError:
+        pass
+    else:
+        raise AssertionError("an unknown log tag was accepted")
+
+    # A sink that raises must not fail the build it is only watching.
+    logging.disable(logging.ERROR)             # the handled traceback is not test output
+    _log_sink.set(lambda tag, text: 1 / 0)     # noqa: E731
+    _emit(Tag.WARN, "a sink that raises")
+    logging.disable(logging.NOTSET)
+    _log_sink.set(None)
+
+    # No api_key reaches a log line: it rides in the query string, which the fallback label
+    # drops, and an explicit label never sees a URL at all.
+    assert "SECRET" not in _log_label(EUTILS + "/esearch.fcgi?db=clinvar&api_key=SECRET",
+                                      None)
+
+    # Nor a failed call's ApiError, which is the harder case: it reaches the browser as the
+    # job error AND as the log's closing WARN. Driven through the real _http against a dead
+    # port rather than asserted about the format string, because the leak this pins was a
+    # url that never went through _log_label at all.
+    _seen: list = []
+    _log_sink.set(lambda tag, text: _seen.append(text))
+    _dead = "http://127.0.0.1:9/esearch.fcgi?db=clinvar&term=x&api_key=SECRET-KEY-VALUE"
+    try:
+        _http("GET", _dead, tries=2, timeout=1, use_cache=False)
+    except ApiError as e:
+        _msg = str(e)
+    else:
+        raise AssertionError("a dead port should have raised")
+    _log_sink.set(None)
+    _blob = _msg + " ".join(_seen)
+    assert "SECRET-KEY-VALUE" not in _blob, _blob
+    assert "api_key" not in _blob, _blob
+    assert "?" not in _msg, f"a query string reached the error text: {_msg}"
+    assert "esearch.fcgi" in _msg, f"the error must still say WHAT failed: {_msg}"
+    assert _log_label("https://x/y?api_key=SECRET", "ClinVar efetch VariationID 9088") \
+        == "ClinVar efetch VariationID 9088"
+
     # Telomere clamp, offline via stubs. The stubbed coordinates below are the only ones in
     # this file that did not come from an API this run: they are here so the ARITHMETIC can
     # be checked without a network, and nothing downstream ever sees them (R1).
@@ -1402,9 +1626,20 @@ if __name__ == "__main__":
     _fetch_region_chunk = lambda chrom, s, e: (time.sleep(0.02), [])[1]   # noqa: E731
     _contig_length = lambda chrom: 90_338_345                         # noqa: E731
     try:
-        _clamped = build("HBA2-synthetic", window=250_000, cross_check=False)
+        _log2: list = []
+        _clamped = build("HBA2-synthetic", window=250_000, cross_check=False,
+                         on_log=lambda t, x: _log2.append((t, x)))   # noqa: E731
         _cov_flags = _clamped.coverage.get("flags", [])
         assert any("Left flank truncated" in f for f in _cov_flags), _cov_flags
+        # The same R5 truncation has to reach the log too, and the log has to end on DONE.
+        assert any(t == Tag.WARN and "Left flank truncated" in x for t, x in _log2), _log2
+        assert _log2[-1][0] == Tag.DONE, _log2[-1]
+        assert {t for t, _ in _log2} <= TAGS, {t for t, _ in _log2} - TAGS
+        # A build with no sink must not deliver into an earlier build's log: jobs.py reuses
+        # pool threads, so the sink is rebound per build exactly as the ledger is.
+        _n = len(_log2)
+        build("mid-synthetic", window=250_000, cross_check=False)
+        assert len(_log2) == _n, "a later build wrote into an earlier build's log"
         assert _clamped.provenance["queried_span"]["left_bp"] == 172_020, \
             _clamped.provenance["queried_span"]
         # The disclosure has to CONTRADICT window_bp, or it discloses nothing.
