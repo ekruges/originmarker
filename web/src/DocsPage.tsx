@@ -311,7 +311,11 @@ export function DocsPage({ health }: { health: Health | null }) {
           <Text mb={8}>
             The <Code>ex</Code> button fills in a random working example. Prefer knobs to
             prose? <b>Manual input</b> exposes every parameter as its own field: window, MAF
-            floor, ancestry, build, and whether to cross-check positions against Ensembl.
+            floor, ancestry, build, whether to cross-check positions against Ensembl, and a{' '}
+            <b>Primers</b> section with the whole design in reach: which markers get a pair,
+            every constraint it is designed under, and a checkbox to check each pair against
+            the genome as part of the build rather than afterwards. That check is much slower
+            than the panel, so it is off unless you tick it (<SecRef id="primers" />).
           </Text>
 
           <Title order={3} mt={14} mb={4}>2. Check the resolved variant. This step is yours</Title>
@@ -708,14 +712,54 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Table>
           </Wide>
 
+          <Title order={3} mt={16} mb={4}>Choosing what gets a pair, and tuning the design</Title>
+          <Text mb={8}>
+            By default only the starred markers get primers, which keeps a build fast and
+            covers the markers most likely to be ordered. Switch the query to{' '}
+            <b>Manual input</b> and a <b>Primers</b> section appears with the whole design
+            exposed: the scope, and every field in the reference table below.
+          </Text>
+          <List spacing={4} mb={10}>
+            <List.Item>
+              <b>Design primers for</b> chooses the scope. <i>Markers meeting the flanking
+              criteria</i> is the default. <i>Every shortlisted marker</i> designs for the
+              whole shortlist, which is more pairs and a longer build. <i>No primers</i>{' '}
+              builds the panel alone.
+            </List.Item>
+            <List.Item>
+              <b>Every field is yours.</b> The numbers the form opens with are the server's
+              own, fetched from the engine that will use them rather than kept in the browser,
+              so what you see is what a build is asked for. Whatever you set travels with the
+              panel as provenance, and the primer box on the result restates it.
+            </List.Item>
+            <List.Item>
+              <b>Nothing is relaxed to force a pair.</b> Ask for something a window cannot
+              give, and that marker fails and names the constraint it could not meet. A pair
+              handed back below the Tm you set would anneal at a temperature you will not run.
+            </List.Item>
+          </List>
+          <Text mb={8}>
+            The same form is on every finished panel, under the <b>Primers</b> chip: read-only
+            there if the page cannot rebuild, and a <b>Rebuild</b> otherwise.
+          </Text>
+
           <Title order={3} mt={16} mb={4}>In-silico PCR: what a pass is worth</Title>
           <Text mb={8}>
-            Checking is optional, off by default, and run from the <b>Check pairs</b> button in
-            the primer box. It sends each pair to UCSC In-Silico PCR, which aligns the two
-            primers against the whole GRCh38 reference and reports where they would amplify it.
-            UCSC publishes one request every 15 seconds for programmatic use, so each pair adds
-            about 15 seconds: eleven pairs is roughly three minutes. That is why it is a button
-            and not part of the build.
+            Checking is optional and off by default. Run it two ways: the <b>Check pairs</b>{' '}
+            button in the primer box on a finished panel, or the checkbox in Manual input to
+            fold it into the build itself. Either way it sends each pair to UCSC In-Silico PCR,
+            which aligns the two primers against the whole GRCh38 reference and reports where
+            they would amplify it.
+          </Text>
+          <Text mb={8}>
+            <b>It is much slower than the build.</b> UCSC publishes one request every 15
+            seconds for programmatic use, so each pair adds about 15 seconds: eleven pairs is
+            roughly three minutes, against 20 to 60 seconds for the panel itself. Bundling it
+            means one wait instead of two; leaving it off means the panel is on screen while
+            you decide. The build log names each verdict as it lands, so a bundled run is not
+            a blank wait. Nothing is ever checked unless you ask: a public URL that verified
+            on its own would spend the owner's daily quota on visitors who never read the
+            result, and both routes draw on the same per-client budget.
           </Text>
           <Alert color="yellow" p={8} mb={8}>
             <Text size="sm">

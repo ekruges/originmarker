@@ -89,6 +89,17 @@ class PanelIn(BaseModel):
     # error message. Re-listing them here would be a second copy to drift.
     primer_scope: str = "starred"
     primer_settings: Optional[dict] = None
+    # Run the UCSC check as part of this build instead of leaving it to the button.
+    #
+    # NOT a pb.StructuredQuery field: that shape says what to build, and this says what to do
+    # afterwards. Popped before the query is constructed.
+    #
+    # Off by default and off it stays unless someone ticks it: at one UCSC request per 15
+    # seconds a shortlist is minutes, and a build that verified because it could would spend
+    # the owner's daily quota on visitors who never scrolled to the result. Asked for, it is
+    # a different thing from automatic, and it is charged to the same per-IP budget as the
+    # button so it cannot be the cheaper door to the same quota.
+    verify_primers: bool = False
 
 
 class VerifyIn(BaseModel):
@@ -249,6 +260,12 @@ def health():
             # a missing UCSC key means a pair that exists and is NOT VERIFIED. A single flag
             # would let the UI imply the second was checked.
             "primers_enabled": primers.available(),
+            # The numbers the form seeds from, straight off the engine that will use them.
+            # Not a convenience: without them the manual form has nothing to draw and draws
+            # nothing, which is how a whole section of it stayed invisible. A copy kept in
+            # the browser would be a second set of defaults with its own opinions.
+            # None where primer3 is absent, because then there is no design to configure.
+            "primer_defaults": asdict(primers.DEFAULTS) if primers.available() else None,
             "insilico_pcr_enabled": insilico_pcr_enabled,
             # R8: canonical wording ships from here; the frontend must never paraphrase it.
             "disclaimer": pb.DISCLAIMER,
@@ -295,16 +312,27 @@ def resolve(body: ResolveIn, request: Request):
 @app.post("/api/panel", status_code=202)
 async def panel(body: PanelIn, request: Request):
     # async: submit() is instant; the blocking pb.build() runs in jobs.py's own pool.
+    data = body.model_dump()
+    verify_primers = data.pop("verify_primers")
     try:
-        q = pb.StructuredQuery(**body.model_dump())
+        q = pb.StructuredQuery(**data)
     except ValueError as e:
         raise HTTPException(400, str(e))
     if not _rate_ok(f"panel:{_client_ip(request)}", PER_IP_MAX):
         raise HTTPException(429, f"Rate limit: {PER_IP_MAX} panel builds per "
                                  f"{int(PER_IP_WINDOW / 60)} minutes per client. A build "
                                  f"issues ~25 gnomAD queries; please pace them.")
+    # The SAME key the button spends, deliberately. Both doors reach UCSC's one published
+    # quota, and a bundled check charged only to the build budget would be the cheaper way
+    # through it: 20 builds a window against 4 verifications.
+    if verify_primers and not _rate_ok(f"verify:{_client_ip(request)}", PER_IP_VERIFIES):
+        raise HTTPException(429, f"Rate limit: {PER_IP_VERIFIES} verification runs per "
+                                 f"{int(PER_IP_WINDOW / 60)} minutes per client, whether "
+                                 f"asked for with a build or on its own. Each pair costs a "
+                                 f"request against UCSC's published daily limit. Build "
+                                 f"without the check and use the primer box when ready.")
     try:
-        return {"job_id": jobs.submit(q)}
+        return {"job_id": jobs.submit(q, verify_primers=verify_primers)}
     except jobs.Busy:
         raise HTTPException(429, f"The server is already building its maximum of "
                                  f"{jobs.MAX_CONCURRENT} panels at once. Retry in a "

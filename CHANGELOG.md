@@ -9,6 +9,58 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.3.1 "Diakinesis"
+
+A patch, so it keeps 1.3.0's name.
+
+### Added
+
+- **The primer design is now reachable from Manual input**, which is where it was always
+  meant to be. Pick which markers get a pair, and set every constraint they are designed
+  under: the melting temperatures, the lengths, the composition, the product window, the
+  reaction conditions the Tm is only meaningful beside, and the mask. The form seeds from the
+  server's own numbers, so what is on screen is what the build is asked for.
+- **A checkbox to check every pair against the genome as part of the build**, for anyone who
+  would rather wait once than build and then press a second button. It states the cost beside
+  itself: UCSC allows one query every 15 seconds, so it adds about 15 s per designed pair
+  while the panel alone takes 20 to 60 s. The build log names each verdict as it lands, so a
+  long run is not a blank wait, and it is off unless ticked, every time.
+
+### Fixed
+
+- **The Manual input primer form has never rendered for anyone.** It draws only against a
+  server that states its defaults, which is right: the numbers must come from the engine that
+  will use them rather than a copy in the browser. `/api/health` never sent them. So the
+  section was gated on a field that did not exist, the flag beside it said primers were
+  enabled, and the form was simply absent with nothing anywhere reporting a problem.
+- **The build log claimed no pair had been checked, in builds that then checked them.** It
+  said "none has been checked against the genome by this build", which was true when the
+  design emitted it and false three lines later once the bundled check ran in the same job,
+  about the same pairs, into the same console. It says "not yet" now, which is true on both
+  paths.
+- **A bundled check held a build slot for the whole of its wait**, found by watching the live
+  site refuse an ordinary build while two ticked boxes sat waiting on UCSC. The slot bounds
+  BUILDS, as its `MAX_CONCURRENT_BUILDS` name says, and the default is 2: two people ticking
+  the box therefore blocked panel builds for everyone, for minutes, over work that had
+  finished. The slot goes back when the build ends now. Verification stays bounded by the
+  per-client budget and by the process-wide gate, which is what was keeping it polite anyway.
+- **`npx tsc --noEmit` type-checks nothing, and the README told you to run it.** `tsconfig.json`
+  is a solution file with `"files": []` and two references, so bare tsc has no inputs and
+  exits 0 over a codebase that does not compile: only `tsc -b` follows the references. Proven
+  rather than reasoned: a deliberate type error exits 0 under `--noEmit` and 2 under `-b`.
+  Nothing shipped broken, because `npm run build` runs `tsc -b` and was in the same gate, but
+  the line above it was pure reassurance. The README now documents the command that checks.
+
+### Security
+
+- **The bundled check spends the verification budget, not the build budget.** Both routes to
+  UCSC reach one published daily quota, and the budgets differ: 20 builds a client per window
+  against 4 verification runs. Charged only to the build budget, the checkbox would have been
+  a five-fold rate-limit bypass on someone else's server. It is charged to the same key the
+  button spends, and a test fails if that stops being true.
+
+---
+
 ## 1.3.0 "Diakinesis"
 
 The final condensation of prophase I, chiasmata still holding the homologues.

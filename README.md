@@ -57,11 +57,20 @@ cd web && npm install && npm run dev
 ```sh
 export PANELBUILDER_CACHE=tests/fixtures PANELBUILDER_CACHE_TTL=0
 .venv/bin/python -m pytest tests/
-cd web && npx tsc --noEmit && npm run build
+cd web && npm run build && for f in src/*.check.ts; do node "$f"; done
 ```
 
 The suite runs offline against recorded API responses in `tests/fixtures/` (gzipped).
 `tests/genome_sweep.py` runs against live APIs and is not part of the suite.
+
+`npm run build` is `tsc -b && vite build`, and the `tsc -b` is the typecheck. This line used
+to read `npx tsc --noEmit`, which checks **nothing**: `tsconfig.json` is a solution file with
+`"files": []` and two references, so bare tsc has no inputs and exits 0 over a codebase that
+does not compile. Only `-b` follows the references. Nothing shipped broken, because the build
+ran the real check either way, but the reassurance was empty.
+
+The `*.check.ts` files are assert-based self-checks over the pieces that are worth pinning:
+the docs numbering, the log tags, the primer UI's honesty rules. They are plain node scripts.
 
 ## Documentation
 

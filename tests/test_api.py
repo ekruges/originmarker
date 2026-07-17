@@ -5,6 +5,7 @@ PANELBUILDER_CACHE is pointed at fixtures/ before app.main imports panelbuilder,
 
     PANELBUILDER_CACHE=tests/fixtures .venv/bin/python -m pytest tests/test_api.py
 """
+import dataclasses
 import json
 import os
 import re
@@ -23,6 +24,7 @@ sys.path.insert(0, str(ROOT))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
+import primers  # noqa: E402
 from app import jobs  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -131,6 +133,106 @@ def test_panel_rate_limit_429(monkeypatch):
     r = client.post("/api/panel", json={"variant": GOLDEN})
     assert r.status_code == 429
     assert "rate limit" in r.json()["detail"].lower()
+
+
+def test_health_states_the_primer_defaults_the_form_draws_from(monkeypatch):
+    """The manual primer form is gated on this field and draws nothing without it.
+
+    It shipped absent, so a whole section of the form was invisible on the live site while
+    every test passed: the flag said primers were enabled and the numbers never arrived.
+    """
+    monkeypatch.setattr("primers.available", lambda: True)
+    j = client.get("/api/health").json()
+    assert j["primers_enabled"] is True
+    d = j["primer_defaults"]
+    assert isinstance(d, dict) and d, "the form has no numbers to draw"
+    # The engine's own, not a copy: every knob it names, at the values it will use.
+    assert set(d) == set(dataclasses.asdict(primers.DEFAULTS))
+    assert d["opt_tm"] == primers.DEFAULTS.opt_tm
+
+    # No primer3, no design to configure, so no form: null rather than numbers nothing reads.
+    monkeypatch.setattr("primers.available", lambda: False)
+    j = client.get("/api/health").json()
+    assert j["primers_enabled"] is False
+    assert j["primer_defaults"] is None
+
+
+def test_bundling_the_ucsc_check_spends_the_verify_budget_not_the_build_one(monkeypatch):
+    """The checkbox must not be the cheaper door to UCSC's quota.
+
+    Both doors reach one published daily limit. The build budget is 20 a window and the
+    verify budget is 4, so a bundled check charged only to the build budget would be a
+    5x rate-limit bypass on someone else's server.
+    """
+    monkeypatch.setattr("app.main.PER_IP_VERIFIES", 0)
+    r = client.post("/api/panel", json={"variant": GOLDEN, "verify_primers": True})
+    assert r.status_code == 429, "a bundled check ignored the verification budget"
+    assert "verification" in r.json()["detail"].lower()
+
+    # And it is only spent when actually asked for: an ordinary build is untouched by it.
+    called = {}
+    monkeypatch.setattr("app.jobs.submit", lambda q, verify_primers=False: called.setdefault(
+        "verify", verify_primers) or "job1")
+    r = client.post("/api/panel", json={"variant": GOLDEN})
+    assert r.status_code == 202, r.text
+    assert called["verify"] is False
+
+
+def test_a_bundled_check_does_not_hold_the_build_slot_while_it_waits(monkeypatch):
+    """A build slot bounds BUILDS, and the bundled check runs for minutes.
+
+    Held through the UCSC waits, two ticked boxes refused every visitor a panel at the
+    default limit of 2: the whole app blocked on someone else's rate limit, by two people
+    who were not building anything any more. Verification is bounded by the per-IP budget
+    and by ispcr's process-wide gate; it needs no build slot to stay polite.
+    """
+    import threading
+
+    verifying = threading.Event()
+    let_go = threading.Event()
+
+    def slow_verify(job, on_log):
+        verifying.set()
+        let_go.wait(timeout=10)          # stand in for the 15s-per-pair UCSC gate
+
+    monkeypatch.setattr("app.jobs._verify_after_build", slow_verify)
+    before = jobs.active()
+    jid = jobs.submit(pb_query(), verify_primers=True)
+    try:
+        assert verifying.wait(timeout=60), "the bundled check never started"
+        # The build is done and the check is still running: the slot must already be back.
+        assert jobs.active() == before, \
+            "a bundled check is holding a build slot while it waits on UCSC"
+    finally:
+        let_go.set()
+    for _ in range(600):
+        if jobs.get(jid).status != "running":
+            break
+        time.sleep(0.05)
+    assert jobs.get(jid).status == "done"
+    assert jobs.active() == before, "the slot was released twice or not at all"
+
+
+def test_verify_primers_is_not_a_query_field(monkeypatch):
+    """It says what to do after the build, so pb.StructuredQuery must never see it.
+
+    That shape is the typed front door to build() and carries only what to build. A field
+    it does not define reaches it as a TypeError at submit time, which is a 500 on a request
+    that was perfectly valid.
+    """
+    seen = {}
+
+    def fake_submit(q, verify_primers=False):
+        seen["q"] = q
+        seen["verify"] = verify_primers
+        return "job1"
+
+    monkeypatch.setattr("app.jobs.submit", fake_submit)
+    r = client.post("/api/panel", json={"variant": GOLDEN, "verify_primers": True})
+    assert r.status_code == 202, r.text
+    assert seen["verify"] is True
+    assert not hasattr(seen["q"], "verify_primers"), \
+        "the flag leaked into the query shape build() reads"
 
 
 def test_invalid_query_rejected_before_any_network():
@@ -452,6 +554,12 @@ def test_unknown_job_404():
 def pb_disclaimer():
     import panelbuilder as pb
     return pb.DISCLAIMER
+
+
+def pb_query(**kw):
+    """The golden case as a StructuredQuery, for tests that drive jobs.py directly."""
+    import panelbuilder as pb
+    return pb.StructuredQuery(variant=GOLDEN, **kw)
 
 
 def test_log_tags_match_the_frontend():

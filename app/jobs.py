@@ -123,8 +123,13 @@ def active() -> int:
     return _active
 
 
-def submit(q: pb.StructuredQuery) -> str:
-    """Start a build. Raises Busy when MAX_CONCURRENT builds are already in flight."""
+def submit(q: pb.StructuredQuery, verify_primers: bool = False) -> str:
+    """Start a build. Raises Busy when MAX_CONCURRENT builds are already in flight.
+
+    `verify_primers` runs the UCSC check on the way out of this same job, so one console and
+    one progress bar cover both. Opt-in only: see main.PanelIn.verify_primers for why a build
+    must never decide this for itself.
+    """
     global _active
     with _lock:
         _evict_locked()
@@ -133,22 +138,42 @@ def submit(q: pb.StructuredQuery) -> str:
         _active += 1
         job = Job(id=uuid.uuid4().hex[:12])
         _jobs[job.id] = job
-    _pool.submit(_run, job, q)
+    _pool.submit(_run, job, q, verify_primers)
     return job.id
 
 
-def _run(job: Job, q: pb.StructuredQuery) -> None:
+def _run(job: Job, q: pb.StructuredQuery, verify_primers: bool = False) -> None:
     """Worker thread. Never raises: every outcome lands on the Job."""
-    global _active
 
     def on_progress(stage: str, frac: float) -> None:
         job.stage, job.fraction = stage, frac
         job.events.append({"stage": stage, "fraction": round(frac, 3)})
 
     on_log = _log_fn(job)
+    slot_held = True
+
+    def release_slot() -> None:
+        """Give the build slot back. Idempotent: `finally` covers the paths that raised."""
+        nonlocal slot_held
+        global _active
+        if not slot_held:
+            return
+        slot_held = False
+        with _lock:
+            _active -= 1
 
     try:
         job.result = pb.build(q, on_progress=on_progress, on_log=on_log)
+        # The build is over the moment build() returns, and the slot goes back HERE rather
+        # than in `finally`. MAX_CONCURRENT bounds BUILDS, as its env var says, and a bundled
+        # check runs for minutes: two of them holding build slots through their UCSC waits
+        # refused every visitor a panel at the default limit of 2, which is the whole app
+        # blocked on someone else's rate limit. Verification is already bounded twice over,
+        # by the per-IP budget in main.py and by ispcr's process-wide gate, so it needs no
+        # slot of its own to stay polite.
+        release_slot()
+        if verify_primers:
+            _verify_after_build(job, on_log)
         # status flips LAST, after every event is appended, so a reader that drains events
         # before testing status cannot miss a trailing one.
         job.status = "done"
@@ -168,8 +193,7 @@ def _run(job: Job, q: pb.StructuredQuery) -> None:
         on_log(pb.Tag.WARN, job.error)
         job.status = "error"
     finally:
-        with _lock:
-            _active -= 1
+        release_slot()
 
 
 def verifiable(panel: Job) -> list:
@@ -214,64 +238,110 @@ def submit_verify(panel_job_id: str, rsids: Optional[list] = None) -> str:
     return job.id
 
 
+def eta_s(n: int) -> float:
+    """Seconds n pairs will take at UCSC's published rate. Their number, not an estimate."""
+    return n * ispcr.MIN_INTERVAL_S
+
+
+def _verify_after_build(job: Job, on_log) -> None:
+    """The bundled check, on the way out of a build that asked for it.
+
+    Never raises, and never fails the build: the panel is finished and useful, and the check
+    is an extra the caller asked for on top of it. A build reported as failed because UCSC
+    was unreachable would throw away 25 gnomAD queries' worth of correct work, and the pairs
+    would still be there, still honestly marked NOT CHECKED.
+
+    Says out loud when it does nothing. Silence here is indistinguishable from a check that
+    ran and found everything clean, which is the reading this whole lane exists to prevent.
+    """
+    if not ispcr.available():
+        on_log(pb.Tag.WARN, "The primer check was asked for and is not configured on this "
+                            "server: it needs a UCSC API key. Every pair stays NOT CHECKED.")
+        return
+    targets = verifiable(job)
+    if not targets:
+        on_log(pb.Tag.INFO, "The primer check was asked for and this panel designed no "
+                            "pair to check.")
+        return
+    try:
+        _verify_pairs(job, targets, on_log)
+    except Exception:  # noqa: BLE001
+        # ispcr degrades rather than raising, so this is a bug here, not UCSC being down.
+        # The panel survives it and the unchecked pairs say so on themselves.
+        _log.exception("bundled primer verification failed on panel %s", job.id)
+        on_log(pb.Tag.WARN, "The primer check did not finish, so some pairs are still NOT "
+                            "CHECKED. The panel itself is complete. Use the primer box to "
+                            "check them.")
+
+
+def _verify_pairs(job: Job, targets: list, on_log) -> None:
+    """Check `targets` against UCSC, writing each verdict onto its pair and into `job`.
+
+    Shared by the standalone verify job and by a build that was asked to bundle the check,
+    because a second copy of this loop is a second place a verdict could be welded onto a
+    pair wrongly. The caller owns the job's status and its lifecycle; this owns the pairs.
+    """
+    job.stage = "verifying"
+    on_log(pb.Tag.INFO, f"UCSC In-Silico PCR: checking {len(targets)} pairs against "
+                        f"{ispcr.DB} at one request per "
+                        f"{ispcr.MIN_INTERVAL_S:.0f}s, about "
+                        f"{eta_s(len(targets)) / 60:.0f} min")
+    for i, m in enumerate(targets, 1):
+        # "chr11", not "11": ispcr compares through its own _norm either way, but it
+        # prints this string back at the reader. max_product is left at ispcr's own
+        # default rather than lowered to the design's: it is the largest product UCSC
+        # will REPORT, so a lower one hides a long spurious amplicon and reports the
+        # pair as clean.
+        out = ispcr.verify(m.primer.fwd.seq, m.primer.rev.seq, f"chr{m.chrom}",
+                           m.primer.product_size)
+        job.verdicts[m.rsid] = out
+        # Written onto the panel too, or the verdict reaches the log and this endpoint
+        # and never the document anyone files. An export taken later carries more than
+        # one taken earlier, which is a pending answer arriving, not the same panel
+        # saying two things: every export stamps its own built_utc, and an export taken
+        # before this lands says NOT CHECKED, which is true at that moment.
+        # replace(), not assignment: PrimerResult is frozen, which is what keeps a
+        # primer from being prised apart from its warnings. A verdict is new information
+        # about the pair, so it makes a new result rather than mutating one.
+        #
+        # The WARNINGS are replaced, not just the state. They opened with "NOT CHECKED
+        # AGAINST THE GENOME", which this call is the checking of: left alone they would
+        # contradict the verdict on the same row, and the reader is being asked to trust
+        # exactly one of them. The verdict's own words go on instead, and the caveat with
+        # them, because a pass here still is not a wet-lab result and the pair must not
+        # arrive with nothing said about it.
+        m.primer = dataclasses.replace(
+            m.primer,
+            insilico_pcr=out["state"],
+            warnings=(
+                primers.Note(code=out["state"], short=out["short"], long=out["note"]),
+                primers.Note(code="ispcr_caveat", short=ispcr.CAVEAT_SHORT,
+                             long=ispcr.CAVEAT),
+            ),
+        )
+        # ispcr owns every word of this verdict; nothing here restates it. A pass is one
+        # line, and everything else is a WARN, because only one of its four states is a
+        # pass and the other three all mean NOT VERIFIED.
+        on_log(pb.Tag.INFO if out["state"] == ispcr.ONE_PRODUCT else pb.Tag.WARN,
+               f"{m.rsid}: {out['note']}")
+        job.stage, job.fraction = f"verified {i}/{len(targets)}", i / len(targets)
+        job.events.append({"stage": job.stage, "fraction": round(job.fraction, 3)})
+    danger = sum(1 for v in job.verdicts.values() if v["state"] == ispcr.DANGER)
+    clean = sum(1 for v in job.verdicts.values() if v["state"] == ispcr.ONE_PRODUCT)
+    on_log(pb.Tag.DONE, f"{clean} of {len(targets)} pairs gave one product in "
+                        f"{ispcr.DB}; {danger} are dangerous; "
+                        f"{len(targets) - clean - danger} could not be checked. "
+                        f"{ispcr.CAVEAT}")
+
+
 def _run_verify(job: Job, targets: list) -> None:
-    """Worker thread. Never raises: every outcome lands on the Job."""
+    """Worker thread for a standalone check. Never raises: every outcome lands on the Job."""
     on_log = _log_fn(job)
     # ispcr raises its lines through pb._emit, which reads a ContextVar, so the sink must be
     # set on THIS thread or every line it writes lands in a context nobody reads.
     pb._log_sink.set(on_log)
     try:
-        job.stage = "verifying"
-        on_log(pb.Tag.INFO, f"UCSC In-Silico PCR: checking {len(targets)} pairs against "
-                            f"{ispcr.DB} at one request per "
-                            f"{ispcr.MIN_INTERVAL_S:.0f}s, about "
-                            f"{len(targets) * ispcr.MIN_INTERVAL_S / 60:.0f} min")
-        for i, m in enumerate(targets, 1):
-            # "chr11", not "11": ispcr compares through its own _norm either way, but it
-            # prints this string back at the reader. max_product is left at ispcr's own
-            # default rather than lowered to the design's: it is the largest product UCSC
-            # will REPORT, so a lower one hides a long spurious amplicon and reports the
-            # pair as clean.
-            out = ispcr.verify(m.primer.fwd.seq, m.primer.rev.seq, f"chr{m.chrom}",
-                               m.primer.product_size)
-            job.verdicts[m.rsid] = out
-            # Written onto the panel too, or the verdict reaches the log and this endpoint
-            # and never the document anyone files. An export taken later carries more than
-            # one taken earlier, which is a pending answer arriving, not the same panel
-            # saying two things: every export stamps its own built_utc, and an export taken
-            # before this lands says NOT CHECKED, which is true at that moment.
-            # replace(), not assignment: PrimerResult is frozen, which is what keeps a
-            # primer from being prised apart from its warnings. A verdict is new information
-            # about the pair, so it makes a new result rather than mutating one.
-            #
-            # The WARNINGS are replaced, not just the state. They opened with "NOT CHECKED
-            # AGAINST THE GENOME", which this call is the checking of: left alone they would
-            # contradict the verdict on the same row, and the reader is being asked to trust
-            # exactly one of them. The verdict's own words go on instead, and the caveat with
-            # them, because a pass here still is not a wet-lab result and the pair must not
-            # arrive with nothing said about it.
-            m.primer = dataclasses.replace(
-                m.primer,
-                insilico_pcr=out["state"],
-                warnings=(
-                    primers.Note(code=out["state"], short=out["short"], long=out["note"]),
-                    primers.Note(code="ispcr_caveat", short=ispcr.CAVEAT_SHORT,
-                                 long=ispcr.CAVEAT),
-                ),
-            )
-            # ispcr owns every word of this verdict; nothing here restates it. A pass is one
-            # line, and everything else is a WARN, because only one of its four states is a
-            # pass and the other three all mean NOT VERIFIED.
-            on_log(pb.Tag.INFO if out["state"] == ispcr.ONE_PRODUCT else pb.Tag.WARN,
-                   f"{m.rsid}: {out['note']}")
-            job.stage, job.fraction = f"verified {i}/{len(targets)}", i / len(targets)
-            job.events.append({"stage": job.stage, "fraction": round(job.fraction, 3)})
-        danger = sum(1 for v in job.verdicts.values() if v["state"] == ispcr.DANGER)
-        clean = sum(1 for v in job.verdicts.values() if v["state"] == ispcr.ONE_PRODUCT)
-        on_log(pb.Tag.DONE, f"{clean} of {len(targets)} pairs gave one product in "
-                            f"{ispcr.DB}; {danger} are dangerous; "
-                            f"{len(targets) - clean - danger} could not be checked. "
-                            f"{ispcr.CAVEAT}")
+        _verify_pairs(job, targets, on_log)
         job.status = "done"
     except Exception:  # noqa: BLE001
         # job.error reaches the browser: keep it generic, and leave the plumbing in the log.

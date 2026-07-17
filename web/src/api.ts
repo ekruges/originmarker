@@ -394,6 +394,14 @@ export interface StructuredQuery {
    *  server's own defaults, and that is the only way to ask for them. A copy held on this
    *  side drifts, and the panel would then report the copy as what it was built under. */
   primer_settings?: Partial<PrimerSettings>
+  /**
+   * Run the UCSC check as part of this build rather than leaving it to the primer box.
+   *
+   * The wire shape here is app.main.PanelIn, not pb.StructuredQuery: this says what to do
+   * after the build, so the server pops it before constructing the query. Costs about 15
+   * seconds per designed pair and spends the same per-IP budget as the button.
+   */
+  verify_primers?: boolean
 }
 
 /**

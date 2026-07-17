@@ -1,10 +1,10 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import {
-  ActionIcon, Alert, Autocomplete, Button, Checkbox, CloseButton, Combobox, Group,
+  ActionIcon, Alert, Anchor, Autocomplete, Button, Checkbox, CloseButton, Combobox, Group,
   NumberInput, Paper, SegmentedControl, Select, Text, TextInput, Tooltip, useCombobox,
 } from '@mantine/core'
 import {
-  ANCESTRIES, api, ApiError, type Health, type NLResponse, type PrimerBuild,
+  ANCESTRIES, api, ApiError, PRIMER_DOCS, type Health, type NLResponse, type PrimerBuild,
   type StructuredQuery,
 } from './api'
 import { clearHistory, forgetQuery, readHistory, recordQuery, type Entry } from './history'
@@ -104,9 +104,11 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [text, entries])
 
-  // Manual mode: every StructuredQuery knob, no parsing in the way.
+  // Manual mode: every StructuredQuery knob, no parsing in the way. The primer fields and
+  // the bundled check are omitted because they are held in their own state below: they are
+  // not simple values with a default, and the numbers are the server's rather than ours.
   const [q, setQ] = useState<Required<Omit<StructuredQuery,
-    'gene' | 'ancestry' | 'primer_scope' | 'primer_settings'>> & {
+    'gene' | 'ancestry' | 'primer_scope' | 'primer_settings' | 'verify_primers'>> & {
     gene: string
     ancestry: string | null
   }>({
@@ -117,6 +119,12 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
   // Untouched until the fields are edited. The numbers are never held here: they come off
   // health, from the engine that will use them, so this side has no defaults to drift.
   const [primer, setPrimer] = useState<PrimerBuild | null>(null)
+
+  // Off unless asked for, every time. Not remembered between builds: this spends someone
+  // else's published quota and costs minutes, so it is a decision per build, not a setting.
+  const [verifyPrimers, setVerifyPrimers] = useState(false)
+  /** The server has a UCSC key. Without one the box would ask for a run that cannot happen. */
+  const canVerify = !!health?.insilico_pcr_enabled
 
   // What the form shows, and therefore exactly what a build is asked for: sent whenever the
   // form is drawn, touched or not, so the screen cannot say one scope while the server picks
@@ -189,6 +197,9 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
       cross_check: q.cross_check,
       primer_scope: primerShown?.scope,
       primer_settings: primerShown?.settings,
+      // Only where there is something to check and a server that can check it. Sending true
+      // otherwise asks for a run that logs a warning and does nothing.
+      verify_primers: verifyPrimers && canVerify && primerShown?.scope !== 'none',
     })
   }
 
@@ -570,6 +581,37 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
               >
                 <Text size="xs" fw={600} mb={5}>Primers</Text>
                 <PrimerFields value={primerShown} onChange={setPrimer} />
+                {/* The check, folded into the build for a reader who would rather wait once
+                    than build and then press a second button. Nothing here decides it: the
+                    box is unticked on every visit, and the cost is stated beside it. */}
+                {primerShown.scope !== 'none' && (
+                  <div style={{ marginTop: 12 }}>
+                    <Checkbox
+                      size="xs"
+                      disabled={!canVerify}
+                      checked={verifyPrimers && canVerify}
+                      onChange={(e) => setVerifyPrimers(e.currentTarget.checked)}
+                      label="Check every pair against the genome as part of this build"
+                    />
+                    <Text size="xs" c="dimmed" mt={4}>
+                      {canVerify ? (
+                        <>
+                          Much slower: UCSC allows one query every 15 seconds, so this adds
+                          about 15 s per designed pair and a shortlist takes minutes. The
+                          build log shows each one as it lands. Leave it off to get the panel
+                          now and check from the primer box later.{' '}
+                          <Anchor href={PRIMER_DOCS} size="xs">What it does</Anchor>
+                        </>
+                      ) : (
+                        <>
+                          Not available on this instance: it needs a UCSC API key. Pairs stay
+                          marked as not checked, which is what they are.{' '}
+                          <Anchor href={PRIMER_DOCS} size="xs">Setting one up</Anchor>
+                        </>
+                      )}
+                    </Text>
+                  </div>
+                )}
               </div>
             )}
           </>

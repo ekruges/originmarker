@@ -1537,8 +1537,13 @@ def design_primers(recommended: list[Marker], raw: dict[str, dict],
         # checked for products in an 800 bp window and nowhere else in the genome.
         for w in m.primer.warnings:
             _emit(Tag.WARN, f"{m.rsid}: {w}")
+    # "not yet", not "not by this build". Design is all this function does, so at this line
+    # nothing is checked and that is worth saying. Whether anything checks them afterwards is
+    # the caller's to decide: app/jobs.py runs the UCSC lane in this same job when the build
+    # was asked to bundle it, and the flat claim would then be contradicted three lines later
+    # in the same console, by the same job, about the same pairs.
     _emit(Tag.INFO, f"{designed} of {len(targets)} in-scope markers have a candidate primer "
-                    f"pair; none has been checked against the genome by this build")
+                    f"pair; none has been checked against the genome yet")
 
 
 # --------------------------------------------------------------------------- #
