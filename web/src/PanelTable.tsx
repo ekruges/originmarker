@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
-  Alert, Anchor, Badge, Group, List, Pagination, Paper, Select, Table, Text, TextInput,
-  Tooltip,
+  Alert, Anchor, Badge, Button, CloseButton, Group, List, Pagination, Paper, Select, Table,
+  Text, TextInput, Tooltip,
 } from '@mantine/core'
 import {
   flankingRule, hasPair, isUpper, links, pcrDanger, pcrUnchecked, posMismatch, primerBuild,
@@ -290,6 +290,21 @@ export function PanelTable({ result, ancestry, onRebuild, onVerify, verify }: Pr
   // empty form over an absent feature invites a rebuild that would change nothing.
   const build = primerBuild(result)
 
+  // At least one designed pair still unchecked against the genome. The nudge to check is
+  // only honest while there is something to check and a server that can: `onVerify` is
+  // undefined without a UCSC key.
+  const hasUncheckedPair = useMemo(
+    () => candidates.some((m) => m.primer && hasPair(m.primer) && pcrUnchecked(m.primer)),
+    [candidates],
+  )
+
+  // Dismissable, and reset per panel: a rebuild is a new object, so the nudge returns for a
+  // panel that has genuinely not been checked. A verification re-fetch is also a new object,
+  // but by then nothing is unchecked, so the nudge stays gone on its own.
+  const [nudgeDismissed, setNudgeDismissed] = useState(false)
+  useEffect(() => setNudgeDismissed(false), [result])
+  const showVerifyNudge = !!onVerify && !nudgeDismissed && !verify?.running && hasUncheckedPair
+
   useEffect(() => setPage(1), [scope, preset, q, ancestry, sort])
 
   const filtered = useMemo(() => {
@@ -417,6 +432,26 @@ export function PanelTable({ result, ancestry, onRebuild, onVerify, verify }: Pr
             ))}
           </List>
         </Alert>
+      )}
+
+      {showVerifyNudge && (
+        // A soft nudge, not an alarm: the pairs are usable and honestly marked unchecked, so
+        // this encourages rather than warns. It sits below the red alerts on purpose, and it
+        // is dismissable, because a reader who has decided not to check should not be nagged.
+        <div className="om-verify-nudge" role="note">
+          <Text size="xs" c="dimmed" style={{ flex: 1, minWidth: 200 }}>
+            These primer pairs have not been checked against the genome. If you are moving
+            toward ordering them, a check catches pairs that would amplify more than one locus.
+          </Text>
+          <Button size="compact-xs" variant="light" onClick={onVerify}>
+            Check against the genome
+          </Button>
+          <CloseButton
+            size="sm"
+            aria-label="Dismiss this suggestion"
+            onClick={() => setNudgeDismissed(true)}
+          />
+        </div>
       )}
 
       <Group gap={8} p={8} wrap="wrap">

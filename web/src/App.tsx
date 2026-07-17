@@ -44,6 +44,14 @@ export default function App() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [progress, setProgress] = useState({ stage: '', fraction: 0 })
   const [log, setLog] = useState<LogLine[]>([])
+  // The verification run's own log lines, kept apart from the build's: the verify job is a
+  // separate job with a cumulative log, so this is REPLACED each poll rather than appended,
+  // and it renders after the build lines. Merging into `log` would double every line.
+  const [verifyLog, setVerifyLog] = useState<LogLine[]>([])
+  // Bumped to force the build log open (a verification streams into it, and it must not do
+  // that inside a collapsed panel). A counter, not a boolean: the reader may reopen or close
+  // freely, and each new run forces it open again.
+  const [reopenLog, setReopenLog] = useState(0)
   // A verification run: separate from the build, started only by asking. UCSC allows one
   // request every 15 seconds, so this is minutes of real waiting on a panel that is already
   // complete without it.
@@ -88,6 +96,8 @@ export default function App() {
     setJobId(null)
     setProgress({ stage: '', fraction: 0 })
     setLog([])
+    setVerifyLog([])
+    setVerify({ running: false, stage: '' })
     setAncestry(null)
     if (window.location.hash && window.location.hash !== '#/') window.location.hash = '#/'
   }, [])
@@ -142,6 +152,10 @@ export default function App() {
     setError(null)
     setProgress({ stage: 'submitting job', fraction: 0.02 })
     setLog([])
+    // A new build's pairs are unverified: any prior run's log and state belong to a panel
+    // that no longer exists.
+    setVerifyLog([])
+    setVerify({ running: false, stage: '' })
 
     let id: string
     try {
@@ -219,6 +233,10 @@ export default function App() {
   const runVerify = useCallback(async () => {
     if (!jobId || verify.running) return
     setVerify({ running: true, stage: 'starting' })
+    // The verify streams its lines into the build log, so open it: appending into a panel
+    // the reader has collapsed would look like nothing is happening.
+    setVerifyLog([])
+    setReopenLog((n) => n + 1)
     let vid: string
     try {
       vid = (await api.verify(jobId)).job_id
@@ -233,6 +251,8 @@ export default function App() {
         const v = await api.verifyJob(vid)
         setVerify({ running: v.status === 'running', stage: v.stage,
                     error: v.status === 'error' ? (v.error ?? 'Verification failed.') : undefined })
+        // v.log is cumulative, so this replaces the verify portion rather than appending it.
+        if (v.log) setVerifyLog(v.log.flatMap((l) => asLogLine(l) ?? []).slice(-LOG_CAP))
         if (v.status !== 'running') {
           if (vpollRef.current) clearInterval(vpollRef.current)
           vpollRef.current = null
@@ -394,7 +414,11 @@ export default function App() {
                 />
               </>
             )}
-            <BuildLog lines={log} />
+            <BuildLog
+              lines={verifyLog.length ? [...log, ...verifyLog] : log}
+              openSignal={reopenLog}
+              meta={{ release: health?.release, jobId, provenance: result?.provenance }}
+            />
           </Paper>
         )}
 

@@ -391,3 +391,18 @@ body {
   width: 9px;
   font-size: 9px;
 }
+
+/* The nudge to check pairs against the genome. Deliberately quiet: a thin left accent and a
+   faint tint, not an alert colour. Encouraging, not alarming. */
+.om-verify-nudge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--om-border);
+  border-left: 3px solid var(--om-blue);
+  border-radius: 3px;
+  background: var(--om-head-bg);
+}

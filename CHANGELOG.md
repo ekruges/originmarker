@@ -9,6 +9,17 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.3.4 "Diakinesis"
+
+### Added
+
+- A dismissable nudge at the top of the candidate list recommending a genome check on the
+  primer pairs. Its button reopens the build log and streams the verification into it.
+- A download button on the build log that exports it as a .txt, with a footer line carrying
+  the release, job, instance URL, timestamp and data versions.
+
+---
+
 ## 1.3.3 "Diakinesis"
 
 ### Fixed
