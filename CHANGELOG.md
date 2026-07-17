@@ -9,6 +9,17 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.3.3 "Diakinesis"
+
+### Fixed
+
+- **Free-text descriptions never resolved.** The intent prompt forbade the model to recall
+  an rsID, so "the sickle cell mutation, in Africans" returned no variant at all rather than
+  rs334. It now names the standard identifier for a described variant, while still never
+  emitting a coordinate; the identifier is confirmed by live lookup as before.
+
+---
+
 ## 1.3.2 "Diakinesis"
 
 Terms of use, brought up to what the app actually does. No behaviour changed.

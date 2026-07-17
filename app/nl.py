@@ -1,11 +1,14 @@
 """Natural-language INTENT parser for OriginMarker (R1).
 
-MAY DECIDE: which variant the user named, and the search knobs they asked for (window,
-MAF floor, ancestry).
+MAY DECIDE: which variant the user means -- named outright, or described in words ("the
+sickle cell mutation") and resolved to its standard rsID/HGVS identifier from the model's
+own knowledge -- and the search knobs they asked for (window, MAF floor, ancestry).
 
 MAY NEVER DECIDE: a coordinate. No chromosome, position, strand or ref/alt allele, from
 regex, LLM or memory. `variant` leaves this module as an opaque identifier that
-pb.resolve_variant() looks up live; every coordinate in the app is produced there.
+pb.resolve_variant() looks up live; every coordinate in the app is produced there. An rsID
+the model recalled is still only an identifier: the app confirms it and derives its
+coordinate by live lookup, and the user is told the model supplied it.
 
 The boundary is enforced twice: pb.StructuredQuery has no coordinate field, so this
 layer has nowhere to put one, and _reject_coordinates() screens whatever the model
@@ -271,25 +274,34 @@ def _describe(mods: dict) -> str:
 # below is silently a no-op at this size. It is set for the day the prompt outgrows the
 # minimum; the regex fast path, not caching, is what makes this cheap.
 _SYSTEM = (
-    "You extract search INTENT from a geneticist's free-text request for a PGT-M "
-    "linkage marker panel. Reply with ONE JSON object and nothing else:\n"
-    '{"variant": str|null, "gene": str|null, "window_bp": int|null, '
+    "You read a geneticist's free-text request for a PGT-M linkage marker panel and "
+    "identify which pathogenic variant they mean. Reply with ONE JSON object and nothing "
+    'else: {"variant": str|null, "gene": str|null, "window_bp": int|null, '
     '"ancestry": str|null, "common_maf": float|null}\n\n'
-    "HARD RULES:\n"
-    "- `variant` must be an identifier the user ACTUALLY TYPED: an rsID (rs...) or an "
-    "HGVS expression (NM_/NC_/NG_/NR_... with :c. :g. :n. or :p.). Copy it verbatim.\n"
-    "- NEVER invent, recall, complete, or infer a genomic coordinate, chromosome, "
-    "position, rsID, or ref/alt allele. You do not know them and must not guess. "
-    "Never output anything shaped like 11-17397055-C-T, chr11:17397055, GRCh38:11:..., "
-    "or a bare position number. Such output is rejected by the application.\n"
-    "- If the user did not type an rsID or HGVS identifier, set variant to null. "
-    "Returning null is CORRECT and expected: the app then fails loudly and asks the "
-    "user to name the variant. A guess is a serious error; null is not.\n"
-    "- gene: HGNC symbol if one is named, else null. It is a hint only, never used to "
-    "derive coordinates.\n"
-    "- ancestry: one of AFR AMR ASJ EAS FIN NFE SAS MID, else null.\n"
-    "- window_bp: flank size in base pairs. common_maf: minor allele frequency floor "
-    "as a fraction (0-0.5). Use null for anything the user did not state."
+    "variant - the standard identifier for the variant the user names or describes:\n"
+    "- If they typed an rsID (rs...) or an HGVS expression (NM_/NC_/NG_/NR_/ENST... with "
+    ":c. :g. :n. or :p.), copy it verbatim.\n"
+    "- If they described it in words ('the sickle cell mutation', 'factor V Leiden', 'the "
+    "common CF deletion'), give the well-known rsID or HGVS identifier for it from your "
+    "own knowledge. This is the reason you are being asked: the identifier is not in their "
+    "text, and naming it from what they described is your job.\n"
+    "- If you cannot identify ONE specific variant with confidence, set variant to null. "
+    "Null is a correct answer: the app then asks the user to name it. A confident wrong "
+    "guess is far worse than null.\n\n"
+    "NEVER output a genomic COORDINATE. Give the IDENTIFIER, never the position it sits "
+    "at: no chromosome, position, strand, or ref/alt allele, and nothing shaped like "
+    "11-5227002-T-A, chr11:5227002, GRCh38:11:5227002, or a bare position number. The app "
+    "looks the coordinate up from the identifier and rejects a coordinate here. An rsID or "
+    "an accession-anchored HGVS expression is an identifier, not a coordinate.\n\n"
+    "gene - HGNC symbol if the variant's gene is clear, else null (a hint only, never used "
+    "to derive coordinates).\n"
+    "ancestry - one of AFR AMR ASJ EAS FIN NFE SAS MID if the user names a population, "
+    "else null.\n"
+    "window_bp - flank size in base pairs, ONLY if the user stated one, else null.\n"
+    "common_maf - minor allele frequency floor as a 0-0.5 fraction, ONLY if the user "
+    "stated one, else null.\n"
+    "Use null for any modifier the user did not state; do not fill modifiers from the "
+    "variant you identified."
 )
 
 
@@ -666,5 +678,17 @@ if __name__ == "__main__":
     finally:
         globals()["_llm_intent"] = _orig
         _cached_intent.cache_clear()
+
+    # 14. The prompt must ask the model to do the one thing this path exists for: name an
+    #     identifier for a variant the user only DESCRIBED. An earlier prompt forbade the
+    #     model to "recall ... an rsID", which is self-defeating -- it made every advertised
+    #     free-text example ("the sickle cell mutation") return null, since the identifier is
+    #     never in the user's text. The regex is the R1 control, not this prompt, but a
+    #     prompt that re-locks the feature fails silently and only on the live path, so pin
+    #     it here. Coordinates must still be forbidden in the same breath.
+    _p = _SYSTEM.lower()
+    assert "from your own knowledge" in _p, "the prompt no longer lets the model name a described variant"
+    assert "never output a genomic coordinate" in _p, "the prompt no longer forbids coordinates"
+    assert "actually typed" not in _p, "the prompt re-locked the model to only echo typed identifiers"
 
     print("nl.py self-check OK (no LLM calls, no network)")
