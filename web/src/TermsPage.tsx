@@ -1,6 +1,6 @@
 import { Anchor, Text, Title } from '@mantine/core'
 
-const UPDATED = '2026-07-16'
+const UPDATED = '2026-07-17'
 
 export function TermsPage() {
   return (
@@ -14,8 +14,9 @@ export function TermsPage() {
         <h2 id="what">1. What this service is</h2>
         <p>
           OriginMarker proposes <strong>candidate</strong> flanking SNP markers around a
-          pathogenic variant, assembled from public population data. It is a research and
-          educational tool.
+          pathogenic variant, assembled from public population data. Where primer design is
+          enabled, it also proposes <strong>candidate</strong> PCR primer pairs for
+          genotyping those markers. It is a research and educational tool.
         </p>
         <p>
           <strong>It is not a clinical diagnostic, and it is not medical advice.</strong> It
@@ -23,6 +24,15 @@ export function TermsPage() {
           inherited. It cannot phase markers: that requires genotyping the family in a
           qualified genetics laboratory. Every marker it returns is a hypothesis to be
           validated, not a result.
+        </p>
+        <p>
+          <strong>Primer pairs are candidates in the same sense.</strong> Nothing here runs a
+          PCR. A pair is designed against a reference sequence, which is not any patient's
+          genome: a variant private to a carrier can sit under a primer site, prevent that
+          allele amplifying, and make a heterozygote read as a homozygote. The optional check
+          against UCSC In-Silico PCR is an alignment against the same reference, not a
+          wet-lab result, and a clean result from it is not a validation. Validate every pair
+          at the bench before using it on a sample.
         </p>
         <p>
           Any clinical decision, including any decision about an embryo, is the
@@ -63,20 +73,30 @@ export function TermsPage() {
             <strong>Do not submit patient-identifying information.</strong> The tool takes a
             variant identifier and nothing else. It has no field that needs a name, a date
             of birth, a medical record number, or any other identifier, and none should be
-            entered anywhere, including the free-text box.
+            entered anywhere, including the free-text box. This matters most in that box:
+            text with no identifier in it is sent to a third-party model, verbatim, as
+            section 5 describes.
           </li>
           <li>
             Do not present its output as a diagnostic result, or represent it as validated
-            for clinical use.
+            for clinical use. That includes primer pairs, which no part of this tool has run.
           </li>
           <li>
             Use it within the fair-use limits of the upstream data sources (below). Requests
             are rate limited. Do not attempt to circumvent those limits, and do not use the
             service in a way that degrades it for others.
           </li>
+          <li>
+            <strong>The primer check spends the operator's quota, not yours.</strong> UCSC
+            publishes a limit of one request every 15 seconds and 5,000 a day for programmatic
+            use, and this instance answers for that limit under its own key. Every pair you
+            check, whether from the primer box or bundled into a build, spends part of it. It
+            is rate limited per client for that reason. Run your own instance with your own
+            key if you need it at any volume.
+          </li>
         </ul>
 
-        <h2 id="data">5. Third-party data</h2>
+        <h2 id="data">5. Third-party services, and what is sent to them</h2>
         <p>
           OriginMarker retrieves data at query time from{' '}
           <Anchor href="https://www.ncbi.nlm.nih.gov/clinvar/" target="_blank" rel="noreferrer">ClinVar</Anchor>,{' '}
@@ -89,6 +109,35 @@ export function TermsPage() {
           <Anchor href="#/docs/sources">Documentation</Anchor>.
         </p>
         <p>
+          Two of those calls carry something you typed or something derived from it, so they
+          are set out in full rather than left to the word "retrieves":
+        </p>
+        <ul>
+          <li>
+            <strong>Free text goes to a model, and only free text.</strong> If what you type
+            contains an rsID, an HGVS expression or a ClinVar accession, a regular expression
+            reads it here and <em>nothing is sent to any model</em>. If it contains no
+            identifier, the text is sent verbatim to{' '}
+            <Anchor href="https://www.anthropic.com" target="_blank" rel="noreferrer">Anthropic</Anchor>'s
+            API, to be read by a small model that answers which variant you meant. That is a
+            third party, on their terms and their retention policy, not this project's. It is
+            why section 4 asks you to keep identifying information out of that box. Where the
+            operator has configured no model key the box refuses free text instead, and the
+            identifier paths keep working.
+          </li>
+          <li>
+            <strong>Primer sequences go to UCSC, when you ask for the check.</strong> The
+            optional verification sends the two primer sequences, the genome build, and the
+            product size bounds to{' '}
+            <Anchor href="https://genome.ucsc.edu/cgi-bin/hgPcr" target="_blank" rel="noreferrer">
+              UCSC In-Silico PCR
+            </Anchor>{' '}
+            under this instance's API key. Those sequences are drawn from the reference
+            genome, not from any sample, and no part of your query travels with them. Nothing
+            is sent to UCSC unless you ask for the check.
+          </li>
+        </ul>
+        <p>
           Those providers are not affiliated with OriginMarker and do not endorse it.
         </p>
 
@@ -99,6 +148,19 @@ export function TermsPage() {
           its output format will continue to exist. Queries may be cached on the server to
           avoid re-requesting upstream data. No accounts, no tracking, no analytics.
         </p>
+        <p>
+          Your recent queries are kept in your own browser's local storage so the search box
+          can offer them back. They are not sent anywhere, there is no account holding them,
+          and Clear all removes them. Clearing your browser's site data removes them too.
+        </p>
+        <p>
+          "No tracking" is about who you are, and is not a claim that nothing leaves the
+          server. Section 5 lists what does: every build queries ClinVar, Ensembl and gnomAD
+          for the variant you named; free text with no identifier in it is sent to a
+          third-party model; primer sequences are sent to UCSC if you ask for the check. None
+          of those carries anything about a patient unless you type it into the box, which is
+          why section 4 asks you not to.
+        </p>
 
         <h2 id="license">7. License</h2>
         <p>
@@ -108,6 +170,18 @@ export function TermsPage() {
           </Anchor>. You may use, modify and redistribute it, including commercially, subject
           to that license. Running your own instance is encouraged and is the intended way to
           use it at any scale.
+        </p>
+        <p>
+          <strong>One dependency is not Apache 2.0, and it is optional for that reason.</strong>{' '}
+          Primer design needs{' '}
+          <Anchor href="https://github.com/libnano/primer3-py" target="_blank" rel="noreferrer">primer3-py</Anchor>,
+          which is GPLv2. It is deliberately absent from <code>requirements.txt</code> and from
+          the default image, so what this repository distributes is Apache 2.0 throughout.
+          Installing it on a server you run is not distribution and triggers nothing. If you
+          build an image with it switched on and then redistribute that image, the combined
+          work is subject to the GPLv2, and that is your decision to make rather than this
+          project's default. Nothing from UCSC's own isPcr source is included here: the
+          optional check calls their hosted service.
         </p>
 
         <h2 id="changes">8. Changes</h2>

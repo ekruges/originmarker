@@ -9,6 +9,46 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.3.2 "Diakinesis"
+
+Terms of use, brought up to what the app actually does. No behaviour changed.
+
+### Changed
+
+- **The terms disclose the two things that leave the server carrying your input**, which they
+  did not. Section 5 was called "Third-party data" and described only what is retrieved:
+  - **Free text with no identifier in it is sent verbatim to Anthropic's API**, to be read by
+    a small model. Text containing an rsID, HGVS or a ClinVar accession is read here by a
+    regular expression and reaches no model at all. The distinction is the whole privacy
+    story of that box, the terms already asked readers to keep identifying information out of
+    it, and they never said why.
+  - **Primer sequences are sent to UCSC** when the check is asked for. They come from the
+    reference genome rather than any sample, and nothing else from the query goes with them.
+- **Primers are in the terms at all now.** Section 1 described a tool that proposes markers,
+  which stopped being the whole of it in 1.3.0. A primer pair is a candidate in the same
+  sense a marker is: nothing here has run a PCR, a reference is not a patient's genome, and a
+  private variant under a primer site causes exactly the dropout the design cannot see.
+- **Section 6 no longer lets "no tracking" imply "nothing leaves".** They are different
+  claims and only the first was true. It says which is which, and that browser history stays
+  in the browser.
+- **Section 7 states the one dependency that is not Apache 2.0.** primer3-py is GPLv2, which
+  is why it is optional and absent from the default image. Redistributing an image built with
+  it switched on makes the combined work GPLv2. Previously the terms said "redistribute,
+  including commercially" with no qualification.
+- **Section 4 says whose UCSC quota the check spends.** It is the operator's key answering for
+  UCSC's published limit, which is why it is rate limited per client.
+
+### Added
+
+- A check that fails when the app reaches a host the terms do not name, and when the terms
+  stop saying a load-bearing thing ("not a clinical diagnostic", "candidate", "wet-lab",
+  "GPLv2"). Prose drifts from code silently and in one direction: someone adds an outbound
+  call, every test passes because the call works, and the terms keep saying it does not
+  happen. It reads the rendered prose with the hrefs stripped, because the first version of
+  it passed a gutted disclosure on the strength of a leftover URL.
+
+---
+
 ## 1.3.1 "Diakinesis"
 
 A patch, so it keeps 1.3.0's name.
