@@ -297,9 +297,10 @@ def test_rarity_is_never_asserted_from_a_gap():
         # An Optional interpolated into prose reads to a scientist as a measurement, so
         # every figure goes through fmt_af or an explicit "unavailable", on every branch.
         assert "None" not in r.reason, r.reason
-        # /api/resolve serves this string as ld_banner, so the phasing requirement has to
-        # be carried by reason itself, in every branch.
-        assert "phasing" in r.reason.lower(), r.reason
+        # The verdict and its evidence, and nothing else. It renders on a one-line card, so
+        # a branch that grows a standing caveat back into itself is a bug: R3 rides on
+        # DISCLAIMER, which every surface serving this string also serves.
+        assert len(r.reason) <= 160, f"{len(r.reason)} chars is too long for the card: {r.reason}"
         assert r.ld_status in ("defined", "undefined", "unknown"), r.ld_status
         # LD is never asserted as usable without a confirmed count behind it.
         assert r.population_LD_usable is (r.ld_status == "defined")
@@ -830,3 +831,32 @@ def test_clean_cross_check_produces_no_disagreement_flag():
     """The other half: the flag must not cry wolf on a panel that checks out."""
     r = pb.build(pb.StructuredQuery(variant=GOLDEN_QUERY, build="GRCh38"))
     assert not [f for f in r.coverage["flags"] if "placed differently" in f]
+
+
+def test_a_deletion_overhanging_the_template_is_still_masked():
+    """A deletion is anchored at the base BEFORE the bases it removes.
+
+    So one straddling the template's left edge has pos < region_start while its reference
+    footprint still lies under the forward primer. Filtering mask sites on the anchor
+    dropped it, primer3 was never told, and the note told the reader the region was clear.
+    primers.design already clamps an overhanging site; the caller could simply never hand
+    it one, so the clamp's own check exercised a path production could not reach.
+    """
+    import primers
+
+    flank = 400
+    marker_pos = 17_397_055
+    lo, hi = marker_pos - flank, marker_pos + flank
+
+    # anchored 4 bp before the template, deleting 12 bp: covers the first 8 template bases
+    overhang = primers.MaskSite(pos=lo - 4, ref="A" * 13, alt="A", maf=0.30)
+    inside = primers.MaskSite(pos=marker_pos + 120, ref="C", alt="T", maf=0.30)
+    hazards = [overhang, inside]
+
+    near = [s for s in hazards if s.pos + s.span - 1 >= lo and s.pos <= hi]
+    assert overhang in near, "a deletion overhanging the template edge was dropped"
+    assert inside in near
+
+    # and the anchor test, which is what shipped, drops it
+    anchored = [s for s in hazards if lo <= s.pos <= hi]
+    assert overhang not in anchored, "this test no longer reproduces the bug it pins"

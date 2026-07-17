@@ -44,6 +44,12 @@ export default function App() {
   const [jobId, setJobId] = useState<string | null>(null)
   const [progress, setProgress] = useState({ stage: '', fraction: 0 })
   const [log, setLog] = useState<LogLine[]>([])
+  // A verification run: separate from the build, started only by asking. UCSC allows one
+  // request every 15 seconds, so this is minutes of real waiting on a panel that is already
+  // complete without it.
+  const [verify, setVerify] = useState<{ running: boolean; stage: string; error?: string }>(
+    { running: false, stage: '' })
+  const vpollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [ancestry, setAncestry] = useState<string | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -60,6 +66,8 @@ export default function App() {
     esRef.current = null
     if (pollRef.current) clearInterval(pollRef.current)
     pollRef.current = null
+    if (vpollRef.current) clearInterval(vpollRef.current)
+    vpollRef.current = null
   }
 
   useEffect(() => {
@@ -201,6 +209,39 @@ export default function App() {
       } catch { /* transient failure; keep polling */ }
     }, 3000)
   }, [query, settle])
+
+  /** Ask UCSC whether each pair gives one product. Deliberate, never automatic.
+   *
+   *  On finish the panel is re-fetched rather than merged from the verdicts: jobs.py writes
+   *  each verdict onto the pair it belongs to, so the server's copy is already the answer
+   *  and a merge here would be a second place for it to be wrong.
+   */
+  const runVerify = useCallback(async () => {
+    if (!jobId || verify.running) return
+    setVerify({ running: true, stage: 'starting' })
+    let vid: string
+    try {
+      vid = (await api.verify(jobId)).job_id
+    } catch (e) {
+      setVerify({ running: false, stage: '',
+                  error: e instanceof ApiError ? e.message : 'Could not start verification.' })
+      return
+    }
+    if (vpollRef.current) clearInterval(vpollRef.current)
+    vpollRef.current = setInterval(async () => {
+      try {
+        const v = await api.verifyJob(vid)
+        setVerify({ running: v.status === 'running', stage: v.stage,
+                    error: v.status === 'error' ? (v.error ?? 'Verification failed.') : undefined })
+        if (v.status !== 'running') {
+          if (vpollRef.current) clearInterval(vpollRef.current)
+          vpollRef.current = null
+          const fresh = await api.job(jobId)
+          if (fresh.result) setResult(fresh.result)
+        }
+      } catch { /* transient: the next tick asks again */ }
+    }, 2000)
+  }, [jobId, verify.running])
 
   const prov = result?.provenance
 
@@ -422,7 +463,13 @@ export default function App() {
 
             <Coverage result={result} />
             <LocusTrack result={result} ancestry={ancestry} />
-            <PanelTable result={result} ancestry={ancestry} />
+            <PanelTable
+              result={result}
+              ancestry={ancestry}
+              onRebuild={(b) => query && buildPanel({ ...query, ...b })}
+              onVerify={health?.insilico_pcr_enabled ? runVerify : undefined}
+              verify={verify}
+            />
 
             <Alert color="blue" variant="light" mb="sm" title="These are candidate markers, not a usable panel yet">
               <List size="xs" spacing={2}>

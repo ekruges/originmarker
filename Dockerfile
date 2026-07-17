@@ -22,6 +22,19 @@ WORKDIR /app
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
+# primer3-py is GPLv2 and this repo is Apache 2.0, so it is NOT in requirements.txt and the
+# default image does not carry it: an image bundling both is a distributed combined work
+# under terms this repo cannot meet. Installing it on a server you run is not distribution.
+# So it is an operator's switch, exactly like the API keys:
+#
+#     docker compose build --build-arg WITH_PRIMERS=1
+#
+# Off, primers.py reports itself unavailable, panels build unchanged and carry no primers.
+# If you redistribute an image built with this on, the combined work is GPLv2. Your call.
+ARG WITH_PRIMERS=0
+COPY requirements-primers.txt ./
+RUN if [ "$WITH_PRIMERS" = "1" ]; then pip install --no-cache-dir -r requirements-primers.txt; fi
+
 # Deploy-breaker guard. cloudflared has no path-rewrite, so the tunnel hands us the
 # prefix intact ("/originmarker/api/health"). Only Starlette >=0.33 (FastAPI >=0.109)
 # strips the app's root_path before routing. On older versions the LAN check
@@ -32,7 +45,11 @@ RUN python -c "import fastapi; v=tuple(int(p) for p in fastapi.__version__.split
 # panelbuilder.py + genetic_map.py sit at the root: genetic_map resolves its maps as
 # Path(__file__).parent/"data"/"maps", so data/ must stay beside them. 23MB, bundled
 # on purpose - never re-downloaded at runtime.
-COPY panelbuilder.py genetic_map.py build_info.py ./
+#
+# primers.py ships whatever WITH_PRIMERS says: the module is ours and Apache 2.0, only the
+# primer3 dependency is GPLv2. app/jobs.py imports it at module load, so leaving it out
+# does not disable primers, it stops the app from starting.
+COPY panelbuilder.py genetic_map.py build_info.py primers.py ./
 COPY data/ ./data/
 COPY app/ ./app/
 # app/main.py resolves DIST as <repo>/web/dist -> /app/web/dist

@@ -18,6 +18,7 @@ import re
 from xml.etree import ElementTree
 
 import panelbuilder as pb
+from app import ispcr
 
 # gnomAD ancestry codes, in the engine's own order (AFR AMR ASJ EAS FIN NFE SAS MID).
 POPS = list(pb.GNOMAD_POPS.values())
@@ -27,8 +28,17 @@ POPS = list(pb.GNOMAD_POPS.values())
 # and the web cannot drift into three different stars.
 STAR_FIELD = pb.FLANKING_CRITERIA["field"]
 
+# The primer pair as data, parallel to _primer_row(). Sequences and the verdict are columns
+# and not prose, because the reader who strips the header block is the one who must not lose
+# them. Every one is empty where the engine designed no primer for that marker.
+PRIMER_COLUMNS = ("primer_fwd", "primer_fwd_tm", "primer_fwd_gc", "primer_fwd_len",
+                  "primer_rev", "primer_rev_tm", "primer_rev_gc", "primer_rev_len",
+                  "primer_product_bp", "primer_product_start", "primer_product_end",
+                  "primer_masked_variants", "primer_insilico_pcr", "primer_warnings",
+                  "primer_design_error")
 
-def _columns(anc=None) -> list:
+
+def _columns(anc=None, primers=False) -> list:
     """Column names, parallel to _row(): keep the two in step, in order.
 
     Every quantity that decides in_recommended_panel must be a column, so the
@@ -41,7 +51,8 @@ def _columns(anc=None) -> list:
             + [f"maf_{p}" for p in POPS]
             + [f"an_{p}" for p in POPS]
             + ["cm_to_variant", "recomb_fraction", "hotspot_between", "map_approx",
-               "ensembl_pos_check", "in_recommended_panel", STAR_FIELD])
+               "ensembl_pos_check", "in_recommended_panel", STAR_FIELD]
+            + (list(PRIMER_COLUMNS) if primers else []))
 
 
 CSV_COLUMNS = tuple(_columns())            # the shape when no ancestry was selected
@@ -121,6 +132,113 @@ def _star_facts(result) -> list[tuple[str, str]]:
     return [] if not note else [(f"Star ({STAR_FIELD})", " ".join(note)),
                                 ("Markers meeting the flanking criteria",
                                  _star_count_text(result))]
+
+
+# --------------------------------------------------------------------------- #
+# Primers. primers.py designs them and app/ispcr.py verifies them; both own every word
+# of every warning they raise. Exports read the verdict and the words, and restate
+# neither. Fields are read straight off primers.PrimerResult rather than defensively:
+# a renamed field must break here loudly, not print an empty primer block.
+# --------------------------------------------------------------------------- #
+
+def _primer(m):
+    """This marker's primers.PrimerResult, or None where the engine designed none.
+
+    None means no design was attempted: primer3 is optional and absent by default. A design
+    that ran and FAILED is a PrimerResult carrying `error`. Absence and failure are
+    different facts and must never print the same.
+    """
+    return getattr(m, "primer", None)
+
+
+def _has_primers(result) -> bool:
+    return any(_primer(m) is not None for m in result.candidates)
+
+
+def _pcr_state(p) -> str:
+    """'danger' | 'pass' | 'unverified', from the engine's own verdict token.
+
+    ispcr owns the vocabulary, so the tokens are read from it and never spelled here. Only
+    ONE_PRODUCT is a pass: not_checked, unknown and any token a later build adds are all
+    unverified, since a verdict this file failed to recognise must never render clean.
+    """
+    if p.insilico_pcr == ispcr.DANGER:
+        return "danger"
+    return "pass" if p.insilico_pcr == ispcr.ONE_PRODUCT else "unverified"
+
+
+def _primer_warnings(p) -> list:
+    """The engine's own warnings, verbatim and all of them.
+
+    The LONG form of each: an export is read away from the app, so the short form's implicit
+    "see the docs" would point at nothing. Never empty for a pair: primers.py welds them onto
+    the result, and a primer printed with no warning beside it reads as a primer with nothing
+    wrong with it.
+    """
+    return [x.long for x in p.warnings] or \
+        ["What is wrong with this pair is not reported by this build. It has not been "
+         "verified."]
+
+
+def _mask_note(p) -> str:
+    """The engine's own words for what the primer sites were kept clear of, in full.
+
+    Never restated here: only the engine knows what its mask actually reached, and a label
+    claiming more than was masked is worse than no label at all. The long form, like the
+    warnings: an export is read away from the docs the short form defers to.
+    """
+    return p.mask_note.long if p.mask_note else \
+        (f"{len(p.masked)} variants masked; what the mask covers is not reported by this "
+         f"build.")
+
+
+def _oligo_cells(o) -> list:
+    """One oligo's four cells: sequence 5'->3' as ordered, Tm, GC, length."""
+    return [None] * 4 if o is None else [o.seq, o.tm, o.gc, o.length]
+
+
+def _primer_row(m) -> list:
+    """Values in PRIMER_COLUMNS order. Keep the two in step."""
+    p = _primer(m)
+    if p is None:
+        return [None] * len(PRIMER_COLUMNS)
+    return [*_oligo_cells(p.fwd), *_oligo_cells(p.rev),
+            # product_end is the engine's own property: never recomputed from start+size.
+            p.product_size, p.product_start, p.product_end, len(p.masked),
+            # The token verbatim: 'not_checked' is the engine's default and is not a pass.
+            p.insilico_pcr, " | ".join(_primer_warnings(p)), p.error]
+
+
+def _primer_dict(m):
+    """The pair as JSON data, or None. Built here rather than left to asdict(): the warnings
+    ride along as a list, and JSON must not be the one format that drops one.
+    """
+    p = _primer(m)
+    if p is None:
+        return None
+    return dict(zip(PRIMER_COLUMNS, _primer_row(m)),
+                primer_warnings=_primer_warnings(p), mask_note=_mask_note(p))
+
+
+def _primer_facts(result) -> list[tuple[str, str]]:
+    """Pair counts and what was checked, or nothing at all where none was designed: a
+    "0 primers" line on a server that never ran a design reports a failure that never
+    happened.
+    """
+    pm = [_primer(m) for m in result.candidates if _primer(m) is not None]
+    if not pm:
+        return []
+    st = [_pcr_state(p) for p in pm]
+    fail = sum(1 for p in pm if p.error)
+    return [("Primer pairs", f"{len(pm) - fail} designed, {fail} could not be designed, "
+                             f"over {len(pm)} markers design was attempted for"),
+            ("Primer in-silico PCR", f"{st.count('pass')} one product; "
+                                     f"{st.count('unverified')} NOT VERIFIED; "
+                                     f"{st.count('danger')} DANGER. Only one product is a "
+                                     f"pass: every other verdict, the default included, "
+                                     f"means this pair has not been shown to amplify one "
+                                     f"locus. No pair here is bench-validated (R3)."),
+            ("Primer in-silico PCR caveat", ispcr.CAVEAT)]
 
 
 def _nl_caveat(result):
@@ -227,6 +345,7 @@ def _facts(result) -> list[tuple[str, str]]:
         ("Coverage flags (R5)", "; ".join(cov["flags"]) or "none"),
         # Beside the coverage flags: both are per-side statements about the same shortlist.
         *_star_facts(result),
+        *_primer_facts(result),
         ("Source: ClinVar", src["clinvar"]),
         ("Source: Ensembl", src["ensembl"]),
         ("Source: gnomAD", src["gnomad"]),
@@ -245,15 +364,16 @@ def _num(x) -> str:
     return "" if x is None else repr(x) if isinstance(x, float) else str(x)
 
 
-def _row(m, recommended_ids: set, anc=None) -> list:
-    """Values in _columns(anc) order. Keep the two in step."""
+def _row(m, recommended_ids: set, anc=None, primers=False) -> list:
+    """Values in _columns(anc, primers) order. Keep the two in step."""
     return ([m.rsid, m.chrom, m.pos, m.ref, m.alt, m.dist, m.side, m.tier,
              m.maf, m.af, m.an, m.het, m.het_max_pop]
             + ([_rank_het(m, anc)] if anc else [])
             + [m.per_pop_maf.get(p) for p in POPS]
             + [m.per_pop_an.get(p) for p in POPS]
             + [m.cm, m.recomb_fraction, m.hotspot_between, m.map_approx,
-               m.ensembl_pos_check, m.variant_id in recommended_ids, _star_cell(m)])
+               m.ensembl_pos_check, m.variant_id in recommended_ids, _star_cell(m)]
+            + (_primer_row(m) if primers else []))
 
 
 def FILENAME(result, ext: str) -> str:
@@ -296,6 +416,18 @@ def to_csv(result) -> bytes:
     c(f"AN {pb.CALL_RATE_AN_FLOOR} are excluded entirely; a population MAF is reported only")
     c(f"above AN {pb.MIN_POP_AN} (~{pb.MIN_POP_AN // 2} people). gnomAD QC-failed sites")
     c("(AC0 / AS_VQSR) are excluded and never appear here.")
+    if _has_primers(result):
+        c("primer_* are CANDIDATE designs: no pair here has been tested at the bench.")
+        c("primer_fwd/primer_rev read 5' to 3' as they would be ordered.")
+        c(f"primer_insilico_pcr is the verdict. ONLY {ispcr.ONE_PRODUCT!r} is a pass. The")
+        c(f"default {ispcr.NOT_CHECKED!r} means nothing looked for other products in the")
+        c(f"genome, {ispcr.DANGER!r} means in-silico PCR found something wrong with the pair,")
+        c(f"and {ispcr.UNKNOWN!r} means the answer could not be read. Read primer_warnings")
+        c("before ordering any pair: it is never empty for a pair that exists.")
+        c("primer_design_error carries the reason where no pair could be designed. Empty")
+        c("primer_* cells mean no design was attempted for that marker, which is not a")
+        c("verdict about it.")
+        c(ispcr.CAVEAT)
     c(f"All positions are {result.variant.build} (R6).")
     c(_cm_note(result))
     c()
@@ -308,9 +440,10 @@ def to_csv(result) -> bytes:
     nl_model = result.provenance.get("nl_model")
     extra = ["variant_chosen_by_language_model"] if nl_model else []
     rec = {m.variant_id for m in result.recommended}
-    w.writerow(_columns(anc) + extra)
+    pr = _has_primers(result)
+    w.writerow(_columns(anc, pr) + extra)
     for m in result.candidates:
-        w.writerow(_row(m, rec, anc) + ([nl_model] if nl_model else []))
+        w.writerow(_row(m, rec, anc, pr) + ([nl_model] if nl_model else []))
     return buf.getvalue().encode("utf-8")
 
 
@@ -322,21 +455,42 @@ def to_json(result) -> bytes:
     d = result.to_dict()
     rec = {m.variant_id for m in result.recommended}
     anc = _rank_pop(result)
+    pr = _has_primers(result)
+    # Both lists, because to_dict() writes the shortlist out twice: once inside `candidates`
+    # and again whole under `recommended`. Enriching only the first left the same pair in two
+    # different shapes in one file, and a reader who took the shortlist rather than filtering
+    # the candidates got the lesser one.
     # zip relies on to_dict() being asdict(), which preserves list order; the assert checks it.
-    for m, md in zip(result.candidates, d["candidates"]):
-        assert md["variant_id"] == m.variant_id, "to_dict() reordered candidates"
-        md["in_recommended_panel"] = md["variant_id"] in rec
-        # STAR_FIELD needs no line here: it is a Marker field, so asdict() already carried
-        # it, and provenance["flanking_criteria"] already carries the engine's words for it.
-        # Via _rank_het, the same expression the other three formats use: only _rank_het is
-        # pinned to the engine's ranking key by the self-check.
-        if anc:
-            md[f"het_2pq_prior_{anc}"] = _rank_het(m, anc)
+    for key in ("candidates", "recommended"):
+        for m, md in zip(getattr(result, key), d[key]):
+            assert md["variant_id"] == m.variant_id, f"to_dict() reordered {key}"
+            md["in_recommended_panel"] = md["variant_id"] in rec
+            # STAR_FIELD needs no line here: it is a Marker field, so asdict() already carried
+            # it, and provenance["flanking_criteria"] already carries the engine's words for it.
+            # Via _rank_het, the same expression the other three formats use: only _rank_het is
+            # pinned to the engine's ranking key by the self-check.
+            if anc:
+                md[f"het_2pq_prior_{anc}"] = _rank_het(m, anc)
+            # Always, because Marker.primer is a field and asdict() has already put a null
+            # here: the key is the engine's shape and a machine reader keeps it. Null means no
+            # design for this marker, which is not a verdict about it. The PROSE below is what
+            # stays conditional, since explaining primers to a panel that has none explains
+            # nothing.
+            md["primer"] = _primer_dict(m)
     prov = dict(d["provenance"], genetic_map_note=_cm_note(result),
                 ranking_key=_ranking_key(result),
                 ranking_excludes="LD with the pathogenic variant is never a ranking key (R2)",
                 het_2pq_semantics="population prior, not a per-carrier genotype claim (R4)",
                 transcript_sense=result.variant.transcript_sense_change())
+    if _has_primers(result):
+        prov["primer_semantics"] = (
+            f"Candidate designs, never bench-validated (R3). Of the four "
+            f"primer_insilico_pcr verdicts only {ispcr.ONE_PRODUCT!r} is a pass, and it is "
+            f"an in-silico check against the reference rather than a wet-lab result. "
+            f"{ispcr.NOT_CHECKED!r} is the default, {ispcr.DANGER!r} is a finding to act on "
+            f"and {ispcr.UNKNOWN!r} is an unreadable answer; all three mean the pair has not "
+            f"been shown to amplify one locus. primer_warnings is never empty for a pair.")
+        prov["primer_insilico_pcr_caveat"] = ispcr.CAVEAT
     # nl_text/nl_model are already here from build(), stable shape, null when the user
     # named the variant. The rendered sentence is added only when there IS one to render.
     if caveat := _nl_caveat(result):
@@ -461,6 +615,7 @@ def to_xlsx(result) -> bytes:
     wrap = Alignment(wrap_text=True, vertical="top")
     rec = {m.variant_id for m in result.recommended}
     anc = _rank_pop(result)
+    pr = _has_primers(result)
 
     wb = Workbook()
     wb.remove(wb.active)
@@ -474,7 +629,7 @@ def to_xlsx(result) -> bytes:
 
     def table(title, markers):
         ws = sheet(title)
-        headers = _columns(anc)
+        headers = _columns(anc, pr)
         if _map_approx(result):
             headers[headers.index("cm_to_variant")] = "cm_to_variant (APPROX - see map_approx)"
         ws.append([])                       # row 2 spacer keeps A1 readable
@@ -482,7 +637,7 @@ def to_xlsx(result) -> bytes:
         for c in ws[3]:
             c.font = bold
         for m in markers:
-            ws.append(_row(m, rec, anc))
+            ws.append(_row(m, rec, anc, pr))
         ws.freeze_panes = "A4"              # rows 1-3: disclaimer + header stay visible
         _autosize(ws)
         return ws
@@ -500,7 +655,10 @@ def to_xlsx(result) -> bytes:
         ws["A1"].alignment = Alignment(horizontal="left", indent=3)
     ws["A2"] = (f"Balanced subset, both sides (R5). CANDIDATES ONLY - genotype the carrier, "
                 f"keep heterozygous markers, then phase (R3). het_2pq_prior_* are population "
-                f"priors (R4). Positions {result.variant.build} (R6).")
+                f"priors (R4). Positions {result.variant.build} (R6)."
+                + (" primer_* are candidate designs, never bench-validated: "
+                   "primer_insilico_pcr='not_checked' is the DEFAULT and is NOT a pass."
+                   if pr else ""))
     table("All candidates", result.candidates)["A2"] = (
         f"Full common pool (MAF >= {result.provenance['common_maf']}), ranked on "
         f"{_ranking_key(result)} - never on LD with the pathogenic variant (R2). "
@@ -777,6 +935,11 @@ def to_pdf(result) -> bytes:
         text(f"Markers meeting the flanking criteria: {_star_count_text(result)}",
              6.4, "Helvetica-Oblique", 1.7, colors.black, L + 11)
 
+    # --- primers ------------------------------------------------------------
+    # Before the lab steps and after the table: these are what a reader hands to a bench,
+    # and the steps below are what the bench then has to do with them.
+    _primer_section(c, result, L, R, TOP - BOT, state, need, text, colors, stringWidth)
+
     # --- the wet-lab hand-off -----------------------------------------------
     state["y"] -= 8
     need(30)
@@ -832,6 +995,144 @@ def _draw_mark(c, x, y_top, size) -> bool:
     c.drawPath(p, stroke=0, fill=1)
     c.setFillColor(colors.black)
     return True
+
+
+# Sequences are set in Courier so the two 5' ends line up under one another and a reader can
+# count bases off the printed page.
+SEQ_FONT, SEQ_SIZE = "Courier-Bold", 7.6
+
+
+def _para(c, s, font, size, x, R, y, colour, stringWidth) -> float:
+    """One wrapped paragraph from y downwards; returns the y it ends at. c=None measures."""
+    for line in _wrap(s, font, size, R - x, stringWidth):
+        if c:
+            c.setFont(font, size)
+            c.setFillColor(colour)
+            c.drawString(x, y - size, line)
+        y -= size + 1.8
+    return y
+
+
+def _verdict_box(c, head, paras, kind, x, R, y, colors, stringWidth) -> float:
+    """The verdict and every warning under it, from y down; returns the y it ends at.
+
+    c=None measures. This page is printed in black and white, so the three states differ in
+    ink, outline and weight, never in hue alone: a danger is reversed out of a filled bar,
+    an unverified pair is boxed and bold, and only a verified pair is left plain.
+    """
+    size, pad = 6.8, 4
+    font = "Helvetica" if kind == "plain" else "Helvetica-Bold"
+    lines = []
+    for i, para in enumerate(paras):
+        # A colon, because the engine's own warnings already open at a shout: without one,
+        # "NOT VERIFIED NOT CHECKED AGAINST THE GENOME" reads as a stutter rather than as a
+        # label over the engine's sentence.
+        lines += _wrap(para if i else f"{head}: {para}", font, size,
+                       R - x - 2 * pad - 4, stringWidth)
+    h = len(lines) * (size + 2) + 2 * pad
+    if c:
+        if kind == "danger":
+            c.setFillColor(colors.black)
+            c.rect(x, y - h, R - x, h, stroke=0, fill=1)
+            c.setFillColor(colors.white)
+        else:
+            if kind == "box":
+                c.setStrokeColor(colors.black)
+                c.setLineWidth(0.9)
+                c.rect(x, y - h, R - x, h, stroke=1, fill=0)
+            c.setFillColor(colors.black)
+        c.setFont(font, size)
+        yy = y - pad
+        for line in lines:
+            c.drawString(x + pad + 2, yy - size, line)
+            yy -= size + 2
+        c.setFillColor(colors.black)
+    return y - h
+
+
+def _product_text(p, m) -> str:
+    if p.product_start is None or p.product_end is None:
+        return "product coordinates: not reported by this build"
+    return (f"product {p.product_size:,} bp   chr{m.chrom}:{p.product_start:,}-"
+            f"{p.product_end:,}")
+
+
+def _primer_block(c, m, L, R, y, colors, stringWidth) -> float:
+    """One marker's primer pair, from y downwards; returns the y it ends at.
+
+    c=None measures without drawing. The space a block reserves and the ink it lays down come
+    out of this one pass, so a block cannot be reserved shorter than it draws and split
+    across a page in the middle of its own warning.
+    """
+    p, x = _primer(m), L + 9
+    if c:
+        c.setFillColor(colors.black)
+        c.setFont("Helvetica-Bold", 8.2)
+        c.drawString(L, y - 8, m.rsid)
+        c.setFont("Helvetica", 7.2)
+        c.drawString(L + 62, y - 8, f"chr{m.chrom}:{m.pos:,} {m.ref}>{m.alt}")
+        c.drawRightString(R, y - 8, _product_text(p, m))
+    y -= 11.5
+
+    # A pair with no oligos is a failure whether or not it carries the reason, and it says so
+    # rather than printing an empty block that reads as a pair with nothing wrong.
+    if p.error or p.fwd is None or p.rev is None:
+        return _verdict_box(c, "NO PRIMER DESIGNED",
+                            [str(p.error or "This build reports no pair and no reason.")],
+                            "box", x, R, y, colors, stringWidth)
+
+    for tag, o in (("FWD", p.fwd), ("REV", p.rev)):
+        s = f"{tag} 5'-{o.seq}-3'"
+        met = f"Tm {o.tm:.1f} C   GC {o.gc:.1f}%   {o.length} nt"
+        # A long oligo takes the metrics to their own line rather than printing them over it.
+        drop = 0 if (stringWidth(s, SEQ_FONT, SEQ_SIZE)
+                     + stringWidth(met, "Helvetica", 6.8) + 16 <= R - x) else 9
+        if c:
+            c.setFillColor(colors.black)
+            c.setFont(SEQ_FONT, SEQ_SIZE)
+            c.drawString(x, y - SEQ_SIZE, s)
+            c.setFont("Helvetica", 6.8)
+            c.drawRightString(R, y - SEQ_SIZE - drop, met)
+        y -= SEQ_SIZE + 2.6 + drop
+    # The engine's mask sentence stands on its own: a label in front of it would be this
+    # file's word for a reach only the engine knows.
+    y = _para(c, _mask_note(p), "Helvetica", 6.4, x, R, y - 1, colors.black, stringWidth)
+    kind, head = {"danger": ("danger", "DANGER"),
+                  "unverified": ("box", "NOT VERIFIED"),
+                  "pass": ("plain", "VERIFIED CLEAN (in silico)")}[_pcr_state(p)]
+    return _verdict_box(c, head, _primer_warnings(p), kind, x, R, y - 1.5,
+                        colors, stringWidth)
+
+
+def _primer_section(c, result, L, R, usable, state, need, text, colors, stringWidth):
+    """A block per marker the engine designed a pair for, in coordinate order.
+
+    Which markers get one is the engine's; this renders a block for every pair it finds and
+    picks no marker of its own.
+    """
+    pm = [m for m in sorted(result.candidates, key=lambda m: m.dist) if _primer(m)]
+    if not pm:
+        return
+    state["y"] -= 10
+    # Keep the heading with its first block: a section title alone at the foot of a page
+    # sends the reader looking for a section that is not there. The reserve overshoots the
+    # heading and its lead on purpose, since reserving too much only moves the section down
+    # a page and can never clip it.
+    need(46 + state["y"] - _primer_block(None, pm[0], L, R, state["y"], colors, stringWidth))
+    text(f"Primer pairs ({len(pm)} candidate designs, {result.variant.build})",
+         10, "Helvetica-Bold", 4)
+    text("Candidate designs: no pair here has been tested at the bench, and a pair was "
+         "checked against the genome only where its verdict below says so. Both sequences "
+         "read 5' to 3' as they would be ordered. Product coordinates are "
+         f"{result.variant.build} (R6).", 6.5, "Helvetica-Oblique", 3, colors.grey)
+    for m in pm:
+        h = state["y"] - _primer_block(None, m, L, R, state["y"], colors, stringWidth)
+        # Measured whole, reserved whole: a block never splits across a page. Nothing here
+        # breaks one that is taller than a page, and no warning is ever shortened to fit.
+        assert h <= usable, (f"the primer block for {m.rsid} is {h:.0f}pt on a {usable:.0f}pt "
+                             f"page and would clip its own warning")
+        need(h + 5)
+        state["y"] = _primer_block(c, m, L, R, state["y"], colors, stringWidth) - 5
 
 
 def _figure(c, result, L, R, state, need, colors):
@@ -930,13 +1231,35 @@ def _pdf_streams(data: bytes) -> list[str]:
             for s in re.findall(rb"stream\r?\n(.*?)~>\s*endstream", data, re.S)]
 
 
-def _pdf_text(data: bytes) -> str:
-    """The strings a reader actually sees, pulled back out of the PDF.
+def _pdf_pages(data: bytes) -> list[str]:
+    """The strings a reader actually sees, per page, in page order.
 
     Not a general PDF parser: it reads the ASCII85+Flate streams and text-showing
     operators reportlab happens to emit, which is what drawString put there.
     """
-    return "\n".join(m for d in _pdf_streams(data) for m in re.findall(r"\((.*?)\) Tj", d))
+    return ["\n".join(re.findall(r"\((.*?)\) Tj", d)) for d in _pdf_streams(data)]
+
+
+def _pdf_text(data: bytes) -> str:
+    """Every string a reader sees, whole document."""
+    return "\n".join(_pdf_pages(data))
+
+
+def _pdf_baselines(data: bytes) -> list[list[float]]:
+    """The y every line of text was drawn at, per page: what a clipping check reads."""
+    return [[float(y) for y in re.findall(r"1 0 0 1 -?[\d.]+ (-?[\d.]+) Tm", d)]
+            for d in _pdf_streams(data)]
+
+
+def _pdf_rects(data: bytes, op: str) -> list[tuple]:
+    """Rectangles per page, by paint operator: 'f\\*' filled, 'S' stroked only.
+
+    The warning boxes are the only rectangles this report paints, and the distinction is the
+    warning: a filled bar is a danger and an outline is a pair nothing checked.
+    """
+    pat = r"n (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) (-?[\d.]+) re " + op
+    return [tuple(tuple(float(g) for g in r) for r in re.findall(pat, d))
+            for d in _pdf_streams(data)]
 
 
 def _pdf_stems(data: bytes) -> list[float]:
@@ -1026,6 +1349,17 @@ if __name__ == "__main__":
 
     # --- branches the golden case does not hit -------------------------------
     import copy
+
+    def no_primers(res):
+        """A copy of res carrying no primer at all: what a server without primer3 builds.
+
+        Whether THIS server has the optional dependency is not the golden report's business,
+        so every check that pins the report's shape is pinned against this.
+        """
+        out = copy.deepcopy(res)
+        for mk in out.candidates:
+            mk.primer = None
+        return out
 
     # 1. Approximate genetic map => every format must say so next to the cM column.
     approx = copy.deepcopy(r)
@@ -1213,8 +1547,9 @@ if __name__ == "__main__":
                             "rs151344623 ABCC8"), "the masthead displaced the variant card"
     for lbl in (r"Genomic \(VCF\):", r"Coverage \(R5\):"):     # first and last card rows
         assert lbl in page1, f"the masthead pushed {lbl!r} off page 1"
-    # Length is a canary, not a target: any growth trips this and gets looked at.
-    assert len(_pdf_streams(blobs["pdf"])) == 2, "the golden report changed length"
+    # Length is a canary, not a target: any growth trips this and gets looked at. Measured
+    # without primers, since how many blocks this server can design is not the report's shape.
+    assert len(_pdf_streams(to_pdf(no_primers(r)))) == 2, "the golden report changed length"
     assert min(p[1] for p in pts) > letter[1] - 72, "the mark left the top inch of the page"
 
     # Page 1 only. A mark on every page is noise, and the multipage branch is where a
@@ -1379,7 +1714,243 @@ if __name__ == "__main__":
     assert _row(r.recommended[0], set())[af_col] == r.recommended[0].af, \
         "the CSV af column must stay an exact float, never a formatted string"
 
+    # 12. Primers. Synthesised, because primer design is optional and is not in the default
+    # image: the golden fixture may carry no pair at all, and every branch below still has to
+    # be proven. A panel with no primer is the OTHER case, and it is `r` itself.
+    import primers
+
+    # A panel with no primer says NOTHING about primers: no column, no block, no "0 designed".
+    # This is the default server (primer3 is optional and absent from the default image), and
+    # a report that describes a design failure that never happened is describing nothing.
+    nop = no_primers(r)
+    nop_pdf = to_pdf(nop)
+    for fmt, body in (("csv", to_csv(nop).decode()), ("pdf", _pdf_text(nop_pdf)),
+                      ("xlsx", "\n".join(
+                          str(c.value) for ws in load_workbook(io.BytesIO(to_xlsx(nop)))
+                          for row in ws.iter_rows() for c in row if c.value is not None))):
+        assert "primer" not in body.lower(), \
+            f"{fmt} talks about primers for a build that designed none"
+    # JSON keeps the field, because Marker.primer is one and a machine reader wants a stable
+    # key: null is the honest rendering of a design that never ran. The PROSE stays away.
+    nop_js = json.loads(to_json(nop))
+    assert all(cd["primer"] is None for cd in nop_js["candidates"]), \
+        "a panel with no design must carry a null primer, never a record"
+    assert not [k for k in nop_js["provenance"] if "primer" in k], \
+        "json explains primers to a build that designed none"
+
+    def dna(i, n):
+        """A distinct, plausible oligo per marker: the index in base 4, then filler."""
+        s = ""
+        while i:
+            s, i = s + "ACGT"[i % 4], i // 4
+        return (s + "GCATTGCAAGGCCTTAGCATCGATCGGATCCTTAGCAA")[:n]
+
+    def oligo(i, n, pos):
+        return primers.Primer(seq=dna(i, n), pos=pos, idx=i, length=n,
+                              tm=68.5 + i / 10, gc=54.5)
+
+    # Built off the primer-free panel, so this case is the same whether or not this server
+    # has primer3: the engine's own designs are its module's to prove, not this one's.
+    prim = no_primers(r)
+    starred = [m for m in prim.recommended if _starred(m)]
+    assert len(starred) >= 8, \
+        f"the multipage primer case needs several starred markers, this panel has {len(starred)}"
+    # Real primers.PrimerResult objects, never a stand-in shape: this is the seam exports
+    # read, so a renamed field must fail here rather than ship an empty primer block.
+    for i, m in enumerate(starred):
+        kw = dict(fwd=oligo(2 * i + 2, 26, m.pos - 190), rev=oligo(2 * i + 3, 24, m.pos + 160),
+                  product_size=380 + i, product_start=m.pos - 190,
+                  masked=tuple(primers.MaskSite(pos=m.pos - 300 + j, ref="A", alt="G",
+                                                maf=0.02) for j in range(4 + i)),
+                  mask_note=primers.Note(
+                      code="mask",
+                      short=f"SENTINEL-SHORT-mask-{i}: the one-line form.",
+                      long=f"SENTINEL-MASK-{i}: gnomAD SNPs and indels at MAF >= 1% in this "
+                           f"window sit under neither primer."),
+                  warnings=(primers.NOT_CHECKED_WARNING,))
+        # Both lengths carry a distinguishable sentinel, because print must take the long one
+        # and only the long one: the short form defers to a docs link, and a filed page has
+        # nothing to click. A PDF quietly rendering `short` would still look like prose.
+        def note(code, long):
+            return primers.Note(code=code, long=long,
+                                short=f"SENTINEL-SHORT-{code}-{i}: the one-line form.")
+        # Five cases, because there are five: the four ispcr verdicts and a design that
+        # failed. not_checked is the DEFAULT and the one every real build ships today, so it
+        # is the one that must not be missing from the check.
+        if i % 5 == 0:
+            kw.update(insilico_pcr=ispcr.DANGER,
+                      warnings=(note("danger",
+                                     f"SENTINEL-DANGER-{i}: UCSC In-Silico PCR found {2 + i} "
+                                     f"products for this pair in hg38, not one. A pair that "
+                                     f"amplifies more than one locus cannot be genotyped. Do "
+                                     f"not order this pair without redesigning it."),
+                                note("caveat", ispcr.CAVEAT)))
+        elif i % 5 == 1:
+            kw.update(insilico_pcr=ispcr.NOT_CHECKED)      # the engine's own default words
+        elif i % 5 == 2:
+            kw.update(insilico_pcr=ispcr.UNKNOWN,
+                      warnings=(note("unknown",
+                                     f"SENTINEL-UNKNOWN-{i}: the answer from UCSC could not "
+                                     f"be read, so this pair is not verified. Retry later."),))
+        elif i % 5 == 3:
+            kw.update(insilico_pcr=ispcr.ONE_PRODUCT,
+                      warnings=(note("pass",
+                                     f"SENTINEL-PASS-{i}: UCSC In-Silico PCR: one product, "
+                                     f"chr{m.chrom}, {380 + i}bp, as designed."),
+                                note("caveat", ispcr.CAVEAT)))
+        else:
+            kw = dict(mask_note=kw["mask_note"], masked=kw["masked"],
+                      error=f"SENTINEL-FAIL-{i}: no {primers.DEFAULTS.min_size}-"
+                            f"{primers.DEFAULTS.max_size} bp primer reaches "
+                            f"{primers.DEFAULTS.min_tm:.0f} C in this window at "
+                            f"{primers.DEFAULTS.min_gc:.0f}-{primers.DEFAULTS.max_gc:.0f}% "
+                            f"GC; the window is 30% GC. Nothing was relaxed to force a pair.")
+        m.primer = primers.PrimerResult(**kw)
+    pm = [m for m in prim.candidates if _primer(m)]
+    assert len(pm) == len(starred) and _has_primers(prim)
+    n_danger = sum(_pcr_state(_primer(m)) == "danger" for m in pm)
+    n_box = sum(1 for m in pm if not _primer(m).ok
+                or _pcr_state(_primer(m)) == "unverified")
+    assert n_danger and n_box and sum(_pcr_state(_primer(m)) == "pass" for m in pm), \
+        "the primer case must carry a danger, an unverified pair and a clean one, or it " \
+        "proves nothing about telling them apart"
+
+    p_pdf, p_csv = to_pdf(prim), to_csv(prim).decode()
+    p_json = json.loads(to_json(prim))
+    p_xl = load_workbook(io.BytesIO(to_xlsx(prim)))
+    pages = _pdf_pages(p_pdf)
+    p_flat = " ".join(_pdf_text(p_pdf).split()).replace("\\(", "(").replace("\\)", ")")
+
+    # The whole panel of blocks pushes the report past one page, which is where a masthead
+    # leaks, a footer gets overrun and a block gets torn in half.
+    assert len(pages) > len(_pdf_streams(nop_pdf)), "primer blocks did not lengthen the PDF"
+    assert [i for i, s in enumerate(_pdf_streams(p_pdf)) if _pdf_mark_points(s)] == [0], \
+        "the mark must stay a page-1 masthead once the primers paginate"
+    for i, page in enumerate(pages):                 # R8, verbatim, on EVERY page
+        flat = " ".join(page.split()).replace("\\(", "(").replace("\\)", ")")
+        assert " ".join(pb.DISCLAIMER.split()) in flat, f"disclaimer missing from page {i + 1}"
+    # Nothing clips: every line of text sits inside the page, above the footer's own band.
+    for i, ys in enumerate(_pdf_baselines(p_pdf)):
+        assert ys and min(ys) >= 26 and max(ys) <= letter[1] - 26, \
+            f"page {i + 1} draws text outside the page: {min(ys)} to {max(ys)}"
+
+    # A block is never split across a page: whatever page carries a pair's sequences carries
+    # its warning too. A warning left behind on the previous page is a primer with no warning.
+    for m in pm:
+        p = _primer(m)
+        key = p.error or _primer_warnings(p)[0]
+        home = [i for i, pg in enumerate(pages) if m.rsid in pg.split("\n")]
+        assert home, f"{m.rsid} has no primer block on any page"
+        pg = " ".join(pages[home[-1]].split())
+        for part in ([f"FWD 5'-{p.fwd.seq}-3'", f"REV 5'-{p.rev.seq}-3'"] if p.ok else []) \
+                + [" ".join(key.split()[:6])]:
+            assert " ".join(part.split()) in pg, \
+                f"{m.rsid}: the block is split across a page, {part[:32]!r} left behind"
+
+    # WARNINGS IN BLACK AND WHITE. A danger is reversed out of a filled bar and an unchecked
+    # pair is boxed: read back the paint operators, since a hue is the first thing the printer
+    # this page is filed off throws away.
+    assert sum(len(pg) for pg in _pdf_rects(p_pdf, r"f\*")) == n_danger, \
+        "a DANGEROUS pair without its filled warning bar"
+    assert sum(len(pg) for pg in _pdf_rects(p_pdf, "S")) == n_box, \
+        "an unchecked or undesigned pair without its box"
+    assert not _pdf_rects(nop_pdf, r"f\*")[0], "the panel with no primers paints a bar"
+    # Each verdict heads its own box, once per pair. Counted off the head of a drawn line,
+    # since the warning prose underneath quotes these words back.
+    p_lines = [ln.replace("\\(", "(").replace("\\)", ")")
+               for ln in _pdf_text(p_pdf).split("\n")]
+    for kind, head in (("danger", "DANGER"), ("unverified", "NOT VERIFIED"),
+                       ("pass", "VERIFIED CLEAN (in silico)")):
+        n = sum(_pcr_state(_primer(m)) == kind and _primer(m).ok for m in pm)
+        got = sum(1 for ln in p_lines if ln.startswith(head + ":"))
+        assert got == n, f"{got} {head!r} heads on the page for {n} {kind} pairs"
+    assert "NOT VERIFIED" in p_flat and "VERIFIED CLEAN (in silico)" in p_flat, \
+        "the unverified and the verified states must not read as the same verdict"
+    assert sum(1 for ln in p_lines if ln.startswith("NO PRIMER DESIGNED:")) \
+        == sum(1 for m in pm if not _primer(m).ok)
+
+    # NEVER HIDE A PRIMER: the dangerous ones are on the page in full, sequence and all, and
+    # every word the engine warned with is on the page beside them.
+    for m in pm:
+        p = _primer(m)
+        for part in ([p.fwd.seq, p.rev.seq, _mask_note(p)] if p.ok else [p.error]):
+            assert " ".join(str(part).split()) in p_flat, f"{m.rsid}: {str(part)[:24]!r} hidden"
+        for w in (_primer_warnings(p) if p.ok else []):
+            assert " ".join(w.split()) in p_flat, f"{m.rsid}: dropped a warning: {w[:40]!r}"
+
+    # The same facts as DATA, and they survive the reader who strips the header block: the
+    # sequences and the verdict are columns, never prose.
+    # csv.reader, not split(","): a warning is prose and carries commas, and the reader who
+    # splits on them is reading a different value under the same header.
+    p_bare = [row for row in csv.reader(io.StringIO(p_csv))
+              if row and not row[0].startswith("#")]
+    p_cols = p_bare[0]
+    for col in PRIMER_COLUMNS:
+        assert col in p_cols, f"csv has no {col} column"
+    p_rows = {row[0]: row for row in p_bare[1:]}
+    p_xl_hdr = [c.value for c in p_xl["All candidates"][3]]
+    p_xl_rows = {row[0]: row for row in
+                 p_xl["All candidates"].iter_rows(min_row=4, values_only=True)}
+    p_js = {c["variant_id"]: c for c in p_json["candidates"]}
+    for m in prim.candidates:
+        p, row = _primer(m), p_rows[m.rsid]
+        want = dict(zip(PRIMER_COLUMNS, _primer_row(m)))
+        assert dict(zip(_columns(None, True), _row(m, set(), None, True)))["primer_fwd"] \
+            == want["primer_fwd"], "_columns/_row are out of order over the primer block"
+        for col in ("primer_fwd", "primer_rev", "primer_insilico_pcr", "primer_warnings",
+                    "primer_design_error"):
+            v = want[col]
+            assert row[p_cols.index(col)] == ("" if v is None else str(v)), \
+                f"csv: wrong {col} under its own header for {m.rsid}"
+            assert p_xl_rows[m.rsid][p_xl_hdr.index(col)] == v, f"xlsx: wrong {col}"
+        js = p_js[m.variant_id]["primer"]
+        assert (js or {}).get("primer_fwd") == want["primer_fwd"], "json: wrong sequence"
+        if p is None:
+            # No design attempted is not a verdict: it must print empty, never a pass.
+            assert js is None and row[p_cols.index("primer_insilico_pcr")] == ""
+        else:
+            assert js["primer_warnings"] == _primer_warnings(p), "json drops a warning"
+            assert row[p_cols.index("primer_insilico_pcr")] not in ("", "None"), \
+                f"{m.rsid}: a real pair with an empty verdict cell reads as nothing wrong"
+            assert row[p_cols.index("primer_warnings")], \
+                f"{m.rsid}: a pair whose warnings did not survive into the CSV"
+    xl_all = "\n".join(str(c.value) for ws in p_xl for row in ws.iter_rows()
+                       for c in row if c.value is not None)
+    for fmt, body in (("csv", p_csv), ("json", to_json(prim).decode()), ("xlsx", xl_all)):
+        for token in (ispcr.NOT_CHECKED, ispcr.DANGER, ispcr.UNKNOWN):
+            assert token in body, f"{fmt} drops the {token!r} verdict"
+        assert "SENTINEL-DANGER-0" in body, f"{fmt} drops the danger's own words"
+        # The LONG form, and never the short one. Every note carries both, and the short one
+        # ends in an implicit "see the docs": printed into a file that leaves the app, it is
+        # a sentence pointing at a link the reader does not have. Both are prose, so nothing
+        # else here would notice the swap.
+        assert "SENTINEL-SHORT-" not in body, \
+            f"{fmt} prints a note's short form, which defers to a link a file cannot follow"
+    assert ispcr.CAVEAT in p_csv and p_json["provenance"]["primer_insilico_pcr_caveat"] \
+        == ispcr.CAVEAT, "the in-silico-only caveat must survive verbatim"
+
+    # json writes the shortlist twice: inside `candidates` and again whole under
+    # `recommended`. Both are the same marker, so both must say the same thing about it. Two
+    # copies enriched by one code path is the only reason this holds.
+    _by_id = {c["variant_id"]: c for c in p_json["candidates"]}
+    for rmd in p_json["recommended"]:
+        assert rmd == _by_id[rmd["variant_id"]], \
+            f"{rmd['variant_id']}: recommended[] and candidates[] disagree about one marker"
+
+    # A verdict this build has never heard of is NOT a pass. ispcr owns the vocabulary and
+    # may grow it; an unread token rendered clean is the failure this whole module refuses.
+    fake = lambda v: primers.PrimerResult(insilico_pcr=v)
+    for token in ("SENTINEL-FUTURE-VERDICT", "", None, "ONE_PRODUCT", ispcr.UNKNOWN,
+                  ispcr.NOT_CHECKED):
+        assert _pcr_state(fake(token)) != "pass", f"{token!r} read as a pass"
+    assert _pcr_state(fake(ispcr.ONE_PRODUCT)) == "pass"
+    assert _pcr_state(fake(ispcr.DANGER)) == "danger"
+    # ...and a pair the engine left no warning on still carries one, rather than reading as
+    # a pair with nothing wrong with it.
+    assert _primer_warnings(fake(ispcr.NOT_CHECKED))[0].endswith("has not been verified.")
+
     print(f"\nself-check OK: {len(r.candidates)} candidates, {len(r.recommended)} recommended, "
           f"4/4 formats, disclaimer verbatim in all; map-approx/no-rsid/multipage branches OK; "
-          f"PDF renders m.side and the deciding 2pq, and draws it at the right height.",
-          file=sys.stderr)
+          f"PDF renders m.side and the deciding 2pq, and draws it at the right height; "
+          f"{len(pm)} primer blocks paginate to {len(pages)} pages, none split, "
+          f"{n_danger} danger bars and {n_box} boxes drawn as shapes.", file=sys.stderr)

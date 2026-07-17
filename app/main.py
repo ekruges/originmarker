@@ -19,7 +19,7 @@ import time
 from dataclasses import asdict
 from functools import lru_cache
 from pathlib import Path
-from typing import Optional
+from typing import Annotated, Optional
 
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response, StreamingResponse
@@ -30,6 +30,7 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 import build_info
 import genetic_map
 import panelbuilder as pb
+import primers
 from app import jobs
 
 VERSION = build_info.VERSION
@@ -83,6 +84,19 @@ class PanelIn(BaseModel):
     # because both are rendered into the PDF; nl_text matches NLIn.text's ceiling.
     nl_text: Optional[str] = Field(default=None, max_length=2000)
     nl_model: Optional[str] = Field(default=None, max_length=60)
+    # Primer knobs: inputs, like window_bp above. Not enumerated here: pb.StructuredQuery
+    # hands the dict to primers.PrimerSettings, which owns every knob, its range and its
+    # error message. Re-listing them here would be a second copy to drift.
+    primer_scope: str = "starred"
+    primer_settings: Optional[dict] = None
+
+
+class VerifyIn(BaseModel):
+    # None means every pair the panel designed. A list selects markers by rsID. Both the
+    # count and each id are bounded: these are only ever matched against a finished panel's
+    # rsIDs, so nothing longer than one can be a real request.
+    rsids: Optional[list[Annotated[str, Field(max_length=40)]]] = \
+        Field(default=None, max_length=64)
 
 
 class NLIn(BaseModel):
@@ -157,6 +171,9 @@ def _client_ip(request: Request) -> str:
 
 PER_IP_MAX = int(os.environ.get("PER_IP_BUILDS", "20"))
 PER_IP_RESOLVES = int(os.environ.get("PER_IP_RESOLVES", "60"))
+# Verification spends someone else's budget: UCSC publishes 5,000 requests a day for the
+# whole server, and one run costs a request per pair. Tighter than builds for that reason.
+PER_IP_VERIFIES = int(os.environ.get("PER_IP_VERIFIES", "4"))
 # Free-text is the only path that spends money: tighter per-IP bucket, plus a global
 # ceiling that does not depend on identifying the caller at all.
 PER_IP_NL = int(os.environ.get("PER_IP_NL", "10"))
@@ -214,6 +231,10 @@ def health():
         ldlink_enabled = _lazy("ldlink").available()   # ldlink owns what "configured" means
     except Exception:  # noqa: BLE001 - health must never be the thing that's down
         ldlink_enabled = False
+    try:
+        insilico_pcr_enabled = _lazy("ispcr").available()
+    except Exception:  # noqa: BLE001
+        insilico_pcr_enabled = False
     return {"ok": True, "version": VERSION,
             # "release" is the app version; "build" below is the GENOME build. Two senses
             # of the word, two keys: never merge them.
@@ -224,6 +245,11 @@ def health():
             "build": "GRCh38", "ensembl_release": _ensembl_release(),
             "map_source": genetic_map.MAP_SOURCE,
             "ldlink_enabled": ldlink_enabled,
+            # Two flags, because they fail apart: primer3 absent means no pair at all, while
+            # a missing UCSC key means a pair that exists and is NOT VERIFIED. A single flag
+            # would let the UI imply the second was checked.
+            "primers_enabled": primers.available(),
+            "insilico_pcr_enabled": insilico_pcr_enabled,
             # R8: canonical wording ships from here; the frontend must never paraphrase it.
             "disclaimer": pb.DISCLAIMER,
             "layer_b_steps": pb.LAYER_B_STEPS,
@@ -255,9 +281,14 @@ def resolve(body: ResolveIn, request: Request):
     acc = v.clinvar_accession
     return {"variant": asdict(v), "rarity": asdict(r),
             "transcript_sense": v.transcript_sense_change(),          # R7
-            # The R2/R3 verdict is worded once, in assess_rarity. Never hand-write a second
-            # copy here: the UI renders {ld_banner || rarity.reason}, so a copy always wins.
+            # The LD verdict is worded once, in assess_rarity. Never hand-write a second
+            # copy here: a copy drifts, and this endpoint is where that last happened.
             "ld_banner": r.reason,
+            # R3 rides on the disclaimer, verbatim, as it does on every other surface. The
+            # verdict above carries the evidence and stops there: it renders on a one-line
+            # card, and this endpoint was the only consumer for which reason had to carry
+            # the phasing requirement itself.
+            "disclaimer": pb.DISCLAIMER,
             "clinvar_url": f"https://www.ncbi.nlm.nih.gov/clinvar/variation/{acc}/" if acc else ""}
 
 
@@ -282,7 +313,10 @@ async def panel(body: PanelIn, request: Request):
 
 @app.get("/api/panel/{job_id}")
 def panel_status(job_id: str):
-    if (job := jobs.get(job_id)) is None:
+    # One registry holds both kinds, so the kind is checked rather than assumed: a verify id
+    # here would otherwise answer with a null result, which reads as a build that found
+    # nothing rather than as the wrong id.
+    if (job := jobs.get(job_id)) is None or job.kind != "panel":
         raise HTTPException(404, f"unknown or expired job {job_id!r}")
     return {"status": job.status, "stage": job.stage, "fraction": job.fraction,
             # The log rides the poller too: proxies buffer SSE, so a log carried only by
@@ -294,6 +328,8 @@ def panel_status(job_id: str):
 
 @app.get("/api/panel/{job_id}/stream")
 async def panel_stream(job_id: str, request: Request):
+    # No kind check, unlike panel_status above: this carries progress and log lines, which
+    # both kinds fill and neither can misread. Only the result needs the guard.
     if (job := jobs.get(job_id)) is None:
         raise HTTPException(404, f"unknown or expired job {job_id!r}")
 
@@ -339,6 +375,41 @@ async def panel_stream(job_id: str, request: Request):
                              headers={"Cache-Control": "no-cache",
                                       "X-Accel-Buffering": "no",
                                       "Connection": "keep-alive"})
+
+
+@app.post("/api/panel/{job_id}/verify", status_code=202)
+def verify_start(job_id: str, body: VerifyIn, request: Request):
+    """Check a finished panel's primer pairs against the whole genome. Streams like a build.
+
+    Never started automatically, and never part of the build: UCSC publishes one request
+    every 15 seconds and 5,000 a day, so a public URL that verified on its own would spend
+    the owner's quota on visitors who never looked at the result.
+    """
+    if not _rate_ok(f"verify:{_client_ip(request)}", PER_IP_VERIFIES):
+        raise HTTPException(429, f"Rate limit: {PER_IP_VERIFIES} verification runs per "
+                                 f"{int(PER_IP_WINDOW / 60)} minutes per client. Each pair "
+                                 f"costs a request against UCSC's published daily limit.")
+    try:
+        return {"job_id": jobs.submit_verify(job_id, body.rsids)}
+    except KeyError:
+        raise HTTPException(404, f"unknown or expired job {job_id!r}")
+    except jobs.Busy as e:
+        raise HTTPException(429, str(e))
+    except ValueError as e:
+        # jobs.submit_verify owns this wording: it says which pair is missing, or that the
+        # panel has none at all.
+        raise HTTPException(409, str(e))
+
+
+@app.get("/api/verify/{job_id}")
+def verify_status(job_id: str):
+    if (job := jobs.get(job_id)) is None or job.kind != "verify":
+        raise HTTPException(404, f"unknown or expired verification job {job_id!r}")
+    return {"status": job.status, "stage": job.stage, "fraction": job.fraction,
+            "log": _job_log(job),
+            # ispcr's own dicts, verbatim: it words every verdict and its caveat, and a
+            # second wording here would be the one that drifts into implying a pass.
+            "verdicts": job.verdicts, "error": job.error}
 
 
 @app.get("/api/export/{job_id}.{ext}")

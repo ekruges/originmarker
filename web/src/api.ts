@@ -17,6 +17,16 @@ export interface Health {
   map_source: string
   ldlink_enabled: boolean
   nl_enabled: boolean
+  /** Two flags, because they fail apart: no primer3 means no pair at all, while no UCSC key
+   *  means a pair that exists and is NOT VERIFIED. Never collapse them, or the UI implies
+   *  the second was checked. Optional: a server older than the primer module sends neither,
+   *  and absent must read as off rather than as unknown-so-probably-on. */
+  primers_enabled?: boolean
+  insilico_pcr_enabled?: boolean
+  /** The settings this server designs under, i.e. asdict(primers.DEFAULTS). Optional, and
+   *  the primer form only draws where it is present: the numbers must come from the engine
+   *  that will use them, and a copy kept here would be a second set of defaults to drift. */
+  primer_defaults?: PrimerSettings | null
   // Canonical text, served so the UI never paraphrases it.
   disclaimer: string
   layer_b_steps: string[]
@@ -86,9 +96,162 @@ export interface Marker {
    *  once, and a mirror is a place to drift. Absent on a panel built before the rule
    *  shipped, which is silence, not false. */
   meets_eshre_flanking_criteria?: boolean
+  /** The candidate genotyping pair for this marker, or the design's own account of why
+   *  there is none. Absent means NO DESIGN WAS ATTEMPTED: only markers in scope are
+   *  designed for. A design that ran and failed is a PrimerResult carrying `error`.
+   *  Absence and failure are different facts and must never render alike. */
+  primer?: PrimerResult | null
 }
 
 export const isUpper = (m: Marker) => m.dist > 0
+
+// --- primers ------------------------------------------------------------------
+// Mirrors primers.py: PrimerSettings, Primer and PrimerResult, name for name. The engine
+// owns every knob, every range and every word of every warning; nothing here restates one.
+
+/** Every knob on primers.PrimerSettings, in its names. The whole set, not the subset the
+ *  form draws: `params.primer_settings` is an asdict() of all of them, and a rebuild hands
+ *  the whole object back so a knob this UI never draws is carried rather than reset. */
+export const PRIMER_SETTING_KEYS = [
+  'opt_tm', 'min_tm', 'max_tm', 'max_pair_diff_tm',
+  'min_size', 'opt_size', 'max_size',
+  'min_gc', 'max_gc', 'gc_clamp',
+  'salt_monovalent', 'salt_divalent', 'dntp_conc', 'dna_conc',
+  'min_product', 'max_product',
+  'max_poly_x', 'max_self_any_th', 'max_self_end_th', 'max_hairpin_th',
+  'max_ns_accepted', 'tm_formula', 'salt_corrections',
+  'mask_maf', 'target_pad',
+] as const
+export type PrimerSettingKey = (typeof PRIMER_SETTING_KEYS)[number]
+
+/** primers.PrimerSettings. Every field is a number; the engine validates the ranges and
+ *  words its own refusals, so nothing here re-judges a value it is about to send. */
+export type PrimerSettings = Record<PrimerSettingKey, number>
+
+/** panelbuilder.PRIMER_SCOPES. "starred" met the flanking criteria, "recommended" is the
+ *  whole shortlist, "none" designs nothing. */
+export const PRIMER_SCOPES = ['starred', 'recommended', 'none'] as const
+export type PrimerScope = (typeof PRIMER_SCOPES)[number]
+
+/** primers.SIZE_CAP. primer3's own cap sits above this, so a longer oligo is accepted and
+ *  returns a Tm from outside the range its model is defined over: a plausible number, which
+ *  is worse here than an error. */
+export const PRIMER_SIZE_CAP = 35
+
+/** primers.Primer. `seq` is what gets ordered, 5'->3' on the strand it binds from (R7);
+ *  `pos` is 1-based GRCh38 of its leftmost template base, plus strand (R6). */
+export interface Primer {
+  seq: string
+  pos: number
+  idx: number
+  length: number
+  tm: number
+  gc: number
+}
+
+/**
+ * primers.PrimerResult: a pair with its warnings welded on, or a failure that says why.
+ *
+ * `fwd`/`rev` are null whenever `error` is set, and `warnings` is never empty for a pair.
+ * That is the engine's invariant and this UI keeps its half of it: a primer never renders
+ * without what is wrong with it.
+ */
+export interface PrimerResult {
+  fwd?: Primer | null
+  rev?: Primer | null
+  product_size?: number | null
+  product_start?: number | null
+  /** What was kept clear, as primers.MaskSite. Rendered as a count beside `mask_note`,
+   *  which is the engine's own statement of the mask's reach. */
+  masked?: unknown[]
+  /** The mask's reach, at both lengths. The counts differ per marker; the sentences after
+   *  them are identical on every row, so only `short` belongs in the table. */
+  mask_note?: PrimerWarning | null
+  /** The engine's words about this pair, verbatim, at both lengths. Never empty for a pair,
+   *  so an empty one is a contract this UI cannot vouch for and must not paper over. */
+  warnings?: PrimerWarning[]
+  /** A STATE CODE, never prose: `not_checked`, `one_product`, or one of app/ispcr.py's
+   *  other verdicts. Absent and null both mean never checked, which is not a pass. The
+   *  words that go with it are in `warnings`; rendering this field is rendering "danger". */
+  insilico_pcr?: string | null
+  error?: string | null
+}
+
+/**
+ * primers.Note: one thing wrong with a pair, at both lengths, with somewhere to read more.
+ *
+ * `short` is what the table shows and `long` is what the exports print. Both are the
+ * engine's; nothing here writes either, and nothing here shortens `long` on its own.
+ */
+export interface PrimerWarning {
+  code: string
+  short: string
+  long: string
+  docs: string
+}
+
+export const PCR_NOT_CHECKED = 'not_checked'
+export const PCR_ONE_PRODUCT = 'one_product'
+/** Asked, and the answer could not be read: a timeout, an unreadable page, a spent quota.
+ *  app/ispcr.py keeps this apart from `danger` because the remedies differ, and so must
+ *  this: one says redesign the pair, the other says ask again later. */
+export const PCR_UNKNOWN = 'unknown'
+
+/**
+ * Is this pair's verdict one to shout about?
+ *
+ * `unknown` is NOT: UCSC never answered, so it contradicted nothing, and a red "do not
+ * order this pair without redesigning it" over a timeout is a finding this page invented.
+ * It is not clean either, which `pcrUnchecked` is what says so. The two predicates move
+ * together or a quota stop renders green.
+ *
+ * Anything else, a state this UI has never heard of included, IS dangerous: an unreadable
+ * verdict must never render as a clean one, because that is the one mistake that turns an
+ * unverified pair into a verified one.
+ */
+export const pcrDangerous = (d: PrimerResult) => {
+  const s = d.insilico_pcr
+  return !(s == null || s === PCR_NOT_CHECKED || s === PCR_ONE_PRODUCT || s === PCR_UNKNOWN)
+}
+
+/**
+ * The verdict's own words, or null where there is nothing to shout.
+ *
+ * jobs.py welds the verdict onto the pair as the warning whose code IS the state, so this
+ * finds it by that code rather than by position. The fallback is not decoration: a
+ * dangerous state whose words did not arrive still has to shout, and a silent red row
+ * would be read as a clean one.
+ */
+export const pcrDanger = (d: PrimerResult): PrimerWarning | null => {
+  if (!pcrDangerous(d)) return null
+  const w = (d.warnings ?? []).find((x) => x.code === d.insilico_pcr)
+  if (w) return w
+  const said = `The verdict is "${d.insilico_pcr}" and its explanation did not reach this `
+    + `page. Treat the pair as unverified and check it at UCSC before ordering.`
+  return { code: d.insilico_pcr ?? 'unknown', short: said, long: said, docs: PRIMER_DOCS }
+}
+
+/** primers.PRIMER_DOCS. Where a note points when it carries no route of its own. */
+export const PRIMER_DOCS = '#/docs/primers'
+
+/**
+ * Not checked against the genome, which is not a pass: no product anywhere else in GRCh38
+ * has been ruled out.
+ *
+ * `unknown` belongs here, and this is the half that is easy to forget. It is not dangerous,
+ * so if only `pcrDangerous` learns the token, a pair UCSC timed out on falls through both
+ * predicates and renders as the green "one product" it never earned. app/ispcr.py's rule is
+ * that only a parsed single product is a pass; everything else is some flavour of
+ * unverified, and this is where that lands.
+ */
+export const pcrUnchecked = (d: PrimerResult) =>
+  d.insilico_pcr == null
+  || d.insilico_pcr === PCR_NOT_CHECKED
+  || d.insilico_pcr === PCR_UNKNOWN
+
+/** A design ran and produced a pair. `error` and a pair are mutually exclusive upstream;
+ *  read the pair, not the absence of an error, so a result carrying both still warns. */
+export const hasPair = (d: PrimerResult) => !!(d.fwd || d.rev)
 
 /** The Marker field the star rule writes to, as panelbuilder.FLANKING_CRITERIA["field"]
  *  names it. Read through this so `flankingRule`'s name check governs the actual access. */
@@ -104,7 +267,13 @@ export interface FlankingCriteria {
   field: string
   max_dist_bp: number
   min_per_side: number
+  /** The key beside the star. */
   legend: string
+  /** One line of criteria, for the hover. */
+  summary?: string
+  /** Docs route for a reader who clicks the star. */
+  docs_href?: string
+  /** The full wording, for print. */
   note: string[]
 }
 
@@ -180,6 +349,28 @@ export interface PanelResult {
   provenance: Provenance
 }
 
+/** The primer scope and settings THIS panel was built under, as `params` records them. */
+export interface PrimerBuild {
+  scope: PrimerScope
+  settings: PrimerSettings
+}
+
+/**
+ * What this panel was built under, or null if it does not record it.
+ *
+ * Null on a panel from a server with no primer module, which renders as nothing at all
+ * rather than as an empty form. A settings block missing a knob is null too: a form seeded
+ * from a gap would show a number nobody chose and then rebuild on it.
+ */
+export const primerBuild = (r: PanelResult): PrimerBuild | null => {
+  const scope = r.params?.primer_scope
+  const s = r.params?.primer_settings as Partial<PrimerSettings> | undefined
+  if (!s || !(PRIMER_SCOPES as readonly string[]).includes(scope as string)) return null
+  return PRIMER_SETTING_KEYS.every((k) => typeof s[k] === 'number')
+    ? { scope: scope as PrimerScope, settings: s as PrimerSettings }
+    : null
+}
+
 export interface ResolveResponse {
   variant: VariantRecord
   rarity: Rarity
@@ -197,6 +388,12 @@ export interface StructuredQuery {
   ancestry?: string | null
   common_maf?: number
   cross_check?: boolean
+  /** Which markers get a pair. Inputs, beside the other inputs. */
+  primer_scope?: PrimerScope
+  /** Knob overrides, as primers.PrimerSettings names them. Partial: omitted asks for the
+   *  server's own defaults, and that is the only way to ask for them. A copy held on this
+   *  side drifts, and the panel would then report the copy as what it was built under. */
+  primer_settings?: Partial<PrimerSettings>
 }
 
 /**
@@ -344,6 +541,24 @@ export const api = {
     req<LDResponse>(`/ld?a=${encodeURIComponent(a)}&b=${encodeURIComponent(b)}&pop=${encodeURIComponent(pop)}`),
   streamUrl: (id: string) => `${BASE}/panel/${encodeURIComponent(id)}/stream`,
   exportUrl: (id: string, ext: string) => `${BASE}/export/${encodeURIComponent(id)}.${ext}`,
+  /** Check a finished panel's pairs against the whole genome. Never automatic: UCSC allows
+   *  one request every 15 seconds, so this is a deliberate act with a real wait, and the
+   *  panel is already usable without it. `rsids` omitted means every designed pair. */
+  verify: (panelJobId: string, rsids?: string[]) =>
+    req<{ job_id: string }>(`/panel/${encodeURIComponent(panelJobId)}/verify`,
+      { method: 'POST', body: JSON.stringify({ rsids: rsids ?? null }) }),
+  verifyJob: (id: string) => req<VerifyStatus>(`/verify/${encodeURIComponent(id)}`),
+}
+
+/** A verification run. `verdicts` are app/ispcr.py's own dicts, keyed by rsID: it words
+ *  every verdict, and a second wording here would be the one that drifts into a pass. */
+export interface VerifyStatus {
+  status: 'running' | 'done' | 'error'
+  stage: string
+  fraction: number
+  log?: unknown[]
+  verdicts: Record<string, { state: string; note: string; products?: unknown[] }>
+  error?: string | null
 }
 
 // --- outbound record links, built from rsid/coord (never from memory) ---------

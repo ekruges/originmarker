@@ -9,6 +9,112 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.3.0 "Diakinesis"
+
+The final condensation of prophase I, chiasmata still holding the homologues.
+
+### Added
+
+- **Primer design for the markers that meet the flanking criteria.** Each one gets a
+  candidate FWD/REV pair for genotyping it by PCR, designed by primer3 against a reference
+  template fetched around the marker, and folded into the PDF, CSV, XLSX and JSON. Defaults
+  are 20 to 35 bases, GC 40 to 60%, Tm 69 C, product under 600 bp, GRCh38. Every field is
+  settable, from the panel's own primer box or through the API, and the settings a panel was
+  built under travel with it as provenance.
+- **Common variants are masked out of both primer sites.** This is the part that matters. A
+  primer sitting on a common SNP fails to bind in exactly the carriers who have it, their
+  allele goes unamplified, and a heterozygote is read as a homozygote: allele dropout, which
+  is silent and yields a genotype that looks clean and is wrong. The pool of markers is also
+  the pool of hazards, so every gnomAD variant at or above the mask floor is excluded from
+  under both primers, and the marker itself sits in the product under neither of them.
+- **Optional verification against the whole genome**, through UCSC In-Silico PCR, behind a
+  button and never part of a build: UCSC publishes one request every 15 seconds, so a public
+  URL that verified on its own would spend the owner's quota on visitors who never looked at
+  the result. It needs a UCSC API key (`deploy/README-deploy.md` says where to get one) and
+  reports itself unavailable without one rather than offering a button that cannot run.
+- **A primers chapter in the documentation**: every field with its bounds and what it
+  constrains, what each warning means, what a clean in-silico result is and is not worth, and
+  the steps to obtain a key. The field table is generated from the form's own field list, so
+  a knob that reaches the form and not the docs fails the typecheck.
+
+### Fixed
+
+- **A verified pair kept the warning saying it had never been verified.** The verdict was
+  written onto the pair as a bare state code, so a pair UCSC had called dangerous still
+  carried "NOT CHECKED AGAINST THE GENOME" on the same row, and the reader was being asked to
+  trust exactly one of two statements the same document made. The finding itself, naming the
+  loci and their positions, reached only the build log: never the table, never the PDF. The
+  verdict's own words are welded onto the pair now, and the caveat with them.
+- **The check asked UCSC a narrower question than UCSC asks itself, and reported the answer
+  as genome-wide.** Max product size went out at 1000 bp against hgPcr's own default of 4000.
+  Measured against the live endpoint with a pair known to give one 549 bp product: at 400 the
+  product is not reported at all. So the field bounds the search rather than filtering its
+  result, and a pair whose second locus amplified between 1001 and 4000 bp came back holding
+  one product, classified clean, and printed VERIFIED CLEAN (in silico) on a filed PDF. That
+  is the multi-locus pass this lane exists to prevent, reached without a single component
+  behaving incorrectly. It cut the other way too, since a design may ask for a 3000 bp
+  product: that product could not be reported, and its absence classified as "found no
+  product, do not order", which was our own request accusing a good pair. The question is
+  UCSC's default now, the design has a server-side ceiling below it, and a check fails if
+  either moves.
+- **A page listing two loci could come back holding one.** The parser decided a line was a
+  FASTA header before stripping the HTML around it, so a header whose ">" UCSC had wrapped or
+  escaped was skipped as quietly as a sequence line, without being marked unreadable. The
+  remaining product then classified as a clean single band. Tags come off and entities decode
+  before that test now, so the test and the regex read the same text.
+- **A UCSC timeout was rendered as a UCSC finding.** The page had no name for the state that
+  means "asked, and the answer could not be read", so a timeout or a spent quota drew a red
+  DANGER badge and a banner reading "In-silico PCR contradicts N primer pairs in this panel",
+  over pairs UCSC had never answered about. The PDF from the same job id said NOT VERIFIED
+  for all of them: one job, two documents, and two different instructions. Not verified is
+  now neither dangerous nor clean, which are separate questions and were fixed together, as
+  answering only the first renders a quota stop green.
+- **The daily verdict on alt scaffolds overclaimed.** A hit on chr6 and one on a chr6 alt
+  haplotype are usually one locus reported twice, and the note asserted flatly that the pair
+  amplified more than one locus and must be redesigned. It says products rather than loci
+  now, and names the ambiguity where alt or fix scaffolds are among the hits. The state stays
+  DANGER: hgPcr cannot separate a redundant alt copy from a real second locus on that
+  haplotype, and guessing toward clean is this tool's worst direction to guess in.
+- **A UCSC key in `.env` never reached the container.** Compose reads that file for variable
+  substitution and passes nothing it was not asked to, and the key was not named in the
+  environment block. The key could be correctly generated, correctly stored, and the feature
+  would still report itself unavailable, with no error anywhere: every layer behaving exactly
+  as written. A test now fails if any key-shaped variable the app reads is not forwarded.
+- **The JSON export shipped the shortlist twice in two different shapes.** The file writes it
+  once inside `candidates` and again whole under `recommended`, and only the first was given
+  its primers and its ancestry column, so a reader who took the shortlist rather than
+  filtering the candidates got the lesser copy of the same marker.
+
+### Changed
+
+- **Every repeated block on the panel is one sentence and a link now.** Each warning carries
+  a short form and a long one, written beside each other in the engine so they cannot drift.
+  The table takes the short one; the exports keep the full wording, because a filed page
+  cannot follow a link. The not-checked warning goes from 242 characters to 67, the mask note
+  from 244 to 71, and the primer form's six paragraphs of constraint move to the docs.
+- **The primer box is collapsed behind a thin line.** Four lines of detail under every marker
+  is a table nobody reads. What collapsing never does is hide a finding: a dangerous pair and
+  a failed design open themselves, the verdict sits on the summary line either way, and the
+  panel-level alert lists every dangerous pair regardless of what is open.
+- **The star's key is a key again.** It said what the criteria were, next to every star,
+  beside a hover that already said it; it names the claim now and links to the chapter.
+- Documentation section numbers derive from the section list, the way citation numbers always
+  have. Inserting a chapter used to renumber eight headings and strand every cross-reference
+  that named one.
+- primer3-py stays an optional dependency and is not in `requirements.txt`: it is GPLv2 and
+  this repo is Apache 2.0. Absent, panels build exactly as before and simply carry no
+  primers. Nothing from kent/isPcr is vendored; verification calls UCSC's hosted service.
+
+### Known limitations
+
+- Verification is bounded at 4000 bp, which is UCSC's own bound and not an exhaustive search:
+  a second locus amplifying wider than that is still invisible to it.
+- A clean in-silico result is not a wet-lab validation. It does not model cycling conditions,
+  and it cannot see a carrier's private variants under a primer site, which cause dropout
+  exactly where the reference cannot show it.
+
+---
+
 ## 1.2.0 "Zygotene"
 
 The substage where homologues find each other and begin to pair.

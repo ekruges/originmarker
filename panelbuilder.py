@@ -40,6 +40,7 @@ from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Union
 
 import genetic_map
+import primers
 
 # --------------------------------------------------------------------------- #
 # Config
@@ -62,6 +63,9 @@ COMMON_MAF = 0.05               # candidate pool floor
 MIN_POP_AN = 200
 REGION_CHUNK = 20_000           # gnomAD region slice size (bp)
 MAX_WORKERS = 8                 # concurrent API fetches
+# Which markers get a primer pair. "starred" is the shortlist that met the flanking
+# criteria; "recommended" is the whole shortlist; "none" designs nothing.
+PRIMER_SCOPES = ("starred", "recommended", "none")
 CACHE_DIR = Path(os.environ.get("PANELBUILDER_CACHE", ".panelbuilder_cache"))
 # ClinVar publishes weekly and gnomAD/Ensembl quarterly, so a week cannot serve a
 # classification that changed two releases ago. PANELBUILDER_CACHE_TTL=0 disables expiry:
@@ -468,6 +472,13 @@ class Marker:
     # fails criteria nobody judged it against, which is the same false-is-not-unassessed
     # error this file refuses for hotspot_between. None prints empty and claims nothing.
     meets_eshre_flanking_criteria: Optional[bool] = None
+    # The candidate genotyping pair for this marker (R3), or the design's own account of why
+    # there is none. Only markers in scope are designed for, so most candidates keep None.
+    #
+    # None means NO DESIGN WAS ATTEMPTED; a design that ran and failed is a PrimerResult
+    # carrying `error`. Absence and failure are different facts and must never render alike.
+    # primers.py owns this shape and every word in it: nothing here restates a warning.
+    primer: Optional["primers.PrimerResult"] = None
 
 
 @dataclass
@@ -502,6 +513,12 @@ class StructuredQuery:
     ancestry: Optional[str] = None      # re-rank by ancestry-matched 2pq
     common_maf: float = COMMON_MAF
     cross_check: bool = True
+    # Primer knobs: INPUTS, like the window and the MAF floor, not provenance. Every one is
+    # the user's to set; primers.PrimerSettings owns the defaults and what is legal, so the
+    # dict is passed through rather than mirrored here, which would be a second set of
+    # defaults to drift.
+    primer_scope: str = "starred"       # see PRIMER_SCOPES
+    primer_settings: Optional[dict] = None
     # Provenance, never input: build() must not read these to decide anything. They record
     # that a model, not the user, chose `variant`, so the exports can say so.
     nl_text: Optional[str] = None       # the user's original prose, verbatim
@@ -521,6 +538,20 @@ class StructuredQuery:
             if self.ancestry not in GNOMAD_POPS.values():
                 raise ValueError(f"unknown ancestry {self.ancestry!r}; "
                                  f"expected one of {sorted(GNOMAD_POPS.values())}")
+        if self.primer_scope not in PRIMER_SCOPES:
+            raise ValueError(f"unknown primer_scope {self.primer_scope!r}; expected one of "
+                             f"{sorted(PRIMER_SCOPES)}")
+        # Here, not at the design step: a knob the engine will reject is a bad request, and
+        # a build that runs for a minute before saying so has already spent the network.
+        self.primer_settings_obj()
+
+    def primer_settings_obj(self) -> "primers.PrimerSettings":
+        """The primer knobs as the engine's own settings object. Raises ValueError if a knob
+        is unknown or out of range; primers.py words every one of those."""
+        try:
+            return primers.PrimerSettings(**(self.primer_settings or {}))
+        except TypeError as e:
+            raise ValueError(f"unknown primer setting: {e}")
 
 
 # --------------------------------------------------------------------------- #
@@ -959,6 +990,9 @@ def assess_rarity(v: VariantRecord) -> Rarity:
     # gap, and neither may a missing source alone force "unknown", which would drop a true
     # rarity finding on an allele only gnomAD could answer for. Note the 1000G join drops
     # out deterministically on indel notation, so this is not only an outage path.
+    # Each reason below is the verdict and its evidence, and nothing else. It renders on a
+    # card with room for one line: the standing caveats belong to DISCLAIMER (R3, verbatim
+    # on every surface) and to the exports' own R2 line, not repeated in four branches.
     kg_common = kg_ac is not None and kg_ac > _KG_MIN_AC
     g_common = g_af is not None and g_af > _GNOMAD_MIN_AF
     said_rare = ((kg_ac is not None and not kg_common)
@@ -970,28 +1004,17 @@ def assess_rarity(v: VariantRecord) -> Rarity:
     usable = kg_common
     if kg_common:
         ld_status = "defined"
-        reason = (f"Common enough in reference panels ({ev}) for population-LD estimates "
-                  f"to exist. They are not used here: markers are ranked by expected "
-                  f"heterozygosity and proximity, and origin still comes from per-family "
-                  f"phasing.")
+        reason = f"Common enough for population-LD estimates to exist ({ev}). Not used to rank."
     elif g_common:
         ld_status = "unknown"
-        reason = (f"gnomAD reports this allele as common ({ev}), so population-LD "
-                  f"estimates for it most likely exist, but the 1000 Genomes count did "
-                  f"not confirm that, so it is not asserted here. This is not a rarity "
-                  f"finding. LD is not used for ranking or origin either way, and origin "
-                  f"comes from per-family phasing.")
+        reason = f"gnomAD calls this common ({ev}), unconfirmed by 1000 Genomes. Not a rarity finding."
     elif said_rare:
         ld_status = "undefined"
-        reason = (f"Too rare in reference panels for linkage disequilibrium to be defined "
-                  f"({ev}). Per-family phasing required.")
+        reason = f"Too rare for linkage disequilibrium to be defined ({ev})."
     else:
         ld_status = "unknown"
-        reason = ("Frequency data could not be retrieved for this allele, so its rarity is "
-                  "unknown and population LD cannot be evaluated either way. Treated as "
-                  "unusable for LD, and per-family phasing is required regardless. This is "
-                  "a missing-data verdict, not a rarity finding: retry, or check the "
-                  "variant in gnomAD directly.")
+        reason = ("Frequency data could not be retrieved, so rarity is unknown and LD "
+                  "cannot be evaluated. Missing data, not a rarity finding: retry.")
     return Rarity(g_af, g_ac, g_an, kg_ac, usable, reason, ld_status)
 
 
@@ -1201,11 +1224,17 @@ FLANKING_CRITERIA = {
     "field": "meets_eshre_flanking_criteria",
     "max_dist_bp": ESHRE_FLANK_MAX_BP,
     "min_per_side": ESHRE_MIN_PER_SIDE,
-    "legend": (
-        "★ Meets ESHRE flanking criteria: within 1 Mb, no hotspot between it and the "
-        "variant on the deCODE map, position not disputed. OriginMarker's check of ESHRE's "
-        "criteria, not an informativity rank: that needs the family's genotypes, which "
-        "this tool does not have."),
+    # The key beside the star, and nothing more. The criteria are on the hover, in `note`
+    # for print, and in the docs; a reader who wants them has three routes, and repeating
+    # them next to every star buys none of them.
+    "legend": "★ Meets ESHRE flanking criteria",
+    # The hover. One line of criteria, for a reader who wants them without leaving the page.
+    # The key says what the star is, this says what it checked, `note` prints it, and the
+    # docs explain it: four lengths, one wording each, all from here.
+    "summary": ("Within 1 Mb of the variant, no recombination hotspot in between, and its "
+                "position not disputed between gnomAD and Ensembl."),
+    # Where a reader who clicks the star lands. The docs own the explanation.
+    "docs_href": "#/docs/star",
     "note": [
         "★ Flanking criteria met. OriginMarker's own check of the structural "
         "marker-selection criteria stated in the ESHRE PGT Consortium good practice "
@@ -1390,6 +1419,129 @@ def cross_check_ensembl(markers: list[Marker], top_n: int = 8) -> None:
 
 
 # --------------------------------------------------------------------------- #
+# Step 5: genotyping primers for the markers in scope (R1, R6, R7)
+# --------------------------------------------------------------------------- #
+
+# Ensembl restates what it answered with in `id`. Rebuilt and compared whole rather than
+# prefix-matched: it pins the assembly, the region AND the strand in one string, so an
+# off-by-one in the request is caught by the same check that catches a minus-strand reply.
+_SEQ_ID = "chromosome:GRCh38:{chrom}:{start}:{end}:1"
+
+
+def fetch_sequence(chrom: str, start: int, end: int) -> str:
+    """GRCh38 plus-strand sequence for an inclusive 1-based region (R1, R6, R7).
+
+    Never trusted blind: a template that is not the region, build or strand that was asked
+    for would place primers on the wrong bases, and every base here is one a lab orders.
+    """
+    j = json.loads(_get(ENSEMBL, f"/sequence/region/human/{chrom}:{start}..{end}",
+                        {"coord_system_version": "GRCh38"},
+                        label=f"Ensembl sequence chr{chrom}:{start:,}-{end:,}"))
+    want = _SEQ_ID.format(chrom=chrom, start=start, end=end)
+    if j.get("id") != want:
+        raise ApiError(f"Ensembl answered {j.get('id')!r} for chr{chrom}:{start:,}-{end:,}, "
+                       f"not {want!r}: that is not the region, build or strand requested, "
+                       f"so no primer is designed on it (R6, R7).")
+    seq = j.get("seq") or ""
+    if len(seq) != end - start + 1:
+        raise ApiError(f"Ensembl returned {len(seq):,} bases for the {end - start + 1:,} bp "
+                       f"region chr{chrom}:{start:,}-{end:,}; the template is not the span "
+                       f"requested, so no primer is designed on it.")
+    return seq.upper()
+
+
+def _mask_sites(raw: dict[str, dict], floor: float) -> list:
+    """Every gnomAD site in the pull at or above `floor`, as primers.MaskSite.
+
+    Built from the RAW pull and not from the candidate pool: annotate() has already dropped
+    indels, sub-floor sites and QC-failed sites before a candidate exists, so a mask drawn
+    from the pool could never mask an indel, and a common indel under a primer drops an
+    allele exactly as a common SNP does.
+
+    A site gnomAD reports no frequency for is not masked: its MAF is unknown, and there is
+    no floor it can be said to clear. A QC-failed site IS masked, since over-masking costs
+    search space while under-masking costs an allele.
+    """
+    out = []
+    for var in raw.values():
+        af = (var.get("genome") or {}).get("af")
+        if af is None:
+            continue
+        maf = min(af, 1 - af)
+        if maf >= floor:
+            out.append(primers.MaskSite(pos=var["pos"], ref=var["ref"], alt=var["alt"],
+                                        maf=round(maf, 4)))
+    return out
+
+
+def design_primers(recommended: list[Marker], raw: dict[str, dict],
+                   q: StructuredQuery) -> None:
+    """Design a genotyping pair for each in-scope marker, in place. Never raises.
+
+    One marker's failure is that marker's fact, so it lands on that Marker rather than on
+    the build: a panel is still a panel with no primer on one row (R3).
+
+    R7: there is no strand question here and VariantRecord.strand must not be consulted.
+    Ensembl answers on the plus strand and gnomAD's ref/alt are plus-strand VCF, so the two
+    already agree. The GENE's strand is a transcript-sense matter; reading it here would
+    reverse complement a template that was already right.
+    """
+    if q.primer_scope == "none":
+        _emit(Tag.SKIP, "primer design skipped: primer_scope is 'none'")
+        return
+    if not primers.available():
+        _emit(Tag.SKIP, f"primer design skipped: {primers.UNAVAILABLE}")
+        return
+    settings = q.primer_settings_obj()
+    targets = [m for m in recommended if q.primer_scope == "recommended"
+               or m.meets_eshre_flanking_criteria]
+    if not targets:
+        _emit(Tag.INFO, f"no markers in scope for primer design (scope {q.primer_scope!r})")
+        return
+
+    flank = primers.flank_needed(settings)
+    hazards = _mask_sites(raw, settings.mask_maf)
+    _emit(Tag.INFO, f"primer design for {len(targets)} {q.primer_scope} markers: "
+                    f"{2 * flank + 1:,} bp GRCh38 template each, Tm "
+                    f"{settings.min_tm:.0f}-{settings.max_tm:.0f} C, "
+                    f"{settings.min_gc:.0f}-{settings.max_gc:.0f}% GC, "
+                    f"{settings.min_size}-{settings.max_size} bp; {len(hazards):,} gnomAD "
+                    f"variants at MAF >= {settings.mask_maf:.3%} are available to mask")
+    designed = 0
+    for m in targets:
+        lo, hi = m.pos - flank, m.pos + flank
+        try:
+            # Serial, and the sequence fetch is the only cost worth naming: the design
+            # itself is milliseconds. Cached like every other call, so a rebuild pays once.
+            # ponytail: parallelise over MAX_WORKERS only if the wait ever shows up.
+            seq = fetch_sequence(m.chrom, lo, hi)
+            # Overlap, not containment. A deletion is anchored at the base BEFORE the
+            # bases it removes, so one straddling the template's left edge has pos < lo
+            # while its reference footprint still sits under the primer. Filtering on the
+            # anchor dropped it, and the note then told the reader that region was clear.
+            near = [s for s in hazards
+                    if s.pos + s.span - 1 >= lo and s.pos <= hi]
+            m.primer = primers.design(seq, lo, m.pos, m.ref, near, settings)
+        except (ApiError, ValueError) as e:
+            # ValueError is the engine's refusal to design on a template that does not match
+            # the marker: that is the check working, and it is reported, never swallowed.
+            m.primer = primers.PrimerResult(error=str(e))
+        if m.primer.error:
+            _emit(Tag.WARN, f"{m.rsid}: no primer pair. {m.primer.error}")
+            continue
+        designed += 1
+        _emit(Tag.INFO, f"{m.rsid}: {m.primer.product_size} bp product, fwd Tm "
+                        f"{m.primer.fwd.tm:.1f} C, rev Tm {m.primer.rev.tm:.1f} C, "
+                        f"{len(m.primer.masked)} variants kept off both primers")
+        # Every pair ships unverified, and that is a warning, not a footnote: it has been
+        # checked for products in an 800 bp window and nowhere else in the genome.
+        for w in m.primer.warnings:
+            _emit(Tag.WARN, f"{m.rsid}: {w}")
+    _emit(Tag.INFO, f"{designed} of {len(targets)} in-scope markers have a candidate primer "
+                    f"pair; none has been checked against the genome by this build")
+
+
+# --------------------------------------------------------------------------- #
 # Orchestrator
 # --------------------------------------------------------------------------- #
 
@@ -1503,6 +1655,13 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
                 f"meet the flanking criteria ({len(met)} of {ESHRE_MIN_PER_SIDE}). ESHRE "
                 f"recommends at least three SNPs on each side of the pathogenic variant.")
 
+    # Primers run HERE, and inside build(), for one reason that is not convenience: `raw` is
+    # still in scope. The mask is drawn from the whole gnomAD pull, indels and all, and any
+    # later pass would have only the candidate pool, which cannot mask an indel. It also
+    # reads meets_eshre_flanking_criteria, which the loop above has just written.
+    progress("designing primers", 0.95)
+    design_primers(recommended, raw, q)
+
     # R5: a clamped flank is a COVERAGE fact, so it belongs on the coverage card beside the
     # per-side counts, which is where a reader checks whether both sides are covered.
     # enumerate_candidates detects and words the truncation; this is the pickup.
@@ -1520,6 +1679,10 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         "ensembl_release": ensembl_release(),
         "sources": {"clinvar": "NCBI E-utilities", "ensembl": ENSEMBL,
                     "gnomad": "v4 (gnomad_r4) GraphQL",
+                    # Its own key, not folded into "ensembl" above: that one answers variation
+                    # lookups, this one answers with the bases a lab orders primers against.
+                    # Two claims about one host, so two keys.
+                    "sequence": "Ensembl REST /sequence/region (GRCh38)",
                     "genetic_map": genetic_map.load(v.chrom).source},
         "build": "GRCh38", "window_bp": q.window_bp, "common_maf": q.common_maf,
         "ancestry_rank": q.ancestry, "candidate_n": len(markers),
@@ -1546,7 +1709,12 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
     progress("done", 1.0)
     return PanelResult(v, rarity, ranked, recommended, coverage,
                        {"window": q.window_bp, "ancestry": q.ancestry,
-                        "common_maf": q.common_maf, "build": q.build},
+                        "common_maf": q.common_maf, "build": q.build,
+                        # Inputs, beside the other inputs. asdict() of the engine's own
+                        # settings, so the panel records the knobs it was actually built
+                        # with rather than today's defaults.
+                        "primer_scope": q.primer_scope,
+                        "primer_settings": asdict(q.primer_settings_obj())},
                        prov)
 
 
@@ -1608,6 +1776,72 @@ if __name__ == "__main__":
     # 2pq is a population prior (R4), so it is not a criterion: a low-2pq marker that clears
     # the pool's MAF floor still meets the STRUCTURAL criteria, and the words say only that.
     assert _meets_eshre_flanking_criteria(_cand(het=0.02, het_max_pop=0.02))
+
+    # The primer scope and knobs are INPUTS, and a bad one is a bad request: it must be
+    # refused at the front door rather than a minute into a build that has spent the network.
+    for _bad in ({"primer_scope": "top3"}, {"primer_settings": {"max_size": 40}},
+                 {"primer_settings": {"min_tm": 80.0}},
+                 {"primer_settings": {"nonesuch": 1}}):
+        try:
+            StructuredQuery(variant="rs151344623", **_bad)
+        except ValueError:
+            pass
+        else:
+            raise AssertionError(f"StructuredQuery accepted {_bad}")
+    assert StructuredQuery(variant="rs1").primer_scope == "starred"
+    # The default knobs must satisfy the engine's own validator, or every default build
+    # raises at the front door.
+    assert StructuredQuery(variant="rs1").primer_settings_obj() == primers.DEFAULTS
+
+    # The sequence guard, offline. Ensembl restates the assembly, the region and the strand
+    # in `id`, and a template that is not the one asked for puts primers on the wrong bases.
+    # Every case below returns 200 with real-looking DNA, which is why the check is on `id`
+    # and not on the status code.
+    _real = fetch_sequence.__globals__["_get"]
+    try:
+        for _id, _seq, _why in (
+            ("chromosome:GRCh37:11:1:10:1", "ACGTACGTAC", "wrong build (R6)"),
+            ("chromosome:GRCh38:11:1:10:-1", "ACGTACGTAC", "minus strand (R7)"),
+            ("chromosome:GRCh38:11:2:11:1", "ACGTACGTAC", "off by one"),
+            ("chromosome:GRCh38:11:1:10:1", "ACGT", "short of the span requested"),
+        ):
+            fetch_sequence.__globals__["_get"] = \
+                lambda *a, _i=_id, _s=_seq, **k: json.dumps({"id": _i, "seq": _s})
+            try:
+                fetch_sequence("11", 1, 10)
+            except ApiError:
+                pass
+            else:
+                raise AssertionError(f"fetch_sequence accepted a template that was {_why}")
+        # ...and the shape Ensembl actually answers with is accepted, and upper-cased: the
+        # ref-base check downstream is an equality on a single character.
+        fetch_sequence.__globals__["_get"] = \
+            lambda *a, **k: json.dumps({"id": "chromosome:GRCh38:11:1:10:1",
+                                        "seq": "acgtacgtac"})
+        assert fetch_sequence("11", 1, 10) == "ACGTACGTAC"
+    finally:
+        fetch_sequence.__globals__["_get"] = _real
+
+    # The mask reaches what the candidate pool cannot. annotate() drops indels before a
+    # candidate exists, so a mask built from the pool would leave a common indel under a
+    # primer: a dropout in exactly its carriers.
+    _raw = {
+        "1-100-A-G": {"pos": 100, "ref": "A", "alt": "G", "genome": {"af": 0.30}},
+        "1-140-AT-A": {"pos": 140, "ref": "AT", "alt": "A", "genome": {"af": 0.20}},
+        "1-160-A-G": {"pos": 160, "ref": "A", "alt": "G", "genome": {"af": 0.001}},
+        "1-180-A-G": {"pos": 180, "ref": "A", "alt": "G", "genome": {"af": None}},
+        "1-190-A-G": {"pos": 190, "ref": "A", "alt": "G", "genome": None},
+        "1-200-A-G": {"pos": 200, "ref": "A", "alt": "G", "genome": {"af": 0.98}},
+    }
+    _m = {s.pos: s for s in _mask_sites(_raw, 0.01)}
+    assert 140 in _m, "a common INDEL is a dropout hazard and the pool cannot supply it"
+    assert _m[140].ref == "AT" and _m[140].span == 2, _m[140]
+    assert 160 not in _m, "a site under the mask floor was masked"
+    # Unknown frequency clears no floor, so it is not masked, and it must not crash either.
+    assert 180 not in _m and 190 not in _m, "a site with no gnomAD frequency was masked"
+    # MAF is the minor allele, so a 98% alt is a 2% site: common, and a hazard.
+    assert _m[200].maf == 0.02, _m[200]
+    assert {s.pos for s in _mask_sites(_raw, 0.25)} == {100}, "the floor is not applied"
 
     # Cache poisoning, offline. Points at a dead port so the refetch is guaranteed to fail:
     # the assertion is that the poison is DROPPED rather than served, not that a retry

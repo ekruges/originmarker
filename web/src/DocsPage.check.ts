@@ -1,6 +1,10 @@
-// Self-check for the docs numbering, which is coupled in two places that cannot see each
-// other: the nav numbers a section by its position in SECTIONS, while the heading carries
-// the number as text. Drift is silent and the nav lies.
+// Self-check for the docs' structure.
+//
+// Section numbers used to be typed into each heading by hand, and this check existed to
+// catch them drifting from the nav. They are derived from SECTIONS order now, the way
+// citation numbers always were, so there is nothing left to drift: what remains is that
+// every nav entry has a section, every section is in the nav, and no cross-reference points
+// at an id that does not exist.
 // Run: node src/DocsPage.check.ts
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
@@ -8,22 +12,28 @@ import { readFileSync } from 'node:fs'
 const src = readFileSync(new URL('./DocsPage.tsx', import.meta.url), 'utf8')
 
 const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: '([^']+)' \}/g)].map((m) => m[1])
-const heads = new Map(
-  [...src.matchAll(/<Section id="([\w-]+)" title="(\d+) · /g)].map((m) => [m[1], Number(m[2])]),
+const heads = [...src.matchAll(/<Section id="([\w-]+)" title="/g)].map((m) => m[1])
+
+assert.ok(nav.length > 0 && heads.length > 0, 'parsed nothing: the regexes have drifted')
+assert.deepEqual(
+  [...heads].sort(), [...nav].sort(),
+  'every nav entry needs exactly one Section, and every Section an entry',
 )
 
-assert.ok(nav.length > 0 && heads.size > 0, 'parsed nothing: the regexes have drifted')
-assert.equal(heads.size, nav.length, 'every nav entry needs exactly one numbered Section')
-
-// The nav numbers by array order, so position i is section i+1 and the heading must agree.
-nav.forEach((id, i) => {
-  assert.equal(heads.get(id), i + 1, `nav shows ${id} as ${i + 1}, its heading disagrees`)
-})
-
-// Cross-references are written as prose ("section 13"), so they cannot follow a renumber
-// on their own. Each must name the number its target's heading actually carries.
-for (const [, id, n] of src.matchAll(/docHref\('([\w-]+)'\)}>section (\d+)</g)) {
-  assert.equal(heads.get(id), Number(n), `a link says section ${n} but ${id} is ${heads.get(id)}`)
+// A heading that still typed its own number would print it twice: "5 · 5 · The star".
+for (const [, id, title] of src.matchAll(/<Section id="([\w-]+)" title="([^"]*)"/g)) {
+  assert.ok(!/^\d+\s*·/.test(title), `${id}'s title still hard-codes its number: ${title}`)
 }
 
-console.log(`DocsPage.check OK (${nav.length} sections, nav == headings == cross-refs)`)
+// Cross-references render whatever number their target holds, so they can no longer say the
+// wrong one. They can still name a section that does not exist, which renders as "section 0".
+for (const [, id] of src.matchAll(/<SecRef id="([\w-]+)" \/>/g)) {
+  assert.ok(nav.includes(id), `a cross-reference points at '${id}', which is not a section`)
+}
+
+// Every primer warning on the panel, and the primer form, link here by this exact route
+// (primers.py's PRIMER_DOCS, mirrored in api.ts). A rename that missed it would leave every
+// note on the page pointing at nothing.
+assert.ok(nav.includes('primers'), "the primer notes link to '#/docs/primers'")
+
+console.log(`DocsPage.check OK (${nav.length} sections, nav == headings, cross-refs resolve)`)

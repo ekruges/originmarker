@@ -1,7 +1,10 @@
 import { useEffect, type ReactNode } from 'react'
 import { Alert, Anchor, Button, Code, Group, List, Paper, Table, Text, Title } from '@mantine/core'
 import { CITATIONS, formatCitation } from './citations'
-import type { Health } from './api'
+import { PRIMER_SIZE_CAP, type Health } from './api'
+import {
+  FIELD_KEYS, PRIMER_FIELDS, PRIMER_GROUPS, type FieldKey, type GroupKey,
+} from './PrimerOptions'
 
 export const REPO_URL = 'https://github.com/ekruges/originmarker'
 export const HOME_URL = 'https://ezrakruger.cc/'
@@ -70,10 +73,12 @@ const SECTIONS = [
   { id: 'using', label: 'Using the site' },
   { id: 'not', label: 'Scope and limits' },
   { id: 'pipeline', label: 'How a panel is built' },
+  { id: 'star', label: 'The star: ESHRE flanking criteria' },
   { id: 'ld', label: 'Linkage disequilibrium and rare variants' },
   { id: 'prior', label: 'Expected heterozygosity is a prior' },
   { id: 'recomb', label: 'Recombination and the genetic map' },
   { id: 'layerb', label: 'Using the panel in the lab' },
+  { id: 'primers', label: 'Primers: design, settings and checking' },
   { id: 'sources', label: 'Data sources and versions' },
   { id: 'conventions', label: 'Conventions' },
   { id: 'freetext', label: 'Free text and the model' },
@@ -82,6 +87,71 @@ const SECTIONS = [
   { id: 'api', label: 'API' },
   { id: 'references', label: 'References' },
 ]
+
+/** A section's number, from its position in SECTIONS. The one place the ordering is stated,
+ *  so headings, the nav and every cross-reference all read it rather than restate it. */
+const sectionNo = (id: string) => SECTIONS.findIndex((s) => s.id === id) + 1
+
+/** The constraint each primer group carries that its numbers cannot show. Lifted out of the
+ *  form itself: they are worth reading once, not above every row of boxes forever. */
+const GROUP_NOTE: Record<GroupKey, string> = {
+  tm: 'A high target is a deliberate choice for a single band, and nothing relaxes it: a '
+    + 'marker where no primer reaches it fails and names the knob, because a pair handed back '
+    + 'below the target you set anneals at a temperature you will not run. The pair is held '
+    + 'together because both primers anneal in the same tube.',
+  size: 'Length floats to reach the Tm target: within a given GC range a fixed short oligo '
+    + `cannot reach a high Tm, so a target and a fixed length cannot both hold. Capped at `
+    + `${PRIMER_SIZE_CAP}, past which primer3's Tm model is no longer defined, and a Tm past `
+    + 'it would be computed, plausible and out of model.',
+  gc: 'GC content drives Tm, and a window whose own GC sits outside this range is where the '
+    + 'design fails rather than compromises.',
+  product: 'The template fetched around each marker widens with the maximum product. The '
+    + 'server derives it from these, so it is not a separate knob: a template that did not '
+    + 'widen with the product would starve the design instead of failing.',
+  salt: 'Stated, never inherited. Tm depends on all four, and primer3 ships two default sets '
+    + 'whose divalent and dNTP values differ and which compute a different Tm for the same '
+    + 'oligo, several degrees apart. A Tm is only reproducible beside the conditions it was '
+    + 'computed under, so these travel with every panel.',
+  mask: 'Deliberately lower than the marker MAF floor: a variant too rare to be a useful '
+    + 'marker still stops a primer binding in the carriers who have it, and the allele it '
+    + 'should have amplified is then read as absent.',
+}
+
+/**
+ * Every knob in the primer form, in one line each.
+ *
+ * Record<FieldKey, string>, so this is exhaustive by typecheck: a knob added to PRIMER_FIELDS
+ * and not described here fails the build. That is the point. A field reference that silently
+ * omits the field you are looking at is worse than none.
+ */
+const FIELD_DOC: Record<FieldKey, string> = {
+  min_tm: 'No primer below this is accepted. The floor, not a preference.',
+  opt_tm: 'What primer3 aims for and scores against.',
+  max_tm: 'No primer above this is accepted.',
+  max_pair_diff_tm: 'How far apart the two primers\' Tm may be. They anneal in the same tube, '
+    + 'so a mismatched pair has no single annealing temperature that suits both.',
+  min_size: 'Shortest oligo allowed.',
+  opt_size: 'Length primer3 aims for, and drifts from to reach the Tm target.',
+  max_size: `Longest oligo allowed. ${PRIMER_SIZE_CAP} is the ceiling: primer3's Tm model is `
+    + 'not defined past it.',
+  min_gc: 'Lowest GC fraction accepted in an oligo.',
+  max_gc: 'Highest GC fraction accepted.',
+  gc_clamp: 'How many of the 3\' end bases must be G or C. The 3\' end is where extension '
+    + 'starts, so a clamp there stabilises the end that matters.',
+  max_poly_x: 'Longest run of one base allowed anywhere in the oligo, e.g. 4 forbids AAAAA. '
+    + 'Long runs misprime against other runs.',
+  min_product: 'Shortest amplicon accepted.',
+  max_product: 'Longest amplicon accepted. Also sets how much template is fetched.',
+  salt_monovalent: 'Na+ / K+ concentration, for the salt correction to the Tm.',
+  salt_divalent: 'Mg2+ concentration. Part of the same correction, and one of the two values '
+    + 'primer3\'s own defaults disagree about.',
+  dntp_conc: 'dNTP concentration. It binds Mg2+, so it enters the divalent correction.',
+  dna_conc: 'Annealing oligo concentration, which enters the Tm directly.',
+  mask_maf: 'Every gnomAD variant at or above this frequency in the window is kept out from '
+    + 'under both primers.',
+  target_pad: 'How far the marker itself is kept from either primer, so it sits in the '
+    + 'product by a margin rather than by luck.',
+}
 
 // R8: a byte-for-byte copy of pb.DISCLAIMER, never a paraphrase. Used only when
 // /api/health is unreachable.
@@ -173,7 +243,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           support, not a diagnostic.
         </Text>
 
-        <Section id="what" title="1 · What this is">
+        <Section id="what" title="What this is">
           <Text mb={8}>
             A carrier parent transmits either the wild-type or the mutant allele. After an embryo is
             edited, a wild-type read at the variant site is ambiguous: the egg may have been
@@ -195,7 +265,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="using" title="2 · Using the site">
+        <Section id="using" title="Using the site">
           <Text mb={10}>
             Type the variant, check what it resolved to, build the panel, read the warnings,
             download it. The one step nobody can do for you is the second: confirming that
@@ -340,7 +410,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Alert>
         </Section>
 
-        <Section id="not" title="3 · Scope and limits">
+        <Section id="not" title="Scope and limits">
           <List spacing={4} mb={8}>
             <List.Item>No editing-reagent, guide-RNA or gamete design.</List.Item>
             <List.Item>
@@ -359,7 +429,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Alert>
         </Section>
 
-        <Section id="pipeline" title="4 · How a panel is built">
+        <Section id="pipeline" title="How a panel is built">
           <List spacing={5} type="ordered" mb={10}>
             <List.Item>
               <b>Resolve.</b> The variant is looked up live against ClinVar, falling back to Ensembl for a
@@ -370,7 +440,7 @@ export function DocsPage({ health }: { health: Health | null }) {
             <List.Item>
               <b>Rarity.</b> The gnomAD single-variant record and the 1000 Genomes allele count decide
               whether population LD with this allele is even defined. For a pathogenic variant the answer
-              is almost always no (see <Anchor href={docHref('ld')}>section 5</Anchor>).
+              is almost always no (see <SecRef id="ld" />).
             </List.Item>
             <List.Item>
               <b>Enumerate.</b> A ±250 kb window by default, pulled from gnomAD as 20 kb region chunks
@@ -407,7 +477,67 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="ld" title="5 · Linkage disequilibrium and rare variants">
+        <Section id="star" title="The star: ESHRE flanking criteria">
+          <Text mb={8}>
+            A star beside a shortlisted marker means it meets three structural criteria drawn from
+            the ESHRE PGT Consortium's good practice recommendations{' '}
+            <Ref id="eshre_pgt_m" />. It is this tool's own check of those criteria. ESHRE has not
+            reviewed this tool.
+          </Text>
+
+          <Title order={3} mt={12} mb={4}>What a star means, exactly</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              <b>Within 1 Mb of the variant.</b> ESHRE recommends staying inside 1 Mb (about 1 cM)
+              of the pathogenic variant, because loci 1 cM apart are expected to recombine about 1%
+              of the time.
+            </List.Item>
+            <List.Item>
+              <b>No recombination hotspot between the marker and the variant</b>, on the bundled
+              deCODE map. A marker separated from the locus by a hotspot is the one most likely to
+              have lost phase with it, which is the failure this criterion exists to avoid.
+            </List.Item>
+            <List.Item>
+              <b>Its GRCh38 position is not disputed</b> between gnomAD and Ensembl. Note the
+              difference between disputed and unchecked: only the nearest few markers are ever
+              cross-checked, so most carry no verdict, and no verdict is not a mark against them.
+            </List.Item>
+          </List>
+
+          <Title order={3} mt={12} mb={4}>What a star does not mean</Title>
+          <Text mb={6}>
+            <b>It is not an informativity rank, and it is not a ranking of any kind.</b> ESHRE's
+            marker informativity (Tables I and II of that paper) is computed from the couple's and
+            their relatives' actual genotypes. This tool has no genotypes: it proposes candidates
+            and cannot phase them, and 2pq is a population prior rather than a claim about your
+            carrier. So the only sense in which ESHRE defines a "best" marker is one this tool
+            structurally cannot compute, and it does not pretend to.
+          </Text>
+          <Text mb={6}>
+            <b>Starred markers are not ordered</b>, and no starred marker is preferred over another.
+            There is no cap: every marker meeting the criteria is starred. A cap would force an
+            ordering, and no published source gives an exchange rate between heterozygosity and
+            distance, so any such order would be this tool's invention presented as a
+            recommendation.
+          </Text>
+          <Text mb={6}>
+            <b>An unstarred marker is not unusable.</b> ESHRE recommends at least three SNPs on each
+            side of the locus, and unstarred markers may well be needed to reach that. A star is a
+            property of one marker; sufficiency is a property of the panel, and that is what{' '}
+            <Anchor href={docHref('layerb')}>the lab protocol</Anchor> and the coverage warnings
+            are for.
+          </Text>
+
+          <Alert color="gray" variant="light" title="In short">
+            <Text size="xs">
+              A star says the marker is structurally well placed: close enough, no hotspot in the
+              way, and its position agreed on. It says nothing about whether your carrier is
+              heterozygous there, which only genotyping can answer.
+            </Text>
+          </Alert>
+        </Section>
+
+        <Section id="ld" title="Linkage disequilibrium and rare variants">
           <Text mb={8}>
             Linkage disequilibrium (r² or D′) between a marker and the pathogenic variant is{' '}
             <b>undefined</b> when the pathogenic variant is rare. LD is a property of a haplotype
@@ -427,7 +557,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="prior" title="6 · Expected heterozygosity is a prior">
+        <Section id="prior" title="Expected heterozygosity is a prior">
           <Text mb={8}>
             Expected heterozygosity, 2pq under Hardy-Weinberg, is the probability that a randomly drawn
             individual from a reference population is heterozygous at the site. That is the entire content
@@ -446,7 +576,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="recomb" title="7 · Recombination and the genetic map">
+        <Section id="recomb" title="Recombination and the genetic map">
           <Text mb={8}>
             A crossover between a marker and the pathogenic allele makes the marker report the wrong
             parental chromosome. Each candidate carries its cM distance from the variant, interpolated
@@ -472,7 +602,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="layerb" title="8 · Using the panel in the lab">
+        <Section id="layerb" title="Using the panel in the lab">
           <Text mb={8}>
             The panel is a starting point. To actually call parental origin:
           </Text>
@@ -494,7 +624,179 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="sources" title="9 · Data sources and versions">
+        <Section id="primers" title="Primers: design, settings and checking">
+          <Text mb={8}>
+            Where a panel carries primers, each one is a candidate FWD/REV pair for genotyping
+            that marker by PCR. Primer3 designs them against a reference template fetched
+            around the marker. They are candidates in the same sense the markers are: nothing
+            here has run a PCR, and every pair needs validating at the bench before use.
+          </Text>
+          <Text mb={8}>
+            <b>Common variants are masked out of both primer sites.</b> This is the part worth
+            reading. A primer sitting on a common SNP fails to bind in exactly the carriers who
+            have that SNP, so their allele goes unamplified and a heterozygote is read as a
+            homozygote. That is allele dropout <Ref id="ado" />, it is silent, and it is the
+            worst error this tool can contribute to: the genotype it yields looks clean and is
+            wrong. The pool of markers is also the pool of hazards, so every gnomAD variant at
+            or above the mask MAF floor in the window is excluded from under both primers, and
+            the marker itself sits in the product under neither of them.
+          </Text>
+
+          <Title order={3} mt={16} mb={4}>What the warnings mean</Title>
+          <Text mb={8}>
+            Every pair carries at least one note, always. A pair with nothing said about it
+            would read as a pair with nothing wrong with it, so the design never hands one
+            back. On the panel each note is one line; the full wording is in the PDF, CSV,
+            XLSX and JSON exports, which are read away from this page.
+          </Text>
+          <Wide>
+          <Table className="om-table" withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Note</Table.Th>
+                <Table.Th>What it means</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              <Table.Tr>
+                <Table.Td><b>Not checked against the genome</b></Table.Td>
+                <Table.Td>
+                  The default, and the state of every pair until you ask for the check below.
+                  Primer3 saw one 800 bp template and cannot see the other 3.1 Gb, so the pair
+                  may prime a second locus somewhere this build has not looked. Not a verdict,
+                  and not a pass.
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td><b>DANGER</b></Table.Td>
+                <Table.Td>
+                  UCSC was asked and the answer was bad: several products, none at all, one on
+                  the wrong chromosome, or one at the wrong size. A pair that amplifies more
+                  than one locus cannot genotype the marker, because the trace is a mixture and
+                  a heterozygote is indistinguishable from two loci differing at that base. The
+                  pair is still shown, with the finding: a hidden primer is a decision made for
+                  you, a warned one is information.
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td><b>One product</b></Table.Td>
+                <Table.Td>
+                  UCSC found exactly one product, on the right chromosome, at the designed
+                  size. This is the best result available here and it is still not a validation:
+                  see the caveat below.
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td><b>Still unverified</b></Table.Td>
+                <Table.Td>
+                  UCSC was asked and the answer could not be read: an unreadable page, a
+                  timeout, a spent quota. An unreadable answer is not a clean answer, so it
+                  stays unverified rather than becoming a pass.
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td><b>No pair for this marker</b></Table.Td>
+                <Table.Td>
+                  The design ran and found nothing meeting your settings, and it says which
+                  constraint it could not satisfy. Nothing is relaxed to force a pair: a pair
+                  handed back below the Tm you set anneals at a temperature you will not run.
+                  A window at 63% GC will not yield a 40-60% GC primer, and that is the honest
+                  answer, not a failure to try.
+                </Table.Td>
+              </Table.Tr>
+            </Table.Tbody>
+          </Table>
+          </Wide>
+
+          <Title order={3} mt={16} mb={4}>In-silico PCR: what a pass is worth</Title>
+          <Text mb={8}>
+            Checking is optional, off by default, and run from the <b>Check pairs</b> button in
+            the primer box. It sends each pair to UCSC In-Silico PCR, which aligns the two
+            primers against the whole GRCh38 reference and reports where they would amplify it.
+            UCSC publishes one request every 15 seconds for programmatic use, so each pair adds
+            about 15 seconds: eleven pairs is roughly three minutes. That is why it is a button
+            and not part of the build.
+          </Text>
+          <Alert color="yellow" p={8} mb={8}>
+            <Text size="sm">
+              <b>A clean result is not a wet-lab validation.</b> It is not a PCR. It does not
+              see this carrier's genome, so a private variant under a primer site will not
+              appear and can still cause dropout. It does not model your cycling conditions, so
+              one reference product is not a promise of one band on a gel. It means the pair is
+              not obviously multi-locus against one reference sequence, and nothing more.
+            </Text>
+          </Alert>
+
+          <Title order={3} mt={16} mb={4}>Turning the check on: a UCSC API key</Title>
+          <Text mb={8}>
+            {health?.insilico_pcr_enabled
+              ? 'This instance has a key configured, so the Check pairs button is live.'
+              : 'This instance has no key configured, so pairs stay marked as not checked. '
+                + 'If you are running your own copy:'}
+          </Text>
+          <List spacing={4} type="ordered" mb={10}>
+            <List.Item>
+              Make a UCSC Genome Browser account, or log in to yours, at{' '}
+              <Anchor href="https://genome.ucsc.edu/cgi-bin/hgLogin" target="_blank" rel="noreferrer">
+                genome.ucsc.edu/cgi-bin/hgLogin
+              </Anchor>.
+            </List.Item>
+            <List.Item>
+              Open the{' '}
+              <Anchor href="https://genome.ucsc.edu/cgi-bin/hgHubConnect#dev" target="_blank" rel="noreferrer">
+                Hub Development page
+              </Anchor>{' '}
+              and generate a key in the <b>API key</b> section at the bottom.
+            </List.Item>
+            <List.Item>
+              Set it as <Code>UCSC_API_KEY</Code> in the server's environment and restart. It
+              is read server-side only and never reaches the browser.
+            </List.Item>
+          </List>
+          <Text mb={8} size="sm" c="dimmed">
+            Keys work only on the primary site, not the genome-euro or genome-asia mirrors.
+            Without a key, hgPcr answers with a CAPTCHA, which this app classifies as
+            unverified and leaves that way; it does not attempt to solve it. UCSC's published
+            limit for programmatic use is one request every 15 seconds and 5,000 a day, and
+            those are UCSC's numbers rather than tuning knobs, so they are not settable here.
+          </Text>
+
+          <Title order={3} mt={16} mb={4}>Field reference</Title>
+          <Text mb={8}>
+            Every knob the primer box draws, with the bounds it accepts. Defaults come from the
+            server that will use them, so the numbers in the form are the engine's, not a copy.
+          </Text>
+          {PRIMER_GROUPS.map((g) => (
+            <div key={g.key}>
+              <Title order={4} mt={12} mb={3}>{g.title}</Title>
+              <Text mb={6} size="sm">{GROUP_NOTE[g.key]}</Text>
+              <Wide>
+              <Table className="om-table" withTableBorder>
+                <Table.Thead>
+                  <Table.Tr>
+                    <Table.Th>Field</Table.Th>
+                    <Table.Th>Range</Table.Th>
+                    <Table.Th>What it does</Table.Th>
+                  </Table.Tr>
+                </Table.Thead>
+                <Table.Tbody>
+                  {FIELD_KEYS.filter((k) => PRIMER_FIELDS[k].group === g.key).map((k) => (
+                    <Table.Tr key={k}>
+                      <Table.Td className="om-mono">{PRIMER_FIELDS[k].label}</Table.Td>
+                      <Table.Td className="om-mono" style={{ whiteSpace: 'nowrap' }}>
+                        {PRIMER_FIELDS[k].min} to {PRIMER_FIELDS[k].max}
+                      </Table.Td>
+                      <Table.Td>{FIELD_DOC[k]}</Table.Td>
+                    </Table.Tr>
+                  ))}
+                </Table.Tbody>
+              </Table>
+              </Wide>
+            </div>
+          ))}
+        </Section>
+
+        <Section id="sources" title="Data sources and versions">
           <Text mb={8}>
             ClinVar, Ensembl and gnomAD are queried when you build a panel, so a panel is a snapshot of
             those databases at that moment, and every result carries its pull timestamp. The genetic map
@@ -614,7 +916,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="conventions" title="10 · Conventions">
+        <Section id="conventions" title="Conventions">
           <Text mb={8}>
             <b>Nomenclature.</b> Variants are written per the HGVS recommendations{' '}
             <Ref id="hgvs" />, with the transcript accession included, as in{' '}
@@ -646,7 +948,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="freetext" title="11 · Free text and the model">
+        <Section id="freetext" title="Free text and the model">
           <Text mb={8}>
             The search box takes free text. What happens to it turns on one thing: whether your text
             contains a variant identifier. The two paths are not the same feature with different
@@ -677,11 +979,11 @@ export function DocsPage({ health }: { health: Health | null }) {
           <Text mb={8}>
             It cannot hand you a coordinate. Not a chromosome, not a position, not an allele, not a
             strand. The typed query it fills, <Code>pb.StructuredQuery</Code>, has no field for any of
-            them (see <Anchor href={docHref('api')}>section 14</Anchor>). That is a property of the
+            them (see <SecRef id="api" />). That is a property of the
             code, not a rule the model is asked to observe: there is nowhere to put a coordinate, so a
             recalled one has no route into a panel. Whichever path you arrive by, the coordinate on
             your panel came from the same live lookup described in{' '}
-            <Anchor href={docHref('pipeline')}>section 4</Anchor>.
+            <SecRef id="pipeline" />.
           </Text>
           <Text mb={8}>
             What it does decide is <b>which variant you meant</b>, and it can be wrong. A gene may
@@ -789,7 +1091,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="limits" title="12 · Known limitations">
+        <Section id="limits" title="Known limitations">
           <Text mb={8}>
             Everything below is a real property of this tool or its data, not a hypothetical. It is
             listed because a plausible wrong answer is worse than an error: an error gets
@@ -898,7 +1200,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </List>
         </Section>
 
-        <Section id="example" title="13 · Worked example">
+        <Section id="example" title="Worked example">
           <Text mb={8}>The reference case, end to end.</Text>
           <Wide>
           <Table className="om-table" withTableBorder>
@@ -921,7 +1223,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Wide>
           <Text mb={8}>
             An allele count of 1 puts this variant in the undefined-LD case of{' '}
-            <Anchor href={docHref('ld')}>section 5</Anchor>, so ranking is on 2pq and proximity.
+            <SecRef id="ld" />, so ranking is on 2pq and proximity.
             rs757110 sits 125 bp from the variant, so recombination between them is negligible. It still
             has to be heterozygous in the carrier, and it still needs a partner on its own side and
             coverage on the other.
@@ -932,7 +1234,7 @@ export function DocsPage({ health }: { health: Health | null }) {
           </Text>
         </Section>
 
-        <Section id="api" title="14 · API">
+        <Section id="api" title="API">
           <Wide>
           <Table className="om-table" withTableBorder>
             <Table.Thead>
@@ -972,7 +1274,7 @@ r.recommended                   # balanced, both-sided candidate panel`}
           </Text>
         </Section>
 
-        <Section id="references" title="15 · References">
+        <Section id="references" title="References">
           <ol style={{ margin: 0, paddingLeft: 22 }}>
             {ORDER.map((id) => {
               const c = CITATIONS[id]
@@ -1013,16 +1315,27 @@ r.recommended                   # balanced, both-sided candidate panel`}
   )
 }
 
+/**
+ * One numbered section. The number comes from SECTIONS order, exactly as a citation's comes
+ * from CITATIONS order: there is one ordering, not two, so the nav and the heading cannot
+ * disagree and inserting a section renumbers everything below it for free.
+ */
 function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
   return (
     <section id={id} style={{ scrollMarginTop: 12, marginBottom: 22 }}>
       <Title order={2} mb={6} pb={3} style={{ borderBottom: '1px solid var(--om-border)' }}>
-        {title}
+        {sectionNo(id)} · {title}
       </Title>
       {children}
     </section>
   )
 }
+
+/** A cross-reference in prose. Written as an id, rendered as whatever number that section
+ *  currently holds, so a renumber carries it rather than stranding it. */
+const SecRef = ({ id }: { id: string }) => (
+  <Anchor href={docHref(id)}>section {sectionNo(id)}</Anchor>
+)
 
 /** Scroll box for tables, which do not fit the prose column's measure. */
 const Wide = ({ children }: { children: ReactNode }) => (

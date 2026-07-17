@@ -54,7 +54,10 @@ def test_resolve_golden():
     assert j["variant"]["build"] == "GRCh38"
     assert j["transcript_sense"].startswith("G>A")      # minus strand, genomic C>T
     assert j["rarity"]["population_LD_usable"] is False
-    assert "phasing" in j["ld_banner"].lower()
+    # R3 reaches this endpoint on DISCLAIMER, verbatim (R8), not duplicated into the LD
+    # verdict: reason renders on a card with room for one line.
+    assert "phasing" in j["disclaimer"].lower()
+    assert j["disclaimer"] == pb_disclaimer()
     # One verdict, not two: ld_banner must be rarity.reason verbatim, not a second wording
     # that can drift out of agreement with it. Only string identity pins that.
     assert j["ld_banner"] == j["rarity"]["reason"]

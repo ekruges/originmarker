@@ -1,13 +1,15 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   Alert, Anchor, Badge, Group, List, Pagination, Paper, Select, Table, Text, TextInput,
   Tooltip,
 } from '@mantine/core'
 import {
-  flankingRule, isUpper, links, posMismatch, starred, TIER_LABEL, type Marker,
-  type PanelResult,
+  flankingRule, hasPair, isUpper, links, pcrDanger, pcrUnchecked, posMismatch, primerBuild,
+  starred, TIER_LABEL, type Marker, type PanelResult, type Primer, type PrimerBuild,
+  type PrimerResult, type PrimerWarning,
 } from './api'
 import { int, num, sig2, signedBp } from './fmt'
+import { PrimerChip } from './PrimerOptions'
 import { ancestryHet, applyPreset, type Preset, PRESETS } from './rank'
 
 const PER_PAGE = 50
@@ -50,14 +52,210 @@ const Star = () => (
   </svg>
 )
 
+/** One oligo, as ordered. Monospace and selectable: this string gets copied onto an order
+ *  form, so it is rendered whole and never truncated. */
+const Oligo = ({ side, p }: { side: string; p: Primer }) => (
+  <Group gap={8} wrap="nowrap" align="baseline">
+    <Text size="xs" fw={700} style={{ width: 12, flex: 'none' }}>{side}</Text>
+    <Text
+      size="xs"
+      className="om-mono"
+      style={{ userSelect: 'text', wordBreak: 'break-all' }}
+    >
+      5'-{p.seq}-3'
+    </Text>
+    {/* Its own length, not seq.length: the engine states it, and a second way of counting
+        is a second answer. GRCh38 on the coordinate, because every coordinate here is. */}
+    <Text size="xs" c="dimmed" className="om-mono" style={{ whiteSpace: 'nowrap', flex: 'none' }}>
+      {p.length} nt · Tm {p.tm.toFixed(1)} °C · GC {p.gc.toFixed(1)}% · GRCh38 {int(p.pos)}
+    </Text>
+  </Group>
+)
+
+/**
+ * One line of the engine's own words, at the length a table can carry.
+ *
+ * `short` and a link, never `long`: `long` is a paragraph, it is the same paragraph on every
+ * row, and the reader who wants it has the docs and the PDF. Nothing here rewrites either
+ * one, and the link is the deferral the short form is written to make.
+ */
+const Note = ({ w, tone }: { w: PrimerWarning; tone: 'warn' | 'danger' | 'ok' }) => (
+  <Group gap={6} mb={4} wrap="nowrap" align="flex-start">
+    {tone !== 'ok' && (
+      <Badge
+        size="xs"
+        variant="filled"
+        color={tone === 'danger' ? 'red' : 'yellow.4'}
+        c={tone === 'danger' ? undefined : '#3d2f00'}
+        style={{ flex: 'none' }}
+      >
+        {tone === 'danger' ? 'DANGER' : 'WARNING'}
+      </Badge>
+    )}
+    <Text size="xs" c={tone === 'ok' ? 'green.9' : undefined}>
+      {noteWords(w)}{' '}
+      <Anchor href={w.docs || '#/docs/primers'} size="xs">why</Anchor>
+    </Text>
+  </Group>
+)
+
+/**
+ * A note's words, and never nothing.
+ *
+ * `short` is what belongs in a table. The rest is not decoration: a badge reading WARNING
+ * beside an empty line is a warning that says nothing, which reads as a pair with nothing
+ * wrong with it. That is the one thing this module refuses, and it is exactly what an older
+ * server's shape rendered here.
+ */
+const noteWords = (w: PrimerWarning) =>
+  w.short || w.long
+  || 'This pair carries a warning this page could not read. Treat it as unchecked.'
+
+/** The engine promises never to hand back a pair with nothing said about it. This is that
+ *  contract broken, so it says so rather than rendering a clean-looking pair. */
+const NO_WARNINGS: PrimerWarning = {
+  code: 'no_warnings',
+  short: 'This pair arrived with no warnings, which the design does not do. Treat it as unchecked.',
+  long: '',
+  docs: '#/docs/primers',
+}
+
+/**
+ * One marker's pair, under its row, behind a line you open.
+ *
+ * Collapsed by default: the pair is four lines of detail per row, and a table that shows all
+ * of it for every marker is one nobody reads. What collapsing must never hide is a finding,
+ * so the summary line carries the verdict badge, and a dangerous pair opens itself. The
+ * panel-level alert lists every dangerous pair regardless of what is open.
+ *
+ * Every state renders the pair underneath: a warned primer is information, a hidden one is a
+ * decision taken for the reader.
+ */
+export const PrimerDetail = ({ d, defaultOpen }: {
+  d: PrimerResult
+  /** Overrides the rule below. The rule is the default; this exists for a caller that
+   *  already knows what it wants open. */
+  defaultOpen?: boolean
+}) => {
+  const danger = pcrDanger(d)
+  const pair = hasPair(d)
+  const warnings = d.warnings ?? []
+  // Danger and a failed design are the two states worth the reader's attention before they
+  // ask for it. Everything else starts shut.
+  const [open, setOpen] = useState(defaultOpen ?? (!!danger || !!d.error))
+  return (
+    <Table.Tr>
+      {/* Wider than the table on purpose: the header is the one place the column count is
+          written down, and a copy of it here would drift on the next column. */}
+      <Table.Td
+        colSpan={99}
+        p={0}
+        style={{ background: 'var(--om-head-bg)', borderLeft: '3px solid var(--om-blue)' }}
+      >
+      {/* Pinned and bounded, because the cell is as wide as the table and the table is wider
+          than its scroll box: unpinned, a warning runs off the right edge and the reader has
+          to scroll sideways to find out what is wrong. `normal` undoes the table's nowrap,
+          which is right for a row of figures and silently truncates a sentence. */}
+      <div
+        style={{
+          position: 'sticky',
+          left: 0,
+          width: 'min(900px, calc(100vw - 48px))',
+          whiteSpace: 'normal',
+        }}
+      >
+        <button
+          type="button"
+          className="om-primer-toggle"
+          aria-expanded={open}
+          onClick={() => setOpen((o) => !o)}
+        >
+          <span className="om-primer-toggle-caret">{open ? '▾' : '▸'}</span>
+          <span>{open ? 'Hide primer design' : 'Open primer design'}</span>
+          {/* On the line, not inside the box: a finding that only exists once the reader
+              opens the row is a finding hidden behind a click. */}
+          {danger && (
+            <Badge size="xs" color="red" variant="filled" style={{ flex: 'none' }}>DANGER</Badge>
+          )}
+          {!danger && d.error && (
+            <Badge size="xs" color="orange" variant="light" style={{ flex: 'none' }}>no pair</Badge>
+          )}
+          {!danger && pair && !pcrUnchecked(d) && (
+            <Badge size="xs" color="green" variant="light" style={{ flex: 'none' }}>
+              one product
+            </Badge>
+          )}
+        </button>
+        {open && (
+          <div style={{ padding: '2px 8px 8px' }}>
+            {d.error && (
+              <Alert color="orange" role="alert" p={6} mb={6} title="No primer pair for this marker">
+                <Text size="xs">{d.error}</Text>
+              </Alert>
+            )}
+            {pair && danger && (
+              <Alert
+                color="red"
+                role="alert"
+                p={6}
+                mb={6}
+                title="Do not order this pair without redesigning it"
+              >
+                <Text size="xs">
+                  {danger.short}{' '}
+                  <Anchor href={danger.docs || '#/docs/primers'} size="xs">why</Anchor>
+                </Text>
+              </Alert>
+            )}
+            {/* Not alerts: these are the normal state of every pair the design hands back, and
+                a red banner on all of them is one nobody reads by the third row. A pass is
+                still the engine's sentence, not a summary of it. */}
+            {pair && !danger && (warnings.length ? warnings : [NO_WARNINGS]).map((w) => (
+              <Note
+                key={w.code}
+                w={w}
+                tone={warnings.length && !pcrUnchecked(d) ? 'ok' : 'warn'}
+              />
+            ))}
+            {d.fwd && <Oligo side="F" p={d.fwd} />}
+            {d.rev && <Oligo side="R" p={d.rev} />}
+            {(d.product_size != null || d.mask_note) && (
+              <Text size="xs" c="dimmed" mt={3}>
+                {[
+                  d.product_size != null ? `product ${int(d.product_size)} bp` : null,
+                  d.mask_note ? noteWords(d.mask_note) : null,
+                ].filter(Boolean).join(' · ')}
+                {d.mask_note && (
+                  <>
+                    {' '}
+                    <Anchor href={d.mask_note.docs || '#/docs/primers'} size="xs">why</Anchor>
+                  </>
+                )}
+              </Text>
+            )}
+          </div>
+        )}
+      </div>
+      </Table.Td>
+    </Table.Tr>
+  )
+}
+
 type SortKey = 'pos' | 'dist' | 'maf' | 'het' | 'anc' | 'cm' | 'theta'
 
 interface Props {
   result: PanelResult
   ancestry: string | null
+  /** Rebuild this panel on new primer settings. Optional: a page that cannot build renders
+   *  the same settings read-only, which is what they are to a panel already built. */
+  onRebuild?: (build: PrimerBuild) => void
+  /** Start a UCSC check of every designed pair. Undefined where the server has no key, and
+   *  then the box says so rather than offering a button that cannot work. */
+  onVerify?: () => void
+  verify?: { running: boolean; stage: string; error?: string }
 }
 
-export function PanelTable({ result, ancestry }: Props) {
+export function PanelTable({ result, ancestry, onRebuild, onVerify, verify }: Props) {
   const { candidates, recommended } = result
   const [scope, setScope] = useState<'recommended' | 'all'>('recommended')
   const [preset, setPreset] = useState<Preset>('ranked')
@@ -73,9 +271,24 @@ export function PanelTable({ result, ancestry }: Props) {
   // after selecting the panel, so a disputed marker is still shortlisted.
   const disputed = useMemo(() => candidates.filter(posMismatch), [candidates])
 
+  // As above, and for the same reason: a pair that in-silico PCR contradicts must not be
+  // hideable by paging past it. Walked over the candidates rather than the primer map, so
+  // the rsID and the panel's own order come with it.
+  const dangerous = useMemo(
+    () => candidates.flatMap((m) => {
+      const why = m.primer && pcrDanger(m.primer)
+      return why ? [{ m, why }] : []
+    }),
+    [candidates],
+  )
+
   // The rule gates the glyph and its words together: no rule, no stars at all, whatever the
   // rows happen to carry. A star the page cannot explain is worse than no star.
   const rule = flankingRule(result.provenance)
+
+  // No recorded settings, no primer UI at all: the server has no primer module, and an
+  // empty form over an absent feature invites a rebuild that would change nothing.
+  const build = primerBuild(result)
 
   useEffect(() => setPage(1), [scope, preset, q, ancestry, sort])
 
@@ -152,14 +365,11 @@ export function PanelTable({ result, ancestry }: Props) {
           }
         >
           <Text size="xs" mb={6}>
-            gnomAD and Ensembl report different GRCh38 coordinates for{' '}
-            {disputed.length === 1 ? 'this marker' : 'these markers'}. Only one source can be
-            right, and every figure on the row was computed from the gnomAD position:
-            distance to the variant, cM, θ, and which flank it counts toward. The panel was
-            selected before the positions were re-checked, so{' '}
-            {disputed.length === 1 ? 'it is' : 'they are'} still shortlisted. Resolve the
-            disagreement at dbSNP before ordering an assay, or drop{' '}
-            {disputed.length === 1 ? 'the marker' : 'them'}.
+            gnomAD and Ensembl report different GRCh38 coordinates, so every figure on the row
+            rests on a position only one of them agrees with. Resolve it at dbSNP before
+            ordering an assay, or drop{' '}
+            {disputed.length === 1 ? 'the marker' : 'them'}.{' '}
+            <Anchor href="#/docs/conventions" size="xs">Why this happens</Anchor>
           </Text>
           <List size="xs" spacing={2}>
             {disputed.map((m) => {
@@ -176,6 +386,35 @@ export function PanelTable({ result, ancestry }: Props) {
                 </List.Item>
               )
             })}
+          </List>
+        </Alert>
+      )}
+
+      {dangerous.length > 0 && (
+        <Alert
+          color="red"
+          mx={8}
+          mt={8}
+          role="alert"
+          title={
+            dangerous.length === 1
+              ? 'In-silico PCR contradicts a primer pair in this panel'
+              : `In-silico PCR contradicts ${dangerous.length} primer pairs in this panel`
+          }
+        >
+          <Text size="xs" mb={6}>
+            A pair that does not amplify exactly the marker it was designed for cannot
+            genotype it.{' '}
+            {dangerous.length === 1 ? 'It is' : 'They are'} still shown, under{' '}
+            {dangerous.length === 1 ? 'its marker' : 'their markers'}, with the finding.{' '}
+            <Anchor href="#/docs/primers" size="xs">What this means</Anchor>
+          </Text>
+          <List size="xs" spacing={2}>
+            {dangerous.map(({ m, why }) => (
+              <List.Item key={m.variant_id}>
+                <span className="om-mono">{m.rsid}</span>: {why.short}
+              </List.Item>
+            ))}
           </List>
         </Alert>
       )}
@@ -211,6 +450,7 @@ export function PanelTable({ result, ancestry }: Props) {
           value={q}
           onChange={(e) => setQ(e.currentTarget.value)}
         />
+        {build && <PrimerChip build={build} onRebuild={onRebuild} onVerify={onVerify} verify={verify} />}
         {sort && (
           <Anchor size="xs" component="button" type="button" onClick={() => setSort(null)}>
             clear column sort
@@ -224,7 +464,11 @@ export function PanelTable({ result, ancestry }: Props) {
       {rule && (
         <Group gap={6} px={8} pb={8} wrap="nowrap" align="flex-start">
           <span style={{ lineHeight: 0, paddingTop: 2 }}><Star /></span>
-          <Text size="xs" c="dimmed">{legendWords(rule.legend)}</Text>
+          {/* A link, but not link-blue: it sits under a table as a key, and colouring it
+              would pull the eye off the panel. The affordance is the hover. */}
+          <a href={rule.docs_href ?? '#/docs'} className="om-star-key">
+            <Text size="xs" c="dimmed" component="span">{legendWords(rule.legend)}</Text>
+          </a>
         </Group>
       )}
 
@@ -260,9 +504,10 @@ export function PanelTable({ result, ancestry }: Props) {
           <Table.Tbody>
             {pageRows.map((m) => {
               const anc = ancestryHet(m, ancestry)
+              const design = m.primer
               return (
+                <Fragment key={m.variant_id}>
                 <Table.Tr
-                  key={m.variant_id}
                   // Inline, not a class: it has to beat the zebra striping rather than
                   // alternate with it.
                   style={posMismatch(m) ? { background: 'rgba(224, 49, 49, 0.10)' } : undefined}
@@ -275,14 +520,16 @@ export function PanelTable({ result, ancestry }: Props) {
                         </Tooltip>
                       )}
                       {rule && starred(m) && (
-                        <Tooltip label={rule.legend} withArrow multiline w={300}>
-                          <span
-                            role="img"
+                        <Tooltip label={rule.summary ?? rule.legend} withArrow multiline w={300}>
+                          <a
+                            href={rule.docs_href ?? '#/docs'}
+                            // The claim, and only the claim: an <a href> is already announced as a link, so
+                            // saying so here would make a screen reader read "link" twice.
                             aria-label={STAR_CLAIM}
-                            style={{ lineHeight: 0, cursor: 'help' }}
+                            style={{ lineHeight: 0, display: 'inline-flex' }}
                           >
                             <Star />
-                          </span>
+                          </a>
                         </Tooltip>
                       )}
                       {m.rsid}
@@ -367,6 +614,8 @@ export function PanelTable({ result, ancestry }: Props) {
                     </Group>
                   </Table.Td>
                 </Table.Tr>
+                {design && <PrimerDetail d={design} />}
+                </Fragment>
               )
             })}
           </Table.Tbody>

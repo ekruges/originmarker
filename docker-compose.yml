@@ -17,10 +17,14 @@ services:
       #   NCBI_API_KEY / NCBI_CONTACT_EMAIL  raise the ClinVar rate limit
       #   LDLINK_TOKEN                       enables the optional LD annotation
       #   ANTHROPIC_API_KEY                  enables free-text search (deploy/enable-nl-search.md)
+      #   UCSC_API_KEY                       enables in-silico PCR verification of primers
+      # A key in .env reaches the app only if it is named here: compose reads .env for
+      # substitution, and passes nothing into the container it was not asked to.
       NCBI_API_KEY: ${NCBI_API_KEY:-}
       NCBI_CONTACT_EMAIL: ${NCBI_CONTACT_EMAIL:-}
       LDLINK_TOKEN: ${LDLINK_TOKEN:-}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      UCSC_API_KEY: ${UCSC_API_KEY:-}
     volumes:
       # Warm loci survive restarts. A named volume rather than a bind mount: some NAS
       # filesystems refuse a bind unless the container uid matches the host file owner.

@@ -3,10 +3,19 @@ import {
   ActionIcon, Alert, Autocomplete, Button, Checkbox, CloseButton, Combobox, Group,
   NumberInput, Paper, SegmentedControl, Select, Text, TextInput, Tooltip, useCombobox,
 } from '@mantine/core'
-import { ANCESTRIES, api, ApiError, type Health, type NLResponse, type StructuredQuery } from './api'
+import {
+  ANCESTRIES, api, ApiError, type Health, type NLResponse, type PrimerBuild,
+  type StructuredQuery,
+} from './api'
 import { clearHistory, forgetQuery, readHistory, recordQuery, type Entry } from './history'
+import { PrimerFields } from './PrimerOptions'
 
 const EXAMPLE = 'NM_000352.6(ABCC8):c.3989-9G>A'
+
+/** The scope a build gets when nobody picks one. Must stay panelbuilder's own default for
+ *  StructuredQuery.primer_scope: it is the value this form shows before anyone touches it,
+ *  and the form sends whatever it shows, so a drift here changes what gets built. */
+const DEFAULT_SCOPE = 'starred'
 
 /** The rotation: every accepted input form, over a spread of real loci.
  *
@@ -96,13 +105,25 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
   }, [text, entries])
 
   // Manual mode: every StructuredQuery knob, no parsing in the way.
-  const [q, setQ] = useState<Required<Omit<StructuredQuery, 'gene' | 'ancestry'>> & {
+  const [q, setQ] = useState<Required<Omit<StructuredQuery,
+    'gene' | 'ancestry' | 'primer_scope' | 'primer_settings'>> & {
     gene: string
     ancestry: string | null
   }>({
     variant: '', gene: '', window_bp: 250_000, build: 'GRCh38',
     ancestry: null, common_maf: 0.05, cross_check: true,
   })
+
+  // Untouched until the fields are edited. The numbers are never held here: they come off
+  // health, from the engine that will use them, so this side has no defaults to drift.
+  const [primer, setPrimer] = useState<PrimerBuild | null>(null)
+
+  // What the form shows, and therefore exactly what a build is asked for: sent whenever the
+  // form is drawn, touched or not, so the screen cannot say one scope while the server picks
+  // another. Null where the server states no defaults, and then it decides everything.
+  const primerShown: PrimerBuild | null = health?.primer_defaults
+    ? primer ?? { scope: DEFAULT_SCOPE, settings: health.primer_defaults }
+    : null
 
   const [geneOpts, setGeneOpts] = useState<string[]>([])
   const [geneErr, setGeneErr] = useState(false)
@@ -166,6 +187,8 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
       ancestry: q.ancestry,
       common_maf: q.common_maf,
       cross_check: q.cross_check,
+      primer_scope: primerShown?.scope,
+      primer_settings: primerShown?.settings,
     })
   }
 
@@ -533,6 +556,21 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
                 Panels are computed on GRCh38. A GRCh37 position is converted via ClinVar's assembly
                 mapping and the conversion is labelled on the resolved variant.
               </Text>
+            )}
+            {/* Only against a server that states its defaults. Without them there is no
+                primer feature to configure, and a form here would collect settings that
+                nothing downstream reads. */}
+            {primerShown && (
+              <div
+                style={{
+                  marginTop: 10,
+                  paddingTop: 8,
+                  borderTop: '1px solid var(--om-border)',
+                }}
+              >
+                <Text size="xs" fw={600} mb={5}>Primers</Text>
+                <PrimerFields value={primerShown} onChange={setPrimer} />
+              </div>
             )}
           </>
         )}

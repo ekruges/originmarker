@@ -20,7 +20,11 @@ MODULES = [
     "build_info",
     "genetic_map",
     "panelbuilder",
+    # Skips itself, exit 0, where primer3 is not installed: it is optional (GPLv2), so the
+    # default image runs this check in its skipped form.
+    "primers",
     "app.exports",
+    "app.ispcr",
     "app.nl",
     "app.ldlink",
 ]

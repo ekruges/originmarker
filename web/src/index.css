@@ -130,8 +130,30 @@ body {
    reading, its minus-strand badge and the GRCh37 coordinate off the right edge with it.
    R6 and R7 information, present but unreachable. Below 700px the pairs stack: label on
    its own line, value underneath, free to wrap. */
+/* Fixed layout, or the widest value sizes the column and drags the whole card past the
+   viewport: an auto table has no ceiling, so one long line clips every badge to its right. */
+.om-kv {
+  table-layout: fixed;
+  width: 100%;
+}
+
 .om-kv-k {
   width: 170px;
+}
+
+/* Values wrap inside their cell rather than widening it. A genomic coordinate or a
+   sequence has no spaces to break at, so break-word is what keeps it in the card. */
+.om-kv tbody td:last-child {
+  overflow-wrap: break-word;
+}
+
+/* A Badge is nowrap by design, so a long one cannot break and pushes its cell past the
+   card. Let the badge itself wrap: the label is prose, and a clipped warning is worse
+   than a two-line one. */
+.om-kv tbody td .mantine-Badge-root {
+  white-space: normal;
+  height: auto;
+  max-width: 100%;
 }
 
 @media (max-width: 700px) {
@@ -329,4 +351,43 @@ body {
 .om-hero-input + .om-ghost-text,
 .om-ghost-text {
   z-index: 1;
+}
+
+/* The star key under the panel is a link to the docs, but a quiet one: it sits beneath a
+   table of numbers, and link-blue there pulls the eye off the data. Discoverable on hover. */
+.om-star-key {
+  color: inherit;
+  text-decoration: none;
+  border-bottom: 1px dotted var(--om-border-strong);
+}
+.om-star-key:hover {
+  border-bottom-color: var(--om-text-dim);
+}
+
+/* The line that opens a marker's primer design. Thin and quiet: there is one per row, so it
+   is furniture until the reader wants it. A real <button>, so it is tabbable and announces
+   its own expanded state. */
+.om-primer-toggle {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 3px 8px;
+  border: 0;
+  background: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--om-text-dim);
+  text-align: left;
+}
+.om-primer-toggle:hover {
+  color: var(--om-text);
+  background: var(--om-row-hover, rgba(0, 0, 0, 0.03));
+}
+.om-primer-toggle-caret {
+  flex: none;
+  width: 9px;
+  font-size: 9px;
 }

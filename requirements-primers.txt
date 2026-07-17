@@ -1,0 +1,20 @@
+# OPTIONAL. Not installed by the default image, and deliberately not in requirements.txt.
+#
+# primer3-py is GPLv2. OriginMarker is Apache 2.0. The two are incompatible for a
+# DISTRIBUTED COMBINED WORK: shipping an image that bundles both, or adding primer3 to
+# requirements.txt so every install pulls it, would put this repo's distribution under
+# terms it cannot meet.
+#
+# Installing it on a server you run is not distribution and triggers nothing. So this is an
+# operator's switch, exactly like ANTHROPIC_API_KEY and LDLINK_TOKEN: optional, documented,
+# and it degrades gracefully and says so. Without it, primers.available() is False, panels
+# build unchanged and carry no primers.
+#
+#     pip install -r requirements-primers.txt
+#
+# Turning it on adds no network calls: primers.py is pure and takes its sequence as an
+# argument. It does not make a candidate pair a verified one (see primers.NOT_CHECKED_WARNING).
+#
+# If you redistribute an image built with this file installed, the combined work is subject
+# to the GPLv2. That is your call to make, not this repo's default.
+primer3-py==2.3.0        # GPLv2: https://github.com/libnano/primer3-py/blob/main/LICENSE
