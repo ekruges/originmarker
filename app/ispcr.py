@@ -181,8 +181,8 @@ def _gate_pass() -> None:
                                   f"published rate limit of one request per "
                                   f"{MIN_INTERVAL_S:.0f}s")
             time.sleep(wait)
-        # ponytail: counter is process-local and resets on restart, so a redeploy forgives
-        # the day's tally. Move to a shared store only if this ever runs multi-worker.
+        # The counter is process-local and resets on restart, so a redeploy forgives the
+        # day's tally. Move it to a shared store only if this ever runs multi-worker.
         _last = time.monotonic()
         _day_count += 1
 

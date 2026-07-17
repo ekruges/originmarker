@@ -98,7 +98,10 @@ const GROUP_NOTE: Record<GroupKey, string> = {
   tm: 'A high target is a deliberate choice for a single band, and nothing relaxes it: a '
     + 'marker where no primer reaches it fails and names the knob, because a pair handed back '
     + 'below the target you set anneals at a temperature you will not run. The pair is held '
-    + 'together because both primers anneal in the same tube.',
+    + 'together because both primers anneal in the same tube. The 69 C default is deliberately '
+    + 'stringent, higher than the ~58-62 C typical of routine Taq or Sanger genotyping; it '
+    + 'suits a touchdown or two-step protocol. Lower it toward 60 C if you are running a '
+    + 'standard single-anneal assay and getting poor yield.',
   size: 'Length floats to reach the Tm target: within a given GC range a fixed short oligo '
     + `cannot reach a high Tm, so a target and a fixed length cannot both hold. Capped at `
     + `${PRIMER_SIZE_CAP}, past which primer3's Tm model is no longer defined, and a Tm past `
@@ -428,6 +431,50 @@ export function DocsPage({ health }: { health: Health | null }) {
               establish that; only genotyping the actual carrier can.
             </List.Item>
           </List>
+
+          <Title order={3} mt={16} mb={4}>Cases this tool does not handle, or cannot detect</Title>
+          <Text mb={8}>
+            The method assumes a nuclear, biparentally inherited point variant on a recombining
+            chromosome, transmitted through one carrier of known sex. Where that assumption
+            breaks, the panel can look identical to a valid one while meaning something else.
+            One of these is refused outright; the rest the tool cannot see, because it never
+            meets the family, so they are yours to rule out.
+          </Text>
+          <List spacing={5} mb={8}>
+            <List.Item>
+              <b>Mitochondrial (mtDNA) variants are refused.</b> mtDNA is maternally
+              inherited, does not recombine, and is often heteroplasmic, so &ldquo;which
+              parental chromosome&rdquo; is undefined and flanking-SNP linkage does not apply.
+              Resolving a chrM variant returns an error rather than a panel.
+            </List.Item>
+            <List.Item>
+              <b>De novo variants.</b> Neither parent carries the allele, so it cannot be
+              phased against a parent the usual way; ESHRE gives de novo its own protocol
+              (sperm or polar-body typing, or phasing through an affected proband). The tool
+              cannot tell a variant is de novo and will build a panel anyway.
+            </List.Item>
+            <List.Item>
+              <b>Uniparental disomy (UPD).</b> Both homologues from one parent. Flanking
+              markers can return an internally consistent but biologically wrong origin call.
+              The most dangerous class here, and undetectable from a marker panel alone.
+            </List.Item>
+            <List.Item>
+              <b>Mosaicism.</b> A variant present in only some cells changes what a genotype
+              at the marker means; the panel cannot represent it.
+            </List.Item>
+            <List.Item>
+              <b>Consanguinity.</b> Shared parental haplotypes deplete the heterozygous
+              markers the method depends on. The &ldquo;genotype the carrier, keep the
+              heterozygous markers&rdquo; step absorbs this, but expect fewer informative
+              markers than the population priors here suggest.
+            </List.Item>
+            <List.Item>
+              <b>Repeat expansions and structural / copy-number variants.</b> These have no
+              single reference and alternate allele to anchor on; the tool refuses them at
+              resolve time for a different reason, but they are named here for completeness.
+            </List.Item>
+          </List>
+
           <Alert color="gray" variant="light" title="Disclaimer">
             <Text size="xs">{health?.disclaimer ?? FALLBACK_DISCLAIMER}</Text>
           </Alert>
@@ -494,7 +541,11 @@ export function DocsPage({ health }: { health: Health | null }) {
             <List.Item>
               <b>Within 1 Mb of the variant.</b> ESHRE recommends staying inside 1 Mb (about 1 cM)
               of the pathogenic variant, because loci 1 cM apart are expected to recombine about 1%
-              of the time.
+              of the time. At the default ±250 kb window every candidate is already well inside
+              1 Mb, so this clause only begins to bind if you widen the window past it. ESHRE
+              calls 2 Mb &ldquo;acceptable but not advisable&rdquo;; the star holds the stricter
+              1 Mb line, so if you widen the window and nothing stars within 1 Mb, a marker out
+              to 2 Mb is a defensible fallback that the star will not mark for you.
             </List.Item>
             <List.Item>
               <b>No recombination hotspot between the marker and the variant</b>, on the bundled

@@ -326,6 +326,9 @@ def _facts(result) -> list[tuple[str, str]]:
     f += [
         ("gnomAD genome AF", _num(rar.gnomad_af_genome)),
         ("gnomAD genome AC / AN", f"{_num(rar.gnomad_ac_genome)} / {_num(rar.gnomad_an_genome)}"),
+        ("gnomAD exome AF", _num(rar.gnomad_af_exome)),
+        ("gnomAD exome AC / AN", f"{_num(rar.gnomad_ac_exome)} / {_num(rar.gnomad_an_exome)}"),
+        ("gnomAD callset used for rarity", rar.gnomad_callset or "none"),
         ("1000 Genomes AC", _num(rar.thousand_genomes_ac)),
         ("Population LD usable", str(rar.population_LD_usable)),
         ("LD verdict reason", rar.reason),
@@ -807,6 +810,10 @@ def to_pdf(result) -> bytes:
         ("gnomAD genome AF:", f"{pb.fmt_af(result.rarity.gnomad_af_genome)}  "
                               f"(AC {_num(result.rarity.gnomad_ac_genome)} / "
                               f"AN {_num(result.rarity.gnomad_an_genome)})"),
+        ("gnomAD exome AF:", f"{pb.fmt_af(result.rarity.gnomad_af_exome)}  "
+                             f"(AC {_num(result.rarity.gnomad_ac_exome)} / "
+                             f"AN {_num(result.rarity.gnomad_an_exome)}); rarity read from "
+                             f"{result.rarity.gnomad_callset or 'neither callset'}"),
         ("1000G AC:", _num(result.rarity.thousand_genomes_ac)),
         ("Population LD usable:", f"{result.rarity.population_LD_usable} - {result.rarity.reason}"),
         ("Window / MAF floor:", f"+/-{result.provenance['window_bp']} bp | MAF >= "

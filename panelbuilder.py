@@ -437,6 +437,17 @@ class Rarity:
     # so the UI colours its badge from one string rather than re-deriving the verdict and
     # disagreeing with `reason` beside it.
     ld_status: str
+    # gnomAD v4 keeps its 76k genomes and 730k exomes as separate callsets of largely
+    # different people. A coding pathogenic variant, which is most of this tool's input,
+    # carries its frequency in the exomes and can be sparse or absent from the genomes; a
+    # non-coding site is the reverse. Both are reported rather than one dropped. Appended so
+    # the original positional construction is untouched.
+    gnomad_af_exome: Optional[float] = None
+    gnomad_ac_exome: Optional[int] = None
+    gnomad_an_exome: Optional[int] = None
+    # Which callset the verdict and the displayed AF were taken from: the better-powered one
+    # (more chromosomes observed at this site). "genome" | "exome" | None.
+    gnomad_callset: Optional[str] = None
 
 
 @dataclass
@@ -635,6 +646,26 @@ def _assert_record_matches(query: str, summ: dict, vset: dict) -> None:
         f"refusing to build a panel on it. Check the identifier, or paste the rsID.")
 
 
+def _assert_supported_locus(chrom: str, query: str) -> None:
+    """Refuse a locus the linkage method does not apply to, at resolve time.
+
+    Only the mitochondrial chromosome so far. mtDNA is maternally inherited, does not
+    recombine, and is often heteroplasmic, so "which parental chromosome an embryo
+    inherited" has no meaning for it and flanking-SNP linkage is void. Left unrefused it
+    resolves like any point variant and, because gnomAD's region pull returns few
+    autosomal-style SNVs on chrMT, tends to hand back a thin or empty panel with coverage
+    flags: self-protection by accident, never a statement that the method does not apply.
+    Refusing here makes that statement.
+    """
+    if str(chrom).strip().upper().removeprefix("CHR") in ("MT", "M"):
+        raise ApiError(
+            f"{query!r} is on the mitochondrial chromosome (chr{chrom}). Mitochondrial DNA "
+            f"is maternally inherited, does not recombine, and is frequently heteroplasmic, "
+            f"so 'which parental chromosome an embryo inherited' is not defined for it and "
+            f"flanking-SNP linkage does not apply. This is a limit of the method, not a "
+            f"failed lookup.")
+
+
 def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     """Resolve an HGVS/rsID to a canonical GRCh38 record via live API only (R1).
 
@@ -796,6 +827,7 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
             f"alternate allele. OriginMarker builds panels around a point variant, so it "
             f"has nothing to anchor on here. Use a variant with explicit VCF alleles.")
 
+    _assert_supported_locus(loc38["chr"], query)
     _emit(Tag.INFO, f"{query!r} resolved to chr{loc38['chr']}:{pos:,} {vcf_ref}>{vcf_alt} "
                     f"(GRCh38, {acc or 'no accession'}, gene {gene or 'unknown'}, "
                     f"strand {strand if strand is not None else 'unknown'})")
@@ -878,6 +910,7 @@ def _resolve_via_ensembl(rsid: str, build: str = "GRCh38") -> VariantRecord:
     _emit(Tag.INFO, f"{rsid!r} resolved via Ensembl to "
                     f"chr{m['seq_region_name']}:{int(m['start']):,} {ref}>{alt} (GRCh38); "
                     f"no ClinVar record, so no classification")
+    _assert_supported_locus(m["seq_region_name"], rsid)
     note = ("Input flagged GRCh37; resolved via Ensembl to GRCh38 coordinates. "
             "All output is GRCh38 (R6)." if build == "GRCh37" else None)
     return VariantRecord(
@@ -946,14 +979,28 @@ _GNOMAD_MIN_AF = _KG_MIN_AC / _KG_HAPLOTYPES
 def assess_rarity(v: VariantRecord) -> Rarity:
     vid = f"{v.chrom}-{v.pos_grch38}-{v.vcf_ref}-{v.vcf_alt}"
     g_af = g_ac = g_an = None
+    e_af = e_ac = e_an = None
     try:
         j = _graphql(_VARIANT_Q, {"id": vid, "ds": "gnomad_r4"},
                      label=f"gnomAD variant {vid}")
         gv = (j.get("data") or {}).get("variant") or {}
         gen = gv.get("genome") or {}
+        exo = gv.get("exome") or {}
         g_af, g_ac, g_an = gen.get("af"), gen.get("ac"), gen.get("an")
+        e_af, e_ac, e_an = exo.get("af"), exo.get("ac"), exo.get("an")
     except Exception:  # noqa: BLE001
         pass
+
+    # The verdict and the displayed AF take whichever callset observed more chromosomes at
+    # this site: for a coding variant that is the exome, and reading only the genome (as this
+    # once did, requesting the exome block then dropping it) showed AF unknown while a good
+    # exome answer existed. The genome and exome numbers are both kept on the record; this
+    # only chooses which drives the rarity call and the headline frequency. Ties and absences
+    # fall to the genome, which is the right default for a non-coding flanking site.
+    p_af, p_ac, p_callset = (
+        (e_af, e_ac, "exome") if (e_an or 0) > (g_an or 0) else (g_af, g_ac, "genome"))
+    if (g_an or 0) == 0 and (e_an or 0) == 0:
+        p_callset = None
 
     kg_ac = None
     if v.rsid:
@@ -981,9 +1028,9 @@ def assess_rarity(v: VariantRecord) -> Rarity:
     # Displayed and exported, so format rather than letting a float repr leak in beside a
     # cell rendering the same number as 1.77e-4. Neither figure may be interpolated raw:
     # both are Optional, and a None rendered into prose reads as a measurement.
-    af_txt = fmt_af(g_af)
+    af_txt = fmt_af(p_af)
     ev = (f"1000G allele count {kg_ac if kg_ac is not None else 'unavailable'}, "
-          f"gnomAD genome AF {af_txt}")
+          f"gnomAD {p_callset or 'genome'} AF {af_txt}")
 
     # Three states, not two: a source that FAILED TO ANSWER is not a source that answered
     # "rare". Every branch below must be reached from evidence that EXISTS, never from a
@@ -994,9 +1041,9 @@ def assess_rarity(v: VariantRecord) -> Rarity:
     # card with room for one line: the standing caveats belong to DISCLAIMER (R3, verbatim
     # on every surface) and to the exports' own R2 line, not repeated in four branches.
     kg_common = kg_ac is not None and kg_ac > _KG_MIN_AC
-    g_common = g_af is not None and g_af > _GNOMAD_MIN_AF
+    g_common = p_af is not None and p_af > _GNOMAD_MIN_AF
     said_rare = ((kg_ac is not None and not kg_common)
-                 or (g_af is not None and not g_common))
+                 or (p_af is not None and not g_common))
 
     # 1000G-only and conservative: gnomAD calling an allele common is good reason to
     # believe LD estimates exist but is not confirmation, and app/ldlink.py hard-gates on
@@ -1015,7 +1062,9 @@ def assess_rarity(v: VariantRecord) -> Rarity:
         ld_status = "unknown"
         reason = ("Frequency data could not be retrieved, so rarity is unknown and LD "
                   "cannot be evaluated. Missing data, not a rarity finding: retry.")
-    return Rarity(g_af, g_ac, g_an, kg_ac, usable, reason, ld_status)
+    return Rarity(g_af, g_ac, g_an, kg_ac, usable, reason, ld_status,
+                  gnomad_af_exome=e_af, gnomad_ac_exome=e_ac, gnomad_an_exome=e_an,
+                  gnomad_callset=p_callset)
 
 
 # --------------------------------------------------------------------------- #
@@ -1513,7 +1562,7 @@ def design_primers(recommended: list[Marker], raw: dict[str, dict],
         try:
             # Serial, and the sequence fetch is the only cost worth naming: the design
             # itself is milliseconds. Cached like every other call, so a rebuild pays once.
-            # ponytail: parallelise over MAX_WORKERS only if the wait ever shows up.
+            # Parallelise over MAX_WORKERS only if that wait ever shows up in practice.
             seq = fetch_sequence(m.chrom, lo, hi)
             # Overlap, not containment. A deletion is anchored at the base BEFORE the
             # bases it removes, so one straddling the template's left edge has pos < lo

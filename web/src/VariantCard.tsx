@@ -191,7 +191,24 @@ export function VariantCard({
                 {'  ·  AC '}{rarity.gnomad_ac_genome ?? '-'}
                 {'  ·  AN '}{rarity.gnomad_an_genome?.toLocaleString('en-US') ?? '-'}
               </Text>
+              {rarity.gnomad_callset === 'genome' && (
+                <Text span size="xs" c="dimmed"> · rarity read from here</Text>
+              )}
             </Row>
+            {/* Shown only when the variant is in the exome callset, which for a coding
+                pathogenic variant is where its real frequency lives. */}
+            {(rarity.gnomad_an_exome ?? 0) > 0 && (
+              <Row k="gnomAD (exomes)">
+                <span className="om-mono">AF {sci(rarity.gnomad_af_exome)}</span>
+                <Text span size="xs" c="dimmed" className="om-mono">
+                  {'  ·  AC '}{rarity.gnomad_ac_exome ?? '-'}
+                  {'  ·  AN '}{rarity.gnomad_an_exome?.toLocaleString('en-US') ?? '-'}
+                </Text>
+                {rarity.gnomad_callset === 'exome' && (
+                  <Text span size="xs" c="dimmed"> · rarity read from here</Text>
+                )}
+              </Row>
+            )}
             <Row k="1000 Genomes">
               <span className="om-mono">AC {rarity.thousand_genomes_ac ?? '-'}</span>
             </Row>

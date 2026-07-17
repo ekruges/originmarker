@@ -53,6 +53,13 @@ export interface Rarity {
   gnomad_af_genome: number | null
   gnomad_ac_genome: number | null
   gnomad_an_genome: number | null
+  /** gnomAD v4's 730k-exome callset, a separate set of samples. Shown alongside the genome
+   *  because a coding pathogenic variant carries its signal here, not in the 76k genomes. */
+  gnomad_af_exome?: number | null
+  gnomad_ac_exome?: number | null
+  gnomad_an_exome?: number | null
+  /** Which callset the rarity verdict was taken from: the better-powered one. */
+  gnomad_callset?: 'genome' | 'exome' | null
   thousand_genomes_ac: number | null
   population_LD_usable: boolean
   reason: string

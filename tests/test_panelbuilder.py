@@ -224,6 +224,58 @@ def test_failed_1000g_join_is_unknown_not_zero():
     assert r.population_LD_usable is False
 
 
+def test_mtDNA_is_refused_at_resolve():
+    """Flanking-SNP linkage does not apply to the mitochondrial chromosome: maternally
+    inherited, non-recombining, heteroplasmic, so 'which parental chromosome' is undefined.
+    Left unrefused it resolves like any point variant and hands back a thin panel that looks
+    valid. The refusal is a statement that the method does not apply, not a failed lookup.
+    """
+    for chrom in ("MT", "M", "chrM", "chrMT", "mt"):
+        with pytest.raises(pb.ApiError, match="mitochondrial"):
+            pb._assert_supported_locus(chrom, "rs1")
+    for chrom in ("1", "11", "chr11", "X", "chrX"):
+        pb._assert_supported_locus(chrom, "rs1")   # autosomes and X must pass
+
+
+def test_rarity_reads_the_better_powered_gnomad_callset():
+    """A coding pathogenic variant carries its frequency in the exomes, not the genomes.
+
+    The GraphQL asked for both callsets but once read only the genome, so a variant absent
+    from the 76k genomes showed AF unknown while a good 730k-exome answer sat unused. The
+    verdict and the headline AF now take whichever callset observed more chromosomes here,
+    and both are kept on the record.
+    """
+    import unittest.mock as mock
+    v = pb.VariantRecord(query="x", rsid="rsX", gene="G", strand=1, chrom="1",
+                         pos_grch38=1, vcf_ref="C", vcf_alt="T",
+                         clinical_significance=None, review_status=None,
+                         clinvar_accession=None)
+    no_kg = mock.Mock(side_effect=Exception("no 1000G"))   # isolate the gnomAD logic
+
+    def rarity(gnom):
+        with mock.patch.object(pb, "_graphql", return_value=gnom), \
+             mock.patch.object(pb, "_get", no_kg):
+            return pb.assess_rarity(v)
+
+    # Genome absent, exome present and common: the old code returned AF unknown here.
+    r = rarity({"data": {"variant": {"genome": None,
+                                     "exome": {"ac": 5000, "an": 1_400_000, "af": 3.6e-3}}}})
+    assert r.gnomad_callset == "exome"
+    assert r.gnomad_af_exome == 3.6e-3 and r.gnomad_af_genome is None
+    assert "gnomAD exome AF" in r.reason and "unknown" not in r.reason
+
+    # Genome present but thinner than the exome: the exome wins, both are on the record.
+    r2 = rarity({"data": {"variant": {"genome": {"ac": 1, "an": 20_000, "af": 5e-5},
+                                      "exome": {"ac": 60, "an": 1_400_000, "af": 4.3e-5}}}})
+    assert r2.gnomad_callset == "exome"
+    assert r2.gnomad_af_genome == 5e-5 and r2.gnomad_af_exome == 4.3e-5
+
+    # Exome absent: falls back to the genome, the prior behaviour unchanged.
+    r3 = rarity({"data": {"variant": {"genome": {"ac": 1377, "an": 5008, "af": 0.275},
+                                      "exome": None}}})
+    assert r3.gnomad_callset == "genome" and "gnomAD genome AF" in r3.reason
+
+
 def test_rarity_is_never_asserted_from_a_gap():
     """A source that did not answer is not a source that answered "rare".
 

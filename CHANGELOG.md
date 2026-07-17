@@ -9,6 +9,46 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.4.0 "Tetrad"
+
+The four chromatids of a paired chromosome, the unit crossover acts on.
+
+Responds to an independent scientific audit of the methodology. The audit found no errors in
+the statistics or genetics that is implemented; every change here closes a gap between what
+the method assumes and the inputs it silently accepted, or improves a displayed figure.
+
+### Added
+
+- **mtDNA variants are refused at resolve time.** Mitochondrial DNA is maternally inherited,
+  does not recombine, and is often heteroplasmic, so "which parental chromosome an embryo
+  inherited" is undefined and flanking-SNP linkage does not apply. A chrM variant used to
+  resolve like any point variant and hand back a thin panel that looked valid; it now returns
+  a clear statement that the method does not apply.
+- **A "cases this tool does not handle, or cannot detect" section** in Scope and limits:
+  de novo variants, uniparental disomy, mosaicism, consanguinity, mtDNA and repeat expansions,
+  each with the consequence for a panel. The tool never meets the family, so most of these it
+  cannot detect and names as the reader's to rule out.
+
+### Fixed
+
+- **gnomAD exome frequencies were fetched and then dropped.** The single-variant query asked
+  for both the genome and exome callsets but read only the 76k genomes. A coding pathogenic
+  variant, which is most of this tool's input, carries its frequency in the 730k exomes and
+  can be sparse or absent from the genomes, so the rarity card could read blank while a good
+  exome answer sat unused. The verdict and the headline frequency now take whichever callset
+  observed more chromosomes at the site, and both callsets are shown on the card and in every
+  export. The LD-usable verdict is unchanged: it remains gated on the 1000 Genomes count.
+
+### Changed
+
+- The primer field reference notes that the 69 C Tm default is deliberately stringent, higher
+  than routine genotyping, and can be lowered toward 60 C for a standard single-anneal assay.
+- The star's 1 Mb clause is explained as inert at the default window (every candidate is
+  already well inside 1 Mb) and binding only if the window is widened; ESHRE's 2 Mb
+  "acceptable but not advisable" allowance is noted for that case.
+
+---
+
 ## 1.3.4 "Diakinesis"
 
 ### Added
