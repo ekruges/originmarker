@@ -31,13 +31,29 @@ const PLACEHOLDERS: { text: string; nl?: boolean }[] = [
   { text: 'rs334' },                                    // sickle cell, HBB, chr11
   { text: 'rs113993960' },                              // CF F508del, CFTR, chr7
   { text: 'rs6025 in Europeans' },                      // factor V Leiden, F5, chr1
-  { text: 'rs1800562' },                                // haemochromatosis, HFE, chr6
+  { text: 'rs1800562' },                                // haemochromatosis C282Y, HFE, chr6
   { text: 'rs80338939 with a 500kb window' },           // GJB2 deafness, chr13
   { text: 'rs28941770' },                               // Tay-Sachs, HEXA, chr15
   { text: 'rs61750240' },                               // Rett, MECP2, chrX
-  { text: 'NM_000518.5(HBB):c.20A>T, MAF at least 0.1' },
+  { text: 'rs5030858' },                                // phenylketonuria, PAH, chr12
+  { text: 'rs76763715 in Ashkenazi Jews' },             // Gaucher N370S, GBA1, chr1
+  { text: 'rs80357914' },                               // BRCA1 185delAG, chr17
+  { text: 'rs80359550' },                               // BRCA2 6174delT, chr13
+  { text: 'rs28940279' },                               // Canavan, ASPA, chr17
+  { text: 'rs111033171' },                              // familial dysautonomia, ELP1, chr9
+  { text: 'rs28929474' },                               // alpha-1 antitrypsin PiZ, SERPINA1, chr14
+  { text: 'rs137852872' },                              // maple syrup urine disease, BCKDHA, chr19
+  { text: 'rs121918101 with a 1Mb window' },            // neonatal diabetes, INS, chr11
+  { text: 'rs587776767' },                              // dopa-responsive dystonia, TH, chr11
+  { text: 'NM_000518.5(HBB):c.20A>T, MAF at least 0.1' }, // HGVS carrying a MAF floor
+  { text: 'NM_000546.6(TP53):c.743G>A' },               // Li-Fraumeni R248Q, TP53, chr17
   { text: 'VCV000009088' },                             // ClinVar accession
-  { text: 'the sickle cell mutation, in Africans', nl: true },
+  { text: 'the sickle cell mutation, in Africans', nl: true },   // -> rs334, HBB
+  { text: 'factor V Leiden in Europeans', nl: true },            // -> rs6025, F5
+  { text: 'the F508del cystic fibrosis mutation', nl: true },    // -> F508del, CFTR
+  { text: 'the most common BRCA1 founder mutation in Ashkenazi Jews', nl: true }, // -> BRCA1
+  { text: 'the prothrombin G20210A variant', nl: true },         // -> rs1799963, F2
+  { text: 'the classic hereditary haemochromatosis mutation', nl: true }, // -> rs1800562, HFE
 ]
 
 /** Fisher-Yates. The first example a visitor sees should not always be the same one. */
