@@ -9,6 +9,18 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.4.1 "Tetrad"
+
+### Changed
+
+- The genome check moved to the top of the primer dialog, above the settings grid: it is the
+  one control in there anyone acts on, and the knobs below it are mostly provenance.
+- Starting a check now scrolls the page back to the build log and opens it, from either
+  button. The log sits above the table, so a reader who started the run from a marker row was
+  being shown progress somewhere they were not looking.
+
+---
+
 ## 1.4.0 "Tetrad"
 
 The four chromatids of a paired chromosome, the unit crossover acts on.

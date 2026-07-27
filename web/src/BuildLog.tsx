@@ -35,6 +35,7 @@ export function BuildLog({
 }) {
   const [open, setOpen] = useState(false)
   const box = useRef<HTMLDivElement>(null)
+  const root = useRef<HTMLDivElement>(null)
   // Follow the newest line only while the user is already at the bottom. Once they scroll
   // up to read something, a new line must not drag them back down.
   const pinned = useRef(true)
@@ -47,8 +48,17 @@ export function BuildLog({
 
   // Force-open on a new signal, never force-CLOSE: the reader may have opened it themselves,
   // and a bump must not shut what they are reading. Skips the initial 0/undefined.
+  //
+  // And bring it into view. The log sits above the panel table, so a reader who started a
+  // verification from a marker row or from the primer chip is looking somewhere else
+  // entirely: opening it where they cannot see it is the same as not opening it.
   useEffect(() => {
-    if (openSignal) setOpen(true)
+    if (!openSignal) return
+    setOpen(true)
+    // Scrolling IS motion, unlike a fade, so an instant jump is the correct behaviour for a
+    // reader who asked for less of it. They still arrive; they just are not slid there.
+    const still = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches
+    root.current?.scrollIntoView({ behavior: still ? 'auto' : 'smooth', block: 'start' })
   }, [openSignal])
 
   const download = () => {
@@ -69,7 +79,7 @@ export function BuildLog({
   }
 
   return (
-    <div>
+    <div ref={root} style={{ scrollMarginTop: 12 }}>
       <Button
         variant="subtle"
         color="gray"

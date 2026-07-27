@@ -185,11 +185,12 @@ export function PrimerChip({
         </Button>
       </Popover.Target>
       <Popover.Dropdown mah={520} style={{ overflowY: 'auto' }}>
-        <PrimerFields value={draft} onChange={setDraft} readOnly={!onRebuild} />
-        {/* Verification is its own act, after the panel and never inside it: UCSC allows one
-            request every 15 seconds, so this is minutes of waiting for an answer the panel
-            does not need in order to be usable. The button says the cost before it is paid. */}
-        <div style={{ borderTop: '1px solid var(--om-border)', marginTop: 12, paddingTop: 10 }}>
+        {/* First, because it is the one thing in here a reader acts on rather than reads:
+            the settings below are mostly provenance. Verification is still its own act,
+            after the panel and never inside it, since UCSC allows one request every 15
+            seconds and that is minutes of waiting for an answer the panel does not need in
+            order to be usable. The button says the cost before it is paid. */}
+        <div style={{ borderBottom: '1px solid var(--om-border)', marginBottom: 12, paddingBottom: 10 }}>
           <Text size="xs" fw={600} mb={4}>Check against the genome</Text>
           {onVerify ? (
             <>
@@ -203,7 +204,16 @@ export function PrimerChip({
                 </Alert>
               )}
               <Group gap={8} align="center">
-                <Button size="xs" variant="default" loading={verify?.running} onClick={onVerify}>
+                <Button
+                  size="xs"
+                  variant="default"
+                  loading={verify?.running}
+                  // Closed on the way out, like Rebuild below: the run scrolls the page to
+                  // the build log to show its progress, and a popover left open over the
+                  // table would either follow its chip out of view or cover what it went
+                  // there to show.
+                  onClick={() => { setOpen(false); onVerify() }}
+                >
                   {verify?.running ? 'Checking' : 'Check pairs'}
                 </Button>
                 {verify?.running && (
@@ -219,6 +229,8 @@ export function PrimerChip({
             </Text>
           )}
         </div>
+
+        <PrimerFields value={draft} onChange={setDraft} readOnly={!onRebuild} />
 
         {onRebuild ? (
           <Group justify="flex-end" gap={6} mt={12}>

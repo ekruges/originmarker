@@ -2,6 +2,7 @@
 // Node strips types but not JSX, so the components cannot be imported directly and vite
 // loads them instead. Keep this file plain .ts (createElement, no JSX) or node cannot run it.
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { createElement as h } from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { MantineProvider, Table } from '@mantine/core'
@@ -278,6 +279,23 @@ assert.doesNotMatch(text(failed), /NOT VERIFIED|one product/)
 // --- 7. The chip states the settings the panel was built under. ---------------------
 const chipped = render(panel(PAIR))
 assert.match(text(chipped), /Primers · starred · Tm 69/)
+
+// The verify block sits at the TOP of the chip's dropdown, above the settings grid: it is
+// the one thing in there anyone acts on, and the 19 knobs below it are mostly provenance.
+// Asserted on source order because the dropdown only mounts when the popover is opened,
+// which SSR does not do. Same approach DocsPage.check.ts takes to section ordering.
+{
+  const src = readFileSync(new URL('./PrimerOptions.tsx', import.meta.url), 'utf8')
+  const verifyAt = src.indexOf('Check against the genome')
+  const fieldsAt = src.indexOf('<PrimerFields')
+  assert.ok(verifyAt > 0 && fieldsAt > 0, 'parsed nothing: the dropdown has been rewritten')
+  assert.ok(verifyAt < fieldsAt,
+    'the genome check must render above the settings grid in the primer dropdown')
+  // Pressing it closes the popover: the run scrolls the page to the build log, and a
+  // dropdown left open would cover the thing it navigated to.
+  assert.match(src, /setOpen\(false\); onVerify\(\)/,
+    'Check pairs must close the popover so the build log it scrolls to is visible')
+}
 
 // --- 8. The form both mounts share offers every knob, seeded from the given numbers. -
 // PrimerFields directly, because it is the unit: the chip and manual input render this
