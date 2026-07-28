@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Alert, Anchor, Badge, Button, Group, Paper, Progress, Select, Text } from '@mantine/core'
 import {
   checkBuild, emptySet, informativeCoverage, ingestLine,
@@ -20,11 +20,14 @@ import { int } from './fmt'
  * the terms promise nothing about a family is submitted or retained.
  */
 export function CarrierGenotypes({
-  markers, onLoad, set,
+  markers, onLoad, set, pendingFile,
 }: {
   markers: Marker[]
   onLoad: (s: GenotypeSet | null) => void
   set: GenotypeSet | null
+  /** Chosen in Manual input before this panel existed. Read once, here, where there is
+   *  finally a window to filter it against. */
+  pendingFile?: File | null
 }) {
   const [busy, setBusy] = useState(false)
   const [read, setRead] = useState(0)
@@ -82,6 +85,19 @@ export function CarrierGenotypes({
       setBusy(false)
     }
   }
+
+  // A file chosen with the query is read the moment a window exists to filter it against.
+  // Keyed on the File itself so a rebuild re-reads it against the new window rather than
+  // leaving stale calls, and so choosing the same file twice still re-reads.
+  const parsedFile = useRef<File | null>(null)
+  useEffect(() => {
+    if (!pendingFile || !span) return
+    if (parsedFile.current === pendingFile && set) return
+    parsedFile.current = pendingFile
+    void parse(pendingFile)
+    // `parse` and `span` are derived fresh each render; keying on the file is the intent.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingFile, markers])
 
   const cov = set ? informativeCoverage(markers, set) : null
   const build = set ? checkBuild(markers, set) : null

@@ -64,6 +64,9 @@ export default function App() {
   // The carrier's own genotypes, held only in this tab. Never uploaded and never
   // persisted: it is the most identifying file in this workflow.
   const [carrier, setCarrier] = useState<GenotypeSet | null>(null)
+  // Chosen in Manual input before the panel exists. Only the File reference is held; there
+  // is no window to filter against until the build lands, so nothing is read until then.
+  const [carrierFile, setCarrierFile] = useState<File | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -105,6 +108,7 @@ export default function App() {
     setVerify({ running: false, stage: '' })
     setAncestry(null)
     setCarrier(null)
+    setCarrierFile(null)
     if (window.location.hash && window.location.hash !== '#/') window.location.hash = '#/'
   }, [])
 
@@ -351,6 +355,8 @@ export default function App() {
                     health={health}
                     busy={phase === 'resolving' || phase === 'building'}
                     onResolve={doResolve}
+                    onCarrierFile={setCarrierFile}
+                    carrierFile={carrierFile}
                     hero
                   />
                 </div>
@@ -363,6 +369,8 @@ export default function App() {
                 health={health}
                 busy={phase === 'resolving' || phase === 'building'}
                 onResolve={doResolve}
+                onCarrierFile={setCarrierFile}
+                carrierFile={carrierFile}
               />
             )}
 
@@ -502,6 +510,7 @@ export default function App() {
               markers={result.recommended}
               set={carrier}
               onLoad={setCarrier}
+              pendingFile={carrierFile}
             />
             <PanelTable
               result={result}

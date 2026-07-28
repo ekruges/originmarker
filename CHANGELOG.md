@@ -9,6 +9,17 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.5.1 "Cohesin"
+
+### Changed
+
+- The carrier's genotype file can be chosen in Manual input, alongside the query, instead of
+  only after the panel is built. Only the file reference is taken there: nothing is read
+  until the build lands and there is a window to filter it against, and it is applied to the
+  results without a second action.
+
+---
+
 ## 1.5.0 "Cohesin"
 
 The ring complex holding sister chromatids together, without which crossovers could not be

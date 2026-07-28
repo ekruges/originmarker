@@ -93,9 +93,16 @@ interface Props {
   onResolve: (q: StructuredQuery, nl?: NLResponse) => void
   /** Landing view: one oversized box, chrome stripped, manual entry behind a menu. */
   hero?: boolean
+  /** The carrier's genotype file, chosen here and applied when the panel lands. Held as a
+   *  File reference and not read: nothing is parsed until there is a window to filter to,
+   *  and nothing is uploaded at any point. */
+  onCarrierFile?: (f: File | null) => void
+  carrierFile?: File | null
 }
 
-export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
+export function SearchPanel({
+  health, busy, onResolve, hero = false, onCarrierFile, carrierFile,
+}: Props) {
   const [mode, setMode] = useState<Mode>('search')
   const [text, setText] = useState('')
   const [nlError, setNlError] = useState<string | null>(null)
@@ -220,6 +227,7 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
   }
 
   const inputRef = useRef<HTMLInputElement>(null)
+  const carrierRef = useRef<HTMLInputElement>(null)
   useEffect(() => { inputRef.current?.focus() }, [mode])
 
   /** Fill the box with one of the advertised examples, chosen at random.
@@ -583,6 +591,62 @@ export function SearchPanel({ health, busy, onResolve, hero = false }: Props) {
                 Panels are computed on GRCh38. A GRCh37 position is converted via ClinVar's assembly
                 mapping and the conversion is labelled on the resolved variant.
               </Text>
+            )}
+
+            {/* The carrier's genotypes, chosen alongside the query rather than after the
+                build. Only the FILE is taken here: there is no window to filter against
+                until the panel exists, so nothing is read until then, and nothing is
+                uploaded at any point. */}
+            {onCarrierFile && (
+              <div
+                style={{
+                  marginTop: 10,
+                  paddingTop: 8,
+                  borderTop: '1px solid var(--om-border)',
+                }}
+              >
+                <Text size="xs" fw={600} mb={5}>Carrier genotypes</Text>
+                <Group gap={8} align="center" wrap="wrap">
+                  <Button
+                    size="xs"
+                    variant="default"
+                    onClick={() => carrierRef.current?.click()}
+                  >
+                    {carrierFile ? 'Choose a different file' : 'Choose VCF or array export'}
+                  </Button>
+                  <input
+                    ref={carrierRef}
+                    type="file"
+                    accept=".vcf,.txt,.tsv,.csv"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const f = e.currentTarget.files?.[0]
+                      if (f) onCarrierFile(f)
+                      e.currentTarget.value = ''
+                    }}
+                  />
+                  {carrierFile && (
+                    <>
+                      <Text size="xs" className="om-mono" style={ROW_TEXT}>
+                        {carrierFile.name}
+                      </Text>
+                      <CloseButton
+                        size="sm"
+                        aria-label="Forget this genotype file"
+                        onClick={() => onCarrierFile(null)}
+                      />
+                    </>
+                  )}
+                </Group>
+                <Text size="xs" c="dimmed" mt={4}>
+                  {carrierFile
+                    ? 'Read once the panel is built, against the window it covers. It is parsed '
+                      + 'in this browser and never uploaded.'
+                    : 'Optional. Keeps only the markers this carrier is actually heterozygous at, '
+                      + 'instead of ranking on a population average.'}{' '}
+                  <Anchor href="#/docs/carrier" size="xs">What it settles</Anchor>
+                </Text>
+              </div>
             )}
             {/* Only against a server that states its defaults. Without them there is no
                 primer feature to configure, and a form here would collect settings that
