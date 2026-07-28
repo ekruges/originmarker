@@ -9,6 +9,54 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 1.5.0 "Cohesin"
+
+The ring complex holding sister chromatids together, without which crossovers could not be
+resolved correctly.
+
+### Added
+
+- **Load the carrier's own genotypes.** Every figure this panel ranks on is a population
+  prior, and the lab protocol's first two steps are to genotype the carrier and drop the
+  markers where that person turns out to be homozygous. Given their VCF or SNP-array export,
+  the panel now does that step: each marker is reported as heterozygous, homozygous, no-call
+  or not in the file, the shortlist can be filtered to the markers that are genuinely
+  informative, and the both-sides coverage count is recomputed on a real person instead of an
+  average.
+
+  **The file never leaves the browser.** There is no endpoint that receives it. A carrier's
+  sequencing file is the most identifying artefact in this workflow, and the terms promise
+  nothing about a family is submitted or retained, so it is parsed in the page and forgotten
+  when the panel is cleared or rebuilt. A whole-genome VCF is streamed and discarded down to
+  the panel's window as it reads, so it never has to fit in memory.
+
+- **A documentation chapter on choosing between SNP array, WGS and PCR**, and on what the
+  carrier's data does and does not settle. The short version: sequencing the carrier tells
+  you which markers are informative and finds rare ones no chip carries, but it does not give
+  you phase. Short reads span hundreds of bases and these markers sit tens of kilobases from
+  the variant, so which marker allele rides on the pathogenic chromosome still comes from an
+  informative relative, from reads long enough to span the distance, or from typing gametes.
+
+### Notes on what it refuses to assume
+
+- **Not in the file is kept separate from homozygous reference.** A variants-only VCF omits
+  every site where the sample matches the reference, so absence usually means homozygous and
+  in an uncalled region means nothing was measured. Only an all-sites or gVCF file
+  distinguishes them, so absent markers are left uncounted rather than assumed either way.
+- **A file on another assembly is detected rather than silently mis-joined.** Markers are
+  matched by rsID first, because an rsID survives an assembly difference and a coordinate
+  does not. If the rsID-matched sites systematically disagree about position, the page says
+  the file looks like a different build and reports the offset.
+- **Heterozygosity is strand-invariant**, which is what makes array exports safe to read
+  here: a file reported on the opposite strand turns A/G into T/C and both are still one
+  allele of each. The A/T and C/G ambiguity that plagues array merging cannot turn a
+  heterozygote into a homozygote.
+- Loaded genotypes are cleared on a rebuild. They were filtered to the previous window as
+  they streamed, so against a wider one every new marker would read as "not in the file" when
+  the file may well carry it.
+
+---
+
 ## 1.4.1 "Tetrad"
 
 ### Changed

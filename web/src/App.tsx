@@ -14,6 +14,8 @@ import { SearchPanel } from './SearchPanel'
 import { VariantCard } from './VariantCard'
 import { LocusTrack } from './LocusTrack'
 import { PanelTable } from './PanelTable'
+import { CarrierGenotypes } from './CarrierGenotypes'
+import type { GenotypeSet } from './genotypes'
 import { DocsPage } from './DocsPage'
 import { TermsPage } from './TermsPage'
 import { Logo } from './Logo'
@@ -59,6 +61,9 @@ export default function App() {
     { running: false, stage: '' })
   const vpollRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [ancestry, setAncestry] = useState<string | null>(null)
+  // The carrier's own genotypes, held only in this tab. Never uploaded and never
+  // persisted: it is the most identifying file in this workflow.
+  const [carrier, setCarrier] = useState<GenotypeSet | null>(null)
   const esRef = useRef<EventSource | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
@@ -99,6 +104,7 @@ export default function App() {
     setVerifyLog([])
     setVerify({ running: false, stage: '' })
     setAncestry(null)
+    setCarrier(null)
     if (window.location.hash && window.location.hash !== '#/') window.location.hash = '#/'
   }, [])
 
@@ -156,6 +162,11 @@ export default function App() {
     // that no longer exists.
     setVerifyLog([])
     setVerify({ running: false, stage: '' })
+    // The loaded genotypes were filtered to the OLD window as they streamed, so against a
+    // wider one every new marker would read as "not in the file" when the file may well
+    // carry it. Cleared rather than reused: re-reading the file is cheap, and a stale
+    // "absent" is the kind of quiet wrong answer this app exists to refuse.
+    setCarrier(null)
 
     let id: string
     try {
@@ -487,9 +498,15 @@ export default function App() {
 
             <Coverage result={result} />
             <LocusTrack result={result} ancestry={ancestry} />
+            <CarrierGenotypes
+              markers={result.recommended}
+              set={carrier}
+              onLoad={setCarrier}
+            />
             <PanelTable
               result={result}
               ancestry={ancestry}
+              carrier={carrier}
               onRebuild={(b) => query && buildPanel({ ...query, ...b })}
               onVerify={health?.insilico_pcr_enabled ? runVerify : undefined}
               verify={verify}

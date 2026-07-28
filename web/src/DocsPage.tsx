@@ -78,6 +78,7 @@ const SECTIONS = [
   { id: 'prior', label: 'Expected heterozygosity is a prior' },
   { id: 'recomb', label: 'Recombination and the genetic map' },
   { id: 'layerb', label: 'Using the panel in the lab' },
+  { id: 'carrier', label: "The carrier's own genotypes, and choosing a platform" },
   { id: 'primers', label: 'Primers: design, settings and checking' },
   { id: 'sources', label: 'Data sources and versions' },
   { id: 'conventions', label: 'Conventions' },
@@ -677,6 +678,178 @@ export function DocsPage({ health }: { health: Health | null }) {
             dropout is silent: the genotype it yields looks clean and is wrong. Only a second marker on the
             same side, disagreeing with it, catches that.
           </Text>
+        </Section>
+
+        <Section id="carrier" title="The carrier's own genotypes, and choosing a platform">
+          <Text mb={8}>
+            Every number this panel ranks on is a population prior. Expected heterozygosity
+            says how often people in general are heterozygous at a marker, which is the best
+            available guess before anyone is genotyped and worth nothing once someone has
+            been. If you hold the carrier's own VCF or SNP-array export, load it on the
+            results page and the panel will say which of these markers that person is
+            actually heterozygous at. That is steps one and two of{' '}
+            <SecRef id="layerb" />, done against real data instead of an average.
+          </Text>
+          <Alert color="gray" variant="light" p={8} mb={10}>
+            <Text size="xs">
+              <b>The file is read in your browser and there is no endpoint that receives
+              it.</b> A carrier's sequencing file is the most identifying artefact in this
+              workflow, and nothing about a family is submitted or retained. It is parsed in
+              the page, held for as long as the tab is open, and forgotten when you clear the
+              panel or rebuild it.
+            </Text>
+          </Alert>
+
+          <Title order={3} mt={16} mb={4}>The question this is really for</Title>
+          <Text mb={8}>
+            An embryo is edited and then reads wild-type at the variant site. Two histories
+            produce that read: it inherited the pathogenic allele and the edit corrected it,
+            or it inherited the wild-type allele and the edit did nothing. The site itself
+            cannot separate them, which is the whole reason this tool exists.
+          </Text>
+          <Text mb={8}>
+            The flanking markers can, because they were never the editing target. They still
+            report which parental chromosome arrived. If the embryo carries the marker
+            alleles that sit on the carrier's <i>pathogenic</i> haplotype, it inherited that
+            chromosome and was corrected; if it carries the alleles from the wild-type
+            haplotype, it inherited the wild-type copy. Three things have to be true for that
+            reading to hold:
+          </Text>
+          <List spacing={5} type="ordered" mb={10}>
+            <List.Item>
+              <b>The carrier is heterozygous at the marker.</b> If they carry the same allele
+              on both chromosomes the marker cannot tell those chromosomes apart. This is what
+              loading their genotypes settles, and it is the step that turns a population
+              prior into a fact about one person.
+            </List.Item>
+            <List.Item>
+              <b>You know which marker allele sits on the pathogenic chromosome.</b> That is
+              phase, and it is the step this app cannot do at all. Heterozygous means the
+              carrier has both alleles; it does not say which chromosome each is on.
+            </List.Item>
+            <List.Item>
+              <b>No recombination happened between the marker and the variant</b> in the
+              meiosis that produced this embryo, which is why markers are taken from both
+              sides and why at least two per side are required before a call.
+            </List.Item>
+          </List>
+          <Alert color="blue" variant="light" p={8} mb={10} title="Sequencing the carrier does not give you phase">
+            <Text size="xs">
+              This is the most common misreading of what WGS buys. A short-read genome tells
+              you the carrier is heterozygous at a marker and at the variant, but a read pair
+              spans hundreds of bases, and the markers here sit tens to hundreds of kilobases
+              away. Nothing in that data connects the two. Phase comes from an informative
+              relative (an affected or unaffected child, a proband, a grandparent), from
+              reads long enough to span the distance, or from typing gametes or polar bodies.
+            </Text>
+          </Alert>
+
+          <Title order={3} mt={16} mb={4}>SNP array, WGS, or PCR</Title>
+          <Text mb={8}>
+            These answer different questions and are not alternatives to one another. Two of
+            them are about <b>discovering</b> which markers are informative in this family;
+            the third is the <b>assay</b> you run on the embryo biopsy.
+          </Text>
+          <Wide>
+          <Table className="om-table" withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Platform</Table.Th>
+                <Table.Th>What it is for</Table.Th>
+                <Table.Th>Reach for it when</Table.Th>
+                <Table.Th>What it will not do</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              <Table.Tr>
+                <Table.Td><b>SNP array</b></Table.Td>
+                <Table.Td>
+                  Discovery and phasing across a family, genome-wide. The established PGT-M
+                  route: karyomapping is array-based <Ref id="karyomapping" />.
+                </Table.Td>
+                <Table.Td>
+                  It is the default. Cheap per sample, and running the carrier plus an
+                  informative relative on the same array gives informativity and phase
+                  together. Load the export here to see how many of these markers it covers.
+                </Table.Td>
+                <Table.Td>
+                  Fixed content: it types the sites on the chip and no others, so it finds no
+                  rare or private markers and can be thin in a difficult region.
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td><b>WGS</b></Table.Td>
+                <Table.Td>
+                  Complete ascertainment of the carrier's heterozygous sites in the window,
+                  including rare and private ones no array carries.
+                </Table.Td>
+                <Table.Td>
+                  The array leaves too few informative markers on a side; the window is
+                  narrow because hotspots forced it in; the region is repetitive or
+                  segmentally duplicated; or you need long or linked reads to phase without a
+                  relative.
+                </Table.Td>
+                <Table.Td>
+                  Short reads will not phase markers to the variant over these distances, and
+                  it is the expensive option per sample.
+                </Table.Td>
+              </Table.Tr>
+              <Table.Tr>
+                <Table.Td><b>PCR of candidate SNPs</b></Table.Td>
+                <Table.Td>
+                  The assay on the embryo biopsy, at the handful of markers you have already
+                  chosen and phased. This is what the primer designer here is for.
+                </Table.Td>
+                <Table.Td>
+                  Always, at the end: biopsy material is a few cells, and a targeted assay at
+                  known sites is what that supports. Also for confirming a marker in the
+                  parents cheaply.
+                </Table.Td>
+                <Table.Td>
+                  It discovers nothing: it reads only the sites you designed for, and allele
+                  dropout from a few cells is a real risk, which is why two markers per side
+                  are required.
+                </Table.Td>
+              </Table.Tr>
+            </Table.Tbody>
+          </Table>
+          </Wide>
+          <Text mb={8}>
+            In practice: type the carrier and an informative relative on an array, load the
+            export here, and read the informative count per side. If both sides have at least
+            two or three markers the carrier is heterozygous at, and the relative lets you
+            phase them, an array is enough and WGS adds cost rather than certainty. If a side
+            is thin, sequence the carrier and rebuild the panel: WGS will surface markers no
+            chip carries. Either way the embryo is read by PCR at the phased markers, or on
+            the array itself if the lab is running karyomapping end to end.
+          </Text>
+
+          <Title order={3} mt={16} mb={4}>What the loaded file is read as</Title>
+          <List spacing={4} mb={8}>
+            <List.Item>
+              <b>Heterozygous</b> is the only call that makes a marker usable, and it is
+              robust to a detail that trips up array merging: a file reported on the opposite
+              strand turns A/G into T/C, and both are still one allele of each. Strand
+              ambiguity cannot turn a heterozygote into a homozygote here.
+            </List.Item>
+            <List.Item>
+              <b>Homozygous</b> retires the marker whatever its 2pq column says. This is
+              exactly the disagreement between prior and fact that the upload exists to find.
+            </List.Item>
+            <List.Item>
+              <b>Not in the file</b> is kept separate from homozygous-reference. A
+              variants-only VCF omits every site where the sample matches the reference, so
+              absence usually means homozygous, but a region nobody called looks identical
+              from the outside. Only an all-sites or gVCF file distinguishes them, so absent
+              markers are left uncounted rather than assumed either way.
+            </List.Item>
+            <List.Item>
+              Markers are matched by rsID first and by coordinate second, because an rsID
+              survives an assembly difference and a coordinate does not. If the rsID-matched
+              sites systematically disagree about position, the page says the file looks like
+              a different build rather than quietly matching the wrong sites.
+            </List.Item>
+          </List>
         </Section>
 
         <Section id="primers" title="Primers: design, settings and checking">

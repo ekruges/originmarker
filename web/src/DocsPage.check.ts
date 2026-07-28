@@ -11,7 +11,10 @@ import { readFileSync } from 'node:fs'
 
 const src = readFileSync(new URL('./DocsPage.tsx', import.meta.url), 'utf8')
 
-const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: '([^']+)' \}/g)].map((m) => m[1])
+// Either quote style: a label containing an apostrophe has to be double-quoted, and a
+// parser that only read single quotes would drop that entry and report it as a Section with
+// no nav entry, which is a confusing way to say "your label has an apostrophe in it".
+const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+") \}/g)].map((m) => m[1])
 const heads = [...src.matchAll(/<Section id="([\w-]+)" title="/g)].map((m) => m[1])
 
 assert.ok(nav.length > 0 && heads.length > 0, 'parsed nothing: the regexes have drifted')

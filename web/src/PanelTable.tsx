@@ -11,6 +11,7 @@ import {
 import { int, num, sig2, signedBp } from './fmt'
 import { PrimerChip } from './PrimerOptions'
 import { ancestryHet, applyPreset, type Preset, PRESETS } from './rank'
+import { lookup, type GenotypeSet } from './genotypes'
 
 const PER_PAGE = 50
 
@@ -241,6 +242,58 @@ export const PrimerDetail = ({ d, defaultOpen }: {
   )
 }
 
+/**
+ * What the carrier's own file says at one marker: the only measurement in a row of priors.
+ *
+ * Four states and no collapsing. Heterozygous is the one that makes a marker usable; a
+ * homozygous marker is dead whatever its 2pq said; a no-call was attempted and failed; and
+ * absent is not homozygous-reference, because a variants-only file omits every reference
+ * site and a region nobody called looks exactly the same. The first is worth colour, and
+ * the rest are worth words.
+ */
+const CarrierCell = ({ m, set }: { m: Marker; set: GenotypeSet }) => {
+  const c = lookup(m, set)
+  if (!c) {
+    return (
+      <Table.Td>
+        <Tooltip
+          label="Not in the file. In a variants-only VCF that usually means homozygous reference, but a region nobody called is indistinguishable from it here."
+          withArrow
+          multiline
+          w={280}
+        >
+          <Text size="xs" c="dimmed" style={{ cursor: 'help' }}>not in file</Text>
+        </Tooltip>
+      </Table.Td>
+    )
+  }
+  if (c.call === 'het') {
+    return (
+      <Table.Td>
+        <Tooltip label={`${c.text} (matched by ${c.matchedBy})`} withArrow>
+          <Badge size="xs" color="green" variant="light" style={{ cursor: 'help' }}>het</Badge>
+        </Tooltip>
+      </Table.Td>
+    )
+  }
+  if (c.call === 'hom') {
+    return (
+      <Table.Td>
+        <Tooltip label={`${c.text}: homozygous, so it cannot distinguish this carrier's two chromosomes`} withArrow multiline w={260}>
+          <Text size="xs" c="dimmed" style={{ cursor: 'help' }}>hom</Text>
+        </Tooltip>
+      </Table.Td>
+    )
+  }
+  return (
+    <Table.Td>
+      <Tooltip label={`${c.text}: the site was attempted and not called`} withArrow>
+        <Text size="xs" c="dimmed" style={{ cursor: 'help' }}>no-call</Text>
+      </Tooltip>
+    </Table.Td>
+  )
+}
+
 type SortKey = 'pos' | 'dist' | 'maf' | 'het' | 'anc' | 'cm' | 'theta'
 
 interface Props {
@@ -253,18 +306,28 @@ interface Props {
    *  then the box says so rather than offering a button that cannot work. */
   onVerify?: () => void
   verify?: { running: boolean; stage: string; error?: string }
+  /** The carrier's own genotypes, if loaded. Read-only here: this table reports what the
+   *  file says, and CarrierGenotypes owns the loading and the caveats. */
+  carrier?: GenotypeSet | null
 }
 
-export function PanelTable({ result, ancestry, onRebuild, onVerify, verify }: Props) {
+export function PanelTable({ result, ancestry, carrier, onRebuild, onVerify, verify }: Props) {
   const { candidates, recommended } = result
-  const [scope, setScope] = useState<'recommended' | 'all'>('recommended')
+  const [scope, setScope] = useState<'recommended' | 'all' | 'het'>('recommended')
   const [preset, setPreset] = useState<Preset>('ranked')
   const [sort, setSort] = useState<{ key: SortKey; desc: boolean } | null>(null)
   const [q, setQ] = useState('')
   const [page, setPage] = useState(1)
 
   const recSet = useMemo(() => new Set(recommended.map((m) => m.variant_id)), [recommended])
-  const rows = scope === 'recommended' ? recommended : candidates
+  // 'het' filters the shortlist to the markers this carrier is genuinely heterozygous at,
+  // which is the set the lab protocol says to keep. Absent and no-call are excluded: a
+  // marker nobody measured is not one you can genotype an embryo against.
+  const rows = scope === 'all'
+    ? candidates
+    : scope === 'het' && carrier
+      ? recommended.filter((m) => lookup(m, carrier)?.call === 'het')
+      : recommended
 
   // Derived from the whole result, never from `rows` or the current page: this alarm must
   // not be silenceable by filtering or switching scope. The engine cross-checks positions
@@ -466,6 +529,13 @@ export function PanelTable({ result, ancestry, onRebuild, onVerify, verify }: Pr
           data={[
             { value: 'recommended', label: `Shortlist (${recommended.length})` },
             { value: 'all', label: `All candidates (${int(candidates.length)})` },
+            // Only where a file is loaded: an option that filters on data nobody supplied
+            // would silently show an empty table.
+            ...(carrier
+              ? [{ value: 'het',
+                   label: `Heterozygous in carrier (${
+                     recommended.filter((m) => lookup(m, carrier)?.call === 'het').length})` }]
+              : []),
           ]}
         />
         <Select
@@ -522,6 +592,16 @@ export function PanelTable({ result, ancestry, onRebuild, onVerify, verify }: Pr
               {th('anc', ancestry ? `2pq ${ancestry}` : '2pq best pop', ancestry
                 ? `Expected heterozygosity in ${ancestry}: a population prior, not this carrier's genotype.`
                 : 'Highest expected heterozygosity across gnomAD populations. A population prior. Select an ancestry to see a matched value.')}
+              {carrier && (
+                <Tooltip
+                  label="What this carrier's own file says at this marker. A measurement, unlike the 2pq columns beside it, which are population priors."
+                  withArrow
+                  multiline
+                  w={280}
+                >
+                  <Table.Th>carrier</Table.Th>
+                </Tooltip>
+              )}
               {th('cm', 'cM', 'Genetic distance to the variant, interpolated from the bundled map. Shown to two significant figures: the map is population- and sex-averaged, and does not resolve finer than that.')}
               {th('theta', 'θ', 'Haldane recombination fraction over that genetic distance, to two significant figures. It carries the map\'s averaging: it is the expected rate across many meioses, not what happened in this one.')}
               <Table.Th>hotspot</Table.Th>
@@ -596,6 +676,7 @@ export function PanelTable({ result, ancestry, onRebuild, onVerify, verify }: Pr
                       num(anc)
                     )}
                   </Table.Td>
+                  {carrier && <CarrierCell m={m} set={carrier} />}
                   <Table.Td className="om-mono">
                     {sig2(m.cm)}
                     {m.map_approx && (
