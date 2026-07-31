@@ -9,6 +9,21 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.2.6 "Kinetochore"
+
+### Fixed
+
+- **The run log stopped following itself.** It scrolled to the bottom on each new line and then
+  read its own geometry back in the `onScroll` that assignment triggers. Landing mid-append, that
+  read often computed a false "the reader has scrolled up", after which every further line
+  arrived below the fold in silence. The component now marks its own scrolls and ignores them,
+  scrolls in a layout effect so the move lands in the same frame the line paints, and treats
+  anything within 24px of the bottom as still at the bottom rather than 4px, which sub-pixel
+  positions alone could exceed. Scrolling up to read still holds position, and returning to the
+  bottom resumes following.
+
+---
+
 ## 2.2.5 "Kinetochore"
 
 ### Changed
