@@ -9,6 +9,42 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.2.4 "Kinetochore"
+
+A second audit suite, covering the readers the pronucleus audit never touched: 163 cases across
+the HapMap and VCF paths, against published pedigrees. 132 correct, 6 refused, 25 incorrect, and
+the 25 are one failure mode that is documented rather than patched.
+
+### Added
+
+- **`audit/FORMATS.txt` and `audit/formats.py`.** HapMap CEU chr22 (International HapMap Project,
+  174 individuals, 52 complete trios, nucleotide genotypes, build 36) and the 1000 Genomes phase 3
+  chr22 related-samples VCF, with father and mother taken from the published 1000G pedigree.
+  Every one of the 52 documented father-child pairs and 52 mother-child pairs is called correctly,
+  at 0.00x to 0.06x of its ceiling.
+- A limit fires when the parent's heterozygosity says the marker set is not a polymorphic panel.
+  Every rate here is calibrated on common-SNP arrays, where a parent runs 15-19% heterozygous; the
+  1000G VCF runs 3.2%, because it is a whole-genome variant callset whose sites are mostly rare
+  and cannot show absence in anyone. Those sites dilute the denominator, and the unrelated pair
+  reading 4.1% absence on the array reads 0.69% in the callset. Annotated, never adjusted for.
+
+### Known limitation, found here and deliberately not patched
+
+- **A presence call is only as strong as the ceiling it cleared.** The test is one-sided: present
+  means the observed absence is no larger than this sample's own noise could manufacture. Where
+  the call rate is low that bound reaches 5-22%, and an unrelated adult showing 7-10% absence sits
+  under it. All 25 incorrect calls are that, on HapMap individuals typed on one panel only and so
+  carrying 35% call rates.
+
+  A guard refusing presence below the call-rate floor was written and reverted: it breaks the case
+  the method exists for, Zuccaro embryo A8, a true father-offspring pair at a 53% call rate whose
+  9.69% absence is higher than genuinely unrelated pairs at 5.1-5.6%. The second axis does not
+  separate them either, since a real biparental embryo sits on the same side as an unrelated
+  adult. The margin is printed beside every call for this reason; `audit/FORMATS.txt` sets out the
+  evidence in full.
+
+---
+
 ## 2.2.3 "Kinetochore"
 
 ### Fixed

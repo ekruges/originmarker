@@ -1196,6 +1196,16 @@ HET_BAND_DIPLOID = 0.08
 #: a haploid genome cannot produce, and each was called biparental on the strength of it.
 CALL_RATE_FLOOR = 0.60
 
+#: Parent heterozygosity below which the marker set is not a polymorphic panel.
+#:
+#: Every rate here is calibrated on common-SNP arrays, where a parent runs 15-19% heterozygous. A
+#: whole-genome variant callset runs far lower because most of its sites are rare: measured at
+#: 3.2% on a 1000 Genomes chr22 VCF, where the parent is homozygous reference at 95% of markers
+#: against 75% on an array of the same chromosome. Those sites cannot show absence in anyone, so
+#: they dilute the denominator and pull an unrelated pair toward a related one: the pair reading
+#: 4.1% absence on the array reads 0.69% in the callset. Annotated, never adjusted for.
+PANEL_HET_FLOOR = 0.10
+
 #: Residual paternal-absence rate on clean data, from genotyping error alone. Measured at 0.03%
 #: and 0.05% on two bulk trios.
 ABSENCE_ERROR_FLOOR = 0.005
@@ -1370,6 +1380,8 @@ def parental_origin(
     explainable = absence_explainable(nc_rate, het_frac) + ABSENCE_ERROR_FLOOR
     rep.explainable = explainable
     rep.no_call_rate = nc_rate
+    # Used by both the presence guard and the zygosity guard below.
+    call_rate = 1.0 - nc_rate if math.isfinite(nc_rate) else math.nan
     rep.limits.extend(sample.notes)
     rep.limits.extend(f"father: {n}" for n in father.notes)
 
@@ -1426,9 +1438,19 @@ def parental_origin(
                                if p.gt != "NC" and _is_autosome(p.chrom))))
     rep.second_parent_expected = second_parent_signal(father_het)
 
+    if math.isfinite(father_het) and father_het < PANEL_HET_FLOOR:
+        rep.limits.append(
+            f"The parent is heterozygous at {father_het:.1%} of called autosomal markers. Every "
+            "rate here is calibrated on common-SNP arrays, where that figure runs 15-19%. A marker "
+            "set this monomorphic is a whole-genome variant callset rather than a polymorphic "
+            "panel: most of its sites are rare, they cannot show absence in anyone, and they "
+            "dilute the denominator. Related and unrelated pairs move closer together, so a call "
+            "here is weaker than the same call on an array and an unrelated pair may read as "
+            "unclear. Restrict such a file to common variants before relying on it."
+        )
+
     # The gate the ingestion layer already applies, applied to the axis that depends on it:
     # below this call rate the heterozygous band is artefact, so zygosity is withheld.
-    call_rate = 1.0 - nc_rate if math.isfinite(nc_rate) else math.nan
     if math.isfinite(call_rate) and call_rate < CALL_RATE_FLOOR:
         rep.limits.append(
             f"Call rate {call_rate:.1%} is below {CALL_RATE_FLOOR:.0%}, where erroneous "

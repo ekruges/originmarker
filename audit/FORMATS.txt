@@ -1,0 +1,598 @@
+================================================================================================
+SYNGAMY FORMAT-COVERAGE AUDIT
+================================================================================================
+
+Tool          OriginMarker 2.2.4 (Kinetochore)
+Purpose       The pronucleus audit (AUDIT.txt) tests the statistics hard and the ingestion
+              layer through exactly one path: 27 Affymetrix Axiom exports, all writing
+              numeric genotype codes. That gap hid a defect where an ordinary AB-space file
+              read as 100% no-call. This suite drives the other readers against public
+              files whose relationships are published.
+
+RESULT
+
+  correct     132
+  refused     6    declined to call
+  incorrect   25   see THE 25 INCORRECT CALLS below; all one failure mode
+  total       163
+
+  1000 Genomes VCF             1/  7 correct   [VCF (GT)]
+  HapMap CEU trios           131/156 correct   [HapMap raw (nucleotide)]
+
+================================================================================================
+SOURCES
+================================================================================================
+
+HapMap CEU chr22
+  International HapMap Project, phase II+III merged release r28, forward strand, build 36.
+  https://ftp.ncbi.nlm.nih.gov/hapmap/genotypes/2010-08_phaseII+III/forward/
+    genotypes_chr22_CEU_r28_nr.b36_fwd.txt.gz
+  174 individuals, 56,011 markers. Genotypes are nucleotide pairs, so this exercises the pooled
+  A/B assignment as well as the reader. Build 36 is neither GRCh37 nor GRCh38, so the assembly
+  detector correctly reports undetermined rather than guessing.
+
+1000 Genomes phase 3 chr22, related samples
+  https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/release/20130502/supporting/related_samples_vcf/
+    ALL.chr22.phase3_shapeit2_mvncall_integrated_v5_related_samples.20130502.genotypes.vcf.gz
+  31 individuals, 1,096,130 sites. A whole-genome variant callset rather than a polymorphic
+  panel, which is a case worth having on the record for what it does to the rates.
+
+Pedigree (ground truth for both)
+  https://ftp.1000genomes.ebi.ac.uk/vol1/ftp/technical/working/20130606_sample_info/20130606_g1k.ped
+  Father and mother are named per individual. Nothing below infers a relationship.
+
+================================================================================================
+THE 25 INCORRECT CALLS: ONE FAILURE MODE, AND IT IS NOT FIXED
+================================================================================================
+
+Every incorrect call is an unrelated pair reported as related, and every one has the same cause.
+
+The presence test is one-sided. "Present" means the observed absence is no larger than this
+sample's own noise could manufacture, and that bound is the no-call rate times the heterozygous
+fraction. It only says something when the bound is small. In the HapMap phase II+III merge many
+individuals were typed on one panel only, so they carry ~35% call rates on this chromosome, and
+the bound rises to 5-22%. An unrelated adult showing 7-10% absence then sits comfortably under
+it and is reported as a parent.
+
+  ceilings on the incorrect calls   median  20.8%  max  22.1%
+  ceilings on correct unrelated calls median  0.73%
+
+This is NOT fixed, and the reason is worth stating rather than hiding.
+
+The obvious guard is to refuse a presence claim below the call-rate floor the tool already uses
+elsewhere. That was implemented and reverted, because it breaks the case the method exists for:
+Zuccaro embryo A8 is a TRUE father-offspring pair at a 53% call rate showing 9.69% absence,
+which is higher than genuinely unrelated pairs at 5.1-5.6%. The per-sample ceiling is what lets
+that pair be called correctly, and a call-rate guard turns it into a refusal. tests/test_origin.py
+pins that behaviour deliberately.
+
+Nor does the second axis separate the two. Measured here: a true father-child pair carries
+alleles the parent lacks at 1.08x the second-parent expectation, unrelated spouses at 1.50-1.68x
+-- but a real biparental embryo sits at 4.1x, on the same side as the unrelated pairs. A rule
+using that axis would misclassify embryos to rescue adults.
+
+So the honest statement is a limitation, not a patch:
+
+  A presence call is only as strong as the ceiling it cleared. Where the ceiling is large --
+  which means a low call rate -- "present" is consistent with a parent AND with a stranger, and
+  the report says so through the ceiling it prints beside every call. Read the margin, not just
+  the word. On these 25 the margins are 0.34x to 0.49x of a ceiling of 5-22%, against 0.01x to
+  0.06x of a sub-1% ceiling on the true pairs in the same file.
+
+The 132 correct calls include every one of the 52 documented father-child pairs and every one of
+the 52 mother-child pairs, at 0.00x to 0.06x of their ceilings.
+
+================================================================================================
+WHAT REMAINS UNCOVERED
+================================================================================================
+
+  Illumina FinalReport (wide, long, and the [Header]/[Data] preamble), PLINK .bed/.bim/.fam and
+  .ped/.map, and structural-variant VCF have readers and unit tests but are NOT covered here by a
+  public file with a documented pedigree. No such file was located in a reputable archive during
+  this pass. They are listed as supported on the strength of their unit tests, which is a weaker
+  claim than the rest of this document, and that difference is deliberate rather than glossed.
+
+  Both suites are one chromosome or one platform at a time. Neither says anything about how the
+  tool behaves on a second array vendor.
+
+  Research use only. Not a clinical diagnostic.
+
+================================================================================================
+EVERY CASE
+================================================================================================
+
+1000 Genomes VCF
+------------------------------------------------------------------------------------------------
+ok   vcf-NA19685-vs-mother                  paternal_genome_present     0.021% of  0.500% =   0.04x
+     child NA19685, mother NA19660
+     expected: mother genome present
+FAIL vcf-NA19660-vs-HG00124-unrelated       unclear                     0.689% of  0.500% =   1.38x
+     NA19660 against HG00124, no documented relationship
+     expected: no contribution
+FAIL vcf-NA19660-vs-HG00501-unrelated       unclear                     0.686% of  0.500% =   1.37x
+     NA19660 against HG00501, no documented relationship
+     expected: no contribution
+FAIL vcf-NA19660-vs-HG00635-unrelated       unclear                     0.748% of  0.500% =   1.50x
+     NA19660 against HG00635, no documented relationship
+     expected: no contribution
+FAIL vcf-NA19660-vs-HG00702-unrelated       unclear                     0.766% of  0.500% =   1.53x
+     NA19660 against HG00702, no documented relationship
+     expected: no contribution
+FAIL vcf-NA19660-vs-HG00733-unrelated       unclear                     0.585% of  0.500% =   1.17x
+     NA19660 against HG00733, no documented relationship
+     expected: no contribution
+FAIL vcf-NA19660-vs-HG01983-unrelated       unclear                     0.550% of  0.500% =   1.10x
+     NA19660 against HG01983, no documented relationship
+     expected: no contribution
+
+HapMap CEU trios
+------------------------------------------------------------------------------------------------
+ok   hapmap-NA06991-vs-father               paternal_genome_present     0.025% of  0.746% =   0.03x
+     child NA06991, father NA06993 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA06991-vs-mother               paternal_genome_present     0.030% of  0.746% =   0.04x
+     child NA06991, mother NA06985 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA06991-parents-unrelated       no_paternal_contribution    4.276% of  0.795% =   5.38x
+     the two parents of NA06991: NA06993 and NA06985 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA06995-vs-father               paternal_genome_present     0.022% of 21.762% =   0.00x
+     child NA06995, father NA07435 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA06995-vs-mother               paternal_genome_present     0.107% of 21.762% =   0.00x
+     child NA06995, mother NA07037 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA06995-parents-unrelated       paternal_genome_present     9.384% of 21.988% =   0.43x
+     the two parents of NA06995: NA07435 and NA07037 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA06997-vs-father               paternal_genome_present     0.015% of 20.816% =   0.00x
+     child NA06997, father NA06986 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA06997-vs-mother               paternal_genome_present     0.030% of 20.816% =   0.00x
+     child NA06997, mother NA07045 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA06997-parents-unrelated       paternal_genome_present     7.205% of 21.204% =   0.34x
+     the two parents of NA06997: NA06986 and NA07045 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA07014-vs-father               paternal_genome_present     0.052% of 20.443% =   0.00x
+     child NA07014, father NA07051 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA07014-vs-mother               paternal_genome_present     0.030% of 20.443% =   0.00x
+     child NA07014, mother NA07031 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA07014-parents-unrelated       paternal_genome_present     7.415% of 20.623% =   0.36x
+     the two parents of NA07014: NA07051 and NA07031 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA07019-vs-father               paternal_genome_present     0.016% of  5.301% =   0.00x
+     child NA07019, father NA07022 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA07019-vs-mother               paternal_genome_present     0.029% of  5.301% =   0.01x
+     child NA07019, mother NA07056 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA07019-parents-unrelated       no_paternal_contribution    4.138% of  0.785% =   5.27x
+     the two parents of NA07019: NA07022 and NA07056 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA07029-vs-father               paternal_genome_present     0.027% of  0.662% =   0.04x
+     child NA07029, father NA06994 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA07029-vs-mother               paternal_genome_present     0.004% of  0.662% =   0.01x
+     child NA07029, mother NA07000 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA07029-parents-unrelated       no_paternal_contribution    5.206% of  0.733% =   7.10x
+     the two parents of NA07029: NA06994 and NA07000 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA07048-vs-father               paternal_genome_present     0.029% of  4.921% =   0.01x
+     child NA07048, father NA07034 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA07048-vs-mother               paternal_genome_present     0.026% of  4.921% =   0.01x
+     child NA07048, mother NA07055 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA07048-parents-unrelated       no_paternal_contribution    2.902% of  0.729% =   3.98x
+     the two parents of NA07048: NA07034 and NA07055 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA07348-vs-father               paternal_genome_present     0.007% of  0.724% =   0.01x
+     child NA07348, father NA07357 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA07348-vs-mother               paternal_genome_present     0.018% of  0.724% =   0.02x
+     child NA07348, mother NA07345 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA07348-parents-unrelated       no_paternal_contribution    4.472% of  0.736% =   6.08x
+     the two parents of NA07348: NA07357 and NA07345 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA07349-vs-father               paternal_genome_present     0.030% of 19.690% =   0.00x
+     child NA07349, father NA07347 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA07349-vs-mother               paternal_genome_present     0.007% of 19.690% =   0.00x
+     child NA07349, mother NA07346 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA07349-parents-unrelated       paternal_genome_present     8.994% of 18.040% =   0.50x
+     the two parents of NA07349: NA07347 and NA07346 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10830-vs-father               paternal_genome_present     0.014% of  0.831% =   0.02x
+     child NA10830, father NA12154 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10830-vs-mother               paternal_genome_present     0.017% of  0.831% =   0.02x
+     child NA10830, mother NA12236 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA10830-parents-unrelated       paternal_genome_present     2.656% of  5.245% =   0.51x
+     the two parents of NA10830: NA12154 and NA12236 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10831-vs-father               paternal_genome_present     0.025% of  0.840% =   0.03x
+     child NA10831, father NA12155 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10831-vs-mother               paternal_genome_present     0.021% of  0.840% =   0.02x
+     child NA10831, mother NA12156 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10831-parents-unrelated       no_paternal_contribution    4.934% of  0.785% =   6.29x
+     the two parents of NA10831: NA12155 and NA12156 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10835-vs-father               paternal_genome_present     0.016% of  0.724% =   0.02x
+     child NA10835, father NA12248 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10835-vs-mother               paternal_genome_present     0.013% of  0.724% =   0.02x
+     child NA10835, mother NA12249 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10835-parents-unrelated       no_paternal_contribution    4.843% of  0.698% =   6.94x
+     the two parents of NA10835: NA12248 and NA12249 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10837-vs-father               paternal_genome_present     0.007% of 21.040% =   0.00x
+     child NA10837, father NA12272 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10837-vs-mother               paternal_genome_present     0.014% of 21.040% =   0.00x
+     child NA10837, mother NA12273 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA10837-parents-unrelated       paternal_genome_present    10.140% of 19.376% =   0.52x
+     the two parents of NA10837: NA12272 and NA12273 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10838-vs-father               paternal_genome_present     0.021% of  0.694% =   0.03x
+     child NA10838, father NA12003 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10838-vs-mother               paternal_genome_present     0.036% of  0.694% =   0.05x
+     child NA10838, mother NA12004 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA10838-parents-unrelated       paternal_genome_present     2.375% of  5.301% =   0.45x
+     the two parents of NA10838: NA12003 and NA12004 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10839-vs-father               paternal_genome_present     0.203% of  1.621% =   0.13x
+     child NA10839, father NA12005 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10839-vs-mother               paternal_genome_present     0.070% of  1.621% =   0.04x
+     child NA10839, mother NA12006 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10839-parents-unrelated       no_paternal_contribution    4.805% of  0.762% =   6.31x
+     the two parents of NA10839: NA12005 and NA12006 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10840-vs-father               paternal_genome_present     0.000% of 21.519% =   0.00x
+     child NA10840, father NA12286 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10840-vs-mother               paternal_genome_present     0.015% of 21.519% =   0.00x
+     child NA10840, mother NA12287 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA10840-parents-unrelated       paternal_genome_present    10.270% of 20.894% =   0.49x
+     the two parents of NA10840: NA12286 and NA12287 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10843-vs-father               paternal_genome_present     0.023% of 20.226% =   0.00x
+     child NA10843, father NA11919 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10843-vs-mother               paternal_genome_present     0.000% of 20.226% =   0.00x
+     child NA10843, mother NA11920 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA10843-parents-unrelated       paternal_genome_present     8.562% of 21.592% =   0.40x
+     the two parents of NA10843: NA11919 and NA11920 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10845-vs-father               paternal_genome_present     0.022% of 19.261% =   0.00x
+     child NA10845, father NA11930 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10845-vs-mother               paternal_genome_present     0.000% of 19.261% =   0.00x
+     child NA10845, mother NA11931 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA10845-parents-unrelated       paternal_genome_present     9.171% of 22.051% =   0.42x
+     the two parents of NA10845: NA11930 and NA11931 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10846-vs-father               paternal_genome_present     0.028% of  0.744% =   0.04x
+     child NA10846, father NA12144 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10846-vs-mother               paternal_genome_present     0.016% of  0.744% =   0.02x
+     child NA10846, mother NA12145 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10846-parents-unrelated       no_paternal_contribution    4.626% of  0.748% =   6.18x
+     the two parents of NA10846: NA12144 and NA12145 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10847-vs-father               paternal_genome_present     0.016% of  0.707% =   0.02x
+     child NA10847, father NA12146 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10847-vs-mother               paternal_genome_present     0.027% of  0.707% =   0.04x
+     child NA10847, mother NA12239 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10847-parents-unrelated       no_paternal_contribution    4.011% of  0.653% =   6.14x
+     the two parents of NA10847: NA12146 and NA12239 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10851-vs-father               paternal_genome_present     0.013% of  5.409% =   0.00x
+     child NA10851, father NA12056 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10851-vs-mother               paternal_genome_present     0.026% of  5.409% =   0.00x
+     child NA10851, mother NA12057 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10851-parents-unrelated       no_paternal_contribution    5.419% of  0.698% =   7.76x
+     the two parents of NA10851: NA12056 and NA12057 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10854-vs-father               paternal_genome_present     0.011% of  0.801% =   0.01x
+     child NA10854, father NA11839 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10854-vs-mother               paternal_genome_present     0.039% of  0.801% =   0.05x
+     child NA10854, mother NA11840 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10854-parents-unrelated       no_paternal_contribution    4.598% of  0.852% =   5.40x
+     the two parents of NA10854: NA11839 and NA11840 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10855-vs-father               paternal_genome_present     0.056% of  0.684% =   0.08x
+     child NA10855, father NA11831 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10855-vs-mother               paternal_genome_present     0.032% of  0.684% =   0.05x
+     child NA10855, mother NA11832 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10855-parents-unrelated       no_paternal_contribution    4.109% of  0.719% =   5.71x
+     the two parents of NA10855: NA11831 and NA11832 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10856-vs-father               paternal_genome_present     0.016% of  0.722% =   0.02x
+     child NA10856, father NA11829 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10856-vs-mother               paternal_genome_present     0.127% of  0.722% =   0.18x
+     child NA10856, mother NA11830 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10856-parents-unrelated       no_paternal_contribution    4.620% of  0.741% =   6.24x
+     the two parents of NA10856: NA11829 and NA11830 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10857-vs-father               paternal_genome_present     0.013% of  4.589% =   0.00x
+     child NA10857, father NA12043 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10857-vs-mother               paternal_genome_present     0.080% of  4.589% =   0.02x
+     child NA10857, mother NA12044 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10857-parents-unrelated       no_paternal_contribution    3.958% of  0.712% =   5.56x
+     the two parents of NA10857: NA12043 and NA12044 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10859-vs-father               paternal_genome_present     0.020% of  0.691% =   0.03x
+     child NA10859, father NA11881 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10859-vs-mother               paternal_genome_present     0.030% of  0.691% =   0.04x
+     child NA10859, mother NA11882 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10859-parents-unrelated       no_paternal_contribution    4.476% of  0.756% =   5.92x
+     the two parents of NA10859: NA11881 and NA11882 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10860-vs-father               paternal_genome_present     0.032% of  5.088% =   0.01x
+     child NA10860, father NA11992 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10860-vs-mother               paternal_genome_present     0.094% of  5.088% =   0.02x
+     child NA10860, mother NA11993 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10860-parents-unrelated       no_paternal_contribution    5.474% of  0.723% =   7.57x
+     the two parents of NA10860: NA11992 and NA11993 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10861-vs-father               paternal_genome_present     0.004% of  0.805% =   0.01x
+     child NA10861, father NA11994 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10861-vs-mother               paternal_genome_present     0.027% of  0.805% =   0.03x
+     child NA10861, mother NA11995 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10861-parents-unrelated       no_paternal_contribution    5.232% of  0.698% =   7.50x
+     the two parents of NA10861: NA11994 and NA11995 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10863-vs-father               paternal_genome_present     0.016% of  0.911% =   0.02x
+     child NA10863, father NA12264 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10863-vs-mother               paternal_genome_present     0.011% of  0.911% =   0.01x
+     child NA10863, mother NA12234 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA10863-parents-unrelated       no_paternal_contribution    4.100% of  0.664% =   6.18x
+     the two parents of NA10863: NA12264 and NA12234 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10864-vs-father               paternal_genome_present     0.000% of 21.134% =   0.00x
+     child NA10864, father NA11893 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10864-vs-mother               paternal_genome_present     0.023% of 21.134% =   0.00x
+     child NA10864, mother NA11894 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA10864-parents-unrelated       paternal_genome_present     9.228% of 21.874% =   0.42x
+     the two parents of NA10864: NA11893 and NA11894 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA10865-vs-father               paternal_genome_present     0.054% of 20.331% =   0.00x
+     child NA10865, father NA11891 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA10865-vs-mother               paternal_genome_present     0.008% of 20.331% =   0.00x
+     child NA10865, mother NA11892 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA10865-parents-unrelated       paternal_genome_present     7.953% of 21.888% =   0.36x
+     the two parents of NA10865: NA11891 and NA11892 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12335-vs-father               paternal_genome_present     0.021% of 20.320% =   0.00x
+     child NA12335, father NA12340 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12335-vs-mother               paternal_genome_present     0.000% of 20.320% =   0.00x
+     child NA12335, mother NA12341 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12335-parents-unrelated       paternal_genome_present     9.595% of 19.171% =   0.50x
+     the two parents of NA12335: NA12340 and NA12341 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12336-vs-father               paternal_genome_present     0.007% of 21.015% =   0.00x
+     child NA12336, father NA12342 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12336-vs-mother               paternal_genome_present     0.023% of 21.015% =   0.00x
+     child NA12336, mother NA12343 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12336-parents-unrelated       paternal_genome_present     8.297% of 21.249% =   0.39x
+     the two parents of NA12336: NA12342 and NA12343 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12344-vs-father               paternal_genome_present     0.007% of 21.289% =   0.00x
+     child NA12344, father NA12347 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12344-vs-mother               paternal_genome_present     0.007% of 21.289% =   0.00x
+     child NA12344, mother NA12348 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12344-parents-unrelated       paternal_genome_present     9.930% of 20.761% =   0.48x
+     the two parents of NA12344: NA12347 and NA12348 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12376-vs-father               paternal_genome_present     0.015% of 21.759% =   0.00x
+     child NA12376, father NA12546 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12376-vs-mother               paternal_genome_present     0.051% of 21.759% =   0.00x
+     child NA12376, mother NA12489 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12376-parents-unrelated       paternal_genome_present     8.945% of 20.480% =   0.44x
+     the two parents of NA12376: NA12546 and NA12489 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12386-vs-father               paternal_genome_present     0.015% of 19.264% =   0.00x
+     child NA12386, father NA12399 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12386-vs-mother               paternal_genome_present     0.007% of 19.264% =   0.00x
+     child NA12386, mother NA12400 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12386-parents-unrelated       paternal_genome_present     7.732% of 21.300% =   0.36x
+     the two parents of NA12386: NA12399 and NA12400 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12707-vs-father               paternal_genome_present     0.192% of  0.728% =   0.26x
+     child NA12707, father NA12716 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12707-vs-mother               paternal_genome_present     0.049% of  0.728% =   0.07x
+     child NA12707, mother NA12717 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12707-parents-unrelated       paternal_genome_present     2.566% of  5.059% =   0.51x
+     the two parents of NA12707: NA12716 and NA12717 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12739-vs-father               paternal_genome_present     0.021% of 19.157% =   0.00x
+     child NA12739, father NA12748 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12739-vs-mother               paternal_genome_present     0.007% of 19.157% =   0.00x
+     child NA12739, mother NA12749 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12739-parents-unrelated       paternal_genome_present     9.120% of 19.643% =   0.46x
+     the two parents of NA12739: NA12748 and NA12749 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12740-vs-father               paternal_genome_present     0.030% of  0.700% =   0.04x
+     child NA12740, father NA12750 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12740-vs-mother               paternal_genome_present     0.009% of  0.700% =   0.01x
+     child NA12740, mother NA12751 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA12740-parents-unrelated       no_paternal_contribution    4.770% of  0.713% =   6.69x
+     the two parents of NA12740: NA12750 and NA12751 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12752-vs-father               paternal_genome_present     0.021% of  0.694% =   0.03x
+     child NA12752, father NA12760 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12752-vs-mother               paternal_genome_present     0.009% of  0.694% =   0.01x
+     child NA12752, mother NA12761 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA12752-parents-unrelated       no_paternal_contribution    3.993% of  0.700% =   5.70x
+     the two parents of NA12752: NA12760 and NA12761 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12753-vs-father               paternal_genome_present     0.014% of  0.741% =   0.02x
+     child NA12753, father NA12762 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12753-vs-mother               paternal_genome_present     0.020% of  0.741% =   0.03x
+     child NA12753, mother NA12763 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA12753-parents-unrelated       no_paternal_contribution    4.172% of  0.771% =   5.41x
+     the two parents of NA12753: NA12762 and NA12763 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12766-vs-father               paternal_genome_present     0.000% of 20.457% =   0.00x
+     child NA12766, father NA12775 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12766-vs-mother               paternal_genome_present     0.007% of 20.457% =   0.00x
+     child NA12766, mother NA12776 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12766-parents-unrelated       paternal_genome_present     9.040% of 20.350% =   0.44x
+     the two parents of NA12766: NA12775 and NA12776 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12767-vs-father               paternal_genome_present     0.022% of 21.034% =   0.00x
+     child NA12767, father NA12777 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12767-vs-mother               paternal_genome_present     0.030% of 21.034% =   0.00x
+     child NA12767, mother NA12778 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12767-parents-unrelated       paternal_genome_present     7.525% of 21.050% =   0.36x
+     the two parents of NA12767: NA12777 and NA12778 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12801-vs-father               paternal_genome_present     0.025% of  0.649% =   0.04x
+     child NA12801, father NA12812 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12801-vs-mother               paternal_genome_present     0.041% of  0.649% =   0.06x
+     child NA12801, mother NA12813 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA12801-parents-unrelated       no_paternal_contribution    4.091% of  0.748% =   5.47x
+     the two parents of NA12801: NA12812 and NA12813 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12802-vs-father               paternal_genome_present     0.018% of  0.742% =   0.02x
+     child NA12802, father NA12814 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12802-vs-mother               paternal_genome_present     0.023% of  0.742% =   0.03x
+     child NA12802, mother NA12815 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA12802-parents-unrelated       no_paternal_contribution    3.854% of  0.881% =   4.38x
+     the two parents of NA12802: NA12814 and NA12815 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12817-vs-father               paternal_genome_present     0.109% of 22.046% =   0.00x
+     child NA12817, father NA12827 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12817-vs-mother               paternal_genome_present     0.007% of 22.046% =   0.00x
+     child NA12817, mother NA12828 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12817-parents-unrelated       paternal_genome_present    11.036% of 19.973% =   0.55x
+     the two parents of NA12817: NA12827 and NA12828 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12818-vs-father               paternal_genome_present     0.000% of 20.646% =   0.00x
+     child NA12818, father NA12829 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12818-vs-mother               paternal_genome_present     0.022% of 20.646% =   0.00x
+     child NA12818, mother NA12830 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12818-parents-unrelated       paternal_genome_present     8.627% of 20.961% =   0.41x
+     the two parents of NA12818: NA12829 and NA12830 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12832-vs-father               paternal_genome_present     0.008% of 22.139% =   0.00x
+     child NA12832, father NA12842 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12832-vs-mother               paternal_genome_present     0.030% of 22.139% =   0.00x
+     child NA12832, mother NA12843 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12832-parents-unrelated       paternal_genome_present     9.884% of 20.896% =   0.47x
+     the two parents of NA12832: NA12842 and NA12843 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12864-vs-father               paternal_genome_present     0.016% of  0.776% =   0.02x
+     child NA12864, father NA12872 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12864-vs-mother               paternal_genome_present     0.107% of  0.776% =   0.14x
+     child NA12864, mother NA12873 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA12864-parents-unrelated       no_paternal_contribution    4.655% of  0.728% =   6.40x
+     the two parents of NA12864: NA12872 and NA12873 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12865-vs-father               paternal_genome_present     0.009% of  0.656% =   0.01x
+     child NA12865, father NA12874 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12865-vs-mother               paternal_genome_present     0.020% of  0.656% =   0.03x
+     child NA12865, mother NA12875 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA12865-parents-unrelated       no_paternal_contribution    4.571% of  0.719% =   6.36x
+     the two parents of NA12865: NA12874 and NA12875 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12877-vs-father               paternal_genome_present     0.007% of 21.955% =   0.00x
+     child NA12877, father NA12889 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12877-vs-mother               paternal_genome_present     0.022% of 21.955% =   0.00x
+     child NA12877, mother NA12890 (CEU)
+     expected: maternal genome present
+FAIL hapmap-NA12877-parents-unrelated       paternal_genome_present    10.016% of 20.314% =   0.49x
+     the two parents of NA12877: NA12889 and NA12890 (CEU)
+     expected: no contribution: spouses are unrelated
+ok   hapmap-NA12878-vs-father               paternal_genome_present     0.009% of  0.778% =   0.01x
+     child NA12878, father NA12891 (CEU)
+     expected: paternal genome present
+ok   hapmap-NA12878-vs-mother               paternal_genome_present     0.046% of  0.778% =   0.06x
+     child NA12878, mother NA12892 (CEU)
+     expected: maternal genome present
+ok   hapmap-NA12878-parents-unrelated       no_paternal_contribution    4.740% of  0.695% =   6.82x
+     the two parents of NA12878: NA12891 and NA12892 (CEU)
+     expected: no contribution: spouses are unrelated
+
