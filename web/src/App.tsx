@@ -358,8 +358,8 @@ export default function App() {
                     the largest thing on screen, so the mark adds nothing and competes. */}
                 <Logo size="hero" mark={false} />
                 <Text size="sm" c="dimmed" mt={2} mb={22} ta="center" style={{ maxWidth: '52ch' }}>
-                  Candidate flanking-SNP marker panels for determining which parental allele
-                  an embryo inherited.
+                  Candidate flanking-SNP marker panels for PGT-M linkage before an experiment,
+                  and parent of origin from SNP arrays after one.
                 </Text>
                 <div style={{ width: '100%', maxWidth: 820 }}>
                   <SearchPanel

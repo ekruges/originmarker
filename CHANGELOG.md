@@ -9,6 +9,32 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.2.2 "Kinetochore"
+
+### Fixed
+
+- **The terms did not contain the promise the rest of the project cites them for.** Five modules
+  and the Syngamy documentation tell a reader that "the terms promise nothing about a family is
+  submitted or retained". The terms said no such thing, and section 4 said the opposite: "the
+  tool takes a variant identifier and nothing else". That has been false since 1.5.0, when the
+  carrier genotype loader arrived, and 2.0 widened it from one carrier's VCF to a family's
+  arrays. There is now a section 5 that makes the promise in full: files are read in the browser,
+  no endpoint accepts a genotype, the report is typeset locally for the same reason, and the
+  reader is told how to confirm it in their own network panel. Two of its sentences are pinned by
+  `tests/test_terms.py` so a rewrite cannot drop them again.
+- **The terms said the tool "cannot determine which parental allele an embryo inherited."** That
+  was written for 1.x and Syngamy does exactly that. Section 1 now describes both halves and
+  draws the line the docs draw: which parent contributed is reported, which of that parent's two
+  chromosomes came through is not.
+
+### Changed
+
+- The one-line description everywhere it appears (meta description, landing page, README) now
+  names both halves: marker panels before an experiment, parent of origin after one.
+- Terms section 6 names the bundled example arrays as public GEO data served under NCBI's terms.
+
+---
+
 ## 2.2.1 "Kinetochore"
 
 A self-audit of the 2.0 surface, going after what had been deferred, asserted without a check, or

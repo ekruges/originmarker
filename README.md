@@ -1,8 +1,9 @@
 <img src="docs/originmarker.svg" alt="OriginMarker" width="340">
 
-Builds a ranked, downloadable menu of candidate flanking SNP markers around a pathogenic
-variant, for determining which parental allele an embryo inherited (PGT-M linkage /
-karyomapping).
+Two halves of one question. **Before an experiment**, it builds a ranked, downloadable menu of
+candidate flanking SNP markers around a pathogenic variant (PGT-M linkage / karyomapping).
+**After one**, [Syngamy](#syngamy-reading-the-experiment-afterwards) reads a sperm donor's SNP
+array and a sample's and reports which parental genome is present, and on which chromosomes.
 
 > **Research use only. Candidate markers require validation and per-family phasing in a
 > qualified genetics laboratory. Not a clinical diagnostic.**

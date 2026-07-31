@@ -109,5 +109,9 @@ def test_the_terms_still_say_the_load_bearing_things() -> None:
         "verbatim",                      # what happens to free text
         "gplv2",                         # the one non-Apache dependency
         "apache license 2.0",
+        # The promise five modules and the documentation cite these terms for. It was missing
+        # from them entirely until 2.2.2, while section 4 said the opposite.
+        "read in your browser and are not transmitted",
+        "no endpoint of this service accepts a genotype",
     ]:
         assert claim in t, f"the terms no longer say {claim!r}"
