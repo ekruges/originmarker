@@ -79,7 +79,7 @@ export default function App() {
   const atTerms = route.startsWith('#/terms')
   // Keyed on having no data, not on phase === 'idle': the hero must stay mounted while a
   // resolve is in flight, or the layout tears down mid-click.
-  const atHome = !atDocs && !atTerms && !atSyngamy && !resolved && !result
+  const atHome = !atDocs && !atSynDocs && !atTerms && !atSyngamy && !resolved && !result
 
   const stopWatch = () => {
     esRef.current?.close()
@@ -316,7 +316,8 @@ export default function App() {
                 variant="subtle" size="xs" component="a"
                 href={atSyngamy || atSynDocs ? '#/syngamy-docs' : '#/docs'}
               >
-                Documentation
+                <span className="om-wide-only">Documentation</span>
+                <span className="om-narrow-only">Docs</span>
               </Button>
               {!health && (
                 <Badge size="xs" variant="light" color="red">API unreachable</Badge>
@@ -370,9 +371,14 @@ export default function App() {
                     hero
                   />
                 </div>
-                <Anchor href="#/docs" size="xs" mt={18} c="dimmed">
-                  How it works, data sources and references
-                </Anchor>
+                <Group gap={16} mt={18} justify="center">
+                  <Anchor href="#/docs" size="xs" c="dimmed">
+                    How it works, data sources and references
+                  </Anchor>
+                  <Anchor href="#/syngamy" size="xs" c="dimmed">
+                    Syngamy: parent of origin from arrays
+                  </Anchor>
+                </Group>
               </div>
             ) : (
               <SearchPanel

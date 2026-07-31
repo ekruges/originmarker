@@ -502,16 +502,19 @@ function Chip({ entry, busy, stage, onRole, onRemove }: {
   const running = state === 'profiling' || state === 'running'
 
   return (
-    <div style={{
-      border: '1px solid var(--om-border)',
-      borderLeft: `3px solid ${verdict && verdict !== 'unclear' ? 'var(--om-blue)'
-        : verdict === 'unclear' ? 'var(--om-higher)'
-          : state === 'failed' ? '#c92a2a' : 'var(--om-border-strong)'}`,
-      borderRadius: 2,
-      background: '#fff',
-      width: 318,
-      padding: '6px 8px',
-    }}
+    <div
+      className="om-chip"
+      style={{
+        border: '1px solid var(--om-border)',
+        borderLeft: `3px solid ${verdict && verdict !== 'unclear' ? 'var(--om-blue)'
+          : verdict === 'unclear' ? 'var(--om-higher)'
+            : state === 'failed' ? '#c92a2a' : 'var(--om-border-strong)'}`,
+        borderRadius: 2,
+        background: '#fff',
+        width: 318,
+        maxWidth: '100%',
+        padding: '6px 8px',
+      }}
     >
       <Group gap={5} wrap="nowrap" align="center" mb={4}>
         <Text size="xs" fw={600} truncate style={{ flex: 1, minWidth: 0 }} title={file.name}>
@@ -547,7 +550,7 @@ function Chip({ entry, busy, stage, onRole, onRemove }: {
         ) : null}
       </div>
 
-      <Group gap={4} wrap="nowrap" align="center">
+      <Group gap={4} wrap="nowrap" align="center" className="om-chip-foot">
         <SegmentedControl
           size="xs" value={role} disabled={busy || running} onChange={(v) => onRole(v as Role)}
           data={[{ label: 'sperm', value: 'donor' }, { label: 'oocyte', value: 'oocyte' },
@@ -795,6 +798,12 @@ function ProfileStrip({ profile }: { profile: SampleProfile }) {
 
 /* --- detail ---------------------------------------------------------------------------------- */
 
+/** A table wider than the column it sits in scrolls inside its own box rather than pushing
+ *  the card off the screen. Every table below is wider than a phone. */
+const Scroll = ({ children }: { children: ReactNode }) => (
+  <div className="om-scroll-x">{children}</div>
+)
+
 function Section({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div style={{ marginTop: 10 }}>
@@ -808,16 +817,18 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Facts({ items }: { items: [string, ReactNode][] }) {
   return (
-    <Table withTableBorder withColumnBorders>
-      <Table.Tbody>
-        {items.map(([k, v]) => (
-          <Table.Tr key={k}>
-            <Table.Td style={{ width: '30%' }}>{k}</Table.Td>
-            <Table.Td ff="monospace">{v}</Table.Td>
-          </Table.Tr>
-        ))}
-      </Table.Tbody>
-    </Table>
+    <Scroll>
+      <Table withTableBorder withColumnBorders>
+        <Table.Tbody>
+          {items.map(([k, v]) => (
+            <Table.Tr key={k}>
+              <Table.Td style={{ width: '30%' }}>{k}</Table.Td>
+              <Table.Td ff="monospace">{v}</Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Scroll>
   )
 }
 
@@ -845,30 +856,32 @@ function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate
           .map((x) => (x === null ? '-' : x.toFixed(3))).join('   ')],
       ]}
       />
-      <Table withTableBorder withColumnBorders mt={6}>
-        <Table.Thead>
-          <Table.Tr>
-            <Table.Th style={{ width: '24%' }}>Gate</Table.Th>
-            <Table.Th ta="right" style={{ width: '10%' }}>Value</Table.Th>
-            <Table.Th style={{ width: '13%' }}>Verdict</Table.Th>
-            <Table.Th>Basis</Table.Th>
-          </Table.Tr>
-        </Table.Thead>
-        <Table.Tbody>
-          {g.map((x) => (
-            <Table.Tr key={x.name}>
-              <Table.Td>{x.name}</Table.Td>
-              <Table.Td ta="right" ff="monospace">{x.value === null ? '-' : pct(x.value, 1)}</Table.Td>
-              <Table.Td>
-                <Badge size="xs" variant="light" color={GATE_COLOUR[x.verdict] ?? 'gray'}>
-                  {x.verdict.replace(/_/g, ' ')}
-                </Badge>
-              </Table.Td>
-              <Table.Td><Text size="xs" c="dimmed">{x.detail}</Text></Table.Td>
+      <Scroll>
+        <Table withTableBorder withColumnBorders mt={6}>
+          <Table.Thead>
+            <Table.Tr>
+              <Table.Th style={{ width: '24%' }}>Gate</Table.Th>
+              <Table.Th ta="right" style={{ width: '10%' }}>Value</Table.Th>
+              <Table.Th style={{ width: '13%' }}>Verdict</Table.Th>
+              <Table.Th>Basis</Table.Th>
             </Table.Tr>
-          ))}
-        </Table.Tbody>
-      </Table>
+          </Table.Thead>
+          <Table.Tbody>
+            {g.map((x) => (
+              <Table.Tr key={x.name}>
+                <Table.Td>{x.name}</Table.Td>
+                <Table.Td ta="right" ff="monospace">{x.value === null ? '-' : pct(x.value, 1)}</Table.Td>
+                <Table.Td>
+                  <Badge size="xs" variant="light" color={GATE_COLOUR[x.verdict] ?? 'gray'}>
+                    {x.verdict.replace(/_/g, ' ')}
+                  </Badge>
+                </Table.Td>
+                <Table.Td><Text size="xs" c="dimmed">{x.detail}</Text></Table.Td>
+              </Table.Tr>
+            ))}
+          </Table.Tbody>
+        </Table>
+      </Scroll>
     </>
   )
 }
@@ -880,31 +893,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
   return (
     <>
       <Section title={maternal ? 'Evidence, sperm donor' : 'Evidence'}>
-        <Table withTableBorder withColumnBorders>
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th style={{ width: '30%' }}>Measurement</Table.Th>
-              <Table.Th ta="right" style={{ width: '14%' }}>Observed</Table.Th>
-              <Table.Th ta="right" style={{ width: '14%' }}>Reference</Table.Th>
-              <Table.Th>Reference is</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            <Row label="Paternal alleles absent" obs={pct(r.genomeRate)}
-              ref_={pct(r.explainable)} basis="no-call rate x heterozygous fraction"
-            />
-            <Row label="Alleles the donor lacks" obs={pct(r.nonParentalRate)}
-              ref_={pct(r.secondParentExpected)} basis="half the donor's heterozygosity"
-            />
-            <Row label="Heterozygous BAF band" obs={pct(r.hetBand)} ref_="8%"
-              basis="diploid 15-16%, uniparental 1.3-3.4%"
-            />
-          </Table.Tbody>
-        </Table>
-      </Section>
-
-      {maternal && (
-        <Section title="Evidence, oocyte donor">
+        <Scroll>
           <Table withTableBorder withColumnBorders>
             <Table.Thead>
               <Table.Tr>
@@ -915,14 +904,42 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              <Row label="Maternal alleles absent" obs={pct(maternal.genomeRate)}
-                ref_={pct(maternal.explainable)} basis="no-call rate x heterozygous fraction"
+              <Row label="Paternal alleles absent" obs={pct(r.genomeRate)}
+                ref_={pct(r.explainable)} basis="no-call rate x heterozygous fraction"
               />
-              <Row label="Alleles the donor lacks" obs={pct(maternal.nonParentalRate)}
-                ref_={pct(maternal.secondParentExpected)} basis="half the donor's heterozygosity"
+              <Row label="Alleles the donor lacks" obs={pct(r.nonParentalRate)}
+                ref_={pct(r.secondParentExpected)} basis="half the donor's heterozygosity"
+              />
+              <Row label="Heterozygous BAF band" obs={pct(r.hetBand)} ref_="8%"
+                basis="diploid 15-16%, uniparental 1.3-3.4%"
               />
             </Table.Tbody>
           </Table>
+        </Scroll>
+      </Section>
+
+      {maternal && (
+        <Section title="Evidence, oocyte donor">
+          <Scroll>
+            <Table withTableBorder withColumnBorders>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th style={{ width: '30%' }}>Measurement</Table.Th>
+                  <Table.Th ta="right" style={{ width: '14%' }}>Observed</Table.Th>
+                  <Table.Th ta="right" style={{ width: '14%' }}>Reference</Table.Th>
+                  <Table.Th>Reference is</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                <Row label="Maternal alleles absent" obs={pct(maternal.genomeRate)}
+                  ref_={pct(maternal.explainable)} basis="no-call rate x heterozygous fraction"
+                />
+                <Row label="Alleles the donor lacks" obs={pct(maternal.nonParentalRate)}
+                  ref_={pct(maternal.secondParentExpected)} basis="half the donor's heterozygosity"
+                />
+              </Table.Tbody>
+            </Table>
+          </Scroll>
         </Section>
       )}
 
@@ -964,41 +981,43 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
 
 function ChromTable({ chroms, ceiling }: { chroms: ChromResult[]; ceiling: number }) {
   return (
-    <Table withTableBorder withColumnBorders>
-      <Table.Thead>
-        <Table.Tr>
-          <Table.Th>Chr</Table.Th>
-          <Table.Th ta="right">Absent</Table.Th>
-          <Table.Th ta="right">Missing / informative</Table.Th>
-          <Table.Th ta="right">x ceiling</Table.Th>
-          <Table.Th>Verdict</Table.Th>
-        </Table.Tr>
-      </Table.Thead>
-      <Table.Tbody>
-        {chroms.map((c) => (
-          <Table.Tr key={c.chrom}>
-            <Table.Td>chr{c.chrom}</Table.Td>
-            <Table.Td ta="right" ff="monospace">{pct(c.rate, 2)}</Table.Td>
-            <Table.Td ta="right" ff="monospace" c="dimmed">
-              {int(c.absent)} / {int(c.informative)}
-            </Table.Td>
-            <Table.Td ta="right" ff="monospace" c="dimmed">{(c.rate / ceiling).toFixed(1)}</Table.Td>
-            <Table.Td>
-              {c.verdict === 'present'
-                ? <Text span size="xs" c="dimmed">present</Text>
-                : (
-                  <Badge size="xs" variant="light"
-                    color={c.verdict === 'expected_absent' ? 'gray' : 'orange'}
-                  >
-                    {c.verdict.replace(/_/g, ' ')}
-                  </Badge>
-                )}
-              {c.note && <Text span size="xs" c="dimmed"> &middot; {c.note}</Text>}
-            </Table.Td>
+    <Scroll>
+      <Table withTableBorder withColumnBorders>
+        <Table.Thead>
+          <Table.Tr>
+            <Table.Th>Chr</Table.Th>
+            <Table.Th ta="right">Absent</Table.Th>
+            <Table.Th ta="right">Missing / informative</Table.Th>
+            <Table.Th ta="right">x ceiling</Table.Th>
+            <Table.Th>Verdict</Table.Th>
           </Table.Tr>
-        ))}
-      </Table.Tbody>
-    </Table>
+        </Table.Thead>
+        <Table.Tbody>
+          {chroms.map((c) => (
+            <Table.Tr key={c.chrom}>
+              <Table.Td>chr{c.chrom}</Table.Td>
+              <Table.Td ta="right" ff="monospace">{pct(c.rate, 2)}</Table.Td>
+              <Table.Td ta="right" ff="monospace" c="dimmed">
+                {int(c.absent)} / {int(c.informative)}
+              </Table.Td>
+              <Table.Td ta="right" ff="monospace" c="dimmed">{(c.rate / ceiling).toFixed(1)}</Table.Td>
+              <Table.Td>
+                {c.verdict === 'present'
+                  ? <Text span size="xs" c="dimmed">present</Text>
+                  : (
+                    <Badge size="xs" variant="light"
+                      color={c.verdict === 'expected_absent' ? 'gray' : 'orange'}
+                    >
+                      {c.verdict.replace(/_/g, ' ')}
+                    </Badge>
+                  )}
+                {c.note && <Text span size="xs" c="dimmed"> &middot; {c.note}</Text>}
+              </Table.Td>
+            </Table.Tr>
+          ))}
+        </Table.Tbody>
+      </Table>
+    </Scroll>
   )
 }
 

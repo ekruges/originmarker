@@ -9,6 +9,28 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.0.1 "Kinetochore"
+
+### Fixed
+
+- **The landing page had no route to Syngamy.** The header carries the only link to it and
+  the landing page hides the header, so the front page could not reach the other half of the
+  tool at all. The hero now links to both halves.
+- **The Syngamy documentation route rendered with no site header**, because it fell through
+  the `atHome` test and was treated as the landing page.
+- **Syngamy was unusable on a phone.** The chip is sized for two-up on a desktop and at 375px
+  was wider than the drop zone holding it, so chips spilled past the dashed border and clipped
+  their own right-hand column. They now fill the width they have, and the role control and the
+  stat line stack rather than fighting for one row.
+- **Every table in the Syngamy detail view overflowed its card**, since none had a scroll box.
+  All 21 of them now scroll inside their own width, the way the panel documentation's tables
+  already did.
+- **The header wrapped to three lines at 375px**, leaving the wordmark, the nav and the status
+  badge on separate rows. "Documentation" shortens to "Docs" below 700px, which fits the
+  wordmark and both links on one line.
+
+---
+
 ## 2.0.0 "Kinetochore"
 
 The structure that couples a chromosome to the spindle and pulls it to a pole.

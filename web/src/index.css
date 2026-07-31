@@ -216,6 +216,19 @@ body {
   color: var(--om-blue-light);
 }
 
+/* A table wider than its column scrolls inside its own box. Without this the card grows to
+   the table's width and takes the page with it, which on a phone means every card. */
+.om-scroll-x {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* One label for a wide viewport, a shorter one for a narrow one. Both are in the markup and
+   CSS chooses, so there is no resize listener and no layout shift on first paint. */
+.om-narrow-only {
+  display: none;
+}
+
 /* ---------------------------------------------------------------- homepage */
 
 .om-hero {
@@ -405,4 +418,35 @@ body {
   border-left: 3px solid var(--om-blue);
   border-radius: 3px;
   background: var(--om-head-bg);
+}
+
+/* ------------------------------------------------------- phone: 2.0 surfaces */
+
+@media (max-width: 700px) {
+  .om-wide-only {
+    display: none;
+  }
+
+  .om-narrow-only {
+    display: inline;
+  }
+
+  /* The chip is sized for two-up on a desktop. At 375px that is wider than the drop zone it
+     sits in, so it spilled past the dashed border and clipped its own right-hand column. */
+  .om-chip {
+    width: 100% !important;
+  }
+
+  /* The role control and the stat line cannot share a row at this width: the control alone is
+     ~180px and the stat line is set nowrap, so together they pin the chip wider than the
+     screen. Stacked, each gets the full width and neither has to shrink. */
+  .om-chip-foot {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 4px !important;
+  }
+
+  .om-chip-foot > :last-child {
+    text-align: left !important;
+  }
 }
