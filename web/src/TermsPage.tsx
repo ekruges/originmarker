@@ -196,9 +196,14 @@ export function TermsPage() {
 
         <h2 id="availability">7. Availability and privacy</h2>
         <p>
-          This is a personal project running on personal hardware. There is no uptime
-          commitment, no support commitment, and no guarantee that the service, its URLs, or
-          its output format will continue to exist. Queries may be cached on the server to
+          This is a personal project running on personal hardware. It is served at{' '}
+          <Anchor href="https://originmarker.app/">originmarker.app</Anchor> and, in parallel,
+          as a subpage at{' '}
+          <Anchor href="https://ezrakruger.cc/originmarker/">ezrakruger.cc/originmarker</Anchor>.
+          Both are the same instance behind one tunnel, so they share their cache, their rate
+          limits and their downtime; using one rather than the other buys nothing. There is no
+          uptime commitment, no support commitment, and no guarantee that the service, its URLs,
+          or its output format will continue to exist. Queries may be cached on the server to
           avoid re-requesting upstream data. No accounts, no tracking, no analytics.
         </p>
         <p>

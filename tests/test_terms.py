@@ -87,7 +87,10 @@ def test_a_new_outbound_host_forces_a_terms_decision() -> None:
         "www.ncbi.nlm.nih.gov",         # dbSNP/ClinVar links printed into exports
         "www.apache.org", "creativecommons.org", "doi.org", "www.ebi.ac.uk",
         "ldlink.nih.gov", "ldlink.nci.nih.gov",   # optional, and already in section 5's scope
-        "www.internationalgenome.org", "github.com", "ezrakruger.cc",
+        "www.internationalgenome.org", "github.com",
+        # This app's own two hostnames. It is served at both, in parallel, from one container;
+        # it does not send anything to either.
+        "ezrakruger.cc", "originmarker.app",
         "hgdownload.soe.ucsc.edu",      # the bundled map's provenance, not fetched at runtime
         "schema.org", "www.w3.org",
     }

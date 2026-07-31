@@ -17,7 +17,7 @@ docker compose up -d         # compose reads .env and injects it at run time
 Confirm it took, without printing the key:
 
 ```bash
-curl -s https://ezrakruger.cc/originmarker/api/health | grep -o '"nl_enabled":[a-z]*'
+curl -s https://originmarker.app/api/health | grep -o '"nl_enabled":[a-z]*'
 # "nl_enabled":true
 ```
 

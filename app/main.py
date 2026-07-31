@@ -2,7 +2,9 @@
 
 Thin transport over panelbuilder. This module owns NO genetics: every coordinate, rsID,
 strand and ref/alt on the wire comes out of pb.* (R1). Served as a subpage at
-https://ezrakruger.cc/originmarker/ via ROOT_PATH, and at '/' for local dev.
+https://originmarker.app/ at the root, at https://ezrakruger.cc/originmarker/ via
+ROOT_PATH, and at '/' for local dev. One process answers all three: root_path strips the
+prefix only when the request carries it.
 
     ROOT_PATH=/originmarker uvicorn app.main:app
     uvicorn app.main:app --reload            # local dev

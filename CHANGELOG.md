@@ -9,6 +9,22 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.2.5 "Kinetochore"
+
+### Changed
+
+- **Served at `originmarker.app` as well as `ezrakruger.cc/originmarker`, from one container.**
+  No second image and no per-host build was needed: `app/main.py` reads `ROOT_PATH` into
+  `FastAPI(root_path=...)`, which strips the prefix only when the request carries it, so one
+  process answers both `/api/health` and `/originmarker/api/health`; and the frontend is built
+  with vite `base: './'`, so its assets resolve at either depth. Tunnel ingress rules added for
+  the apex and `www`.
+- The terms say the service runs at both hostnames and that they are one instance sharing a
+  cache, rate limits and downtime, so choosing one over the other buys nothing.
+- README, the deploy runbook, `app/main.py` and `vite.config.ts` name both.
+
+---
+
 ## 2.2.4 "Kinetochore"
 
 A second audit suite, covering the readers the pronucleus audit never touched: 163 cases across

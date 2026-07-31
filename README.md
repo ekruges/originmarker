@@ -8,7 +8,11 @@ array and a sample's and reports which parental genome is present, and on which 
 > **Research use only. Candidate markers require validation and per-family phasing in a
 > qualified genetics laboratory. Not a clinical diagnostic.**
 
-Live at **[ezrakruger.cc/originmarker](https://ezrakruger.cc/originmarker/)**.
+Live at **[originmarker.app](https://originmarker.app/)**, and in parallel as a subpage at
+**[ezrakruger.cc/originmarker](https://ezrakruger.cc/originmarker/)**. One container answers both:
+`app/main.py` reads `ROOT_PATH` into `FastAPI(root_path=...)`, which strips the prefix only when
+it is present, and the frontend is built with vite `base: './'` so its assets resolve at either
+depth.
 
 ## What it does
 
@@ -34,12 +38,12 @@ It proposes candidates. It cannot phase them: that needs the family.
 The result is a list of candidates to genotype. You still have to genotype the carrier,
 drop the markers where they are not heterozygous, and phase the rest against a relative.
 
-Full walkthrough: [Using the site](https://ezrakruger.cc/originmarker/#/docs/using).
+Full walkthrough: [Using the site](https://originmarker.app/#/docs/using).
 
 ## Syngamy: reading the experiment afterwards
 
 The above builds a panel *before* an experiment. **Syngamy**, at
-[/#/syngamy](https://ezrakruger.cc/originmarker/#/syngamy), reads one *after*: given the sperm
+[/#/syngamy](https://originmarker.app/#/syngamy), reads one *after*: given the sperm
 donor's SNP array and a sample's, it reports which parental genome is present and on which
 chromosomes.
 
@@ -62,7 +66,7 @@ The analysis also runs standalone, with more than the page exposes:
 python origin.py --father sperm.txt --samples embryo1.txt embryo2.txt
 ```
 
-Full documentation: [Syngamy](https://ezrakruger.cc/originmarker/#/syngamy-docs).
+Full documentation: [Syngamy](https://originmarker.app/#/syngamy-docs).
 
 ## Running it
 
@@ -104,7 +108,7 @@ the docs numbering, the log tags, the primer UI's honesty rules. They are plain 
 ## Documentation
 
 Method, scope, data sources and known limitations are documented in the app:
-[Documentation](https://ezrakruger.cc/originmarker/#/docs).
+[Documentation](https://originmarker.app/#/docs).
 
 Version history, and the bugs each release fixed: [CHANGELOG.md](CHANGELOG.md).
 
