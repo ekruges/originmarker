@@ -69,16 +69,16 @@ f
 BT /F2 14 Tf 74 732 Td (Syngamy) Tj ET
 0 0 0 rg
 BT /F2 8 Tf 40 712 Td (Report:) Tj ET
-BT /F1 8 Tf 158 712 Td (69ed3001) Tj ET
+BT /F1 8 Tf 158 712 Td (a6d01782) Tj ET
 0 0 0 rg
 BT /F2 8 Tf 40 702 Td (Generated:) Tj ET
-BT /F1 8 Tf 158 702 Td (2026-07-31 03:29:19Z) Tj ET
+BT /F1 8 Tf 158 702 Td (2026-07-31 04:33:27Z) Tj ET
 0 0 0 rg
 BT /F2 8 Tf 40 692 Td (Run started:) Tj ET
 BT /F1 8 Tf 158 692 Td (not recorded) Tj ET
 0 0 0 rg
 BT /F2 8 Tf 40 682 Td (Software:) Tj ET
-BT /F1 8 Tf 158 682 Td (OriginMarker 2.1.1 \(Kinetochore\), Syngamy module) Tj ET
+BT /F1 8 Tf 158 682 Td (OriginMarker 2.2.1 \(Kinetochore\), Syngamy module) Tj ET
 0 0 0 rg
 BT /F2 8 Tf 40 672 Td (Sperm donor:) Tj ET
 BT /F1 8 Tf 158 672 Td (GSM4472397_sperm_DNA_71.CEL.txt.gz \(825,656 markers, SHA-256 1b56911dae7030f4\)) Tj ET
@@ -526,7 +526,7 @@ BT /F1 6.8 Tf 338 81.3 Td () Tj ET
 BT /F3 7 Tf 40 44 Td (Research use only. Parent of origin here is a statistical call from array genotypes and requires confirmation by an independent method in a qualified genetics laboratory.) Tj ET
 BT /F3 7 Tf 40 35.5 Td (Not a clinical diagnostic.) Tj ET
 0.4 0.4 0.4 rg
-BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.1.1 \(Kinetochore\) | report 69ed3001 | generated 2026-07-31 03:29:19Z | page 1) Tj ET
+BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.2.1 \(Kinetochore\) | report a6d01782 | generated 2026-07-31 04:33:27Z | page 1) Tj ET
 0 0 0 rg
 endstream
 endobj
@@ -1130,7 +1130,7 @@ BT /F1 7.4 Tf 40 173.2 Td (No chrY, yet the parent's alleles are present on chrX
 BT /F3 7 Tf 40 44 Td (Research use only. Parent of origin here is a statistical call from array genotypes and requires confirmation by an independent method in a qualified genetics laboratory.) Tj ET
 BT /F3 7 Tf 40 35.5 Td (Not a clinical diagnostic.) Tj ET
 0.4 0.4 0.4 rg
-BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.1.1 \(Kinetochore\) | report 69ed3001 | generated 2026-07-31 03:29:19Z | page 2) Tj ET
+BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.2.1 \(Kinetochore\) | report a6d01782 | generated 2026-07-31 04:33:27Z | page 2) Tj ET
 0 0 0 rg
 endstream
 endobj
@@ -1144,7 +1144,7 @@ stream
 BT /F2 11 Tf 40 735 Td (Methods) Tj ET
 0 0 0 rg
 0 0 0 rg
-BT /F1 8 Tf 40 723 Td (Parent of origin was determined from SNP array genotypes using OriginMarker 2.1.1 \(Kinetochore\). For each of 1 sample\(s\), the rate at which the) Tj ET
+BT /F1 8 Tf 40 723 Td (Parent of origin was determined from SNP array genotypes using OriginMarker 2.2.1 \(Kinetochore\). For each of 1 sample\(s\), the rate at which the) Tj ET
 0 0 0 rg
 BT /F1 8 Tf 40 712.4 Td (sperm donor's obligate allele was absent was computed across autosomal markers where he is homozygous and the sample is called, and compared) Tj ET
 0 0 0 rg
@@ -1320,7 +1320,7 @@ BT /F3 6.5 Tf 40 253.9 Td (The hash is of the file as read, so a reviewer can co
 BT /F2 10 Tf 40 237.9 Td (Citation) Tj ET
 0 0 0 rg
 0 0 0 rg
-BT /F1 8 Tf 40 225.9 Td (OriginMarker 2.1.1 \(Kinetochore\). Syngamy: parent of origin from SNP array genotypes. Report 69ed3001, generated 2026-07-31 03:29:19Z.) Tj ET
+BT /F1 8 Tf 40 225.9 Td (OriginMarker 2.2.1 \(Kinetochore\). Syngamy: parent of origin from SNP array genotypes. Report a6d01782, generated 2026-07-31 04:33:27Z.) Tj ET
 0 0 0 rg
 0 0 0 rg
 BT /F1 8 Tf 40 215.3 Td (Kothiyal P et al. Mendelian inconsistent signatures from 1,314 ancestrally diverse family trios. J Comput Biol 2019;26\(5\):405-419.) Tj ET
@@ -1331,7 +1331,7 @@ BT /F1 8 Tf 40 204.7 Td (doi:10.1089/cmb.2018.0253. Cited for the inconsistency 
 BT /F3 7 Tf 40 44 Td (Research use only. Parent of origin here is a statistical call from array genotypes and requires confirmation by an independent method in a qualified genetics laboratory.) Tj ET
 BT /F3 7 Tf 40 35.5 Td (Not a clinical diagnostic.) Tj ET
 0.4 0.4 0.4 rg
-BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.1.1 \(Kinetochore\) | report 69ed3001 | generated 2026-07-31 03:29:19Z | page 3) Tj ET
+BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.2.1 \(Kinetochore\) | report a6d01782 | generated 2026-07-31 04:33:27Z | page 3) Tj ET
 0 0 0 rg
 endstream
 endobj

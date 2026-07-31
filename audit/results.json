@@ -1,6 +1,6 @@
 {
- "tool": "OriginMarker 2.1.1 (Kinetochore)",
- "generatedAt": "2026-07-31 03:29:19Z",
+ "tool": "OriginMarker 2.2.1 (Kinetochore)",
+ "generatedAt": "2026-07-31 04:33:27Z",
  "series": "GSE148488",
  "rows": [
   {
@@ -162,7 +162,7 @@
    "informative": 544115,
    "callRate": 0.8456294146714854,
    "hetBand": 0.02940388008890786,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/pat-GSM4774680.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/pat-GSM4774680.pdf"
   },
   {
    "id": "pat-GSM4774681",
@@ -183,7 +183,7 @@
    "informative": 502805,
    "callRate": 0.7824166480955749,
    "hetBand": 0.0783614814892386,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/pat-GSM4774681.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/pat-GSM4774681.pdf"
   },
   {
    "id": "pat-GSM4774682",
@@ -204,7 +204,7 @@
    "informative": 550094,
    "callRate": 0.8548766072068755,
    "hetBand": 0.03788449511494215,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/pat-GSM4774682.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/pat-GSM4774682.pdf"
   },
   {
    "id": "pat-GSM4774683",
@@ -225,7 +225,7 @@
    "informative": 547115,
    "callRate": 0.8499241814993169,
    "hetBand": 0.028489455723637362,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/pat-GSM4774683.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/pat-GSM4774683.pdf"
   },
   {
    "id": "pat-GSM4774684",
@@ -249,7 +249,7 @@
    "informative": 359018,
    "callRate": 0.555731442634705,
    "hetBand": 0.21283308133009665,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/pat-GSM4774684.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/pat-GSM4774684.pdf"
   },
   {
    "id": "pat-GSM4774685",
@@ -270,7 +270,7 @@
    "informative": 534901,
    "callRate": 0.8311754532153827,
    "hetBand": 0.0325126332460968,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/pat-GSM4774685.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/pat-GSM4774685.pdf"
   },
   {
    "id": "pat-GSM4774686",
@@ -294,7 +294,7 @@
    "informative": 348211,
    "callRate": 0.5375350024707627,
    "hetBand": 0.26780166455033405,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/pat-GSM4774686.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/pat-GSM4774686.pdf"
   },
   {
    "id": "pat-GSM4774687",
@@ -318,7 +318,7 @@
    "informative": 383652,
    "callRate": 0.5911117947426047,
    "hetBand": 0.18059374261649602,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/pat-GSM4774687.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/pat-GSM4774687.pdf"
   },
   {
    "id": "mat-GSM4774673",
@@ -339,7 +339,7 @@
    "informative": 546092,
    "callRate": 0.8498309223211604,
    "hetBand": 0.03276749051711094,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/mat-GSM4774673.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/mat-GSM4774673.pdf"
   },
   {
    "id": "mat-GSM4774674",
@@ -360,7 +360,7 @@
    "informative": 552839,
    "callRate": 0.8608863739862607,
    "hetBand": 0.024585099727609375,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/mat-GSM4774674.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/mat-GSM4774674.pdf"
   },
   {
    "id": "mat-GSM4774675",
@@ -381,7 +381,7 @@
    "informative": 536084,
    "callRate": 0.8348186169542764,
    "hetBand": 0.04780071111296478,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/mat-GSM4774675.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/mat-GSM4774675.pdf"
   },
   {
    "id": "mat-GSM4774676",
@@ -402,7 +402,7 @@
    "informative": 533152,
    "callRate": 0.8294398635751451,
    "hetBand": 0.03951337207859305,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/mat-GSM4774676.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/mat-GSM4774676.pdf"
   },
   {
    "id": "mat-GSM4774677",
@@ -423,7 +423,7 @@
    "informative": 551558,
    "callRate": 0.8584083443952445,
    "hetBand": 0.03217520351785358,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/mat-GSM4774677.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/mat-GSM4774677.pdf"
   },
   {
    "id": "mat-GSM4774678",
@@ -444,7 +444,7 @@
    "informative": 580110,
    "callRate": 0.9036729582295775,
    "hetBand": 0.015927517582616766,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/mat-GSM4774678.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/mat-GSM4774678.pdf"
   },
   {
    "id": "mat-GSM4774679",
@@ -465,7 +465,7 @@
    "informative": 551585,
    "callRate": 0.858157634656564,
    "hetBand": 0.035937903055601156,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/mat-GSM4774679.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/mat-GSM4774679.pdf"
   },
   {
    "id": "rep-GSM4472398",
@@ -486,7 +486,7 @@
    "informative": 608996,
    "callRate": 0.9408397686203456,
    "hetBand": 0.16027544549119424,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/rep-GSM4472398.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/rep-GSM4472398.pdf"
   },
   {
    "id": "rep-GSM4472399",
@@ -507,7 +507,7 @@
    "informative": 617700,
    "callRate": 0.9541467633009388,
    "hetBand": 0.15415109761025128,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/rep-GSM4472399.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/rep-GSM4472399.pdf"
   },
   {
    "id": "rep-GSM4472400",
@@ -528,7 +528,7 @@
    "informative": 615385,
    "callRate": 0.9501983877062602,
    "hetBand": 0.15266029370145592,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/rep-GSM4472400.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/rep-GSM4472400.pdf"
   },
   {
    "id": "egg-GSM4472407",
@@ -549,7 +549,7 @@
    "informative": 632618,
    "callRate": 0.9837450463631343,
    "hetBand": 0.13622434954668733,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/egg-GSM4472407.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/egg-GSM4472407.pdf"
   },
   {
    "id": "egg-GSM4472408",
@@ -570,7 +570,7 @@
    "informative": 527079,
    "callRate": 0.8185733525826736,
    "hetBand": 0.2110212330229027,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/egg-GSM4472408.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/egg-GSM4472408.pdf"
   },
   {
    "id": "egg-GSM4472415",
@@ -591,7 +591,7 @@
    "informative": 621448,
    "callRate": 0.9658150609939248,
    "hetBand": 0.16513955491893462,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/egg-GSM4472415.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/egg-GSM4472415.pdf"
   },
   {
    "id": "egg-GSM4472416",
@@ -612,7 +612,7 @@
    "informative": 620395,
    "callRate": 0.9641594077921071,
    "hetBand": 0.1647791003406427,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/egg-GSM4472416.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/egg-GSM4472416.pdf"
   },
   {
    "id": "egg-GSM4472417",
@@ -633,7 +633,7 @@
    "informative": 619215,
    "callRate": 0.964652349162363,
    "hetBand": 0.16477838313309764,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/egg-GSM4472417.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/egg-GSM4472417.pdf"
   },
   {
    "id": "egg-GSM4472418",
@@ -654,7 +654,7 @@
    "informative": 622806,
    "callRate": 0.9706391039367485,
    "hetBand": 0.16268733224458676,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/egg-GSM4472418.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/egg-GSM4472418.pdf"
   },
   {
    "id": "egg-GSM4472419",
@@ -675,7 +675,7 @@
    "informative": 622163,
    "callRate": 0.9695660178088695,
    "hetBand": 0.1631578266828726,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/egg-GSM4472419.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/egg-GSM4472419.pdf"
   },
   {
    "id": "egg-GSM4472420",
@@ -696,7 +696,7 @@
    "informative": 622856,
    "callRate": 0.9708098772370091,
    "hetBand": 0.16346623596092197,
-   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/out/egg-GSM4472420.pdf"
+   "pdf": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/c9444403-0523-495f-a3b9-f4cb2afa3c9b/scratchpad/audit/final/egg-GSM4472420.pdf"
   }
  ]
 }

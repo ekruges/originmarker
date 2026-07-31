@@ -742,10 +742,18 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           <Text mb={8}>
             Syngamy reads chrX instead, using the same obligate-allele logic as everywhere else. If
             the sperm donor&apos;s alleles are present on chrX as well as the autosomes, the sperm
-            was X-bearing. If they are present on the autosomes but absent on chrX, it was
-            Y-bearing and the sample simply has no paternal X, which is ordinary sex determination
-            rather than a loss. That case is labelled <Code>expected absent</Code> on the
-            chromosome table and excluded from the loss count.
+            was X-bearing. If they are present on the autosomes but absent on chrX <i>and</i> the
+            sample calls a chrY, it was Y-bearing and the sample simply has no paternal X, which
+            is ordinary sex determination rather than a loss. That case is labelled{' '}
+            <Code>expected absent</Code> and excluded from the loss count.
+          </Text>
+          <Text mb={8}>
+            The chrY half of that is a measurement, not an inference, and the distinction is
+            load-bearing. Reading &quot;he must have sent a Y&quot; from the missing X alone is
+            circular, and on a sample carrying no chrY at all it would exempt a genuine paternal X
+            deletion as ordinary sex determination while asserting a Y chromosome the file does
+            not show. Where the paternal X is absent and no chrY is called, the loss is reported
+            as a loss and no sperm type is claimed.
           </Text>
           <Alert color="blue" p="xs" mb={10}>
             <Text size="xs">
@@ -849,6 +857,15 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             stretch. Three windows are reported, 25 kb, 10 Mb and the whole chromosome, because an
             event smaller than the local marker spacing cannot produce a run at all.
           </Text>
+          <Text mb={8}>
+            The threshold depends on how often a marker shows paternal absence when the paternal
+            genome <i>is</i> present, and that rate is taken from this sample&apos;s own
+            genome-wide absence rather than from a published floor. It matters: the floor is a
+            lower bound, so using it on amplified material demands a shorter run than the data
+            warrants. At a 5% spurious rate the required run is 4 markers where the floor asks 2,
+            and at 30% it is 8. The required run is never below 2 in any case, because contiguity
+            is the discriminator and a run of one has none to offer.
+          </Text>
           <Alert color="orange" p="xs" mb={10}>
             <Text size="xs">
               <b>This test needs the oocyte donor and refuses without her.</b> Absence is Mendelian
@@ -870,12 +887,11 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           </Text>
           <Alert color="blue" p="xs">
             <Text size="xs">
-              Two things the run does not tell you. It does not separate copy loss from
-              copy-neutral loss of heterozygosity, since both remove paternal alleles contiguously
-              and only the intensity channel distinguishes them. And a window holding very few
-              informative markers can reach significance on a short run: the marker count is
-              printed beside every verdict for exactly that reason, and a run of one out of one is
-              not evidence of anything.
+              What the run does not tell you: it does not separate copy loss from copy-neutral
+              loss of heterozygosity, since both remove paternal alleles contiguously and only the
+              intensity channel distinguishes them. The marker count is printed beside every
+              verdict because a window holding few informative markers carries little power even
+              when it clears the threshold.
             </Text>
           </Alert>
         </Section>
@@ -1197,9 +1213,8 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           </Text>
           <Text mb={8}>
             The Python package goes further in three directions the page does not expose. The
-            per-locus deletion test of <SecRef id="locus" /> now runs in the browser too; the
-            command line additionally fits the dropout rate from the trio rather than falling back
-            to the Kothiyal floor.
+            per-locus deletion test of <SecRef id="locus" /> runs in the browser too, and fits its
+            spurious-violation rate the same way.
           </Text>
 
           <Title order={3} mt={14} mb={4}>Bidirectional cross-check</Title>

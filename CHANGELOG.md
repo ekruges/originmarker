@@ -9,6 +9,48 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.2.1 "Kinetochore"
+
+A self-audit of the 2.0 surface, going after what had been deferred, asserted without a check, or
+left matching a backend that was itself wrong. Five defects, each with a check that fails if it
+returns. The accuracy audit re-ran unchanged: 22 correct, 4 refused, 0 incorrect, no case moved.
+
+### Fixed
+
+- **The chrX exemption was inferred from the absent X itself, not measured.** A male offspring has
+  no paternal X, so that absence is exempted rather than reported as a loss. The browser decided
+  "he sent a Y" from the chrX rate alone, which is circular: on a sample calling no chrY at all it
+  exempted a genuine paternal X deletion as ordinary sex determination and reported
+  `Y_bearing sperm` on the strength of a chromosome the file does not show. A silent false
+  negative on exactly the event this tool exists to detect. Now gated on a chrY measurement, as
+  `origin.py` already did; where the X is absent and no Y is called, the loss is reported and no
+  sperm type is claimed.
+- **The per-locus test used a lower bound as if it were the rate.** The Kothiyal floor is
+  explicitly a lower bound on the spurious-violation rate, and the browser left `q` there for
+  every sample. A lower `q` shrinks the required run, so the test over-called: at a 5% spurious
+  rate it demanded 2 markers where 4 are needed, and at 30% it demanded 2 where 8 are. It now
+  fits `q` from the sample's own genome-wide absence rate, which measures exactly that quantity,
+  and falls back to the floor only where the paternal genome is absent and the rate would not
+  mean that.
+- **`r_min` could be 1, making a single marker a significant run.** Below n = 3 the threshold came
+  back as 1, so one absent marker cleared it at p = 0.0063 on the strength of being the only
+  marker in the window. Contiguity is the entire discriminator and a run of one has none, so the
+  threshold is now never below 2, in both implementations.
+- **The locus box accepted `chr0` and `chr23` through `chr99`**, which parsed and then matched no
+  marker. Restricted to 1-22, X and Y.
+- **An unresolved pair discarded the parent it had resolved.** With one parent confirmed and the
+  other in the uncalled band, the class must stay unclear, but the note said only "at least one
+  parent is unresolved" and dropped a contribution that had been measured with margin. It now
+  names which parent is settled and which way.
+
+### Changed
+
+- A self-check fixture asserted the old chrX behaviour: it built a sample with an absent paternal
+  X and no chrY and expected the exemption to fire. The fixture now carries the chrY it was
+  implicitly claiming.
+
+---
+
 ## 2.2.0 "Kinetochore"
 
 ### Added

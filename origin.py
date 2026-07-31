@@ -77,7 +77,10 @@ def r_min(n: int, q: float, alpha: float = 0.05, windows: int = 3) -> Optional[i
     budget = alpha / max(1, windows)
     for r in range(1, n + 1):
         if run_length_p(r, n, q) <= budget:
-            return r
+            # Never below 2: contiguity is the whole discriminator and a run of one has none.
+            # Below n = 3 the threshold comes back as 1, so a single absent marker would read
+            # as a significant run on the strength of being the only marker in the window.
+            return max(2, r)
     return None
 
 

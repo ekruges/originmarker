@@ -102,9 +102,18 @@ export function runLengthP(r: number, n: number, q: number): number {
  * Never hardcoded: it falls out of the fitted q and the number of windows tested. Report it
  * alongside the result so the threshold is auditable instead of magic.
  */
+/**
+ * The shortest run that beats `alpha`, Bonferroni-corrected across the windows, never below 2.
+ *
+ * The floor is the statistic's own logic rather than a tuning knob: contiguity is the entire
+ * discriminator between a deletion and independent error, and a run of one has no contiguity to
+ * offer. Below n = 3 the uncorrected threshold comes back as 1, so a single absent marker would
+ * read as a significant run at p = 0.0063 on the strength of being the only marker in the window.
+ */
 export function rMin(n: number, q: number, alpha = 0.05, windows = WINDOWS.length): number | null {
-  const budget = alpha / Math.max(1, windows)
-  for (let r = 1; r <= n; r++) if (runLengthP(r, n, q) <= budget) return r
+  if (n <= 0 || !(q > 0) || q >= 1) return null
+  const target = alpha / Math.max(1, windows)
+  for (let r = 1; r <= n; r += 1) if (runLengthP(r, n, q) <= target) return Math.max(2, r)
   return null
 }
 
@@ -300,4 +309,13 @@ export function analyseRuns(
       note,
     }
   })
+}
+
+/** `7:117559590`, `chr7:117,559,590` and `chr7 117559590` all parse. Anything that is not a
+ *  human chromosome does not: `chr0` and `chr45` used to be accepted and then matched nothing. */
+export function parseLocus(text: string): { chrom: string; pos: number } | null {
+  const m = /^\s*(?:chr)?([1-9]|1[0-9]|2[0-2]|[XYxy])\s*[:\s]\s*([\d,_ ]+)\s*$/.exec(text)
+  if (!m) return null
+  const pos = Number(m[2].replace(/[,_ ]/g, ''))
+  return Number.isFinite(pos) && pos > 0 ? { chrom: m[1].toUpperCase(), pos } : null
 }

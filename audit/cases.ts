@@ -96,7 +96,7 @@ export interface Case {
 
 const rows: Case[] = []
 const now = new Date().toISOString().replace('T', ' ').slice(0, 19) + 'Z'
-const TOOL = 'OriginMarker 2.1.1 (Kinetochore)'
+const TOOL = 'OriginMarker 2.2.1 (Kinetochore)'
 const log = (s: string) => process.stdout.write(s + '\n')
 
 log(`reading paternal reference ${SPERM}`)

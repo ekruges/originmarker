@@ -91,6 +91,9 @@ assert.ok(mid.limits.some((l) => l.includes('array would measure dropout directl
     const s = (i * 7919) % 1000
     tallyRow('AA', row('X', 1000 + i * 1000, s < 315 ? 'BB' : 'AA', 0.0), t)
   }
+  // The chrY this sample is asserted to carry. Without it the fixture only said "the X is
+  // missing", and the exemption used to read that as a Y all by itself.
+  for (let i = 0; i < 600; i += 1) tallyRow('AA', row('Y', 1000 + i * 1000, 'AA'), t)
   const pat = classify(t, 0.17, { role: 'paternal' })
   const x = pat.chroms.find((c) => c.chrom === 'X')
   assert.equal(x?.verdict, 'expected_absent', 'the father sent a Y instead')
@@ -196,3 +199,46 @@ assert.equal(ABSENCE_MARGIN, 3)
 }
 
 console.log('parentage.check.ts OK')
+
+// --- 11. the chrX exemption needs a chrY MEASUREMENT, not an absent X --------------------------
+// Inferring "he sent a Y" from a missing paternal X is circular. On a sample with no chrY called
+// it exempted a real paternal X loss as ordinary sex determination and asserted a Y the file does
+// not show, which is a silent false negative on exactly the event this tool exists to detect.
+{
+  const withY = (y: boolean): ReturnType<typeof classify> => {
+    const t = emptyTally()
+    for (let i = 0; i < 20_000; i += 1) {
+      const s = (i * 7919) % 1000
+      tallyRow('AA', row(String(1 + (i % 22)), i * 1000, s < 3 ? 'BB' : 'AA', s < 300 ? 0.5 : 0), t)
+    }
+    for (let i = 0; i < 4000; i += 1) tallyRow('AA', row('X', i * 1000, 'BB', 0.5), t)
+    for (let i = 0; i < 600; i += 1) tallyRow('AA', row('Y', i * 1000, y ? 'AA' : 'NC'), t)
+    return classify(t, 0.17)
+  }
+  const male = withY(true)
+  assert.equal(male.verdict, 'parent_genome_present', 'the autosomes carry his genome')
+  assert.equal(male.chroms.find((c) => c.chrom === 'X')?.verdict, 'expected_absent')
+  assert.equal(male.spermType, 'Y_bearing')
+
+  const noY = withY(false)
+  const x = noY.chroms.find((c) => c.chrom === 'X')
+  assert.equal(x?.verdict, 'absent', 'with no chrY this is a loss, not sex determination')
+  assert.equal(noY.spermType, 'unknown', 'and no sperm type may be asserted from it')
+  assert.ok(x?.note?.includes('no chrY was called'), 'and the reason is stated')
+}
+
+// --- 12. an unresolved pair still names the parent it resolved ---------------------------------
+{
+  const present = classify(build({ absent: 0.002, het: 0.30, nonParental: 0.30 }).t, 0.17)
+  const absent = classify(build({ absent: 0.068, het: 0.03, nonParental: 0.12 }).t, 0.17)
+  const middle = classify(build({ absent: 0.012, het: 0.30, nonParental: 0.30 }).t, 0.17)
+
+  const patOpen = pair(middle, present, NaN)
+  assert.equal(patOpen.originClass, 'unclear')
+  assert.ok(patOpen.notes.some((n) => n.includes("oocyte donor's contribution is confirmed present")))
+
+  const matOpen = pair(absent, middle, NaN)
+  assert.ok(matOpen.notes.some((n) => n.includes("sperm donor's contribution is confirmed absent")))
+
+  assert.ok(pair(middle, middle, NaN).notes.some((n) => n.includes('Neither parent is resolved')))
+}

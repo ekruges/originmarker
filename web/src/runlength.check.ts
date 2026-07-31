@@ -10,7 +10,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  KOTHIYAL_FLOOR, analyseRuns, qHat, rMin, runLengthP, scoreMarker,
+  KOTHIYAL_FLOOR, analyseRuns, parseLocus, qHat, rMin, runLengthP, scoreMarker,
 } from './runlength.ts'
 import type { AB, Marker } from './informativity.ts'
 
@@ -236,4 +236,31 @@ console.log(`runlength.check.ts: all assertions passed (${cases} golden cases)`)
   const scores = markers.map((k) => scoreMarker(f.get(k.rsid)!, m.get(k.rsid)!, e.get(k.rsid)!))
   assert.ok(scores.every((s) => s.sPat !== 1), 'no marker may read as paternal presence here')
   assert.equal(scores.filter((s) => s.sPat === 0).length, 20, 'the BB half is provable absence')
+}
+
+// --- 9. r_min never drops to 1, and a locus is a human chromosome -----------------------------
+// Contiguity is the entire discriminator, so a run of one has nothing to offer. Below n = 3 the
+// uncorrected threshold came back as 1, which made a single absent marker a significant run.
+for (const n of [1, 2, 3, 5, 50, 500]) {
+  const r = rMin(n, 0.0063)
+  assert.ok(r === null || r >= 2, `r_min(${n}) = ${r}`)
+}
+// A higher fitted q demands a longer run. The Kothiyal floor is a LOWER bound on the spurious
+// rate, so leaving q there on amplified material shrinks r_min and over-calls.
+assert.ok(rMin(200, 0.30)! > rMin(200, 0.05)!, 'more dropout, longer run required')
+assert.ok(rMin(200, 0.05)! > rMin(200, KOTHIYAL_FLOOR)!)
+assert.equal(qHat(0.002).source, 'kothiyal_floor', 'below the floor falls back to it')
+assert.equal(qHat(0.30).source, 'empirical')
+
+for (const [text, want] of [
+  ['chr7:117559590', { chrom: '7', pos: 117559590 }],
+  ['7:117559590', { chrom: '7', pos: 117559590 }],
+  ['chr7 117,559,590', { chrom: '7', pos: 117559590 }],
+  ['chrX:2,700,151', { chrom: 'X', pos: 2700151 }],
+  ['22:1', { chrom: '22', pos: 1 }],
+  // Not chromosomes. These used to parse and then match no marker at all.
+  ['chr0:100', null], ['chr23:1', null], ['chr45:100', null], ['chr99:1', null],
+  ['rs334', null], ['', null], ['chr7:', null], ['7', null],
+] as const) {
+  assert.deepEqual(parseLocus(text), want, `parseLocus(${JSON.stringify(text)})`)
 }

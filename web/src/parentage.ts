@@ -98,16 +98,26 @@ export interface Tally {
   markers: number
   bafInBand: number
   bafTotal: number
+  /** chrY markers the sample called, and chrY markers the parent's file carries. A Y-bearing
+   *  sperm is measured from these, never inferred from an absent X. */
+  yCalled: number
+  yTotal: number
 }
 
 export const emptyTally = (): Tally => ({
   byChrom: new Map(), nonParental: 0, nonParentalDen: 0,
-  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0,
+  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, yCalled: 0, yTotal: 0,
 })
 
 /** One marker of the sample, against the parent's call at the same marker. */
 export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   t.markers += 1
+  if (row.chrom === 'Y' || row.chrom === '24') {
+    // Counted against markers the parent's file also carries, so a sample on a denser array is
+    // not read as Y-bearing on probes the parent was never typed at.
+    if (parent !== 'NC') t.yTotal += 1
+    if (row.genotype !== 'NC') t.yCalled += 1
+  }
   // Counted BEFORE the no-call check, to match the Python: a failed genotype still has an
   // intensity reading, and a dropped heterozygote sits mid-band, which is what separates a
   // homozygous genome from a diploid one that lost calls. Excluding them moved the band from
@@ -255,6 +265,7 @@ export function classify(
 
   const chroms: ChromResult[] = []
   let spermType: SpermType = 'unknown'
+  const yBearing = t.yTotal > 0 && t.yCalled / t.yTotal > 0.5
   for (const [c, [n, a]] of [...t.byChrom].sort(byChromName)) {
     if (n < 200) continue
     const rate = a / n
@@ -262,8 +273,14 @@ export function classify(
     // A male offspring has no paternal X at all: his father sent a Y instead. Flagging that as a
     // loss would report ordinary sex determination as an anomaly on half of all samples. A
     // MOTHER transmits an X either way, so the same exemption must not apply to her.
-    const expected = sex && role === 'paternal' && present && rate > explainable * ABSENCE_MARGIN
-    if (sex && present) spermType = rate > explainable * ABSENCE_MARGIN ? 'Y_bearing' : 'X_bearing'
+    // Gated on a chrY MEASUREMENT, not on the absent X itself. Inferring "he sent a Y" from a
+    // missing paternal X is circular, and on a sample with no chrY at all it exempts a real
+    // paternal X loss as ordinary sex determination while asserting a Y the file does not show.
+    const xLost = rate > explainable * ABSENCE_MARGIN
+    const expected = sex && role === 'paternal' && present && xLost && yBearing
+    if (sex && present) {
+      spermType = xLost ? (yBearing ? 'Y_bearing' : 'unknown') : 'X_bearing'
+    }
     chroms.push({
       chrom: c,
       informative: n,
@@ -272,7 +289,11 @@ export function classify(
       verdict: expected ? 'expected_absent'
         : rate >= explainable * ABSENCE_MARGIN ? 'absent'
           : rate <= explainable ? 'present' : 'unclear',
-      note: expected ? "no paternal X: this sample carries the parent's Y" : undefined,
+      note: expected ? "no paternal X: this sample carries the parent's Y"
+        : sex && role === 'paternal' && present && xLost
+          ? 'the paternal X is absent and no chrY was called, so this is not ordinary sex '
+            + 'determination. Reported as a loss.'
+          : undefined,
     })
   }
 
@@ -370,8 +391,20 @@ export function pair(
       + 'against both arrays, so this is not an absence standing in for a presence.')
   }
   if (originClass === 'unclear') {
-    notes.push('At least one parent is unresolved, so the pair cannot be classified. The '
-      + 'per-parent rates say which one and by how much.')
+    // Name the half that IS settled. The class has to stay unclear, but saying only "at least one
+    // parent is unresolved" throws away a contribution that was measured with margin.
+    const resolved = (r: ParentageResult, who: string): string =>
+      `the ${who}'s contribution is confirmed ${r.verdict === 'parent_genome_present'
+        ? 'present' : 'absent'}`
+    const both = paternal.verdict === 'unclear' && maternal.verdict === 'unclear'
+    notes.push(both
+      ? 'Neither parent is resolved, so the pair cannot be classified. The per-parent rates say '
+        + 'how far each sits from its own ceiling.'
+      : `${paternal.verdict === 'unclear'
+        ? `${resolved(maternal, 'oocyte donor')}, but the sperm donor's is unresolved`
+        : `${resolved(paternal, 'sperm donor')}, but the oocyte donor's is unresolved`}`
+        + ', so the pair cannot be classified. What is open is only whether the other parent '
+        + 'contributed; the settled half stands.')
   }
   return { originClass, agreement: parentAgreement, notes }
 }

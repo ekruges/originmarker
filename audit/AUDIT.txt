@@ -2,8 +2,8 @@
 SYNGAMY ACCURACY AUDIT
 ================================================================================================
 
-Tool          OriginMarker 2.1.1 (Kinetochore)
-Generated     2026-07-31 03:29:19Z
+Tool          OriginMarker 2.2.1 (Kinetochore)
+Generated     2026-07-31 04:33:27Z
 Data          GEO GSE148488, Zuccaro et al. 2020, Cell 183(6):1650-1664
               doi:10.1016/j.cell.2020.10.025
 Files         27 arrays, Affymetrix Axiom UK Biobank, 825,656 markers each, GRCh37

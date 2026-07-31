@@ -15,7 +15,7 @@ import {
 import type { Health } from './api'
 import { int, utc } from './fmt'
 import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, loadExample } from './examples'
-import { analyseRuns, type RunResult } from './runlength'
+import { analyseRuns, parseLocus, type RunResult } from './runlength'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { syngamyLogText } from './logfile'
@@ -1062,13 +1062,6 @@ const VERDICT_COLOUR: Record<string, string> = {
   undefined_father_heterozygous: 'gray',
 }
 
-/** `7:117559590`, `chr7:117,559,590` and `chr7 117559590` all parse. */
-export function parseLocus(text: string): { chrom: string; pos: number } | null {
-  const m = /^\s*(?:chr)?([0-9]{1,2}|[XYxy])\s*[:\s]\s*([\d,_ ]+)\s*$/.exec(text)
-  if (!m) return null
-  const pos = Number(m[2].replace(/[,_ ]/g, ''))
-  return Number.isFinite(pos) && pos > 0 ? { chrom: m[1].toUpperCase(), pos } : null
-}
 
 /**
  * The per-locus test, asked of a position rather than of the genome.
@@ -1123,11 +1116,21 @@ function LocusTest({ entries, donor, oocyte, log, onResult }: {
           markers.push({ rsid: r.probesetId, chrom: r.chrom, pos: r.pos })
           embryo.set(r.probesetId, r.genotype)
         }, () => {}, () => {})
+        // q is the rate at which a marker shows paternal absence while the paternal genome IS
+        // present, and this sample's own genome-wide absence rate measures exactly that. The
+        // Kothiyal floor is a LOWER bound on it, so leaving q at the floor on an amplified sample
+        // shrinks r_min and makes significance easier to reach: it over-calls. Usable only where
+        // the paternal genome is present genome-wide, since where it is absent that rate is not a
+        // spurious rate at all; qHat falls back to the floor for those.
+        const qEmpirical = e.result?.verdict === 'parent_genome_present'
+          ? e.result.genomeRate : null
         out.push({
           name: e.file.name,
-          results: analyseRuns(markers, donor.gt, oocyte.gt, embryo, locus.chrom, locus.pos,
-            eventSizeOfInterestBp !== undefined && Number.isFinite(eventSizeOfInterestBp)
+          results: analyseRuns(markers, donor.gt, oocyte.gt, embryo, locus.chrom, locus.pos, {
+            qEmpirical,
+            ...(eventSizeOfInterestBp !== undefined && Number.isFinite(eventSizeOfInterestBp)
               ? { eventSizeOfInterestBp } : {}),
+          }),
         })
         log('DONE', `${e.file.name}: ${out[out.length - 1].results
           .map((r) => `${r.window} ${r.verdict.replace(/_/g, ' ')}`).join(', ')}`)
