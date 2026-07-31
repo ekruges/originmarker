@@ -402,7 +402,9 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
                   <Table.Td className="om-mono">genotype</Table.Td>
                   <Table.Td>required</Table.Td>
                   <Table.Td>
-                    AA/AB/BB, nucleotide pairs, or Axiom numeric codes 0/1/2/-1
+                    AA/AB/BB, Axiom numeric codes 0/1/2/-1, and the usual no-call tokens
+                    (NC, --, ---, ?, .). Nucleotide pairs are refused rather than assigned:
+                    see below.
                   </Table.Td>
                 </Table.Tr>
                 <Table.Tr>
@@ -439,13 +441,16 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             dropout attacks it directly, and the result carries a stated limit saying so. Supply
             BAF where you can.
           </Text>
-          <Title order={3} mt={14} mb={4}>Nucleotide genotypes</Title>
+          <Title order={3} mt={14} mb={4}>Nucleotide genotypes are refused here</Title>
           <Text mb={8}>
             A file writing <Code>AG</Code> rather than <Code>AB</Code> has no inherent A/B
             assignment: which nucleotide is &quot;A&quot; is a per-marker convention. Harmonising
             those must pool across every file in the run, never per file, or two files can be
             assigned opposite conventions at the same marker and every comparison at it becomes
-            garbage. The backend does this pooling; see <SecRef id="backend" />.
+            garbage. This page reads one file at a time and cannot pool, so it refuses such a
+            file and says so on the <b>genotype format</b> gate rather than assigning a
+            convention it cannot justify. The command line pools and reads them; see{' '}
+            <SecRef id="backend" />.
           </Text>
           <Title order={3} mt={14} mb={4}>Beyond the browser</Title>
           <Text>

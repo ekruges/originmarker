@@ -9,6 +9,27 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.2.3 "Kinetochore"
+
+### Fixed
+
+- **The browser could not read AB-space genotypes at all.** The parser recognised only Axiom's
+  numeric codes 0/1/2/-1, so a file spelling its calls `AA`, `AB`, `BB` (which is what most
+  exports write) came back as 100% no-call, was excluded on its call rate, and said nothing about
+  why. The file was fine; only the dialect was unknown. AB space, `BA`, and the usual no-call
+  tokens (`NC`, `--`, `---`, `?`, `.`) are now read.
+- **Nucleotide genotypes were silently swallowed rather than refused.** A file writing `AG` also
+  read as no-call with no explanation. Which nucleotide is allele A is a per-marker convention
+  that has to be resolved by pooling across every sample in a run, which a page reading one file
+  at a time cannot do, so these are now refused explicitly on a new **genotype format** gate that
+  names the dialect and points at the command line, which does pool.
+- The documentation claimed the browser accepted nucleotide pairs. It did not, and now says so.
+
+  Missed by the accuracy audit because all 27 of its arrays are Axiom numeric exports: the audit
+  covered the statistics thoroughly and the ingestion layer through exactly one path.
+
+---
+
 ## 2.2.2 "Kinetochore"
 
 ### Fixed

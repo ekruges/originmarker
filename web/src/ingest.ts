@@ -46,6 +46,12 @@ export interface ProbeRow {
   copyNumber: number | null
   genotype: AB
   bestProbeset: boolean
+  /** The file gave a genotype this module cannot read. Counted rather than swallowed: read as
+   *  a no-call it looks like a failed measurement, which is a different fact from a dialect
+   *  nothing here speaks. */
+  unreadableGenotype: boolean
+  /** The genotype exactly as the file wrote it, so the dialect can be named. */
+  rawGenotype: string
 }
 
 const REQUIRED = ['probeset_id', 'chr', 'position', 'genotype'] as const
@@ -77,7 +83,20 @@ const DELIMITERS = ['\t', ','] as const
  *
  * It is however a DETECTABLE convention, unlike the nucleotide one. See `verifyCoding`.
  */
-const CODE: Record<string, AB> = { '0': 'AA', '1': 'AB', '2': 'BB', '-1': 'NC' }
+const CODE: Record<string, AB> = {
+  // Axiom's "Numeric Call Codes" export.
+  '0': 'AA', '1': 'AB', '2': 'BB', '-1': 'NC',
+  // AB space, which is what most exports write and what this module works in. Missing until
+  // 2.2.3, so an ordinary AB-space file read as 100% no-call and was excluded on its call rate
+  // with nothing saying why.
+  'AA': 'AA', 'AB': 'AB', 'BA': 'AB', 'BB': 'BB',
+  // No-call, spelled the several ways vendors spell it.
+  'NC': 'NC', '--': 'NC', '---': 'NC', 'NoCall': 'NC', 'nocall': 'NC', '?': 'NC', '.': 'NC',
+}
+
+/** A pair of nucleotides rather than AB space: A/C/G/T, in any order, excluding AA which is
+ *  also legal AB space. Detected so it can be REFUSED rather than silently read as no-call. */
+const NUCLEOTIDE = /^[ACGT][ACGT]$/
 
 export interface ColumnMap {
   [name: string]: number | string | undefined
@@ -132,6 +151,7 @@ export function parseRow(line: string, map: ColumnMap): ProbeRow | null {
   const id = (at(f, map, 'probeset_id') ?? '').trim()
   if (!id || pos === null) return null
   const best = at(f, map, 'bestprobeset')
+  const raw = (at(f, map, 'genotype') ?? '').trim()
   return {
     probesetId: id,
     chrom: (at(f, map, 'chr') ?? '').trim(),
@@ -139,7 +159,9 @@ export function parseRow(line: string, map: ColumnMap): ProbeRow | null {
     log2R: num(at(f, map, 'log2r')),
     baf: num(at(f, map, 'baf')),
     copyNumber: num(at(f, map, 'copy_number')),
-    genotype: CODE[(at(f, map, 'genotype') ?? '').trim()] ?? 'NC',
+    genotype: CODE[raw] ?? 'NC',
+    unreadableGenotype: raw !== '' && CODE[raw] === undefined,
+    rawGenotype: raw,
     // Absent means unfiltered rather than failed: a file with no such column has not told us
     // anything about probe quality, and treating that as "excluded" would drop every marker.
     bestProbeset: best === undefined ? true : best.trim() === '1',
@@ -148,7 +170,13 @@ export function parseRow(line: string, map: ColumnMap): ProbeRow | null {
 
 // --- per-sample profile ------------------------------------------------------------------
 
-export interface ChromStats { markers: number; called: number; het: number; nocall: number }
+export interface ChromStats {
+  markers: number; called: number; het: number; nocall: number
+  /** Genotypes this module could not read. A nucleotide-space file lands entirely here. */
+  unreadable: number
+  /** Of those, ones that look like a nucleotide pair, which names the likely dialect. */
+  nucleotide: number
+}
 
 export type Sex = 'male' | 'female' | 'ambiguous'
 
@@ -174,7 +202,8 @@ export interface SampleProfile {
 
 const AUTOSOMES = new Set(Array.from({ length: 22 }, (_, i) => String(i + 1)))
 
-export const emptyChrom = (): ChromStats => ({ markers: 0, called: 0, het: 0, nocall: 0 })
+export const emptyChrom = (): ChromStats =>
+  ({ markers: 0, called: 0, het: 0, nocall: 0, unreadable: 0, nucleotide: 0 })
 
 /** Accumulate one row into a running profile. Streaming, so a 42 MB file costs one pass. */
 export function accumulate(row: ProbeRow, byChrom: Map<string, ChromStats>): void {
@@ -182,6 +211,10 @@ export function accumulate(row: ProbeRow, byChrom: Map<string, ChromStats>): voi
   let s = byChrom.get(c)
   if (!s) { s = emptyChrom(); byChrom.set(c, s) }
   s.markers++
+  if (row.unreadableGenotype) {
+    s.unreadable++
+    if (NUCLEOTIDE.test(row.rawGenotype)) s.nucleotide++
+  }
   if (row.genotype === 'NC') s.nocall++
   else { s.called++; if (row.genotype === 'AB') s.het++ }
 }
@@ -407,6 +440,27 @@ export function gates(p: SampleProfile): Gate[] {
           + 'single diploid genome on this array; treat allelic calls with suspicion'
         : 'within the plausible range for one diploid genome',
   })
+
+  // A file this module cannot read at all is a different finding from a file that failed to
+  // call, and reporting it as a 0% call rate sends the reader to look at their chemistry.
+  const unreadable = [...p.byChrom.values()].reduce((a, c) => a + c.unreadable, 0)
+  const nucleotide = [...p.byChrom.values()].reduce((a, c) => a + c.nucleotide, 0)
+  if (unreadable > 0) {
+    const share = p.markers ? unreadable / p.markers : 0
+    out.push({
+      name: 'genotype format',
+      value: share,
+      verdict: share > 0.5 ? 'exclude' : 'marginal',
+      detail: nucleotide > unreadable / 2
+        ? `${(100 * share).toFixed(1)}% of genotypes are nucleotide pairs (A/C/G/T) rather than `
+          + 'AB space. Which nucleotide is allele A is a per-marker convention that has to be '
+          + 'resolved by pooling across every sample in the run, which this page does not do, so '
+          + 'they are refused rather than assigned. Use an AB-space or numeric export, or the '
+          + 'command line, which pools.'
+        : `${(100 * share).toFixed(1)}% of genotypes are in a spelling this module does not `
+          + 'read. AA/AB/BB, 0/1/2/-1 and the usual no-call tokens are understood.',
+    })
+  }
 
   out.push({
     name: 'numeric genotype coding',

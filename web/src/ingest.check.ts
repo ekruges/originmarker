@@ -9,11 +9,7 @@
 // since no published method exists for this scan.
 import assert from 'node:assert/strict'
 import {
-  accumulate, accumulateBaf, assessRelatedness, binomUpperTail, callSex, criticalNocalls,
-  detectBuild, detectProduct,
-  emptyBafSums, estimateDropout, finishProfile, gates, headerMap, idPrefixOf, parseRow,
-  profileText, scanNocallClusters, verifyCoding,
-  type ChromStats, type ProbeRow,
+  accumulate, accumulateBaf, accumulateBuild, assessRelatedness, binomUpperTail, buildVerdict, callSex, criticalNocalls, detectBuild, detectProduct, emptyBafSums, emptyBuildSums, estimateDropout, finishProfile, gates, headerMap, idPrefixOf, parseRow, profileText, scanNocallClusters, verifyCoding, type ChromStats, type ProbeRow, type SampleProfile,
 } from './ingest.ts'
 import type { AB } from './informativity.ts'
 
@@ -428,3 +424,46 @@ assert.equal(sexRatio(0.462), 'ambiguous')
 }
 
 console.log('ingest.check.ts: all assertions passed')
+
+// --- genotype dialects ------------------------------------------------------------------------
+// AB space is the commonest spelling there is and was not read at all until 2.2.3: an ordinary
+// file came back 100% no-call and was excluded on its call rate, with nothing saying the file was
+// fine and only the dialect unknown. Nucleotide space is a different case and must stay refused:
+// which nucleotide is allele A is a per-marker convention that needs pooling across every sample
+// in the run, and assigning it per file can give two files opposite conventions at one marker.
+{
+  const m = headerMap('probeset_id,chr,position,genotype,baf')!
+  const gt = (v: string) => parseRow(`m1,1,1000,${v},0.5`, m)!
+  for (const [raw, want] of [
+    ['0', 'AA'], ['1', 'AB'], ['2', 'BB'], ['-1', 'NC'],
+    ['AA', 'AA'], ['AB', 'AB'], ['BA', 'AB'], ['BB', 'BB'],
+    ['NC', 'NC'], ['--', 'NC'], ['---', 'NC'], ['?', 'NC'], ['.', 'NC'], ['', 'NC'],
+  ] as const) {
+    assert.equal(gt(raw).genotype, want, `genotype ${JSON.stringify(raw)}`)
+    assert.equal(gt(raw).unreadableGenotype, false, `${JSON.stringify(raw)} is readable`)
+  }
+  // Nucleotide pairs read as no-call, but are FLAGGED so the reader is told which dialect it is.
+  for (const raw of ['AG', 'GG', 'CT', 'TT']) {
+    assert.equal(gt(raw).genotype, 'NC')
+    assert.ok(gt(raw).unreadableGenotype, `${raw} must be flagged, not silently dropped`)
+  }
+
+  const profileOf = (v: (i: number) => string): SampleProfile => {
+    const byChrom = new Map<string, ChromStats>()
+    const baf = emptyBafSums()
+    const builds = emptyBuildSums()
+    for (let i = 0; i < 3000; i += 1) {
+      const r = parseRow(`m${i},1,${i * 1000},${v(i)},0.5`, m)!
+      accumulate(r, byChrom); accumulateBaf(r, baf); accumulateBuild(r, builds)
+    }
+    return { ...finishProfile('x', byChrom, baf, 'm0', builds), build: buildVerdict(builds) }
+  }
+  const ab = profileOf((i) => (i % 3 === 0 ? 'AB' : 'AA'))
+  assert.equal(ab.callRate, 1, 'an AB-space file is fully called')
+  assert.ok(!gates(ab).some((g) => g.name === 'genotype format'), 'and raises no format gate')
+
+  const nuc = profileOf((i) => (i % 3 === 0 ? 'AG' : 'GG'))
+  const fmt = gates(nuc).find((g) => g.name === 'genotype format')
+  assert.equal(fmt?.verdict, 'exclude', 'a nucleotide file is excluded, not silently empty')
+  assert.ok(fmt?.detail.includes('nucleotide pairs'), 'and the dialect is named')
+}
