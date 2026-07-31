@@ -17,6 +17,8 @@ import { PanelTable } from './PanelTable'
 import { CarrierGenotypes } from './CarrierGenotypes'
 import type { GenotypeSet } from './genotypes'
 import { DocsPage } from './DocsPage'
+import { SyngamyDocsPage } from './SyngamyDocs'
+import { SyngamyPage } from './Syngamy'
 import { TermsPage } from './TermsPage'
 import { Logo } from './Logo'
 
@@ -72,10 +74,12 @@ export default function App() {
 
   const route = useHashRoute()
   const atDocs = route.startsWith('#/docs')
+  const atSynDocs = route.startsWith('#/syngamy-docs')
+  const atSyngamy = route.startsWith('#/syngamy') && !atSynDocs
   const atTerms = route.startsWith('#/terms')
   // Keyed on having no data, not on phase === 'idle': the hero must stay mounted while a
   // resolve is in flight, or the layout tears down mid-click.
-  const atHome = !atDocs && !atTerms && !resolved && !result
+  const atHome = !atDocs && !atTerms && !atSyngamy && !resolved && !result
 
   const stopWatch = () => {
     esRef.current?.close()
@@ -309,7 +313,13 @@ export default function App() {
                   Clear
                 </Button>
               )}
-              <Button variant="subtle" size="xs" component="a" href="#/docs">
+              <Button variant="subtle" size="xs" component="a" href="#/syngamy">
+                Syngamy
+              </Button>
+              <Button
+                variant="subtle" size="xs" component="a"
+                href={atSyngamy || atSynDocs ? '#/syngamy-docs' : '#/docs'}
+              >
                 Documentation
               </Button>
               {!health && (
@@ -324,13 +334,17 @@ export default function App() {
         style={{
           flex: 1,
           padding: atHome ? 0 : 12,
-          maxWidth: atDocs ? 1180 : atTerms ? 900 : 1500,
+          maxWidth: atDocs || atSynDocs ? 1180 : atTerms ? 900 : atSyngamy ? 1180 : 1500,
           width: '100%',
           margin: '0 auto',
         }}
       >
         {atDocs ? (
           <DocsPage health={health} />
+        ) : atSynDocs ? (
+          <SyngamyDocsPage health={health} />
+        ) : atSyngamy ? (
+          <SyngamyPage health={health} />
         ) : atTerms ? (
           <TermsPage />
         ) : (

@@ -227,6 +227,11 @@ export function DocsPage({ health }: { health: Health | null }) {
         <Text size="xs" c="dimmed" mt={10} pl={8} className="om-mono">
           {build} · {gnomad} · Ensembl {ensembl}
         </Text>
+        <Text size="xs" c="dimmed" mt={10} pl={8}>
+          <Anchor href="#/syngamy-docs" size="xs">Syngamy documentation</Anchor>
+          {' '}covers the other half of this tool: reading parent of origin off arrays after an
+          experiment.
+        </Text>
 
         <div className="om-docs-links">
           <a href={REPO_URL} target="_blank" rel="noreferrer" aria-label="Source on GitHub" title="Source on GitHub">

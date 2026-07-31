@@ -35,6 +35,34 @@ drop the markers where they are not heterozygous, and phase the rest against a r
 
 Full walkthrough: [Using the site](https://ezrakruger.cc/originmarker/#/docs/using).
 
+## Syngamy: reading the experiment afterwards
+
+The above builds a panel *before* an experiment. **Syngamy**, at
+[/#/syngamy](https://ezrakruger.cc/originmarker/#/syngamy), reads one *after*: given the sperm
+donor's SNP array and a sample's, it reports which parental genome is present and on which
+chromosomes.
+
+A wild-type read at an edited variant site cannot separate a corrected allele from a lost one,
+because both give the same base. Markers away from the cut site can: they were not the target,
+so they still report which parental chromosome is physically there.
+
+Drop the arrays in, label one the sperm donor, run. Each sample comes back androgenetic,
+gynogenetic, biparental or unclear, per chromosome as well as genome-wide, with the reference
+each rate was measured against. An oocyte donor array is optional and measures the maternal side
+instead of inferring it. Sperm type comes from the chrX rate rather than chrY, so an X-bearing
+sperm carrying a full paternal genome is distinguishable from no paternal contribution at all.
+
+**Nothing is uploaded.** The files are read in the browser, the report PDF is typeset there
+too, and there is no endpoint that receives a genotype.
+
+The analysis also runs standalone, with more than the page exposes:
+
+```sh
+python origin.py --father sperm.txt --samples embryo1.txt embryo2.txt
+```
+
+Full documentation: [Syngamy](https://ezrakruger.cc/originmarker/#/syngamy-docs).
+
 ## Running it
 
 ```sh
@@ -78,6 +106,9 @@ Method, scope, data sources and known limitations are documented in the app:
 [Documentation](https://ezrakruger.cc/originmarker/#/docs).
 
 Version history, and the bugs each release fixed: [CHANGELOG.md](CHANGELOG.md).
+
+What the 2.0 inference path has been tested against, using public data with an independently
+established answer: [docs/validation-2.0.md](docs/validation-2.0.md).
 
 ## License
 

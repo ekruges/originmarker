@@ -1,0 +1,49 @@
+father_gt,mother_gt,embryo_gt,mendelian_consistent,violation_implicates,paternal_allele_deducible,paternal_haplotype_call,informative_haplotype_origin,paternal_presence_power,maternal_presence_power,ado_vulnerability,karyomapping_class,h3_diagnostic_value
+AA,AA,AA,yes,,A,NA_father_homozygous,no,none,consistent,yes_hom_call_maskable,non-informative (father homozygous),none
+AA,AA,AB,no,"genotyping error, contamination, or complex event",none,none,no,diploidy_only,both_sides_violated,no_het_call_is_robust,non-informative (father homozygous),"weak: two homologues present, origin unattributable (maternal heterodisomy not excluded)"
+AA,AA,BB,no,"genotyping error, contamination, or complex event",none,none,no,none,both_sides_violated,yes_hom_call_maskable,non-informative (father homozygous),none
+AA,AA,NC,unknown,,none,none,no,none,none,na,non-informative (father homozygous),none
+AA,AB,AA,yes,,A,NA_father_homozygous,no,none,consistent,yes_hom_call_maskable,non-informative (father homozygous),none
+AA,AB,AB,yes,,A,NA_father_homozygous,no,diploidy_only,proves_maternal_presence,no_het_call_is_robust,non-informative (father homozygous),"weak: two homologues present, origin unattributable (maternal heterodisomy not excluded)"
+AA,AB,BB,no,"loss/dropout of paternal homologue, or maternal iso-UPD",none,none,no,obligate_violation_paternal_allele_ABSENT,paternal_allele_ABSENT,yes_hom_call_maskable,non-informative (father homozygous),"POSITIVE H3: paternal allele undetected. Heterozygous mother can supply at most one allele, so the embryo's second allele cannot be maternal. Mechanism requires L4."
+AA,AB,NC,unknown,,none,none,no,none,none,na,non-informative (father homozygous),none
+AA,BB,AA,no,"loss/dropout of maternal homologue, or paternal iso-UPD",none,none,no,proves_paternal_presence,maternal_allele_ABSENT,yes_hom_call_maskable,non-informative (father homozygous),"MIRROR of H3: paternal allele proven present, MATERNAL allele undetected (maternal dropout / loss of maternal homologue / paternal isodisomy)"
+AA,BB,AB,yes,,A,NA_father_homozygous,no,proves_paternal_presence,proves_maternal_presence,no_het_call_is_robust,non-informative (father homozygous),POSITIVE anti-H3 evidence: paternal allele physically demonstrated
+AA,BB,BB,no,"loss/dropout of paternal homologue, or maternal iso-UPD",none,none,no,obligate_violation_paternal_allele_ABSENT,paternal_allele_ABSENT,yes_hom_call_maskable,non-informative (father homozygous),"POSITIVE H3 EVIDENCE: Mendelian-inconsistent, paternal allele undetected (ADO / on-target deletion / segmental or whole-chromosome paternal loss)"
+AA,BB,NC,unknown,,none,none,no,none,none,na,non-informative (father homozygous),none
+AA,missing,AA,yes,,A,NA_father_homozygous,no,none_mother_unavailable,none,yes_hom_call_maskable,non-informative (father homozygous),none
+AA,missing,AB,yes,,A,NA_father_homozygous,no,none_mother_unavailable,none,no_het_call_is_robust,non-informative (father homozygous),none
+AA,missing,BB,no,paternal allele ABSENT - provable without the mother (father homozygous cannot transmit the observed genotype),none,none,no,obligate_violation_paternal_allele_ABSENT,none,yes_hom_call_maskable,non-informative (father homozygous),POSITIVE H3: paternal allele undetected. Survives the missing-mother degraded mode - the only class that does. Mechanism (dropout vs deletion vs homologue loss) still requires L4.
+AA,missing,NC,unknown,,none,none,no,none_mother_unavailable,none,na,non-informative (father homozygous),none
+AB,AA,AA,yes,,A,hap_M,yes,consistent_with_absence,consistent,yes_hom_call_maskable,"fully informative (father het, mother homozygous)",ambiguous: transmission of mother-shared allele indistinguishable from paternal loss
+AB,AA,AB,yes,,B,hap_W,yes,proves_paternal_presence,consistent,no_het_call_is_robust,"fully informative (father het, mother homozygous)",POSITIVE anti-H3 evidence: paternal allele physically demonstrated
+AB,AA,BB,no,"loss/dropout of maternal homologue, or paternal iso-UPD",none,none,no,proves_paternal_presence,maternal_allele_ABSENT,yes_hom_call_maskable,"fully informative (father het, mother homozygous)","MIRROR of H3: paternal allele proven present, MATERNAL allele undetected (maternal dropout / loss of maternal homologue / paternal isodisomy)"
+AB,AA,NC,unknown,,none,none,no,none,none,na,"fully informative (father het, mother homozygous)",none
+AB,AB,AA,yes,,A,hap_M,yes,none,consistent,yes_hom_call_maskable,semi-informative (both parents het): informative only on homozygous embryo call,none
+AB,AB,AB,yes,,A|B,ambiguous,no,diploidy_only,consistent,no_het_call_is_robust,semi-informative (both parents het): informative only on homozygous embryo call,"weak: two homologues present, origin unattributable (maternal heterodisomy not excluded)"
+AB,AB,BB,yes,,B,hap_W,yes,none,consistent,yes_hom_call_maskable,semi-informative (both parents het): informative only on homozygous embryo call,none
+AB,AB,NC,unknown,,none,none,no,none,none,na,semi-informative (both parents het): informative only on homozygous embryo call,none
+AB,BB,AA,no,"loss/dropout of maternal homologue, or paternal iso-UPD",none,none,no,proves_paternal_presence,maternal_allele_ABSENT,yes_hom_call_maskable,"fully informative (father het, mother homozygous)","MIRROR of H3: paternal allele proven present, MATERNAL allele undetected (maternal dropout / loss of maternal homologue / paternal isodisomy)"
+AB,BB,AB,yes,,A,hap_M,yes,proves_paternal_presence,consistent,no_het_call_is_robust,"fully informative (father het, mother homozygous)",POSITIVE anti-H3 evidence: paternal allele physically demonstrated
+AB,BB,BB,yes,,B,hap_W,yes,consistent_with_absence,consistent,yes_hom_call_maskable,"fully informative (father het, mother homozygous)",ambiguous: transmission of mother-shared allele indistinguishable from paternal loss
+AB,BB,NC,unknown,,none,none,no,none,none,na,"fully informative (father het, mother homozygous)",none
+AB,missing,AA,yes,,A,hap_M,yes,none_mother_unavailable,none,yes_hom_call_maskable,"father het, mother unavailable",none
+AB,missing,AB,yes,,A|B,ambiguous,no,none_mother_unavailable,none,no_het_call_is_robust,"father het, mother unavailable",none
+AB,missing,BB,yes,,B,hap_W,yes,none_mother_unavailable,none,yes_hom_call_maskable,"father het, mother unavailable",none
+AB,missing,NC,unknown,,none,none,no,none_mother_unavailable,none,na,"father het, mother unavailable",none
+BB,AA,AA,no,"loss/dropout of paternal homologue, or maternal iso-UPD",none,none,no,obligate_violation_paternal_allele_ABSENT,paternal_allele_ABSENT,yes_hom_call_maskable,non-informative (father homozygous),"POSITIVE H3 EVIDENCE: Mendelian-inconsistent, paternal allele undetected (ADO / on-target deletion / segmental or whole-chromosome paternal loss)"
+BB,AA,AB,yes,,B,NA_father_homozygous,no,proves_paternal_presence,proves_maternal_presence,no_het_call_is_robust,non-informative (father homozygous),POSITIVE anti-H3 evidence: paternal allele physically demonstrated
+BB,AA,BB,no,"loss/dropout of maternal homologue, or paternal iso-UPD",none,none,no,proves_paternal_presence,maternal_allele_ABSENT,yes_hom_call_maskable,non-informative (father homozygous),"MIRROR of H3: paternal allele proven present, MATERNAL allele undetected (maternal dropout / loss of maternal homologue / paternal isodisomy)"
+BB,AA,NC,unknown,,none,none,no,none,none,na,non-informative (father homozygous),none
+BB,AB,AA,no,"loss/dropout of paternal homologue, or maternal iso-UPD",none,none,no,obligate_violation_paternal_allele_ABSENT,paternal_allele_ABSENT,yes_hom_call_maskable,non-informative (father homozygous),"POSITIVE H3: paternal allele undetected. Heterozygous mother can supply at most one allele, so the embryo's second allele cannot be maternal. Mechanism requires L4."
+BB,AB,AB,yes,,B,NA_father_homozygous,no,diploidy_only,proves_maternal_presence,no_het_call_is_robust,non-informative (father homozygous),"weak: two homologues present, origin unattributable (maternal heterodisomy not excluded)"
+BB,AB,BB,yes,,B,NA_father_homozygous,no,none,consistent,yes_hom_call_maskable,non-informative (father homozygous),none
+BB,AB,NC,unknown,,none,none,no,none,none,na,non-informative (father homozygous),none
+BB,BB,AA,no,"genotyping error, contamination, or complex event",none,none,no,none,both_sides_violated,yes_hom_call_maskable,non-informative (father homozygous),none
+BB,BB,AB,no,"genotyping error, contamination, or complex event",none,none,no,diploidy_only,both_sides_violated,no_het_call_is_robust,non-informative (father homozygous),"weak: two homologues present, origin unattributable (maternal heterodisomy not excluded)"
+BB,BB,BB,yes,,B,NA_father_homozygous,no,none,consistent,yes_hom_call_maskable,non-informative (father homozygous),none
+BB,BB,NC,unknown,,none,none,no,none,none,na,non-informative (father homozygous),none
+BB,missing,AA,no,paternal allele ABSENT - provable without the mother (father homozygous cannot transmit the observed genotype),none,none,no,obligate_violation_paternal_allele_ABSENT,none,yes_hom_call_maskable,non-informative (father homozygous),POSITIVE H3: paternal allele undetected. Survives the missing-mother degraded mode - the only class that does. Mechanism (dropout vs deletion vs homologue loss) still requires L4.
+BB,missing,AB,yes,,B,NA_father_homozygous,no,none_mother_unavailable,none,no_het_call_is_robust,non-informative (father homozygous),none
+BB,missing,BB,yes,,B,NA_father_homozygous,no,none_mother_unavailable,none,yes_hom_call_maskable,non-informative (father homozygous),none
+BB,missing,NC,unknown,,none,none,no,none_mother_unavailable,none,na,non-informative (father homozygous),none

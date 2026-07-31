@@ -9,6 +9,132 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.0.0 "Kinetochore"
+
+The structure that couples a chromosome to the spindle and pulls it to a pole.
+
+1.x builds a marker panel before an experiment. 2.0 reads the experiment afterwards: given a
+sperm donor's array and a sample's, it reports which parental genome is present and on which
+chromosomes. Cas9 cleavage in a human embryo frequently removes the cut chromosome rather than
+repairing it, and a wild-type read at the variant site cannot tell a correction from a loss, so
+the question is answered away from the cut site instead.
+
+Research use only. Not a clinical diagnostic.
+
+### Added
+
+- **Syngamy**, at `#/syngamy`. Drop array exports, label one the sperm donor, run. Each sample
+  is classified androgenetic, gynogenetic, biparental or unclear, per chromosome as well as
+  genome-wide. Files are read in the browser and there is no endpoint to send them to.
+- **Three measurements, each against a reference derived from the data in front of it.**
+  Paternal absence against the rate that sample's own noise can produce, taken as its no-call
+  rate times its heterozygous fraction; alleles the donor lacks against half his heterozygosity,
+  which is what a second parent contributes; zygosity from the fraction of B-allele frequencies
+  in the heterozygous band. No population constant appears anywhere in the calculation.
+- **Sperm type from the chrX rate, not chrY.** An X-bearing sperm delivering a complete paternal
+  genome leaves no Y, so a chrY test reads it identically to no paternal contribution at all.
+  On one four-sample set, three of four had no chrY and the SNP measurement separated them by 15
+  to 40-fold. The chrX exemption for a Y-bearing sample is paternal only: a mother transmits an
+  X to a child of either sex, so an absent maternal X is a real finding.
+- **An oocyte donor array is accepted alongside the sperm donor.** Each sample is tallied
+  against both in one pass and classified from the pair. That measures the maternal side instead
+  of inferring it, which separates a sample lacking a paternal contribution from one belonging
+  to `neither_parent`. The two declared parents are also compared against each other, since two
+  arrays of one person pass both tests and yield a confident biparental call.
+- **An uncalled band between the noise bound and three times it.** A noisy diploid sample can
+  reach the unrelated range against its own parent, so that region is left uncalled with the
+  reason stated rather than guessed. The other parent's array measures dropout directly and
+  settles it.
+- **Six quality gates on every file**, reported and never applied silently: call rate against
+  the only published threshold measured on amplified material, suspension of the het-to-hom
+  asymmetry below that threshold, genome-wide LOH, an upper bound on heterozygosity that a
+  diploid genome cannot exceed, detection of inverted numeric genotype coding, and a sex call
+  from the chrX to autosome heterozygosity ratio.
+- **Assembly detection from marker positions** against the UCSC chromInfo and gap tables. No
+  liftOver is performed and no chain file is shipped: those carry a non-commercial field-of-use
+  restriction Apache 2.0 cannot sublicense. A mismatch is reported, and the steps that depend on
+  coordinates refuse rather than proceed.
+- **A citable report**, typeset in the browser so producing it needs no upload. Per sample: the
+  class, every measured rate with the reference it was compared against, a full per-chromosome
+  table per parent, the quality read, all six gates, findings and limits. Then Methods written
+  from the run, why no confidence percentage is reported, every constant with its provenance,
+  and each input file with its SHA-256.
+- **Five public example arrays load with one click**, from GEO GSE148488. Every eighth marker,
+  no value altered, so the calls are the ones the full 825,657-marker files give.
+- **Syngamy documentation** at `#/syngamy-docs`, cross-linked with the panel documentation in
+  both directions. Twenty-five sections from the biology through the method, the validation
+  record, scope and limits.
+- **Backend beyond the browser**: a per-locus deletion test with a run-length statistic, a
+  bidirectional cross-check that a real paternal deletion cannot produce maternal-absence calls,
+  a sibling haplotype scaffold whose confidence saturates on the genetic map rather than on
+  marker count, structural-variant VCF corroboration, and readers for VCF, Illumina FinalReport,
+  HapMap raw and PLINK.
+
+### Notes on what it refuses to assume
+
+- **No confidence percentage.** The per-sample likelihood ratio runs past 10^10000, which is
+  not a probability any reader should be handed. The honest figure is the method's empirical
+  accuracy, 9 of 9 correct on pairs of known relationship, whose 95% lower bound is roughly 72%.
+  About 300 consecutive correct calls would be needed to claim 99%. The margin is reported
+  instead: the observed rate, the reference, and the ratio between them.
+- **The per-locus test refuses to run without the mother.** Paternal presence cannot be
+  established at any single marker without someone who could not have supplied the allele. The
+  informative set holds absences only, nothing can break a run, and the statistic has no null to
+  be significant against. Dropout cannot be fitted either. In that mode a normal chromosome 20
+  produced a run of 3 across 35 Mb at p = 2.5e-07, so it is refused rather than reported. Parent
+  of origin, sperm type and segmental loss need no mother and are unaffected.
+- **An "unrelated" mismatch rate is not a constant.** Measured across more than fifty pairs it
+  ranged from 6.8% to 50.3%, and the populations overlap: one embryo scores 9.69% against its
+  own father while genuinely unrelated pairs score 5.1% to 5.6%. No threshold separates them,
+  which is why the reference is derived per sample.
+- **A run is split where markers are too far apart.** Consecutive absent markers separated by
+  more than ten times the local informative spacing are not one run: adjacency in the
+  informative subsequence is not adjacency on the chromosome. Whole-chromosome loss is keyed to
+  every informative marker being absent, not to the longest run, since marker deserts fragment
+  runs.
+- **Segment rates are anchored to the calibrated bound**, not estimated from the distribution of
+  observed window rates. Percentile estimation finds two populations in a uniform genome: it
+  carved a sample present everywhere at 0.16% into 28 "absent" segments, and a gynogenetic
+  sample into 720.
+- **Nucleotide-to-AB harmonisation pools across every file in a run**, never per file, or two
+  files can be assigned opposite conventions at the same marker.
+- **A no-call is excluded, not counted as evidence** in either direction. The heterozygous BAF
+  band is counted before that exclusion, because a marker whose genotype failed still has an
+  intensity reading and a dropped heterozygote sits mid-band.
+
+### Fixed
+
+- **Presence was scored without consulting the mother.** At a paternal deletion the embryo is
+  hemizygous-maternal, so wherever a heterozygous mother transmitted the same allele the marker
+  read as present. This broke runs at roughly half of maternal heterozygous markers and reported
+  a chrX loss of 4,324 markers as a run of 21.
+- **Markers that could not speak were folded in as presence** rather than excluded, which broke
+  runs and inflated the marker count at the same time.
+- **The segment reported was the longest anywhere on the chromosome**, not the one at the
+  variant, and counted scattered markers. A normal chromosome 3 was reported at 7,499 markers
+  and 359 standard deviations.
+- **A runner re-derived significance downstream of the gates**, bypassing the no-mother refusal
+  and reporting paternal loss on three samples whose paternal genome was present at 0.2%.
+- **The chrX probe offset was applied when deriving the compression factor but not when
+  interpreting chrX**, so a male's single X read as two maternal copies.
+- **`--product` defaulted to a named array**, applying one platform's chrX offset to another's
+  data and giving 0.456 against a measured 0.59. It defaults to unspecified.
+- **A wide multi-sample genotype file was read as its first sample only**, dropping the rest
+  silently.
+- **The column alias resolver did not strip hyphens**, so `Allele1 - Forward` missed its alias,
+  the tab split failed, and parsing fell through to whitespace.
+- **Findings were listed as limitations** in the report's Methods. Limits are now held
+  separately from notes.
+- **Assembly detection ran only inside the scaffold branch**, so a parentage-only run reported
+  "undetermined" for data proven GRCh37.
+- **The browser and Python disagreed on the BAF band.** The browser returned early on a no-call
+  before counting it, giving 0.92% against Python's 1.27% on the same file and shifting the
+  noise ceiling with it.
+- **The Kothiyal 2019 reference named the wrong journal.** It is Journal of Computational
+  Biology 26:405-419, not BMC Genomics.
+
+---
+
 ## 1.5.1 "Cohesin"
 
 ### Changed

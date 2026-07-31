@@ -22,6 +22,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Optional
 
+#: The bundled maps are on GRCh38. Reading them with coordinates from another build looks up the
+#: wrong genomic locations and returns a plausible number, so callers must check rather than
+#: assume. There is no liftOver here by design: UCSC chain files carry a non-commercial
+#: field-of-use restriction that Apache 2.0 cannot sublicense.
+MAP_BUILD = "GRCh38"
+
 MAPS_DIR = Path(__file__).parent / "data" / "maps"
 
 # Ships to the reader: stamped into export provenance and shown in the UI beside the cM

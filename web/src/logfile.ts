@@ -58,3 +58,21 @@ export function buildLogText(lines: LogLine[], meta: LogMeta, ctx: ExportCtx): s
   ].filter(Boolean).join(' | ')
   return `${body}\n\n# ${footer}\n`
 }
+
+/**
+ * The Syngamy run log as a .txt, on the same shape as the panel one: every line, then a single
+ * `#` footer carrying what a bug report needs. Kept here beside its sibling so the two exports
+ * cannot drift into different formats.
+ */
+export function syngamyLogText(
+  lines: { tag: string; text: string }[],
+  meta: { tool: string; started: string | null },
+  ctx: ExportCtx,
+): string {
+  const body = lines.map((l) => `[${l.tag}] ${l.text}`).join('\n')
+  const footer = [
+    'syngamy build/debug', `tool=${meta.tool}`, `started=${meta.started ?? 'none'}`,
+    `exported=${ctx.now}`, `lines=${lines.length}`, `url=${ctx.url}`, `agent=${ctx.agent}`,
+  ].join(' | ')
+  return `${body}\n\n# ${footer}\n`
+}

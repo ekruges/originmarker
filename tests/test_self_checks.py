@@ -19,6 +19,10 @@ ROOT = Path(__file__).resolve().parent.parent
 MODULES = [
     "build_info",
     "genetic_map",
+    "origin",
+    "report",
+    "scaffold",
+    "structural",
     "panelbuilder",
     # Skips itself, exit 0, where primer3 is not installed: it is optional (GPLv2), so the
     # default image runs this check in its skipped form.
