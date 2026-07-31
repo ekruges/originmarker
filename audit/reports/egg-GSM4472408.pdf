@@ -1,0 +1,938 @@
+%PDF-1.4
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [9 0 R 11 0 R 13 0 R] /Count 3 >>
+endobj
+3 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+4 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Oblique /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>
+endobj
+8 0 obj
+<< /Length 16011 >>
+stream
+0.18 0.43 0.64 RG
+2.6 w
+62.88 737 m
+62.88 742.46 58.46 746.88 53 746.88 c
+47.54 746.88 43.12 742.46 43.12 737 c
+43.12 731.54 47.54 727.12 53 727.12 c
+58.46 727.12 62.88 731.54 62.88 737 c
+S
+0.2 0.48 0.72 rg
+46.37 732.11 m
+46.44 732.73 l
+47.5 732.9 l
+49.59 741.09 l
+48.36 741.24 l
+48.45 741.89 l
+52.4 741.89 l
+53.14 735.95 l
+53.29 734.73 l
+53.74 735.98 l
+56.12 741.89 l
+59.63 741.89 l
+59.55 741.24 l
+58.41 741.09 l
+58.18 732.9 l
+59.31 732.73 l
+59.27 732.11 l
+55.07 732.11 l
+55.12 732.74 l
+56.33 732.9 l
+56.65 738.52 l
+56.79 741.13 l
+55.85 738.83 l
+52.95 732.11 l
+52 732.11 l
+51.04 738.67 l
+50.66 741.12 l
+50.11 738.61 l
+48.77 732.9 l
+50.15 732.73 l
+50.09 732.11 l
+h
+f
+0 0 0 rg
+BT /F2 14 Tf 74 732 Td (Syngamy) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 712 Td (Report:) Tj ET
+BT /F1 8 Tf 158 712 Td (2d91f9a0) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 702 Td (Generated:) Tj ET
+BT /F1 8 Tf 158 702 Td (2026-07-31 03:29:19Z) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 692 Td (Run started:) Tj ET
+BT /F1 8 Tf 158 692 Td (not recorded) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 682 Td (Software:) Tj ET
+BT /F1 8 Tf 158 682 Td (OriginMarker 2.1.1 \(Kinetochore\), Syngamy module) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 672 Td (Sperm donor:) Tj ET
+BT /F1 8 Tf 158 672 Td (GSM4472397_sperm_DNA_71.CEL.txt.gz \(825,656 markers, SHA-256 1b56911dae7030f4\)) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 662 Td (Oocyte donor:) Tj ET
+BT /F1 8 Tf 158 662 Td (none supplied, so a maternal origin is inferred from paternal absence rather than measured) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 652 Td (Donor heterozygosity:) Tj ET
+BT /F1 8 Tf 158 652 Td (16.658% autosomal, of called markers) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 642 Td (Samples:) Tj ET
+BT /F1 8 Tf 158 642 Td (1 analysed \(1 unclear\)) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 632 Td (Assembly:) Tj ET
+BT /F1 8 Tf 158 632 Td (GRCh37) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 622 Td (Data handling:) Tj ET
+BT /F1 8 Tf 158 622 Td (every file was read in the browser that produced this report. No genotype was transmitted, and none is retained.) Tj ET
+0 0 0 rg
+BT /F2 10 Tf 40 606 Td (Result summary) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 6.8 Tf 40 595 Td (Sample) Tj ET
+BT /F2 6.8 Tf 190 595 Td (Origin) Tj ET
+BT /F2 6.8 Tf 269.66 595 Td (Absence) Tj ET
+BT /F2 6.8 Tf 321.33 595 Td (Ceiling) Tj ET
+BT /F2 6.8 Tf 362.79 595 Td (x ceiling) Tj ET
+BT /F2 6.8 Tf 396 595 Td (Zygosity) Tj ET
+BT /F2 6.8 Tf 458 595 Td (Sperm) Tj ET
+BT /F2 6.8 Tf 507.35 595 Td (Informative) Tj ET
+0 0 0 RG
+0.4 w
+40 593 m 572 593 l S
+0 0 0 rg
+BT /F1 6.8 Tf 40 584 Td (GSM4472408_donor_D_33.CEL.txt.gz) Tj ET
+0.69 0.13 0.13 rg
+BT /F1 6.8 Tf 190 584 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 278.72 584 Td (4.69%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 324.72 584 Td (4.33%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 377.15 584 Td (1.1x) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 396 584 Td (diploid) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 458 584 Td (-) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 519.42 584 Td (527,079) Tj ET
+0 0 0 rg
+0.4 0.4 0.4 rg
+BT /F3 6.5 Tf 40 575.5 Td (Absence is the rate at which the donor's obligate allele is missing where he is homozygous. Ceiling is what this sample's own noise can manufacture: its no-call rate times its) Tj ET
+0.4 0.4 0.4 rg
+BT /F3 6.5 Tf 40 567 Td (heterozygous fraction. A sample is called as lacking a paternal contribution only above 3x that ceiling, and as carrying one only at or below it; in between it is left uncalled. No confidence) Tj ET
+0.4 0.4 0.4 rg
+BT /F3 6.5 Tf 40 558.5 Td (percentage is reported, deliberately: see Interpretation.) Tj ET
+0 0 0 rg
+0.8 0.8 0.8 RG
+0.6 w
+40 548.5 m 572 548.5 l S
+0.4 0.4 0.4 rg
+BT /F1 8 Tf 40 534.5 Td (GSM4472408_donor_D_33.CEL.txt.gz vs GSM4472397_sperm_DNA_71.CEL.txt.gz) Tj ET
+0 0 0 rg
+0.69 0.13 0.13 rg
+40 509.5 532 22 re f
+1 1 1 rg
+BT /F2 15 Tf 47 516 Td (UNCLEAR) Tj ET
+BT /F1 8 Tf 420.48 517.5 Td (Not separated by the available evidence.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 8 Tf 40 496.5 Td (absent 4.69% | ceiling 4.33% | 1.1x | 527,079 informative markers | zygosity diploid) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 8.6 Tf 40 480.9 Td (Evidence) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 6.8 Tf 40 469.9 Td (Measurement) Tj ET
+BT /F2 6.8 Tf 206.63 469.9 Td (Observed) Tj ET
+BT /F2 6.8 Tf 257.12 469.9 Td (Reference) Tj ET
+BT /F2 6.8 Tf 296 469.9 Td (The reference is) Tj ET
+0 0 0 RG
+0.4 w
+40 467.9 m 572 467.9 l S
+0 0 0 rg
+BT /F1 6.8 Tf 40 458.9 Td (Donor alleles absent) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 218.72 458.9 Td (4.69%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 270.72 458.9 Td (4.33%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 296 458.9 Td (this sample's no-call rate times its heterozygous fraction. Dropout manufactures) Tj ET
+BT /F1 6.8 Tf 296 450.5 Td (absence only by turning a heterozygous call homozygous and discarding the) Tj ET
+BT /F1 6.8 Tf 296 442.1 Td (donor's allele, so the bound is the product and neither term alone.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 433.1 Td (Alleles the donor lacks) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 214.94 433.1 Td (30.63%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 270.72 433.1 Td (8.33%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 296 433.1 Td (half the donor's heterozygosity. A second parent supplies an allele he lacks) Tj ET
+BT /F1 6.8 Tf 296 424.7 Td (only where he is homozygous, at sum\(pq\), and his heterozygosity is sum\(2pq\).) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 415.7 Td (Heterozygous BAF band) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 214.94 415.7 Td (21.10%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 270.72 415.7 Td (8.00%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 296 415.7 Td (measured at 15-16% for diploid genomes and 1.3-3.4% for uniparental ones.) Tj ET
+BT /F1 6.8 Tf 296 407.3 Td (Dropout does not mimic this: a biparental embryo at 33% dropout still reads) Tj ET
+BT /F1 6.8 Tf 296 398.9 Td (22.2%.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 8.6 Tf 40 384.3 Td (Sex chromosomes) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 6.8 Tf 40 373.3 Td (Chr) Tj ET
+BT /F2 6.8 Tf 83.35 373.3 Td (Informative) Tj ET
+BT /F2 6.8 Tf 142.95 373.3 Td (Absent) Tj ET
+BT /F2 6.8 Tf 197.26 373.3 Td (Rate) Tj ET
+BT /F2 6.8 Tf 228.79 373.3 Td (x ceiling) Tj ET
+BT /F2 6.8 Tf 262 373.3 Td (Verdict) Tj ET
+BT /F2 6.8 Tf 338 373.3 Td (Note) Tj ET
+0 0 0 RG
+0.4 w
+40 371.3 m 572 371.3 l S
+0 0 0 rg
+BT /F1 6.8 Tf 40 362.3 Td (chrX) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 362.3 Td (15,406) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 362.3 Td (1,621) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 188.94 362.3 Td (10.52%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 362.3 Td (2.4) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 362.3 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 362.3 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 8.6 Tf 40 347.7 Td (Chromosomes) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 6.8 Tf 40 336.7 Td (Chr) Tj ET
+BT /F2 6.8 Tf 83.35 336.7 Td (Informative) Tj ET
+BT /F2 6.8 Tf 142.95 336.7 Td (Absent) Tj ET
+BT /F2 6.8 Tf 197.26 336.7 Td (Rate) Tj ET
+BT /F2 6.8 Tf 228.79 336.7 Td (x ceiling) Tj ET
+BT /F2 6.8 Tf 262 336.7 Td (Verdict) Tj ET
+BT /F2 6.8 Tf 338 336.7 Td (Note) Tj ET
+0 0 0 RG
+0.4 w
+40 334.7 m 572 334.7 l S
+0 0 0 rg
+BT /F1 6.8 Tf 40 325.7 Td (chr1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 325.7 Td (43,216) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 325.7 Td (1,978) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 325.7 Td (4.58%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 325.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 325.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 325.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 316.7 Td (chr2) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 316.7 Td (41,107) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 316.7 Td (1,730) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 316.7 Td (4.21%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 316.7 Td (1.0) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 316.7 Td (present) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 316.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 307.7 Td (chr3) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 307.7 Td (35,003) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 307.7 Td (1,499) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 307.7 Td (4.28%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 307.7 Td (1.0) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 307.7 Td (present) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 307.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 298.7 Td (chr4) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 298.7 Td (31,514) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 298.7 Td (1,473) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 298.7 Td (4.67%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 298.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 298.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 298.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 289.7 Td (chr5) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 289.7 Td (30,567) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 289.7 Td (1,433) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 289.7 Td (4.69%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 289.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 289.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 289.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 280.7 Td (chr6) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 280.7 Td (36,296) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 280.7 Td (1,920) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 280.7 Td (5.29%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 280.7 Td (1.2) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 280.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 280.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 271.7 Td (chr7) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 271.7 Td (28,317) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 271.7 Td (1,164) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 271.7 Td (4.11%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 271.7 Td (0.9) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 271.7 Td (present) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 271.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 262.7 Td (chr8) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 262.7 Td (25,843) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 262.7 Td (1,284) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 262.7 Td (4.97%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 262.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 262.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 262.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 253.7 Td (chr9) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 253.7 Td (22,804) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 253.7 Td (1,043) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 253.7 Td (4.57%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 253.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 253.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 253.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 244.7 Td (chrX) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 244.7 Td (15,406) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 244.7 Td (1,621) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 188.94 244.7 Td (10.52%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 244.7 Td (2.4) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 244.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 244.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 235.7 Td (chr10) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 235.7 Td (26,067) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 235.7 Td (1,242) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 235.7 Td (4.76%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 235.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 235.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 235.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 226.7 Td (chr11) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 226.7 Td (28,308) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 226.7 Td (1,411) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 226.7 Td (4.98%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 226.7 Td (1.2) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 226.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 226.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 217.7 Td (chr12) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 217.7 Td (25,561) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 148.99 217.7 Td (1,206) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 217.7 Td (4.72%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 217.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 217.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 217.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 208.7 Td (chr13) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 208.7 Td (17,642) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 208.7 Td (818) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 208.7 Td (4.64%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 208.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 208.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 208.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 199.7 Td (chr14) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 199.7 Td (17,635) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 199.7 Td (815) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 199.7 Td (4.62%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 199.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 199.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 199.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 190.7 Td (chr15) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 190.7 Td (16,545) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 190.7 Td (939) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 190.7 Td (5.68%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 190.7 Td (1.3) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 190.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 190.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 181.7 Td (chr16) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 181.7 Td (19,505) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 181.7 Td (937) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 181.7 Td (4.80%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 181.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 181.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 181.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 172.7 Td (chr17) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 172.7 Td (19,454) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 172.7 Td (838) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 172.7 Td (4.31%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 172.7 Td (1.0) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 172.7 Td (present) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 172.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 163.7 Td (chr18) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 163.7 Td (14,639) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 163.7 Td (790) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 163.7 Td (5.40%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 163.7 Td (1.2) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 163.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 163.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 154.7 Td (chr19) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 154.7 Td (18,160) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 154.7 Td (870) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 154.7 Td (4.79%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 154.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 154.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 154.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 145.7 Td (chr20) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 99.21 145.7 Td (12,942) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 145.7 Td (589) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 145.7 Td (4.55%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 145.7 Td (1.1) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 145.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 145.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 136.7 Td (chr21) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 102.99 136.7 Td (7,541) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 136.7 Td (397) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 136.7 Td (5.26%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 136.7 Td (1.2) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 136.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 136.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 127.7 Td (chr22) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 102.99 127.7 Td (8,413) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 154.66 127.7 Td (370) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192.72 127.7 Td (4.40%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 246.55 127.7 Td (1.0) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 262 127.7 Td (unclear) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 338 127.7 Td () Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 8.6 Tf 40 113.1 Td (Sample quality) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 8 Tf 40 101.1 Td (Markers:) Tj ET
+BT /F1 8 Tf 148 101.1 Td (825,656 read, 675,860 called \(81.9%\)) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 91.1 Td (No-call:) Tj ET
+BT /F1 8 Tf 148 91.1 Td (18.14%) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 81.1 Td (Heterozygous:) Tj ET
+BT /F1 8 Tf 148 81.1 Td (34.51% of called) Tj ET
+0 0 0 rg
+BT /F3 7 Tf 40 44 Td (Research use only. Parent of origin here is a statistical call from array genotypes and requires confirmation by an independent method in a qualified genetics laboratory.) Tj ET
+BT /F3 7 Tf 40 35.5 Td (Not a clinical diagnostic.) Tj ET
+0.4 0.4 0.4 rg
+BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.1.1 \(Kinetochore\) | report 2d91f9a0 | generated 2026-07-31 03:29:19Z | page 1) Tj ET
+0 0 0 rg
+endstream
+endobj
+9 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R /F5 7 0 R >> >> /Contents 8 0 R >>
+endobj
+10 0 obj
+<< /Length 3874 >>
+stream
+0 0 0 rg
+BT /F2 8 Tf 40 742 Td (chrX / autosomal het:) Tj ET
+BT /F1 8 Tf 148 742 Td (0.950) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 732 Td (Sex call:) Tj ET
+BT /F1 8 Tf 148 732 Td (female) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 722 Td (Product:) Tj ET
+BT /F1 8 Tf 148 722 Td (UK Biobank Axiom Array) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 712 Td (Assembly:) Tj ET
+BT /F1 8 Tf 148 712 Td (GRCh37 \(0 placements illegal under GRCh37, 6,315 under GRCh38, 825,656 tested\)) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 702 Td (Allele coding:) Tj ET
+BT /F1 8 Tf 148 702 Td (ok BAF corroborates 0=AA, 2=BB) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 692 Td (Mean BAF AA/AB/BB:) Tj ET
+BT /F1 8 Tf 148 692 Td (0.057 / 0.525 / 0.959) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 682 Td (SHA-256:) Tj ET
+BT /F1 8 Tf 148 682 Td (0914ca5a931ce76ebf216f3bf714d42cc3d1f4092214c6548e397b48a468dd32) Tj ET
+0 0 0 rg
+BT /F2 8 Tf 40 672 Td (File size:) Tj ET
+BT /F1 8 Tf 148 672 Td (61,164,556 bytes) Tj ET
+0 0 0 rg
+BT /F2 8.6 Tf 40 657.4 Td (Quality gates) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 6.8 Tf 40 646.4 Td (Gate) Tj ET
+BT /F2 6.8 Tf 169.86 646.4 Td (Value) Tj ET
+BT /F2 6.8 Tf 194 646.4 Td (Verdict) Tj ET
+BT /F2 6.8 Tf 250 646.4 Td (Basis) Tj ET
+0 0 0 RG
+0.4 w
+40 644.4 m 572 644.4 l S
+0 0 0 rg
+BT /F1 6.8 Tf 40 635.4 Td (call rate) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 168.72 635.4 Td (81.9%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 194 635.4 Td (usable) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 250 635.4 Td (inside the 75-95% amplified usable band; the Axiom vendor gate of 97% would reject this) Tj ET
+BT /F1 6.8 Tf 250 627 Td (sample, and that gate was established on unamplified bulk DNA) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 618 Td (het-to-hom asymmetry valid) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 168.72 618 Td (81.9%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 194 618 Td (usable) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 250 618 Td (holds within the usable call-rate band) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 609 Td (genome-wide LOH) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 168.72 609 Td (34.5%) Tj ET
+0.69 0.13 0.13 rg
+BT /F1 6.8 Tf 194 609 Td (report only) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 250 609 Td (no genome-wide LOH signature) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 600 Td (heterozygosity plausible) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 168.72 600 Td (34.5%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 194 600 Td (usable) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 250 600 Td (within the plausible range for one diploid genome) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 591 Td (numeric genotype coding) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 185.74 591 Td (-) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 194 591 Td (usable) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 250 591 Td (BAF corroborates 0=AA, 2=BB) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 582 Td (sex call) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 168.72 582 Td (95.0%) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 194 582 Td (usable) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 250 582 Td (chrX/autosome heterozygosity ratio 0.950 is inside the female band. Dropout cancels in the) Tj ET
+BT /F1 6.8 Tf 250 573.6 Td (ratio, so this survives amplified material.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 8.6 Tf 40 559 Td (Limits on this call) Tj ET
+0 0 0 rg
+0.69 0.13 0.13 rg
+BT /F2 7.4 Tf 40 547.6 Td (Absence of 4.69% sits between what this sample's own noise can explain \(4.33%\) and 3x that. A noisy diploid sample can reach the unrelated range) Tj ET
+0.69 0.13 0.13 rg
+BT /F2 7.4 Tf 40 538 Td (against its own parent, so this is left uncalled rather than guessed. The other parent's array would measure dropout directly and settle it.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F3 7 Tf 40 44 Td (Research use only. Parent of origin here is a statistical call from array genotypes and requires confirmation by an independent method in a qualified genetics laboratory.) Tj ET
+BT /F3 7 Tf 40 35.5 Td (Not a clinical diagnostic.) Tj ET
+0.4 0.4 0.4 rg
+BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.1.1 \(Kinetochore\) | report 2d91f9a0 | generated 2026-07-31 03:29:19Z | page 2) Tj ET
+0 0 0 rg
+endstream
+endobj
+11 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R /F5 7 0 R >> >> /Contents 10 0 R >>
+endobj
+12 0 obj
+<< /Length 9419 >>
+stream
+0 0 0 rg
+BT /F2 11 Tf 40 735 Td (Methods) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 8 Tf 40 723 Td (Parent of origin was determined from SNP array genotypes using OriginMarker 2.1.1 \(Kinetochore\). For each of 1 sample\(s\), the rate at which the) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 712.4 Td (sperm donor's obligate allele was absent was computed across autosomal markers where he is homozygous and the sample is called, and compared) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 701.8 Td (against the rate that sample's own genotyping noise can produce, taken as the product of its no-call rate and its heterozygous fraction. A sample was) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 691.2 Td (called as lacking a paternal contribution only where the observed rate exceeded that bound by 3-fold, and as carrying one only where it fell at or below) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 680.6 Td (the bound; rates between the two were left uncalled. Whether a second parent contributed was assessed from the rate at which the sample carries) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 670 Td (alleles the sperm donor does not possess, against half his heterozygosity, which is the contribution a second parent makes. Zygosity was taken from) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 659.4 Td (the fraction of B-allele frequencies falling in the heterozygous band, 0.35 to 0.65. Sperm type was inferred from the chrX rate rather than from chrY, so) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 648.8 Td (that an X-bearing sperm carrying a full paternal genome is distinguishable from an absent paternal contribution; neither case leaves a Y.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 8 Tf 40 635.2 Td (No oocyte donor array was supplied. A maternal origin below is therefore inferred from the absence of the paternal contribution rather than measured,) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 624.6 Td (and a sample belonging to neither declared parent is indistinguishable from one that is maternal in origin.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 8 Tf 40 611 Td (Assembly was determined from marker positions against the UCSC chromInfo and gap tables and found to be GRCh37. No liftOver was performed.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 8 Tf 40 597.4 Td (The following limits applied to this run and are reported rather than resolved: \(1\) Absence of 4.69% sits between what this sample's own noise can) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 586.8 Td (explain \(4.33%\) and 3x that. A noisy diploid sample can reach the unrelated range against its own parent, so this is left uncalled rather than guessed.) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 576.2 Td (The other parent's array would measure dropout directly and settle it.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 10 Tf 40 556.6 Td (Interpretation) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 8 Tf 40 544.6 Td (No confidence percentage is attached to a call, and this is deliberate. The per-sample likelihood ratio between "paternal genome present" and) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 534 Td ("absent" runs past 10^10000 on a genome-wide array, which is not a probability any reader should be handed. The honest figure is the empirical) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 523.4 Td (accuracy of the method, and on the pairs of known relationship it has been run against that is 9 of 9 correct, whose 95% lower bound is roughly 72%.) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 512.8 Td (About 300 consecutive correct calls would be needed to claim 99%. What is reported instead is the margin: the observed rate, the reference it was) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 502.2 Td (measured against, and the ratio between them, so a reader can see how far from the boundary the call sits.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 8 Tf 40 488.6 Td (The absence axis separates by roughly thirty-fold and carries the call. The alleles-the-donor-lacks axis separates by about 1.6-fold and only) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 478 Td (distinguishes a biparental genome from a paternal-only one that is heterozygous; treat a near-boundary call on that axis as provisional. A sample) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 467.4 Td (scoring in the uncalled band is not a weak positive, it is an absence of evidence: an array from the second parent measures dropout directly and) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 456.8 Td (settles it.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 10 Tf 40 440.2 Td (Constants and where they come from) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 6.8 Tf 40 429.2 Td (Constant) Tj ET
+BT /F2 6.8 Tf 172 429.2 Td (Value) Tj ET
+BT /F2 6.8 Tf 290 429.2 Td (Provenance) Tj ET
+0 0 0 RG
+0.4 w
+40 427.2 m 572 427.2 l S
+0 0 0 rg
+BT /F1 6.8 Tf 40 418.2 Td (Mendelian inconsistency floor) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 172 418.2 Td (0.0063) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 290 418.2 Td (Kothiyal 2019, 0.63% of variant sites across 1,314 nuclear families. A lower bound on the) Tj ET
+BT /F1 6.8 Tf 290 409.8 Td (spurious-violation rate, never the value itself.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 400.8 Td (Paternal-absence noise bound) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 172 400.8 Td (no-call rate x heterozygous fraction) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 290 400.8 Td (Derived per sample, not fitted. Bounds every related pair measured, within 2x: 0.13%) Tj ET
+BT /F1 6.8 Tf 290 392.4 Td (predicted against 0.05% observed, 0.18% against 0.16%, 10.4% against 9.69%.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 383.4 Td (Absence calling margin) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 172 383.4 Td (3x) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 290 383.4 Td (How far above the noise bound an absence must sit before it is called.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 374.4 Td (Residual absence floor) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 172 374.4 Td (0.005) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 290 374.4 Td (Absence on clean data from genotyping error alone, measured at 0.03% and 0.05%. Added) Tj ET
+BT /F1 6.8 Tf 290 366 Td (to the bound so a near-perfect array still has a non-zero reference.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 357 Td (Second-parent signal) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 172 357 Td (half the donor's heterozygosity) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 290 357 Td (Derived. A second parent supplies an allele the donor lacks only where he is homozygous,) Tj ET
+BT /F1 6.8 Tf 290 348.6 Td (at sum\(pq\); his heterozygosity is sum\(2pq\) over the same markers.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 339.6 Td (Diploid heterozygous BAF band) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 172 339.6 Td (0.08 of markers in 0.35-0.65) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 290 339.6 Td (Measured at 15-16% for diploid genomes and 1.3-3.4% for uniparental ones. Dropout does) Tj ET
+BT /F1 6.8 Tf 290 331.2 Td (not mimic this: a biparental embryo at 33% dropout still reads 22.2%.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 322.2 Td (Per-chromosome minimum) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 172 322.2 Td (200 informative markers) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 290 322.2 Td (Below this a chromosome is not reported: the rate is too noisy to place against the ceiling.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 313.2 Td (Assembly tables) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 172 313.2 Td (UCSC chromInfo and gap, hg19 and) Tj ET
+BT /F1 6.8 Tf 172 304.8 Td (hg38) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 290 313.2 Td (Freely redistributable. No liftOver chain file is used or shipped: those carry a) Tj ET
+BT /F1 6.8 Tf 290 304.8 Td (non-commercial field-of-use restriction Apache 2.0 cannot sublicense.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 10 Tf 40 288.8 Td (Files read) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 6.8 Tf 40 277.8 Td (File) Tj ET
+BT /F2 6.8 Tf 192 277.8 Td (Role) Tj ET
+BT /F2 6.8 Tf 255.48 277.8 Td (Bytes) Tj ET
+BT /F2 6.8 Tf 293.92 277.8 Td (Markers) Tj ET
+BT /F2 6.8 Tf 326 277.8 Td (SHA-256) Tj ET
+0 0 0 RG
+0.4 w
+40 275.8 m 572 275.8 l S
+0 0 0 rg
+BT /F1 6.8 Tf 40 266.8 Td (GSM4472397_sperm_DNA_71.CEL.txt.gz) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192 266.8 Td (donor) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 239.97 266.8 Td (63,674,062) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 295.42 266.8 Td (825,656) Tj ET
+0 0 0 rg
+BT /F4 6 Tf 326 266.8 Td (1b56911dae7030f4ecebc2ade9c7b1bacee23def81d130e6b3d0ac9edb388169) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 6.8 Tf 40 257.8 Td (GSM4472408_donor_D_33.CEL.txt.gz) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 192 257.8 Td (sample) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 239.97 257.8 Td (61,164,556) Tj ET
+0 0 0 rg
+BT /F1 6.8 Tf 295.42 257.8 Td (825,656) Tj ET
+0 0 0 rg
+BT /F4 6 Tf 326 257.8 Td (0914ca5a931ce76ebf216f3bf714d42cc3d1f4092214c6548e397b48a468dd32) Tj ET
+0 0 0 rg
+0.4 0.4 0.4 rg
+BT /F3 6.5 Tf 40 249.3 Td (The hash is of the file as read, so a reviewer can confirm the input without being sent it.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F2 10 Tf 40 233.3 Td (Citation) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 8 Tf 40 221.3 Td (OriginMarker 2.1.1 \(Kinetochore\). Syngamy: parent of origin from SNP array genotypes. Report 2d91f9a0, generated 2026-07-31 03:29:19Z.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F1 8 Tf 40 210.7 Td (Kothiyal P et al. Mendelian inconsistent signatures from 1,314 ancestrally diverse family trios. J Comput Biol 2019;26\(5\):405-419.) Tj ET
+0 0 0 rg
+BT /F1 8 Tf 40 200.1 Td (doi:10.1089/cmb.2018.0253. Cited for the inconsistency floor above.) Tj ET
+0 0 0 rg
+0 0 0 rg
+BT /F3 7 Tf 40 44 Td (Research use only. Parent of origin here is a statistical call from array genotypes and requires confirmation by an independent method in a qualified genetics laboratory.) Tj ET
+BT /F3 7 Tf 40 35.5 Td (Not a clinical diagnostic.) Tj ET
+0.4 0.4 0.4 rg
+BT /F1 6.5 Tf 40 26 Td (Syngamy | OriginMarker 2.1.1 \(Kinetochore\) | report 2d91f9a0 | generated 2026-07-31 03:29:19Z | page 3) Tj ET
+0 0 0 rg
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 3 0 R /F2 4 0 R /F3 5 0 R /F4 6 0 R /F5 7 0 R >> >> /Contents 12 0 R >>
+endobj
+14 0 obj
+<< /Title (Syngamy) /Producer (Syngamy) >>
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000129 00000 n 
+0000000226 00000 n 
+0000000328 00000 n 
+0000000433 00000 n 
+0000000528 00000 n 
+0000000628 00000 n 
+0000016692 00000 n 
+0000016858 00000 n 
+0000020785 00000 n 
+0000020953 00000 n 
+0000030425 00000 n 
+0000030593 00000 n 
+trailer
+<< /Size 15 /Root 1 0 R /Info 14 0 R >>
+startxref
+30652
+%%EOF

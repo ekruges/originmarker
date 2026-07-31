@@ -5,8 +5,8 @@
 // number in section 1 came off a real file during that validation.
 import assert from 'node:assert/strict'
 import {
-  ABSENCE_MARGIN, absenceExplainable, agreement, classify, emptyTally, isAutosome, pair, pct,
-  secondParentSignal, tallyRow, type Tally,
+  ABSENCE_MARGIN, absenceExplainable, agreement, classify, emptyTally, HET_BAND_DIPLOID,
+  isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
 } from './parentage.ts'
 import type { ProbeRow } from './ingest.ts'
 import type { AB } from './informativity.ts'
@@ -164,6 +164,35 @@ assert.equal(ABSENCE_MARGIN, 3)
   assert.ok(Number.isNaN(agreement(a, gt(50, () => 'AA'))), 'too few shared markers')
   // A no-call on either side is not a disagreement, it is no observation.
   assert.equal(agreement(a, new Map([...a].map(([k, v], i) => [k, i % 4 ? v : 'NC' as AB]))), 1)
+}
+
+
+// --- 10. below the call-rate floor, zygosity is withheld ---------------------------------------
+// The gate ingest.gates already excludes on, applied to the axis that rests on it. Three isolated
+// paternal pronuclei at 53.8-59.1% call rate each showed an 18-27% heterozygous band, which a
+// haploid genome cannot produce, and each was called biparental on the strength of it.
+{
+  const noisy = (): Tally => {
+    const t = emptyTally()
+    for (let i = 0; i < 4000; i += 1) {
+      const s = (i * 7919) % 1000
+      // Half the markers fail to call, and the band is full of spurious heterozygotes.
+      tallyRow('AA', row('1', 1000 + i * 1000, s < 500 ? 'NC' : 'AA', s < 250 ? 0.5 : 0.0), t)
+    }
+    return t
+  }
+  const r = classify(noisy(), 0.17)
+  assert.ok(r.hetBand > HET_BAND_DIPLOID, 'the band alone would have said diploid')
+  assert.equal(r.zygosity, 'unknown', 'but the call rate says it is artefact')
+  assert.equal(r.originClass, 'unclear', 'so the class cannot be asserted')
+  assert.ok(r.limits.some((l) => l.includes('below 60%')), 'and the reason is stated')
+  // Absence is Mendelian and survives: a genome with no paternal contribution still says so.
+  const gone = emptyTally()
+  for (let i = 0; i < 4000; i += 1) {
+    const s = (i * 7919) % 1000
+    tallyRow('AA', row('1', 1000 + i * 1000, s < 500 ? 'NC' : 'BB', s < 250 ? 0.5 : 0.0), gone)
+  }
+  assert.equal(classify(gone, 0.17).verdict, 'no_parental_contribution')
 }
 
 console.log('parentage.check.ts OK')

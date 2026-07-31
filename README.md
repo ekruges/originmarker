@@ -107,8 +107,10 @@ Method, scope, data sources and known limitations are documented in the app:
 
 Version history, and the bugs each release fixed: [CHANGELOG.md](CHANGELOG.md).
 
-What the 2.0 inference path has been tested against, using public data with an independently
-established answer: [docs/validation-2.0.md](docs/validation-2.0.md).
+**Accuracy audit**: 27 public arrays whose answer was established at the bench, including
+pronuclei physically separated by micromanipulation. 22 correct, 4 refused, 0 incorrect.
+Every case, every number and a report PDF for each: [audit/](audit/). Earlier validation
+record: [docs/validation-2.0.md](docs/validation-2.0.md).
 
 ## License
 

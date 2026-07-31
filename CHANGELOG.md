@@ -9,6 +9,34 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.2.0 "Kinetochore"
+
+### Added
+
+- **An accuracy audit against 27 public arrays**, in `audit/`: the harness, the record as a text
+  file, and a report PDF for each of the 26 scored cases. The data is GEO GSE148488, where
+  Zuccaro et al. separated the two pronuclei of a fertilised zygote by micromanipulation and
+  arrayed each alone, so the answer exists physically before any statistic is applied. Result:
+  22 correct, 4 refused, 0 incorrect, and 22 of 23 correct on samples passing every quality
+  gate. The egg-donor identification matrix resolved 7 of 7 maternal pronuclei to exactly one of
+  four donors, with the runner-up 10 to 18 times further away. The harness drives the same
+  modules the browser runs.
+
+### Fixed
+
+- **Zygosity was asserted from heterozygous calls the tool had already declared untrustworthy.**
+  Below a 60% call rate erroneous heterozygous calls are common, which is why the ingestion
+  gates exclude there and the het-to-hom gate prints "SUSPENDED"; the classifier then read the
+  heterozygous BAF band anyway. On three isolated paternal pronuclei at 53.8%, 55.6% and 59.1%
+  call rate, each haploid and therefore homozygous by construction, the spurious band of 18-27%
+  pushed zygosity to "diploid" and each was reported **biparental**. Zygosity is now withheld
+  below that floor in both `origin.py` and `web/src/parentage.ts`, and the class falls to unclear
+  with the reason stated. Absence is unaffected and still called, since it is Mendelian: on the
+  paternal axis all three were already right, at 0.44x, 0.49x and 0.45x of their ceilings. Found
+  by the audit above, which is what it was for.
+
+---
+
 ## 2.1.1 "Kinetochore"
 
 ### Added

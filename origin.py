@@ -1181,6 +1181,18 @@ def second_parent_signal(father_heterozygosity: float) -> float:
 #: it: a biparental embryo at 33% dropout still reads 22.2%.
 HET_BAND_DIPLOID = 0.08
 
+#: Call rate below which heterozygous calls stop being trustworthy, so nothing derived from them
+#: may be asserted. Natesan 2014, the only published threshold measured on amplified material,
+#: and the same figure the ingestion gates already exclude on.
+#:
+#: Absence is unaffected and still called: it is Mendelian, and a homozygous father must transmit
+#: his allele whatever the call rate. What is withheld is ZYGOSITY, read from the heterozygous
+#: band, and with it the androgenetic/biparental split that rests on it. Measured on three
+#: isolated paternal pronuclei (GSM4774684/686/687) at 53.8%, 55.6% and 59.1% call rate: each is
+#: haploid and therefore homozygous by construction, each showed an 18-27% heterozygous band that
+#: a haploid genome cannot produce, and each was called biparental on the strength of it.
+CALL_RATE_FLOOR = 0.60
+
 #: Residual paternal-absence rate on clean data, from genotyping error alone. Measured at 0.03%
 #: and 0.05% on two bulk trios.
 ABSENCE_ERROR_FLOOR = 0.005
@@ -1411,20 +1423,32 @@ def parental_origin(
                                if p.gt != "NC" and _is_autosome(p.chrom))))
     rep.second_parent_expected = second_parent_signal(father_het)
 
-    if math.isfinite(het_band):
-        rep.zygosity = "diploid" if het_band > HET_BAND_DIPLOID else "uniparental_homozygous"
-    elif called and math.isfinite(father_het) and father_het > 0:
-        # No intensity channel at all, so fall back to genotype heterozygosity against the same
-        # derived reference: a biparental sample resembles the father, a uniparental one tends to
-        # zero. Weaker than the BAF band, which is why it is flagged.
-        gt_het = sum(1 for g in called if g == "AB") / len(called)
-        rep.zygosity = ("diploid" if gt_het > father_het / 2.0
-                        else "uniparental_homozygous")
+    # The gate the ingestion layer already applies, applied to the axis that depends on it:
+    # below this call rate the heterozygous band is artefact, so zygosity is withheld.
+    call_rate = 1.0 - nc_rate if math.isfinite(nc_rate) else math.nan
+    if math.isfinite(call_rate) and call_rate < CALL_RATE_FLOOR:
         rep.limits.append(
-            f"No B-allele frequencies in this file, so zygosity comes from genotype "
-            f"heterozygosity ({gt_het:.1%} against the father's {father_het:.1%}) rather than "
-            "the BAF band. That is the weaker of the two measures."
+            f"Call rate {call_rate:.1%} is below {CALL_RATE_FLOOR:.0%}, where erroneous "
+            "heterozygous calls become common. Zygosity is read from the heterozygous band, so "
+            "it is not reported here and the genome cannot be separated into uniparental or "
+            "biparental. The presence or absence of this parent's contribution is unaffected: "
+            "that is Mendelian and does not rest on heterozygous calls."
         )
+    else:
+        if math.isfinite(het_band):
+            rep.zygosity = "diploid" if het_band > HET_BAND_DIPLOID else "uniparental_homozygous"
+        elif called and math.isfinite(father_het) and father_het > 0:
+            # No intensity channel at all, so fall back to genotype heterozygosity against the same
+            # derived reference: a biparental sample resembles the father, a uniparental one tends to
+            # zero. Weaker than the BAF band, which is why it is flagged.
+            gt_het = sum(1 for g in called if g == "AB") / len(called)
+            rep.zygosity = ("diploid" if gt_het > father_het / 2.0
+                            else "uniparental_homozygous")
+            rep.limits.append(
+                f"No B-allele frequencies in this file, so zygosity comes from genotype "
+                f"heterozygosity ({gt_het:.1%} against the father's {father_het:.1%}) rather than "
+                "the BAF band. That is the weaker of the two measures."
+            )
 
     if rep.zygosity == "uniparental_homozygous":
         # One allele per locus. If those alleles are the father's there is no room for a maternal

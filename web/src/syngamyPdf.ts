@@ -7,15 +7,15 @@
  * reference it was made against, every constant carries where it came from, and every file carries
  * its SHA-256.
  */
-import { LETTER, Pdf, wrap, type FontName } from './pdf'
+import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
 import {
   GLOSS, pct,
   type ChromResult, type PairClass, type PairResult, type ParentageResult,
-} from './parentage'
-import type { Gate, SampleProfile } from './ingest'
-import type { RunResult } from './runlength'
-import { int, utc } from './fmt'
-import { EXAMPLE_CITATION } from './examples'
+} from './parentage.ts'
+import type { Gate, SampleProfile } from './ingest.ts'
+import type { RunResult } from './runlength.ts'
+import { int, utc } from './fmt.ts'
+import { EXAMPLE_CITATION } from './examples.ts'
 
 export const DISCLAIMER = 'Research use only. Parent of origin here is a statistical call from '
   + 'array genotypes and requires confirmation by an independent method in a qualified genetics '
@@ -49,6 +49,8 @@ export interface ReportInput {
   tool: string
   reportId: string
   fromExamples: boolean
+  /** favicon.svg's text. The browser fetches it; a CLI run passes it in. */
+  markSvg?: string
   /** A per-locus deletion test, if one was run after the genome-wide call. */
   locus?: {
     chrom: string
@@ -76,35 +78,54 @@ export function reportId(seed: string): string {
   return h.toString(16).padStart(8, '0')
 }
 
+export interface MarkGeometry {
+  view: number
+  ring: [number, number, number, number]
+  ringColour: string
+  fill: string
+  transform: [number, number, number, number]
+  polys: [number, number][][]
+}
+
 /**
- * The monogram, read out of favicon.svg so the mark on the page is the mark the site ships.
- * Null if it cannot be read: a report without a logo is still a report.
+ * The monogram's geometry, from the text of favicon.svg.
+ *
+ * Read with regexes rather than a DOM parser so this module works wherever it is asked to
+ * typeset: the browser fetches the file, and the audit harness reads it off disk. Not a general
+ * SVG reader, and it returns null rather than guessing at anything it does not recognise, since
+ * a report without a logo is still a report.
  */
-async function mark(): Promise<null | {
-  view: number; ring: [number, number, number, number]; ringColour: string; fill: string
-  transform: [number, number, number, number]; polys: [number, number][][]
-}> {
+export function parseMark(svg: string): MarkGeometry | null {
+  const view = /viewBox\s*=\s*"([-\d.\s]+)"/.exec(svg)
+  const circle = /<circle\b([^>]*)>/.exec(svg)
+  const path = /<path\b([^>]*)>/.exec(svg)
+  if (!view || !circle || !path) return null
+  const attr = (tag: string, name: string): string | null => {
+    const m = new RegExp(`${name}\\s*=\\s*"([^"]*)"`).exec(tag)
+    return m ? m[1] : null
+  }
+  const vw = Number(view[1].trim().split(/\s+/)[2])
+  const ring = ['cx', 'cy', 'r', 'stroke-width'].map((k) => Number(attr(circle[1], k)))
+  const t = /translate\(([-\d.]+),([-\d.]+)\)\s*scale\(([-\d.]+),([-\d.]+)\)/
+    .exec(attr(path[1], 'transform') ?? '')
+  const d = attr(path[1], 'd')
+  if (!vw || !t || !d || ring.some((n) => !Number.isFinite(n))) return null
+  return {
+    view: vw,
+    ring: ring as [number, number, number, number],
+    ringColour: attr(circle[1], 'stroke') ?? BLUE,
+    fill: attr(path[1], 'fill') ?? BLUE,
+    transform: t.slice(1).map(Number) as [number, number, number, number],
+    polys: svgPolys(d),
+  }
+}
+
+/** The monogram as the site ships it. Null if it cannot be read. */
+async function mark(svgSource?: string): Promise<MarkGeometry | null> {
   try {
+    if (svgSource !== undefined) return parseMark(svgSource)
     const res = await fetch('favicon.svg')
-    if (!res.ok) return null
-    const svg = new DOMParser().parseFromString(await res.text(), 'image/svg+xml')
-      .documentElement
-    const [, , vw] = (svg.getAttribute('viewBox') ?? '').split(/\s+/).map(Number)
-    const c = svg.querySelector('circle')
-    const p = svg.querySelector('path')
-    if (!vw || !c || !p) return null
-    const t = /translate\(([-\d.]+),([-\d.]+)\)\s*scale\(([-\d.]+),([-\d.]+)\)/
-      .exec(p.getAttribute('transform') ?? '')
-    if (!t) return null
-    return {
-      view: vw,
-      ring: ['cx', 'cy', 'r', 'stroke-width'].map((k) => Number(c.getAttribute(k))) as
-        [number, number, number, number],
-      ringColour: c.getAttribute('stroke') ?? BLUE,
-      fill: p.getAttribute('fill') ?? BLUE,
-      transform: t.slice(1).map(Number) as [number, number, number, number],
-      polys: svgPolys(p.getAttribute('d') ?? ''),
-    }
+    return res.ok ? parseMark(await res.text()) : null
   } catch { return null }
 }
 
@@ -143,7 +164,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const BOT = 78
   const pdf = new Pdf(LETTER)
   pdf.setTitle('Syngamy')
-  const logo = await mark()
+  const logo = await mark(input.markSvg)
 
   let y = TOP
   let page = 0

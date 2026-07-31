@@ -34,6 +34,20 @@ export const ABSENCE_MARGIN = 3.0
 /** Diploid genomes run 15-16% in the heterozygous BAF band, uniparental ones 1.3-3.4%. */
 export const HET_BAND_DIPLOID = 0.08
 
+/**
+ * Call rate below which heterozygous calls stop being trustworthy, so nothing derived from them
+ * may be asserted. Natesan 2014, the only published threshold measured on amplified material,
+ * and the same figure `ingest.gates` already excludes on.
+ *
+ * Absence is unaffected and still called: it is Mendelian, and a homozygous father must transmit
+ * his allele whatever the call rate. What is withheld is ZYGOSITY, which is read from the
+ * heterozygous band, and with it the androgenetic/biparental split that depends on it. Measured
+ * on three isolated paternal pronuclei at 53.8%, 55.6% and 59.1% call rate: each is haploid and
+ * therefore homozygous by construction, each showed an 18-27% heterozygous band that a haploid
+ * genome cannot produce, and each was called biparental on the strength of it.
+ */
+export const CALL_RATE_FLOOR = 0.60
+
 export type OriginClass = 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear'
 
 /** One line per class, so the card, the table and the PDF cannot describe a call differently. */
@@ -191,8 +205,21 @@ export function classify(
     )
   }
 
+  // The gate `ingest.gates` already applies, applied to the axis that depends on it: below this
+  // call rate the heterozygous band is artefact, so zygosity is withheld rather than asserted.
+  const callRate = t.markers ? t.called / t.markers : NaN
+  const hetUsable = !Number.isFinite(callRate) || callRate >= CALL_RATE_FLOOR
+
   let zygosity: Zygosity = 'unknown'
-  if (Number.isFinite(hetBand)) {
+  if (!hetUsable) {
+    limits.push(
+      `Call rate ${pct(callRate, 1)} is below ${pct(CALL_RATE_FLOOR, 0)}, where erroneous `
+      + 'heterozygous calls become common. Zygosity is read from the heterozygous band, so it is '
+      + 'not reported here and the genome cannot be separated into uniparental or biparental. '
+      + 'The presence or absence of this parent\'s contribution is unaffected: that is Mendelian '
+      + 'and does not rest on heterozygous calls.',
+    )
+  } else if (Number.isFinite(hetBand)) {
     zygosity = hetBand > HET_BAND_DIPLOID ? 'diploid' : 'uniparental_homozygous'
   } else if (Number.isFinite(gtHet) && Number.isFinite(parentHeterozygosity)) {
     zygosity = gtHet > parentHeterozygosity / 2 ? 'diploid' : 'uniparental_homozygous'

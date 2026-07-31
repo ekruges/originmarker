@@ -1,0 +1,589 @@
+================================================================================================
+SYNGAMY ACCURACY AUDIT
+================================================================================================
+
+Tool          OriginMarker 2.1.1 (Kinetochore)
+Generated     2026-07-31 03:29:19Z
+Data          GEO GSE148488, Zuccaro et al. 2020, Cell 183(6):1650-1664
+              doi:10.1016/j.cell.2020.10.025
+Files         27 arrays, Affymetrix Axiom UK Biobank, 825,656 markers each, GRCh37
+Cases         26 with bench ground truth, plus a 7-case identification matrix
+
+RESULT
+
+  correct     22
+  refused     4    declined to call; asserted nothing
+  incorrect   0    asserted something the bench contradicts
+
+  On the 23 samples that pass every one of the tool's own quality gates: 22 correct, 1 refused, 0 incorrect.
+  Identification matrix: 7 of 7 resolved to exactly one donor.
+
+WHY THIS DATA
+
+  Zuccaro et al. separated the two pronuclei of a fertilised human zygote by micromanipulation
+  and arrayed each one alone. A "paternal nucleus" sample therefore contains one parental
+  genome and a "maternal nucleus" the other, established at the bench and not by any
+  inference this tool makes. That is the strongest ground truth available for the question
+  Syngamy answers: it is the answer, physically separated, before any statistic is applied.
+
+  The series also carries four arrays of one sperm donor and eight of four egg donors, which
+  supply identity and unrelated controls from the same platform and the same laboratory.
+
+HOW TO REPRODUCE
+
+  1. Download the 27 supplementary files listed under SOURCES below from GEO.
+  2. node --experimental-strip-types --max-old-space-size=8192 audit/cases.ts <raw> <out>
+  3. node --experimental-strip-types audit/report.ts <out>
+
+  The harness drives web/src/ingest.ts, web/src/parentage.ts and web/src/syngamyPdf.ts, which
+  is the same code the browser runs. Only the file plumbing differs: a gzipped file off disk
+  rather than a dropped one, and favicon.svg read rather than fetched. Every PDF in this
+  folder was produced by the same builder as the Report (PDF) button.
+
+================================================================================================
+EGG-DONOR IDENTIFICATION
+================================================================================================
+
+identify-GSM4774673
+  GEO          GSM4774673  "maternal nucleus isolated from 2PN zygote 1"
+  Expected     exactly one of the four egg donors matches
+  Reported     donor B
+  Measured     1 matched; best B at 0.81%, next C at 9.49%
+  Outcome      CONSISTENCY
+Remark Separation to the next-best donor is 11.7x.
+
+identify-GSM4774674
+  GEO          GSM4774674  "maternal nucleus isolated from 2PN zygote 2"
+  Expected     exactly one of the four egg donors matches
+  Reported     donor B
+  Measured     1 matched; best B at 0.72%, next C at 9.46%
+  Outcome      CONSISTENCY
+Remark Separation to the next-best donor is 13.2x.
+
+identify-GSM4774675
+  GEO          GSM4774675  "maternal nucleus isolated from 2PN zygote 3"
+  Expected     exactly one of the four egg donors matches
+  Reported     donor B
+  Measured     1 matched; best B at 0.96%, next C at 9.67%
+  Outcome      CONSISTENCY
+Remark Separation to the next-best donor is 10.0x.
+
+identify-GSM4774676
+  GEO          GSM4774676  "maternal nucleus isolated from 2PN zygote 4"
+  Expected     exactly one of the four egg donors matches
+  Reported     donor B
+  Measured     1 matched; best B at 0.91%, next C at 9.56%
+  Outcome      CONSISTENCY
+Remark Separation to the next-best donor is 10.6x.
+
+identify-GSM4774677
+  GEO          GSM4774677  "maternal nucleus isolated from 2PN zygote 5"
+  Expected     exactly one of the four egg donors matches
+  Reported     donor B
+  Measured     1 matched; best B at 0.75%, next C at 9.46%
+  Outcome      CONSISTENCY
+Remark Separation to the next-best donor is 12.6x.
+
+identify-GSM4774678
+  GEO          GSM4774678  "maternal nucleus isolated from 2PN zygote 6"
+  Expected     exactly one of the four egg donors matches
+  Reported     donor B
+  Measured     1 matched; best B at 0.55%, next C at 9.63%
+  Outcome      CONSISTENCY
+Remark Separation to the next-best donor is 17.5x.
+
+identify-GSM4774679
+  GEO          GSM4774679  "maternal nucleus isolated from 2PN zygote 8"
+  Expected     exactly one of the four egg donors matches
+  Reported     donor B
+  Measured     1 matched; best B at 0.88%, next C at 9.41%
+  Outcome      CONSISTENCY
+Remark Separation to the next-best donor is 10.6x.
+
+================================================================================================
+PATERNAL PRONUCLEI
+================================================================================================
+
+pat-GSM4774680
+  GEO          GSM4774680  "paternal nucleus isolated from 2PN zygote 1"
+  Expected     paternal genome present, no maternal complement (androgenetic)
+  Reported     androgenetic
+  Measured     paternal-absence 0.57% against a ceiling of 0.95% (0.60x), 544,115 informative markers
+  Quality      call rate 84.6%, heterozygous BAF band 2.9%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark Every allele traces to this parent and the genome is homozygous: a parent-only
+               complement, duplicated. Nothing here required chrY. No chrY, yet the parent's
+               alleles are present on chrX as well as the autosomes: an X-bearing sperm. This is
+               the case a chrY test cannot call.
+  Report       pat-GSM4774680.pdf
+
+pat-GSM4774681
+  GEO          GSM4774681  "paternal nucleus isolated from 2PN zygote 2"
+  Expected     paternal genome present, no maternal complement (androgenetic)
+  Reported     androgenetic
+  Measured     paternal-absence 1.30% against a ceiling of 2.21% (0.59x), 502,805 informative markers
+  Quality      call rate 78.2%, heterozygous BAF band 7.8%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark Every allele traces to this parent and the genome is homozygous: a parent-only
+               complement, duplicated. Nothing here required chrY. No chrY, yet the parent's
+               alleles are present on chrX as well as the autosomes: an X-bearing sperm. This is
+               the case a chrY test cannot call.
+  Report       pat-GSM4774681.pdf
+
+pat-GSM4774682
+  GEO          GSM4774682  "paternal nucleus isolated from 2PN zygote 3"
+  Expected     paternal genome present, no maternal complement (androgenetic)
+  Reported     androgenetic
+  Measured     paternal-absence 0.59% against a ceiling of 1.05% (0.57x), 550,094 informative markers
+  Quality      call rate 85.5%, heterozygous BAF band 3.8%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark Every allele traces to this parent and the genome is homozygous: a parent-only
+               complement, duplicated. Nothing here required chrY. No chrY, yet the parent's
+               alleles are present on chrX as well as the autosomes: an X-bearing sperm. This is
+               the case a chrY test cannot call.
+  Report       pat-GSM4774682.pdf
+
+pat-GSM4774683
+  GEO          GSM4774683  "paternal nucleus isolated from 2PN zygote 4"
+  Expected     paternal genome present, no maternal complement (androgenetic)
+  Reported     androgenetic
+  Measured     paternal-absence 0.57% against a ceiling of 0.93% (0.62x), 547,115 informative markers
+  Quality      call rate 85.0%, heterozygous BAF band 2.8%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark Every allele traces to this parent and the genome is homozygous: a parent-only
+               complement, duplicated. Nothing here required chrY. No chrY, yet the parent's
+               alleles are present on chrX as well as the autosomes: an X-bearing sperm. This is
+               the case a chrY test cannot call.
+  Report       pat-GSM4774683.pdf
+
+pat-GSM4774684
+  GEO          GSM4774684  "paternal nucleus isolated from 2PN zygote 5"
+  Expected     paternal genome present, no maternal complement (androgenetic)
+  Reported     unclear
+  Measured     paternal-absence 4.34% against a ceiling of 9.96% (0.44x), 359,018 informative markers
+  Quality      call rate 55.6%, heterozygous BAF band 21.3%
+  Gates        EXCLUDED by: call rate, het-to-hom asymmetry valid
+  Outcome      REFUSED
+Remark No chrY, yet the parent's alleles are present on chrX as well as the autosomes: an
+               X-bearing sperm. This is the case a chrY test cannot call.
+  Report       pat-GSM4774684.pdf
+
+pat-GSM4774685
+  GEO          GSM4774685  "paternal nucleus isolated from 2PN zygote 6"
+  Expected     paternal genome present, no maternal complement (androgenetic)
+  Reported     androgenetic
+  Measured     paternal-absence 0.49% against a ceiling of 1.05% (0.47x), 534,901 informative markers
+  Quality      call rate 83.1%, heterozygous BAF band 3.3%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark Every allele traces to this parent and the genome is homozygous: a parent-only
+               complement, duplicated. Nothing here required chrY. No chrY, yet the parent's
+               alleles are present on chrX as well as the autosomes: an X-bearing sperm. This is
+               the case a chrY test cannot call.
+  Report       pat-GSM4774685.pdf
+
+pat-GSM4774686
+  GEO          GSM4774686  "paternal nucleus isolated from 2PN zygote 7"
+  Expected     paternal genome present, no maternal complement (androgenetic)
+  Reported     unclear
+  Measured     paternal-absence 6.27% against a ceiling of 12.88% (0.49x), 348,211 informative markers
+  Quality      call rate 53.8%, heterozygous BAF band 26.8%
+  Gates        EXCLUDED by: call rate, het-to-hom asymmetry valid
+  Outcome      REFUSED
+Remark Call rate 53.8% is below 60%, where erroneous heterozygous calls become common. Zygosity
+               is read from the heterozygous band, so it is not reported here and the genome
+               cannot be separated into uniparental or biparental. The presence or absence of
+               this parent's contribution is unaffected: that is Mendelian and does not rest on
+               heterozygous calls.
+  Report       pat-GSM4774686.pdf
+
+pat-GSM4774687
+  GEO          GSM4774687  "paternal nucleus isolated from 2PN zygote 8"
+  Expected     paternal genome present, no maternal complement (androgenetic)
+  Reported     unclear
+  Measured     paternal-absence 3.51% against a ceiling of 7.88% (0.45x), 383,652 informative markers
+  Quality      call rate 59.1%, heterozygous BAF band 18.1%
+  Gates        EXCLUDED by: call rate, het-to-hom asymmetry valid
+  Outcome      REFUSED
+Remark Call rate 59.1% is below 60%, where erroneous heterozygous calls become common. Zygosity
+               is read from the heterozygous band, so it is not reported here and the genome
+               cannot be separated into uniparental or biparental. The presence or absence of
+               this parent's contribution is unaffected: that is Mendelian and does not rest on
+               heterozygous calls.
+  Report       pat-GSM4774687.pdf
+
+================================================================================================
+MATERNAL PRONUCLEI
+================================================================================================
+
+mat-GSM4774673
+  GEO          GSM4774673  "maternal nucleus isolated from 2PN zygote 1"
+  Expected     no paternal contribution; the maternal genome is egg donor B's (gynogenetic)
+  Reported     gynogenetic
+  Measured     paternal-absence 11.16% against a ceiling of 0.99% (11.25x), 546,092 informative markers
+  Quality      call rate 85.0%, heterozygous BAF band 3.3%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome. The oocyte donor accounts for
+               this genome and the sperm donor does not. Measured against both arrays, so this
+               is not an absence standing in for a presence.
+  Report       mat-GSM4774673.pdf
+
+mat-GSM4774674
+  GEO          GSM4774674  "maternal nucleus isolated from 2PN zygote 2"
+  Expected     no paternal contribution; the maternal genome is egg donor B's (gynogenetic)
+  Reported     gynogenetic
+  Measured     paternal-absence 11.16% against a ceiling of 0.84% (13.26x), 552,839 informative markers
+  Quality      call rate 86.1%, heterozygous BAF band 2.5%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome. The oocyte donor accounts for
+               this genome and the sperm donor does not. Measured against both arrays, so this
+               is not an absence standing in for a presence.
+  Report       mat-GSM4774674.pdf
+
+mat-GSM4774675
+  GEO          GSM4774675  "maternal nucleus isolated from 2PN zygote 3"
+  Expected     no paternal contribution; the maternal genome is egg donor B's (gynogenetic)
+  Reported     gynogenetic
+  Measured     paternal-absence 11.14% against a ceiling of 1.29% (8.64x), 536,084 informative markers
+  Quality      call rate 83.5%, heterozygous BAF band 4.8%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome. The oocyte donor accounts for
+               this genome and the sperm donor does not. Measured against both arrays, so this
+               is not an absence standing in for a presence.
+  Report       mat-GSM4774675.pdf
+
+mat-GSM4774676
+  GEO          GSM4774676  "maternal nucleus isolated from 2PN zygote 4"
+  Expected     no paternal contribution; the maternal genome is egg donor B's (gynogenetic)
+  Reported     gynogenetic
+  Measured     paternal-absence 11.11% against a ceiling of 1.17% (9.47x), 533,152 informative markers
+  Quality      call rate 82.9%, heterozygous BAF band 4.0%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome. The oocyte donor accounts for
+               this genome and the sperm donor does not. Measured against both arrays, so this
+               is not an absence standing in for a presence.
+  Report       mat-GSM4774676.pdf
+
+mat-GSM4774677
+  GEO          GSM4774677  "maternal nucleus isolated from 2PN zygote 5"
+  Expected     no paternal contribution; the maternal genome is egg donor B's (gynogenetic)
+  Reported     gynogenetic
+  Measured     paternal-absence 11.07% against a ceiling of 0.96% (11.59x), 551,558 informative markers
+  Quality      call rate 85.8%, heterozygous BAF band 3.2%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome. The oocyte donor accounts for
+               this genome and the sperm donor does not. Measured against both arrays, so this
+               is not an absence standing in for a presence.
+  Report       mat-GSM4774677.pdf
+
+mat-GSM4774678
+  GEO          GSM4774678  "maternal nucleus isolated from 2PN zygote 6"
+  Expected     no paternal contribution; the maternal genome is egg donor B's (gynogenetic)
+  Reported     gynogenetic
+  Measured     paternal-absence 11.40% against a ceiling of 0.65% (17.44x), 580,110 informative markers
+  Quality      call rate 90.4%, heterozygous BAF band 1.6%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome. The oocyte donor accounts for
+               this genome and the sperm donor does not. Measured against both arrays, so this
+               is not an absence standing in for a presence.
+  Report       mat-GSM4774678.pdf
+
+mat-GSM4774679
+  GEO          GSM4774679  "maternal nucleus isolated from 2PN zygote 8"
+  Expected     no paternal contribution; the maternal genome is egg donor B's (gynogenetic)
+  Reported     gynogenetic
+  Measured     paternal-absence 10.94% against a ceiling of 1.01% (10.83x), 551,585 informative markers
+  Quality      call rate 85.8%, heterozygous BAF band 3.6%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome. The oocyte donor accounts for
+               this genome and the sperm donor does not. Measured against both arrays, so this
+               is not an absence standing in for a presence.
+  Report       mat-GSM4774679.pdf
+
+================================================================================================
+SPERM DONOR REPLICATES
+================================================================================================
+
+rep-GSM4472398
+  GEO          GSM4472398  "genomic DNA sperm donor rep 2"
+  Expected     every allele traces back: the same man on a second array
+  Reported     androgenetic
+  Measured     paternal-absence 0.13% against a ceiling of 1.45% (0.09x), 608,996 informative markers
+  Quality      call rate 94.1%, heterozygous BAF band 16.0%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark On bulk sperm DNA this is an identity match, not an embryo. The class name is what a
+               genome carrying only this donor's alleles is called.
+  Report       rep-GSM4472398.pdf
+
+rep-GSM4472399
+  GEO          GSM4472399  "genomic DNA sperm donor rep 3"
+  Expected     every allele traces back: the same man on a second array
+  Reported     androgenetic
+  Measured     paternal-absence 0.12% against a ceiling of 1.21% (0.10x), 617,700 informative markers
+  Quality      call rate 95.4%, heterozygous BAF band 15.4%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark On bulk sperm DNA this is an identity match, not an embryo. The class name is what a
+               genome carrying only this donor's alleles is called.
+  Report       rep-GSM4472399.pdf
+
+rep-GSM4472400
+  GEO          GSM4472400  "genomic DNA sperm donor rep 4"
+  Expected     every allele traces back: the same man on a second array
+  Reported     androgenetic
+  Measured     paternal-absence 0.12% against a ceiling of 1.26% (0.10x), 615,385 informative markers
+  Quality      call rate 95.0%, heterozygous BAF band 15.3%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark On bulk sperm DNA this is an identity match, not an embryo. The class name is what a
+               genome carrying only this donor's alleles is called.
+  Report       rep-GSM4472400.pdf
+
+================================================================================================
+EGG DONORS (UNRELATED)
+================================================================================================
+
+egg-GSM4472407
+  GEO          GSM4472407  "genomic DNA egg donor A"
+  Expected     no paternal contribution: an unrelated adult
+  Reported     gynogenetic
+  Measured     paternal-absence 5.56% against a ceiling of 0.72% (7.70x), 632,618 informative markers
+  Quality      call rate 98.4%, heterozygous BAF band 13.6%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome.
+  Report       egg-GSM4472407.pdf
+
+egg-GSM4472408
+  GEO          GSM4472408  "genomic DNA egg donor D"
+  Expected     no paternal contribution: an unrelated adult
+  Reported     unclear
+  Measured     paternal-absence 4.69% against a ceiling of 4.33% (1.08x), 527,079 informative markers
+  Quality      call rate 81.9%, heterozygous BAF band 21.1%
+  Gates        passes every gate
+  Outcome      REFUSED
+  Report       egg-GSM4472408.pdf
+
+egg-GSM4472415
+  GEO          GSM4472415  "genomic DNA egg donor C rep 1"
+  Expected     no paternal contribution: an unrelated adult
+  Reported     gynogenetic
+  Measured     paternal-absence 5.19% against a ceiling of 1.06% (4.87x), 621,448 informative markers
+  Quality      call rate 96.6%, heterozygous BAF band 16.5%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome.
+  Report       egg-GSM4472415.pdf
+
+egg-GSM4472416
+  GEO          GSM4472416  "genomic DNA egg donor C rep 2"
+  Expected     no paternal contribution: an unrelated adult
+  Reported     gynogenetic
+  Measured     paternal-absence 5.20% against a ceiling of 1.09% (4.77x), 620,395 informative markers
+  Quality      call rate 96.4%, heterozygous BAF band 16.5%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome.
+  Report       egg-GSM4472416.pdf
+
+egg-GSM4472417
+  GEO          GSM4472417  "genomic DNA egg donor B rep 1 [69]"
+  Expected     no paternal contribution: an unrelated adult
+  Reported     gynogenetic
+  Measured     paternal-absence 5.24% against a ceiling of 1.08% (4.84x), 619,215 informative markers
+  Quality      call rate 96.5%, heterozygous BAF band 16.5%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome.
+  Report       egg-GSM4472417.pdf
+
+egg-GSM4472418
+  GEO          GSM4472418  "genomic DNA egg donor B rep 2 [77]"
+  Expected     no paternal contribution: an unrelated adult
+  Reported     gynogenetic
+  Measured     paternal-absence 5.25% against a ceiling of 0.98% (5.37x), 622,806 informative markers
+  Quality      call rate 97.1%, heterozygous BAF band 16.3%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome.
+  Report       egg-GSM4472418.pdf
+
+egg-GSM4472419
+  GEO          GSM4472419  "genomic DNA egg donor B rep 1 [85]"
+  Expected     no paternal contribution: an unrelated adult
+  Reported     gynogenetic
+  Measured     paternal-absence 5.25% against a ceiling of 1.00% (5.27x), 622,163 informative markers
+  Quality      call rate 97.0%, heterozygous BAF band 16.3%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome.
+  Report       egg-GSM4472419.pdf
+
+egg-GSM4472420
+  GEO          GSM4472420  "genomic DNA egg donor B rep 2 [93]"
+  Expected     no paternal contribution: an unrelated adult
+  Reported     gynogenetic
+  Measured     paternal-absence 5.25% against a ceiling of 0.98% (5.37x), 622,856 informative markers
+  Quality      call rate 97.1%, heterozygous BAF band 16.3%
+  Gates        passes every gate
+  Outcome      CORRECT
+Remark No contribution from this parent anywhere. chrY alone would not have separated this from
+               an X-bearing sperm carrying a full paternal genome.
+  Report       egg-GSM4472420.pdf
+
+================================================================================================
+THE FOUR REFUSALS, IN FULL
+================================================================================================
+
+None of these is a wrong answer. In each the tool declined to name a class and said why. That
+distinction is the reason the table above separates "refused" from "incorrect": a refusal
+costs a reader a result, and a wrong answer costs them the experiment.
+
+pat-GSM4774684  (paternal nucleus isolated from 2PN zygote 5)
+No chrY, yet the parent's alleles are present on chrX as well as the autosomes: an X-bearing
+               sperm. This is the case a chrY test cannot call.
+
+pat-GSM4774686  (paternal nucleus isolated from 2PN zygote 7)
+Call rate 53.8% is below 60%, where erroneous heterozygous calls become common. Zygosity is read
+               from the heterozygous band, so it is not reported here and the genome cannot be
+               separated into uniparental or biparental. The presence or absence of this
+               parent's contribution is unaffected: that is Mendelian and does not rest on
+               heterozygous calls.
+
+pat-GSM4774687  (paternal nucleus isolated from 2PN zygote 8)
+Call rate 59.1% is below 60%, where erroneous heterozygous calls become common. Zygosity is read
+               from the heterozygous band, so it is not reported here and the genome cannot be
+               separated into uniparental or biparental. The presence or absence of this
+               parent's contribution is unaffected: that is Mendelian and does not rest on
+               heterozygous calls.
+
+egg-GSM4472408  (genomic DNA egg donor D)
+
+The first three are isolated paternal pronuclei, which are haploid and therefore homozygous by
+construction. Each shows a heterozygous BAF band of 18 to 27 per cent, which a haploid genome
+cannot produce, and each sits below the 60 per cent call rate at which erroneous heterozygous
+calls become common (Natesan et al. 2014, Genet Med 16:838-845). The tool excludes all three on
+its own call-rate gate before any call is made. On the paternal axis it was right about all
+three anyway: absence at 0.44x, 0.49x and 0.45x of the ceiling, so the paternal genome was
+correctly detected as present in each. What it withholds is zygosity, and with it the split
+between androgenetic and biparental, because that rests on the heterozygous calls the gate has
+just declared untrustworthy.
+
+The fourth is egg donor D, which passes every gate but is the noisiest of the eight donor
+arrays: an 81.9 per cent call rate against 96 to 98 per cent for the others, and a 21.1 per
+cent heterozygous band against 16.3 to 16.5. Its own noise can account for 4.33 per cent
+absence and it shows 4.69, which is 1.08x: inside the band between the ceiling and three times
+it, where nothing is called. The seven other egg-donor arrays, all unrelated to the sperm
+donor in the same way, are called correctly at 4.8x to 7.7x.
+
+================================================================================================
+WHAT THIS AUDIT CHANGED IN THE TOOL
+================================================================================================
+
+The first run of this audit returned 3 incorrect calls, not 0. The three paternal pronuclei
+above were reported as biparental: their spurious heterozygous band pushed zygosity to
+"diploid", and a diploid genome carrying the sperm donor's alleles is by definition
+biparental. The tool had already excluded those samples on its call-rate gate, and its
+het-to-hom gate had already printed "SUSPENDED: below 60% call rate erroneous heterozygous
+calls are common" - and then the classifier used the heterozygous band anyway. It knew the
+measurement was invalid and used it.
+
+That is now fixed. Below the published call-rate floor, zygosity is withheld and the class
+falls to unclear with the reason stated. Absence is unaffected and still called, because it is
+Mendelian: a homozygous father must transmit his allele whatever the call rate. The change
+turned three wrong answers into three refusals and left every other case identical.
+
+================================================================================================
+SOURCES
+================================================================================================
+
+All 27 arrays are public GEO release files from a single series. Each is downloadable at
+https://ftp.ncbi.nlm.nih.gov/geo/samples/<GSM prefix>nnn/<GSM>/suppl/
+
+  GSM4774680  paternal nucleus isolated from 2PN zygote 1
+  GSM4774681  paternal nucleus isolated from 2PN zygote 2
+  GSM4774682  paternal nucleus isolated from 2PN zygote 3
+  GSM4774683  paternal nucleus isolated from 2PN zygote 4
+  GSM4774684  paternal nucleus isolated from 2PN zygote 5
+  GSM4774685  paternal nucleus isolated from 2PN zygote 6
+  GSM4774686  paternal nucleus isolated from 2PN zygote 7
+  GSM4774687  paternal nucleus isolated from 2PN zygote 8
+  GSM4774673  maternal nucleus isolated from 2PN zygote 1
+  GSM4774674  maternal nucleus isolated from 2PN zygote 2
+  GSM4774675  maternal nucleus isolated from 2PN zygote 3
+  GSM4774676  maternal nucleus isolated from 2PN zygote 4
+  GSM4774677  maternal nucleus isolated from 2PN zygote 5
+  GSM4774678  maternal nucleus isolated from 2PN zygote 6
+  GSM4774679  maternal nucleus isolated from 2PN zygote 8
+  GSM4472398  genomic DNA sperm donor rep 2
+  GSM4472399  genomic DNA sperm donor rep 3
+  GSM4472400  genomic DNA sperm donor rep 4
+  GSM4472407  genomic DNA egg donor A
+  GSM4472408  genomic DNA egg donor D
+  GSM4472415  genomic DNA egg donor C rep 1
+  GSM4472416  genomic DNA egg donor C rep 2
+  GSM4472417  genomic DNA egg donor B rep 1 [69]
+  GSM4472418  genomic DNA egg donor B rep 2 [77]
+  GSM4472419  genomic DNA egg donor B rep 1 [85]
+  GSM4472420  genomic DNA egg donor B rep 2 [93]
+
+Series   GSE148488
+Paper    Zuccaro MV, Xu J, Mitchell C, et al. Allele-Specific Chromosome Removal after Cas9
+         Cleavage in Human Embryos. Cell. 2020;183(6):1650-1664.e15.
+         doi:10.1016/j.cell.2020.10.025
+Platform GPL28377, Affymetrix Axiom UK Biobank array, GRCh37
+
+Threshold citation
+         Natesan SA, Bladon AJ, Coskun S, et al. Genome-wide karyomapping accurately
+         identifies the inheritance of single-gene defects in human preimplantation embryos.
+         Genet Med. 2014;16(11):838-845. doi:10.1038/gim.2014.45
+
+================================================================================================
+LIMITS OF THIS AUDIT
+================================================================================================
+
+  One laboratory, one platform, one sperm donor. Everything here is Affymetrix Axiom UK
+  Biobank data from the Egli lab. It says nothing about Illumina arrays, about other
+  amplification chemistries, or about how the tool behaves on a second sperm donor.
+
+  The pronuclei are single nuclei, which is harder material than a trophectoderm biopsy of
+  five to ten cells. That cuts both ways: it is a stress test, and it is not representative of
+  the call rates a clinical biopsy would give.
+
+  26 scored cases is not enough to claim an accuracy figure. 22 correct and 0 incorrect has a
+  95% lower bound near 87% on the proportion that are not incorrect, which is worth stating
+  and is not worth rounding up to "accurate". No confidence percentage appears on any report
+  this tool produces, for the same reason.
+
+  Ground truth for the maternal pronuclei covers the paternal side only. Which egg donor
+  contributed each one is not in the GEO record, so that half is scored on internal
+  consistency: the tool had to pick one of four, and it picked one every time, with the
+  runner-up 10 to 18 times further away. That is evidence, but it is not a labelled answer.
+
+  Research use only. Not a clinical diagnostic.
+

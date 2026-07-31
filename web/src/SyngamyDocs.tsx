@@ -1285,12 +1285,62 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             chromosome 3 and an inherited one on chromosome 11, both confirmed independently by the
             log R ratio channel, which the parentage test never reads.
           </Text>
-          <Title order={3} mt={14} mb={4}>Known relationships</Title>
+          <Title order={3} mt={14} mb={4}>The pronucleus audit</Title>
           <Text mb={8}>
-            <b>9 of 9 correct</b> across pairs of known relationship spanning true parent-offspring
-            pairs, unrelated pairs, and replicate arrays of one individual, with no population
-            constant anywhere in the code. The 95% lower bound on 9 of 9 is roughly 72%; see{' '}
-            <SecRef id="confidence" /> for what that does and does not license.
+            The strongest ground truth available for this question, and the reason it is worth
+            more than a larger number of ordinary cases: Zuccaro et al. separated the two
+            pronuclei of a fertilised zygote by micromanipulation and arrayed each one alone{' '}
+            <Ref id="zuccaro_2020" />. A paternal-nucleus sample contains one parental genome and
+            a maternal-nucleus sample the other, physically, before any statistic is applied.
+          </Text>
+          <Text mb={8}>
+            Run over 27 arrays from that series, 26 cases with bench ground truth:
+          </Text>
+          <Wide>
+            <Table striped withTableBorder>
+              <Table.Tbody>
+                <ExRow k="Correct" v="22" />
+                <ExRow k="Refused" v="4, each declining to name a class and saying why" />
+                <ExRow k="Incorrect" v="0" />
+                <ExRow
+                  k="Passing every gate"
+                  v="22 of 23 correct, 1 refused, 0 incorrect"
+                />
+                <ExRow
+                  k="Donor identification"
+                  v="7 of 7 maternal pronuclei resolved to exactly one of four egg donors, the
+                     runner-up 10 to 18 times further away"
+                />
+              </Table.Tbody>
+            </Table>
+          </Wide>
+          <Text mb={8}>
+            The four refusals are the informative part. Three are paternal pronuclei below the
+            60% call rate, where the tool excludes the sample on its own gate and withholds
+            zygosity; on the axis that matters it had all three right, detecting the paternal
+            genome as present at 0.44x, 0.49x and 0.45x of their ceilings. The fourth is the
+            noisiest of eight egg-donor arrays, landing at 1.08x inside the uncalled band while
+            the other seven, unrelated to the sperm donor in exactly the same way, are called at
+            4.8x to 7.7x.
+          </Text>
+          <Alert color="blue" p="xs" mb={10}>
+            <Text size="xs">
+              That audit found a real defect and it is worth stating plainly. Its first run
+              returned <b>three incorrect calls</b>: haploid paternal pronuclei reported as
+              biparental, because spurious heterozygous calls on a poor array pushed the BAF band
+              over the diploid threshold. The tool had already excluded all three on its
+              call-rate gate and already printed that heterozygous calls were untrustworthy
+              there, and the classifier used them anyway. Zygosity is now withheld below that
+              floor, in both implementations, and the class falls to unclear with the reason
+              stated. The full record, and a report for every case, is in the repository under{' '}
+              <Code>audit/</Code>.
+            </Text>
+          </Alert>
+          <Title order={3} mt={14} mb={4}>Earlier known-relationship pairs</Title>
+          <Text mb={8}>
+            <b>9 of 9 correct</b> across pairs spanning true parent-offspring pairs, unrelated
+            pairs, and replicate arrays of one individual, with no population constant anywhere in
+            the code. See <SecRef id="confidence" /> for what that does and does not license.
           </Text>
           <Title order={3} mt={14} mb={4}>A correction worth recording</Title>
           <Text mb={8}>

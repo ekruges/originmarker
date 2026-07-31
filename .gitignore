@@ -24,3 +24,8 @@ web/dist/
 # tarball ships them because it copies the working tree, not the git index.
 deploy/README-deploy.md
 docker-compose.override.yml
+
+# The audit's inputs are 500 MB of public GEO arrays; the record and the reports are committed,
+# the arrays are re-downloadable from the accessions listed in audit/AUDIT.txt.
+audit/raw/
+audit/out/
