@@ -9,6 +9,42 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.1.0 "Kinetochore"
+
+### Added
+
+- **The per-locus deletion test runs in the browser**, as a box under the results taking a
+  variant position. Each sample is re-read, one chromosome of it, and scored marker by marker;
+  the statistic is the longest run of consecutive paternal absences against the longest run
+  independent genotyping error would produce at the same marker count. Three windows, 25 kb,
+  10 Mb and the whole chromosome. An optional event size turns an absent run into an explicit
+  "below resolution" rather than letting it read as no event.
+
+  It requires the oocyte donor and refuses without her, for the reason the command line refuses:
+  absence is Mendelian and needs nothing from her, but presence is an identity claim and needs
+  her homozygous for the other allele. Without that nothing scores as present, nothing breaks a
+  run, and the statistic has no null.
+
+  The sample is re-read rather than retained, because its genotypes were streamed and discarded
+  to keep memory flat.
+- Its own documentation section, and the marks linking to the source and the author now appear
+  on the Syngamy documentation as they do on the panel documentation.
+
+### Fixed
+
+- **`scoreMarker` scored paternal presence without consulting the mother**, the same defect
+  `origin.score_paternal` was fixed for and documents at length. At a paternal deletion the
+  embryo is hemizygous for the maternal allele, so wherever a heterozygous mother transmitted
+  the allele the father also carries, the call still contains his allele and read as "present".
+  That breaks the run at roughly half of all mother-heterozygous markers. The browser statistic
+  was unreachable from the UI until now, so nothing shipped a wrong answer, but it would have
+  the moment the test was exposed.
+- The role control and the stat line shared one row on a 318px chip, so "female" ran off the
+  edge and "ambiguous" further still. They stack.
+- The two links under the search box had no separator.
+
+---
+
 ## 2.0.1 "Kinetochore"
 
 ### Fixed

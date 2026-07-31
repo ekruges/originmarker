@@ -199,3 +199,41 @@ assert.equal(scoreMarker('AA', null, 'BB').sPat, 0, 'paternal absence provable w
 }
 
 console.log(`runlength.check.ts: all assertions passed (${cases} golden cases)`)
+
+// --- 8. presence needs the mother, absence does not -------------------------------------------
+// The half of scoreMarker that `origin.score_paternal` exists to get right. At a paternal
+// deletion the embryo is hemizygous for the maternal allele, so wherever a heterozygous mother
+// transmitted the allele the father also carries, the call still contains his allele. Reading
+// that as presence breaks the run at roughly half of all mother-heterozygous markers.
+{
+  // Absence is Mendelian and needs nothing from her.
+  for (const mo of ['AA', 'AB', 'BB', 'NC', null] as const) {
+    assert.equal(scoreMarker('AA', mo, 'BB').sPat, 0, `absence must hold with mother ${mo}`)
+  }
+  // Presence needs her homozygous for the other allele.
+  assert.equal(scoreMarker('AA', 'BB', 'AB').sPat, 1, 'she could not have supplied the A')
+  assert.equal(scoreMarker('AA', 'AB', 'AA').sPat, null, 'she could have supplied it: silent')
+  assert.equal(scoreMarker('AA', 'AA', 'AA').sPat, null)
+  assert.equal(scoreMarker('AA', null, 'AA').sPat, null, 'no mother: presence unobservable')
+  assert.equal(scoreMarker('AA', 'NC', 'AA').sPat, null)
+  // A heterozygous father testifies to nothing in either direction.
+  assert.equal(scoreMarker('AB', 'BB', 'AA').sPat, null)
+
+  // The run that motivated the rule: a paternal deletion under a heterozygous mother. Every
+  // marker is absence or silence, and none may read as presence.
+  const f = new Map<string, AB>()
+  const m = new Map<string, AB>()
+  const e = new Map<string, AB>()
+  const markers = []
+  for (let i = 0; i < 40; i += 1) {
+    const id = `m${i}`
+    f.set(id, 'AA')
+    // She transmits A at every other marker, which is where the old rule saw "present".
+    m.set(id, 'AB')
+    e.set(id, i % 2 ? 'AA' : 'BB')
+    markers.push({ rsid: id, chrom: '1', pos: 1_000_000 + i * 1000 })
+  }
+  const scores = markers.map((k) => scoreMarker(f.get(k.rsid)!, m.get(k.rsid)!, e.get(k.rsid)!))
+  assert.ok(scores.every((s) => s.sPat !== 1), 'no marker may read as paternal presence here')
+  assert.equal(scores.filter((s) => s.sPat === 0).length, 20, 'the BB half is provable absence')
+}

@@ -371,10 +371,11 @@ export default function App() {
                     hero
                   />
                 </div>
-                <Group gap={16} mt={18} justify="center">
+                <Group gap={8} mt={18} justify="center">
                   <Anchor href="#/docs" size="xs" c="dimmed">
                     How it works, data sources and references
                   </Anchor>
+                  <Text size="xs" c="dimmed" aria-hidden>|</Text>
                   <Anchor href="#/syngamy" size="xs" c="dimmed">
                     Syngamy: parent of origin from arrays
                   </Anchor>

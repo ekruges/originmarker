@@ -45,17 +45,32 @@ const only = (g: AB): string => g[0]
 const carries = (g: AB, a: string): boolean => g !== 'NC' && g.includes(a)
 
 /**
- * Score one marker (spec 5.1).
+ * Score one marker (spec 5.1). Mirrors `origin.score_paternal` and must not drift from it.
  *
- * s_pat is defined only where the father is HOMOZYGOUS, because a heterozygous father is
- * compatible with either observed allele and so cannot testify to presence or absence. That is
- * exactly the L3-capable class of phase 1, so the scoring rule and the informativity table are
- * one object seen from two directions rather than two rules that must be kept in step.
+ * Either direction needs a HOMOZYGOUS father: a heterozygous one is compatible with either
+ * observed allele and testifies to nothing. The two directions then need different things from
+ * the mother, which is the whole reason she appears here.
+ *
+ * ABSENCE is Mendelian. A homozygous father must transmit his allele, so an embryo lacking it is
+ * missing the paternal contribution whatever the mother's genotype.
+ *
+ * PRESENCE is an identity claim. The embryo carrying his allele shows it came from HIM only if
+ * the mother could not have supplied it, so it needs her homozygous for the other allele.
+ * Scoring presence without that check is not a conservative error: at a paternal deletion the
+ * embryo is hemizygous for the maternal allele, and wherever a heterozygous mother transmitted
+ * the same allele the father carries, the call still contains his allele and reads as "present".
+ * That breaks the run at roughly half of all mother-heterozygous markers, which is how a
+ * whole-chromosome absence came back as a run of 21.
  */
 export function scoreMarker(father: AB, mother: AB | null, embryo: AB): MarkerScore {
   if (embryo === 'NC' || father === 'NC') return { sPat: null, sMat: null }
-  const sPat: 0 | 1 | null = isHom(father) ? (carries(embryo, only(father)) ? 1 : 0) : null
   const known = mother !== null && mother !== 'NC'
+  let sPat: 0 | 1 | null = null
+  if (isHom(father)) {
+    const a = only(father)
+    if (!carries(embryo, a)) sPat = 0
+    else sPat = known && mother === (a === 'A' ? 'B' : 'A').repeat(2) ? 1 : null
+  }
   const sMat: 0 | 1 | null = known && isHom(mother)
     ? (carries(embryo, only(mother)) ? 1 : 0)
     : null

@@ -11,7 +11,7 @@ export const HOME_URL = 'https://ezrakruger.cc/'
 const CONTACT = 'kruger.ezra.s@gmail.com'
 
 /** GitHub's mark, inlined. currentColor so one CSS rule drives its resting and hover grey. */
-const GithubMark = () => (
+export const GithubMark = () => (
   <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden focusable="false">
     <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
       0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
@@ -26,7 +26,7 @@ const GithubMark = () => (
 /** Person in a circle: the link home. Same 16-unit box and currentColor as the mark beside
  *  it, so one CSS rule greys both. The shoulders are clipped by the ring rather than drawn
  *  to meet it, which is what keeps the silhouette reading at 17px. */
-const AvatarMark = () => (
+export const AvatarMark = () => (
   <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden focusable="false">
     <defs>
       <clipPath id="om-av-clip">

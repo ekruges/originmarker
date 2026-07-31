@@ -3,7 +3,7 @@ import { Alert, Anchor, Code, List, Table, Text, Title } from '@mantine/core'
 import { CITATIONS, formatCitation } from './citations'
 import type { Health } from './api'
 import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, EXAMPLE_STRIDE } from './examples'
-import { HOME_URL, REPO_URL } from './DocsPage'
+import { AvatarMark, GithubMark, HOME_URL, REPO_URL } from './DocsPage'
 
 /**
  * Syngamy's own documentation, on the same furniture as the panel docs and at its own route.
@@ -50,6 +50,7 @@ const SECTIONS = [
   { id: 'band', label: 'The uncalled band' },
   { id: 'chrx', label: 'Sperm type from chrX, not chrY' },
   { id: 'oocyte', label: 'Adding the oocyte donor' },
+  { id: 'locus', label: 'The per-locus deletion test' },
   { id: 'confidence', label: 'Confidence, and why no percentage' },
   { id: 'gates', label: 'Quality gates' },
   { id: 'assembly', label: 'Assembly detection, and no liftOver' },
@@ -107,8 +108,15 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           {health ? `${health.version} · ${health.release_codename}` : 'browser-only'} · in-tab
         </Text>
         <div className="om-docs-links">
-          <a href={REPO_URL} target="_blank" rel="noreferrer" title="Source on GitHub">source</a>
-          <a href={HOME_URL} title="ezrakruger.cc">home</a>
+          <a
+            href={REPO_URL} target="_blank" rel="noreferrer"
+            aria-label="Source on GitHub" title="Source on GitHub"
+          >
+            <GithubMark />
+          </a>
+          <a href={HOME_URL} aria-label="ezrakruger.cc" title="ezrakruger.cc">
+            <AvatarMark />
+          </a>
         </div>
         <Text size="xs" c="dimmed" mt={10} pl={8}>
           <Anchor href="#/docs" size="xs">Panel documentation</Anchor>
@@ -822,6 +830,57 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         </Section>
 
         {/* --- 14 ------------------------------------------------------------------------ */}
+        <Section id="locus" title="The per-locus deletion test">
+          <Text mb={8}>
+            Everything above is a rate across the genome. This asks a different question about one
+            place: is the paternal contribution specifically absent <i>around this variant</i>. It
+            appears under the results once a run has finished, as a box taking a position.
+          </Text>
+          <Text mb={8}>
+            Type the variant&apos;s coordinate in the array&apos;s own assembly, as{' '}
+            <Code>chr7:117559590</Code>. Each sample is re-read, one chromosome of it, and scored
+            marker by marker: 1 where the sperm donor&apos;s allele is provably present, 0 where it
+            is provably absent, and nothing at all where the marker cannot say. The statistic is
+            the length of the longest <b>run</b> of consecutive absences, against the longest run
+            that independent genotyping error would produce at the same marker count.
+          </Text>
+          <Text mb={8}>
+            Contiguity is the whole point. Scattered absences are error; a deletion removes a
+            stretch. Three windows are reported, 25 kb, 10 Mb and the whole chromosome, because an
+            event smaller than the local marker spacing cannot produce a run at all.
+          </Text>
+          <Alert color="orange" p="xs" mb={10}>
+            <Text size="xs">
+              <b>This test needs the oocyte donor and refuses without her.</b> Absence is Mendelian
+              and needs nothing from her: a homozygous father must transmit his allele, so an
+              embryo lacking it is missing the paternal contribution whatever she carries. Presence
+              is an identity claim, and the embryo carrying his allele only shows it came from{' '}
+              <i>him</i> if she could not have supplied it, which needs her homozygous for the
+              other allele. Without that, nothing can score as present, so nothing can break a run,
+              and the statistic has no null to be significant against. In that mode a normal
+              chromosome 20 produced a run of 3 across 35 Mb at p = 2.5e-07.
+            </Text>
+          </Alert>
+          <Text mb={8}>
+            Supplying an event size you care about turns an absent run into an explicit{' '}
+            <b>below resolution</b> rather than letting it read as no event. That matters: on a
+            typical panel the smallest resolvable event is r_min times the local marker spacing,
+            which is tens of kilobases, so a 20 kb deletion cannot produce a significant run no
+            matter how real it is.
+          </Text>
+          <Alert color="blue" p="xs">
+            <Text size="xs">
+              Two things the run does not tell you. It does not separate copy loss from
+              copy-neutral loss of heterozygosity, since both remove paternal alleles contiguously
+              and only the intensity channel distinguishes them. And a window holding very few
+              informative markers can reach significance on a short run: the marker count is
+              printed beside every verdict for exactly that reason, and a run of one out of one is
+              not evidence of anything.
+            </Text>
+          </Alert>
+        </Section>
+
+        {/* --- 15 ------------------------------------------------------------------------ */}
         <Section id="confidence" title="Confidence, and why no percentage">
           <Text mb={8}>
             The tool never prints &quot;87% confident&quot;. That is a considered refusal, and
@@ -1137,28 +1196,11 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             it needs nothing else.
           </Text>
           <Text mb={8}>
-            The Python package goes further in four directions the page does not expose.
+            The Python package goes further in three directions the page does not expose. The
+            per-locus deletion test of <SecRef id="locus" /> now runs in the browser too; the
+            command line additionally fits the dropout rate from the trio rather than falling back
+            to the Kothiyal floor.
           </Text>
-
-          <Title order={3} mt={14} mb={4}>Per-locus deletion test</Title>
-          <Text mb={8}>
-            Given a variant position, it asks whether the paternal allele is specifically absent
-            around it, using a run-length statistic over consecutive Mendelian-informative markers
-            with a minimum run length derived from the fitted dropout rate.
-          </Text>
-          <Alert color="orange" p="xs" mb={10}>
-            <Text size="xs">
-              <b>This test refuses to run without the mother, and the refusal is structural.</b>{' '}
-              Paternal presence cannot be established at any single marker without someone who
-              could not have supplied the allele. Without her, the informative set holds absences
-              only, nothing can break a run, and the run-length statistic has no null to be
-              significant against. Dropout cannot be fitted either, so its estimate collapses to
-              the error floor and the minimum run length collapses with it. On a normal chromosome
-              20 the degraded mode produced a run of 3 across 35 Mb at p = 2.5e-07, which is a
-              confident answer to a question the data cannot address. It is refused rather than
-              reported.
-            </Text>
-          </Alert>
 
           <Title order={3} mt={14} mb={4}>Bidirectional cross-check</Title>
           <Text mb={8}>

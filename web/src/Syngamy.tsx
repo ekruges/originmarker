@@ -15,6 +15,8 @@ import {
 import type { Health } from './api'
 import { int, utc } from './fmt'
 import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, loadExample } from './examples'
+import { analyseRuns, type RunResult } from './runlength'
+import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { syngamyLogText } from './logfile'
 
@@ -468,6 +470,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           oocyteName={entries.find((x) => x.role === 'oocyte')?.file.name ?? ''}
         />
       ))}
+
+      {entries.some((e) => e.result) && (
+        <LocusTest entries={entries} donor={donor} oocyte={oocyte} log={log} />
+      )}
 
       {lines.length > 0 && (
         <RunLog
@@ -1031,6 +1037,195 @@ function Row({ label, obs, ref_, basis }: {
       <Table.Td ta="right" ff="monospace" c="dimmed">{ref_}</Table.Td>
       <Table.Td><Text size="xs" c="dimmed">{basis}</Text></Table.Td>
     </Table.Tr>
+  )
+}
+
+/* --- per-locus deletion test ---------------------------------------------------------------- */
+
+const VERDICT_COLOUR: Record<string, string> = {
+  significant_run: 'orange',
+  no_significant_run: 'gray',
+  below_resolution: 'gray',
+  undefined_father_heterozygous: 'gray',
+}
+
+/** `7:117559590`, `chr7:117,559,590` and `chr7 117559590` all parse. */
+export function parseLocus(text: string): { chrom: string; pos: number } | null {
+  const m = /^\s*(?:chr)?([0-9]{1,2}|[XYxy])\s*[:\s]\s*([\d,_ ]+)\s*$/.exec(text)
+  if (!m) return null
+  const pos = Number(m[2].replace(/[,_ ]/g, ''))
+  return Number.isFinite(pos) && pos > 0 ? { chrom: m[1].toUpperCase(), pos } : null
+}
+
+/**
+ * The per-locus test, asked of a position rather than of the genome.
+ *
+ * The genome-wide call says whether a paternal contribution arrived. This asks whether it is
+ * specifically absent AROUND ONE SITE, from the length of the run of consecutive markers where
+ * the father's obligate allele is undetected.
+ *
+ * It requires the oocyte donor and refuses without her, for the reason `origin.py` refuses:
+ * paternal PRESENCE cannot be established at any single marker without someone who could not
+ * have supplied the allele, so the informative set would hold absences only, nothing could break
+ * a run, and the statistic would have no null to be significant against.
+ *
+ * The sample is re-read rather than retained. Its genotypes were streamed and discarded to keep
+ * memory flat, and reading one chromosome again costs less than holding every marker of every
+ * sample against the chance that someone asks this question.
+ */
+function LocusTest({ entries, donor, oocyte, log }: {
+  entries: Entry[]
+  donor: DonorIndex | null
+  oocyte: DonorIndex | null
+  log: (tag: Tag, text: string) => void
+}) {
+  const [text, setText] = useState('')
+  const [size, setSize] = useState('')
+  const [rows, setRows] = useState<{ name: string; results: RunResult[] }[] | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState('')
+
+  const samples = entries.filter((e) => e.result && e.state === 'done')
+  const locus = parseLocus(text)
+
+  const run = async () => {
+    if (!locus || !donor || !oocyte) return
+    setBusy(true)
+    setErr('')
+    setRows(null)
+    const eventSizeOfInterestBp = size.trim() ? Number(size.replace(/[,_ ]/g, '')) : undefined
+    log('CALL', `per-locus test at chr${locus.chrom}:${int(locus.pos)}, `
+      + `${samples.length} sample(s)`)
+    try {
+      const out: { name: string; results: RunResult[] }[] = []
+      for (const e of samples) {
+        const markers: Marker[] = []
+        const embryo = new Map<string, AB>()
+        await profileFile(e.file, (r) => {
+          if (r.chrom.replace(/^chr/i, '').toUpperCase() !== locus.chrom) return
+          markers.push({ rsid: r.probesetId, chrom: r.chrom, pos: r.pos })
+          embryo.set(r.probesetId, r.genotype)
+        }, () => {}, () => {})
+        out.push({
+          name: e.file.name,
+          results: analyseRuns(markers, donor.gt, oocyte.gt, embryo, locus.chrom, locus.pos,
+            eventSizeOfInterestBp !== undefined && Number.isFinite(eventSizeOfInterestBp)
+              ? { eventSizeOfInterestBp } : {}),
+        })
+        log('DONE', `${e.file.name}: ${out[out.length - 1].results
+          .map((r) => `${r.window} ${r.verdict.replace(/_/g, ' ')}`).join(', ')}`)
+      }
+      setRows(out)
+    } catch (x) {
+      const m = x instanceof Error ? x.message : String(x)
+      setErr(m)
+      log('WARN', `per-locus test: ${m}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <Paper p="sm" mb={10}>
+      <Text fw={600} size="xs" tt="uppercase" c="dimmed" mb={4} style={{ letterSpacing: '0.04em' }}>
+        Per-locus deletion test
+      </Text>
+      {!oocyte ? (
+        <Alert color="orange" p="xs">
+          <Text size="xs">
+            This test needs the oocyte donor and is not run without her. Paternal presence cannot
+            be established at any single marker without someone who could not have supplied the
+            allele: the informative set would hold absences only, nothing could break a run, and
+            the run-length statistic would have no null to be significant against. Label one file
+            oocyte and run again. Parent of origin, sperm type and segmental loss above need no
+            oocyte donor and are unaffected.
+          </Text>
+        </Alert>
+      ) : (
+        <>
+          <Group gap={6} align="flex-end" wrap="wrap" mb={6}>
+            <input
+              value={text}
+              onChange={(ev) => setText(ev.target.value)}
+              onKeyDown={(ev) => { if (ev.key === 'Enter' && locus && !busy) void run() }}
+              placeholder="chr7:117559590"
+              aria-label="Variant position"
+              className="om-mono"
+              style={{
+                flex: '1 1 190px', minWidth: 0, fontSize: 13, padding: '5px 8px',
+                border: '1px solid var(--om-border-strong)', borderRadius: 2,
+              }}
+            />
+            <input
+              value={size}
+              onChange={(ev) => setSize(ev.target.value)}
+              placeholder="event bp (optional)"
+              aria-label="Event size of interest, in base pairs"
+              className="om-mono"
+              style={{
+                flex: '0 1 150px', minWidth: 0, fontSize: 13, padding: '5px 8px',
+                border: '1px solid var(--om-border-strong)', borderRadius: 2,
+              }}
+            />
+            <Button size="xs" disabled={!locus || busy} onClick={() => { void run() }}>
+              {busy ? 'Reading\u2026' : 'Test'}
+            </Button>
+          </Group>
+          <Text size="xs" c="dimmed" mb={6}>
+            The position of the variant, in this array&apos;s assembly. An event size turns an
+            absent run into an explicit &quot;below resolution&quot; rather than letting it read
+            as no event.
+          </Text>
+          {text && !locus && <Text size="xs" c="orange">Not a position: try chr7:117559590.</Text>}
+          {err && <Text size="xs" c="red">{err}</Text>}
+          {rows?.map((r) => (
+            <div key={r.name} style={{ marginTop: 10 }}>
+              <Text size="xs" fw={600} mb={3}>{r.name}</Text>
+              <Scroll>
+                <Table withTableBorder withColumnBorders>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th>Window</Table.Th>
+                      <Table.Th ta="right">L3 markers</Table.Th>
+                      <Table.Th ta="right">Longest run</Table.Th>
+                      <Table.Th ta="right">r_min</Table.Th>
+                      <Table.Th ta="right">p</Table.Th>
+                      <Table.Th>Verdict</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {r.results.map((w) => (
+                      <Table.Tr key={w.window}>
+                        <Table.Td>{w.window.replace(/_/g, ' ')}</Table.Td>
+                        <Table.Td ta="right" ff="monospace">{int(w.nL3)}</Table.Td>
+                        <Table.Td ta="right" ff="monospace">{int(w.longestRun)}</Table.Td>
+                        <Table.Td ta="right" ff="monospace">{w.rMin ?? '-'}</Table.Td>
+                        <Table.Td ta="right" ff="monospace">
+                          {w.nL3 ? w.runP.toExponential(1) : '-'}
+                        </Table.Td>
+                        <Table.Td>
+                          <Badge
+                            size="xs" variant="light"
+                            color={VERDICT_COLOUR[w.verdict] ?? 'gray'}
+                          >
+                            {w.verdict.replace(/_/g, ' ')}
+                          </Badge>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Scroll>
+              {r.results.map((w) => (
+                <Text key={w.window} size="xs" c="dimmed" mt={3}>
+                  <b>{w.window.replace(/_/g, ' ')}:</b> {w.note}
+                </Text>
+              ))}
+            </div>
+          ))}
+        </>
+      )}
+    </Paper>
   )
 }
 

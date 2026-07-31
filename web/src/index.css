@@ -216,6 +216,19 @@ body {
   color: var(--om-blue-light);
 }
 
+/* The role control takes three options and the stat line is set nowrap, so at 318px they
+   cannot share a row: "103,207 mk - 98% - female" ran off the chip, and "ambiguous" is longer
+   still. Stacked, each gets the full width and neither has to shrink. */
+.om-chip-foot {
+  flex-direction: column;
+  align-items: stretch !important;
+  gap: 4px !important;
+}
+
+.om-chip-foot > :last-child {
+  text-align: left !important;
+}
+
 /* A table wider than its column scrolls inside its own box. Without this the card grows to
    the table's width and takes the page with it, which on a phone means every card. */
 .om-scroll-x {
@@ -435,19 +448,6 @@ body {
      sits in, so it spilled past the dashed border and clipped its own right-hand column. */
   .om-chip {
     width: 100% !important;
-  }
-
-  /* The role control and the stat line cannot share a row at this width: the control alone is
-     ~180px and the stat line is set nowrap, so together they pin the chip wider than the
-     screen. Stacked, each gets the full width and neither has to shrink. */
-  .om-chip-foot {
-    flex-direction: column;
-    align-items: stretch !important;
-    gap: 4px !important;
-  }
-
-  .om-chip-foot > :last-child {
-    text-align: left !important;
   }
 
   /* The disclaimer and the version/links sit either end of one row. The links are all set
