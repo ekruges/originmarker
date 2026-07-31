@@ -85,9 +85,8 @@ assert.equal(cases, 12)
 
 // --- 2. numerical stability where the direct form fails --------------------------------
 // 1 - (1 - q^r)^m cancels catastrophically: at q = 0.0063 and r = 10 the true value is 9.8e-23,
-// but `1 - x` rounds to exactly 1 in float64 and the subtraction returns 0. The fixture's
-// run_p of 0.00e+00 for C4 is that artefact of the formula, not a bug in its answer key, and a
-// tool that reported p = 0 for a real event would be both wrong and unfalsifiable.
+// but `1 - x` rounds to 1 in float64 and the subtraction returns 0. The fixture's run_p of
+// 0.00e+00 for C4 is that artefact, not a bug in its answer key.
 {
   const naive = (r: number, n: number, q: number) => 1 - (1 - q ** r) ** (n - r + 1)
   assert.equal(naive(10, 10, KOTHIYAL_FLOOR), 0, 'the direct form really does return zero')
@@ -164,9 +163,8 @@ assert.equal(scoreMarker('AA', null, 'BB').sPat, 0, 'paternal absence provable w
 }
 
 // --- 7. below resolution is not the same as absent ------------------------------------
-// The single likeliest way to misuse the statistic. On this panel r_min x median L3 spacing is
-// 2 x 20 kb = 40 kb, so a 20 kb event CANNOT produce a significant run and saying "absent" would
-// be a false negative dressed as a finding.
+// The likeliest way to misuse the statistic. Here r_min x median L3 spacing is 40 kb, so a 20 kb
+// event cannot produce a significant run and "absent" would be a false negative.
 {
   const rows = vectors.filter((v) => v.case === 'C1_clean_H1')
   const markers: Marker[] = rows.map((r) => ({ rsid: r.marker, chrom: CHROM, pos: Number(r.pos) }))

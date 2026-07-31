@@ -32,10 +32,8 @@ const SETTINGS: PrimerSettings = {
 }
 const BUILD: PrimerBuild = { scope: 'starred', settings: SETTINGS }
 const PARAMS = { primer_scope: 'starred', primer_settings: SETTINGS }
-// primers.NOT_CHECKED_WARNING is the engine's, not this file's: a sentinel proves the UI
-// renders whatever it is handed rather than a copy it keeps. Both lengths are sentinelled
-// apart, because the table must take `short` and only `short`: `long` is a paragraph and is
-// the same paragraph on every row.
+// A sentinel, so this proves the UI renders what it is handed rather than a copy it keeps.
+// Both lengths are sentinelled apart, because the table must take `short` and only `short`.
 const WARN: PrimerWarning = {
   code: 'not_checked',
   short: 'SENTINEL-SHORT: the engine words this and the table prints it.',
@@ -95,13 +93,9 @@ const renderOpen = (d: PrimerResult) =>
 const text = (html: string) => html.replace(/<[^>]+>/g, ' ').replace(/&#x27;/g, "'").replace(/\s+/g, ' ')
 
 // --- 1. The three-state read, and an unknown state is not a pass. -------------------
-// `insilico_pcr` is a STATE CODE off the wire, never prose: app/jobs.py writes ispcr's state
-// there and welds the words on as the warning carrying that same code. This check used to
-// feed it 'DANGEROUS: 3 products' and assert the prose came back, which the server never
-// sent: it agreed with itself while the page rendered the bare word "danger" at the reader.
-// Only the two known-safe tokens may render clean. A state this UI cannot read is a state
-// nobody checked, and rendering it as clean is the one failure that turns an unverified
-// primer into a verified-looking one.
+// `insilico_pcr` is a STATE CODE off the wire, never prose. Only the two known-safe tokens may
+// render clean: a state this UI cannot read is a state nobody checked, and rendering it clean
+// turns an unverified primer into a verified-looking one.
 assert.equal(pcrDanger({ insilico_pcr: 'not_checked' }), null)
 assert.equal(pcrDanger({ insilico_pcr: 'one_product' }), null)
 assert.equal(pcrDanger({}), null)                          // absent is silence, not danger
@@ -109,11 +103,9 @@ assert.equal(pcrDanger({ insilico_pcr: null }), null)
 assert.ok(pcrDanger({ insilico_pcr: 'ok' }), 'an unreadable verdict must read as dangerous')
 assert.ok(pcrDanger({ insilico_pcr: 'PASSED' }), 'an unreadable verdict must read as dangerous')
 
-// 'unknown' is ispcr's FOURTH state and the one this file used to have no name for: asked,
-// and the answer could not be read. It is neither of the other two things. UCSC never
-// answered, so "do not order this pair without redesigning it" would be a finding invented
-// here; and nothing was ruled out, so it is not clean either. Both predicates are asserted,
-// because narrowing only pcrDangerous drops it through the gap and renders it green.
+// 'unknown' is ispcr's fourth state: asked, and the answer could not be read. Neither a
+// finding nor a pass. Both predicates are asserted, because narrowing only pcrDangerous drops
+// it through the gap and renders it green.
 assert.equal(pcrDanger({ insilico_pcr: 'unknown' }), null,
   'a timeout is not UCSC contradicting the pair')
 assert.equal(pcrUnchecked({ insilico_pcr: 'unknown' }), true,
@@ -163,21 +155,15 @@ for (const k of PRIMER_SETTING_KEYS) {
 }
 
 // --- 3. No primer3 on the server: nothing about primers renders. --------------------
-// Not an empty section and not a form over an absent feature. Matched on primer-specific
-// wording: the x-check column says "not checked" about a position, which is a different
-// claim about a different thing and must not be what makes this pass.
+// Matched on primer-specific wording: the x-check column also says "not checked", about a
+// position, and must not be what makes this pass.
 const bare = render(panel(undefined, {}))
 assert.doesNotMatch(text(bare), /Primers ·|Design primers for|primer pair|Tm |mask MAF/i)
 
 // --- 4. A finding is never behind a click. ------------------------------------------
-// The box is collapsed by default, because four lines of detail per row is a table nobody
-// reads. What collapsing must never do is hide a FINDING: a dangerous pair and a failed
-// design open themselves, so the two states worth interrupting the reader for are in the
-// markup before anyone touches anything.
-//
-// jobs.py writes what a verified pair carries: the verdict as the note whose code IS the
-// state, and the caveat beside it. Built that way here rather than hand-waved, so this
-// agrees with the server or fails.
+// Collapsed by default, but a dangerous pair and a failed design open themselves, so the two
+// states worth interrupting the reader for are in the markup before anyone clicks. The fixture
+// is built the way jobs.py writes it, so this agrees with the server or fails.
 const verdict = (code: string, short: string): PrimerWarning[] => [
   { code, short, long: 'the long form, which belongs in the exports', docs: '#/docs/primers' },
   { code: 'ispcr_caveat', short: 'SENTINEL-CAVEAT: in silico only, not a wet-lab validation.',
@@ -196,10 +182,9 @@ assert.match(text(danger), /Hide primer design/, 'a dangerous pair opens itself'
 // Named above the table too, or a reader hides the finding by paging past its row.
 assert.match(text(danger).slice(0, danger.indexOf('<table')), /rs757110/)
 
-// A verdict UCSC could not give is reported as a verdict UCSC could not give: no DANGER
-// badge, no "In-silico PCR contradicts" banner, no green pass. The page said UCSC
-// contradicted N pairs while the PDF from the same job id said NOT VERIFIED for all N: one
-// job, two documents, two different instructions, and the screen's was invented.
+// A verdict UCSC could not give is reported as one: no DANGER badge, no banner, no green pass.
+// The page once said UCSC contradicted N pairs while the PDF from the same job said NOT
+// VERIFIED for all N.
 const timedOut = render(panel({
   ...PAIR, insilico_pcr: 'unknown',
   warnings: verdict('unknown', 'SENTINEL: Still unverified: UCSC could not be reached.'),
@@ -280,10 +265,8 @@ assert.doesNotMatch(text(failed), /NOT VERIFIED|one product/)
 const chipped = render(panel(PAIR))
 assert.match(text(chipped), /Primers · starred · Tm 69/)
 
-// The verify block sits at the TOP of the chip's dropdown, above the settings grid: it is
-// the one thing in there anyone acts on, and the 19 knobs below it are mostly provenance.
-// Asserted on source order because the dropdown only mounts when the popover is opened,
-// which SSR does not do. Same approach DocsPage.check.ts takes to section ordering.
+// The verify block sits at the top of the dropdown: it is the one thing anyone acts on.
+// Asserted on source order, because the dropdown only mounts when the popover opens.
 {
   const src = readFileSync(new URL('./PrimerOptions.tsx', import.meta.url), 'utf8')
   const verifyAt = src.indexOf('Check against the genome')

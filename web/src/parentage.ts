@@ -94,11 +94,10 @@ export const emptyTally = (): Tally => ({
 /** One marker of the sample, against the parent's call at the same marker. */
 export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   t.markers += 1
-  // The BAF band is counted BEFORE the no-call check, deliberately and to match the Python. A
-  // marker whose genotype failed still has an intensity reading, and a dropped heterozygote sits
-  // in the middle of the band, which is exactly the evidence that distinguishes a genuinely
-  // homozygous genome from a diploid one that lost calls. Excluding them shifted the band from
-  // 1.27% to 0.92% on a real sample and moved the noise ceiling with it.
+  // Counted BEFORE the no-call check, to match the Python: a failed genotype still has an
+  // intensity reading, and a dropped heterozygote sits mid-band, which is what separates a
+  // homozygous genome from a diploid one that lost calls. Excluding them moved the band from
+  // 1.27% to 0.92% on a real sample, and the noise ceiling with it.
   if (row.baf !== null && isAutosome(row.chrom)) {
     t.bafTotal += 1
     if (row.baf >= 0.35 && row.baf <= 0.65) t.bafInBand += 1

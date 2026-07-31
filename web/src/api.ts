@@ -462,10 +462,8 @@ export const geneMismatch = (resolved: string | null, named?: string[]): boolean
   return want.length > 0 && got !== '' && !want.includes(got)
 }
 
-// The tags panelbuilder emits, as panelbuilder.TAGS defines them: a line tagged with one
-// the engine has and this list lacks renders as INFO, which reads as routine and hides
-// what the tag was for. Anything genuinely unknown still renders, as INFO: a tag is a hint
-// about a line, never a licence to drop one.
+// The tags panelbuilder emits, as panelbuilder.TAGS defines them. An unknown tag still renders,
+// as INFO: a tag is a hint about a line, never a licence to drop one.
 export const LOG_TAGS = ['FETCH', 'CACHE', 'INFO', 'WARN', 'SKIP', 'DONE'] as const
 export type LogTag = (typeof LOG_TAGS)[number]
 

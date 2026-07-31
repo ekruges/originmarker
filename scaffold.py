@@ -237,11 +237,9 @@ def build_scaffold(
     gm = genetic_map.load(want)
     approx = gm.approx or not gm.covers(variant_pos)
 
-    # Coordinates from another assembly index the map at the wrong genomic locations and come
-    # back with a plausible-looking number, which is the worst kind of wrong. Where the build is
-    # known and does not match, the map is not consulted at all: a uniform rate is a stated
-    # approximation, whereas a real map read at wrong coordinates is a silent error. Confirmed
-    # necessary on real files: the lab's Axiom exports are GRCh37 and these maps are GRCh38.
+    # Coordinates from another assembly index the map at the wrong locations and return a
+    # plausible number. Where the build is known and does not match, the map is not consulted: a
+    # uniform rate is a stated approximation, a misread map is a silent error.
     mismatch = build is not None and build != genetic_map.MAP_BUILD
 
     def cm_between(a: int, b: int) -> float:

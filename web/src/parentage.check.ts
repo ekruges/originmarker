@@ -20,10 +20,9 @@ const row = (
 
 // --- 1. the noise bound, against pairs of known relationship ----------------------------------
 //
-// Dropout only manufactures absence by turning a heterozygous call homozygous and discarding the
-// parent's allele, so the bound is the product and neither term alone. A homozygous genome is
-// immune however much drops out, which is why an androgenote holds at 0.16% absence despite a
-// 13.6% no-call rate while a diploid embryo at 46.9% reaches 9.69% against its own father.
+// The bound is the product and neither term alone: a homozygous genome is immune however much
+// drops out, which is why an androgenote holds at 0.16% absence at a 13.6% no-call rate while a
+// diploid embryo at 46.9% reaches 9.69% against its own father.
 assert.equal(absenceExplainable(0.5, 0), 0, 'homozygous: immune to dropout')
 assert.equal(absenceExplainable(0, 0.5), 0, 'no dropout: nothing to inflate')
 for (const [nc, het, observed] of [

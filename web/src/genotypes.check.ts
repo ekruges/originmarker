@@ -69,10 +69,8 @@ assert.equal(lookup(m(null, 5_400_000), vcf)?.matchedBy, 'position')
 assert.equal(lookup(m('rs111', 5_100_000), vcf)?.matchedBy, 'rsid')
 
 // --- 4. Absent is not hom-ref, and this is the whole reason the state exists -----------
-// A variants-only VCF omits every site where the sample matches the reference, so a marker
-// that is simply not in the file is USUALLY hom-ref and is sometimes a region nobody
-// called. Reading absence as hom-ref would silently drop markers a gVCF would have shown as
-// heterozygous, and reading it as het would invent informativity. It is its own answer.
+// A variants-only VCF omits every matching site, so absence is usually hom-ref and sometimes a
+// region nobody called. Reading it either way invents an answer, so it is its own state.
 assert.equal(lookup(m('rs404', 5_250_000), vcf), null, 'an absent marker must return null')
 
 // --- 5. Chromosome naming ---------------------------------------------------------
@@ -94,9 +92,8 @@ assert.equal(lookup(m('rs333', 5_300_000), arr)?.call, 'nocall')
 assert.equal(lookup(m('rs888', 5_350_000), arr)?.text, 'GT', 'the file\'s own wording is kept')
 
 // --- 7. The assembly cross-check ---------------------------------------------------
-// A GRCh37 export matches by rsID perfectly and by POSITION lands on the wrong site, so a
-// file read mostly by position would return confident genotypes for sites nobody asked
-// about. rsID-matched coordinates answer it for free.
+// A GRCh37 export matches by rsID perfectly and by position lands on the wrong site. The
+// rsID-matched coordinates detect that for free.
 const AGREE = [m('rs111', 5_100_000), m('rs222', 5_200_000), m('rs333', 5_300_000),
                m('rs888', 5_350_000)]
 assert.equal(checkBuild(AGREE, arr).mismatch, false, 'same-build file flagged as mismatched')

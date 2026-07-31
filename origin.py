@@ -250,10 +250,9 @@ class WindowVerdict:
     r_min: Optional[int]
     q: float
     q_source: str
-    #: Whether the run survived EVERY gate: length, the maternal cross-check, and the no-mother
-    #: refusal. Callers must read this rather than recomputing it from longest_run and r_min,
-    #: which is how the runner briefly reported a paternal loss on three samples whose paternal
-    #: genome is demonstrably present.
+    #: Whether the run survived every gate: length, the maternal cross-check, the no-mother
+    #: refusal. Read this rather than recomputing from longest_run and r_min, which bypasses
+    #: the refusals.
     significant: bool = False
     #: Physical extent of the longest run, and the gap cap that was allowed to break it.
     run_lo: Optional[int] = None
@@ -382,10 +381,9 @@ def analyse_embryo(
     )
 
     want = variant_chrom.replace("chr", "").lower()
-    # chrX probes carry a per-array intensity offset that has nothing to do with copy number.
-    # Interpreting a chrX LRR without it makes a male's single X look like two copies, so where
-    # the array's offset has never been measured the copy-number layer is refused on chrX rather
-    # than run with a known bias. The genotype statistics below are untouched by this.
+    # chrX probes carry a per-array intensity offset unrelated to copy number, and without it a
+    # male's single X reads as two copies. Where it has not been measured the copy-number layer
+    # is refused on chrX. The genotype statistics below are untouched.
     on_sex_chrom = want in ("x", "23")
     offset_missing = on_sex_chrom and calibration.chrx_offset is None
     if offset_missing:
@@ -398,12 +396,9 @@ def analyse_embryo(
         (m for m in markers if m.chrom.replace("chr", "").lower() == want and m.pos != variant_pos),
         key=lambda m: m.pos,
     )
-    # Without the mother, PRESENCE is unobservable: proving an allele came from the father needs
-    # someone who could not have supplied it. So the informative set degenerates to absences
-    # only, nothing can break a run, and the run length is just the count of Mendelian
-    # violations wearing a p-value. On a normal chromosome 20 that produced a run of 3 across
-    # 35 Mb at p = 2.5e-07. Dropout is unmeasurable in this mode too, so q collapses to the
-    # error floor and r_min collapses with it, and the maternal cross-check is unavailable.
+    # Without the mother presence is unobservable, so the informative set holds absences only,
+    # nothing breaks a run, and the statistic has no null: a normal chromosome 20 gave a run of 3
+    # across 35 Mb at p = 2.5e-07. Dropout is unfittable too, so q collapses to the error floor.
     has_mother = any(m.mother is not None for m in on_chrom)
     if not has_mother:
         v.refusals.append(
@@ -489,11 +484,9 @@ def analyse_embryo(
             path = [hmm.STATES[j].name for j in inf.viterbi]
             at_variant = min(range(len(obs)), key=lambda i: abs(obs[i].pos - variant_pos)) \
                 if obs else None
-            # The contiguous aberrant stretch CONTAINING the variant, not the longest one
-            # anywhere in the window. On a chromosome carrying more than one event those are
-            # different segments, and quoting the wrong one attaches a real sigma to an unrelated
-            # locus. Counting scattered markers is worse still: separation grows as sqrt(n) by
-            # averaging over a segment, so a chromosome 3 read as 7,499 markers and 359 sigma.
+            # The stretch containing the variant, not the longest anywhere in the window, and
+            # contiguous rather than scattered: counting scattered markers read a normal
+            # chromosome 3 as 7,499 markers at 359 sigma.
             if at_variant is not None and path[at_variant] != "PAT1_MAT1":
                 state = path[at_variant]
                 lo = hi = at_variant
@@ -507,11 +500,8 @@ def analyse_embryo(
             if at_variant is not None:
                 hp = hmm.hypotheses_at(
                     inf.gamma[at_variant],
-                    # Every informative marker on the chromosome, not the longest unbroken run.
-                    # The compactness rule splits runs at marker deserts (centromeres,
-                    # heterochromatin), so a male's X - genuinely absent end to end - fragments
-                    # into pieces. Fragmentation is about where markers are, not about what is
-                    # missing, and only z == n answers "is the whole chromosome gone".
+                    # z == n, not the longest run: compactness splits runs at marker deserts, so
+                    # a genuinely absent chromosome fragments into pieces.
                     whole_chromosome_absent=(name == "whole_chromosome" and z == n and n > 0),
                     informative_markers=n,
                 )
@@ -575,9 +565,8 @@ def estimate_dropout(
 
 # --- reading files --------------------------------------------------------------------------
 #
-# Only the CLI needs this. In the browser TypeScript has already parsed the drop box before
-# Pyodide finishes loading, and hands marker records straight in. Same bounded duplication as the
-# run statistic, and pinned the same way: the reader tests run against the real published files.
+# Only the CLI needs this; the browser parses its own drop box. Pinned against the real
+# published files, the same way the run statistic is.
 
 #: Genotype coding. Axiom writes 0/1/2, Illumina writes the AB-space letters directly. Anything
 #: else is a no-call, never guessed: a nucleotide-space report degrades to nearly all no-calls
@@ -1151,21 +1140,13 @@ def build_markers(
 
 # --- parental origin from sperm and sample alone ---------------------------------------------
 #
-# The coarse question, and the one a lab asks first: did this sample get a paternal genome, and
-# on which chromosomes. It needs no mother, no variant position and no phase, because it is a
-# RATE over hundreds of thousands of markers rather than a claim about any single one. Attributing
-# one allele needs someone who could not have supplied it; measuring how often the father's
-# obligate allele is missing does not.
-#
-# It also covers the case the chrY test cannot reach. A Y-bearing sperm announces itself, but an
-# X-bearing one leaves no Y, and then chrY cannot separate a sample with a full paternal genome
-# from one with none.
+# Did this sample get a paternal genome, and on which chromosomes. A RATE over hundreds of
+# thousands of markers, so it needs no mother, no variant position and no phase. It also covers
+# the case chrY cannot reach: an X-bearing sperm leaves no Y, so chrY alone cannot separate a full
+# paternal genome from none.
 
-#: Rate at which a genuinely unrelated genome lacks the father's obligate allele, for REPORTING
-#: only. It is not a decision boundary and must not become one: measured across 50+ pairs on this
-#: array it ranges from 6.8% to 50%, because it depends on the allele-frequency spectrum shared
-#: by the two people (same-study pairs sit near 7%, cross-study pairs at 8-15%) and on how noisy
-#: the sample used as the father is. A single number cannot carry that.
+#: For REPORTING only, never a decision boundary: measured across 50+ pairs it ranges from 6.8%
+#: to 50%, since it depends on the ancestry the two people share and on the father file's noise.
 UNRELATED_ABSENCE = {"UK Biobank Axiom Array": 0.055}
 
 #: Above this a chromosome is treated as having lost the paternal contribution outright. Sits far
@@ -1195,10 +1176,9 @@ def second_parent_signal(father_heterozygosity: float) -> float:
         return math.nan
     return father_heterozygosity / 2.0
 
-#: Fraction of autosomal BAF in the heterozygous band, which says whether the genome is diploid
-#: at all. Measured at 15-16% for ordinary diploids and 1.3-3.4% for uniparental homozygous ones.
-#: Dropout does NOT mimic this: a biparental embryo at 33% dropout still reads 22.2%, because
-#: dropout smears the heterozygous cluster rather than emptying it.
+#: Fraction of autosomal BAF in the heterozygous band, which says whether the genome is diploid.
+#: 15-16% for diploids, 1.3-3.4% for uniparental. Dropout smears that band rather than emptying
+#: it: a biparental embryo at 33% dropout still reads 22.2%.
 HET_BAND_DIPLOID = 0.08
 
 #: Residual paternal-absence rate on clean data, from genotyping error alone. Measured at 0.03%
@@ -1363,14 +1343,11 @@ def parental_origin(
         rep.limits.append("No markers where the father is homozygous and the sample is called.")
         return rep
 
-    # The baseline is drawn from the sample's own quietest chromosomes, which absorbs this
-    # sample's genotyping quality. That self-calibration has one failure mode and it is total:
-    # a sample with NO paternal genome has no quiet chromosome to learn from, so the baseline
-    # comes back at the unrelated rate and every comparison degenerates. Detect it rather than
-    # quoting a "when present" rate that exceeds the unrelated one.
-    # The decision is whether the observed absence exceeds what THIS sample's own noise can
-    # manufacture. That needs no population reference, and so survives the ancestry dependence
-    # that makes an "unrelated rate" unusable as a boundary.
+    # The baseline comes from the sample's own quietest chromosomes, which has one total failure
+    # mode: a sample with no paternal genome has no quiet chromosome to learn from. Detect that
+    # rather than quoting a "when present" rate above the unrelated one. The decision itself is
+    # whether absence exceeds what this sample's own noise can manufacture, which needs no
+    # population reference.
     called = [p.gt for p in sample.probes.values() if p.gt != "NC"]
     nc_rate = 1.0 - (len(called) / len(sample.probes)) if sample.probes else math.nan
     het_frac = (het_band if math.isfinite(het_band)
@@ -1424,9 +1401,8 @@ def parental_origin(
 
     # --- the three axes, resolved into one parent-of-origin call ----------------------------
     #
-    # Paternal absence alone cannot separate a paternal-only genome from a biparental one: the
-    # father's alleles are present in both. The second axis does that, and the third says whether
-    # the genome is diploid at all.
+    # Absence cannot separate a paternal-only genome from a biparental one, since his alleles are
+    # in both. The second axis does that, and the third says whether the genome is diploid.
     pat_present = rep.verdict == "paternal_genome_present"
     # The second-parent signal is DERIVED from the father's own heterozygosity, not fitted.
     father_het = (sum(1 for p in father.probes.values()
@@ -1525,9 +1501,8 @@ def parental_origin(
 
 # --- segmental parent of origin ----------------------------------------------------------------
 #
-# The genome-wide call answers "did a paternal genome arrive". This answers "which PARTS of one
-# did", which is the question for a mosaic or partially-lost sample. Same measurement, resolved
-# along the chromosome instead of summed over it.
+# Which PARTS of a paternal genome arrived, for a mosaic or partially-lost sample. The same
+# measurement, resolved along the chromosome instead of summed over it.
 
 
 @dataclass
@@ -1607,11 +1582,9 @@ def segmental_origin(
     for v in per.values():
         v.sort()
 
-    # The two emission rates must be anchored to the CALIBRATED boundary, not to percentiles of
-    # whatever this sample happens to show. Taking the 10th and 90th percentiles of the observed
-    # window rates finds two populations even in a uniform genome, because those are just the
-    # tails of one noise distribution: it carved a sample whose paternal genome is present
-    # everywhere at 0.16% into 28 "absent" segments running at 0.3-1.5%.
+    # Anchored to the calibrated boundary, not to percentiles of this sample. Percentiles find
+    # two populations in a uniform genome, since those are the tails of one noise distribution: it
+    # carved a sample present everywhere at 0.16% into 28 "absent" segments.
     if explainable is None:
         explainable = parental_origin(father, sample).explainable
     if not math.isfinite(explainable):
@@ -1848,11 +1821,8 @@ def run_experiment(
     rep.build = detected.build
     rep.assembly_note = detected.note
 
-    # Segmental loss, then the plate-level filter that separates a real event from the array.
-    # A stretch that comes back in sample after independent sample is a property of the probes
-    # there, not of any one genome: on this plate every marginal call recurred across all three
-    # paternal samples (subtelomeric and pericentromeric regions), while the one real finding,
-    # a whole non-PAR X, appeared in exactly the sample that carries the father's Y.
+    # Segmental loss, then the plate-level filter: a stretch recurring across independent samples
+    # is a property of the probes there, not of any one genome.
     by_id_all = {s.sample_id: s for s in samples}
     for sv in paternal:
         segs, _info = segmental_origin(father, by_id_all[sv.sample_id],

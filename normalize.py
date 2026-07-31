@@ -44,17 +44,14 @@ CHRX_CN2_OFFSET = {"UK Biobank Axiom Array": 0.1908}
 #: to derive it was wrong - a delivered copy_number column, usually.
 MIN_CREDIBLE_COMPRESSION = 0.25
 
-#: Above this it is not credible either, and this ceiling was missing until a real WGA'd embryo
-#: produced c = 1.486. Compression is observed shift over THEORETICAL shift, so a value above 1
-#: means the array amplified the copy-number signal rather than compressing it. No hybridisation
-#: array does that; every published value sits below 0.7 (PennCNV 0.57-0.68, ASCAT 0.55). A value
-#: over 1 means the reference was not a one-copy state - on that embryo, chrX was simply noisy.
+#: A value above 1 means the array amplified the copy-number signal rather than compressing it,
+#: which no hybridisation array does (PennCNV 0.57-0.68, ASCAT 0.55). It means the reference was
+#: not a one-copy state. Added after a real WGA'd embryo produced c = 1.486.
 MAX_CREDIBLE_COMPRESSION = 1.0
 
 #: Above this per-marker noise the intensity channel carries no usable copy-number information,
-#: whatever c says. Measured for scale: clean bulk DNA on this array runs 0.42, and the WGA'd
-#: embryo that exposed the ceiling above ran 1.36 - three times the state separation it would need
-#: to resolve. A channel that noisy has to be declared unusable rather than fitted.
+#: whatever c says. Clean bulk DNA runs 0.42; the WGA'd embryo above ran 1.36, three times the
+#: state separation it would need to resolve.
 MAX_USABLE_SIGMA_LRR = 0.80
 
 CalibrationRoute = Literal["chrx_male", "copy_number_column", "declared", "none"]
@@ -88,10 +85,9 @@ class Calibration:
     warnings: list[str] = field(default_factory=list)
     #: Raw chrX-minus-autosome shift, before the female-baseline correction, for auditing.
     chrx_shift_raw: Optional[float] = None
-    #: The measured chrX probe offset for this array, or None if this array has none on file.
-    #: It is needed twice and the second use is easy to miss: once to DERIVE c from a male chrX,
-    #: and again to INTERPRET any chrX intensity afterwards. Skipping the second use makes a
-    #: male's single X read as two copies, because the offset is most of the shift being measured.
+    #: The measured chrX probe offset, or None. Needed twice, and the second use is easy to miss:
+    #: to derive c from a male chrX, and again to interpret any chrX intensity afterwards.
+    #: Skipping the second makes a male's single X read as two copies.
     chrx_offset: Optional[float] = None
 
     def separation_sigma(self, segment_markers: int) -> float:

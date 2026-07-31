@@ -114,11 +114,9 @@ export function SearchPanel({
   const combobox = useCombobox({ onDropdownClose: () => combobox.resetSelectedOption() })
   const shown = matching(entries, text)
 
-  // The selected index is a ref into the LIVE option list, so any change to `shown` leaves
-  // it aimed at whichever row now sits at that index: Enter would then submit a query the
-  // user never highlighted. Reset it wherever the rows change, not per writer of text or
-  // entries. Left open over an emptied list, the input would also claim aria-expanded over
-  // a listbox that is gone.
+  // The selected index is a ref into the LIVE option list, so any change to `shown` leaves it
+  // aimed at whichever row now sits there and Enter submits a query nobody highlighted. Reset
+  // wherever the rows change. An emptied list would also leave aria-expanded over no listbox.
   useEffect(() => {
     combobox.resetSelectedOption()
     if (!shown.length) combobox.closeDropdown()
@@ -246,11 +244,9 @@ export function SearchPanel({
     inputRef.current?.focus()
   }
 
-  // Ghost examples cycle through the accepted input forms, the way a search box does. Only
-  // while the box is empty: a placeholder moving under text someone is composing is noise,
-  // and the element is aria-hidden from the input's own label anyway.
-  // Shuffled once per mount, not per render: a new order on every keystroke would reshuffle
-  // the box under the reader. Recomputed when nl_enabled arrives, since that changes the set.
+  // Cycles through the accepted input forms, and only while the box is empty: a placeholder
+  // moving under text someone is composing is noise. Shuffled once per mount, not per render,
+  // and recomputed when nl_enabled arrives, since that changes the set.
   const forms = useMemo(
     () => shuffled(PLACEHOLDERS.filter((p) => !p.nl || health?.nl_enabled)),
     [health?.nl_enabled],
@@ -260,10 +256,8 @@ export function SearchPanel({
   const idle = mode === 'search' && !text && !busy
   const showGhost = idle
 
-  // Copy the input's own text metrics onto the ghost rather than restate them in CSS: the
-  // input's size comes from Mantine's theme and a hero override, so any constant here is a
-  // guess that drifts. The ghost must sit exactly where the real text will appear, or the
-  // swap to typed text jumps.
+  // Copied from the input rather than restated in CSS: its size comes from Mantine's theme and a
+  // hero override, so a constant here drifts and the swap to typed text jumps.
   const ghostRef = useRef<HTMLSpanElement>(null)
   useLayoutEffect(() => {
     const el = inputRef.current
@@ -296,10 +290,9 @@ export function SearchPanel({
     }
   }, [idle, forms.length])
 
-  // Wrap inline rather than via a component defined in this body. A component declared
-  // here gets a fresh function identity on every render, and React compares element types
-  // by reference: a new identity is a new type, so the whole subtree unmounts and remounts
-  // on each keystroke, destroying the input and its focus.
+  // Inline rather than a component declared in this body: that gets a fresh identity per render,
+  // and React compares element types by reference, so the subtree remounts on every keystroke and
+  // the input loses focus.
   const body = (
     <>
       {hero ? (
@@ -373,20 +366,16 @@ export function SearchPanel({
                 value={text}
                 disabled={busy}
                 onChange={(e) => {
-                  // Reset here, not in an effect keyed on `text`: the store's index is a ref
-                  // into the option list, an effect runs after paint, and an Enter arriving
-                  // in between reads an index aimed at whichever row now sits there. That
-                  // submits a variant the user never highlighted.
+                  // Here, not in an effect keyed on `text`: an effect runs after paint, and an
+                  // Enter arriving in between submits a variant nobody highlighted.
                   combobox.resetSelectedOption()
                   setText(e.currentTarget.value)
                 }}
                 // Opened by click, never by focus: the box focuses itself on mount and the
                 // ex button focuses it again, and neither is someone asking for a list.
                 onClick={() => shown.length && combobox.openDropdown()}
-                // Every key handled here, with Combobox.Target's own navigation switched
-                // off. Sharing the input between two handlers means relying on which one
-                // cloneElement keeps, and the answer was neither: the arrows silently did
-                // nothing while both sides looked correct in isolation.
+                // Every key handled here, with Combobox.Target's own navigation off: sharing the
+                // input relies on which handler cloneElement keeps, and the answer was neither.
                 onKeyDown={(e) => {
                   const open = combobox.dropdownOpened && shown.length > 0
                   const active = open ? combobox.getSelectedOptionIndex() : -1
@@ -407,12 +396,9 @@ export function SearchPanel({
                   }
                   if (e.key === 'Enter') {
                     e.preventDefault()
-                    // A highlighted row wins; a plain Enter submits what was typed. Reading
-                    // the row out of `shown` rather than the index alone: the index is a ref
-                    // into a list that re-filters as the user types.
-                    // Trustworthy because onChange resets the index in the same tick it
-                    // changes the list: nothing can land in between aiming it at a row that
-                    // moved. An effect could not promise that, and did not.
+                    // A highlighted row wins, a plain Enter submits what was typed. Read out of
+                    // `shown` rather than the index alone, and trustworthy because onChange resets
+                    // the index in the same tick it changes the list.
                     const row = active >= 0 ? shown[active] : undefined
                     if (row) { setText(row.text); submitSearch(row.text) } else submitSearch()
                     return

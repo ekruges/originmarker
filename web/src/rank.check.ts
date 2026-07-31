@@ -25,10 +25,9 @@ assert.equal(ancestryHet(m, 'AFR'), twoPQ(0.4))
 assert.equal(ancestryHet(m, 'EAS'), null)
 assert.equal(ancestryHet(m, null), null)
 
-// rankHet falls back to the GLOBAL 2pq like panelbuilder._rank_key, never to het_max_pop:
-// the PDF stamps provenance["ranking_key"] = "global 2pq (het)", and a drifted mirror
-// orders the same panel differently on screen and in the export.
-// het, het_max_pop and the AFR figure are three DIFFERENT numbers here on purpose.
+// rankHet falls back to the GLOBAL 2pq like panelbuilder._rank_key, never to het_max_pop: a
+// drifted mirror orders the same panel differently on screen and in the export. het,
+// het_max_pop and the AFR figure are three different numbers here on purpose.
 const fb = mk({ rsid: 'rs_fb', het: 0.2952, het_max_pop: 0.5, per_pop_maf: { AFR: 0.4 } })
 assert.equal(rankHet(fb, 'EAS'), fb.het) // unsampled population: global, not AFR's 0.5
 assert.notEqual(rankHet(fb, 'EAS'), fb.het_max_pop)
@@ -43,9 +42,8 @@ assert.equal(shownHet(drawn, 'AFR'), twoPQ(0.4)) // ancestry: the ancestry's own
 assert.equal(shownHet(drawn, 'EAS'), null) // unsampled population: no height, not zero
 assert.notEqual(shownHet(drawn, 'EAS'), 0) // ...and never confusable with 2pq = 0
 // Ranking falls back to the global figure so an unsampled population still gets an order;
-// drawing under a titled axis has no such licence and shows nothing. Spelled as drawn.het
-// rather than a literal: 0.5 is also het_max_pop and the AFR figure, so a literal here
-// would not tell the three apart.
+// drawing under a titled axis has no such licence. Spelled as drawn.het because 0.5 is also
+// het_max_pop and the AFR figure here.
 assert.equal(rankHet(drawn, 'EAS'), drawn.het)
 assert.notEqual(rankHet(drawn, 'EAS'), drawn.het_max_pop)
 assert.notEqual(shownHet(drawn, 'EAS'), rankHet(drawn, 'EAS'))
@@ -80,10 +78,9 @@ const orig = [far, near]
 rankMarkers(orig, 'AFR')
 assert.equal(orig[0].rsid, 'rs_far')
 
-// posMismatch drives the panel-level alarm in PanelTable. Three states, three distinct
-// claims, and collapsing any two of them is the failure this guards. Hand-built: the
-// golden ABCC8 fixture cross-checks 'ok' or null on every marker, so no fixture reaches
-// the mismatch branch.
+// posMismatch drives the panel-level alarm in PanelTable. Three states, three distinct claims,
+// and collapsing any two is the failure this guards. Hand-built: no fixture reaches that
+// branch.
 assert.equal(posMismatch(mk({ rsid: 'rs_agreed', ensembl_pos_check: 'ok' })), false)
 assert.equal(posMismatch(mk({ rsid: 'rs_disputed', ensembl_pos_check: 'MISMATCH:17401130' })), true)
 // null is silence, not a pass: only the nearest few shortlisted markers are sent to

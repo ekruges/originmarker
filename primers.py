@@ -65,10 +65,8 @@ UNAVAILABLE = Note(
          "primers.",
 )
 
-# Carried by every pair this module returns, which is every pair before a verification lane
-# has looked at it. It states only what this module can know: the pair was designed against
-# one template and checked for products in that template and nowhere else. Whether a
-# verifier is configured is app/ispcr.py's fact to report, not this module's to guess.
+# Carried by every pair this module returns. It states only what this module can know: designed
+# against one template, checked for products in that template and nowhere else.
 NOT_CHECKED_WARNING = Note(
     code="not_checked",
     short="Not checked against the genome: it may amplify more than one locus.",
@@ -82,13 +80,10 @@ NOT_CHECKED_WARNING = Note(
 # this app refuses.
 SIZE_CAP = 35
 
-# The widest product a design may ask for. Not primer3's limit: it is the width of the
-# question app/ispcr.py can put to UCSC (ispcr.REPORT_MAX_BP, 4000, hgPcr's own default for
-# Max Product Size). A product past that cannot be REPORTED by UCSC, and hgPcr reports
-# nothing rather than reporting it truncated, so the pair's own on-target product goes
-# missing and reads as "found no product, do not order": our own request accusing a good
-# pair. The number lives here rather than there because this module must not import a module
-# that fetches; ispcr's self-check asserts its own width still clears this one.
+# The widest product a design may ask for. Not primer3's limit but the width of the question
+# UCSC can be asked (hgPcr's Max Product Size default, 4000): past it hgPcr reports nothing, and
+# a good pair reads as "no product, do not order". Here rather than in ispcr because this module
+# must not import one that fetches; ispcr's self-check asserts its width still clears this.
 PRODUCT_CAP = 3000
 
 # A product needs room to sit inside the template AND room for primer3 to search either
@@ -242,10 +237,8 @@ class PrimerResult:
     masked: tuple = ()                           # tuple[MaskSite], what was kept clear
     mask_note: Optional[Note] = None
     warnings: tuple = ()
-    # Multi-valued, like ensembl_pos_check and hotspot_between: "not_checked" is not
-    # "passed". A two-state flag renders an unverified pair as a clean one. This module
-    # only ever sets the default; app/ispcr.py owns the vocabulary and the other states,
-    # and importing it here would drag HTTP into a module that must not fetch.
+    # Multi-valued, like ensembl_pos_check: "not_checked" is not "passed", and a two-state flag
+    # renders an unverified pair as a clean one. app/ispcr.py owns the other states.
     insilico_pcr: str = "not_checked"
     error: Optional[str] = None
 

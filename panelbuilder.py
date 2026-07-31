@@ -67,10 +67,8 @@ MAX_WORKERS = 8                 # concurrent API fetches
 # criteria; "recommended" is the whole shortlist; "none" designs nothing.
 PRIMER_SCOPES = ("starred", "recommended", "none")
 CACHE_DIR = Path(os.environ.get("PANELBUILDER_CACHE", ".panelbuilder_cache"))
-# ClinVar publishes weekly and gnomAD/Ensembl quarterly, so a week cannot serve a
-# classification that changed two releases ago. PANELBUILDER_CACHE_TTL=0 disables expiry:
-# the recorded-fixture test runs need that, since their cache IS the source of truth and
-# expiring it would turn an offline suite into a live one.
+# A week, because ClinVar publishes weekly. 0 disables expiry, which the offline fixture
+# suite needs: there the cache is the source of truth.
 CACHE_TTL_S = float(os.environ.get("PANELBUILDER_CACHE_TTL", 7 * 86_400))
 CONTACT_EMAIL = os.environ.get("NCBI_CONTACT_EMAIL")   # optional etiquette
 NCBI_API_KEY = os.environ.get("NCBI_API_KEY")          # optional, raises rate limit
@@ -86,10 +84,8 @@ class ApiError(RuntimeError):
 
 log = logging.getLogger(__name__)
 
-# The Ensembl release that answered THIS build. app/main warms it off the request path and
-# writes it here; build() stamps it into provenance. It must not be re-read at render time:
-# a frozen panel would then re-render with whatever release the live server has moved on
-# to. None renders as "unknown", which is an honest gap.
+# The Ensembl release that answered THIS build, stamped into provenance. Never re-read at
+# render time: a frozen panel would re-render against whatever release the server is on now.
 _ENSEMBL_RELEASE: dict = {"value": None}
 
 
@@ -101,11 +97,9 @@ def ensembl_release() -> Optional[int]:
 def set_ensembl_release(v: Optional[int]) -> None:
     _ENSEMBL_RELEASE["value"] = v
 
-# What THIS build fetched versus what it read off disk; build() resets it and reads it back
-# to stamp provenance with the data's age. A ContextVar over a MUTABLE dict, not a module
-# global (concurrent builds in one process would share one ledger) and not a thread-local
-# (_note_fetch is called from inside enumerate_candidates' worker pool, which a
-# thread-local does not survive). The lock guards those workers against each other.
+# What this build fetched versus read off disk, for the provenance stamp. A ContextVar over a
+# mutable dict: a module global is shared by concurrent builds, and a thread-local does not
+# survive the worker pool _note_fetch runs in. The lock guards those workers.
 _fetch_lock = threading.Lock()
 _fetch_ledger: contextvars.ContextVar[dict] = contextvars.ContextVar("fetch_ledger")
 
@@ -157,11 +151,8 @@ class Tag:
 
 TAGS = frozenset({Tag.FETCH, Tag.CACHE, Tag.INFO, Tag.WARN, Tag.SKIP, Tag.DONE})
 
-# This build's log sink, a ContextVar for the same reason the ledger above is one: _http
-# runs inside enumerate_candidates' worker pool, and a thread-local would hand those workers
-# no sink, so every line raised from a region pull would vanish. Needs no lock and no
-# mutable box, unlike the ledger: the workers only READ it, and copy_context() carries the
-# callable in.
+# A ContextVar for the same reason as the ledger: a thread-local would leave the worker pool
+# with no sink. No lock or mutable box, since the workers only read it.
 _log_sink: contextvars.ContextVar[Optional[Callable[[str, str], None]]] = \
     contextvars.ContextVar("log_sink", default=None)
 
@@ -191,12 +182,9 @@ def _fmt_age(seconds: float) -> str:
     return f"{seconds / 86_400:.0f}d"
 
 
-# The span enumerate_candidates actually queried, per side, which is NOT always the window
-# asked for: a variant near a telomere gets a truncated flank, and R5 requires that be
-# disclosed rather than quietly shortened. Thread-local, not a module global, because
-# concurrent builds share this process; sound only because _note_span and build()'s
-# read-back both run on the build's own thread, before the fan-out to the worker pool.
-# _fetch_log cannot use this trick, see _fetch_ledger above.
+# The span actually queried per side, which a variant near a telomere truncates. R5 requires
+# that be disclosed. Thread-local is sound only because writer and reader both run on the
+# build's own thread, before the fan-out; the ledger above cannot use this trick.
 _span_state = threading.local()
 
 
@@ -327,10 +315,8 @@ def _http(method: str, url: str, *, body: Optional[bytes] = None,
                 _emit(Tag.WARN, f"{what}: attempt {i + 1} of {tries} failed "
                                 f"({type(e).__name__}: {str(e)[:80]}), retrying")
             time.sleep(1.5 * (i + 1))
-    # `what`, not the raw url. ApiError text reaches the browser (as the job error and as
-    # the log's closing line), and a raw url carries the NCBI api_key in its query string.
-    # url[:80] happened to truncate before the key only because _eutils_params appends it
-    # last: an ordering nothing asserted, one reordered dict away from publishing the key.
+    # `what`, not the raw url: this text reaches the browser, and a raw url carries the NCBI
+    # api_key in its query string.
     raise ApiError(f"{method} {what} failed after {tries} tries: {last}")
 
 
@@ -432,16 +418,11 @@ class Rarity:
     thousand_genomes_ac: Optional[int]
     population_LD_usable: bool
     reason: str
-    # "defined" | "undefined" | "unknown". Three states, because population_LD_usable is a
-    # two-way flag and LD nobody could look up is neither "exists" nor "cannot". Kept here
-    # so the UI colours its badge from one string rather than re-deriving the verdict and
-    # disagreeing with `reason` beside it.
+    # "defined" | "undefined" | "unknown". Three states, because LD nobody could look up is
+    # neither "exists" nor "cannot", and the flag beside it is two-way.
     ld_status: str
-    # gnomAD v4 keeps its 76k genomes and 730k exomes as separate callsets of largely
-    # different people. A coding pathogenic variant, which is most of this tool's input,
-    # carries its frequency in the exomes and can be sparse or absent from the genomes; a
-    # non-coding site is the reverse. Both are reported rather than one dropped. Appended so
-    # the original positional construction is untouched.
+    # gnomAD v4 keeps 76k genomes and 730k exomes as separate callsets of largely different
+    # people, and a coding variant carries its frequency in the exomes. Both are reported.
     gnomad_af_exome: Optional[float] = None
     gnomad_ac_exome: Optional[int] = None
     gnomad_an_exome: Optional[int] = None
@@ -475,20 +456,13 @@ class Marker:
     hotspot_between: Optional[bool] = None   # a recombination hotspot sits in between
     # True => cm is a 1 cM/Mb approximation, not a map reading. Must be labelled as such.
     map_approx: Optional[bool] = None
-    # ESHRE's structural criteria, as a predicate: see FLANKING_CRITERIA. Not a rank, not a
-    # score, not a genotype claim (R3, R4). build() sets it; nothing may recompute it.
-    #
-    # None, not False: the predicate is only evaluated over the shortlist, and every export
-    # writes this column for all ~1200 candidates. A default of False asserts that a marker
-    # fails criteria nobody judged it against, which is the same false-is-not-unassessed
-    # error this file refuses for hotspot_between. None prints empty and claims nothing.
+    # ESHRE's structural criteria as a predicate (see FLANKING_CRITERIA); build() sets it and
+    # nothing may recompute it. None, not False: it is evaluated over the shortlist only, and
+    # False would assert failure against criteria nobody judged the marker on.
     meets_eshre_flanking_criteria: Optional[bool] = None
-    # The candidate genotyping pair for this marker (R3), or the design's own account of why
-    # there is none. Only markers in scope are designed for, so most candidates keep None.
-    #
-    # None means NO DESIGN WAS ATTEMPTED; a design that ran and failed is a PrimerResult
-    # carrying `error`. Absence and failure are different facts and must never render alike.
-    # primers.py owns this shape and every word in it: nothing here restates a warning.
+    # The candidate genotyping pair (R3), or the design's account of why there is none. None
+    # means no design was attempted; a design that ran and failed is a PrimerResult carrying
+    # `error`. Absence and failure must never render alike.
     primer: Optional["primers.PrimerResult"] = None
 
 
@@ -524,10 +498,8 @@ class StructuredQuery:
     ancestry: Optional[str] = None      # re-rank by ancestry-matched 2pq
     common_maf: float = COMMON_MAF
     cross_check: bool = True
-    # Primer knobs: INPUTS, like the window and the MAF floor, not provenance. Every one is
-    # the user's to set; primers.PrimerSettings owns the defaults and what is legal, so the
-    # dict is passed through rather than mirrored here, which would be a second set of
-    # defaults to drift.
+    # Primer knobs are inputs, like the window and the MAF floor, not provenance. Passed
+    # through rather than mirrored: primers.PrimerSettings owns the defaults.
     primer_scope: str = "starred"       # see PRIMER_SCOPES
     primer_settings: Optional[dict] = None
     # Provenance, never input: build() must not read these to decide anything. They record
@@ -698,18 +670,15 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     _emit(Tag.INFO, f"ClinVar matched {total} record(s) for {query!r}; "
                     f"{len(ids)} examined for a reconciling point variant")
 
-    # Take the hit that RECONCILES, not the first one, and consider EVERY id esearch
-    # returned: relevance rank is not a ranking of "is this the variant you named", so
-    # neither idlist[0] nor a prefix of the list is a shortlist. All candidates come back
-    # in ONE esummary call however many there are, so checking all of them is one request.
+    # The hit that RECONCILES, over every id esearch returned: relevance rank does not rank
+    # "is this the variant you named". All candidates come back in one esummary call.
     summaries = json.loads(_get(EUTILS, "/esummary.fcgi",
                                 _eutils_params({"db": "clinvar", "id": ",".join(ids),
                                                 "retmode": "json"}),
                                 label=f"ClinVar esummary of {len(ids)} record(s)"))["result"]
-    # Relevance decides ORDER; order must not decide what KIND of object answers the query.
-    # For a well-studied rsID ClinVar ranks combination records first, and a haplotype
-    # resolves silently: it hands back one constituent variant's position carrying the
-    # haplotype's own classification. This pipeline anchors on ONE point variant.
+    # Relevance decides order, which must not decide what kind of object answers. ClinVar ranks
+    # combination records first for a well-studied rsID, and a haplotype resolves silently to one
+    # constituent's position carrying the haplotype's classification.
     ordered = sorted(ids, key=lambda i: _is_combination(summaries.get(i) or {}))
     summ = vset = None
     cid = None
@@ -746,10 +715,8 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
         # simply have no ClinVar submission, so let Ensembl answer before giving up.
         if _RSID_RE.match(query.strip()):
             return _resolve_via_ensembl(query, build=build)
-        # Report the SEARCH as having missed, not the user as having mistyped: a full-text
-        # search failing to surface a record is not evidence the identifier is wrong. Every
-        # id was examined unless esearch had more than retmax, and if it did, say so rather
-        # than let "none of them" imply an exhaustive search that did not happen.
+        # Report the search as having missed, not the user as having mistyped. If esearch had
+        # more than retmax, say so rather than imply an exhaustive search that did not happen.
         seen = ("" if total <= len(ids)
                 else f", of which only the {len(ids)} most relevant were examined")
         raise ApiError(
@@ -781,10 +748,8 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     vcf_ref = loc38.get("ref") or ""
     vcf_alt = loc38.get("alt") or ""
     pos = int(loc38["start"])
-    # Two contracts share this call. The CLASSIFICATION is best-effort: a panel builds
-    # fine without ClinVar's verdict. The VCF ALLELES are load-bearing: every downstream
-    # step keys on them. So the failure is remembered rather than swallowed, and only the
-    # best-effort half may come back empty.
+    # Two contracts share this call: the classification is best-effort, the VCF alleles are
+    # load-bearing. The failure is remembered rather than swallowed.
     efetch_err: Optional[str] = None
     try:
         vcv = _get(EUTILS, "/efetch.fcgi",
@@ -883,11 +848,9 @@ def _resolve_via_ensembl(rsid: str, build: str = "GRCh38") -> VariantRecord:
                               {"content-type": "application/json"}, tries=tries,
                               label=f"Ensembl variation {rsid}"))
     except ApiError as e:
-        # Ensembl reports an unknown id as 400 with {"error": "<id> not found for
-        # homo_sapiens"}, NOT as 404, so 404 alone is the wrong discriminator. Anything
-        # that is not Ensembl answering "no" (503, timeout, DNS, a reset) is a question
-        # that never got asked, and is reported as one. The status is parsed back out of
-        # _http's message because _http raises a bare ApiError.
+        # Ensembl reports an unknown id as 400, not 404, so 404 alone is the wrong
+        # discriminator. Anything that is not Ensembl answering "no" is a question that never
+        # got asked, and is reported as one.
         m = re.search(r"HTTP Error (\d{3})", str(e))
         status = int(m.group(1)) if m else None
         if status not in (400, 404):
@@ -967,10 +930,8 @@ def _gene_and_strand(summ: dict, vset: dict) -> tuple[Optional[str], Optional[in
 _VARIANT_Q = """query V($id:String!,$ds:DatasetId!){
   variant(variantId:$id,dataset:$ds){ genome{ac an af} exome{ac an af} }}"""
 
-# What "common enough for population LD to be defined" means, stated once per source.
-# 1000G phase 3 ALL is 5008 haplotypes, so >5 copies and AF > ~1e-3 are the same claim;
-# deriving the second from the first stops the two sources disagreeing about one allele.
-# Raise _KG_MIN_AC to be stricter, and the gnomAD side follows automatically.
+# "Common enough for population LD to be defined", stated once. 1000G phase 3 ALL is 5008
+# haplotypes, so the gnomAD floor is derived from _KG_MIN_AC rather than stated twice.
 _KG_HAPLOTYPES = 5008
 _KG_MIN_AC = 5
 _GNOMAD_MIN_AF = _KG_MIN_AC / _KG_HAPLOTYPES
@@ -991,12 +952,9 @@ def assess_rarity(v: VariantRecord) -> Rarity:
     except Exception:  # noqa: BLE001
         pass
 
-    # The verdict and the displayed AF take whichever callset observed more chromosomes at
-    # this site: for a coding variant that is the exome, and reading only the genome (as this
-    # once did, requesting the exome block then dropping it) showed AF unknown while a good
-    # exome answer existed. The genome and exome numbers are both kept on the record; this
-    # only chooses which drives the rarity call and the headline frequency. Ties and absences
-    # fall to the genome, which is the right default for a non-coding flanking site.
+    # Whichever callset observed more chromosomes here drives the verdict and the headline AF;
+    # both numbers stay on the record. Ties fall to the genome, the right default for a
+    # non-coding flanking site.
     p_af, p_ac, p_callset = (
         (e_af, e_ac, "exome") if (e_an or 0) > (g_an or 0) else (g_af, g_ac, "genome"))
     if (g_an or 0) == 0 and (e_an or 0) == 0:
@@ -1032,14 +990,9 @@ def assess_rarity(v: VariantRecord) -> Rarity:
     ev = (f"1000G allele count {kg_ac if kg_ac is not None else 'unavailable'}, "
           f"gnomAD {p_callset or 'genome'} AF {af_txt}")
 
-    # Three states, not two: a source that FAILED TO ANSWER is not a source that answered
-    # "rare". Every branch below must be reached from evidence that EXISTS, never from a
-    # gap, and neither may a missing source alone force "unknown", which would drop a true
-    # rarity finding on an allele only gnomAD could answer for. Note the 1000G join drops
-    # out deterministically on indel notation, so this is not only an outage path.
-    # Each reason below is the verdict and its evidence, and nothing else. It renders on a
-    # card with room for one line: the standing caveats belong to DISCLAIMER (R3, verbatim
-    # on every surface) and to the exports' own R2 line, not repeated in four branches.
+    # Three states, not two: a source that failed to answer is not a source that answered
+    # "rare". Every branch must be reached from evidence that exists, and a missing source alone
+    # must not force "unknown". Each reason below is the verdict and its evidence, nothing else.
     kg_common = kg_ac is not None and kg_ac > _KG_MIN_AC
     g_common = p_af is not None and p_af > _GNOMAD_MIN_AF
     said_rare = ((kg_ac is not None and not kg_common)
@@ -1121,11 +1074,9 @@ def _contig_length(chrom: str) -> Optional[int]:
 def enumerate_candidates(v: VariantRecord, window: int = DEFAULT_WINDOW,
                          on_progress: Optional[Callable[[int, int], None]] = None
                          ) -> dict[str, dict]:
-    # A flank must not run off the end of a chromosome: gnomAD answers a negative start
-    # with an HTTP 500. Clamping alone is not enough, though, since a clamped flank is
-    # SHORTER than the window asked for, and R5 exists to stop a short flank shipping
-    # labelled as a full one. So the span actually queried per side is recorded, and any
-    # side that got less than it asked for says so.
+    # A flank must not run off the end of a chromosome (gnomAD answers a negative start with a
+    # 500), and a clamped flank is shorter than the window asked for, so R5 requires the span
+    # actually queried be recorded per side.
     clen = _contig_length(v.chrom)
     lo = max(v.pos_grch38 - window, 1)
     hi = min(v.pos_grch38 + window, clen) if clen else v.pos_grch38 + window
@@ -1212,10 +1163,8 @@ def annotate(variants: dict[str, dict], v: VariantRecord,
         if (g.get("an") or 0) < CALL_RATE_AN_FLOOR:
             dropped[f"genome AN under the call-rate floor ({CALL_RATE_AN_FLOOR:,})"] += 1
             continue
-        # gnomAD's own QC verdict: a non-empty filters list means gnomAD failed the site
-        # (AC0, or an AS_VQSR artifact). These cannot merely be tolerated: a mismapped site
-        # collects spurious heterozygotes, which inflates 2pq, and 2pq is the ranking key,
-        # so the sort is drawn toward exactly the sites gnomAD already rejected.
+        # gnomAD's own QC verdict. A mismapped site collects spurious heterozygotes, which
+        # inflates 2pq, and 2pq is the ranking key: the sort would be drawn toward them.
         if g.get("filters"):
             dropped["gnomAD QC filters"] += 1
             continue
@@ -1241,10 +1190,8 @@ def annotate(variants: dict[str, dict], v: VariantRecord,
             af=round(af, 4), maf=round(maf, 4), het=round(het, 4),
             het_max_pop=round(het_pop, 4), dist=dist,
             an=g.get("an"), per_pop_an=pop_an,
-            # Named for the axis, not the arm: a chromosome runs telomere, p, CENTROMERE,
-            # q, telomere, so a lower coordinate is toward the telomere on a p-arm and
-            # toward the centromere on a q-arm. Nothing here knows where the centromere
-            # is, so nothing here says.
+            # Named for the axis, not the arm: a lower coordinate is telomeric on a p-arm and
+            # centromeric on a q-arm, and nothing here knows where the centromere is.
             side="higher coord" if dist > 0 else "lower coord",
             tier=_tier(dist), per_pop_maf=pop,
             cm=gm["cm"], recomb_fraction=gm["recomb_fraction"],
@@ -1265,10 +1212,8 @@ def annotate(variants: dict[str, dict], v: VariantRecord,
 ESHRE_FLANK_MAX_BP = 1_000_000     # recommended limit from the variant (~1 cM)
 ESHRE_MIN_PER_SIDE = 3             # at least 3 SNPs on each flanking side
 
-# The rule, its parameters and its words in one place, stamped into provenance. Exports and
-# the UI render `note`/`legend` verbatim and must never restate the rule in their own words:
-# the engine names what the flag means, everyone else reads that name out. The prose and the
-# numbers above have to agree, so they live together.
+# The rule, its parameters and its words in one place, stamped into provenance. Exports and the
+# UI render `note`/`legend` verbatim rather than restating the rule in their own words.
 FLANKING_CRITERIA = {
     "field": "meets_eshre_flanking_criteria",
     "max_dist_bp": ESHRE_FLANK_MAX_BP,
@@ -1320,10 +1265,8 @@ def _meets_eshre_flanking_criteria(m: Marker) -> bool:
     """
     return (abs(m.dist) <= ESHRE_FLANK_MAX_BP
             and _hotspot_assessed(m) and not m.hotspot_between
-            # `None` is "not cross-checked", never "disputed": only the nearest few markers
-            # are ever checked, and an Ensembl outage sets every check back to None.
-            # Requiring "ok" would delete flags on a network timeout, which reads as a
-            # scientific downgrade.
+            # `None` is "not cross-checked", never "disputed". Requiring "ok" would delete
+            # flags on an Ensembl timeout, which reads as a scientific downgrade.
             and not (m.ensembl_pos_check or "").startswith("MISMATCH"))
 
 
@@ -1339,10 +1282,8 @@ def _rank_key(ancestry: Optional[str]):
     def key(m: Marker):
         p = m.per_pop_maf.get(ancestry) if ancestry else None
         het = 2 * p * (1 - p) if p is not None else m.het
-        # R2: het then proximity, never LD. pos and variant_id are not genetics; they make
-        # the order total, since het saturates at 0.5 for many sites and two markers can be
-        # equidistant on opposite sides. Without a final tiebreak, a stable sort settles an
-        # exact tie by gnomAD's response order, and two labs get different panels.
+        # R2: het then proximity, never LD. pos and variant_id are not genetics, they make the
+        # order total: without a final tiebreak two labs get different panels for one query.
         return (-het, -m.het, abs(m.dist), m.pos, m.variant_id)
     return key
 
@@ -1564,10 +1505,9 @@ def design_primers(recommended: list[Marker], raw: dict[str, dict],
             # itself is milliseconds. Cached like every other call, so a rebuild pays once.
             # Parallelise over MAX_WORKERS only if that wait ever shows up in practice.
             seq = fetch_sequence(m.chrom, lo, hi)
-            # Overlap, not containment. A deletion is anchored at the base BEFORE the
-            # bases it removes, so one straddling the template's left edge has pos < lo
-            # while its reference footprint still sits under the primer. Filtering on the
-            # anchor dropped it, and the note then told the reader that region was clear.
+            # Overlap, not containment: a deletion is anchored at the base before the ones it
+            # removes, so one straddling the left edge has pos < lo but still sits under the
+            # primer.
             near = [s for s in hazards
                     if s.pos + s.span - 1 >= lo and s.pos <= hi]
             m.primer = primers.design(seq, lo, m.pos, m.ref, near, settings)
@@ -1586,11 +1526,8 @@ def design_primers(recommended: list[Marker], raw: dict[str, dict],
         # checked for products in an 800 bp window and nowhere else in the genome.
         for w in m.primer.warnings:
             _emit(Tag.WARN, f"{m.rsid}: {w}")
-    # "not yet", not "not by this build". Design is all this function does, so at this line
-    # nothing is checked and that is worth saying. Whether anything checks them afterwards is
-    # the caller's to decide: app/jobs.py runs the UCSC lane in this same job when the build
-    # was asked to bundle it, and the flat claim would then be contradicted three lines later
-    # in the same console, by the same job, about the same pairs.
+    # "not yet", not "not by this build": app/jobs.py may run the UCSC lane in this same job,
+    # and a flat claim would be contradicted three lines later in the same console.
     _emit(Tag.INFO, f"{designed} of {len(targets)} in-scope markers have a candidate primer "
                     f"pair; none has been checked against the genome yet")
 
@@ -1673,11 +1610,9 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         progress("cross-checking positions against Ensembl", 0.92)
         cross_check_ensembl(recommended)              # R1
 
-        # The cross-check runs AFTER selection, since it costs a request per marker and is
-        # spent on the shortlist rather than on the whole pool. So a marker whose sources
-        # disagree about where it IS has already been shortlisted by the time we find out.
-        # That is not a cell value, it is a reason to distrust the row: it goes to
-        # coverage.flags, which renders in the UI alert and in every export.
+        # The cross-check runs after selection, so a marker whose sources disagree about where
+        # it is has already been shortlisted. That is a reason to distrust the row rather than a
+        # cell value, so it goes to coverage.flags.
         bad = [m for m in recommended
                if (m.ensembl_pos_check or "").startswith("MISMATCH")]
         if bad:
@@ -1689,11 +1624,8 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
                 f"cannot place is not safe to genotype against: confirm the position "
                 f"before ordering it, or drop it.")
 
-    # The flanking criteria are applied HERE and not in select_panel, for the same reason the
-    # flag above is worded here: one clause of the rule reads ensembl_pos_check, which does
-    # not exist until the cross-check above has run. Applied any earlier, a marker its own
-    # sources cannot place would meet the criteria. One pass, one field: nothing downstream
-    # may recompute this.
+    # Applied here and not in select_panel: one clause reads ensembl_pos_check, which does not
+    # exist until the cross-check above has run. Nothing downstream may recompute it.
     for m in recommended:
         m.meets_eshre_flanking_criteria = _meets_eshre_flanking_criteria(m)
     # Per side, against ESHRE's minimum. Never relax the rule when few qualify: the same flag
@@ -1709,10 +1641,9 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
                 f"meet the flanking criteria ({len(met)} of {ESHRE_MIN_PER_SIDE}). ESHRE "
                 f"recommends at least three SNPs on each side of the pathogenic variant.")
 
-    # Primers run HERE, and inside build(), for one reason that is not convenience: `raw` is
-    # still in scope. The mask is drawn from the whole gnomAD pull, indels and all, and any
-    # later pass would have only the candidate pool, which cannot mask an indel. It also
-    # reads meets_eshre_flanking_criteria, which the loop above has just written.
+    # Here, and inside build(), because `raw` is still in scope: the mask is drawn from the whole
+    # gnomAD pull, and a later pass would have only the candidate pool, which cannot mask an
+    # indel.
     progress("designing primers", 0.95)
     design_primers(recommended, raw, q)
 
@@ -1847,10 +1778,8 @@ if __name__ == "__main__":
     # raises at the front door.
     assert StructuredQuery(variant="rs1").primer_settings_obj() == primers.DEFAULTS
 
-    # The sequence guard, offline. Ensembl restates the assembly, the region and the strand
-    # in `id`, and a template that is not the one asked for puts primers on the wrong bases.
-    # Every case below returns 200 with real-looking DNA, which is why the check is on `id`
-    # and not on the status code.
+    # The sequence guard, offline. Every case below returns 200 with real-looking DNA, so the
+    # check is on Ensembl's `id` echo of assembly, region and strand, not on the status code.
     _real = fetch_sequence.__globals__["_get"]
     try:
         for _id, _seq, _why in (
@@ -1954,10 +1883,8 @@ if __name__ == "__main__":
     assert "SECRET" not in _log_label(EUTILS + "/esearch.fcgi?db=clinvar&api_key=SECRET",
                                       None)
 
-    # Nor a failed call's ApiError, which is the harder case: it reaches the browser as the
-    # job error AND as the log's closing WARN. Driven through the real _http against a dead
-    # port rather than asserted about the format string, because the leak this pins was a
-    # url that never went through _log_label at all.
+    # Nor a failed call's ApiError, which reaches the browser twice. Driven through the real
+    # _http against a dead port: the leak this pins never went through _log_label at all.
     _seen: list = []
     _log_sink.set(lambda tag, text: _seen.append(text))
     _dead = "http://127.0.0.1:9/esearch.fcgi?db=clinvar&term=x&api_key=SECRET-KEY-VALUE"
@@ -2015,10 +1942,8 @@ if __name__ == "__main__":
     assert _contig_length("16") == 12_345
     _get = _saved_get
 
-    # ...and the truncation reaches a READER, not just _span(): a flag nothing picks up
-    # discloses nothing, and asserting on _span() alone passes in exactly that world. So
-    # this asserts on what build() hands out, and specifically on the R5 coverage card,
-    # which is where "is each side covered" is answered.
+    # ...and the truncation reaches a reader, not just _span(): a flag nothing picks up
+    # discloses nothing. Asserted on the R5 coverage card build() hands out.
     _mid = VariantRecord(query="mid-synthetic", rsid=None, gene="MID", strand=1,
                          chrom="16", pos_grch38=45_000_000, vcf_ref="G", vcf_alt="A",
                          clinical_significance=None, review_status=None,

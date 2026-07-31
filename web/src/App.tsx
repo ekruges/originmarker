@@ -123,10 +123,8 @@ export default function App() {
     setResolved(null)
     setResult(null)
     setJobId(null)
-    // Stamped here, the one point where the query and the parse that produced it are both
-    // in hand. `query` is the build request from now on, so every later path that reaches
-    // /api/panel (Build, Rebuild on an ancestry) carries the provenance without knowing it
-    // exists.
+    // The one point where the query and the parse that produced it are both in hand. `query` is
+    // the build request from now on, so every later path to /api/panel carries the provenance.
     setQuery(withNlProvenance(q, parsedBy ?? null))
     // Set unconditionally: a typed identifier must clear the previous query's model caveat.
     setNl(parsedBy ?? null)
@@ -170,10 +168,8 @@ export default function App() {
     // that no longer exists.
     setVerifyLog([])
     setVerify({ running: false, stage: '' })
-    // The loaded genotypes were filtered to the OLD window as they streamed, so against a
-    // wider one every new marker would read as "not in the file" when the file may well
-    // carry it. Cleared rather than reused: re-reading the file is cheap, and a stale
-    // "absent" is the kind of quiet wrong answer this app exists to refuse.
+    // They were filtered to the OLD window as they streamed, so against a wider one every new
+    // marker would read as "not in the file" when the file may well carry it.
     setCarrier(null)
 
     let id: string
@@ -406,12 +402,9 @@ export default function App() {
         )}
 
         {resolved && phase !== 'resolving' && (
-          // Wrapped, not passed by reference: the click event would arrive as buildPanel's
-          // query override.
-          // Keyed on the query: the card holds the user's acknowledgement that they meant a
-          // gene they did not name, and that consent is about ONE variant. A new variant
-          // must arrive at a card that has never been acknowledged, whatever the render
-          // conditions above happen to unmount today.
+          // Wrapped, not passed by reference: the click event would arrive as buildPanel's query
+          // override. Keyed on the query, because the acknowledgement it holds is about ONE
+          // variant and a new one must arrive at a card nobody has acknowledged.
           <VariantCard
             key={resolved.variant.query}
             data={resolved}

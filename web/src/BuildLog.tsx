@@ -8,12 +8,9 @@ export type { LogMeta } from './logfile'
 /** Lines kept and rendered. The engine caps its own buffer; this bounds the DOM. */
 export const LOG_CAP = 500
 
-// The tag is coloured, the line is not: a console of coloured prose is unreadable, and
-// FETCH and CACHE are most of a build. WARN carries attention, not alarm: the build went
-// on, and red belongs to the errors that stop one. SKIP is the account of what the build
-// dropped on purpose, so it reads as ordinary, not as damage. One entry per LOG_TAGS
-// member is what the compiler checks here, so a tag the engine gains cannot render
-// uncoloured.
+// The tag is coloured, the line is not: a console of coloured prose is unreadable. WARN carries
+// attention, not alarm, since the build went on and red belongs to errors that stop one. One
+// entry per LOG_TAGS member, so a tag the engine gains cannot render uncoloured.
 const TAG_COLOR: Record<LogTag, string> = {
   FETCH: 'var(--om-text-dim)',
   CACHE: 'var(--om-text-dim)',
@@ -46,12 +43,9 @@ export function BuildLog({
     if (el && pinned.current) el.scrollTop = el.scrollHeight
   }, [lines, open])
 
-  // Force-open on a new signal, never force-CLOSE: the reader may have opened it themselves,
-  // and a bump must not shut what they are reading. Skips the initial 0/undefined.
-  //
-  // And bring it into view. The log sits above the panel table, so a reader who started a
-  // verification from a marker row or from the primer chip is looking somewhere else
-  // entirely: opening it where they cannot see it is the same as not opening it.
+  // Force-open on a new signal, never force-CLOSE: a bump must not shut what someone is reading.
+  // Then bring it into view, since the log sits above the table and a reader who started the run
+  // from a marker row is looking elsewhere.
   useEffect(() => {
     if (!openSignal) return
     setOpen(true)

@@ -207,13 +207,10 @@ export function callSex(byChrom: Map<string, ChromStats>): { sex: Sex; ratio: nu
   for (const [c, s] of byChrom) if (AUTOSOMES.has(c)) { autoCalled += s.called; autoHet += s.het }
   if (!x || x.called === 0 || autoCalled === 0 || autoHet === 0) return { sex: 'ambiguous', ratio: null }
   const ratio = (x.het / x.called) / (autoHet / autoCalled)
-  // Bands, and the wide gap between them is deliberate. A male carries heterozygotes only in
-  // the pseudoautosomal region, which is 1.99% of chrX, so a male ratio sits near 0.02. A
-  // female runs 0.7-0.8, below 1.0 because chrX heterozygosity is lower than autosomal even in
-  // unamplified DNA. Anything in between is NOT a female with noise: it is a candidate chrX
-  // abnormality, a sex-mixed or pooled file, or contamination, and each of those is a finding
-  // rather than something to round away. Resolving the middle would be the one place this
-  // module could silently invert a role.
+  // A male carries heterozygotes only in the pseudoautosomal region, 1.99% of chrX, so his
+  // ratio sits near 0.02; a female runs 0.7-0.8. The wide gap is deliberate: anything between is
+  // a candidate chrX abnormality, a pooled file or contamination, each a finding rather than a
+  // female with noise.
   return { sex: ratio < 0.15 ? 'male' : ratio > 0.55 ? 'female' : 'ambiguous', ratio }
 }
 
@@ -369,10 +366,8 @@ export function gates(p: SampleProfile): Gate[] {
             + 'sample, and that gate was established on unamplified bulk DNA',
   })
 
-  // The het-to-hom asymmetry that key SNPs rest on is an approximation on amplified material,
-  // not a theorem. Erroneous heterozygous calls become common below 60% call rate, and gain of
-  // heterozygosity has been measured directly, so the asymmetry must be gated rather than
-  // assumed.
+  // The het-to-hom asymmetry key SNPs rest on is an approximation on amplified material, not a
+  // theorem: erroneous heterozygous calls are common below 60% call rate.
   out.push({
     name: 'het-to-hom asymmetry valid',
     value: cr,
@@ -383,10 +378,9 @@ export function gates(p: SampleProfile): Gate[] {
       : 'holds within the usable call-rate band',
   })
 
-  // Turocy 2026 excluded 10 of 169 samples showing LOH along all chromosomes as abnormal
-  // fertilisation or failed genome unification. The criterion is qualitative in the source and
-  // is left qualitative here. Note it is embryo-CLUSTERED in the paper, which an unlabelled
-  // drop box cannot reproduce, so this flags a candidate rather than reproducing that filter.
+  // Turocy 2026 excluded samples showing LOH along all chromosomes as abnormal fertilisation.
+  // That criterion is qualitative and embryo-clustered, which an unlabelled drop box cannot
+  // reproduce, so this flags a candidate rather than reproducing the filter.
   out.push({
     name: 'genome-wide LOH',
     value: p.hetRate,
@@ -398,11 +392,9 @@ export function gates(p: SampleProfile): Gate[] {
       : 'no genome-wide LOH signature',
   })
 
-  // A diploid human cannot be 56% heterozygous. Measured on a real WGA'd blastomere (Turocy
-  // GSE186407, Z10 blastomere 50) at 67% call rate: het 56.0%, which is not biology but spurious
-  // heterozygous calls, the failure mode Natesan 2014 reports below 60% call rate. That sample
-  // passed every gate as merely "marginal", and it also produced a sex call contradicting the
-  // OTHER blastomere of the same embryo. An upper bound on heterozygosity catches it directly.
+  // A diploid human cannot be 56% heterozygous. A real WGA'd blastomere measured exactly that at
+  // 67% call rate, passed every other gate as merely marginal, and gave a sex call contradicting
+  // the other blastomere of the same embryo.
   out.push({
     name: 'heterozygosity plausible',
     value: p.hetRate,
@@ -739,21 +731,17 @@ export function assessRelatedness(
   if (coCalled < 1_000) {
     return { ...base, relationship: 'indeterminate', note: `only ${coCalled} co-called markers` }
   }
-  // A duplicate must be excluded before any role logic, or it reads as a first-degree relative.
-  // 0.90, not 0.99. Real technical replicates of the SAME bulk DNA on this array concord at
-  // 95.8% (Zuccaro sperm-donor rep1 vs rep2, GSE148488), so a 99% threshold misses genuine
-  // duplicates. The gap to the next class is enormous - a real parent-offspring pair on the same
-  // data concords at 54.9% - so 0.90 separates them with room to spare and is not a fitted knob.
+  // Excluded before any role logic, or a duplicate reads as a first-degree relative. 0.90, not
+  // 0.99: real replicates of the same bulk DNA concord at 95.8%, while a parent-offspring pair on
+  // the same data concords at 54.9%.
   if (concordance > 0.90 && rate < 0.02) {
     return { ...base, relationship: 'same_individual',
              note: `concordance ${(100 * concordance).toFixed(2)}% with essentially no opposite `
                + 'homozygotes: the same individual, a replicate, or monozygotic twins' }
   }
-  // Measured on real data, and it defeats the dispersion statistic outright: a bulk parent
-  // against a WGA'd embryo (dropout 0.00 vs 0.33) gives parent-offspring dispersion 0.073-0.098
-  // while real full siblings on comparably amplified material give 0.041. The ordering INVERTS,
-  // so the band that separates them under symmetric dropout is not merely miscalibrated here -
-  // it points the wrong way. Simulation with equal dropout in both samples cannot see this.
+  // Measured on real data, and it defeats the statistic outright: a bulk parent against a WGA'd
+  // embryo gives parent-offspring dispersion 0.073-0.098 while real full siblings give 0.041. The
+  // ordering inverts, so the band does not merely miscalibrate, it points the wrong way.
   if (dropout && Math.abs(dropout.a - dropout.b) > DROPOUT_MISMATCH_CEILING) {
     return { ...base, relationship: 'indeterminate',
              note: `fitted dropout differs by `
@@ -768,26 +756,19 @@ export function assessRelatedness(
              note: `${coCalled} co-called markers is below the ${DEGREE_CALL_FLOOR} floor for a `
                + 'degree call (READv2 refuses here too)' }
   }
-  // The dispersion, NOT the genome-wide rate. The rate is reported for context and is unsafe to
-  // threshold on: dropout inflates it, and asymmetric chemistry inflates the two samples
-  // differently, which is enough to invert the ordering entirely.
-  // The dispersion, NOT the genome-wide rate. Simulated with linkage and random phase at 0%,
-  // 30% and 63% dropout, sibling dispersion stayed 2.5-3x parent-offspring at every level while
-  // the genome-wide rate moved from 3% to 22% and stopped separating anything. Dropout is
-  // independent across markers, so it lifts every window's mean together and leaves the spread.
+  // The dispersion, NOT the genome-wide rate, which is reported for context and unsafe to
+  // threshold on. Across 0%, 30% and 63% dropout, sibling dispersion stayed 2.5-3x
+  // parent-offspring while the genome-wide rate moved from 3% to 22% and separated nothing:
+  // dropout is independent across markers, so it lifts every window's mean and leaves the spread.
   if (sd > SIBLING_DISPERSION) {
     return { ...base, relationship: 'sibling_or_more_distant',
              note: `per-window IBS0 dispersion ${sd.toFixed(4)} exceeds ${SIBLING_DISPERSION}: `
                + 'windows are in mixed IBD states, so this is NOT a parent-offspring pair. A pair '
                + 'declared parent-and-child that lands here is a contradiction worth chasing.' }
   }
-  // Flat dispersion is where parent-offspring lives - and unrelated too. Both are uniform along
-  // the genome, one because an allele is shared by descent everywhere and the other because
-  // nothing is shared anywhere, so neither has IBD structure to vary. At zero dropout the mean
-  // rate separates them cleanly (0% against 13%); under dropout it does not without either a
-  // cohort of mostly-unrelated pairs to normalise against, which a family trio cannot supply,
-  // or a calibrated dropout model. Saying "parent-offspring" here would be the one place this
-  // function could confirm a swapped sample instead of catching it.
+  // Flat dispersion is where parent-offspring lives, and unrelated too: neither has IBD structure
+  // to vary. The mean rate separates them at zero dropout and not under it, so naming either here
+  // could confirm a swapped sample instead of catching it.
   return {
     ...base, relationship: 'flat_dispersion_parent_offspring_or_unrelated',
     note: `per-window IBS0 dispersion ${sd.toFixed(4)} is flat, which is consistent with `

@@ -32,19 +32,10 @@ import genetic_map
 
 # --- the state space -----------------------------------------------------------------------
 
-#: The state space is the copy states, and nothing else.
-#:
-#: An earlier version carried a second axis T in {hap_M, hap_W} for which paternal homologue was
-#: transmitted, and derived the transmitted allele from it by the convention "the mutant homologue
-#: carries the A allele". That convention has no physical meaning across markers: which of a
-#: father's alleles is labelled A at each marker is arbitrary until he is phased, so the axis
-#: tracked a relabelling rather than a chromosome. It is removed rather than repaired, because
-#: `scaffold` answers the same question properly, from co-inheritance across siblings anchored by
-#: one externally typed sample.
-#:
-#: What survives is the real property that motivated it: wherever the paternal allele is absent,
-#: which homologue was transmitted is unidentifiable. That is now expressed by this layer simply
-#: not claiming to know.
+#: The state space is the copy states, and nothing else. Which paternal homologue was
+#: transmitted is `scaffold`'s question, answered from co-inheritance across siblings; a
+#: per-marker A/B letter convention cannot carry it, because which allele is labelled A is
+#: arbitrary until the father is phased.
 STATES: tuple[em.CopyState, ...] = em.STATES
 
 
@@ -83,10 +74,9 @@ class MapUse(NamedTuple):
     theta: float
     source: str
     approx: bool
-    #: True whenever the map used is NOT male-specific. Spec 9.4 requires the MALE map because
-    #: male recombination is strongly telomere-biased; no redistributable licence-clear
-    #: male-map file was identified, so this is the labelled fallback and it must travel with
-    #: every affected output rather than be silently correct-looking.
+    #: True whenever the map is not male-specific. Male recombination is strongly
+    #: telomere-biased, and no licence-clear male map was found, so this fallback is labelled
+    #: and travels with every affected output.
     sex_averaged_fallback: bool
 
 
@@ -199,10 +189,8 @@ def emission_row(
     """
     out: list[float] = []
     for st in STATES:
-        # A homozygous father transmits a known allele. A heterozygous one is MARGINALISED over,
-        # because nothing here can say which of his homologues came through: that is `scaffold`'s
-        # question, answered from co-inheritance across siblings rather than from a per-marker
-        # letter convention.
+        # A homozygous father transmits a known allele; a heterozygous one is marginalised over,
+        # since which homologue came through is `scaffold`'s question.
         pat_allele = obs.father[0] if obs.father in ("AA", "BB") else None
         out.append(
             em.emission_logp(
@@ -476,10 +464,8 @@ def hypotheses_at(
         elif s.insertion:
             key = "H2_with_local_artefact"
         elif s.name == "PAT1_MAT1":
-            # The paternal allele is PRESENT and at one copy. Whether that is H1 (wild-type
-            # inherited) or H2 (mutant inherited and repaired) turns on which of the father's two
-            # homologues came through, which this layer cannot see and no longer pretends to.
-            # `scaffold` answers it from co-inheritance across siblings.
+            # Present at one copy. Whether that is H1 or H2 turns on which homologue came
+            # through, which this layer cannot see; `scaffold` answers it.
             key = "H1_or_H2_paternal_allele_present"
         else:
             # Gains, maternal loss and tetrasomy are real states but none of them is one of the

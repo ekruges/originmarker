@@ -208,10 +208,8 @@ export function PrimerChip({
                   size="xs"
                   variant="default"
                   loading={verify?.running}
-                  // Closed on the way out, like Rebuild below: the run scrolls the page to
-                  // the build log to show its progress, and a popover left open over the
-                  // table would either follow its chip out of view or cover what it went
-                  // there to show.
+                  // Closed on the way out, like Rebuild below: the run scrolls to the build log,
+                  // and a popover left open would follow its chip out of view or cover it.
                   onClick={() => { setOpen(false); onVerify() }}
                 >
                   {verify?.running ? 'Checking' : 'Check pairs'}

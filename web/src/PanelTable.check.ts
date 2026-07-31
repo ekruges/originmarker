@@ -79,9 +79,8 @@ assert.doesNotMatch(text(quiet), /disputed/)
 assert.equal((quiet.match(/background:rgba\(224,\s*49,\s*49/g) ?? []).length, 0)
 
 // --- 3. The alarm is not silenceable by pagination. --------------------------------
-// The banner must derive from result.candidates, not the current page, filter or scope
-// toggle, or a reader hunting for a marker hides it by looking. 60 markers at PER_PAGE=50,
-// the disputed one sorted last by het_max_pop, so it lands on page 2.
+// It must derive from result.candidates, not the current page or filter, or a reader hunting
+// for a marker hides it by looking. The disputed marker is sorted onto page 2 here.
 const many = [
   ...Array.from({ length: 59 }, (_, i) =>
     mk({ rsid: `rs_ok_${i}`, dist: i + 1, het_max_pop: 0.5, ensembl_pos_check: 'ok' })),
@@ -99,9 +98,8 @@ assert.match(banner(paged), /rs_offpage/)     // named though its row is not ren
 assert.match(banner(paged), /4,200 bp apart/)
 
 // --- 4. The star: the engine's verdict and the engine's words, neither restated. ----
-// The legend text here is a SENTINEL, not the real ESHRE wording: the table must read the
-// rule out of provenance, and asserting the true text would pass just as well on a table
-// that hardcoded its own copy of it.
+// The legend text is a SENTINEL, not the real ESHRE wording: the true text would pass just as
+// well on a table that hardcoded its own copy.
 const RULE = {
   field: 'meets_eshre_flanking_criteria',
   max_dist_bp: 1_000_000,
@@ -136,9 +134,8 @@ assert.equal(stars(unjudged), 0, 'a rowful of verdicts cannot star itself withou
 assert.doesNotMatch(text(unjudged), /ESHRE|flanking criteria/)
 
 // --- 6. A renamed field takes the whole star with it. -------------------------------
-// The rule names the field it writes to. If that stops being the field read here, the
-// verdicts are unreadable, and the panel must lose its legend too: a legend over rows that
-// quietly lost their stars reads as "none qualified", which is the one lie to avoid.
+// If the field the rule names stops being the one read here, the legend must go too: a legend
+// over rows that lost their stars reads as "none qualified".
 const renamed = render([mk({ rsid: 'rs_x', dist: 1, meets_eshre_flanking_criteria: true })], {
   flanking_criteria: { ...RULE, field: 'meets_eshre_flanking_criteria_v2' },
 })

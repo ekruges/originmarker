@@ -24,9 +24,8 @@ import type { SampleProfile } from './ingest.ts'
 const TABLE_PHASE: PhaseDeclaration = { mutantAllele: 'A', route: 'long_read_father' }
 
 // --- 1. the 48-row table --------------------------------------------------------------
-// Fields are compared exactly where the table's vocabulary is an enum, and semantically
-// where it is prose (h3_diagnostic_value), because matching prose word-for-word would test
-// the wording rather than the logic.
+// Exact where the table's vocabulary is an enum, semantic where it is prose: matching prose
+// word-for-word would test the wording rather than the logic.
 
 /** Minimal RFC4180-ish split: the table quotes fields containing commas. */
 function splitCsvLine(line: string): string[] {
@@ -188,10 +187,9 @@ for (const embryo of ['AA', 'AB', 'BB'] as AB[]) {
 }
 
 // --- 5b. a maternal no-call is not a homozygous mother ---------------------------------
-// The table enumerates mother AA/AB/BB/missing and has no maternal-NC row, so this is a rule
-// the table does not supply. Treating NC as homozygous would promote the marker to
-// fully-informative on the strength of a measurement that FAILED - the one error this module
-// exists to prevent - because a homozygous mother is exactly what creates L3 power.
+// The table has no maternal-NC row, so this is a rule it does not supply. A homozygous mother
+// is what creates L3 power, so treating NC as homozygous promotes the marker on a measurement
+// that failed.
 assert.equal(karyomappingClass('AB', 'NC'), 'father het, mother unavailable')
 assert.notEqual(karyomappingClass('AB', 'NC'), karyomappingClass('AB', 'AA'))
 assert.equal(keySnp('AB', 'NC'), false, 'a failed maternal call cannot make a key SNP')
@@ -249,10 +247,9 @@ assert.equal(lopsided.keyUpper, 0)
 assert.equal(lopsided.fatherNocallRate, 0, 'no no-calls here: the flank rule alone must fire')
 assert.equal(lopsided.lowConfidence, true, 'no key markers on one flank is low-confidence')
 
-// Father no-call above 5% makes the window low-confidence whatever else holds: a non-random
-// no-call cluster is itself evidence of a structural event in the FATHER's genome, which
-// would invalidate the phase. Both flanks stay well covered here, so the ceiling is what
-// fires and not the flank rule.
+// A non-random no-call cluster is itself evidence of a structural event in the father's genome,
+// which would invalidate the phase. Both flanks stay covered here, so the ceiling fires and not
+// the flank rule.
 const noisy = new Map<string, AB>(father)
 noisy.set('rs3', 'NC')
 noisy.set('rs4', 'NC')
@@ -325,9 +322,8 @@ assert.equal(noMother.mccScreening, false)
 assert.ok(noMother.refusals.some((r) => /ABSENCE is still provable/.test(r)))
 
 // --- 9. AB space, and the strand hazard 2.0 inherits by asking a new question ----------
-// 1.x could ignore strand because heterozygosity is strand-invariant. L3 power is an identity
-// claim, so A/T and C/G sites cannot be assigned by guessing - a wrong assignment inverts
-// every informativity class at that marker.
+// 1.x could ignore strand, since heterozygosity is strand-invariant. L3 power is an identity
+// claim, so a guessed A/T or C/G assignment inverts every class at that marker.
 assert.ok(isStrandAmbiguous('A', 'T') && isStrandAmbiguous('C', 'G'))
 assert.ok(isStrandAmbiguous('T', 'A'), 'order must not matter')
 assert.ok(!isStrandAmbiguous('A', 'G') && !isStrandAmbiguous('C', 'T'))
@@ -358,9 +354,8 @@ assert.equal(abFromAlleles('AA', 'A', 'A'), null)
 assert.equal(abFromAlleles('AG', 'A', ''), null)
 
 // --- 10. a window is an interval on ONE chromosome -------------------------------------
-// Filtering on |pos - variantPos| alone admits a marker from another chromosome that happens
-// to sit at a similar coordinate, which would then be counted as flanking and as a key SNP:
-// a marker with no linkage to the locus at all, presented as evidence about it.
+// Filtering on |pos - variantPos| alone admits a marker from another chromosome at a similar
+// coordinate: no linkage to the locus at all, counted as flanking and as a key SNP.
 const mixed = [
   { rsid: 'x1', chrom: '11', pos: VARIANT - 5_000 },
   { rsid: 'x2', chrom: '7', pos: VARIANT + 5_000 },   // same coordinate, wrong chromosome
@@ -475,9 +470,9 @@ for (const [fa, em] of [['AA', 'BB'], ['BB', 'AA'], ['AB', 'AB'], ['AA', 'NC']] 
 }
 
 // --- 12. the no-call rule is a LOCAL excess, not an absolute ceiling -------------------
-// An absolute 5% ceiling was vacuous: real amplified material runs 8-13% genome-wide, so every
-// window failed the gate while nothing was detected. The signal was always a local excess
-// against the sample's OWN baseline.
+// An absolute 5% ceiling was vacuous: amplified material runs 8-13% genome-wide, so every window
+// failed while nothing was detected. The signal is a local excess against the sample's own
+// baseline.
 const nocallWindow = (nocallCount: number, baseline: number | undefined) => {
   const fa = new Map<string, AB>(markers.map((m) => [m.rsid, 'AB' as AB]))
   // Put the no-calls on markers below the variant so the flank rule does not also fire.

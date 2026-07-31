@@ -258,10 +258,9 @@ export function classifyMarker(
   // because the embryo panel is the thing under test (spec 2.4).
   if (father === 'NC') return base
 
-  // One rule for "is there usable maternal information here", applied everywhere. An earlier
-  // version tested `mother === null` in some branches and folded 'NC' into unavailable in
-  // others, so the same evidential state - no maternal genotype at this marker - produced two
-  // different verdicts depending on which branch ran.
+  // One rule for "is there usable maternal information here", applied everywhere: testing
+  // `mother === null` in some branches and folding 'NC' in elsewhere gave one evidential state
+  // two different verdicts.
   const motherKnown = mother !== null && mother !== 'NC'
 
   if (subject === 'NC') {
@@ -292,14 +291,10 @@ export function classifyMarker(
 
   // --- Mendelian-inconsistent readings --------------------------------------------------
   if (!consistent) {
-    // Two different failures hide behind "Mendelian-inconsistent", and only one of them is
-    // evidence about the paternal allele.
-    //
-    // If the embryo carries an allele NEITHER parent could supply, nothing about parental
-    // origin survives: that is error, contamination or a complex event. Note this is not the
-    // same test as "is each parent's allele present" - father AA x mother AA x embryo AB has
-    // an A that either parent could have given, so both look supplied, yet the genotype is
-    // still impossible because the B comes from nowhere.
+    // Two failures hide behind "Mendelian-inconsistent" and only one is evidence about the
+    // paternal allele. An allele NEITHER parent could supply is error, contamination or a
+    // complex event. Not the same test as "is each parent's allele present": father AA x mother
+    // AA x embryo AB looks supplied on both sides, yet the B comes from nowhere.
     const supplyable = new Set([...patCan, ...matCan])
     const unexplained = sub.filter((a) => !supplyable.has(a))
 
@@ -505,10 +500,9 @@ export const WINDOWS: ReadonlyArray<{ name: string; halfWidthBp: number }> = [
   { name: 'whole_chromosome', halfWidthBp: Number.POSITIVE_INFINITY },
 ]
 
-// An absolute father no-call ceiling used to live here at 0.05. It was vacuous: real amplified
-// material runs 8-13% genome-wide, so every window failed the gate while nothing was detected.
-// Replaced by the local-excess test in summarizeWindows. Kept only as the fallback trigger when
-// no baseline is available, where it at least says the baseline is missing.
+// A fallback only. As an absolute ceiling this was vacuous: amplified material runs 8-13%
+// genome-wide, so every window failed while nothing was detected. summarizeWindows tests a local
+// excess instead.
 
 const median = (xs: number[]): number | null => {
   if (xs.length === 0) return null
@@ -526,10 +520,9 @@ const median = (xs: number[]): number | null => {
 export function summarizeWindows(markers: Marker[], cohort: Cohort): WindowSummary[] {
   const want = normChrom(cohort.variantChrom)
 
-  // A window is an interval on ONE chromosome. Filtering on |pos - variantPos| alone would
-  // admit a marker from another chromosome that happens to sit at a similar coordinate, and
-  // it would then be counted as flanking and as a key SNP - a marker with no linkage to the
-  // locus at all presented as evidence about it.
+  // A window is an interval on ONE chromosome. Filtering on |pos - variantPos| alone admits a
+  // marker from another chromosome at a similar coordinate, with no linkage to the locus, and
+  // counts it as flanking.
   const onChrom = markers.filter((m) => normChrom(m.chrom) === want)
   const offChromosome = markers.length - onChrom.length
 
@@ -550,11 +543,9 @@ export function summarizeWindows(markers: Marker[], cohort: Cohort): WindowSumma
       const mo = cohort.mother ? (cohort.mother.get(m.rsid) ?? 'NC') : null
       if (cohort.mother && mo === 'NC') moNocall++
       const hasL2 = fa === 'AB'
-      // L3 capability takes BOTH parents. A homozygous mother creates a mother-impossible
-      // allele, but that only helps if the father can actually transmit it: father AA x mother
-      // AA leaves B impossible for the mother and unavailable to the father, so no embryo
-      // genotype at that marker can ever prove paternal presence. Testing the mother alone
-      // counted the commonest class on any real array as L3-capable.
+      // L3 capability takes BOTH parents: a mother-impossible allele only helps if the father
+      // can transmit it. Father AA x mother AA leaves B impossible for her and unavailable to
+      // him, so no embryo genotype there can prove paternal presence.
       const impossible = mo !== null && mo !== 'NC' && isHom(mo)
         ? (only(mo) === 'A' ? 'B' : 'A')
         : null
@@ -564,11 +555,9 @@ export function summarizeWindows(markers: Marker[], cohort: Cohort): WindowSumma
       if (hasL2 && hasL3) both++
       const isKey = keySnp(fa, mo)
       if (isKey) keys++
-      // Flank support is either axis, not key SNPs alone. A key SNP testifies about which
-      // homologue came through; an L3-capable marker testifies that a paternal allele is there
-      // at all. Counting only key SNPs made every father-homozygous panel permanently
-      // low-confidence - including the no-mother configuration the spec calls analysable, and
-      // the father-hom x mother-hom-opposite panel where every marker proves presence.
+      // Either axis, not key SNPs alone: a key SNP says which homologue came through, an
+      // L3-capable marker says a paternal allele is there at all. Counting only key SNPs made
+      // every father-homozygous panel permanently low-confidence.
       if (isKey || hasL3) {
         if (m.pos < cohort.variantPos) supportLower++
         else supportUpper++
@@ -729,10 +718,9 @@ export function capability(cohort: Cohort): CohortCapability {
       + '"unamplified_bulk" if that is what it was.',
     )
   }
-  // Mixed chemistry within a cohort is legal and common, and it is also the specific hazard that
-  // inverts count-based relatedness: with bulk parents and an amplified embryo the mother can
-  // read as LESS related than the father. Per-sample fitted dropout handles the model; the
-  // report has to say the samples are not equally reliable.
+  // Mixed chemistry is legal, common, and the specific hazard that inverts count-based
+  // relatedness: with bulk parents and an amplified embryo the mother can read as less related
+  // than the father.
   const chemistries = new Set(declared.map(([, a]) => a).filter((a): a is Amplification =>
     a !== undefined && a !== 'unknown'))
   if (chemistries.size > 1) {
@@ -753,10 +741,9 @@ export function capability(cohort: Cohort): CohortCapability {
     refusals.push('No unedited controls: no empirical false-LOH floor for this platform and lab.')
   }
 
-  // The het-to-hom asymmetry that key SNPs rest on is an approximation on amplified material,
-  // not a theorem: erroneous heterozygous calls become common below 60% call rate, and gain of
-  // heterozygosity has been measured directly. Below that the key/non-key partition loses its
-  // guarantee, so it must be gated rather than assumed.
+  // The het-to-hom asymmetry key SNPs rest on is an approximation on amplified material, not a
+  // theorem: below 60% call rate erroneous heterozygous calls are common, so the key/non-key
+  // partition loses its guarantee and must be gated.
   const profiles = [
     cohort.fatherProfile, cohort.motherProfile, ...cohort.subjects.map((s) => s.profile),
   ].filter((p): p is SampleProfile => p !== undefined)

@@ -207,11 +207,9 @@ export function analyseRuns(
       const mo = mother ? (mother.get(m.rsid) ?? 'NC') : null
       const em = embryo.get(m.rsid) ?? 'NC'
 
-      // L3-capable is a property of the PARENTS alone, so it is counted whether or not the embryo
-      // was called here. That is deliberate and it is the conservative choice: n enters r_min, and
-      // a larger n demands a LONGER run before significance is declared. Counting only the markers
-      // that happened to produce a score would shrink n on a noisy sample and make significance
-      // easier to reach exactly where the data is worst.
+      // A property of the PARENTS alone, so counted whether or not the embryo was called here.
+      // The conservative choice: n enters r_min, and counting only scored markers would shrink n
+      // on a noisy sample, making significance easier exactly where the data is worst.
       const capable = fa === 'AA' || fa === 'BB'
       if (!capable) continue
       l3Positions.push(m.pos)
@@ -220,11 +218,9 @@ export function analyseRuns(
       // A no-call BREAKS a run rather than bridging it: an unobserved marker is not a
       // demonstrated absence, and letting a run span one would manufacture contiguity.
       patFlags.push(sPat === 0)
-      // The mirror is scored on the SAME marker set, not on every mother-homozygous marker.
-      // Both runs then share one denominator and are directly comparable, which is the point of
-      // reporting them side by side: a paternal run of 4 and a maternal run of 4 mean the same
-      // thing about opposite parents. Scoring the mirror over a wider set would make the two
-      // numbers incommensurable while looking like a pair.
+      // The SAME marker set, not every mother-homozygous marker, so both runs share one
+      // denominator: a paternal run of 4 and a maternal run of 4 then mean the same thing about
+      // opposite parents.
       if (mo === 'AA' || mo === 'BB') matFlags.push(sMat === 0)
     }
 
