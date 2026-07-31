@@ -9,6 +9,18 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.1.1 "Kinetochore"
+
+### Added
+
+- The report carries the per-locus deletion test when one has been run: the locus, the declared
+  event size, and per sample a row per window with the L3 marker count, how many of those the
+  sample was called at, total absences, longest run, r_min, p, the maternal mirror run and the
+  window's resolution floor, then each window's own note. Methods says the test ran and over
+  which windows, since it is written from the run rather than from a template.
+
+---
+
 ## 2.1.0 "Kinetochore"
 
 ### Added

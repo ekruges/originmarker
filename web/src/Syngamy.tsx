@@ -59,6 +59,14 @@ interface Entry {
  *  ponytail: two of these is ~130 MB on 825k-marker arrays. Fine on a desktop; if a laptop
  *  starts thrashing, the fix is a packed typed array keyed on a sorted probe list, not a cap. */
 interface DonorIndex { gt: Map<string, AB>; heterozygosity: number }
+
+/** A finished per-locus test, lifted to the page so the report can carry it. */
+export interface LocusRun {
+  chrom: string
+  pos: number
+  eventSizeBp?: number
+  bySample: { name: string; results: RunResult[] }[]
+}
 interface Stage { id: string; markers: number; bytes: number; total: number }
 
 const mb = (b: number): string => `${(b / 1e6).toFixed(1)} MB`
@@ -161,6 +169,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const [startedAt, setStartedAt] = useState<string | null>(null)
   const [examples, setExamples] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [locus, setLocus] = useState<LocusRun | null>(null)
   const pick = useRef<HTMLInputElement>(null)
 
   const log = (tag: Tag, text: string) => setLines((p) => [...p.slice(-499), { tag, text }])
@@ -260,6 +269,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           : 'OriginMarker',
         reportId: id,
         fromExamples: examples,
+        locus,
       })
       grab(blob, `syngamy-report-${id}.pdf`)
     } finally {
@@ -401,7 +411,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 variant="subtle" size="xs" disabled={busy}
                 onClick={() => {
                   setEntries([]); setDonor(null); setOocyte(null); setLines([])
-                  setStartedAt(null); setExamples(false)
+                  setStartedAt(null); setExamples(false); setLocus(null)
                 }}
               >
                 Clear
@@ -472,7 +482,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       ))}
 
       {entries.some((e) => e.result) && (
-        <LocusTest entries={entries} donor={donor} oocyte={oocyte} log={log} />
+        <LocusTest
+          entries={entries} donor={donor} oocyte={oocyte} log={log}
+          onResult={setLocus}
+        />
       )}
 
       {lines.length > 0 && (
@@ -1073,11 +1086,12 @@ export function parseLocus(text: string): { chrom: string; pos: number } | null 
  * memory flat, and reading one chromosome again costs less than holding every marker of every
  * sample against the chance that someone asks this question.
  */
-function LocusTest({ entries, donor, oocyte, log }: {
+function LocusTest({ entries, donor, oocyte, log, onResult }: {
   entries: Entry[]
   donor: DonorIndex | null
   oocyte: DonorIndex | null
   log: (tag: Tag, text: string) => void
+  onResult: (r: LocusRun | null) => void
 }) {
   const [text, setText] = useState('')
   const [size, setSize] = useState('')
@@ -1093,6 +1107,9 @@ function LocusTest({ entries, donor, oocyte, log }: {
     setBusy(true)
     setErr('')
     setRows(null)
+    // Dropped before the run, not only on failure: a report built mid-test must not carry the
+    // previous locus beside the new one's heading.
+    onResult(null)
     const eventSizeOfInterestBp = size.trim() ? Number(size.replace(/[,_ ]/g, '')) : undefined
     log('CALL', `per-locus test at chr${locus.chrom}:${int(locus.pos)}, `
       + `${samples.length} sample(s)`)
@@ -1116,6 +1133,13 @@ function LocusTest({ entries, donor, oocyte, log }: {
           .map((r) => `${r.window} ${r.verdict.replace(/_/g, ' ')}`).join(', ')}`)
       }
       setRows(out)
+      onResult({
+        chrom: locus.chrom,
+        pos: locus.pos,
+        eventSizeBp: eventSizeOfInterestBp !== undefined
+          && Number.isFinite(eventSizeOfInterestBp) ? eventSizeOfInterestBp : undefined,
+        bySample: out,
+      })
     } catch (x) {
       const m = x instanceof Error ? x.message : String(x)
       setErr(m)

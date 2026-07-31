@@ -13,6 +13,7 @@ import {
   type ChromResult, type PairClass, type PairResult, type ParentageResult,
 } from './parentage'
 import type { Gate, SampleProfile } from './ingest'
+import type { RunResult } from './runlength'
 import { int, utc } from './fmt'
 import { EXAMPLE_CITATION } from './examples'
 
@@ -48,6 +49,13 @@ export interface ReportInput {
   tool: string
   reportId: string
   fromExamples: boolean
+  /** A per-locus deletion test, if one was run after the genome-wide call. */
+  locus?: {
+    chrom: string
+    pos: number
+    eventSizeBp?: number
+    bySample: { name: string; results: RunResult[] }[]
+  } | null
 }
 
 interface Col { head: string; w: number; right?: boolean; font?: FontName; size?: number }
@@ -501,6 +509,72 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ]))
   }
 
+  // --- per-locus test -------------------------------------------------------------------------
+  if (input.locus?.bySample.length) {
+    const L = input.locus
+    newPage()
+    heading(`Per-locus deletion test at chr${L.chrom}:${int(L.pos)}`, 11)
+    text('Whether the paternal contribution is specifically absent around one site, rather than '
+      + 'across the genome. Each sample was re-read on this chromosome and scored marker by '
+      + 'marker: 1 where the sperm donor\'s allele is provably present, 0 where it is provably '
+      + 'absent, and nothing where the marker cannot say. The statistic is the length of the '
+      + 'longest run of consecutive absences, against the longest run independent genotyping '
+      + 'error would produce at the same marker count. Contiguity is what separates a deletion '
+      + 'from scattered error.', 8, 'Helvetica', 2.6)
+    y -= 3
+    text('This test requires the oocyte donor and was not run without her: absence is Mendelian '
+      + 'and needs nothing from her, but presence is an identity claim and needs her homozygous '
+      + 'for the other allele, or nothing scores as present and no run can be broken.',
+    8, 'Helvetica', 2.6)
+    if (L.eventSizeBp !== undefined) {
+      y -= 3
+      text(`An event size of ${int(L.eventSizeBp)} bp was declared, so a window whose resolution `
+        + 'floor exceeds it reports below resolution rather than absence.', 8, 'Helvetica', 2.6)
+    }
+
+    for (const s of L.bySample) {
+      need(70)
+      y -= 6
+      text(s.name, 8.6, 'Helvetica-Bold', 3)
+      table([
+        { head: 'Window', w: 84 },
+        { head: 'L3', w: 40, right: true },
+        { head: 'Scored', w: 40, right: true },
+        { head: 'Absent', w: 40, right: true },
+        { head: 'Run', w: 32, right: true },
+        { head: 'r_min', w: 36, right: true },
+        { head: 'p', w: 48, right: true },
+        { head: 'Mat run', w: 40, right: true },
+        { head: 'Floor bp', w: 52, right: true },
+        { head: 'Verdict', w: 120 },
+      ], s.results.map((w) => [
+        w.window.replace(/_/g, ' '),
+        int(w.nL3), int(w.nScored), int(w.zSum), int(w.longestRun),
+        w.rMin === null ? '-' : String(w.rMin),
+        w.nL3 ? w.runP.toExponential(1) : '-',
+        w.nMat ? int(w.longestRunMaternal) : '-',
+        w.resolutionFloorBp === null ? '-' : int(Math.round(w.resolutionFloorBp)),
+        {
+          v: w.verdict.replace(/_/g, ' '),
+          colour: w.verdict === 'significant_run' ? WARN : INK,
+        },
+      ]))
+      text('L3 is the markers where the sperm donor is homozygous, which is what enters r_min; '
+        + 'scored is how many of those the sample was called at. Mat run is the same statistic '
+        + 'against the oocyte donor over the same marker set: a genuine paternal deletion cannot '
+        + 'produce a maternal run in the same place, and dropout produces both.',
+      6.5, 'Helvetica-Oblique', 2, GREY)
+      for (const w of s.results) {
+        text(`${w.window.replace(/_/g, ' ')}: ${w.note}`, 7.4, 'Helvetica', 2.2)
+      }
+    }
+    text('A run does not separate copy loss from copy-neutral loss of heterozygosity: both remove '
+      + 'paternal alleles contiguously, and only the intensity channel distinguishes them. A '
+      + 'window holding very few informative markers can reach significance on a short run, which '
+      + 'is why the marker count is printed beside every verdict.', 7, 'Helvetica-Oblique', 2.2,
+    GREY)
+  }
+
   // --- methods --------------------------------------------------------------------------------
   newPage()
   heading('Methods', 11)
@@ -539,6 +613,14 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     : 'Assembly could not be determined from marker positions against the UCSC chromInfo and gap '
       + 'tables, which carry GRCh37 and GRCh38 only. No liftOver was performed.',
   8, 'Helvetica', 2.6)
+  if (input.locus?.bySample.length) {
+    y -= 3
+    text(`A per-locus deletion test was additionally run at chr${input.locus.chrom}:`
+      + `${int(input.locus.pos)} over three windows of 25 kb, 10 Mb and the whole chromosome, `
+      + 'using a run-length statistic over consecutive markers where the sperm donor is '
+      + 'homozygous, with the significance threshold derived from the per-marker '
+      + 'spurious-violation rate. Results are reported above.', 8, 'Helvetica', 2.6)
+  }
   y -= 3
   const fired = [...new Set(results.flatMap((f) => f.result!.limits))]
   if (fired.length) {
