@@ -25,6 +25,9 @@ whether to trust a panel from an older build deserves to know exactly what it go
 - **Every table in the Syngamy detail view overflowed its card**, since none had a scroll box.
   All 21 of them now scroll inside their own width, the way the panel documentation's tables
   already did.
+- **The footer squeezed the disclaimer into a one-word column.** It and the version and links
+  sat at either end of one nowrap row, and the links cannot give way, so at 375px the
+  disclaimer was left about 100px. They stack below 700px.
 - **The header wrapped to three lines at 375px**, leaving the wordmark, the nav and the status
   badge on separate rows. "Documentation" shortens to "Docs" below 700px, which fits the
   wordmark and both links on one line.

@@ -571,11 +571,11 @@ export default function App() {
         }}
       >
         {/* R8: the disclaimer appears on every page, including the landing view. */}
-        <Group justify="space-between" wrap="nowrap" gap={12}>
+        <Group justify="space-between" wrap="nowrap" gap={12} className="om-footer-row">
           <Text size="xs" style={{ color: '#4d545c' }}>
             {prov?.disclaimer ?? health?.disclaimer ?? FALLBACK_DISCLAIMER}
           </Text>
-          <Group gap={10} wrap="nowrap">
+          <Group gap={10} wrap="nowrap" className="om-footer-meta">
             {health?.release && (
               <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }} title={health.release_gloss}>
                 {health.release}

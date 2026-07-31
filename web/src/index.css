@@ -449,4 +449,17 @@ body {
   .om-chip-foot > :last-child {
     text-align: left !important;
   }
+
+  /* The disclaimer and the version/links sit either end of one row. The links are all set
+     nowrap and cannot give way, so at 375px the disclaimer was left a ~100px column setting
+     one word per line. Stack them: the disclaimer is prose and wants the full width. */
+  .om-footer-row {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 6px !important;
+  }
+
+  .om-footer-meta {
+    flex-wrap: wrap !important;
+  }
 }
