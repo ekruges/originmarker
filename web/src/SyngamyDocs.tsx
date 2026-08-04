@@ -934,6 +934,12 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             &quot;absent&quot;, and a reader can see instantly that they are not equally
             comfortable. That is information a single percentage would destroy.
           </Text>
+          <Text mt={8}>
+            Under the ratio sit the two figures the ceiling is the product of: this sample&apos;s
+            no-call rate and its heterozygous fraction. A ratio that fell between two runs can
+            mean the signal shrank or the ceiling grew, and those have opposite implications for
+            whether to repeat the array. The factors say which one moved.
+          </Text>
         </Section>
 
         {/* --- 15 ------------------------------------------------------------------------ */}
@@ -1064,6 +1070,38 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             the multiple of the ceiling, and a verdict. Chromosomes with fewer than 200 informative
             markers are omitted, because the rate there is too noisy to place against the ceiling
             at all.
+          </Text>
+          <Title order={3} mt={14} mb={4}>The pseudoautosomal region</Title>
+          <Text mb={8}>
+            Chromosome X is reported in two rows rather than one. PAR1 and PAR2 sit on both the X
+            and the Y and recombine between them, so a Y-bearing sperm still delivers the father&apos;s
+            PAR alleles while the rest of his X is legitimately gone. Pooled into a single chrX
+            figure that distinction is invisible; split, the <code>X:PAR</code> row reads present
+            on exactly the samples where <code>X</code> reads expected_absent, which is a positive
+            control on the sample rather than an inference about it. The boundaries come from the
+            GRC assembly region reports, and the split is skipped when the assembly could not be
+            determined: PAR2 is at a different address in GRCh37 and GRCh38, and guessing would
+            put ordinary chrX markers into a control. Roughly 976 informative markers fall in the
+            PAR on a full Axiom array, so on the one-in-eight example subsets the row falls under
+            the 200-marker floor and is omitted.
+          </Text>
+          <Title order={3} mt={14} mb={4}>Spread between chromosomes</Title>
+          <Text mb={8}>
+            The report gives the coefficient of variation of the per-chromosome rate alongside the
+            cleanest chromosome. Measured on the bundled arrays: 1.11 for two arrays of one man,
+            0.76 for a degraded but true parent-offspring pair, 0.11 for an unrelated adult, 0.10
+            for a 50:50 blend of two unrelated genomes. A relationship interrupted by a loss is
+            patchy and reaches the ceiling somewhere; a genome that differs everywhere by the same
+            amount does not.
+          </Text>
+          <Text mb={8}>
+            Where a sample already sits in the uncalled band and its absence is uniform with no
+            chromosome near the ceiling, the report says the shape is two genomes blended rather
+            than one genome missing pieces, and that no reanalysis separates them. It is worth
+            being explicit about what this does not do: uniformity alone does not identify a
+            mixture. An unrelated adult measures 0.112 and a blend 0.104, which is no separation
+            at all. The statistic distinguishes a genome-wide difference from one confined to part
+            of the genome, and it is consulted only where the rate is already ambiguous.
           </Text>
           <Title order={3} mt={14} mb={4}>Below the chromosome</Title>
           <Text mb={8}>

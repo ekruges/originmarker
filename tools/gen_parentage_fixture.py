@@ -59,6 +59,8 @@ def main() -> None:
             "nonpaternal_rate": round(r.nonpaternal_rate, 9),
             "second_parent_expected": round(r.second_parent_expected, 9),
             "het_band": round(r.het_band, 9),
+            "dispersion": round(r.dispersion, 9),
+            "min_chrom_rate": round(r.min_chrom_rate, 9),
             "no_call_rate": round(r.no_call_rate, 9),
         })
     out = {"generated_by": "tools/gen_parentage_fixture.py", "donor": DONOR,

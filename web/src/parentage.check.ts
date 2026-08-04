@@ -259,7 +259,8 @@ assert.equal(ABSENCE_MARGIN, 3)
     donor_heterozygosity: number
     cases: { sample: string; verdict: string; origin_class: string; zygosity: string
       sperm_type: string; genome_rate: number; explainable: number; nonpaternal_rate: number
-      second_parent_expected: number; het_band: number; no_call_rate: number }[]
+      second_parent_expected: number; het_band: number; no_call_rate: number
+      dispersion: number; min_chrom_rate: number }[]
   }
   assert.ok(fx.cases.length >= 4, 'the fixture lost cases')
 
@@ -282,8 +283,63 @@ assert.equal(ABSENCE_MARGIN, 3)
     near(got.nonParentalRate, c.nonpaternal_rate, 'alleles the donor lacks')
     near(got.secondParentExpected, c.second_parent_expected, 'second-parent expectation')
     near(got.hetBand, c.het_band, 'BAF band')
+    near(got.dispersion, c.dispersion, 'dispersion')
+    near(got.minChromRate, c.min_chrom_rate, 'cleanest chromosome')
     near(got.noCallRate, c.no_call_rate, 'no-call rate')
   }
+}
+
+// --- 14. the pseudoautosomal region is scored apart from the rest of chrX ----------------------
+//
+// The PAR is on both the X and the Y, so a Y-bearing sperm delivers it while the rest of the X
+// is legitimately gone. Pooled into one bucket that positive control was invisible.
+{
+  const t = emptyTally()
+  t.build = 'GRCh37'
+  // PAR1 is 60001-2699520 on GRCh37: present, as it must be from either sperm type.
+  for (let i = 0; i < 600; i += 1) tallyRow('AA', row('X', 70_000 + i * 4000, 'AA', 0.0), t)
+  // The rest of chrX, absent, as it is from a Y-bearing sperm.
+  for (let i = 0; i < 600; i += 1) tallyRow('AA', row('X', 20_000_000 + i * 1000, 'BB', 0.0), t)
+  for (let i = 0; i < 600; i += 1) tallyRow('AA', row('Y', 1000 + i * 1000, 'AA'), t)
+  for (let i = 0; i < 4000; i += 1) tallyRow('AA', row('1', i * 1000, 'AA', 0.5), t)
+  const r = classify(t, 0.17, { role: 'paternal' })
+  const par = r.chroms.find((c) => c.chrom === 'X:PAR')
+  const rest = r.chroms.find((c) => c.chrom === 'X')
+  assert.equal(par?.verdict, 'present')
+  assert.equal(rest?.verdict, 'expected_absent')
+  assert.equal(r.spermType, 'Y_bearing')
+  // The PAR is not an autosome and must not move the genome-wide figure either way.
+  assert.ok(r.genomeRate < 0.001)
+}
+
+// --- 15. uniform absence everywhere reads as a mixture, patchy absence does not ----------------
+//
+// Measured: two arrays of one man 1.11, a degraded true offspring 0.76, an unrelated adult 0.11,
+// two genomes blended 0.10. The rule fires only inside the uncalled band, where it decides
+// nothing on its own and only says which of two shapes the sample has.
+{
+  const uniform = emptyTally()
+  const patchy = emptyTally()
+  for (let c = 1; c <= 22; c += 1) {
+    for (let i = 0; i < 400; i += 1) {
+      const s = (i * 7919) % 1000
+      // Same rate on every chromosome, against the same total confined to four of them.
+      tallyRow('AA', row(String(c), 1000 + i * 1000, s < 25 ? 'BB' : 'AA', 0.5), uniform)
+      tallyRow('AA', row(String(c), 1000 + i * 1000,
+        c <= 4 && s < 138 ? 'BB' : 'AA', 0.5), patchy)
+    }
+  }
+  // A dropout ceiling low enough that 2.5% lands in the band rather than below it.
+  for (let i = 0; i < 800; i += 1) tallyRow('NC', row('1', 9e8 + i, i < 88 ? 'NC' : 'AA'), uniform)
+  for (let i = 0; i < 800; i += 1) tallyRow('NC', row('1', 9e8 + i, i < 88 ? 'NC' : 'AA'), patchy)
+  const u = classify(uniform, 0.17)
+  const q = classify(patchy, 0.17)
+  assert.equal(u.verdict, 'unclear')
+  assert.equal(q.verdict, 'unclear')
+  assert.ok(u.dispersion < q.dispersion)
+  const mixed = (r: typeof u) => r.limits.some((l) => l.includes('mixed sample'))
+  assert.ok(mixed(u), 'uniform absence should read as a mixture')
+  assert.ok(!mixed(q), 'absence confined to four chromosomes is a loss, not a mixture')
 }
 
 /** Stream one shipped example, gunzipping, exactly as the browser parses a dropped file. */

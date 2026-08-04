@@ -423,15 +423,29 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       { head: 'The reference is', w: 246 },
     ], [
       ['Donor alleles absent', pct(r.genomeRate), pct(r.explainable),
-        'this sample\'s no-call rate times its heterozygous fraction. Dropout manufactures '
-        + 'absence only by turning a heterozygous call homozygous and discarding the donor\'s '
-        + 'allele, so the bound is the product and neither term alone.'],
+        `this sample's no-call rate (${pct(r.noCallRate, 1)}) times its heterozygous fraction `
+        + `(${pct(r.hetFraction, 1)}), plus a floor. Dropout manufactures `
+        + `absence only by turning a heterozygous call homozygous and discarding the donor's `
+        + `allele, so the bound is the product and neither term alone. Both factors are given `
+        + `because a ratio can fall from either one moving.`],
       ['Alleles the donor lacks', pct(r.nonParentalRate), pct(r.secondParentExpected),
         'half the donor\'s heterozygosity. A second parent supplies an allele he lacks only '
         + 'where he is homozygous, at sum(pq), and his heterozygosity is sum(2pq).'],
       ['Heterozygous BAF band', pct(r.hetBand), '8.00%',
         'measured at 15-16% for diploid genomes and 1.3-3.4% for uniparental ones. Dropout does '
         + 'not mimic this: a biparental embryo at 33% dropout still reads 22.2%.'],
+      ['Spread between chromosomes',
+        Number.isFinite(r.dispersion) ? r.dispersion.toFixed(2) : '-', '0.35',
+        'coefficient of variation of the per-chromosome rate. Measured at 1.11 for two arrays '
+        + 'of one man and 0.76 for a degraded true offspring, against 0.10 for an unrelated '
+        + 'adult and 0.10 for two genomes blended in one tube. Below the reference the '
+        + 'difference is genome-wide rather than confined to part of the genome; it does not by '
+        + 'itself separate an unrelated genome from a blended one.'],
+      ['Cleanest chromosome',
+        Number.isFinite(r.minChromRate) ? pct(r.minChromRate) : '-', pct(r.explainable),
+        'the lowest per-chromosome absence rate. A genome that lost a segment leaves the rest '
+        + 'untouched and reaches the ceiling somewhere; one that never reaches it anywhere is '
+        + 'different everywhere.'],
     ])
 
     if (m) {

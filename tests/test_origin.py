@@ -933,3 +933,53 @@ def test_vcf_and_array_input_reach_the_same_verdict():
     b = origin.parental_origin(v_fa, v_s, product=AXIOM)
     assert b.verdict == a.verdict == "parent_genome_present"
     assert b.genome_rate == pytest.approx(a.genome_rate, abs=1e-6)
+
+
+def test_the_pseudoautosomal_region_is_scored_apart_from_the_rest_of_chrx():
+    """PAR1 and PAR2 sit on both the X and the Y and recombine between them, so a Y-bearing sperm
+    delivers them while the rest of the X is legitimately gone. Pooled into one chrX bucket that
+    positive control was invisible."""
+    fp, sp = {}, {}
+    for i in range(4000):
+        k, pos = f"a{i}", 1_000 + i * 1_000
+        fp[k], sp[k] = origin.Probe("1", pos, "AA", baf=0.0), origin.Probe("1", pos, "AA", baf=0.5)
+    # PAR1 on GRCh37 is 60001-2699520: present, as it must be from either sperm type.
+    for i in range(600):
+        k, pos = f"p{i}", 70_000 + i * 4_000
+        fp[k], sp[k] = origin.Probe("X", pos, "AA", baf=0.0), origin.Probe("X", pos, "AA", baf=0.0)
+    # The rest of chrX, absent, as it is from a Y-bearing sperm.
+    for i in range(600):
+        k, pos = f"x{i}", 20_000_000 + i * 1_000
+        fp[k], sp[k] = origin.Probe("X", pos, "AA", baf=0.0), origin.Probe("X", pos, "BB", baf=0.0)
+    for i in range(812):
+        k, pos = f"y{i}", 1_000 + i * 1_000
+        fp[k], sp[k] = origin.Probe("Y", pos, "AA"), origin.Probe("Y", pos, "AA")
+
+    fa, s = origin.Sample("sperm", fp, []), origin.Sample("sample", sp, [])
+    rep = origin.parental_origin(fa, s, product=AXIOM, build="GRCh37")
+    by = {c.chrom: c for c in rep.chroms}
+    assert by["X:PAR"].verdict == "paternal_present"
+    assert by["X"].verdict == "expected_absent"
+    # The PAR is not an autosome and must not move the genome-wide figure either way.
+    assert rep.genome_rate < 0.001
+
+
+def test_uniform_absence_everywhere_reads_as_a_mixture():
+    """Measured: two arrays of one man 1.11, a degraded true offspring 0.76, an unrelated adult
+    0.11, two genomes blended 0.10. The rule fires only inside the uncalled band, where it
+    decides nothing on its own and says only which of two shapes the sample has."""
+    def scored(rates):
+        fa, s = sample_pair(rates, het_band=0.11)
+        # No-calls the father does not carry, so they raise this sample's dropout ceiling to
+        # 1.5% without entering the absence count. 2.5% then lands inside the uncalled band,
+        # which is the only place the rule is consulted.
+        for i in range(2200):
+            s.probes[f"nc{i}"] = origin.Probe("1", 900_000_000 + i, "NC")
+        return origin.parental_origin(fa, s, product=AXIOM)
+
+    uniform = scored({"*": 0.025})
+    patchy = scored({"*": 0.0, "1": 0.138, "2": 0.138, "3": 0.138, "4": 0.138})
+    assert uniform.verdict == "unclear" and patchy.verdict == "unclear"
+    assert uniform.dispersion < patchy.dispersion
+    assert any("mixed sample" in x for x in uniform.limits)
+    assert not any("mixed sample" in x for x in patchy.limits)

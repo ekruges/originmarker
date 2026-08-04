@@ -9,6 +9,47 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.4.0 "Kinetochore"
+
+Three quantities the tool measured and did not report. None of these changes a verdict; they
+change what a reader can see behind one.
+
+### Added
+
+- **The pseudoautosomal region is scored apart from the rest of chrX.** PAR1 and PAR2 sit on
+  both the X and the Y and recombine between them, so a Y-bearing sperm delivers paternal PAR
+  alleles while the rest of the X is legitimately absent. Pooled into one chrX bucket that
+  positive control was invisible: the row now appears as `X:PAR` and reads present on exactly
+  the samples where `X` reads expected_absent. Boundaries from the GRC assembly region reports,
+  and the split is skipped entirely when the assembly could not be called, since PAR2 is at a
+  different address in the two builds and guessing would put ordinary chrX markers into a
+  control. On a full Axiom array roughly 976 informative markers fall in the PAR; on the
+  shipped one-in-eight example subsets 122 do, below the 200-marker floor, so the row appears
+  on real arrays rather than on the demonstrations.
+- **The noise ceiling now reports the two factors it is the product of**, the no-call rate and
+  the heterozygous fraction, next to the ratio in the browser and in the report. A ratio that
+  fell between two runs can mean the signal shrank or the ceiling grew, and those have opposite
+  implications. The factors say which.
+- **Dispersion between chromosomes is reported**, as the coefficient of variation of the
+  per-chromosome absence rate together with the cleanest chromosome. Measured on the shipped
+  arrays: 1.11 for two arrays of one man, 0.76 for a degraded but true parent-offspring pair,
+  0.11 for an unrelated adult, and 0.10 for a 50:50 blend of two unrelated genomes. Where a
+  sample already sits in the uncalled band and the absence is uniform across every chromosome
+  with none of them reaching the ceiling, the report now says the shape is a blend rather than
+  a partial loss, and that no reanalysis separates the two genomes.
+
+  Worth stating plainly, because the reverse is easy to assume: uniformity does not identify a
+  mixture on its own. An unrelated adult and a blend measure 0.112 against 0.104, which is no
+  separation at all. What the statistic distinguishes is a genome-wide difference from one
+  confined to part of the genome, and it is consulted only where the rate is already ambiguous.
+
+### Fixed
+
+- `parental_origin` accepts a known assembly rather than always inferring one, for callers
+  holding a manifest.
+
+---
+
 ## 2.3.1 "Kinetochore"
 
 The rest of the audit's list, and a test of its central proposal that falsifies it.

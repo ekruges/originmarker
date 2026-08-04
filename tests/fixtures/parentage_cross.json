@@ -14,6 +14,8 @@
    "nonpaternal_rate": 0.348241991,
    "second_parent_expected": 0.084098497,
    "het_band": 0.221467589,
+   "dispersion": 0.762326093,
+   "min_chrom_rate": 0.00074239,
    "no_call_rate": 0.469909987
   },
   {
@@ -27,6 +29,8 @@
    "nonpaternal_rate": 0.141830784,
    "second_parent_expected": 0.084098497,
    "het_band": 0.137508613,
+   "dispersion": 0.111677808,
+   "min_chrom_rate": 0.043542435,
    "no_call_rate": 0.016142316
   },
   {
@@ -40,6 +44,8 @@
    "nonpaternal_rate": 0.164990264,
    "second_parent_expected": 0.084098497,
    "het_band": 0.165155225,
+   "dispersion": 0.109154118,
+   "min_chrom_rate": 0.038897893,
    "no_call_rate": 0.034241863
   },
   {
@@ -53,6 +59,8 @@
    "nonpaternal_rate": 0.027644125,
    "second_parent_expected": 0.084098497,
    "het_band": 0.161346836,
+   "dispersion": 1.105938353,
+   "min_chrom_rate": 0.0,
    "no_call_rate": 0.058804151
   }
  ]

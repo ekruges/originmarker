@@ -58,7 +58,7 @@ interface Entry {
 /** One parent held as a call per marker, plus the heterozygosity the second-parent axis needs.
  *  ponytail: two of these is ~130 MB on 825k-marker arrays. Fine on a desktop; if a laptop
  *  starts thrashing, the fix is a packed typed array keyed on a sorted probe list, not a cap. */
-interface DonorIndex { gt: Map<string, AB>; heterozygosity: number }
+interface DonorIndex { gt: Map<string, AB>; heterozygosity: number; build: string | null }
 
 /** A finished per-locus test, lifted to the page so the report can carry it. */
 export interface LocusRun {
@@ -311,7 +311,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         const h = called ? het / called : NaN
         log('DONE', `${what} indexed, ${int(gt.size)} markers, autosomal het ${pct(h, 3)}`)
         patch(e.id, { state: 'done', profile, gates: g })
-        return { gt, heterozygosity: h }
+        return { gt, heterozygosity: h, build: profile.build.build }
       } catch (err) {
         const m = err instanceof Error ? err.message : String(err)
         log('WARN', `${e.file.name}: ${m}`)
@@ -347,6 +347,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         try {
           const t = emptyTally()
           const tm = mat ? emptyTally() : null
+          // The parent's assembly, so the pseudoautosomal boundaries are the right ones. Known
+          // before the sample streams, and the same across one experiment's arrays.
+          t.build = pat.build
+          if (tm) tm.build = mat?.build ?? null
           const { profile, gates: g } = await profileFile(s.file, (r) => {
             tallyRow(pat.gt.get(r.probesetId) ?? 'NC', r, t)
             if (tm && mat) tallyRow(mat.gt.get(r.probesetId) ?? 'NC', r, tm)
@@ -600,9 +604,19 @@ function Axis({ label, r }: { label: string; r: ParentageResult }) {
   const margin = r.genomeRate / r.explainable
   return (
     <Text size="xs" c="dimmed" ff="monospace">
-      {label} absent {pct(r.genomeRate)} &middot; ceiling {pct(r.explainable)} &middot;{' '}
+      {label && `${label} `}absent {pct(r.genomeRate)} &middot; ceiling {pct(r.explainable)} &middot;{' '}
       {Number.isFinite(margin) ? `${margin.toFixed(1)}x` : '-'} &middot;{' '}
       {int(r.informative)} informative
+      <br />
+      {/* The ceiling's own two factors, so a ratio that fell is readable as the ceiling rising
+          rather than the signal shrinking. They are what it is the product of. */}
+      &nbsp;&nbsp;from {pct(r.noCallRate, 1)} no-call &times; {pct(r.hetFraction, 1)} het
+      {Number.isFinite(r.dispersion) && (
+        <>
+          {' '}&middot; spread {r.dispersion.toFixed(2)} across chromosomes, cleanest{' '}
+          {pct(r.minChromRate)}
+        </>
+      )}
     </Text>
   )
 }
@@ -655,7 +669,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
         </Group>
         <Text size="sm" mt={3}>{gloss}</Text>
         <div style={{ marginTop: 6 }}>
-          <Axis label={m ? 'paternal' : 'absent'} r={r} />
+          <Axis label={m ? 'paternal' : ''} r={r} />
           {m && <Axis label="maternal" r={m} />}
         </div>
         <Group gap={12} align="center" mt={4}>

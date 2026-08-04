@@ -68,6 +68,21 @@ export const CALL_RATE_FLOOR = 0.60
  */
 export const PANEL_HET_FLOOR = 0.10
 
+/**
+ * Coefficient of variation of the per-chromosome absence rate below which the difference is
+ * UNIFORM across the genome rather than confined to part of it.
+ *
+ * Measured on the shipped arrays: an unrelated adult 0.112, a 50:50 blend of two unrelated
+ * genomes 0.104, a degraded but true parent-offspring pair 0.762, two arrays of one person 1.106.
+ * The gap between 0.11 and 0.76 is empty, which is why a single figure can sit in it.
+ *
+ * Uniformity alone identifies nothing: an unrelated adult and a blend are indistinguishable by it
+ * (0.112 against 0.104). It becomes informative only together with WHERE the rate sits. A blend
+ * lands between the present and absent expectations and stays there on every chromosome; a real
+ * genome with a lost segment is patchy, with some chromosomes clean.
+ */
+export const UNIFORM_CV = 0.35
+
 export type OriginClass = 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear'
 
 /** One line per class, so the card, the table and the PDF cannot describe a call differently. */
@@ -80,6 +95,23 @@ export const GLOSS: Record<OriginClass, string> = {
 export type Verdict = 'parent_genome_present' | 'no_parental_contribution' | 'unclear'
 export type Zygosity = 'diploid' | 'uniparental_homozygous' | 'unknown'
 export type SpermType = 'X_bearing' | 'Y_bearing' | 'unknown'
+
+/**
+ * Pseudoautosomal boundaries, from the GRC assembly region reports.
+ *
+ * PAR1 and PAR2 sit on both the X and the Y and recombine between them, so a Y-bearing sperm
+ * still delivers paternal PAR alleles. That makes the PAR a positive control on the very sample
+ * where the rest of chrX is legitimately absent: pooled into one chrX bucket it was invisible.
+ */
+const PAR: Record<string, [number, number][]> = {
+  GRCh37: [[60001, 2699520], [154931044, 155260560]],
+  GRCh38: [[10001, 2781479], [155701383, 156030895]],
+}
+
+/** False when the assembly is undetermined: PAR1 is nearly the same address in both builds but
+ *  PAR2 is not, so guessing would put ordinary chrX markers into a positive control. */
+export const inPar = (pos: number, build: string | null): boolean =>
+  (PAR[build ?? ''] ?? []).some(([a, b]) => pos >= a && pos <= b)
 
 const AUTOSOME = /^(?:[1-9]|1[0-9]|2[0-2])$/
 export const isAutosome = (c: string): boolean => AUTOSOME.test(c)
@@ -122,11 +154,13 @@ export interface Tally {
    *  sperm is measured from these, never inferred from an absent X. */
   yCalled: number
   yTotal: number
+  /** Assembly, so the pseudoautosomal boundaries used are the right ones. GRCh37 if unknown. */
+  build: string | null
 }
 
 export const emptyTally = (): Tally => ({
   byChrom: new Map(), nonParental: 0, nonParentalDen: 0,
-  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, yCalled: 0, yTotal: 0,
+  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, yCalled: 0, yTotal: 0, build: null,
 })
 
 /** One marker of the sample, against the parent's call at the same marker. */
@@ -161,10 +195,14 @@ export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
     for (const allele of row.genotype) if (!parent.includes(allele)) { t.nonParental += 1; break }
   }
   if (parent !== 'AA' && parent !== 'BB') return
-  const d = t.byChrom.get(row.chrom) ?? [0, 0]
+  // chrX is split, because its two halves answer different questions: the pseudoautosomal region
+  // is delivered by a sperm of either type, the rest only by an X-bearing one.
+  const key = (row.chrom === 'X' || row.chrom === '23') && inPar(row.pos, t.build)
+    ? 'X:PAR' : row.chrom
+  const d = t.byChrom.get(key) ?? [0, 0]
   d[0] += 1
   if (!row.genotype.includes(parent[0])) d[1] += 1
-  t.byChrom.set(row.chrom, d)
+  t.byChrom.set(key, d)
 }
 
 export interface ChromResult {
@@ -188,6 +226,13 @@ export interface ParentageResult {
   secondParentExpected: number
   hetBand: number
   noCallRate: number
+  /** Second factor of the ceiling, beside noCallRate: a dropped call only fakes absence where
+   *  the genotype was heterozygous, so the ceiling is their product plus the error floor. */
+  hetFraction: number
+  /** Spread of the per-chromosome rate: low is uniform, high is confined to part of the genome. */
+  dispersion: number
+  /** The cleanest chromosome. Near zero means some of the genome is untouched. */
+  minChromRate: number
   chroms: ChromResult[]
   notes: string[]
   limits: string[]
@@ -304,7 +349,7 @@ export function classify(
   for (const [c, [n, a]] of [...t.byChrom].sort(byChromName)) {
     if (n < 200) continue
     const rate = a / n
-    const sex = c === 'X' || c === '23'
+    const sex = c === 'X' || c === '23'  // 'X:PAR' is deliberately not sex here
     // A male offspring has no paternal X at all: his father sent a Y instead. Flagging that as a
     // loss would report ordinary sex determination as an anomaly on half of all samples. A
     // MOTHER transmits an X either way, so the same exemption must not apply to her.
@@ -324,12 +369,38 @@ export function classify(
       verdict: expected ? 'expected_absent'
         : rate >= explainable * ABSENCE_MARGIN ? 'absent'
           : rate <= explainable ? 'present' : 'unclear',
-      note: expected ? "no paternal X: this sample carries the parent's Y"
+      note: c === 'X:PAR' ? 'pseudoautosomal: on both the X and the Y, so a sperm of either type '
+        + 'delivers it. Present here is the positive control on the rest of chrX being absent'
+        : expected ? "no paternal X: this sample carries the parent's Y"
         : sex && role === 'paternal' && present && xLost
           ? 'the paternal X is absent and no chrY was called, so this is not ordinary sex '
             + 'determination. Reported as a loss.'
           : undefined,
     })
+  }
+
+  // Dispersion across chromosomes: uniform, or confined to part of the genome. Reported always,
+  // consulted only where the genome-wide rate is already ambiguous.
+  const rates = chroms.filter((c) => isAutosome(c.chrom)).map((c) => c.rate)
+  const mean = rates.length ? rates.reduce((a, b) => a + b, 0) / rates.length : NaN
+  const sd = rates.length > 1
+    ? Math.sqrt(rates.reduce((a, b) => a + (b - mean) ** 2, 0) / (rates.length - 1)) : NaN
+  const dispersion = Number.isFinite(sd) && mean > 0 ? sd / mean : NaN
+  const minChrom = rates.length ? Math.min(...rates) : NaN
+
+  // Neither present nor absent, and differing by the same amount on EVERY chromosome, is two
+  // genomes blended rather than one genome missing pieces. A lost segment is patchy and leaves
+  // the rest clean; a blend cannot be, since every chromosome carries both contributions.
+  if (verdict === 'unclear' && Number.isFinite(dispersion) && dispersion < UNIFORM_CV
+      && minChrom > explainable) {
+    limits.push(
+      `Absence is uniform across the genome: coefficient of variation ${dispersion.toFixed(2)} `
+      + `between chromosomes, and the cleanest chromosome still sits at ${pct(minChrom)}, above `
+      + `this sample's own ceiling of ${pct(explainable)}. A lost segment would leave the rest of `
+      + 'the genome clean and does not look like this; two genomes blended in one tube do, '
+      + 'because every chromosome then carries both contributions. Read this as a mixed sample '
+      + 'rather than a partial loss. No reanalysis separates them.',
+    )
   }
 
   if (originClass === 'androgenetic') {
@@ -347,7 +418,8 @@ export function classify(
 
   return {
     verdict, originClass, zygosity, spermType, genomeRate, explainable, informative: nTot,
-    nonParentalRate, secondParentExpected, hetBand, noCallRate, chroms, notes, limits,
+    nonParentalRate, secondParentExpected, hetBand, noCallRate, hetFraction,
+    dispersion, minChromRate: minChrom, chroms, notes, limits,
   }
 }
 

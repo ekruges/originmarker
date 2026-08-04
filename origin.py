@@ -1224,6 +1224,29 @@ ABSENCE_ERROR_FLOOR = 0.005
 ABSENCE_MARGIN = 3.0
 
 
+#: Pseudoautosomal boundaries, from the GRC assembly region reports. PAR1 and PAR2 sit on both
+#: the X and the Y and recombine between them, so a Y-bearing sperm still delivers paternal PAR
+#: alleles. Split out because pooled into one chrX bucket that positive control was invisible.
+PAR = {
+    "GRCh37": ((60001, 2699520), (154931044, 155260560)),
+    "GRCh38": ((10001, 2781479), (155701383, 156030895)),
+}
+
+#: Coefficient of variation of the per-chromosome absence rate below which the difference is
+#: uniform across the genome rather than confined to part of it. Measured on the shipped arrays:
+#: an unrelated adult 0.112, a 50:50 blend of two unrelated genomes 0.104, a degraded but true
+#: parent-offspring pair 0.762, two arrays of one person 1.106. Uniformity alone identifies
+#: nothing, since an unrelated adult and a blend are indistinguishable by it; it is informative
+#: only together with where the rate sits.
+UNIFORM_CV = 0.35
+
+
+def _in_par(pos: int, build: Optional[str]) -> bool:
+    """False when the assembly is undetermined. PAR1 is nearly the same address in both builds
+    but PAR2 is not, so guessing would put ordinary chrX markers in a positive control."""
+    return any(a <= pos <= b for a, b in PAR.get(build or "", ()))
+
+
 def absence_explainable(no_call_rate: float, het_fraction: float) -> float:
     """The highest paternal-absence rate a TRUE father-offspring pair can produce by noise alone.
 
@@ -1277,6 +1300,10 @@ class ParentageReport:
     #: Methods section does not list a finding as a limitation.
     limits: list[str] = field(default_factory=list)
     nonpaternal_rate: float = math.nan
+    #: Spread of the per-chromosome rate: low is uniform, high is confined to part of the genome.
+    dispersion: float = math.nan
+    #: The cleanest chromosome. Near zero means some of the genome is untouched.
+    min_chrom_rate: float = math.nan
     #: Third axis: is the genome diploid at all, from the BAF heterozygous band.
     het_band: float = math.nan
     zygosity: Literal["diploid", "uniparental_homozygous", "unknown"] = "unknown"
@@ -1284,6 +1311,9 @@ class ParentageReport:
     #: pair, plus the error floor. The decision boundary, and it needs no population reference.
     explainable: float = math.nan
     no_call_rate: float = math.nan
+    #: Second factor of the ceiling, beside no_call_rate: a dropped call only fakes absence
+    #: where the genotype was heterozygous, so the ceiling is their product plus the floor.
+    het_fraction: float = math.nan
     #: Half the father's heterozygosity: what a second parent would contribute on axis 2.
     second_parent_expected: float = math.nan
     origin_class: Literal["androgenetic", "gynogenetic", "biparental", "unclear"] = "unclear"
@@ -1320,6 +1350,7 @@ class ParentageReport:
 def parental_origin(
     father: Sample, sample: Sample, *, product: str = "unspecified",
     decisive_log10: float = 3.0, role: Literal["paternal", "maternal"] = "paternal",
+    build: Optional[str] = None,
 ) -> ParentageReport:
     """Did this sample inherit a paternal genome, and on which chromosomes.
 
@@ -1329,6 +1360,10 @@ def parental_origin(
     """
     unrelated = UNRELATED_ABSENCE.get(product, DEFAULT_UNRELATED_ABSENCE)
     fa = {k: p for k, p in father.probes.items() if p.gt in ("AA", "BB")}
+    # PAR2 is at a different address in the two assemblies, so the boundaries have to be the
+    # right ones. Read off the father, whose positions are the ones being bucketed, unless the
+    # caller knows it from a manifest.
+    build = build or detect_build(father).build
 
     per: dict[str, list[int]] = {}
     nonpat = nonpat_den = 0
@@ -1345,7 +1380,10 @@ def parental_origin(
         f = fa.get(k)
         if f is None:
             continue
-        d = per.setdefault(f.chrom, [0, 0])
+        # chrX is split: the pseudoautosomal region is delivered by a sperm of either type,
+        # the rest only by an X-bearing one, so they answer different questions.
+        key = "X:PAR" if f.chrom in ("X", "23") and _in_par(f.pos, build) else f.chrom
+        d = per.setdefault(key, [0, 0])
         d[0] += 1
         d[1] += f.gt[0] not in p.gt
 
@@ -1390,6 +1428,13 @@ def parental_origin(
     explainable = absence_explainable(nc_rate, het_frac) + ABSENCE_ERROR_FLOOR
     rep.explainable = explainable
     rep.no_call_rate = nc_rate
+    rep.het_fraction = het_frac
+    chrom_rates = [v[1] / v[0] for v in autosomes.values()]
+    if len(chrom_rates) > 1:
+        mean = sum(chrom_rates) / len(chrom_rates)
+        sd = (sum((x - mean) ** 2 for x in chrom_rates) / (len(chrom_rates) - 1)) ** 0.5
+        rep.dispersion = sd / mean if mean > 0 else math.nan
+        rep.min_chrom_rate = min(chrom_rates)
     # Used by both the presence guard and the zygosity guard below.
     call_rate = 1.0 - nc_rate if math.isfinite(nc_rate) else math.nan
     rep.limits.extend(sample.notes)
@@ -1414,6 +1459,20 @@ def parental_origin(
             "array measures dropout directly and would settle this case, and every other "
             "borderline one, without changing what the tool can already call without her."
         )
+    # Neither present nor absent, and differing by the same amount on EVERY chromosome, is two
+    # genomes blended rather than one genome missing pieces: a lost segment is patchy and leaves
+    # the rest clean, while a blend cannot be, since every chromosome carries both contributions.
+    if (rep.verdict == "unclear" and math.isfinite(rep.dispersion)
+            and rep.dispersion < UNIFORM_CV and rep.min_chrom_rate > explainable):
+        rep.limits.append(
+            f"Absence is uniform across the genome: coefficient of variation "
+            f"{rep.dispersion:.2f} between chromosomes, and the cleanest chromosome still sits "
+            f"at {rep.min_chrom_rate:.2%}, above this sample's own ceiling of {explainable:.2%}. "
+            "A lost segment would leave the rest of the genome clean and does not look like "
+            "this; two genomes blended in one tube do. Read this as a mixed sample rather than "
+            "a partial loss. No reanalysis separates them."
+        )
+
     no_clean_chromosome = rep.verdict != "parent_genome_present"
 
     for c in (() if no_clean_chromosome else sorted(per, key=lambda x: (len(x), x))):
@@ -1423,7 +1482,7 @@ def parental_origin(
         rate = a / n
         # A male offspring has no paternal X at all: his father sent a Y instead. Flagging that
         # as a loss would report ordinary sex determination as an anomaly.
-        expected = (c in ("X", "23") and y_bearing
+        expected = (c in ("X", "23") and y_bearing  # "X:PAR" deliberately excluded
                     and rep.verdict == "parent_genome_present")
         clr = (_log_binom_pmf(a, n, baseline) - _log_binom_pmf(a, n, unrelated)) / math.log(10.0)
         if expected and rate > baseline * 5:
