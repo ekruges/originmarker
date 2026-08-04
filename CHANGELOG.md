@@ -9,6 +9,12 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.4.2
+
+README trimmed to what a repo README is for. No code changes.
+
+---
+
 ## 2.4.1 "Kinetochore"
 
 Two ways the noise ceiling could be trusted when it was not measuring anything.
