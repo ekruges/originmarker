@@ -35,8 +35,10 @@ export const EXAMPLES: Example[] = [
     file: 'GSM4472409_A8_45.subset.csv.gz',
     role: 'sample',
     what: 'embryo A8, this donor\'s own zygote',
-    expect: 'biparental. A noisy array, called on a narrow margin: 9.88% absence against a '
-      + '10.91% ceiling, with the second parent visible at 34.8% against 8.4%',
+    expect: 'unclear, and the refusal is the point. Its paternal absence of 9.88% sits under a '
+      + '10.91% ceiling, so the sperm donor\'s genome is there, but at a 53% call rate zygosity '
+      + 'is withheld and the androgenetic/biparental split cannot be made. Earlier versions '
+      + 'called it biparental on a heterozygous band that a call rate this low does not support',
   },
   {
     gsm: 'GSM4472407',

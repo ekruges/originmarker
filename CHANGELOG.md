@@ -9,6 +9,50 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.3.1 "Kinetochore"
+
+The rest of the audit's list, and a test of its central proposal that falsifies it.
+
+### Added
+
+- **The two implementations are now pinned against each other**, which is the guarantee a
+  docstring had claimed for months without a test behind it and which the audit found violated on
+  every pair it tried. `tools/gen_parentage_fixture.py` writes what `origin.py` computes on the
+  shipped examples; `parentage.check.ts` asserts the browser reproduces the class, zygosity,
+  sperm type, verdict and six rates to within 1e-6. Verified live rather than assumed: perturbing
+  one constant by 0.0001 fails it with the sample and quantity named. After the 2.2.x and 2.3.0
+  fixes the two agree exactly on all four cases.
+- The CLI's verdicts are role-neutral, `parent_genome_present` and `no_parental_contribution`,
+  matching the browser. The old names asserted "paternal" even when the call was made against the
+  oocyte donor.
+
+### Changed
+
+- The shipped description of example A8 said biparental. Since 2.2.1 withheld zygosity below a
+  60% call rate it returns unclear, which is the correct answer on a 53% call rate and is now what
+  the example and the documentation say.
+
+### Tested and not adopted
+
+- **The audit's answer to open question A does not survive contact with the data.** Its proposal
+  was to separate structural missingness from dropout by the heterozygous fraction: dropout
+  converts heterozygous calls to homozygous so the fraction falls, while markers that were never
+  assayed leave it unchanged. The audit derived this by simulation and said testing it against the
+  real files was the obvious next step.
+
+  Measured. On the HapMap individuals typed on a different panel, which is the structural case,
+  the heterozygous fraction of called markers is 31.08% against 19.34% for the well-called
+  individuals on the same platform, a ratio of 1.61. On the amplified Zuccaro material, which is
+  the dropout case, it is 31.98% against 16.43%, a ratio of 1.95. Both rise, and the dropout case
+  rises further, so the statistic does not separate them and points the wrong way if used.
+
+  The reason is already recorded in this codebase: below a 60% call rate the dominant artefact on
+  amplified material is spurious heterozygous calls, not clean allele dropout. The textbook
+  het-to-hom conversion is real but it is not what moves the measured fraction. Open question A
+  stays open, with one proposed answer now closed off.
+
+---
+
 ## 2.3.0 "Kinetochore"
 
 Responds to an independent scientific audit of the 2.x inference path. Every finding below was

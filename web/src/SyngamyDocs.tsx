@@ -1192,9 +1192,10 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
               is unrelated to both, and only measuring a second parent can say so.
             </List.Item>
             <List.Item>
-              <Code>A8_45</Code> moves from <b>biparental</b> to <b>unclear</b>. Its maternal
-              absence is 12.84% against a 10.91% ceiling, which is 1.2x: inside the uncalled band.
-              That array has 47% dropout and genuinely cannot resolve the maternal side. See{' '}
+              <Code>A8_45</Code> stays <b>unclear</b>, and the oocyte donor shows a second reason
+              why. Against the sperm donor alone its 53% call rate already withholds zygosity. Add
+              her and the maternal side lands at 12.84% against a 10.91% ceiling, 1.2x, inside the
+              uncalled band as well. That array has 47% dropout and resolves neither parent. See{' '}
               <SecRef id="band" />.
             </List.Item>
           </List>

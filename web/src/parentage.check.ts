@@ -4,11 +4,15 @@
 // same real measurements the Python side was validated on rather than against itself. Every
 // number in section 1 came off a real file during that validation.
 import assert from 'node:assert/strict'
+import { readFileSync, createReadStream } from 'node:fs'
+import { createGunzip } from 'node:zlib'
+import { createInterface } from 'node:readline'
+import { headerMap, parseRow, type ProbeRow } from './ingest.ts'
 import {
   ABSENCE_MARGIN, absenceExplainable, agreement, classify, emptyTally, HET_BAND_DIPLOID,
   isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
 } from './parentage.ts'
-import type { ProbeRow } from './ingest.ts'
+
 import type { AB } from './informativity.ts'
 
 const row = (
@@ -198,7 +202,6 @@ assert.equal(ABSENCE_MARGIN, 3)
   assert.equal(classify(gone, 0.17).verdict, 'no_parental_contribution')
 }
 
-console.log('parentage.check.ts OK')
 
 // --- 11. the chrX exemption needs a chrY MEASUREMENT, not an absent X --------------------------
 // Inferring "he sent a Y" from a missing paternal X is circular. On a sample with no chrY called
@@ -242,3 +245,63 @@ console.log('parentage.check.ts OK')
 
   assert.ok(pair(middle, middle, NaN).notes.some((n) => n.includes('Neither parent is resolved')))
 }
+
+// --- 13. the two implementations agree, which nothing checked until now ------------------------
+// tests/fixtures/parentage_cross.json is written by tools/gen_parentage_fixture.py from origin.py
+// on the shipped example arrays. An independent audit found the two sides differing on every pair
+// it tried, including fifteen chromosomes on one sample, because each was pinned only against
+// itself. Regenerate the fixture when the CLI's numbers legitimately change; never edit it to
+// match the browser.
+{
+  const fx = JSON.parse(
+    readFileSync(new URL('../../tests/fixtures/parentage_cross.json', import.meta.url), 'utf8'),
+  ) as {
+    donor_heterozygosity: number
+    cases: { sample: string; verdict: string; origin_class: string; zygosity: string
+      sperm_type: string; genome_rate: number; explainable: number; nonpaternal_rate: number
+      second_parent_expected: number; het_band: number; no_call_rate: number }[]
+  }
+  assert.ok(fx.cases.length >= 4, 'the fixture lost cases')
+
+  const donorGt = await readExample('GSM4472397_sperm_DNA_71.subset.csv.gz')
+  for (const c of fx.cases) {
+    const t = emptyTally()
+    await eachExampleRow(`${c.sample}.subset.csv.gz`, (r) => {
+      tallyRow(donorGt.get(r.probesetId) ?? 'NC', r, t)
+    })
+    const got = classify(t, fx.donor_heterozygosity)
+    const near = (a: number, b: number, what: string) => assert.ok(
+      Math.abs(a - b) < 1e-6, `${c.sample} ${what}: browser ${a}, CLI ${b}`,
+    )
+    assert.equal(got.originClass, c.origin_class, `${c.sample} class`)
+    assert.equal(got.zygosity, c.zygosity, `${c.sample} zygosity`)
+    assert.equal(got.spermType, c.sperm_type, `${c.sample} sperm type`)
+    assert.equal(got.verdict, c.verdict, `${c.sample} verdict`)
+    near(got.genomeRate, c.genome_rate, 'absence')
+    near(got.explainable, c.explainable, 'ceiling')
+    near(got.nonParentalRate, c.nonpaternal_rate, 'alleles the donor lacks')
+    near(got.secondParentExpected, c.second_parent_expected, 'second-parent expectation')
+    near(got.hetBand, c.het_band, 'BAF band')
+    near(got.noCallRate, c.no_call_rate, 'no-call rate')
+  }
+}
+
+/** Stream one shipped example, gunzipping, exactly as the browser parses a dropped file. */
+async function eachExampleRow(name: string, fn: (r: ProbeRow) => void): Promise<void> {
+  const path = new URL(`../public/examples/${name}`, import.meta.url)
+  const gz = createReadStream(path).pipe(createGunzip())
+  let map: ReturnType<typeof headerMap> = null
+  for await (const line of createInterface({ input: gz, crlfDelay: Infinity })) {
+    if (!map) { map = headerMap(line); continue }
+    const r = parseRow(line, map)
+    if (r) fn(r)
+  }
+}
+
+async function readExample(name: string): Promise<Map<string, AB>> {
+  const gt = new Map<string, AB>()
+  await eachExampleRow(name, (r) => { gt.set(r.probesetId, r.genotype) })
+  return gt
+}
+
+console.log('parentage.check.ts OK')

@@ -1,0 +1,59 @@
+{
+ "generated_by": "tools/gen_parentage_fixture.py",
+ "donor": "GSM4472397_sperm_DNA_71.subset.csv.gz",
+ "donor_heterozygosity": 0.168196995,
+ "cases": [
+  {
+   "sample": "GSM4472409_A8_45",
+   "verdict": "parent_genome_present",
+   "origin_class": "unclear",
+   "zygosity": "unknown",
+   "sperm_type": "Y_bearing",
+   "genome_rate": 0.098834629,
+   "explainable": 0.109069832,
+   "nonpaternal_rate": 0.348241991,
+   "second_parent_expected": 0.084098497,
+   "het_band": 0.221467589,
+   "no_call_rate": 0.469909987
+  },
+  {
+   "sample": "GSM4472407_donor_A_47",
+   "verdict": "no_parental_contribution",
+   "origin_class": "gynogenetic",
+   "zygosity": "diploid",
+   "sperm_type": "unknown",
+   "genome_rate": 0.055269564,
+   "explainable": 0.007219707,
+   "nonpaternal_rate": 0.141830784,
+   "second_parent_expected": 0.084098497,
+   "het_band": 0.137508613,
+   "no_call_rate": 0.016142316
+  },
+  {
+   "sample": "GSM4472415_donor_C_70",
+   "verdict": "no_parental_contribution",
+   "origin_class": "gynogenetic",
+   "zygosity": "diploid",
+   "sperm_type": "unknown",
+   "genome_rate": 0.052204221,
+   "explainable": 0.010655223,
+   "nonpaternal_rate": 0.164990264,
+   "second_parent_expected": 0.084098497,
+   "het_band": 0.165155225,
+   "no_call_rate": 0.034241863
+  },
+  {
+   "sample": "GSM4472398_sperm_DNA_79",
+   "verdict": "parent_genome_present",
+   "origin_class": "androgenetic",
+   "zygosity": "diploid",
+   "sperm_type": "X_bearing",
+   "genome_rate": 0.001461026,
+   "explainable": 0.014487864,
+   "nonpaternal_rate": 0.027644125,
+   "second_parent_expected": 0.084098497,
+   "het_band": 0.161346836,
+   "no_call_rate": 0.058804151
+  }
+ ]
+}

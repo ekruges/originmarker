@@ -439,7 +439,7 @@ def test_a_paternal_genome_is_recognised_without_any_mother():
     is missing does not."""
     fa, s = sample_pair({"*": 0.002})
     rep = origin.parental_origin(fa, s, product=AXIOM)
-    assert rep.verdict == "paternal_genome_present"
+    assert rep.verdict == "parent_genome_present"
     assert rep.genome_rate < 0.01
     assert all(c.verdict == "paternal_present" for c in rep.chroms)
 
@@ -448,7 +448,7 @@ def test_an_unrelated_genome_is_recognised_and_its_chromosomes_are_not_dissected
     """Measured on the real lab data at 6.81%, against 0.82% that its own noise could explain."""
     fa, s = sample_pair({"*": 0.068})
     rep = origin.parental_origin(fa, s, product=AXIOM)
-    assert rep.verdict == "no_paternal_contribution"
+    assert rep.verdict == "no_parental_contribution"
     assert math.isnan(rep.baseline), "no baseline exists, so none may be quoted"
     assert not rep.chroms, "per-chromosome loss is meaningless without a genome to lose it from"
     assert rep.genome_rate > rep.explainable * origin.ABSENCE_MARGIN
@@ -457,7 +457,7 @@ def test_an_unrelated_genome_is_recognised_and_its_chromosomes_are_not_dissected
 def test_one_lost_chromosome_is_found_against_a_present_genome():
     fa, s = sample_pair({"*": 0.002, "7": 0.055})
     rep = origin.parental_origin(fa, s, product=AXIOM)
-    assert rep.verdict == "paternal_genome_present"
+    assert rep.verdict == "parent_genome_present"
     lost = [c for c in rep.chroms if c.verdict == "paternal_absent"]
     assert [c.chrom for c in lost] == ["7"], [(c.chrom, c.rate) for c in rep.chroms]
     assert lost[0].log10_lr < -3
@@ -489,8 +489,8 @@ def test_the_case_the_chrY_test_cannot_reach_is_called_from_snps_alone():
     a = origin.parental_origin(fa, present, product=AXIOM)
     b = origin.parental_origin(fa2, absent, product=AXIOM)
     assert not a.y_bearing_sperm and not b.y_bearing_sperm, "neither has a Y to go on"
-    assert a.verdict == "paternal_genome_present"
-    assert b.verdict == "no_paternal_contribution"
+    assert a.verdict == "parent_genome_present"
+    assert b.verdict == "no_parental_contribution"
     # The sperm type comes from the chrX SNP rate, so chrY is a cross-check and not the method.
     assert a.sperm_type == "X_bearing"
     assert any("X-bearing sperm" in n for n in a.notes)
@@ -704,14 +704,14 @@ def test_the_decision_boundary_is_this_samples_own_noise_not_a_population_consta
     # surprising depends on what this sample's own noise can manufacture.
     fa, clean = sample_pair({"*": 0.03}, chroms=AUTO_AND_X, het_band=0.30)
     r_clean = origin.parental_origin(fa, clean, product=AXIOM)
-    assert r_clean.verdict == "no_paternal_contribution", r_clean.explainable
+    assert r_clean.verdict == "no_parental_contribution", r_clean.explainable
 
     fa2, noisy = sample_pair({"*": 0.03}, chroms=AUTO_AND_X, het_band=0.30)
     for k, pr in list(noisy.probes.items())[::2]:      # half the calls lost
         noisy.probes[k] = origin.Probe(pr.chrom, pr.pos, "NC", baf=pr.baf)
     r_noisy = origin.parental_origin(fa2, noisy, product=AXIOM)
     assert r_noisy.explainable > r_clean.explainable * 5
-    assert r_noisy.verdict != "no_paternal_contribution", (
+    assert r_noisy.verdict != "no_parental_contribution", (
         "at this noise level a true father-offspring pair can reach this rate, so absence "
         "must not be claimed")
 
@@ -738,7 +738,7 @@ def test_a_true_father_offspring_pair_is_never_called_unrelated_however_noisy():
             s.probes[k] = origin.Probe(pr.chrom, pr.pos, "NC", baf=pr.baf)
     r = origin.parental_origin(fa, s, product=AXIOM)
     assert r.explainable > r.genome_rate, (r.explainable, r.genome_rate)
-    assert r.verdict == "paternal_genome_present"
+    assert r.verdict == "parent_genome_present"
 
 
 def test_the_second_parent_signal_is_derived_from_the_father_not_fitted():
@@ -931,5 +931,5 @@ def test_vcf_and_array_input_reach_the_same_verdict():
         v_fa, v_s = origin.read_sample(p, "DAD"), origin.read_sample(p, "KID")
     a = origin.parental_origin(fa, s, product=AXIOM)
     b = origin.parental_origin(v_fa, v_s, product=AXIOM)
-    assert b.verdict == a.verdict == "paternal_genome_present"
+    assert b.verdict == a.verdict == "parent_genome_present"
     assert b.genome_rate == pytest.approx(a.genome_rate, abs=1e-6)

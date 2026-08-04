@@ -1271,7 +1271,7 @@ class ParentageReport:
     y_called: int
     y_total: int
     y_bearing_sperm: bool
-    verdict: Literal["paternal_genome_present", "no_paternal_contribution", "unclear"]
+    verdict: Literal["parent_genome_present", "no_parental_contribution", "unclear"]
     #: Second axis: alleles the father cannot supply, so a non-paternal genome is present.
     #: Things that CONSTRAIN the answer, as opposed to notes, which explain it. Kept apart so a
     #: Methods section does not list a finding as a limitation.
@@ -1400,9 +1400,9 @@ def parental_origin(
         rep.limits.append("Sample quality could not be measured, so there is no bound on "
                          "noise-driven absence and no call is made.")
     elif genome_rate <= explainable:
-        rep.verdict = "paternal_genome_present"
+        rep.verdict = "parent_genome_present"
     elif genome_rate >= explainable * ABSENCE_MARGIN:
-        rep.verdict = "no_paternal_contribution"
+        rep.verdict = "no_parental_contribution"
         rep.baseline = math.nan
     else:
         rep.verdict = "unclear"
@@ -1414,7 +1414,7 @@ def parental_origin(
             "array measures dropout directly and would settle this case, and every other "
             "borderline one, without changing what the tool can already call without her."
         )
-    no_clean_chromosome = rep.verdict != "paternal_genome_present"
+    no_clean_chromosome = rep.verdict != "parent_genome_present"
 
     for c in (() if no_clean_chromosome else sorted(per, key=lambda x: (len(x), x))):
         n, a = per[c]
@@ -1424,7 +1424,7 @@ def parental_origin(
         # A male offspring has no paternal X at all: his father sent a Y instead. Flagging that
         # as a loss would report ordinary sex determination as an anomaly.
         expected = (c in ("X", "23") and y_bearing
-                    and rep.verdict == "paternal_genome_present")
+                    and rep.verdict == "parent_genome_present")
         clr = (_log_binom_pmf(a, n, baseline) - _log_binom_pmf(a, n, unrelated)) / math.log(10.0)
         if expected and rate > baseline * 5:
             verdict, note = "expected_absent", "no paternal X: this sample carries the father's Y"
@@ -1440,7 +1440,7 @@ def parental_origin(
     #
     # Absence cannot separate a paternal-only genome from a biparental one, since his alleles are
     # in both. The second axis does that, and the third says whether the genome is diploid.
-    pat_present = rep.verdict == "paternal_genome_present"
+    pat_present = rep.verdict == "parent_genome_present"
     # The second-parent signal is DERIVED from the father's own heterozygosity, not fitted.
     father_het = (sum(1 for p in father.probes.values()
                       if p.gt == "AB" and _is_autosome(p.chrom))
@@ -1489,7 +1489,7 @@ def parental_origin(
         # One allele per locus. If those alleles are the father's there is no room for a maternal
         # complement, so this axis is not consulted and its residual is error by construction.
         rep.origin_class = ("androgenetic" if pat_present else
-                            "gynogenetic" if rep.verdict == "no_paternal_contribution"
+                            "gynogenetic" if rep.verdict == "no_parental_contribution"
                             else "unclear")
     elif rep.zygosity == "diploid" and pat_present:
         # The only case where the second axis has to carry the decision, and its margin is
@@ -1516,7 +1516,7 @@ def parental_origin(
                 f"against {rep.second_parent_expected:.2%}). A clean biparental sample lands "
                 "almost exactly on this prediction, so this call is not decisive on its own."
             )
-    elif rep.verdict == "no_paternal_contribution":
+    elif rep.verdict == "no_parental_contribution":
         rep.origin_class = "gynogenetic"
     else:
         rep.origin_class = "unclear"
@@ -1750,8 +1750,8 @@ def both_parents(
     """Test each parent the same way and read the class off the pair."""
     pat = parental_origin(father, sample, product=product, role="paternal")
     mat = parental_origin(mother, sample, product=product, role="maternal")
-    P = pat.verdict == "paternal_genome_present"
-    M = mat.verdict == "paternal_genome_present"
+    P = pat.verdict == "parent_genome_present"
+    M = mat.verdict == "parent_genome_present"
     unresolved = "unclear" in (pat.verdict, mat.verdict)
 
     if unresolved:

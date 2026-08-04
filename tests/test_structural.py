@@ -105,7 +105,7 @@ def test_both_parents_classify_from_two_measurements_not_one_and_an_inference():
     dad, mum, kid = trio()
     r = origin.both_parents(dad, mum, kid)
     assert r.origin_class == "biparental"
-    assert r.paternal.verdict == r.maternal.verdict == "paternal_genome_present"
+    assert r.paternal.verdict == r.maternal.verdict == "parent_genome_present"
 
 
 def test_a_missing_maternal_complement_is_confirmed_rather_than_inferred():
