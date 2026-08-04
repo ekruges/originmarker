@@ -1196,6 +1196,16 @@ HET_BAND_DIPLOID = 0.08
 #: a haploid genome cannot produce, and each was called biparental on the strength of it.
 CALL_RATE_FLOOR = 0.60
 
+#: NOTE on the per-chromosome likelihood ratio below, from an independent audit: it ranks two
+#: hypotheses and never asks whether the winner fits, so in principle it can report a decisive
+#: verdict on data neither describes. A goodness-of-fit gate was written for it and removed. The
+#: ratio only reaches +/-3 when the observation is at or BEYOND one of the two rates, and beyond
+#: "unrelated" in the absent direction is a missing chromosome, which is the finding this whole
+#: layer exists to make: the gate refused a real whole-chromosome loss at 31.5% absence for not
+#: resembling the 5.5% unrelated rate closely enough. The audit's concrete case, fifteen
+#: chromosomes called on a mis-clustered array, is caught instead by the per-chromosome
+#: heterozygosity gate in ingest.ts, which is where that failure actually lives.
+
 #: Parent heterozygosity below which the marker set is not a polymorphic panel.
 #:
 #: Every rate here is calibrated on common-SNP arrays, where a parent runs 15-19% heterozygous. A
@@ -1520,7 +1530,19 @@ def parental_origin(
     if role == "maternal" and xr is not None and xr.verdict == "expected_absent":
         xr.verdict, xr.note = "paternal_absent", "maternal X absent: not explained by sex"
     if role == "paternal" and pat_present and xr is not None:
-        rep.sperm_type = "Y_bearing" if xr.rate > (baseline + unrelated) / 2 else "X_bearing"
+        # An absent paternal X has at least three causes: a Y-bearing sperm, X loss, and local
+        # assay failure. Concluding the first from the absence alone is circular, so the chrY
+        # measurement decides it and "unknown" is a legal answer. The browser has always required
+        # this; the CLI used to infer Y_bearing from the X rate and never consult chrY.
+        x_gone = xr.rate > (baseline + unrelated) / 2
+        rep.sperm_type = ("X_bearing" if not x_gone
+                          else "Y_bearing" if y_bearing else "unknown")
+        if rep.sperm_type == "unknown":
+            rep.notes.append(
+                "The paternal X is absent but no chrY was called, so this is not ordinary sex "
+                "determination and no sperm type is claimed. A Y-bearing sperm, loss of the X, "
+                "and assay failure on chrX all produce this and the array cannot separate them."
+            )
         if rep.sperm_type == "X_bearing" and not y_bearing:
             rep.notes.append(
                 "No chrY, yet the father's alleles are present on chrX as well as the autosomes: "
@@ -1751,7 +1773,10 @@ def both_parents(
               and mother.probes[k].gt != "NC"]
     if len(shared) > 1_000:
         same = sum(1 for a, b in shared if a == b) / len(shared)
-        if same > 0.99:
+        # 0.90, not 0.99, matching the ingestion layer's own measured figure: real replicate
+        # arrays of one person concord at 95.8% and a parent-offspring pair at 54.9%, so 0.99 sat
+        # above the thing it was meant to catch.
+        if same > 0.90:
             out.notes.append(
                 f"The two declared parents agree at {same:.1%} of shared markers, which is a "
                 "duplicate or a relabelled file rather than two people. Every conclusion below "

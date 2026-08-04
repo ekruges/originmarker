@@ -224,7 +224,7 @@ export function accumulate(row: ProbeRow, byChrom: Map<string, ChromStats>): voi
  *
  * Dropout-robust by construction: it suppresses heterozygotes on chrX and the autosomes in the
  * same proportion, so the ratio survives where an absolute het rate does not. A male has one X
- * and therefore no chrX heterozygotes outside the pseudoautosomal region, which is under 2% of
+ * and therefore no chrX heterozygotes outside the pseudoautosomal region, which is about 7% of
  * the chromosome, so a male ratio sits near zero at any dropout rate.
  *
  * MEASURED, not assumed. On this array (UK Biobank Axiom) real known-sex bulk samples give:
@@ -240,7 +240,10 @@ export function callSex(byChrom: Map<string, ChromStats>): { sex: Sex; ratio: nu
   for (const [c, s] of byChrom) if (AUTOSOMES.has(c)) { autoCalled += s.called; autoHet += s.het }
   if (!x || x.called === 0 || autoCalled === 0 || autoHet === 0) return { sex: 'ambiguous', ratio: null }
   const ratio = (x.het / x.called) / (autoHet / autoCalled)
-  // A male carries heterozygotes only in the pseudoautosomal region, 1.99% of chrX, so his
+  // A male carries heterozygotes only in the pseudoautosomal region. That is 6.8% of the chrX
+  // markers on this array (178 of 2,617, GRCh37 PAR1 60001-2699520 and PAR2 154931044-155260560),
+  // not the 1.99% of physical length this comment used to claim: the array is PAR-enriched. The
+  // bands below rest on the measured male ratio of ~0.02-0.11, not on that figure. So his
   // ratio sits near 0.02; a female runs 0.7-0.8. The wide gap is deliberate: anything between is
   // a candidate chrX abnormality, a pooled file or contamination, each a finding rather than a
   // female with noise.
@@ -428,6 +431,29 @@ export function gates(p: SampleProfile): Gate[] {
   // A diploid human cannot be 56% heterozygous. A real WGA'd blastomere measured exactly that at
   // 67% call rate, passed every other gate as merely marginal, and gave a sex call contradicting
   // the other blastomere of the same embryo.
+  // Per CHROMOSOME, not genome-wide. A real blastomere came through with ten of its twenty-two
+  // autosomes carrying no homozygous BAF population at all, 68.9% heterozygous, while the twelve
+  // intact ones diluted the genome-wide figure to 32%: under both thresholds below, so nothing
+  // fired. The failure is per-chromosome and the test has to be too.
+  const perChrom = [...p.byChrom]
+    .filter(([c, s2]) => /^(?:[1-9]|1[0-9]|2[0-2])$/.test(c) && s2.called >= 200)
+    .map(([c, s2]) => [c, s2.het / s2.called] as const)
+  const worst = perChrom.reduce<readonly [string, number]>(
+    (a, b) => (b[1] > a[1] ? b : a), ['', 0])
+  if (perChrom.length && worst[1] > 0.50) {
+    out.push({
+      name: 'heterozygosity plausible, per chromosome',
+      value: worst[1],
+      verdict: 'exclude',
+      detail: `chr${worst[0]} is ${(100 * worst[1]).toFixed(1)}% heterozygous, which one diploid `
+        + 'genome cannot be. The genome-wide figure can stay inside its bounds while individual '
+        + 'chromosomes sit far outside them, so this is tested per chromosome: a chromosome whose '
+        + 'B-allele frequencies carry no homozygous population is a clustering failure on that '
+        + 'chromosome, not biology, and both the noise ceiling and the zygosity call read it as '
+        + 'signal.',
+    })
+  }
+
   out.push({
     name: 'heterozygosity plausible',
     value: p.hetRate,

@@ -18,9 +18,13 @@
  *   zygosity    the fraction of B-allele frequencies in the heterozygous band, which says
  *               whether the genome is diploid at all. Dropout does not empty that band.
  *
- * The arithmetic is duplicated from the Python deliberately and bounded the same way the
- * run-length statistic is: both sides are pinned by the same fixture, so a divergence fails a
- * test rather than reaching a result.
+ * The arithmetic is duplicated from the Python deliberately. NOTE, from an independent audit:
+ * this docstring used to claim both sides are pinned by a shared fixture so a divergence fails a
+ * test. That is not implemented. `parentage.check.ts` pins this side against measured values, and
+ * `origin.py` has its own suite, but nothing compares the two, and the audit found them differing
+ * on all 16 pairs it tried, including a 15-chromosome disagreement on one sample. The per-locus
+ * layer IS pinned that way (`runlength.check.ts` loads the shared fixture); the parentage layer
+ * is not. Do not restate the guarantee until there is a test behind it.
  */
 import { type ProbeRow } from './ingest.ts'
 import { type AB } from './informativity.ts'
@@ -129,9 +133,11 @@ export const emptyTally = (): Tally => ({
 export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   t.markers += 1
   if (row.chrom === 'Y' || row.chrom === '24') {
-    // Counted against markers the parent's file also carries, so a sample on a denser array is
-    // not read as Y-bearing on probes the parent was never typed at.
-    if (parent !== 'NC') t.yTotal += 1
+    // Whether the SAMPLE carries a Y is a property of the sample alone, so the denominator is
+    // chrY probes on its array. Gating this on the parent's own call collapsed it to zero
+    // whenever the parent was female, since she calls no chrY, and a Y-bearing sample then read
+    // as not Y-bearing against an oocyte donor.
+    t.yTotal += 1
     if (row.genotype !== 'NC') t.yCalled += 1
   }
   // Counted BEFORE the no-call check, to match the Python: a failed genotype still has an
@@ -401,7 +407,10 @@ export function pair(
       : P ? 'androgenetic'
         : M ? 'gynogenetic' : 'neither_parent'
 
-  if (parentAgreement > 0.99) {
+  // 0.90, not 0.99, matching `ingest.relatedness`: real replicate arrays of one person concord
+  // at 95.8% and a parent-offspring pair at 54.9%, so 0.99 sat above the thing it was meant to
+  // catch and missed every genuine duplicate.
+  if (parentAgreement > 0.90) {
     notes.push(`The two declared parents agree at ${pct(parentAgreement, 1)} of shared markers, `
       + 'which is a duplicate or a relabelled file rather than two people. Every conclusion here '
       + 'rests on them being different, so resolve this before reading it.')

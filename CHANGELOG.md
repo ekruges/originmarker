@@ -9,6 +9,52 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.3.0 "Kinetochore"
+
+Responds to an independent scientific audit of the 2.x inference path. Every finding below was
+re-derived from the shipped data before being acted on; one recommended fix was implemented and
+removed, with the reason recorded in the code.
+
+### Fixed
+
+- **The chrY denominator collapsed to zero against a female parent.** Counting chrY probes only
+  where the *parent* was called meant an oocyte donor, who calls no chrY, gave a denominator of
+  zero, so a Y-bearing sample read as not Y-bearing. Whether a sample carries a Y is a property of
+  that sample, so the denominator is now chrY probes on its own array. Introduced in 2.2.1 by the
+  fix that made the chrX exemption require a chrY measurement.
+- **The heterozygosity gate was genome-wide when the failure is per chromosome.** A real
+  blastomere carried ten of twenty-two autosomes with no homozygous B-allele population at all,
+  68.9% heterozygous, while twelve intact chromosomes diluted the genome-wide figure to 32% and
+  nothing fired. Evaluated per chromosome it fires immediately. Re-running the pronucleus audit,
+  it also flags one broken chromosome each on three haploid pronuclei the audit had passed
+  (chr1 60%, chr13 61%, chr21 55%) and does not fire on the clean bulk-DNA donor.
+- **The CLI inferred a Y-bearing sperm from a missing paternal X without consulting chrY**, which
+  is circular: X loss and chrX assay failure produce the same observation. It now requires the
+  chrY measurement and reports `unknown` when the two do not corroborate, which is what the
+  browser has always done.
+- **The duplicate-parent check used 0.99 where the ingestion layer already used 0.90.** Real
+  replicate arrays of one person concord at 95.8% and a parent-offspring pair at 54.9%, so the
+  threshold sat above the thing it was meant to catch and missed every genuine duplicate.
+- **The pseudoautosomal region was stated as 1.99% of chrX.** Measured on the shipped array it is
+  6.80% (178 of 2,617 markers, GRCh37 PAR1 and PAR2), understated 3.4-fold. The sex bands rest on
+  the measured chrX-to-autosome ratio, not on that figure, so no call was affected.
+- **A docstring claimed the two implementations are pinned by a shared fixture.** They are not.
+  The per-locus layer is; the parentage layer is not, and the audit found the two sides differing
+  on every pair it tried. The claim is removed rather than restated.
+
+### Investigated and not taken
+
+- **A goodness-of-fit gate on the per-chromosome likelihood ratio.** The audit is right that the
+  ratio ranks two hypotheses without asking whether the winner fits. Implemented, it refused a
+  genuine whole-chromosome loss: at 31.5% absence the data sits 51 sigma from the 5.5% unrelated
+  rate, because a missing chromosome is a third state more extreme than unrelated, not a poor fit
+  to it. The ratio only reaches its threshold when the observation is at or beyond one of the two
+  rates, so its decisive calls are directionally sound. The audit's concrete case, fifteen
+  chromosomes called on a mis-clustered array, is caught by the per-chromosome heterozygosity gate
+  above, which is where that failure actually lives. Reasoning recorded at the call site.
+
+---
+
 ## 2.2.6 "Kinetochore"
 
 ### Fixed
