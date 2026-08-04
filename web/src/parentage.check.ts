@@ -301,7 +301,9 @@ assert.equal(ABSENCE_MARGIN, 3)
   // The rest of chrX, absent, as it is from a Y-bearing sperm.
   for (let i = 0; i < 600; i += 1) tallyRow('AA', row('X', 20_000_000 + i * 1000, 'BB', 0.0), t)
   for (let i = 0; i < 600; i += 1) tallyRow('AA', row('Y', 1000 + i * 1000, 'AA'), t)
-  for (let i = 0; i < 4000; i += 1) tallyRow('AA', row('1', i * 1000, 'AA', 0.5), t)
+  for (let i = 0; i < 4000; i += 1) {
+    tallyRow('AA', row('1', i * 1000, 'AA', i % 100 < 16 ? 0.5 : 0.0), t)
+  }
   const r = classify(t, 0.17, { role: 'paternal' })
   const par = r.chroms.find((c) => c.chrom === 'X:PAR')
   const rest = r.chroms.find((c) => c.chrom === 'X')
@@ -323,15 +325,22 @@ assert.equal(ABSENCE_MARGIN, 3)
   for (let c = 1; c <= 22; c += 1) {
     for (let i = 0; i < 400; i += 1) {
       const s = (i * 7919) % 1000
-      // Same rate on every chromosome, against the same total confined to four of them.
-      tallyRow('AA', row(String(c), 1000 + i * 1000, s < 25 ? 'BB' : 'AA', 0.5), uniform)
+      // Same rate on every chromosome, against the same total confined to four of them. The
+      // band is held at the 16% a real diploid reads: 0.5 everywhere would be 100%, which the
+      // plausibility gate refuses and rightly so.
+      const baf = i % 100 < 16 ? 0.5 : 0.0
+      tallyRow('AA', row(String(c), 1000 + i * 1000, s < 25 ? 'BB' : 'AA', baf), uniform)
       tallyRow('AA', row(String(c), 1000 + i * 1000,
-        c <= 4 && s < 138 ? 'BB' : 'AA', 0.5), patchy)
+        c <= 4 && s < 138 ? 'BB' : 'AA', baf), patchy)
     }
   }
-  // A dropout ceiling low enough that 2.5% lands in the band rather than below it.
-  for (let i = 0; i < 800; i += 1) tallyRow('NC', row('1', 9e8 + i, i < 88 ? 'NC' : 'AA'), uniform)
-  for (let i = 0; i < 800; i += 1) tallyRow('NC', row('1', 9e8 + i, i < 88 ? 'NC' : 'AA'), patchy)
+  // No-calls the parent does not carry, so they raise the dropout ceiling without entering the
+  // absence count. 500 of them against 8,800 informative markers gives a 5.4% no-call rate,
+  // which at a 16% band puts the ceiling at 1.36% and leaves 2.5% absence inside the uncalled
+  // band at 1.8x. An earlier version reached the same place by setting every BAF to 0.5, which
+  // is a 100% band and not a thing a genome does.
+  for (let i = 0; i < 500; i += 1) tallyRow('NC', row('1', 9e8 + i, 'NC'), uniform)
+  for (let i = 0; i < 500; i += 1) tallyRow('NC', row('1', 9e8 + i, 'NC'), patchy)
   const u = classify(uniform, 0.17)
   const q = classify(patchy, 0.17)
   assert.equal(u.verdict, 'unclear')

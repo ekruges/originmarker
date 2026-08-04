@@ -80,20 +80,36 @@ def test_read_sample_dispatches_on_a_plink_extension(tmp_path):
 # --- both parents -----------------------------------------------------------------------------
 
 
-def trio(n=4_000, *, pat_absent=0.002, mat_absent=0.002):
+def trio(n=4_000, *, pat_absent=0.002, mat_absent=0.002, parent_het=0.17):
+    """A trio where both parents carry the heterozygosity a real person does.
+
+    `parent_het` is load-bearing rather than decorative: the second-parent axis is derived from
+    it, so a parent homozygous at every marker drives the expectation to zero and every sample
+    reads biparental whatever it contains. Each parent's heterozygous markers are assigned
+    independently of `scatter`, because carving them out of the region where the child carries
+    both alleles would shrink the informative denominator without touching the numerator and
+    inflate the absence rate by 1/(1 - parent_het).
+    """
     fa, mo, kid = {}, {}, {}
     for i in range(n):
         k, pos = f"1:{i}", 1_000 + i * 1_000
         scatter = (i * 7919) % 1000
-        fa[k] = origin.Probe("1", pos, "AA", baf=0.0)
-        mo[k] = origin.Probe("1", pos, "BB", baf=1.0)
+        f_het = ((i * 2654435761) >> 16) % 1000 < parent_het * 1000
+        m_het = ((i * 2246822519) >> 13) % 1000 < parent_het * 1000
+        fa[k] = origin.Probe("1", pos, "AB" if f_het else "AA", baf=0.5 if f_het else 0.0)
+        mo[k] = origin.Probe("1", pos, "AB" if m_het else "BB", baf=0.5 if m_het else 1.0)
         # The child should be AB. Losing one parent's allele shows as that parent's homozygote.
         gt = "AB"
         if scatter < pat_absent * 1000:
             gt = "BB"
         elif scatter >= 1000 - mat_absent * 1000:
             gt = "AA"
-        kid[k] = origin.Probe("1", pos, gt, baf=0.5)
+        # A real diploid genome reads 15%-16% in the heterozygous BAF band. Setting every
+        # marker to 0.5 gives 100%, which no genome produces and which the plausibility gate in
+        # parental_origin now refuses, correctly. The band is a separate channel from the
+        # genotype here, as it is for the parents above.
+        in_band = ((i * 2246822519) >> 11) % 1000 < 160
+        kid[k] = origin.Probe("1", pos, gt, baf=0.5 if in_band else 1.0)
     return (origin.Sample("dad", fa, []), origin.Sample("mum", mo, []),
             origin.Sample("kid", kid, []))
 

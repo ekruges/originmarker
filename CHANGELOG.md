@@ -9,6 +9,49 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 2.4.1 "Kinetochore"
+
+Two ways the noise ceiling could be trusted when it was not measuring anything.
+
+### Fixed
+
+- **A failed array can no longer manufacture a relationship from its own noise ceiling.** The
+  ceiling is the no-call rate times the heterozygous band, so an array whose band is artefact
+  gets a ceiling wide enough to swallow an unrelated genome's absence entirely and report it as
+  present. Three arrays with bands of 36.9% to 43.0% produced ceilings near 19% and were called
+  as carrying a parental genome they are unrelated to, at 6.4% to 11.9% absence. A band above
+  30% is now refused outright: a diploid genome reads 15% to 16%, and dropout inflates that only
+  into the high twenties.
+
+  The bound is on the band rather than the call rate, and the public series settles why. Zuccaro
+  A8 sits at a 53.0% call rate with a 22.2% band, and the tool reads it correctly in both
+  directions: present against its own father at 0.91x, refused against two unrelated egg donors
+  at 1.16x and 1.18x. A call-rate gate would have discarded that. The failing arrays sit within
+  three points of A8 on call rate and fourteen points away on the band.
+
+- **A parent with no heterozygosity no longer resolves the second-parent axis.** That axis is
+  derived from the parent's own heterozygosity, so a parent showing none drives the expectation
+  to 0.00% and the comparison then reads biparental for any nonzero rate, on no evidence. The
+  expectation is now withheld below `PANEL_HET_FLOOR` and the call goes to unclear. A genotype
+  reconstructed from haploid meiotic products is homozygous everywhere by construction, so this
+  was reachable from ordinary use rather than only from a malformed file.
+
+### Added
+
+- The Columbia Stem Cell Initiative mark on the landing page, linking to the lab this was built
+  for. Landing page only, and above the research-use notice rather than inside it.
+
+### Changed
+
+- The test fixtures built parents who were homozygous at every marker, which is what let the
+  second defect survive: the second-parent axis was asserted on in four tests and exercised in
+  none of them. Parents now carry the 17% heterozygosity a real person does, assigned
+  independently of the sample's genotype so the informative denominator is not shrunk. Two
+  synthetic checks also set every B-allele frequency to 0.5, a 100% band that no genome
+  produces; both now use 16%.
+
+---
+
 ## 2.4.0 "Kinetochore"
 
 Three quantities the tool measured and did not report. None of these changes a verdict; they

@@ -563,12 +563,30 @@ export default function App() {
         )}
       </main>
 
+      {/* The lab this was built for. Landing page only: on a results or docs page it competes
+          with the content, and attribution belongs where the tool introduces itself. On the page
+          rather than in the footer bar, so it reads as attribution and not as part of the
+          research-use notice beneath it. */}
+      <div style={{ marginTop: 'auto', padding: '0 12px 10px', display: atHome ? undefined : 'none' }}>
+        <a
+          href="https://eglilab.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          style={{ display: 'inline-block', lineHeight: 0 }}
+        >
+          <img
+            src="cssi-logo.svg"
+            alt="Columbia Stem Cell Initiative"
+            style={{ height: 22, width: 'auto', display: 'block' }}
+          />
+        </a>
+      </div>
+
       <footer
         style={{
           borderTop: '1px solid var(--om-border)',
           background: 'var(--om-head-bg)',
           padding: '8px 12px',
-          marginTop: 'auto',
         }}
       >
         {/* R8: the disclaimer appears on every page, including the landing view. */}

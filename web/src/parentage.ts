@@ -69,6 +69,20 @@ export const CALL_RATE_FLOOR = 0.60
 export const PANEL_HET_FLOOR = 0.10
 
 /**
+ * Above this the heterozygous band is not measuring zygosity, and the noise ceiling built from
+ * it bounds nothing.
+ *
+ * A diploid genome reads 15 to 16%. Dropout inflates that: Zuccaro A8 sits at 22.2% on a 53.0%
+ * call rate and is still read correctly, present against its own father and refused against two
+ * unrelated egg donors. Arrays measured at 36.9 to 43.0% are failures, and their ceilings near
+ * 19% swallowed the absence of genomes they were unrelated to and reported them as present.
+ *
+ * The bound is on the band rather than the call rate, because the call rate does not separate
+ * those two cases: A8 and the failed arrays sit within three points of each other on it.
+ */
+export const HET_BAND_IMPLAUSIBLE = 0.30
+
+/**
  * Coefficient of variation of the per-chromosome absence rate below which the difference is
  * UNIFORM across the genome rather than confined to part of it.
  *
@@ -258,7 +272,13 @@ export function classify(
   const hetFraction = Number.isFinite(hetBand) ? hetBand : gtHet
   const explainable = absenceExplainable(noCallRate, hetFraction) + ABSENCE_ERROR_FLOOR
   const nonParentalRate = t.nonParentalDen ? t.nonParental / t.nonParentalDen : NaN
-  const secondParentExpected = secondParentSignal(parentHeterozygosity)
+  // The axis is DERIVED from the parent's own heterozygosity, so a parent showing none cannot
+  // supply it. A genotype reconstructed from haploid meiotic products is homozygous everywhere
+  // by construction, which drives the expectation to zero and makes any nonzero rate read as
+  // biparental on no evidence. Withholding it routes to the existing unclear branch.
+  const secondParentExpected =
+    Number.isFinite(parentHeterozygosity) && parentHeterozygosity >= PANEL_HET_FLOOR
+      ? secondParentSignal(parentHeterozygosity) : NaN
 
   if (Number.isFinite(parentHeterozygosity) && parentHeterozygosity < PANEL_HET_FLOOR) {
     limits.push(
@@ -279,7 +299,16 @@ export function classify(
   const hetUsable = !Number.isFinite(callRate) || callRate >= CALL_RATE_FLOOR
 
   let verdict: Verdict
-  if (!nTot) {
+  if (Number.isFinite(hetBand) && hetBand > HET_BAND_IMPLAUSIBLE) {
+    verdict = 'unclear'
+    limits.push(
+      `The heterozygous band is ${pct(hetBand, 1)}. A diploid genome reads 15 to 16% and dropout `
+      + `inflates that into the high twenties, so ${pct(HET_BAND_IMPLAUSIBLE, 0)} is above `
+      + 'anything a real genome produces: this array has failed rather than merely degraded. The '
+      + 'band is one of the two factors in the noise ceiling, so the ceiling here bounds nothing '
+      + 'and neither presence nor absence is reported. Repeat the array.',
+    )
+  } else if (!nTot) {
     verdict = 'unclear'
     limits.push('No markers where the parent is homozygous and the sample is called.')
   } else if (!Number.isFinite(explainable)) {

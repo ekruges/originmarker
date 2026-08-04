@@ -1184,6 +1184,12 @@ def second_parent_signal(father_heterozygosity: float) -> float:
 #: it: a biparental embryo at 33% dropout still reads 22.2%.
 HET_BAND_DIPLOID = 0.08
 
+#: Above this the heterozygous band is not measuring zygosity. A diploid genome reads 15%-16%,
+#: dropout inflates that into the high twenties on the worst usable pronuclei of the public
+#: series, and arrays measured at 36.9%-43.0% are failures whose inflated noise ceiling swallows
+#: an unrelated genome's absence and reports it as present.
+HET_BAND_IMPLAUSIBLE = 0.30
+
 #: Call rate below which heterozygous calls stop being trustworthy, so nothing derived from them
 #: may be asserted. Natesan 2014, the only published threshold measured on amplified material,
 #: and the same figure the ingestion gates already exclude on.
@@ -1507,6 +1513,14 @@ def parental_origin(
                                if p.gt != "NC" and _is_autosome(p.chrom))))
     rep.second_parent_expected = second_parent_signal(father_het)
 
+    # The axis is DERIVED from this parent's heterozygosity, so a parent that shows none cannot
+    # supply it. A genotype reconstructed from haploid products is homozygous everywhere by
+    # construction, which drives the expectation to 0.00% and makes the comparison below true for
+    # any nonzero rate: every diploid sample would read biparental, on no evidence. Withholding
+    # the expectation routes to the existing "unclear" branch instead.
+    if not math.isfinite(father_het) or father_het < PANEL_HET_FLOOR:
+        rep.second_parent_expected = math.nan
+
     if math.isfinite(father_het) and father_het < PANEL_HET_FLOOR:
         rep.limits.append(
             f"The parent is heterozygous at {father_het:.1%} of called autosomal markers. Every "
@@ -1518,15 +1532,43 @@ def parental_origin(
             "unclear. Restrict such a file to common variants before relying on it."
         )
 
+    # A heterozygous band this wide is not a measurement of anything.
+    #
+    # The band is one of the two factors in the noise ceiling, so an inflated band inflates the
+    # ceiling, and absence is judged against that. A failed array can therefore reach a ceiling
+    # wide enough to swallow an unrelated genome's absence entirely and report it as present.
+    # Measured: three arrays at 36.9%-43.0% band produced ceilings near 19% and were called
+    # parent_genome_present against genomes unrelated to the reference, at 6.4%-11.9% absence.
+    #
+    # The bound is on the band, not the call rate, because the call rate does not separate the
+    # two cases. Zuccaro A8 sits at a 53.0% call rate with a 22.2% band and the tool reads it
+    # correctly, both against its own father and against two unrelated egg donors. Dropout
+    # inflates the band of a real diploid from 15%-16% to at most the high twenties, which is
+    # where the worst usable pronuclei in that series sit. Nothing real reaches the thirties.
+    if math.isfinite(het_band) and het_band > HET_BAND_IMPLAUSIBLE:
+        rep.verdict = "unclear"
+        rep.limits.append(
+            f"The heterozygous band is {het_band:.1%}. A diploid genome reads 15%-16% and "
+            f"dropout inflates that into the high twenties, so {HET_BAND_IMPLAUSIBLE:.0%} is "
+            "above anything a real genome produces: this array has failed rather than merely "
+            "degraded. The band is one of the two factors in the noise ceiling, so the ceiling "
+            f"here ({explainable:.1%}) bounds nothing and neither presence nor absence is "
+            "reported. Repeat the array."
+        )
+
     # The gate the ingestion layer already applies, applied to the axis that depends on it:
-    # below this call rate the heterozygous band is artefact, so zygosity is withheld.
+    # below this call rate the heterozygous band is artefact, so zygosity is withheld. Presence
+    # is left alone deliberately. It is judged against a ceiling that RISES with dropout, which
+    # is what keeps a noisy true pair from reading as unrelated, and on the public series a
+    # sample at a 53.0% call rate is called correctly against its own father and against two
+    # unrelated adults. The gate above catches the arrays where that stops being true.
     if math.isfinite(call_rate) and call_rate < CALL_RATE_FLOOR:
         rep.limits.append(
             f"Call rate {call_rate:.1%} is below {CALL_RATE_FLOOR:.0%}, where erroneous "
             "heterozygous calls become common. Zygosity is read from the heterozygous band, so "
             "it is not reported here and the genome cannot be separated into uniparental or "
-            "biparental. The presence or absence of this parent's contribution is unaffected: "
-            "that is Mendelian and does not rest on heterozygous calls."
+            "biparental. Presence is still reported: it is judged against a ceiling that rises "
+            "with dropout, which is exactly what stops a noisy true pair reading as unrelated."
         )
     else:
         if math.isfinite(het_band):

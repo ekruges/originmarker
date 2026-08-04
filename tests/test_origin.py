@@ -396,8 +396,14 @@ def test_whole_chromosome_absence_survives_marker_deserts():
 
 
 def sample_pair(rate_by_chrom, *, n_per_chrom=4_000, y_called=False, chroms=None,
-                nonpaternal=0.0, het_band=0.0):
-    """A father homozygous everywhere, and a sample built to controlled rates on three axes.
+                nonpaternal=0.0, het_band=0.0, father_het=0.17):
+    """A father with real heterozygosity, and a sample built to controlled rates on three axes.
+
+    `father_het` defaults to 17%, which is what a person reads on a common-SNP array. It is not
+    cosmetic. The second-parent axis is DERIVED from this figure, so a father who is homozygous
+    everywhere drives the expectation to zero and makes any nonzero rate read as biparental. An
+    earlier version of this helper built exactly that father, and the axis tests below passed
+    without exercising the axis at all.
 
     `rate_by_chrom` sets how often the father's obligate allele is missing. `nonpaternal` sets
     how often the sample carries an allele he cannot supply, which is what separates a
@@ -411,14 +417,23 @@ def sample_pair(rate_by_chrom, *, n_per_chrom=4_000, y_called=False, chroms=None
         for i in range(n_per_chrom):
             k = f"{c}:{i}"
             pos = 1_000 + i * 1_000
-            # The father is AA, so "BB" loses his allele and "AB" carries one he lacks.
-            if (i % 1000) < r * 1000:
+            # Where the father is AA, "BB" loses his allele and "AB" carries one he lacks.
+            # Where he is AB he has both, so those markers are informative for neither and only
+            # dilute the denominator, exactly as they do on a real array.
+            slot = i % 1000
+            # Assigned INDEPENDENTLY of slot. Carving the father's heterozygous markers out of
+            # the slot range removes them from the present region only, which shrinks the
+            # informative denominator while keeping every absent marker and inflates the absence
+            # rate by 1/(1 - father_het). The shift breaks the bijection between i % 1000 and a
+            # multiplicative hash of i, so the two assignments do not track each other.
+            f_gt = "AB" if ((i * 2654435761) >> 16) % 1000 < father_het * 1000 else "AA"
+            if slot < r * 1000:
                 gt = "BB"
-            elif (i % 1000) >= 1000 - nonpaternal * 1000:
+            elif slot >= 1000 - nonpaternal * 1000:
                 gt = "AB"
             else:
                 gt = "AA"
-            fp[k] = origin.Probe(c, pos, "AA", baf=0.0)
+            fp[k] = origin.Probe(c, pos, f_gt, baf=0.0)
             sp[k] = origin.Probe(c, pos, gt,
                                  baf=0.5 if (i % 1000) < het_band * 1000 else 1.0)
     for i in range(812):
@@ -983,3 +998,66 @@ def test_uniform_absence_everywhere_reads_as_a_mixture():
     assert uniform.dispersion < patchy.dispersion
     assert any("mixed sample" in x for x in uniform.limits)
     assert not any("mixed sample" in x for x in patchy.limits)
+
+
+# --- the two ceiling defects, on public data --------------------------------------------------
+
+EXAMPLES = Path(__file__).resolve().parent.parent / "web" / "public" / "examples"
+
+
+def _example(name):
+    return next(iter(origin.read_samples(EXAMPLES / name).values()))
+
+
+def test_a_failed_array_cannot_manufacture_a_relationship_from_its_own_ceiling():
+    """The noise ceiling is the no-call rate times the heterozygous band, so an array whose band
+    is artefact gets a ceiling wide enough to swallow an unrelated genome's absence entirely and
+    report it as present.
+
+    Zuccaro A8 fixes the boundary from below. At a 53.0% call rate and a 22.2% band it is the
+    noisiest genome in the public series that the tool still reads correctly: present against its
+    own father at 0.91x, and refused rather than claimed against two unrelated egg donors at
+    1.16x and 1.18x. A gate on call rate would throw that away. A gate on the band does not,
+    because 22.2% is what dropout does to a real diploid's 15%-16%, while the arrays this
+    prevents measured 36.9%-43.0%.
+    """
+    a8 = _example("GSM4472409_A8_45.subset.csv.gz")
+    father = _example("GSM4472397_sperm_DNA_71.subset.csv.gz")
+    r = origin.parental_origin(father, a8, product=AXIOM)
+    assert r.het_band < origin.HET_BAND_IMPLAUSIBLE, r.het_band
+    assert r.verdict == "parent_genome_present", (r.genome_rate, r.explainable)
+
+    for donor in ("GSM4472407_donor_A_47.subset.csv.gz", "GSM4472415_donor_C_70.subset.csv.gz"):
+        u = origin.parental_origin(_example(donor), a8, product=AXIOM)
+        assert u.verdict != "parent_genome_present", (donor, u.genome_rate, u.explainable)
+
+    # Push the band past what any genome produces, holding the genotypes fixed, and the ceiling
+    # stops bounding anything. Absence unchanged; the verdict is withheld rather than asserted.
+    failed = origin.Sample("failed", {
+        k: origin.Probe(p.chrom, p.pos, p.gt, baf=0.5 if (i % 5) else p.baf)
+        for i, (k, p) in enumerate(a8.probes.items())}, [])
+    f = origin.parental_origin(father, failed, product=AXIOM)
+    assert f.het_band > origin.HET_BAND_IMPLAUSIBLE, f.het_band
+    assert f.verdict == "unclear"
+    assert any("has failed rather than merely degraded" in x for x in f.limits)
+
+
+def test_a_reference_with_no_heterozygosity_cannot_supply_the_second_parent_axis():
+    """The axis is derived from the parent's own heterozygosity, so a parent showing none drives
+    the expectation to zero and the comparison then reads biparental for any nonzero rate.
+
+    A genotype reconstructed from haploid meiotic products is homozygous everywhere by
+    construction, which is exactly that case. Built here from a real public array by keeping only
+    its homozygous calls, so the alleles are genuine and only the heterozygosity is missing.
+    """
+    father = _example("GSM4472397_sperm_DNA_71.subset.csv.gz")
+    a8 = _example("GSM4472409_A8_45.subset.csv.gz")
+    hom_only = origin.Sample("reconstructed", {
+        k: p for k, p in father.probes.items() if p.gt in ("AA", "BB")}, [])
+
+    full = origin.parental_origin(father, a8, product=AXIOM)
+    assert full.second_parent_expected > 0
+
+    r = origin.parental_origin(hom_only, a8, product=AXIOM)
+    assert math.isnan(r.second_parent_expected), r.second_parent_expected
+    assert r.origin_class == "unclear"
