@@ -9,6 +9,49 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.0.3
+
+An independent adversarial review of the per-locus run-length statistic found its null false on
+the material this tool targets. The p-value is withheld until a sample earns it.
+
+### Fixed
+
+- **The run-length p-value assumed something that is not true of amplified single cells.** The
+  statistic's whole principle, stated in its own module, is that "artefacts are independent
+  across markers, real structural events are contiguous", and the p-value is the Erdos-Renyi tail
+  under that assumption. It is false here. Measured on the public series, maximal runs of two or
+  more against the independence prediction at the same fitted rate: **6.1x to 10.3x** on haploid
+  pronuclei, and **2.0x to 2.1x** even on bulk gDNA from unrelated adults. Every material class
+  exceeds the model, single cells by roughly an order of magnitude, so a run of ordinary artefact
+  reaches a length the model calls impossible and the tail reports significance for it.
+
+  Independence is now measured rather than assumed, on the sample's own absence indicator across
+  every chromosome except the one under test, because a real event is contiguous by definition
+  and would otherwise inflate the null it is about to be judged against. A sample that does not
+  demonstrate independence gets no p-value at all: the run length is still reported as the
+  observation it is, and the new `independence_not_demonstrated` verdict says why, with the
+  measured excess in the note. A sample that supplies no off-locus markers gets no p-value
+  either, because nothing has shown the null holds.
+
+  Both implementations are fixed together. The shared fixture pins the arithmetic of the tail,
+  which is unchanged; the gate is a separate property with its own checks.
+
+  This is the second time a statistic in this project was validated on the wrong material class.
+  The first was the same assumption, checked on bulk gDNA, where it does hold.
+
+### Changed
+
+- **`UNIFORM_CV` may not be extended to mosaicism**, and now says so with the measurement.
+  Against uniform artefact its separation ratio is 0.58 at f=0.10, 0.83 at 0.30 and 1.00 at 0.80.
+  A ratio at or below 1 is no separation at any fraction. The shipped use, telling a blend of two
+  whole genomes from a partial loss, is a different question and is unaffected. Also recorded:
+  the 1.106 figure in its calibration is a same-individual replicate, the easiest control in the
+  set, and carries no weight.
+
+- **A number in `emissions.py` was overstated.** Its mosaic-BAF correction was described as
+  "nearly three standard deviations at a typical sigma_BAF of 0.03". Heterozygous BAF sd on the
+  arrays this tool reads is 0.088, so the error is 0.95 sd, not 2.8. The correction itself stands.
+
 ## 3.0.2
 
 One line of throat-clearing removed from the References section of both documentation pages.

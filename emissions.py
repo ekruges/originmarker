@@ -26,8 +26,12 @@ checked against `array_signatures.csv`, the spec's own companion table, which ha
 
 2. MOSAIC BAF is a ratio of expectations, not a linear interpolation of BAF. The spec writes
    `f * mu_b(S) + (1-f) * mu_b(normal)`. At mosaic loss with f = 0.5 that gives 0.75 where the
-   truth is 0.667, an error of 0.083 - nearly three standard deviations at a typical
-   sigma_BAF of 0.03, applied systematically to every mosaic state.
+   truth is 0.667, an error of 0.083, applied systematically to every mosaic state.
+
+   The magnitude was overstated here until 3.0.3: this said "nearly three standard deviations at
+   a typical sigma_BAF of 0.03". Measured on the arrays this tool actually reads, heterozygous
+   BAF sd is 0.088, so the error is 0.95 sd rather than 2.8. The correction stands and the
+   ranking of the two is unchanged; the size of it did not.
 
 3. MOSAIC LRR likewise. The spec writes `f * mu_LRR(S) + (1-f) * 0`, linear in LRR. At CN1 and
    f = 0.5 that gives -0.500 against a true -0.415.

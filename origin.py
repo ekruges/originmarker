@@ -53,6 +53,59 @@ KOTHIYAL_FLOOR = 0.0063
 # --- the run-length statistic (mirrors runlength.ts, pinned by the same fixture) -----------
 
 
+#: Below this many expected runs the observed/expected ratio is counting noise and settles
+#: nothing, so it cannot demonstrate independence either.
+MIN_EXPECTED_RUNS = 5
+
+#: Measured: 2.0x on the cleanest material in hand. At or above this the Erdos-Renyi tail is not
+#: the null. See `measure_clustering`.
+MAX_CLUSTERING = 2.0
+
+
+def measure_clustering(flags_by_chrom) -> dict:
+    """How far this sample's own absence artefact departs from the independence model.
+
+    `run_length_p` assumes a dropout at marker i says nothing about marker i+1. That was checked
+    on bulk gDNA and it is FALSE on the material this tool targets. Measured on the public series,
+    maximal runs of two or more against the independence prediction at the same fitted rate:
+
+        haploid pronuclei, WGA single cells   6.1x to 10.3x
+        bulk gDNA, unrelated adults           2.0x to 2.1x
+
+    Both classes exceed the model, single cells by roughly an order of magnitude, so a run of
+    artefact reaches a length the model calls impossible and the p-value reports significance for
+    it. The p-value is therefore withheld unless a sample DEMONSTRATES independence, which is the
+    same burden of proof the zygosity axis carries below the call-rate floor.
+
+    Measure away from the locus under test: a real event is contiguous by definition and would
+    inflate the null it is about to be judged against.
+    """
+    n = k = observed = 0
+    for flags in flags_by_chrom:
+        run = 0
+        for f in flags:
+            n += 1
+            if f:
+                k += 1
+                run += 1
+            else:
+                if run >= 2:
+                    observed += 1
+                run = 0
+        if run >= 2:
+            observed += 1
+    q = k / n if n else math.nan
+    # Maximal runs of two or more among n independent Bernoulli(q): a run begins where a 1 follows
+    # a 0, or at the start, and is followed by another 1.
+    expected = (n - 1) * q * q * (1 - q) + q * q if n > 1 and q > 0 else math.nan
+    ratio = observed / expected if expected and expected > 0 else math.nan
+    return {
+        "n": n, "q": q, "observed": observed, "expected": expected, "ratio": ratio,
+        "independent": bool(
+            expected >= MIN_EXPECTED_RUNS and math.isfinite(ratio) and ratio < MAX_CLUSTERING),
+    }
+
+
 def run_length_p(r: int, n: int, q: float) -> float:
     """P(longest run >= r) among n independent Bernoulli(q) trials, Erdos-Renyi.
 
@@ -403,6 +456,34 @@ def analyse_embryo(
     # nothing breaks a run, and the statistic has no null: a normal chromosome 20 gave a run of 3
     # across 35 Mb at p = 2.5e-07. Dropout is unfittable too, so q collapses to the error floor.
     has_mother = any(m.mother is not None for m in on_chrom)
+
+    # The null the run-length p-value is read against, measured on every OTHER chromosome of this
+    # same sample. See `measure_clustering`: independence is not assumed, it has to be shown.
+    _off: dict[str, list] = {}
+    for m in markers:
+        c = m.chrom.replace("chr", "").lower()
+        if c == want or not c.isdigit():
+            continue
+        s_pat = score_paternal(m.father, m.mother, m.embryo)
+        if s_pat is None:
+            continue
+        _off.setdefault(c, []).append((m.pos, s_pat == 0))
+    clustering = measure_clustering(
+        [[f for _, f in sorted(v)] for v in _off.values()]) if _off else None
+    if not (clustering and clustering["independent"]):
+        v.refusals.append(
+            "No run-length p-value is reported. That statistic assumes a spurious absence at one "
+            "marker says nothing about the next, and this sample has not shown it: "
+            + (f"its absence artefact away from chr{want} runs "
+               f"{clustering['ratio']:.1f}x more maximal runs of two than independence predicts "
+               f"({clustering['observed']} against {clustering['expected']:.1f} expected over "
+               f"{clustering['n']:,} markers)."
+               if clustering else
+               "no off-locus markers were supplied to measure it on.")
+            + " Measured on the public series, WGA single cells run 6.1x to 10.3x and even bulk "
+            "gDNA runs 2.0x, so a run of artefact reaches lengths the model calls impossible. "
+            "Run LENGTHS below are still reported; they are observations, not significance."
+        )
     if not has_mother:
         v.refusals.append(
             "No maternal genotypes, so THIS per-locus test is not run. Paternal presence cannot "
@@ -437,10 +518,13 @@ def analyse_embryo(
         wv = WindowVerdict(window=name, n_l3=n, z_sum=z, longest_run=best,
                            r_min=thr, q=q if has_mother else math.nan,
                            q_source=q_src if has_mother else "uncalibrated_no_mother",
-                           run_p=run_length_p(best, n, q) if (n and has_mother) else math.nan,
+                           run_p=(run_length_p(best, n, q)
+                                  if (n and has_mother and clustering
+                                      and clustering["independent"]) else math.nan),
                            run_lo=top.lo if top else None, run_hi=top.hi if top else None,
                            max_gap_bp=max_gap)
-        significant = thr is not None and best >= thr and has_mother
+        significant = (thr is not None and best >= thr and has_mother
+                       and bool(clustering and clustering["independent"]))
 
         # Does the maternal side violate over the same ground? Only dropout can do that, so this
         # is what separates a real paternal loss from amplification noise shaped like one.
@@ -2103,6 +2187,13 @@ def _self_check() -> int:
                  "BB" if i in absent else "AB",
                  baf=1.0 if i in absent else 0.5,
                  lrr=-0.594 if i in absent else 0.0) for i in range(60)]
+    # Markers away from the locus, so the run-length p-value has a null it can be measured
+    # against. Absences every twentieth marker are never adjacent: a real rate and no runs, which
+    # is what independence looks like. Without these the p-value is correctly withheld.
+    ms += [Marker(f"o{c}_{i}", str(c), 1_000 + i * 2_000, "AA", "BB",
+                  "BB" if i % 20 == 0 else "AB",
+                  baf=1.0 if i % 20 == 0 else 0.5, lrr=0.0)
+           for c in (1, 2, 3) for i in range(7_000)]
     v = analyse_embryo("selfcheck", ms, "11", 1_060_000, calibration=cal, dropout=0.01)
     w = v.windows[-1]
     assert w.n_l3 == 59, w.n_l3

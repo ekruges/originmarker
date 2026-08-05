@@ -94,6 +94,19 @@ export const HET_BAND_IMPLAUSIBLE = 0.30
  * (0.112 against 0.104). It becomes informative only together with WHERE the rate sits. A blend
  * lands between the present and absent expectations and stays there on every chromosome; a real
  * genome with a lost segment is patchy, with some chromosomes clean.
+ *
+ * TWO LIMITS ON WHAT THIS MAY BE USED FOR, both measured rather than assumed.
+ *
+ * It does NOT detect MOSAICISM, and must never be extended to. A blend of two whole genomes and a
+ * mosaic are different objects: the blend contributes on every chromosome at a full fraction,
+ * while a mosaic shifts one chromosome by the mosaic fraction. Measured against uniform artefact,
+ * the separation ratio of this statistic is 0.58 at f=0.10, 0.69 at 0.20, 0.83 at 0.30, 0.99 at
+ * 0.50 and 1.00 at 0.80. A ratio at or below 1 is no separation at any fraction. The 8.36 that
+ * appears at f=1.00 is a whole extra genome, which is the blend case above and not a mosaic.
+ *
+ * The 1.106 figure is a same-individual REPLICATE, which shares the whole genome and is the
+ * easiest control in the set. It is reported for completeness and carries no weight: the lower
+ * edge of the gap this threshold sits in is the 0.762 degraded true pair, which does not.
  */
 export const UNIFORM_CV = 0.35
 

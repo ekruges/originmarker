@@ -146,6 +146,30 @@ def test_handing_the_estimator_a_parent_returns_a_clamp_not_a_measurement():
 # --- the verdict, and its two structural refusals -------------------------------------------
 
 
+def off_locus() -> list[origin.Marker]:
+    """Markers away from the locus, carrying absence artefact that is demonstrably independent.
+
+    The run-length p-value is read against a null that assumes a spurious absence at one marker
+    says nothing about the next. Since 3.0.3 the tool refuses to assume it and measures it on the
+    sample's other chromosomes instead, so a fixture that supplies none gets no p-value at all,
+    which is correct behaviour and not what these tests are about.
+
+    Absences here are every twentieth marker and therefore never adjacent: a real rate, and no
+    runs, which is what independence looks like.
+    """
+    out = []
+    for c in ("1", "2", "3"):
+        for i in range(7_000):
+            absent = i % 20 == 0
+            out.append(origin.Marker(
+                rsid=f"o{c}_{i}", chrom=c, pos=1_000 + i * 2_000,
+                father="AA", mother="BB",
+                embryo="BB" if absent else "AB",
+                baf=1.0 if absent else 0.5, lrr=0.0,
+            ))
+    return out
+
+
 def markers(n: int, *, absent_from: int = -1, absent_to: int = -1) -> list[origin.Marker]:
     out = []
     for i in range(n):
@@ -157,7 +181,7 @@ def markers(n: int, *, absent_from: int = -1, absent_to: int = -1) -> list[origi
             baf=1.0 if absent else 0.5,
             lrr=-0.6 if absent else 0.0,
         ))
-    return out
+    return out + off_locus()
 
 
 GOOD = nz.Calibration(center=0.0, lrr_compression=0.598, sigma_lrr=0.417, route="chrx_male")
@@ -232,7 +256,8 @@ def test_chrx_copy_states_are_refused_without_a_measured_probe_offset():
           for i in range(60)]
     no_offset = nz.Calibration(center=0.0, lrr_compression=0.594, sigma_lrr=0.11,
                                route="declared", chrx_offset=None)
-    v = origin.analyse_embryo("E", ms, "X", 1_060_000, calibration=no_offset, dropout=0.01)
+    v = origin.analyse_embryo("E", ms + off_locus(), "X", 1_060_000, calibration=no_offset,
+                              dropout=0.01)
     w = v.windows[-1]
     assert any("chrX copy-number states NOT TESTED" in r for r in v.refusals)
     assert w.longest_run == w.n_l3 == 59, "the genotype claim still stands"
@@ -242,7 +267,8 @@ def test_chrx_copy_states_are_refused_without_a_measured_probe_offset():
     # With the offset on file the copy layer runs.
     with_offset = nz.Calibration(center=0.0, lrr_compression=0.594, sigma_lrr=0.11,
                                  route="chrx_male", chrx_offset=0.19)
-    v2 = origin.analyse_embryo("E", ms, "X", 1_060_000, calibration=with_offset, dropout=0.01)
+    v2 = origin.analyse_embryo("E", ms + off_locus(), "X", 1_060_000, calibration=with_offset,
+                               dropout=0.01)
     assert not any("chrX copy-number states" in r for r in v2.refusals)
     assert v2.windows[-1].segment_state is not None
 
@@ -333,7 +359,7 @@ def interleaved(*, maternal_also_absent: bool) -> list[origin.Marker]:
         else:
             embryo = "BB" if maternal_also_absent else "AA"
             ms.append(origin.Marker(f"q{i}", "11", pos, "AB", "AA", embryo, baf=1.0, lrr=-0.6))
-    return ms
+    return ms + off_locus()
 
 
 def test_a_dropout_shaped_run_is_refuted_and_stops_driving_the_verdict():
@@ -385,7 +411,8 @@ def test_whole_chromosome_absence_survives_marker_deserts():
     ms = [origin.Marker(f"m{i}", "11", p, "AA", "BB", "BB", baf=1.0, lrr=-0.6)
           for i, p in enumerate(list(range(1_000_000, 1_060_000, 2_000))
                                 + list(range(9_000_000, 9_060_000, 2_000)))]
-    v = origin.analyse_embryo("E", ms, "11", 5_000_000, calibration=GOOD, dropout=0.01)
+    v = origin.analyse_embryo("E", ms + off_locus(), "11", 5_000_000, calibration=GOOD,
+                              dropout=0.01)
     w = v.windows[-1]
     assert w.longest_run < w.n_l3, "the desert splits the run"
     assert w.z_sum == w.n_l3, "but every informative marker still shows absence"
@@ -703,7 +730,8 @@ def test_an_absent_paternal_segment_voids_the_homologue_call():
     deletion gets read as a correction, which is the ordering this exists to enforce."""
     ms = [origin.Marker(f"m{i}", "11", 1_000_000 + i * 2_000, "AA", "BB",
                         "BB" if 20 <= i <= 60 else "AB", baf=1.0, lrr=-0.6) for i in range(120)]
-    v = origin.analyse_embryo("E", ms, "11", 1_060_000, calibration=GOOD, dropout=0.01)
+    v = origin.analyse_embryo("E", ms + off_locus(), "11", 1_060_000, calibration=GOOD,
+                              dropout=0.01)
     assert any(w.significant for w in v.windows), "the deletion is found"
     sv = origin.SampleVerdict("E", parentage=None, variant=v, relationship="same",
                               inherited="H2_mutant_inherited")

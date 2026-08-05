@@ -15,7 +15,7 @@ import {
 import type { Health } from './api'
 import { int, utc } from './fmt'
 import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, loadExample } from './examples'
-import { analyseRuns, parseLocus, type RunResult } from './runlength'
+import { analyseRuns, measureClustering, parseLocus, type RunResult } from './runlength'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { syngamyLogText } from './logfile'
@@ -1122,11 +1122,30 @@ function LocusTest({ entries, donor, oocyte, log, onResult }: {
       for (const e of samples) {
         const markers: Marker[] = []
         const embryo = new Map<string, AB>()
+        // The absence indicator on every OTHER chromosome, in marker order, which is the null the
+        // run-length p-value is read against. Measured away from the locus on purpose: a real
+        // event is contiguous by definition and would inflate the null it is judged against.
+        const elsewhere = new Map<string, { pos: number; absent: boolean }[]>()
         await profileFile(e.file, (r) => {
-          if (r.chrom.replace(/^chr/i, '').toUpperCase() !== locus.chrom) return
+          const c = r.chrom.replace(/^chr/i, '').toUpperCase()
+          if (c !== locus.chrom) {
+            if (!isAutosome(c)) return
+            const fa = donor.gt.get(r.probesetId)
+            if (fa !== 'AA' && fa !== 'BB') return
+            if (r.genotype === 'NC') return
+            const arr = elsewhere.get(c) ?? []
+            arr.push({ pos: r.pos, absent: r.genotype !== 'AB' && r.genotype !== fa })
+            elsewhere.set(c, arr)
+            return
+          }
           markers.push({ rsid: r.probesetId, chrom: r.chrom, pos: r.pos })
           embryo.set(r.probesetId, r.genotype)
         }, () => {}, () => {})
+        const clustering = measureClustering([...elsewhere.values()].map((xs) =>
+          xs.sort((a, b) => a.pos - b.pos).map((x) => x.absent)))
+        log('CALL', `${e.file.name}: artefact runs ${clustering.ratio.toFixed(1)}x independence `
+          + `over ${int(clustering.n)} markers off chr${locus.chrom}`
+          + `${clustering.independent ? '' : ', so no run-length p-value is reported'}`)
         // q is the rate at which a marker shows paternal absence while the paternal genome IS
         // present, and this sample's own genome-wide absence rate measures exactly that. The
         // Kothiyal floor is a LOWER bound on it, so leaving q at the floor on an amplified sample
@@ -1139,6 +1158,7 @@ function LocusTest({ entries, donor, oocyte, log, onResult }: {
           name: e.file.name,
           results: analyseRuns(markers, donor.gt, oocyte.gt, embryo, locus.chrom, locus.pos, {
             qEmpirical,
+            clustering,
             ...(eventSizeOfInterestBp !== undefined && Number.isFinite(eventSizeOfInterestBp)
               ? { eventSizeOfInterestBp } : {}),
           }),

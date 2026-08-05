@@ -134,6 +134,65 @@ export function qHat(qEmpirical: number | null): { q: number; source: 'empirical
   return { q: qEmpirical, source: 'empirical' }
 }
 
+/**
+ * How far this sample's own absence artefact departs from the independence model above.
+ *
+ * The p-value in `runLengthP` assumes a dropout at marker i says nothing about marker i+1. That
+ * was checked on bulk gDNA and it is FALSE on the material this tool targets. Measured on the
+ * public series, maximal runs of two or more against the independence prediction at the same
+ * fitted rate:
+ *
+ *     haploid pronuclei, WGA single cells   6.1x to 10.3x
+ *     bulk gDNA, unrelated adults           2.0x to 2.1x
+ *
+ * Both classes exceed the model, single cells by roughly an order of magnitude. A run of
+ * artefact therefore reaches a run length the model calls impossible, and the p-value reports
+ * significance for it. So the p-value is withheld unless a sample DEMONSTRATES independence,
+ * which is the same burden of proof the zygosity axis carries below the call-rate floor.
+ *
+ * Pass flags in marker order, split by chromosome, so an inter-chromosome join is never counted
+ * as contiguity. Measure it away from the locus under test: a real event clusters by definition
+ * and would inflate the null it is about to be judged against.
+ */
+export function measureClustering(byChrom: readonly (readonly boolean[])[]): Clustering {
+  let n = 0
+  let k = 0
+  let observed = 0
+  for (const flags of byChrom) {
+    let run = 0
+    for (const f of flags) {
+      n += 1
+      if (f) { k += 1; run += 1 } else { if (run >= 2) observed += 1; run = 0 }
+    }
+    if (run >= 2) observed += 1
+  }
+  const q = n ? k / n : NaN
+  // Maximal runs of two or more among n independent Bernoulli(q): a run begins where a 1 follows
+  // a 0, or at the start, and is followed by another 1.
+  const expected = n > 1 && q > 0 ? (n - 1) * q * q * (1 - q) + q * q : NaN
+  const ratio = expected > 0 ? observed / expected : NaN
+  return { n, q, observed, expected, ratio, independent: expected >= MIN_EXPECTED_RUNS
+    && Number.isFinite(ratio) && ratio < MAX_CLUSTERING }
+}
+
+/** Below this many expected runs the ratio is dominated by counting noise and settles nothing,
+ *  so it cannot demonstrate independence either. */
+export const MIN_EXPECTED_RUNS = 5
+
+/** Measured: 2.0x on the cleanest material in hand. Anything at or above this is clustered
+ *  enough that the Erdos-Renyi tail is not the null. */
+export const MAX_CLUSTERING = 2
+
+export interface Clustering {
+  n: number
+  q: number
+  observed: number
+  expected: number
+  ratio: number
+  /** True only when the sample demonstrates independence. Absent evidence is not a pass. */
+  independent: boolean
+}
+
 export type RunVerdict =
   /** A run at or above r_min: contiguous paternal absence, not independent artefact. */
   | 'significant_run'
@@ -143,6 +202,9 @@ export type RunVerdict =
   | 'below_resolution'
   /** No L3-capable markers: the father is heterozygous across the window, so s_pat is undefined. */
   | 'undefined_father_heterozygous'
+  /** A run exists, but this sample's own artefact is clustered, so the run-length p-value has no
+   *  null to be measured against. The run is reported; the significance is not. */
+  | 'independence_not_demonstrated'
 
 export interface RunResult {
   window: string
@@ -163,6 +225,9 @@ export interface RunResult {
   longestRunMaternal: number
   runPMaternal: number
   rMin: number | null
+  /** The independence check this window's p-value depends on. null when the caller supplied no
+   *  genome-wide flags, which is itself a reason to withhold. */
+  clustering: Clustering | null
   q: number
   qSource: 'empirical' | 'kothiyal_floor'
   /** Median spacing between consecutive L3-capable markers. */
@@ -193,6 +258,9 @@ export interface RunOptions {
   /** An event size the caller cares about, in bp. Supplying it turns an absent run into an
    *  explicit "below resolution" rather than letting it read as "no event". */
   eventSizeOfInterestBp?: number
+  /** This sample's absence indicator away from the locus, from `measureClustering`. Without it
+   *  the p-value is withheld, because nothing has shown the null holds. */
+  clustering?: Clustering | null
 }
 
 /**
@@ -211,6 +279,7 @@ export function analyseRuns(
   opts: RunOptions = {},
 ): RunResult[] {
   const alpha = opts.alpha ?? 0.05
+  const clustering = opts.clustering ?? null
   const { q, source } = qHat(opts.qEmpirical ?? null)
   const want = variantChrom.replace(/^chr/i, '').toLowerCase()
 
@@ -266,13 +335,33 @@ export function analyseRuns(
       verdict = 'undefined_father_heterozygous'
       note = 'no L3-capable markers in this window: the father is heterozygous throughout, so '
         + 'paternal presence and absence are both undefined here. This is not a negative result.'
+    } else if (threshold !== null && run >= threshold && !clustering?.independent) {
+      // The run is real and is reported. What is withheld is the p-value, because the tail it
+      // would be read against assumes independence and this sample does not show it.
+      verdict = 'independence_not_demonstrated'
+      note = `${run} consecutive L3-capable markers with the paternal allele undetected, against `
+        + `r_min ${threshold} at q ${q.toFixed(4)}. NO p-value is reported: `
+        + (clustering
+          ? `this sample's own absence artefact away from this chromosome runs `
+            + `${clustering.ratio.toFixed(1)}x more than independence predicts `
+            + `(${clustering.observed} runs of two or more against `
+            + `${clustering.expected.toFixed(1)} expected), so the run-length tail is not its `
+            + 'null. Measured on the public series, WGA single cells run 6.1x to 10.3x and even '
+            + 'bulk gDNA runs 2.0x, so a run of artefact reaches lengths the model calls '
+            + 'impossible.'
+          : 'the sample\'s genome-wide absence indicator was not supplied, so nothing has '
+            + 'demonstrated that runs of artefact are independent here.')
+        + ' The contiguity above is an observation, not a significance claim, and it does NOT '
+        + 'distinguish copy-loss from copy-neutral LOH.'
     } else if (threshold !== null && run >= threshold) {
       verdict = 'significant_run'
       note = `${run} consecutive L3-capable markers with the paternal allele undetected, against `
         + `r_min ${threshold} at q ${q.toFixed(4)}. p = ${runLengthP(run, nL3, q).toExponential(2)}. `
-        + 'Contiguity is what separates this from independent artefact. It does NOT distinguish '
-        + 'copy-loss from copy-neutral LOH: both remove paternal alleles contiguously, and only '
-        + 'LRR separates them.'
+        + `This sample's artefact away from this chromosome runs `
+        + `${clustering!.ratio.toFixed(1)}x independence over ${clustering!.n.toLocaleString()} `
+        + 'markers, inside the bound, so the tail is usable here. Contiguity is what separates '
+        + 'this from independent artefact. It does NOT distinguish copy-loss from copy-neutral '
+        + 'LOH: both remove paternal alleles contiguously, and only LRR separates them.'
     } else if (
       opts.eventSizeOfInterestBp !== undefined && floor !== null
       && opts.eventSizeOfInterestBp < floor
@@ -295,12 +384,15 @@ export function analyseRuns(
       nScored: scored,
       zSum,
       longestRun: run,
-      runP: nL3 > 0 ? runLengthP(run, nL3, q) : 1,
+      // Three distinct answers, kept distinct: 1 where there is no data to be significant
+      // with, NaN where the significance test itself has no null, and the tail otherwise.
+      runP: nL3 === 0 ? 1 : clustering?.independent ? runLengthP(run, nL3, q) : NaN,
       nMat,
       zSumMaternal: zSumMat,
       longestRunMaternal: runMat,
-      runPMaternal: nMat > 0 ? runLengthP(runMat, nMat, q) : 1,
+      runPMaternal: nMat === 0 ? 1 : clustering?.independent ? runLengthP(runMat, nMat, q) : NaN,
       rMin: threshold,
+      clustering,
       q,
       qSource: source,
       medianSpacingL3Bp: spacing,

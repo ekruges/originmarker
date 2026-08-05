@@ -10,7 +10,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  KOTHIYAL_FLOOR, analyseRuns, parseLocus, qHat, rMin, runLengthP, scoreMarker,
+  KOTHIYAL_FLOOR, MAX_CLUSTERING, MIN_EXPECTED_RUNS, analyseRuns, measureClustering, parseLocus,
+  qHat, rMin, runLengthP, scoreMarker, type Clustering,
 } from './runlength.ts'
 import type { AB, Marker } from './informativity.ts'
 
@@ -33,6 +34,11 @@ assert.equal(expected.length, 12, 'twelve acceptance cases')
 const CHROM = '11'
 const VARIANT = 1_090_000        // between-marker, matching the fixture's "variant at marker 10"
 
+/** A sample that demonstrated independence: enough expected runs to measure, and no excess. */
+const INDEPENDENT: Clustering = {
+  n: 500_000, q: 0.005, observed: 12, expected: 12, ratio: 1, independent: true,
+}
+
 let cases = 0
 for (const exp of expected) {
   const rows = vectors.filter((v) => v.case === exp.case)
@@ -44,7 +50,12 @@ for (const exp of expected) {
   const embryo = new Map<string, AB>(rows.map((r) => [r.marker, r.embryo_gt as AB]))
 
   // The fixture's statistics are over the whole panel, so read the widest window.
-  const res = analyseRuns(markers, father, mother, embryo, CHROM, VARIANT)
+  //
+  // Independence is asserted here rather than measured, because what this fixture pins is the
+  // ARITHMETIC of the run-length tail, shared with the Python. Whether a real sample has earned
+  // that tail is a separate property and section 6 pins it.
+  const res = analyseRuns(markers, father, mother, embryo, CHROM, VARIANT,
+    { clustering: INDEPENDENT })
     .find((w) => w.window === 'whole_chromosome')!
 
   const where = exp.case
@@ -263,4 +274,57 @@ for (const [text, want] of [
   ['rs334', null], ['', null], ['chr7:', null], ['7', null],
 ] as const) {
   assert.deepEqual(parseLocus(text), want, `parseLocus(${JSON.stringify(text)})`)
+}
+
+// --- 6. the p-value is withheld unless the sample demonstrates independence -------------------
+//
+// The tail in `runLengthP` assumes a dropout at marker i says nothing about marker i+1. Measured
+// on the public series that is false on every material class: WGA single cells run 6.1x to 10.3x
+// more maximal runs of two than independence predicts, and even bulk gDNA runs 2.0x. So a run of
+// artefact reaches a length the model calls impossible and the p-value reports significance for
+// it. The run is still reported; the significance is not.
+{
+  // Alternating singletons: absences at a real rate, never two adjacent, so no runs at all.
+  const spread = measureClustering([
+    Array.from({ length: 20_000 }, (_, i) => i % 7 === 0)])
+  assert.equal(spread.observed, 0, 'singletons make no runs of two')
+  assert.ok(spread.expected >= MIN_EXPECTED_RUNS, 'and enough expected to measure against')
+  assert.equal(spread.independent, true, 'so this sample has demonstrated independence')
+
+  // The same rate, in pairs. Identical q, every absence contiguous.
+  const paired = measureClustering([
+    Array.from({ length: 20_000 }, (_, i) => i % 14 === 0 || i % 14 === 1)])
+  assert.ok(paired.ratio > MAX_CLUSTERING, `pairs must read clustered, got ${paired.ratio}`)
+  assert.equal(paired.independent, false)
+
+  // Too few expected runs to settle anything is not a pass: absence of evidence is not evidence.
+  const sparse = measureClustering([Array.from({ length: 300 }, (_, i) => i % 150 === 0)])
+  assert.ok(sparse.expected < MIN_EXPECTED_RUNS)
+  assert.equal(sparse.independent, false, 'an unmeasurable sample cannot demonstrate independence')
+
+  // A run long enough to be significant, under each of the three conditions.
+  const markers2: Marker[] = Array.from({ length: 60 }, (_, i) => ({
+    rsid: `x${i}`, chrom: CHROM, pos: 1_000_000 + i * 10_000,
+  }))
+  const father2 = new Map<string, AB>(markers2.map((m) => [m.rsid, 'AA' as AB]))
+  const embryo2 = new Map<string, AB>(markers2.map((m, i) =>
+    [m.rsid, (i >= 20 && i < 32 ? 'BB' : 'AA') as AB]))
+  const at = (c: Clustering | null) => analyseRuns(markers2, father2, undefined, embryo2,
+    CHROM, 1_450_000, c ? { clustering: c } : {})
+    .find((w) => w.window === 'whole_chromosome')!
+
+  const shown = at(INDEPENDENT)
+  assert.equal(shown.verdict, 'significant_run')
+  assert.ok(shown.runP > 0 && shown.runP < 1e-6, 'a demonstrated sample keeps its p-value')
+
+  for (const [label, c] of [
+    ['clustered', { n: 500_000, q: 0.005, observed: 120, expected: 12, ratio: 10, independent: false }],
+    ['not supplied', null],
+  ] as const) {
+    const r = at(c as Clustering | null)
+    assert.equal(r.verdict, 'independence_not_demonstrated', label)
+    assert.ok(Number.isNaN(r.runP), `${label}: the p-value must be withheld, not weakened`)
+    assert.equal(r.longestRun, shown.longestRun, `${label}: the run itself is still reported`)
+    assert.ok(!r.note.includes('p = '), `${label}: and no p-value survives in the prose`)
+  }
 }
