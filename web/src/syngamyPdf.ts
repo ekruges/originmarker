@@ -538,7 +538,10 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       { head: 'Note', w: 234 },
     ], chroms.map((c) => [
       `chr${c.chrom}`, int(c.informative), int(c.absent), pct(c.rate),
-      Number.isFinite(c.rate / ceiling) ? (c.rate / ceiling).toFixed(1) : '-',
+      // A chromosome whose calls are not measuring it has no ratio to report; printing one
+      // invites the reader to take the number and ignore the verdict beside it.
+      c.verdict === 'not_measured' || !Number.isFinite(c.rate / ceiling)
+        ? '-' : (c.rate / ceiling).toFixed(1),
       { v: c.verdict.replace(/_/g, ' '), colour: c.verdict === 'absent' ? WARN : INK },
       c.note ?? '',
     ]))

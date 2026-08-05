@@ -9,7 +9,8 @@ import { createGunzip } from 'node:zlib'
 import { createInterface } from 'node:readline'
 import { headerMap, parseRow, type ProbeRow } from './ingest.ts'
 import {
-  ABSENCE_MARGIN, absenceExplainable, agreement, classify, emptyTally, HET_BAND_DIPLOID,
+  ABSENCE_MARGIN, BAF_EXTREME_FLOOR, absenceExplainable, agreement, classify, emptyTally,
+  HET_BAND_DIPLOID,
   isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
 } from './parentage.ts'
 
@@ -398,3 +399,48 @@ async function readExample(name: string): Promise<Map<string, AB>> {
 }
 
 console.log('parentage.check.ts OK')
+
+// --- 17. a chromosome whose calls are not measuring it gets no verdict -------------------------
+//
+// Array mis-clustering makes a chromosome's genotypes systematically wrong. Absence then rises to
+// something indistinguishable from a real chromosome-scale loss, and every genotype-derived
+// measure agrees with it, because they are all reading the same broken calls. Only the allelic
+// ratio shows the cause.
+//
+// Measured on the five paternal pronuclei of GSE148488, each a meiotic product of the sperm donor
+// and therefore present on every autosome: real chromosomes run 0.752 to 0.976 B-allele
+// frequencies at an extreme, while GSM4774681 chr1 runs 0.130 and was reported ABSENT at 18.36%
+// on a sample whose genome-wide verdict is "parent genome present".
+{
+  const build = (extreme: number, absent: number) => {
+    const t = emptyTally()
+    for (let i = 0; i < 4_000; i += 1) {
+      const s = (i * 7919) % 1000
+      // The allelic ratio, which is what mis-clustering corrupts, set independently of the
+      // genotype so the two signals cannot be confused for one another.
+      const baf = s < extreme * 1000 ? (s % 2 ? 0.02 : 0.98) : 0.5
+      tallyRow('AA', row('7', 1000 + i * 1000, s < absent * 1000 ? 'BB' : 'AA', baf), t)
+    }
+    return classify(t, 0.17).chroms.find((c) => c.chrom === '7')!
+  }
+
+  // Clean clustering, heavy absence: a real loss, and it is still called.
+  const real = build(0.90, 0.18)
+  assert.ok(real.bafExtreme > BAF_EXTREME_FLOOR)
+  assert.equal(real.verdict, 'absent', 'a correctly clustered chromosome is still called')
+
+  // The same absence, on a chromosome whose calls are not measuring it.
+  const broken = build(0.13, 0.18)
+  assert.ok(broken.bafExtreme < BAF_EXTREME_FLOOR)
+  assert.equal(broken.verdict, 'not_measured',
+    'mis-clustering must withhold the verdict, not produce a loss')
+  assert.ok(broken.note!.includes('not measuring this chromosome'),
+    'and the reason has to travel with it')
+  // The rate is still reported: it is an observation. What is withheld is the verdict.
+  assert.ok(Math.abs(broken.rate - real.rate) < 1e-9, 'the measured rate is unchanged')
+
+  // The floor sits in an empty gap, so neither edge of the real range can cross it.
+  assert.equal(BAF_EXTREME_FLOOR, 0.40)
+  assert.ok(BAF_EXTREME_FLOOR > 0.130 * 2, 'clear of the mis-clustered chromosome')
+  assert.ok(BAF_EXTREME_FLOOR < 0.752 / 1.8, 'and clear of the worst correctly clustered one')
+}

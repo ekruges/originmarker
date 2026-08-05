@@ -1362,14 +1362,36 @@ def absence_explainable(no_call_rate: float, het_fraction: float) -> float:
     return max(0.0, no_call_rate) * max(0.0, het_fraction)
 
 
+#: Fraction of a chromosome's B-allele frequencies that must sit at an extreme, outside 0.15 to
+#: 0.85, before any verdict is reported for that chromosome.
+#:
+#: This catches array MIS-CLUSTERING, which no allelic statistic can see. When a chromosome's
+#: probes cluster badly the genotype calls come back systematically wrong, absence rises to
+#: something that looks exactly like a real chromosome-scale loss, and every measure built on
+#: genotypes agrees, because they all read the same broken calls. Only the allelic ratio shows it.
+#:
+#: Measured across the five paternal pronuclei of GSE148488, each a meiotic product of the sperm
+#: donor and therefore present on every autosome: real chromosomes run 0.752 to 0.976, while
+#: GSM4774681 chr1 runs 0.130 and was reported ABSENT at 18.36% on a sample whose genome-wide
+#: verdict is "parent genome present". The gap is empty by a factor of 5.8.
+#:
+#: A genuinely trisomic chromosome also fails this gate, since its allelic ratios cluster at a
+#: third and two thirds rather than at the extremes. That is correct rather than a cost: gains are
+#: refused on this platform in both channels, so the alternative to withholding is a wrong answer.
+BAF_EXTREME_FLOOR = 0.40
+
+
 @dataclass
 class ChromOrigin:
     chrom: str
     informative: int
     absent: int
     rate: float
-    verdict: Literal["paternal_present", "paternal_absent", "expected_absent", "unclear"]
+    verdict: Literal["paternal_present", "paternal_absent", "expected_absent", "unclear",
+                     "not_measured"]
     log10_lr: float
+    #: Fraction of this chromosome's B-allele frequencies at an extreme. The mis-clustering check.
+    baf_extreme: float = math.nan
     note: str = ""
 
 
@@ -1477,6 +1499,16 @@ def parental_origin(
         d[0] += 1
         d[1] += f.gt[0] not in p.gt
 
+    # Per chromosome, for the mis-clustering gate. Independent of the genotype counts above,
+    # which is the point: a broken chromosome's genotypes agree with each other.
+    baf_per: dict[str, list[int]] = {}
+    for p in sample.probes.values():
+        if p.baf is None or not _is_autosome(p.chrom):
+            continue
+        b = baf_per.setdefault(p.chrom, [0, 0])
+        b[1] += 1
+        b[0] += p.baf < 0.15 or p.baf > 0.85
+
     band = [p.baf for p in sample.probes.values()
             if p.baf is not None and _is_autosome(p.chrom)]
     het_band = (sum(1 for b in band if 0.35 <= b <= 0.65) / len(band)) if band else math.nan
@@ -1575,7 +1607,16 @@ def parental_origin(
         expected = (c in ("X", "23") and y_bearing  # "X:PAR" deliberately excluded
                     and rep.verdict == "parent_genome_present")
         clr = (_log_binom_pmf(a, n, baseline) - _log_binom_pmf(a, n, unrelated)) / math.log(10.0)
-        if expected and rate > baseline * 5:
+        ext_hit, ext_n = baf_per.get(c.replace(":PAR", ""), [0, 0])
+        extreme = ext_hit / ext_n if ext_n else math.nan
+        if math.isfinite(extreme) and extreme < BAF_EXTREME_FLOOR:
+            # Mis-clustering first: every measure below reads the same broken calls.
+            verdict, note = "not_measured", (
+                f"{extreme:.1%} of this chromosome's B-allele frequencies sit at an extreme, "
+                f"against a {BAF_EXTREME_FLOOR:.0%} floor and 75.2% to 97.6% on chromosomes that "
+                "clustered correctly. The genotype calls here are not measuring this chromosome, "
+                "so no verdict is reported for it.")
+        elif expected and rate > baseline * 5:
             verdict, note = "expected_absent", "no paternal X: this sample carries the father's Y"
         elif clr <= -decisive_log10:
             verdict, note = "paternal_absent", ""
@@ -1583,7 +1624,7 @@ def parental_origin(
             verdict, note = "paternal_present", ""
         else:
             verdict, note = "unclear", "rate sits between the two references"
-        rep.chroms.append(ChromOrigin(c, n, a, rate, verdict, clr, note))
+        rep.chroms.append(ChromOrigin(c, n, a, rate, verdict, clr, extreme, note))
 
     # --- the three axes, resolved into one parent-of-origin call ----------------------------
     #

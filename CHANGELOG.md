@@ -9,6 +9,37 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.0.4
+
+A chromosome whose genotype calls are not measuring it now gets no verdict. Found while scoping
+the copy-number feature, in shipped code rather than in the new work.
+
+### Fixed
+
+- **Array mis-clustering was being reported as a chromosome-scale paternal loss.** When a
+  chromosome's probes cluster badly its genotype calls come back systematically wrong, absence
+  rises to something indistinguishable from a real loss, and every genotype-derived measure agrees
+  with it, because they are all reading the same broken calls. Nothing in the tool caught it.
+
+  On the bundled series this was live: **GSM4774681 chromosome 1 was reported ABSENT at 18.36%**
+  on a sample whose genome-wide verdict is "parent genome present". That sample is one of the
+  sperm donor's own paternal pronuclei, so every autosome of it is his by construction. It is also
+  one of the five arrays this project certifies as clean and validates against.
+
+  Only the allelic ratio shows the cause, so a per-chromosome gate now runs before any verdict:
+  at least 40% of a chromosome's B-allele frequencies must sit outside 0.15 to 0.85. Measured
+  across the five paternal pronuclei, 110 chromosomes: correctly clustered ones run **0.752 to
+  0.976**, and the false event ran **0.130**. The gap is empty by a factor of 5.8. With the gate
+  in place exactly one chromosome of 110 is withheld and it is the one that was wrong; nothing
+  real is suppressed.
+
+  A withheld chromosome reports its measured extremeness and the reason in place of a verdict,
+  and its ratio against the ceiling is blanked in both the table and the report, because a ratio
+  is a finding and a chromosome that was never measured has none. A genuinely trisomic chromosome
+  fails this gate too, since its allelic ratios cluster at a third and two thirds rather than at
+  the extremes. That is correct rather than a cost: gains are not called on this platform in
+  either channel, so the alternative to withholding is a wrong answer.
+
 ## 3.0.3
 
 An independent adversarial review of the per-locus run-length statistic found its null false on

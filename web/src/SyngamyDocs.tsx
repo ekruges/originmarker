@@ -898,7 +898,26 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         {/* --- 15 ------------------------------------------------------------------------ */}
         <Section id="gates" title="Quality gates">
           <Text mb={8}>
-            Every file is put through six gates on load. They report; they do not silently drop
+            One gate runs per CHROMOSOME rather than per file, and it is the only one that can
+            withhold a chromosome whose file passed everything else. If fewer than 40% of a
+            chromosome&rsquo;s B-allele frequencies sit at an extreme, outside 0.15 to 0.85, its
+            probes clustered badly and its genotype calls are not measuring it. No verdict is
+            reported for that chromosome and the reason is printed in its place.
+          </Text>
+          <Text mb={8}>
+            This catches something no allelic statistic can see. When a chromosome mis-clusters,
+            every measure built on genotypes agrees that the parental allele is missing, because
+            they are all reading the same broken calls, and the result is indistinguishable from a
+            real chromosome-scale loss. Measured across the five paternal pronuclei of the bundled
+            series, each a meiotic product of the sperm donor and so present on every autosome:
+            correctly clustered chromosomes run 75.2% to 97.6% extreme, while one chromosome ran
+            13.0% and was reported <b>absent at 18.36%</b> on a sample whose genome-wide verdict is
+            present. The gap between those is empty by a factor of 5.8. A genuinely trisomic
+            chromosome also fails this gate, since its allelic ratios cluster at a third and two
+            thirds; that is the right outcome, because gains are not called on this platform at all.
+          </Text>
+          <Text mb={8}>
+            Every file is also put through six gates on load. They report; they do not silently drop
             anything. Each returns <Code>usable</Code>, <Code>marginal</Code>,{' '}
             <Code>exclude</Code> or <Code>report only</Code>, and all six appear in the detail view
             and the PDF.

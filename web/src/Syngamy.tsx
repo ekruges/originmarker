@@ -1030,13 +1030,19 @@ function ChromTable({ chroms, ceiling }: { chroms: ChromResult[]; ceiling: numbe
               <Table.Td ta="right" ff="monospace" c="dimmed">
                 {int(c.absent)} / {int(c.informative)}
               </Table.Td>
-              <Table.Td ta="right" ff="monospace" c="dimmed">{(c.rate / ceiling).toFixed(1)}</Table.Td>
+              <Table.Td ta="right" ff="monospace" c="dimmed">
+                {/* A ratio against the ceiling is a finding, and a chromosome whose calls are not
+                    measuring it has none. Printing 18.4x beside "not measured" invites the
+                    reader to take the number anyway. */}
+                {c.verdict === 'not_measured' ? '\u2014' : (c.rate / ceiling).toFixed(1)}
+              </Table.Td>
               <Table.Td>
                 {c.verdict === 'present'
                   ? <Text span size="xs" c="dimmed">present</Text>
                   : (
                     <Badge size="xs" variant="light"
-                      color={c.verdict === 'expected_absent' ? 'gray' : 'orange'}
+                      color={c.verdict === 'expected_absent' || c.verdict === 'not_measured'
+                        ? 'gray' : 'orange'}
                     >
                       {c.verdict.replace(/_/g, ' ')}
                     </Badge>

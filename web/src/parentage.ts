@@ -110,6 +110,32 @@ export const HET_BAND_IMPLAUSIBLE = 0.30
  */
 export const UNIFORM_CV = 0.35
 
+/**
+ * Fraction of a chromosome's B-allele frequencies that must sit at an extreme, outside 0.15 to
+ * 0.85, before any verdict is reported for that chromosome.
+ *
+ * This catches array MIS-CLUSTERING, which no allelic statistic can see. When a chromosome's
+ * probes cluster badly the genotype calls come back systematically wrong, absence rises to
+ * something that looks exactly like a real chromosome-scale loss, and every measure built on
+ * genotypes agrees with it because they are all reading the same broken calls. Only the
+ * intensity-derived allelic ratio shows the cause.
+ *
+ * Measured across the five paternal pronuclei of GSE148488, every one a meiotic product of the
+ * sperm donor and therefore present on every autosome:
+ *
+ *     real autosomes, all five samples, 110 chromosomes   0.752 to 0.976
+ *     GSM4774681 chr1, reported ABSENT at 18.36%          0.130
+ *
+ * That sample's genome-wide verdict is "parent genome present" and chr1 is his son's. The gap
+ * between 0.130 and 0.752 is empty by a factor of 5.8, which is why a single figure sits in it.
+ *
+ * A genuinely trisomic chromosome also fails this gate, since its allelic ratios cluster at a
+ * third and two thirds rather than at the extremes. That is the correct outcome and not a cost:
+ * gains are refused on this platform in both channels, so the alternative to withholding is a
+ * wrong answer rather than a right one.
+ */
+export const BAF_EXTREME_FLOOR = 0.40
+
 export type OriginClass = 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear'
 
 /** One line per class, so the card, the table and the PDF cannot describe a call differently. */
@@ -177,6 +203,9 @@ export interface Tally {
   markers: number
   bafInBand: number
   bafTotal: number
+  /** Per chromosome: [B-allele frequencies at an extreme, B-allele frequencies read]. The
+   *  mis-clustering check; see BAF_EXTREME_FLOOR. */
+  bafByChrom: Map<string, [number, number]>
   /** chrY markers the sample called, and chrY markers the parent's file carries. A Y-bearing
    *  sperm is measured from these, never inferred from an absent X. */
   yCalled: number
@@ -187,7 +216,8 @@ export interface Tally {
 
 export const emptyTally = (): Tally => ({
   byChrom: new Map(), nonParental: 0, nonParentalDen: 0,
-  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, yCalled: 0, yTotal: 0, build: null,
+  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, bafByChrom: new Map(),
+  yCalled: 0, yTotal: 0, build: null,
 })
 
 /** One marker of the sample, against the parent's call at the same marker. */
@@ -208,6 +238,10 @@ export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   if (row.baf !== null && isAutosome(row.chrom)) {
     t.bafTotal += 1
     if (row.baf >= 0.35 && row.baf <= 0.65) t.bafInBand += 1
+    const b = t.bafByChrom.get(row.chrom) ?? [0, 0]
+    b[1] += 1
+    if (row.baf < 0.15 || row.baf > 0.85) b[0] += 1
+    t.bafByChrom.set(row.chrom, b)
   }
   if (row.genotype === 'NC') return
   t.called += 1
@@ -238,6 +272,10 @@ export interface ChromResult {
   absent: number
   rate: number
   verdict: 'present' | 'absent' | 'expected_absent' | 'unclear'
+    /** The chromosome's genotype calls are not measuring it. See BAF_EXTREME_FLOOR. */
+    | 'not_measured'
+  /** Fraction of this chromosome's B-allele frequencies at an extreme. The mis-clustering check. */
+  bafExtreme: number
   note?: string
 }
 
@@ -412,15 +450,30 @@ export function classify(
     if (sex && present) {
       spermType = xLost ? (yBearing ? 'Y_bearing' : 'unknown') : 'X_bearing'
     }
+    // Mis-clustering first, because every genotype-derived measure below reads the same broken
+    // calls and would agree with each other about a chromosome that was never measured.
+    const [ext, nBaf] = t.bafByChrom.get(c) ?? t.bafByChrom.get(c.replace(':PAR', '')) ?? [0, 0]
+    const extreme = nBaf ? ext / nBaf : NaN
+    const clustered = !Number.isFinite(extreme) || extreme >= BAF_EXTREME_FLOOR
+
     chroms.push({
       chrom: c,
       informative: n,
       absent: a,
+      bafExtreme: extreme,
+      verdict: !clustered ? 'not_measured'
+        : expected ? 'expected_absent'
+          : rate >= explainable * ABSENCE_MARGIN ? 'absent'
+            : rate <= explainable ? 'present' : 'unclear',
       rate,
-      verdict: expected ? 'expected_absent'
-        : rate >= explainable * ABSENCE_MARGIN ? 'absent'
-          : rate <= explainable ? 'present' : 'unclear',
-      note: c === 'X:PAR' ? 'pseudoautosomal: on both the X and the Y, so a sperm of either type '
+      note: !clustered
+        ? `${pct(extreme, 1)} of this chromosome's B-allele frequencies sit at an extreme, `
+          + `against a ${pct(BAF_EXTREME_FLOOR, 0)} floor and ${pct(0.752, 0)} to `
+          + `${pct(0.976, 0)} on chromosomes that clustered correctly. The genotype calls here `
+          + 'are not measuring this chromosome, so no verdict is reported for it. Absence would '
+          + 'read as a chromosome-scale loss and every genotype-derived measure would agree, '
+          + 'because they all read the same broken calls.'
+        : c === 'X:PAR' ? 'pseudoautosomal: on both the X and the Y, so a sperm of either type '
         + 'delivers it. Present here is the positive control on the rest of chrX being absent'
         : expected ? "no paternal X: this sample carries the parent's Y"
         : sex && role === 'paternal' && present && xLost
