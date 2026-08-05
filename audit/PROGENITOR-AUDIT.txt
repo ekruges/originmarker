@@ -1,0 +1,449 @@
+================================================================================================
+PROGENITOR ACCURACY AUDIT
+================================================================================================
+
+Tool          OriginMarker 3.0.0 (Recombinase)
+Generated     2026-08-05 15:32:41Z
+Data          GEO GSE148488, Zuccaro et al. 2020, Cell 183(6):1650-1664
+              doi:10.1016/j.cell.2020.10.025
+Files         19 arrays, Affymetrix Axiom UK Biobank, 825,656 markers each, GRCh37
+Cases         41, plus a 31-reference marker-density sweep
+
+RESULT
+
+  correct     35
+  refused     6    declined to call; asserted nothing
+  incorrect   0    asserted something the bench contradicts
+
+  The reconstruction was built from haploid pronuclei alone. The man they came from was
+  never given to it, and reads present against it. Nine genomes that are not his read absent.
+
+WHY THIS DATA
+
+  Zuccaro et al. separated the two pronuclei of a fertilised human zygote by micromanipulation
+  and arrayed each one alone, and the series also carries bulk genomic DNA for the sperm donor
+  and for the egg donors. So the material divides itself at the bench, before any statistic:
+
+    8 paternal pronuclei   haploid meiotic products of ONE man, which is what Progenitor takes
+    2 sperm donor arrays   that same man, measured directly. Never given to the reconstruction,
+                           used only to score it. This is the ground truth.
+    7 maternal pronuclei   haploid, from the egg donors, unrelated to him
+    2 egg donor arrays     diploid adults, unrelated to him
+
+  That makes three things measurable that the tool can otherwise only model. Ascertainment is
+  checked against his real heterozygosity rather than against the tool's own m=2 baseline.
+  Contamination is checked by asking his array which of the asserted homozygotes are really
+  heterozygous. And absence is checked on nine genomes known not to be his.
+
+  His two arrays also bound what the ground truth itself can be wrong about: over
+  725,201 jointly called autosomal markers they disagree on heterozygosity at
+  4.152%. Every comparison against him inherits that floor.
+
+HOW TO REPRODUCE
+
+  1. Download the 19 supplementary files listed under SOURCES below from GEO.
+  2. node --experimental-strip-types --max-old-space-size=8192 audit/progenitor.ts <raw> <out>
+  3. node --experimental-strip-types audit/progenitor-report.ts <out>
+
+  The harness drives web/src/ingest.ts, web/src/inferredReference.ts, web/src/productTriage.ts
+  and web/src/parentage.ts, which is the same code the browser runs. Only the file plumbing
+  differs: a gzipped file off disk rather than a dropped one.
+
+================================================================================================
+THE RECONSTRUCTION, AGAINST THE MAN HIMSELF
+================================================================================================
+
+  Every marker the reference asserts, checked against his own array. "Contamination observed"
+  is the fraction of them where he is really heterozygous, which is what contamination means;
+  "predicted" is what the tool reported without ever seeing him. "Opposite homozygote" is the
+  failure that would matter most and no agreement at a heterozygous site can produce it.
+
+  m>=   markers   h retained   of his true   predicted   observed   opposite hom   concordance
+  --------------------------------------------------------------------------------------------
+   2     663,542      16.93%        101.7%      4.288%     5.431%        0.2533%       94.315%
+   3     596,687      16.48%         98.9%      3.402%     4.521%        0.1641%       95.315%
+   4     457,506      15.47%         92.9%      2.286%     3.249%        0.1140%       96.637%
+   5     231,064      13.74%         82.5%      1.258%     1.880%        0.0993%       98.021%
+
+  The tool chose m>=4 using no array of the parent.
+
+  Predicted contamination sits below observed at every depth, by 0.6 to 1.1 percentage points.
+  That gap is inside the 4.15% at which his own two arrays disagree about heterozygosity, so
+  this data cannot separate a model that understates it from a truth that overstates it. The
+  direction is worth stating plainly: if the model is the one that is wrong, it is optimistic
+  about how clean the reference is, and the noise ceiling derived from it is correspondingly
+  tight. Every verdict below carries margin far larger than the gap.
+
+================================================================================================
+IDENTIFICATION
+================================================================================================
+
+  sample                                    expected   absence   ceiling    ratio   reported
+  --------------------------------------------------------------------------------------------
+  GSM4472397  genomic DNA sperm dono   present     0.11%     0.96%    0.12x   parent genome present
+  GSM4472398  genomic DNA sperm dono   present     0.20%     1.15%    0.18x   parent genome present
+  GSM4774673  maternal nucleus isola    absent    11.12%     2.08%    5.34x   no parental contribution
+  GSM4774674  maternal nucleus isola    absent    11.21%     1.95%    5.75x   no parental contribution
+  GSM4774675  maternal nucleus isola    absent    11.09%     2.36%    4.71x   no parental contribution
+  GSM4774676  maternal nucleus isola    absent    11.03%     2.25%    4.90x   no parental contribution
+  GSM4774677  maternal nucleus isola    absent    11.08%     2.05%    5.41x   no parental contribution
+  GSM4774678  maternal nucleus isola    absent    11.48%     1.78%    6.45x   no parental contribution
+  GSM4774679  maternal nucleus isola    absent    10.83%     2.10%    5.14x   no parental contribution
+  GSM4472407  genomic DNA egg donor     absent     5.95%     0.65%    9.11x   no parental contribution
+  GSM4472415  genomic DNA egg donor     absent     5.58%     0.88%    6.38x   no parental contribution
+
+================================================================================================
+MARKER DENSITY
+================================================================================================
+
+  Every quantity the tool reports is a rate, so a reference built from a fraction of the array
+  should reach the same verdicts. Rebuilt on disjoint slices, each scored on him and on all
+  nine negatives.
+
+  slice   references   markers each   his ratio        worst negative
+  --------------------------------------------------------------------------------------------
+  1/1              1        457,506   0.12x to 0.12x   4.71x to 4.71x
+  1/2              2        228,753   0.11x to 0.12x   4.70x to 4.71x
+  1/4              4        114,377   0.11x to 0.12x   4.66x to 4.73x
+  1/8              8         57,188   0.10x to 0.13x   4.63x to 4.83x
+  1/16            16         28,594   0.08x to 0.17x   4.58x to 4.89x
+
+  31 references, 310 classifications: 31 clean, 0 wrong.
+
+================================================================================================
+EVERY CASE
+================================================================================================
+
+replicate-discordance
+  Section      Ground truth
+  What         his two arrays, compared against each other
+  Expected     they largely agree; whatever they do not is the error floor every comparison against him inherits
+  Reported     over 725,201 jointly called autosomal markers, 4.152% are heterozygous in exactly one of the two, and 0.1088% are opposite homozygotes
+  Outcome      CORRECT
+
+gate-GSM4774680
+  Section      Quality and ploidy
+  What         paternal nucleus isolated from 2PN zygote 1: call 84.6%, band 2.9%, 7.8% heterozygous calls
+  Expected     a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated
+  Reported     usable product
+  Outcome      CORRECT
+
+gate-GSM4774681
+  Section      Quality and ploidy
+  What         paternal nucleus isolated from 2PN zygote 2: call 78.2%, band 7.8%, 12.1% heterozygous calls
+  Expected     a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated
+  Reported     usable product
+  Outcome      CORRECT
+
+gate-GSM4774682
+  Section      Quality and ploidy
+  What         paternal nucleus isolated from 2PN zygote 3: call 85.5%, band 3.8%, 9.6% heterozygous calls
+  Expected     a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated
+  Reported     usable product
+  Outcome      CORRECT
+
+gate-GSM4774683
+  Section      Quality and ploidy
+  What         paternal nucleus isolated from 2PN zygote 4: call 85.0%, band 2.8%, 7.6% heterozygous calls
+  Expected     a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated
+  Reported     usable product
+  Outcome      CORRECT
+
+gate-GSM4774684
+  Section      Quality and ploidy
+  What         paternal nucleus isolated from 2PN zygote 5: call 55.6%, band 21.3%, 32.9% heterozygous calls
+  Expected     a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated
+  Reported     set aside, call rate 55.6% is below the 60% floor
+  Outcome      REFUSED
+
+gate-GSM4774685
+  Section      Quality and ploidy
+  What         paternal nucleus isolated from 2PN zygote 6: call 83.1%, band 3.3%, 9.0% heterozygous calls
+  Expected     a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated
+  Reported     usable product
+  Outcome      CORRECT
+
+gate-GSM4774686
+  Section      Quality and ploidy
+  What         paternal nucleus isolated from 2PN zygote 7: call 53.8%, band 26.8%, 43.1% heterozygous calls
+  Expected     a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated
+  Reported     set aside, call rate 53.8% is below the 60% floor
+  Outcome      REFUSED
+
+gate-GSM4774687
+  Section      Quality and ploidy
+  What         paternal nucleus isolated from 2PN zygote 8: call 59.1%, band 18.1%, 25.0% heterozygous calls
+  Expected     a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated
+  Reported     set aside, call rate 59.1% is below the 60% floor
+  Outcome      REFUSED
+
+fidelity-m2
+  Section      Reconstruction fidelity
+  What         reference at m>=2, 663,542 markers, against his own array
+  Expected     every asserted homozygote matches him, except where he is heterozygous and the products agreed; the predicted contamination covers the observed
+  Reported     concordance 94.315%, contamination predicted 4.288% observed 5.431%, opposite homozygote 0.2533%, replicate floor 4.152%
+  Outcome      CORRECT
+
+fidelity-m3
+  Section      Reconstruction fidelity
+  What         reference at m>=3, 596,687 markers, against his own array
+  Expected     every asserted homozygote matches him, except where he is heterozygous and the products agreed; the predicted contamination covers the observed
+  Reported     concordance 95.315%, contamination predicted 3.402% observed 4.521%, opposite homozygote 0.1641%, replicate floor 4.152%
+  Outcome      CORRECT
+
+fidelity-m4
+  Section      Reconstruction fidelity
+  What         reference at m>=4, 457,506 markers, against his own array
+  Expected     every asserted homozygote matches him, except where he is heterozygous and the products agreed; the predicted contamination covers the observed
+  Reported     concordance 96.637%, contamination predicted 2.286% observed 3.249%, opposite homozygote 0.1140%, replicate floor 4.152%
+  Outcome      CORRECT
+
+fidelity-m5
+  Section      Reconstruction fidelity
+  What         reference at m>=5, 231,064 markers, against his own array
+  Expected     every asserted homozygote matches him, except where he is heterozygous and the products agreed; the predicted contamination covers the observed
+  Reported     concordance 98.021%, contamination predicted 1.258% observed 1.880%, opposite homozygote 0.0993%, replicate floor 4.152%
+  Outcome      CORRECT
+
+chosen-depth
+  Section      Choosing the depth
+  What         chooseM over 5 usable products, using no array of the parent
+  Expected     the deepest depth holding 90% of the parent's heterozygosity, judged against his real array
+  Reported     m>=4, which holds 92.9% of his measured heterozygosity
+  Outcome      CORRECT
+
+id-GSM4472397
+  Section      Identification
+  What         genomic DNA sperm donor rep 1 against the reconstruction
+  Expected     present: this is the man the products came from
+  Reported     0.11% absent of 0.96% = 0.12x, parent genome present
+  Outcome      CORRECT
+
+id-GSM4472398
+  Section      Identification
+  What         genomic DNA sperm donor rep 2 against the reconstruction
+  Expected     present: this is the man the products came from
+  Reported     0.20% absent of 1.15% = 0.18x, parent genome present
+  Outcome      CORRECT
+
+id-GSM4774673
+  Section      Identification
+  What         maternal nucleus isolated from 2PN zygote 1 against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     11.12% absent of 2.08% = 5.34x, no parental contribution
+  Outcome      CORRECT
+
+id-GSM4774674
+  Section      Identification
+  What         maternal nucleus isolated from 2PN zygote 2 against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     11.21% absent of 1.95% = 5.75x, no parental contribution
+  Outcome      CORRECT
+
+id-GSM4774675
+  Section      Identification
+  What         maternal nucleus isolated from 2PN zygote 3 against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     11.09% absent of 2.36% = 4.71x, no parental contribution
+  Outcome      CORRECT
+
+id-GSM4774676
+  Section      Identification
+  What         maternal nucleus isolated from 2PN zygote 4 against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     11.03% absent of 2.25% = 4.90x, no parental contribution
+  Outcome      CORRECT
+
+id-GSM4774677
+  Section      Identification
+  What         maternal nucleus isolated from 2PN zygote 5 against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     11.08% absent of 2.05% = 5.41x, no parental contribution
+  Outcome      CORRECT
+
+id-GSM4774678
+  Section      Identification
+  What         maternal nucleus isolated from 2PN zygote 6 against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     11.48% absent of 1.78% = 6.45x, no parental contribution
+  Outcome      CORRECT
+
+id-GSM4774679
+  Section      Identification
+  What         maternal nucleus isolated from 2PN zygote 8 against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     10.83% absent of 2.10% = 5.14x, no parental contribution
+  Outcome      CORRECT
+
+id-GSM4472407
+  Section      Identification
+  What         genomic DNA egg donor A against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     5.95% absent of 0.65% = 9.11x, no parental contribution
+  Outcome      CORRECT
+
+id-GSM4472415
+  Section      Identification
+  What         genomic DNA egg donor C rep 1 against the reconstruction
+  Expected     absent: unrelated to him, established at the bench
+  Reported     5.58% absent of 0.88% = 6.38x, no parental contribution
+  Outcome      CORRECT
+
+group-products-only
+  Section      Membership
+  What         5 usable paternal pronuclei, compared pairwise
+  Expected     one group: they are products of one man
+  Reported     1 group(s), sizes 5
+  Outcome      CORRECT
+
+group-mixed
+  Section      Membership
+  What         5 paternal and 7 maternal pronuclei together
+  Expected     the paternal ones form one group with no maternal product in it
+  Reported     2 group(s), sizes 7, 5; the paternal products stayed together and alone
+  Outcome      CORRECT
+
+pairwise-ranges
+  Section      Membership
+  What         every pair, within one parent and across parents
+  Expected     the two ranges separate, and any single misread pair is absorbed by the all-pairs rule rather than becoming a grouping error
+  Reported     within 5.70% to 9.23% over 10 pairs (0 misread); across 16.55% to 17.37% over 35 pairs (0 misread)
+  Outcome      CORRECT
+
+ploidy-GSM4472407
+  Section      Quality and ploidy
+  What         genomic DNA egg donor A offered as a product
+  Expected     set aside: a diploid adult is not one meiotic product, and admitting one bridges two unrelated parents into a single group
+  Reported     set aside, BAF band 13.6% with 14.1% heterozygous calls sits between the haploid and diploid ranges
+  Outcome      CORRECT
+
+ploidy-GSM4472415
+  Section      Quality and ploidy
+  What         genomic DNA egg donor C rep 1 offered as a product
+  Expected     set aside: a diploid adult is not one meiotic product, and admitting one bridges two unrelated parents into a single group
+  Reported     set aside, BAF band 16.5% and 17.1% heterozygous calls read diploid, not one meiotic product
+  Outcome      CORRECT
+
+loo-GSM4774680
+  Section      Leave-one-out
+  What         paternal nucleus isolated from 2PN zygote 1 against a reference built from the other 4
+  Expected     present: it is a product of the same man
+  Reported     1.18% absent of 2.39% = 0.49x, parent genome present
+  Outcome      CORRECT
+
+loo-GSM4774681
+  Section      Leave-one-out
+  What         paternal nucleus isolated from 2PN zygote 2 against a reference built from the other 4
+  Expected     present: it is a product of the same man
+  Reported     1.09% absent of 3.50% = 0.31x, parent genome present
+  Outcome      CORRECT
+
+loo-GSM4774682
+  Section      Leave-one-out
+  What         paternal nucleus isolated from 2PN zygote 3 against a reference built from the other 4
+  Expected     present: it is a product of the same man
+  Reported     0.25% absent of 2.60% = 0.10x, parent genome present
+  Outcome      CORRECT
+
+loo-GSM4774683
+  Section      Leave-one-out
+  What         paternal nucleus isolated from 2PN zygote 4 against a reference built from the other 4
+  Expected     present: it is a product of the same man
+  Reported     1.12% absent of 2.38% = 0.47x, parent genome present
+  Outcome      CORRECT
+
+loo-GSM4774685
+  Section      Leave-one-out
+  What         paternal nucleus isolated from 2PN zygote 6 against a reference built from the other 4
+  Expected     present: it is a product of the same man
+  Reported     0.91% absent of 2.52% = 0.36x, parent genome present
+  Outcome      CORRECT
+
+density-sweep
+  Section      Marker density
+  What         31 references rebuilt on disjoint slices of the array, from all markers down to every 16th, each scored on him and on all 9 negatives
+  Expected     the verdicts do not depend on marker density: he reads present and no negative reads present, in every one
+  Reported     31 clean, 0 declined to call him, 0 wrong
+  Outcome      CORRECT
+
+floor-n2
+  Section      Below the floor
+  What         10 reconstructions from 2 products, a depth the tool refuses to build at
+  Expected     recorded, not scored. The floor was set on true OFFSPRING inverting at this depth, and this series contains none: the pronuclei are the products themselves. What can be checked here is the parent, who is a far stronger signal than an offspring and is expected to survive depths an offspring would not
+  Reported     0 of 10 called him absent; his ratio ran 0.16x to 0.30x
+  Outcome      REFUSED
+
+floor-n3
+  Section      Below the floor
+  What         10 reconstructions from 3 products, a depth the tool refuses to build at
+  Expected     recorded, not scored. The floor was set on true OFFSPRING inverting at this depth, and this series contains none: the pronuclei are the products themselves. What can be checked here is the parent, who is a far stronger signal than an offspring and is expected to survive depths an offspring would not
+  Reported     0 of 10 called him absent; his ratio ran 0.11x to 0.23x
+  Outcome      REFUSED
+
+floor-n4
+  Section      Below the floor
+  What         5 reconstructions from 4 products, a depth the tool refuses to build at
+  Expected     recorded, not scored. The floor was set on true OFFSPRING inverting at this depth, and this series contains none: the pronuclei are the products themselves. What can be checked here is the parent, who is a far stronger signal than an offspring and is expected to survive depths an offspring would not
+  Reported     0 of 5 called him absent; his ratio ran 0.14x to 0.18x
+  Outcome      REFUSED
+
+floor-enforced
+  Section      Below the floor
+  What         the page's own gate at 5 products
+  Expected     no reference is offered below 5 products
+  Reported     MIN_PRODUCTS = 5, and the sweep above starts there
+  Outcome      CORRECT
+
+ceiling-term
+  Section      The ceiling term
+  What         true products and unrelated haploids, scored with and without the reference's own false absence in the ceiling
+  Expected     admitting it recovers true products and rescues no unrelated genome
+  Reported     true products present: 5/5 with the term, 3/5 without. Unrelated haploids wrongly present with the term: 0/7
+  Outcome      CORRECT
+
+================================================================================================
+WHAT THIS DOES NOT SHOW
+================================================================================================
+
+  One laboratory, one platform, one man. Five usable products is the floor, not a comfortable
+  margin, and a reconstruction is only as good as the number of products behind it.
+
+  The five-product floor is set on true OFFSPRING inverting below it. This series contains no
+  offspring of these products, so the sub-floor cases here score the parent instead, who is a
+  far stronger signal, and they do not reproduce that measurement. They are recorded rather
+  than scored.
+
+  Nothing here separates this man from a close relative of his; no such relative is in the
+  series. That refusal is stated in the tool and remains untested by this audit.
+
+  Research use only. Not a clinical diagnostic.
+
+================================================================================================
+SOURCES
+================================================================================================
+
+  accession   file                                      markers    call    band    sha256
+  --------------------------------------------------------------------------------------------
+  GSM4774680  GSM4774680_pMII-1_51.CEL.txt.gz           825,656   84.6%    2.9%  a10014306ef45e4e
+  GSM4774681  GSM4774681_pMII-2_64.CEL.txt.gz           825,656   78.2%    7.8%  7b68fe9322a75bc4
+  GSM4774682  GSM4774682_pMII-3_53.CEL.txt.gz           825,656   85.5%    3.8%  6b6e003742403a3b
+  GSM4774683  GSM4774683_pMII-4_56.CEL.txt.gz           825,656   85.0%    2.8%  8a8cbfcc1b87e133
+  GSM4774684  GSM4774684_pMII-5_57.CEL.txt.gz           825,656   55.6%   21.3%  26c0cc648db466fa
+  GSM4774685  GSM4774685_pMII-6_59.CEL.txt.gz           825,656   83.1%    3.3%  5defbb54fb975a36
+  GSM4774686  GSM4774686_pMII-7_63.CEL.txt.gz           825,656   53.8%   26.8%  df079a9a6b4bc6ec
+  GSM4774687  GSM4774687_pMII-8_61.CEL.txt.gz           825,656   59.1%   18.1%  36588244213aa3b6
+  GSM4472397  GSM4472397_sperm_DNA_71.CEL.txt.gz        825,656   95.5%   15.2%  1b56911dae7030f4
+  GSM4472398  GSM4472398_sperm_DNA_79.CEL.txt.gz        825,656   94.1%   16.0%  b48d503ebc175f68
+  GSM4774673  GSM4774673_mMII-1_52.CEL.txt.gz           825,656   85.0%    3.3%  c6771602e2a2dd43
+  GSM4774674  GSM4774674_mMII-2_49.CEL.txt.gz           825,656   86.1%    2.5%  bb30838b30d406e5
+  GSM4774675  GSM4774675_mMII-3_54.CEL.txt.gz           825,656   83.5%    4.8%  6d56593d988d843b
+  GSM4774676  GSM4774676_mMII-4_55.CEL.txt.gz           825,656   82.9%    4.0%  09790d5e6a060b51
+  GSM4774677  GSM4774677_mMII-5_58.CEL.txt.gz           825,656   85.8%    3.2%  6f3ab89b9ede5290
+  GSM4774678  GSM4774678_mMII-6_60.CEL.txt.gz           825,656   90.4%    1.6%  089101c5417589a0
+  GSM4774679  GSM4774679_mMII-8_62.CEL.txt.gz           825,656   85.8%    3.6%  c57502076d52781a
+  GSM4472407  GSM4472407_donor_A_47.CEL.txt.gz          825,656   98.4%   13.6%  062f33c4f0843d9a
+  GSM4472415  GSM4472415_donor_C_70.CEL.txt.gz          825,656   96.6%   16.5%  72256486368e5622
+
+  All from GEO GSE148488, Zuccaro et al. 2020, Cell 183(6):1650-1664.
+  Redistributed by NCBI GEO under its own terms. Nobody's patient data: published as part of
+  that study.

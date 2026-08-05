@@ -382,6 +382,26 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   return (
     <>
       <FeatureHeader name="Syngamy" tagline="parent of origin from SNP arrays" />
+
+      {lines.length > 0 && (
+        <RunLog
+          lines={lines}
+          colours={TAG_COLOR}
+          onDownload={() => grab(
+            new Blob([syngamyLogText(lines, {
+              tool: health ? `OriginMarker ${health.version} (${health.release_codename})`
+                : 'OriginMarker',
+              started: startedAt,
+            }, {
+              now: new Date().toISOString(),
+              url: window.location.href,
+              agent: navigator.userAgent,
+            })], { type: 'text/plain;charset=utf-8' }),
+            `syngamy-runlog-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.txt`,
+          )}
+        />
+      )}
+
       <Paper p="sm" mb={10}>
         <Group justify="flex-end" align="center" mb={8}>
           <Group gap={6}>
@@ -477,24 +497,6 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         />
       )}
 
-      {lines.length > 0 && (
-        <RunLog
-          lines={lines}
-          colours={TAG_COLOR}
-          onDownload={() => grab(
-            new Blob([syngamyLogText(lines, {
-              tool: health ? `OriginMarker ${health.version} (${health.release_codename})`
-                : 'OriginMarker',
-              started: startedAt,
-            }, {
-              now: new Date().toISOString(),
-              url: window.location.href,
-              agent: navigator.userAgent,
-            })], { type: 'text/plain;charset=utf-8' }),
-            `syngamy-runlog-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.txt`,
-          )}
-        />
-      )}
       <RunInformation
         entries={entries} startedAt={startedAt} health={health} examples={examples}
       />

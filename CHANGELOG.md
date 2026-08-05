@@ -9,6 +9,49 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.0.1
+
+An accuracy audit for Progenitor, and the report sections the other two tools already had.
+
+### Added
+
+- **A second accuracy audit, for Progenitor**, on 19 public arrays from the same GEO series the
+  Syngamy audit uses. A man's genotype is reconstructed from eight of his sons' paternal
+  pronuclei and graded against his own array, which the reconstruction never sees: 35 correct,
+  6 refused, 0 incorrect. He reads present at 0.12x and 0.18x on his two replicate arrays, and
+  the nine genomes that are not his read absent at 4.71x to 9.11x. Membership put the five usable
+  products in one group and split them from seven maternal pronuclei with zero misread pairs
+  out of 45.
+
+  The series carries his own bulk DNA beside the pronuclei, which turns three modelled quantities
+  into measured ones: ascertainment against his real 16.66% heterozygosity, contamination by
+  asking his array which asserted homozygotes are really heterozygous, and absence on nine
+  genomes known not to be his. His two replicate arrays bound what the ground truth itself can be
+  wrong about, at 4.15%.
+
+  A density sweep rebuilds the reference on disjoint slices of the array, down to every sixteenth
+  marker: 31 references, 310 classifications, all clean. One array density is one observation.
+
+  Two results are recorded rather than resolved. Predicted contamination sits 0.6 to 1.1
+  percentage points below observed at every depth, which is inside the replicate floor, so this
+  data cannot separate a model that understates it from a truth that overstates it; the direction
+  is stated, since if the model is the wrong one it is optimistic. And the sub-floor cases score
+  the parent rather than an offspring, because this series contains no offspring of these
+  products, so they do not reproduce the measurement the five-product floor was set from.
+
+- **Methods, Files read and Citation in the Progenitor report**, and **Methods and Citation in
+  the panel report**, both written from the actual run rather than from a template, and both
+  naming the refusals that fired. Parity with the Syngamy report, which has carried all three
+  since 2.0.
+
+### Changed
+
+- The ploidy gate moves out of `ProductPanel.tsx` into `productTriage.ts`. It is the gate the
+  whole feature stands on, and living in a `.tsx` put it out of reach of every check that runs
+  under node, including the audit, which then could not exercise the shipped rule at all.
+
+- Syngamy's run log sits at the top of the page, where Progenitor's already was.
+
 ## 3.0.0 "Recombinase"
 
 The enzyme class that catalyses strand invasion and exchange.

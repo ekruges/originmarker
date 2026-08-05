@@ -1,6 +1,9 @@
 import { Pdf, LETTER, wrap, type FontName } from './pdf.ts'
 import { DISCLAIMER, parseMark, type MarkGeometry } from './syngamyPdf.ts'
 import { pct } from './parentage.ts'
+import { int } from './fmt.ts'
+import { MIN_ASCERTAINMENT } from './inferredReference.ts'
+import { PROGENITOR_CITATION } from './progenitorExamples.ts'
 import type { RunProvenance, PairRate, SampleResult } from './inferredExports.ts'
 import type { Limit } from './InferredLimits.ts'
 
@@ -32,6 +35,11 @@ export interface InferredReportInput {
   members: { name: string; absence: number; ceiling: number; ratio: number; verdict: string }[]
   controls: { name: string; role: string; absence: number; ratio: number; verdict: string }[]
   limits: Limit[]
+  /** Every file read, with the hash of the bytes as read, so a reviewer can confirm the input
+   *  without being sent it. Parity with the Syngamy report, which has carried this since 2.0. */
+  files: { name: string; role: string; size: number; markers: number; sha256: string }[]
+  /** True when the run used the bundled public examples, which then have to be cited. */
+  fromExamples?: boolean
   markSvg: string
 }
 
@@ -190,8 +198,6 @@ export async function buildInferredPdf(input: InferredReportInput): Promise<Blob
     text('Progenitor', 14, 'Helvetica-Bold', 4)
   }
 
-  text('Parental genotype reconstructed from haploid products. '
-    + `Experiment ${p.experiment}.`, 8.6)
   y -= 2
 
   // --- what this reference is, before any result -----------------------------------------
@@ -316,6 +322,72 @@ export async function buildInferredPdf(input: InferredReportInput): Promise<Blob
     [{ head: 'Withheld', w: 210 }, { head: 'Because', w: 322 }],
     input.limits.map((l) => [{ v: l.what, colour: WARN }, l.why]),
   )
+
+  // --- methods ------------------------------------------------------------------------------
+  //
+  // Parity with the Syngamy report: a paragraph a reader can lift into a manuscript, written
+  // from the run rather than from a template, and the refusals that actually fired.
+  heading('Methods')
+  text(`A parental genotype was reconstructed from ${p.products.length} haploid meiotic products `
+    + `using ${p.tool}, with no array of the parent. Products were first gated on call rate and `
+    + 'on ploidy, the latter from both the fraction of B-allele frequencies in the heterozygous '
+    + 'band, 0.35 to 0.65, and the fraction of heterozygous genotype calls, since a haploid '
+    + 'genome cannot be heterozygous and either signal alone admits a diploid. Membership was '
+    + 'then established without any reference, from the rate of opposite homozygous calls '
+    + 'between every pair of products: a group was accepted only where EVERY pair within it fell '
+    + `below ${pct(p.sameParentMax, 1)}, computed as an exact maximum clique, because a chain of `
+    + 'pairwise links merges two parents through a single misread pair.', 7.4, 'Helvetica', 2.4)
+  y -= 2
+  text('A marker entered the reference where at least m products were called and agreed on the '
+    + 'same homozygous allele. The threshold m was chosen as the deepest value whose retained '
+    + `marker set still held ${pct(MIN_ASCERTAINMENT, 0)} of the parental heterozygosity implied `
+    + `by product disagreement at m=2, and was m>=${p.mMin} here over `
+    + `${int(p.markers)} autosomal markers, mean ${p.meanM.toFixed(2)} products per marker. `
+    + `Ascertainment was ${pct(p.ascertainment, 1)}. Contamination, the fraction of the `
+    + 'reference that is a heterozygous site every product happened to agree at, was computed '
+    + "per marker from that marker's own m as a posterior and averaged, giving "
+    + `${pct(p.contamination, 2)}. A haploid product carries the other allele at half of those `
+    + `markers, so ${pct(p.spuriousAbsence, 2)} of apparent absence is attributable to the `
+    + 'reference rather than to the sample, and that figure was added to the noise ceiling when '
+    + 'scoring haploid samples and not when scoring diploid ones.', 7.4, 'Helvetica', 2.4)
+  y -= 2
+  text('Each product was then scored against a reference built without it, since a product '
+    + 'scored against a reference containing itself reads exactly zero absence. Absence was '
+    + "compared against that sample's own noise ceiling, the product of its no-call rate and its "
+    + 'heterozygous fraction plus a residual error floor plus the reconstruction term above; at '
+    + 'or below the ceiling reads present, at three times it or more reads absent, and the band '
+    + 'between is left uncalled rather than guessed. Only autosomal markers were used.',
+  7.4, 'Helvetica', 2.4)
+  if (input.limits.length) {
+    y -= 2
+    text('The following were withheld for this run and are reported rather than resolved: '
+      + input.limits.map((l, i) => `(${i + 1}) ${l.what.toLowerCase()}`).join('; ') + '.',
+    7.4, 'Helvetica', 2.4)
+  }
+
+  // --- inventory ----------------------------------------------------------------------------
+  heading('Files read')
+  table(
+    [{ head: 'File', w: 150 }, { head: 'Role', w: 40 }, { head: 'Bytes', w: 54, right: true },
+      { head: 'Markers', w: 48, right: true },
+      { head: 'SHA-256', w: 240, font: 'Courier' as FontName, size: 6 }],
+    input.files.map((f) => [f.name, f.role, int(f.size), int(f.markers), f.sha256]),
+  )
+  text('The hash is of the file as read, so a reviewer can confirm the input without being sent '
+    + 'it. Together with the tool version these files ARE the reference: the build is '
+    + 'deterministic and re-running reproduces it exactly.', 6.5, 'Helvetica-Oblique', 2, GREY)
+
+  // --- citation -----------------------------------------------------------------------------
+  heading('Citation')
+  text(`${p.tool}. Progenitor: a parental genotype reconstructed from haploid meiotic products. `
+    + `Report ${p.reportId}, generated ${p.generatedAt}.`, 7.4, 'Helvetica', 2.4)
+  if (input.fromExamples) {
+    text(`Example data: ${PROGENITOR_CITATION}`, 7.4, 'Helvetica', 2.4)
+  }
+  text('Zuccaro MV, Xu J, Mitchell C, et al. Allele-specific chromosome removal after Cas9 '
+    + 'cleavage in human embryos. Cell 2020;183(6):1650-1664. doi:10.1016/j.cell.2020.10.025. '
+    + 'Cited for the products the agreement and concordance constants above were measured on.',
+  7.4, 'Helvetica', 2.4)
 
   heading('Reproducing this')
   text('The reconstruction is deterministic: no randomness, and no threshold fitted on the '

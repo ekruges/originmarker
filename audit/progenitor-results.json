@@ -1,0 +1,1628 @@
+{
+ "tool": "Progenitor",
+ "generated": "2026-08-05T15:32:41.071Z",
+ "data": {
+  "series": "GEO GSE148488, Zuccaro et al. 2020, Cell 183(6):1650-1664",
+  "doi": "10.1016/j.cell.2020.10.025",
+  "arrays": [
+   {
+    "gsm": "GSM4774680",
+    "title": "paternal nucleus isolated from 2PN zygote 1",
+    "file": "GSM4774680_pMII-1_51.CEL.txt.gz",
+    "sha256": "a10014306ef45e4e4df8556ec95ebff461b0ee3c63326d9f0da29b2e0f3dfc8d",
+    "markers": 825656,
+    "callRate": 0.8456294146714854,
+    "hetBand": 0.02940388008890786,
+    "hetRate": 0.07805940713177761
+   },
+   {
+    "gsm": "GSM4774681",
+    "title": "paternal nucleus isolated from 2PN zygote 2",
+    "file": "GSM4774681_pMII-2_64.CEL.txt.gz",
+    "sha256": "7b68fe9322a75bc497d02bfa2887734c886d2db9c81097b575707e3bfc57bf00",
+    "markers": 825656,
+    "callRate": 0.7824166480955749,
+    "hetBand": 0.0783614814892386,
+    "hetRate": 0.12149403953827126
+   },
+   {
+    "gsm": "GSM4774682",
+    "title": "paternal nucleus isolated from 2PN zygote 3",
+    "file": "GSM4774682_pMII-3_53.CEL.txt.gz",
+    "sha256": "6b6e003742403a3b2bcb0ab053cb1991bd2f442ae219829e8a660c21fd20033e",
+    "markers": 825656,
+    "callRate": 0.8548766072068755,
+    "hetBand": 0.03788449511494215,
+    "hetRate": 0.09586673353791401
+   },
+   {
+    "gsm": "GSM4774683",
+    "title": "paternal nucleus isolated from 2PN zygote 4",
+    "file": "GSM4774683_pMII-4_56.CEL.txt.gz",
+    "sha256": "8a8cbfcc1b87e1330107d4e74fc9618305aa4f64e31d3cd82b15dc204de05b46",
+    "markers": 825656,
+    "callRate": 0.8499241814993169,
+    "hetBand": 0.028489455723637362,
+    "hetRate": 0.07595351587827487
+   },
+   {
+    "gsm": "GSM4774684",
+    "title": "paternal nucleus isolated from 2PN zygote 5",
+    "file": "GSM4774684_pMII-5_57.CEL.txt.gz",
+    "sha256": "26c0cc648db466faebffa726c3e29ab76ab96c7a6891d30bc436aeb5bcec84eb",
+    "markers": 825656,
+    "callRate": 0.555731442634705,
+    "hetBand": 0.21283308133009665,
+    "hetRate": 0.3288880946206001
+   },
+   {
+    "gsm": "GSM4774685",
+    "title": "paternal nucleus isolated from 2PN zygote 6",
+    "file": "GSM4774685_pMII-6_59.CEL.txt.gz",
+    "sha256": "5defbb54fb975a36a9e11ce6e2298e6614a434e6911ff544618f5d79d12a7f9b",
+    "markers": 825656,
+    "callRate": 0.8311754532153827,
+    "hetBand": 0.0325126332460968,
+    "hetRate": 0.09046942507631892
+   },
+   {
+    "gsm": "GSM4774686",
+    "title": "paternal nucleus isolated from 2PN zygote 7",
+    "file": "GSM4774686_pMII-7_63.CEL.txt.gz",
+    "sha256": "df079a9a6b4bc6ecbb376c53f4ed8e034a40afb29019a5c4b997c8e2bd28c123",
+    "markers": 825656,
+    "callRate": 0.5375350024707627,
+    "hetBand": 0.26780166455033405,
+    "hetRate": 0.4307206316088315
+   },
+   {
+    "gsm": "GSM4774687",
+    "title": "paternal nucleus isolated from 2PN zygote 8",
+    "file": "GSM4774687_pMII-8_61.CEL.txt.gz",
+    "sha256": "36588244213aa3b600bb4a87275c2edb1139e6f79b2ea86644b69358a8625cef",
+    "markers": 825656,
+    "callRate": 0.5911117947426047,
+    "hetBand": 0.18059374261649602,
+    "hetRate": 0.2495538412678899
+   },
+   {
+    "gsm": "GSM4472397",
+    "title": "genomic DNA sperm donor rep 1",
+    "file": "GSM4472397_sperm_DNA_71.CEL.txt.gz",
+    "sha256": "1b56911dae7030f4ecebc2ade9c7b1bacee23def81d130e6b3d0ac9edb388169",
+    "markers": 825656,
+    "callRate": 0.9546784617322468,
+    "hetBand": 0.15173182609375918,
+    "hetRate": 0.16264545136228237
+   },
+   {
+    "gsm": "GSM4472398",
+    "title": "genomic DNA sperm donor rep 2",
+    "file": "GSM4472398_sperm_DNA_79.CEL.txt.gz",
+    "sha256": "b48d503ebc175f68d8f4d3dce66097dff58ecce8092401c0fdd31c3c4a46ac58",
+    "markers": 825656,
+    "callRate": 0.9408397686203456,
+    "hetBand": 0.16027544549119424,
+    "hetRate": 0.16978411709427016
+   },
+   {
+    "gsm": "GSM4774673",
+    "title": "maternal nucleus isolated from 2PN zygote 1",
+    "file": "GSM4774673_mMII-1_52.CEL.txt.gz",
+    "sha256": "c6771602e2a2dd436233d77aad1c67fa983cb68af60259b810a91efa699683f4",
+    "markers": 825656,
+    "callRate": 0.8498309223211604,
+    "hetBand": 0.03276749051711094,
+    "hetRate": 0.08692430038137695
+   },
+   {
+    "gsm": "GSM4774674",
+    "title": "maternal nucleus isolated from 2PN zygote 2",
+    "file": "GSM4774674_mMII-2_49.CEL.txt.gz",
+    "sha256": "bb30838b30d406e55a9cc7d37623983fdd8fde555f74b3b27244e14464f0c48d",
+    "markers": 825656,
+    "callRate": 0.8608863739862607,
+    "hetBand": 0.024585099727609375,
+    "hetRate": 0.07124125628168983
+   },
+   {
+    "gsm": "GSM4774675",
+    "title": "maternal nucleus isolated from 2PN zygote 3",
+    "file": "GSM4774675_mMII-3_54.CEL.txt.gz",
+    "sha256": "6d56593d988d843b2d0a6fff91c0aa99e4503cc6bc4e4f5ff4e62f419ffb9caa",
+    "markers": 825656,
+    "callRate": 0.8348186169542764,
+    "hetBand": 0.04780071111296478,
+    "hetRate": 0.09031399750171558
+   },
+   {
+    "gsm": "GSM4774676",
+    "title": "maternal nucleus isolated from 2PN zygote 4",
+    "file": "GSM4774676_mMII-4_55.CEL.txt.gz",
+    "sha256": "09790d5e6a060b511a57191470409ce96067d13ad53ba72e68f195150c6d75a3",
+    "markers": 825656,
+    "callRate": 0.8294398635751451,
+    "hetBand": 0.03951337207859305,
+    "hetRate": 0.08934307976262791
+   },
+   {
+    "gsm": "GSM4774677",
+    "title": "maternal nucleus isolated from 2PN zygote 5",
+    "file": "GSM4774677_mMII-5_58.CEL.txt.gz",
+    "sha256": "6f3ab89b9ede52906e6c573c7df5734d9f8d3e7155635b65a124ef1e6dea420e",
+    "markers": 825656,
+    "callRate": 0.8584083443952445,
+    "hetBand": 0.03217520351785358,
+    "hetRate": 0.09308500881834215
+   },
+   {
+    "gsm": "GSM4774678",
+    "title": "maternal nucleus isolated from 2PN zygote 6",
+    "file": "GSM4774678_mMII-6_60.CEL.txt.gz",
+    "sha256": "089101c5417589a007e54721d0a6180cb19a085613482ef4c6cda7e845053498",
+    "markers": 825656,
+    "callRate": 0.9036729582295775,
+    "hetBand": 0.015927517582616766,
+    "hetRate": 0.06044445754922446
+   },
+   {
+    "gsm": "GSM4774679",
+    "title": "maternal nucleus isolated from 2PN zygote 8",
+    "file": "GSM4774679_mMII-8_62.CEL.txt.gz",
+    "sha256": "c57502076d52781a47d60b0904c37f549cd773f7302ffbab6f7cf4e9d6fd7c4b",
+    "markers": 825656,
+    "callRate": 0.858157634656564,
+    "hetBand": 0.035937903055601156,
+    "hetRate": 0.09826361985087709
+   },
+   {
+    "gsm": "GSM4472407",
+    "title": "genomic DNA egg donor A",
+    "file": "GSM4472407_donor_A_47.CEL.txt.gz",
+    "sha256": "062f33c4f0843d9a5d94688af5b50c835787b1b63744fe3382517e9ad72b4bea",
+    "markers": 825656,
+    "callRate": 0.9837450463631343,
+    "hetBand": 0.13622434954668733,
+    "hetRate": 0.14141843185777514
+   },
+   {
+    "gsm": "GSM4472415",
+    "title": "genomic DNA egg donor C rep 1",
+    "file": "GSM4472415_donor_C_70.CEL.txt.gz",
+    "sha256": "72256486368e5622d964fae96a50f266fbf273d2065e532c9f02577610c16eb9",
+    "markers": 825656,
+    "callRate": 0.9658150609939248,
+    "hetBand": 0.16513955491893462,
+    "hetRate": 0.17135526459342565
+   }
+  ],
+  "usableProducts": [
+   "GSM4774680",
+   "GSM4774681",
+   "GSM4774682",
+   "GSM4774683",
+   "GSM4774685"
+  ],
+  "sharedProbes": 825656,
+  "spermDonorHeterozygosity": 0.16657696623136978
+ },
+ "tally": {
+  "correct": 35,
+  "refused": 6,
+  "incorrect": 0
+ },
+ "replicateDiscordance": {
+  "shared": 725201,
+  "hetOnlyOne": 30110,
+  "oppositeHom": 789,
+  "hetDiscordance": 0.04151952355278054,
+  "homDiscordance": 0.0010879742305926218
+ },
+ "ladder": [
+  {
+   "m": 2,
+   "markers": 663542,
+   "hRetained": 0.16934700946976874,
+   "ascertainmentVsTruth": 1.0166292093142786,
+   "contaminationPredicted": 0.042876146595584384,
+   "contaminationObserved": 0.05431237521652735,
+   "oppositeHomozygote": 0.00253303566231016,
+   "concordance": 0.9431545891211625,
+   "checked": 635601
+  },
+  {
+   "m": 3,
+   "markers": 596687,
+   "hRetained": 0.16477793274205071,
+   "ascertainmentVsTruth": 0.9891999864685957,
+   "contaminationPredicted": 0.034023376302871076,
+   "contaminationObserved": 0.04520773265376961,
+   "oppositeHomozygote": 0.0016413487316612855,
+   "concordance": 0.9531509186145691,
+   "checked": 573309
+  },
+  {
+   "m": 4,
+   "markers": 457506,
+   "hRetained": 0.15468993007890613,
+   "ascertainmentVsTruth": 0.928639376611332,
+   "contaminationPredicted": 0.02285837856902873,
+   "contaminationObserved": 0.03249227588739457,
+   "oppositeHomozygote": 0.001140199160831552,
+   "concordance": 0.9663675249517739,
+   "checked": 441151
+  },
+  {
+   "m": 5,
+   "markers": 231064,
+   "hRetained": 0.13735060178400488,
+   "ascertainmentVsTruth": 0.8245473842597754,
+   "contaminationPredicted": 0.01257735481522116,
+   "contaminationObserved": 0.01879658878379225,
+   "oppositeHomozygote": 0.000993297479172073,
+   "concordance": 0.9802101137370357,
+   "checked": 223498
+  }
+ ],
+ "identification": [
+  {
+   "gsm": "GSM4472397",
+   "title": "genomic DNA sperm donor rep 1",
+   "isHim": true,
+   "haploid": false,
+   "absence": 0.001140199160831552,
+   "ceiling": 0.009601486277154235,
+   "ratio": 0.11875236061572474,
+   "verdict": "parent_genome_present"
+  },
+  {
+   "gsm": "GSM4472398",
+   "title": "genomic DNA sperm donor rep 2",
+   "isHim": true,
+   "haploid": false,
+   "absence": 0.0020371271002138066,
+   "ceiling": 0.011475055612804739,
+   "ratio": 0.17752655577029408,
+   "verdict": "parent_genome_present"
+  },
+  {
+   "gsm": "GSM4774673",
+   "title": "maternal nucleus isolated from 2PN zygote 1",
+   "isHim": false,
+   "haploid": true,
+   "absence": 0.11115007627430695,
+   "ceiling": 0.020829094479298937,
+   "ratio": 5.336289409257509,
+   "verdict": "no_parental_contribution"
+  },
+  {
+   "gsm": "GSM4774674",
+   "title": "maternal nucleus isolated from 2PN zygote 2",
+   "isHim": false,
+   "haploid": true,
+   "absence": 0.11210967438870621,
+   "ceiling": 0.019507005397684827,
+   "ratio": 5.7471494011075555,
+   "verdict": "no_parental_contribution"
+  },
+  {
+   "gsm": "GSM4774675",
+   "title": "maternal nucleus isolated from 2PN zygote 3",
+   "isHim": false,
+   "haploid": true,
+   "absence": 0.11092035511272913,
+   "ceiling": 0.023568688238798742,
+   "ratio": 4.706259168473033,
+   "verdict": "no_parental_contribution"
+  },
+  {
+   "gsm": "GSM4774676",
+   "title": "maternal nucleus isolated from 2PN zygote 4",
+   "isHim": false,
+   "haploid": true,
+   "absence": 0.11034404853289655,
+   "ceiling": 0.02251329505544842,
+   "ratio": 4.901283808573028,
+   "verdict": "no_parental_contribution"
+  },
+  {
+   "gsm": "GSM4774677",
+   "title": "maternal nucleus isolated from 2PN zygote 5",
+   "isHim": false,
+   "haploid": true,
+   "absence": 0.11075844132639133,
+   "ceiling": 0.020477896705711023,
+   "ratio": 5.408682489129961,
+   "verdict": "no_parental_contribution"
+  },
+  {
+   "gsm": "GSM4774678",
+   "title": "maternal nucleus isolated from 2PN zygote 6",
+   "isHim": false,
+   "haploid": true,
+   "absence": 0.11483426530308506,
+   "ceiling": 0.017797383922142262,
+   "ratio": 6.452311519796811,
+   "verdict": "no_parental_contribution"
+  },
+  {
+   "gsm": "GSM4774679",
+   "title": "maternal nucleus isolated from 2PN zygote 8",
+   "isHim": false,
+   "haploid": true,
+   "absence": 0.10825168984007737,
+   "ceiling": 0.021044455547513802,
+   "ratio": 5.143952980663653,
+   "verdict": "no_parental_contribution"
+  },
+  {
+   "gsm": "GSM4472407",
+   "title": "genomic DNA egg donor A",
+   "isHim": false,
+   "haploid": false,
+   "absence": 0.05954377836506988,
+   "ceiling": 0.00653275153182439,
+   "ratio": 9.114655298766767,
+   "verdict": "no_parental_contribution"
+  },
+  {
+   "gsm": "GSM4472415",
+   "title": "genomic DNA egg donor C rep 1",
+   "isHim": false,
+   "haploid": false,
+   "absence": 0.05584276150778614,
+   "ceiling": 0.008757145668692026,
+   "ratio": 6.376822268405506,
+   "verdict": "no_parental_contribution"
+  }
+ ],
+ "sweep": [
+  {
+   "stride": 1,
+   "offset": 0,
+   "m": 4,
+   "markers": 457506,
+   "ascertainmentVsTruth": 0.928639376611332,
+   "contamination": 0.02285837856902873,
+   "himRatio": 0.11875236061572474,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.706259168473033,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 2,
+   "offset": 0,
+   "m": 4,
+   "markers": 228520,
+   "ascertainmentVsTruth": 0.9307868797090637,
+   "contamination": 0.022915743562164883,
+   "himRatio": 0.11483335168739266,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.699061590006486,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 2,
+   "offset": 1,
+   "m": 4,
+   "markers": 228986,
+   "ascertainmentVsTruth": 0.9264945658351318,
+   "contamination": 0.02280110702615143,
+   "himRatio": 0.12266492535319995,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.713461975645787,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 4,
+   "offset": 0,
+   "m": 4,
+   "markers": 114144,
+   "ascertainmentVsTruth": 0.9373510957481781,
+   "contamination": 0.02312776042228251,
+   "himRatio": 0.11743168701312276,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.664575101654775,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 4,
+   "offset": 1,
+   "m": 4,
+   "markers": 114422,
+   "ascertainmentVsTruth": 0.9294308662192607,
+   "contamination": 0.022889020813495507,
+   "himRatio": 0.12464072118899226,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.698640007070552,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 4,
+   "offset": 2,
+   "m": 4,
+   "markers": 114376,
+   "ascertainmentVsTruth": 0.9242236566224235,
+   "contamination": 0.022704610497686063,
+   "himRatio": 0.11224541742139893,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.73374569470771,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 4,
+   "offset": 3,
+   "m": 4,
+   "markers": 114564,
+   "ascertainmentVsTruth": 0.9235592099131046,
+   "contamination": 0.022713338896321267,
+   "himRatio": 0.1206919378495751,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.728324128070104,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 8,
+   "offset": 0,
+   "m": 4,
+   "markers": 56988,
+   "ascertainmentVsTruth": 0.9473032251912482,
+   "contamination": 0.023431475833315084,
+   "himRatio": 0.10248048960070949,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.628869480547583,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 8,
+   "offset": 1,
+   "m": 4,
+   "markers": 57182,
+   "ascertainmentVsTruth": 0.9285684442131777,
+   "contamination": 0.022828026960257798,
+   "himRatio": 0.12276780790941898,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.708534425089396,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 8,
+   "offset": 2,
+   "m": 4,
+   "markers": 57050,
+   "ascertainmentVsTruth": 0.928315338006327,
+   "contamination": 0.02278955737952339,
+   "himRatio": 0.11724405558641868,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.632041355099696,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 8,
+   "offset": 3,
+   "m": 4,
+   "markers": 57280,
+   "ascertainmentVsTruth": 0.9220213178635963,
+   "contamination": 0.022629396498879534,
+   "himRatio": 0.12818760262847448,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.755294557283702,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 8,
+   "offset": 4,
+   "m": 4,
+   "markers": 57156,
+   "ascertainmentVsTruth": 0.9273943659466138,
+   "contamination": 0.0228253701480214,
+   "himRatio": 0.1323242693057255,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.7005875250229705,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 8,
+   "offset": 5,
+   "m": 4,
+   "markers": 57240,
+   "ascertainmentVsTruth": 0.9302925679249321,
+   "contamination": 0.022950040617282688,
+   "himRatio": 0.12651315908401028,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.6887635211594185,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 8,
+   "offset": 6,
+   "m": 4,
+   "markers": 57326,
+   "ascertainmentVsTruth": 0.9201450373009844,
+   "contamination": 0.02261973441881447,
+   "himRatio": 0.10727080509122247,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.834930485699558,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 8,
+   "offset": 7,
+   "m": 4,
+   "markers": 57284,
+   "ascertainmentVsTruth": 0.9250968463465115,
+   "contamination": 0.02279744523692427,
+   "himRatio": 0.11319070644526028,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.701506039334115,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 0,
+   "m": 4,
+   "markers": 28604,
+   "ascertainmentVsTruth": 0.9438032368397922,
+   "contamination": 0.023320742153052743,
+   "himRatio": 0.07948400561472818,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.575348500477563,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 1,
+   "m": 4,
+   "markers": 28570,
+   "ascertainmentVsTruth": 0.9357943130063078,
+   "contamination": 0.023038880324788357,
+   "himRatio": 0.12848760627032998,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.619511429719353,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 2,
+   "m": 4,
+   "markers": 28485,
+   "ascertainmentVsTruth": 0.9250823634728645,
+   "contamination": 0.022691108305233916,
+   "himRatio": 0.11737192099530308,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.642780431855026,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 3,
+   "m": 4,
+   "markers": 28580,
+   "ascertainmentVsTruth": 0.9381461531139997,
+   "contamination": 0.02304666177760026,
+   "himRatio": 0.15853016217884794,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.743457796777338,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 4,
+   "m": 4,
+   "markers": 28592,
+   "ascertainmentVsTruth": 0.9341331988563142,
+   "contamination": 0.022974410311405503,
+   "himRatio": 0.1661514756190354,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.6709505560697595,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 5,
+   "m": 4,
+   "markers": 28717,
+   "ascertainmentVsTruth": 0.9177232929652979,
+   "contamination": 0.022599992670715767,
+   "himRatio": 0.13177893756178605,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.657590098631973,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 6,
+   "m": 4,
+   "markers": 28662,
+   "ascertainmentVsTruth": 0.9218495795970527,
+   "contamination": 0.022662359231601557,
+   "himRatio": 0.10928703255386377,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.8894539306799745,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 7,
+   "m": 4,
+   "markers": 28572,
+   "ascertainmentVsTruth": 0.9215216663712396,
+   "contamination": 0.022675848388957143,
+   "himRatio": 0.09467198307805709,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.76244200005977,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 8,
+   "m": 4,
+   "markers": 28384,
+   "ascertainmentVsTruth": 0.9508269316868917,
+   "contamination": 0.02354317791410731,
+   "himRatio": 0.12560639866924173,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.682667716664152,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 9,
+   "m": 4,
+   "markers": 28612,
+   "ascertainmentVsTruth": 0.9213350370373476,
+   "contamination": 0.022617557555387847,
+   "himRatio": 0.11705277898483839,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.792750119889773,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 10,
+   "m": 4,
+   "markers": 28565,
+   "ascertainmentVsTruth": 0.9315373392272815,
+   "contamination": 0.022887828378180538,
+   "himRatio": 0.1171164684684706,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.621502826370017,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 11,
+   "m": 4,
+   "markers": 28700,
+   "ascertainmentVsTruth": 0.905867060652778,
+   "contamination": 0.022212025389448203,
+   "himRatio": 0.09791416302500855,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.764061973925312,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 12,
+   "m": 4,
+   "markers": 28564,
+   "ascertainmentVsTruth": 0.9206292628709183,
+   "contamination": 0.02267536133383575,
+   "himRatio": 0.09841592195601077,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.730593938440587,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 13,
+   "m": 4,
+   "markers": 28523,
+   "ascertainmentVsTruth": 0.9428923529778409,
+   "contamination": 0.023302182627075115,
+   "himRatio": 0.12121539715448734,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.7133802586321405,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 14,
+   "m": 4,
+   "markers": 28664,
+   "ascertainmentVsTruth": 0.918439866567838,
+   "contamination": 0.022577095012968576,
+   "himRatio": 0.10525952631897854,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.779330165316756,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "stride": 16,
+   "offset": 15,
+   "m": 4,
+   "markers": 28712,
+   "ascertainmentVsTruth": 0.9286497308556179,
+   "contamination": 0.022918604552533226,
+   "himRatio": 0.13157440789872318,
+   "himVerdict": "parent_genome_present",
+   "negWrong": 0,
+   "worstNegative": {
+    "gsm": "GSM4774675",
+    "ratio": 4.641124371564989,
+    "verdict": "no_parental_contribution"
+   }
+  }
+ ],
+ "belowFloor": [
+  {
+   "n": 2,
+   "subsets": 10,
+   "invertedOnHim": 0,
+   "ratioRange": [
+    0.16378007981773438,
+    0.2976915560948619
+   ]
+  },
+  {
+   "n": 3,
+   "subsets": 10,
+   "invertedOnHim": 0,
+   "ratioRange": [
+    0.11393993022593846,
+    0.23075667455379859
+   ]
+  },
+  {
+   "n": 4,
+   "subsets": 5,
+   "invertedOnHim": 0,
+   "ratioRange": [
+    0.13966532381946806,
+    0.18338298715702267
+   ]
+  }
+ ],
+ "cases": [
+  {
+   "id": "replicate-discordance",
+   "section": "Ground truth",
+   "what": "his two arrays, compared against each other",
+   "expected": "they largely agree; whatever they do not is the error floor every comparison against him inherits",
+   "reported": "over 725,201 jointly called autosomal markers, 4.152% are heterozygous in exactly one of the two, and 0.1088% are opposite homozygotes",
+   "outcome": "correct",
+   "detail": {
+    "shared": 725201,
+    "hetOnlyOne": 30110,
+    "oppositeHom": 789,
+    "hetDiscordance": 0.04151952355278054,
+    "homDiscordance": 0.0010879742305926218
+   }
+  },
+  {
+   "id": "gate-GSM4774680",
+   "section": "Quality and ploidy",
+   "what": "paternal nucleus isolated from 2PN zygote 1: call 84.6%, band 2.9%, 7.8% heterozygous calls",
+   "expected": "a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated",
+   "reported": "usable product",
+   "outcome": "correct",
+   "detail": {
+    "ploidy": "haploid",
+    "callRate": 0.8456294146714854,
+    "hetBand": 0.02940388008890786,
+    "hetRate": 0.07805940713177761,
+    "why": ""
+   }
+  },
+  {
+   "id": "gate-GSM4774681",
+   "section": "Quality and ploidy",
+   "what": "paternal nucleus isolated from 2PN zygote 2: call 78.2%, band 7.8%, 12.1% heterozygous calls",
+   "expected": "a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated",
+   "reported": "usable product",
+   "outcome": "correct",
+   "detail": {
+    "ploidy": "haploid",
+    "callRate": 0.7824166480955749,
+    "hetBand": 0.0783614814892386,
+    "hetRate": 0.12149403953827126,
+    "why": ""
+   }
+  },
+  {
+   "id": "gate-GSM4774682",
+   "section": "Quality and ploidy",
+   "what": "paternal nucleus isolated from 2PN zygote 3: call 85.5%, band 3.8%, 9.6% heterozygous calls",
+   "expected": "a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated",
+   "reported": "usable product",
+   "outcome": "correct",
+   "detail": {
+    "ploidy": "haploid",
+    "callRate": 0.8548766072068755,
+    "hetBand": 0.03788449511494215,
+    "hetRate": 0.09586673353791401,
+    "why": ""
+   }
+  },
+  {
+   "id": "gate-GSM4774683",
+   "section": "Quality and ploidy",
+   "what": "paternal nucleus isolated from 2PN zygote 4: call 85.0%, band 2.8%, 7.6% heterozygous calls",
+   "expected": "a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated",
+   "reported": "usable product",
+   "outcome": "correct",
+   "detail": {
+    "ploidy": "haploid",
+    "callRate": 0.8499241814993169,
+    "hetBand": 0.028489455723637362,
+    "hetRate": 0.07595351587827487,
+    "why": ""
+   }
+  },
+  {
+   "id": "gate-GSM4774684",
+   "section": "Quality and ploidy",
+   "what": "paternal nucleus isolated from 2PN zygote 5: call 55.6%, band 21.3%, 32.9% heterozygous calls",
+   "expected": "a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated",
+   "reported": "set aside, call rate 55.6% is below the 60% floor",
+   "outcome": "refused",
+   "detail": {
+    "ploidy": "diploid",
+    "callRate": 0.555731442634705,
+    "hetBand": 0.21283308133009665,
+    "hetRate": 0.3288880946206001,
+    "why": "call rate 55.6% is below the 60% floor"
+   }
+  },
+  {
+   "id": "gate-GSM4774685",
+   "section": "Quality and ploidy",
+   "what": "paternal nucleus isolated from 2PN zygote 6: call 83.1%, band 3.3%, 9.0% heterozygous calls",
+   "expected": "a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated",
+   "reported": "usable product",
+   "outcome": "correct",
+   "detail": {
+    "ploidy": "haploid",
+    "callRate": 0.8311754532153827,
+    "hetBand": 0.0325126332460968,
+    "hetRate": 0.09046942507631892,
+    "why": ""
+   }
+  },
+  {
+   "id": "gate-GSM4774686",
+   "section": "Quality and ploidy",
+   "what": "paternal nucleus isolated from 2PN zygote 7: call 53.8%, band 26.8%, 43.1% heterozygous calls",
+   "expected": "a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated",
+   "reported": "set aside, call rate 53.8% is below the 60% floor",
+   "outcome": "refused",
+   "detail": {
+    "ploidy": "diploid",
+    "callRate": 0.5375350024707627,
+    "hetBand": 0.26780166455033405,
+    "hetRate": 0.4307206316088315,
+    "why": "call rate 53.8% is below the 60% floor"
+   }
+  },
+  {
+   "id": "gate-GSM4774687",
+   "section": "Quality and ploidy",
+   "what": "paternal nucleus isolated from 2PN zygote 8: call 59.1%, band 18.1%, 25.0% heterozygous calls",
+   "expected": "a true product is usable, unless its own quality puts it outside the range a single haploid cell produces, in which case it is set aside with the reason stated",
+   "reported": "set aside, call rate 59.1% is below the 60% floor",
+   "outcome": "refused",
+   "detail": {
+    "ploidy": "diploid",
+    "callRate": 0.5911117947426047,
+    "hetBand": 0.18059374261649602,
+    "hetRate": 0.2495538412678899,
+    "why": "call rate 59.1% is below the 60% floor"
+   }
+  },
+  {
+   "id": "fidelity-m2",
+   "section": "Reconstruction fidelity",
+   "what": "reference at m>=2, 663,542 markers, against his own array",
+   "expected": "every asserted homozygote matches him, except where he is heterozygous and the products agreed; the predicted contamination covers the observed",
+   "reported": "concordance 94.315%, contamination predicted 4.288% observed 5.431%, opposite homozygote 0.2533%, replicate floor 4.152%",
+   "outcome": "correct",
+   "detail": {
+    "m": 2,
+    "markers": 663542,
+    "hRetained": 0.16934700946976874,
+    "ascertainmentVsTruth": 1.0166292093142786,
+    "contaminationPredicted": 0.042876146595584384,
+    "contaminationObserved": 0.05431237521652735,
+    "oppositeHomozygote": 0.00253303566231016,
+    "concordance": 0.9431545891211625,
+    "checked": 635601
+   }
+  },
+  {
+   "id": "fidelity-m3",
+   "section": "Reconstruction fidelity",
+   "what": "reference at m>=3, 596,687 markers, against his own array",
+   "expected": "every asserted homozygote matches him, except where he is heterozygous and the products agreed; the predicted contamination covers the observed",
+   "reported": "concordance 95.315%, contamination predicted 3.402% observed 4.521%, opposite homozygote 0.1641%, replicate floor 4.152%",
+   "outcome": "correct",
+   "detail": {
+    "m": 3,
+    "markers": 596687,
+    "hRetained": 0.16477793274205071,
+    "ascertainmentVsTruth": 0.9891999864685957,
+    "contaminationPredicted": 0.034023376302871076,
+    "contaminationObserved": 0.04520773265376961,
+    "oppositeHomozygote": 0.0016413487316612855,
+    "concordance": 0.9531509186145691,
+    "checked": 573309
+   }
+  },
+  {
+   "id": "fidelity-m4",
+   "section": "Reconstruction fidelity",
+   "what": "reference at m>=4, 457,506 markers, against his own array",
+   "expected": "every asserted homozygote matches him, except where he is heterozygous and the products agreed; the predicted contamination covers the observed",
+   "reported": "concordance 96.637%, contamination predicted 2.286% observed 3.249%, opposite homozygote 0.1140%, replicate floor 4.152%",
+   "outcome": "correct",
+   "detail": {
+    "m": 4,
+    "markers": 457506,
+    "hRetained": 0.15468993007890613,
+    "ascertainmentVsTruth": 0.928639376611332,
+    "contaminationPredicted": 0.02285837856902873,
+    "contaminationObserved": 0.03249227588739457,
+    "oppositeHomozygote": 0.001140199160831552,
+    "concordance": 0.9663675249517739,
+    "checked": 441151
+   }
+  },
+  {
+   "id": "fidelity-m5",
+   "section": "Reconstruction fidelity",
+   "what": "reference at m>=5, 231,064 markers, against his own array",
+   "expected": "every asserted homozygote matches him, except where he is heterozygous and the products agreed; the predicted contamination covers the observed",
+   "reported": "concordance 98.021%, contamination predicted 1.258% observed 1.880%, opposite homozygote 0.0993%, replicate floor 4.152%",
+   "outcome": "correct",
+   "detail": {
+    "m": 5,
+    "markers": 231064,
+    "hRetained": 0.13735060178400488,
+    "ascertainmentVsTruth": 0.8245473842597754,
+    "contaminationPredicted": 0.01257735481522116,
+    "contaminationObserved": 0.01879658878379225,
+    "oppositeHomozygote": 0.000993297479172073,
+    "concordance": 0.9802101137370357,
+    "checked": 223498
+   }
+  },
+  {
+   "id": "chosen-depth",
+   "section": "Choosing the depth",
+   "what": "chooseM over 5 usable products, using no array of the parent",
+   "expected": "the deepest depth holding 90% of the parent's heterozygosity, judged against his real array",
+   "reported": "m>=4, which holds 92.9% of his measured heterozygosity",
+   "outcome": "correct",
+   "detail": {
+    "chosen": 4,
+    "ratiosSelfMeasured": {
+     "2": 1,
+     "3": 0.9730194424925249,
+     "4": 0.9134494347626544,
+     "5": 0.8110600961543655
+    },
+    "ascertainmentVsTruth": {
+     "2": 1.0166292093142786,
+     "3": 0.9891999864685957,
+     "4": 0.928639376611332,
+     "5": 0.8245473842597754
+    },
+    "wouldHaveBeenNMinus1": 4,
+    "ascertainmentAtNMinus1": 0.928639376611332
+   }
+  },
+  {
+   "id": "id-GSM4472397",
+   "section": "Identification",
+   "what": "genomic DNA sperm donor rep 1 against the reconstruction",
+   "expected": "present: this is the man the products came from",
+   "reported": "0.11% absent of 0.96% = 0.12x, parent genome present",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4472397",
+    "title": "genomic DNA sperm donor rep 1",
+    "isHim": true,
+    "haploid": false,
+    "absence": 0.001140199160831552,
+    "ceiling": 0.009601486277154235,
+    "ratio": 0.11875236061572474,
+    "verdict": "parent_genome_present"
+   }
+  },
+  {
+   "id": "id-GSM4472398",
+   "section": "Identification",
+   "what": "genomic DNA sperm donor rep 2 against the reconstruction",
+   "expected": "present: this is the man the products came from",
+   "reported": "0.20% absent of 1.15% = 0.18x, parent genome present",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4472398",
+    "title": "genomic DNA sperm donor rep 2",
+    "isHim": true,
+    "haploid": false,
+    "absence": 0.0020371271002138066,
+    "ceiling": 0.011475055612804739,
+    "ratio": 0.17752655577029408,
+    "verdict": "parent_genome_present"
+   }
+  },
+  {
+   "id": "id-GSM4774673",
+   "section": "Identification",
+   "what": "maternal nucleus isolated from 2PN zygote 1 against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "11.12% absent of 2.08% = 5.34x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4774673",
+    "title": "maternal nucleus isolated from 2PN zygote 1",
+    "isHim": false,
+    "haploid": true,
+    "absence": 0.11115007627430695,
+    "ceiling": 0.020829094479298937,
+    "ratio": 5.336289409257509,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "id-GSM4774674",
+   "section": "Identification",
+   "what": "maternal nucleus isolated from 2PN zygote 2 against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "11.21% absent of 1.95% = 5.75x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4774674",
+    "title": "maternal nucleus isolated from 2PN zygote 2",
+    "isHim": false,
+    "haploid": true,
+    "absence": 0.11210967438870621,
+    "ceiling": 0.019507005397684827,
+    "ratio": 5.7471494011075555,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "id-GSM4774675",
+   "section": "Identification",
+   "what": "maternal nucleus isolated from 2PN zygote 3 against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "11.09% absent of 2.36% = 4.71x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4774675",
+    "title": "maternal nucleus isolated from 2PN zygote 3",
+    "isHim": false,
+    "haploid": true,
+    "absence": 0.11092035511272913,
+    "ceiling": 0.023568688238798742,
+    "ratio": 4.706259168473033,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "id-GSM4774676",
+   "section": "Identification",
+   "what": "maternal nucleus isolated from 2PN zygote 4 against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "11.03% absent of 2.25% = 4.90x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4774676",
+    "title": "maternal nucleus isolated from 2PN zygote 4",
+    "isHim": false,
+    "haploid": true,
+    "absence": 0.11034404853289655,
+    "ceiling": 0.02251329505544842,
+    "ratio": 4.901283808573028,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "id-GSM4774677",
+   "section": "Identification",
+   "what": "maternal nucleus isolated from 2PN zygote 5 against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "11.08% absent of 2.05% = 5.41x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4774677",
+    "title": "maternal nucleus isolated from 2PN zygote 5",
+    "isHim": false,
+    "haploid": true,
+    "absence": 0.11075844132639133,
+    "ceiling": 0.020477896705711023,
+    "ratio": 5.408682489129961,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "id-GSM4774678",
+   "section": "Identification",
+   "what": "maternal nucleus isolated from 2PN zygote 6 against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "11.48% absent of 1.78% = 6.45x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4774678",
+    "title": "maternal nucleus isolated from 2PN zygote 6",
+    "isHim": false,
+    "haploid": true,
+    "absence": 0.11483426530308506,
+    "ceiling": 0.017797383922142262,
+    "ratio": 6.452311519796811,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "id-GSM4774679",
+   "section": "Identification",
+   "what": "maternal nucleus isolated from 2PN zygote 8 against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "10.83% absent of 2.10% = 5.14x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4774679",
+    "title": "maternal nucleus isolated from 2PN zygote 8",
+    "isHim": false,
+    "haploid": true,
+    "absence": 0.10825168984007737,
+    "ceiling": 0.021044455547513802,
+    "ratio": 5.143952980663653,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "id-GSM4472407",
+   "section": "Identification",
+   "what": "genomic DNA egg donor A against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "5.95% absent of 0.65% = 9.11x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4472407",
+    "title": "genomic DNA egg donor A",
+    "isHim": false,
+    "haploid": false,
+    "absence": 0.05954377836506988,
+    "ceiling": 0.00653275153182439,
+    "ratio": 9.114655298766767,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "id-GSM4472415",
+   "section": "Identification",
+   "what": "genomic DNA egg donor C rep 1 against the reconstruction",
+   "expected": "absent: unrelated to him, established at the bench",
+   "reported": "5.58% absent of 0.88% = 6.38x, no parental contribution",
+   "outcome": "correct",
+   "detail": {
+    "gsm": "GSM4472415",
+    "title": "genomic DNA egg donor C rep 1",
+    "isHim": false,
+    "haploid": false,
+    "absence": 0.05584276150778614,
+    "ceiling": 0.008757145668692026,
+    "ratio": 6.376822268405506,
+    "verdict": "no_parental_contribution"
+   }
+  },
+  {
+   "id": "group-products-only",
+   "section": "Membership",
+   "what": "5 usable paternal pronuclei, compared pairwise",
+   "expected": "one group: they are products of one man",
+   "reported": "1 group(s), sizes 5",
+   "outcome": "correct",
+   "detail": {
+    "groups": [
+     [
+      "GSM4774680",
+      "GSM4774681",
+      "GSM4774682",
+      "GSM4774683",
+      "GSM4774685"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "group-mixed",
+   "section": "Membership",
+   "what": "5 paternal and 7 maternal pronuclei together",
+   "expected": "the paternal ones form one group with no maternal product in it",
+   "reported": "2 group(s), sizes 7, 5; the paternal products stayed together and alone",
+   "outcome": "correct",
+   "detail": {
+    "groups": [
+     [
+      "GSM4774673",
+      "GSM4774674",
+      "GSM4774675",
+      "GSM4774676",
+      "GSM4774677",
+      "GSM4774678",
+      "GSM4774679"
+     ],
+     [
+      "GSM4774680",
+      "GSM4774681",
+      "GSM4774682",
+      "GSM4774683",
+      "GSM4774685"
+     ]
+    ]
+   }
+  },
+  {
+   "id": "pairwise-ranges",
+   "section": "Membership",
+   "what": "every pair, within one parent and across parents",
+   "expected": "the two ranges separate, and any single misread pair is absorbed by the all-pairs rule rather than becoming a grouping error",
+   "reported": "within 5.70% to 9.23% over 10 pairs (0 misread); across 16.55% to 17.37% over 35 pairs (0 misread)",
+   "outcome": "correct",
+   "detail": {
+    "within": {
+     "lo": 0.057030104997523354,
+     "hi": 0.09233279407726055,
+     "n": 10,
+     "misread": 0
+    },
+    "across": {
+     "lo": 0.16554936983672194,
+     "hi": 0.17365270696170157,
+     "n": 35,
+     "misread": 0
+    }
+   }
+  },
+  {
+   "id": "ploidy-GSM4472407",
+   "section": "Quality and ploidy",
+   "what": "genomic DNA egg donor A offered as a product",
+   "expected": "set aside: a diploid adult is not one meiotic product, and admitting one bridges two unrelated parents into a single group",
+   "reported": "set aside, BAF band 13.6% with 14.1% heterozygous calls sits between the haploid and diploid ranges",
+   "outcome": "correct",
+   "detail": {
+    "ploidy": "borderline",
+    "callRate": 0.9837450463631343,
+    "hetBand": 0.13622434954668733,
+    "hetRate": 0.14141843185777514,
+    "why": "BAF band 13.6% with 14.1% heterozygous calls sits between the haploid and diploid ranges"
+   }
+  },
+  {
+   "id": "ploidy-GSM4472415",
+   "section": "Quality and ploidy",
+   "what": "genomic DNA egg donor C rep 1 offered as a product",
+   "expected": "set aside: a diploid adult is not one meiotic product, and admitting one bridges two unrelated parents into a single group",
+   "reported": "set aside, BAF band 16.5% and 17.1% heterozygous calls read diploid, not one meiotic product",
+   "outcome": "correct",
+   "detail": {
+    "ploidy": "diploid",
+    "callRate": 0.9658150609939248,
+    "hetBand": 0.16513955491893462,
+    "hetRate": 0.17135526459342565,
+    "why": "BAF band 16.5% and 17.1% heterozygous calls read diploid, not one meiotic product"
+   }
+  },
+  {
+   "id": "loo-GSM4774680",
+   "section": "Leave-one-out",
+   "what": "paternal nucleus isolated from 2PN zygote 1 against a reference built from the other 4",
+   "expected": "present: it is a product of the same man",
+   "reported": "1.18% absent of 2.39% = 0.49x, parent genome present",
+   "outcome": "correct",
+   "detail": {
+    "absence": 0.01177966808439663,
+    "ceiling": 0.023904982252050483,
+    "ratio": 0.49277041748843853,
+    "verdict": "parent_genome_present",
+    "excludedFrom": 4,
+    "contamination": 0.029676765606555827
+   }
+  },
+  {
+   "id": "loo-GSM4774681",
+   "section": "Leave-one-out",
+   "what": "paternal nucleus isolated from 2PN zygote 2 against a reference built from the other 4",
+   "expected": "present: it is a product of the same man",
+   "reported": "1.09% absent of 3.50% = 0.31x, parent genome present",
+   "outcome": "correct",
+   "detail": {
+    "absence": 0.010949626075913644,
+    "ceiling": 0.03500085893994053,
+    "ratio": 0.3128387818911123,
+    "verdict": "parent_genome_present",
+    "excludedFrom": 4,
+    "contamination": 0.028387196095590973
+   }
+  },
+  {
+   "id": "loo-GSM4774682",
+   "section": "Leave-one-out",
+   "what": "paternal nucleus isolated from 2PN zygote 3 against a reference built from the other 4",
+   "expected": "present: it is a product of the same man",
+   "reported": "0.25% absent of 2.60% = 0.10x, parent genome present",
+   "outcome": "correct",
+   "detail": {
+    "absence": 0.0024785732764735827,
+    "ceiling": 0.02598022735751622,
+    "ratio": 0.09540229353522259,
+    "verdict": "parent_genome_present",
+    "excludedFrom": 4,
+    "contamination": 0.03213718346528952
+   }
+  },
+  {
+   "id": "loo-GSM4774683",
+   "section": "Leave-one-out",
+   "what": "paternal nucleus isolated from 2PN zygote 4 against a reference built from the other 4",
+   "expected": "present: it is a product of the same man",
+   "reported": "1.12% absent of 2.38% = 0.47x, parent genome present",
+   "outcome": "correct",
+   "detail": {
+    "absence": 0.011166341277837468,
+    "ceiling": 0.0238296125895923,
+    "ratio": 0.46859096998976907,
+    "verdict": "parent_genome_present",
+    "excludedFrom": 4,
+    "contamination": 0.02993713282916386
+   }
+  },
+  {
+   "id": "loo-GSM4774685",
+   "section": "Leave-one-out",
+   "what": "paternal nucleus isolated from 2PN zygote 6 against a reference built from the other 4",
+   "expected": "present: it is a product of the same man",
+   "reported": "0.91% absent of 2.52% = 0.36x, parent genome present",
+   "outcome": "correct",
+   "detail": {
+    "absence": 0.009104214730470591,
+    "ceiling": 0.02518026678225868,
+    "ratio": 0.3615614881763353,
+    "verdict": "parent_genome_present",
+    "excludedFrom": 4,
+    "contamination": 0.03034629960005174
+   }
+  },
+  {
+   "id": "density-sweep",
+   "section": "Marker density",
+   "what": "31 references rebuilt on disjoint slices of the array, from all markers down to every 16th, each scored on him and on all 9 negatives",
+   "expected": "the verdicts do not depend on marker density: he reads present and no negative reads present, in every one",
+   "reported": "31 clean, 0 declined to call him, 0 wrong",
+   "outcome": "correct",
+   "detail": {
+    "references": 31,
+    "classifications": 310,
+    "clean": 31,
+    "refused": 0,
+    "wrong": 0,
+    "himRatioRange": [
+     0.07948400561472818,
+     0.1661514756190354
+    ],
+    "worstNegativeRatio": 4.575348500477563,
+    "ascertainmentRange": [
+     0.905867060652778,
+     0.9508269316868917
+    ],
+    "markersRange": [
+     28384,
+     457506
+    ]
+   }
+  },
+  {
+   "id": "floor-n2",
+   "section": "Below the floor",
+   "what": "10 reconstructions from 2 products, a depth the tool refuses to build at",
+   "expected": "recorded, not scored. The floor was set on true OFFSPRING inverting at this depth, and this series contains none: the pronuclei are the products themselves. What can be checked here is the parent, who is a far stronger signal than an offspring and is expected to survive depths an offspring would not",
+   "reported": "0 of 10 called him absent; his ratio ran 0.16x to 0.30x",
+   "outcome": "refused",
+   "detail": {
+    "n": 2,
+    "subsets": 10,
+    "invertedOnHim": 0,
+    "ratioRange": [
+     0.16378007981773438,
+     0.2976915560948619
+    ],
+    "note": "scored on the parent, not on an offspring; does not reproduce the 24-of-24 offspring inversion the floor was set from"
+   }
+  },
+  {
+   "id": "floor-n3",
+   "section": "Below the floor",
+   "what": "10 reconstructions from 3 products, a depth the tool refuses to build at",
+   "expected": "recorded, not scored. The floor was set on true OFFSPRING inverting at this depth, and this series contains none: the pronuclei are the products themselves. What can be checked here is the parent, who is a far stronger signal than an offspring and is expected to survive depths an offspring would not",
+   "reported": "0 of 10 called him absent; his ratio ran 0.11x to 0.23x",
+   "outcome": "refused",
+   "detail": {
+    "n": 3,
+    "subsets": 10,
+    "invertedOnHim": 0,
+    "ratioRange": [
+     0.11393993022593846,
+     0.23075667455379859
+    ],
+    "note": "scored on the parent, not on an offspring; does not reproduce the 24-of-24 offspring inversion the floor was set from"
+   }
+  },
+  {
+   "id": "floor-n4",
+   "section": "Below the floor",
+   "what": "5 reconstructions from 4 products, a depth the tool refuses to build at",
+   "expected": "recorded, not scored. The floor was set on true OFFSPRING inverting at this depth, and this series contains none: the pronuclei are the products themselves. What can be checked here is the parent, who is a far stronger signal than an offspring and is expected to survive depths an offspring would not",
+   "reported": "0 of 5 called him absent; his ratio ran 0.14x to 0.18x",
+   "outcome": "refused",
+   "detail": {
+    "n": 4,
+    "subsets": 5,
+    "invertedOnHim": 0,
+    "ratioRange": [
+     0.13966532381946806,
+     0.18338298715702267
+    ],
+    "note": "scored on the parent, not on an offspring; does not reproduce the 24-of-24 offspring inversion the floor was set from"
+   }
+  },
+  {
+   "id": "floor-enforced",
+   "section": "Below the floor",
+   "what": "the page's own gate at 5 products",
+   "expected": "no reference is offered below 5 products",
+   "reported": "MIN_PRODUCTS = 5, and the sweep above starts there",
+   "outcome": "correct",
+   "detail": {
+    "MIN_PRODUCTS": 5
+   }
+  },
+  {
+   "id": "ceiling-term",
+   "section": "The ceiling term",
+   "what": "true products and unrelated haploids, scored with and without the reference's own false absence in the ceiling",
+   "expected": "admitting it recovers true products and rescues no unrelated genome",
+   "reported": "true products present: 5/5 with the term, 3/5 without. Unrelated haploids wrongly present with the term: 0/7",
+   "outcome": "correct",
+   "detail": {
+    "withTermPresent": 5,
+    "withoutTermPresent": 3,
+    "negRescued": 0,
+    "of": 5
+   }
+  }
+ ]
+}

@@ -17,6 +17,7 @@ import pathlib
 import re
 from xml.etree import ElementTree
 
+import build_info
 import panelbuilder as pb
 from app import ispcr
 
@@ -962,6 +963,26 @@ def to_pdf(result) -> bytes:
                 need(9.6)
             c.drawString(L + 14, state["y"] - 8, line)
             state["y"] -= 9.6
+    # --- methods ------------------------------------------------------------
+    #
+    # Parity with the Syngamy and Progenitor reports: a paragraph written from the actual run
+    # that a reader can lift into a manuscript, then the citation. Both are what turns a
+    # downloaded table into something checkable by someone who was not here when it ran.
+    state["y"] -= 8
+    need(30)
+    text("Methods", 10, "Helvetica-Bold", 4)
+    text(_methods_paragraph(result), 7.4, "Helvetica", 2.4)
+
+    # --- citation -----------------------------------------------------------
+    state["y"] -= 6
+    need(24)
+    text("Citation", 10, "Helvetica-Bold", 4)
+    text(f"OriginMarker {build_info.VERSION} ({build_info.CODENAME}). Candidate flanking-SNP "
+         f"marker panel for {v.rsid or v.query}, {_genomic(v)}. "
+         f"Generated {result.provenance['queried_utc']}.", 7.4, "Helvetica", 2.4)
+    for line in _source_citations(result):
+        text(line, 7.4, "Helvetica", 2.4)
+
     text(f"Sources: ClinVar {result.provenance['sources']['clinvar']} | Ensembl "
          f"{result.provenance['sources']['ensembl']} | gnomAD "
          f"{result.provenance['sources']['gnomad']} | map "
@@ -974,6 +995,67 @@ def to_pdf(result) -> bytes:
     c.save()
     return out.getvalue()
 
+
+
+def _methods_paragraph(result) -> str:
+    """A Methods section written from the run rather than from a template.
+
+    Every number in it comes off `result`, so a panel built with different settings describes
+    itself differently. The refusals that actually fired are named, because a Methods section
+    that lists only what worked is the kind a reader cannot check.
+    """
+    v = result.variant
+    prov = result.provenance
+    n = len(result.candidates)
+    win = prov.get("window_bp")
+    maf = prov.get("common_maf")
+    anc = prov.get("ancestry_rank") or prov.get("ancestry")
+    parts = [
+        f"Candidate flanking SNP markers for {v.rsid or v.query} ({_genomic(v)}) were "
+        f"assembled using OriginMarker {build_info.VERSION} "
+        f"({build_info.CODENAME}). Variants were drawn from gnomAD "
+        f"{prov['sources']['gnomad']} within "
+        f"{'a ' + format(int(win), ',') + ' bp window' if win else 'the resolved window'} either "
+        f"side of the variant, retaining biallelic SNPs above a minor allele frequency floor of "
+        f"{maf if maf is not None else 'the default'}"
+        + (f", ranked on the {anc} population." if anc else ".")
+        + f" {n} candidate marker(s) are reported.",
+
+        "Markers were ranked on expected heterozygosity in the chosen population, which is the "
+        "probability that a given carrier is informative at that marker, and on genetic distance "
+        "from the variant taken from the deCODE 2019 sex-averaged map rather than from physical "
+        "distance, since recombination rate varies several-fold along a chromosome. Distance "
+        "sets the probability that a marker and the variant are separated by a crossover between "
+        "the carrier and the embryo, which is the failure mode linkage analysis has to bound.",
+
+        "This is candidate selection from population data only. No genotype of the family was "
+        "used, and none of these markers is informative until the carrier and both parents have "
+        "been genotyped and the markers phased in a qualified genetics laboratory: a marker is "
+        "informative only where the carrier is heterozygous and the phase to the pathogenic "
+        "allele is established. The output is a menu to genotype, not a result.",
+    ]
+    fired = list(dict.fromkeys(result.provenance.get("warnings", []) or []))
+    if fired:
+        parts.append("The following applied to this run and are reported rather than resolved: "
+                     + " ".join(f"({i + 1}) {w.rstrip('.')}." for i, w in enumerate(fired)))
+    return "\n\n".join(parts)
+
+
+def _source_citations(result) -> list[str]:
+    """The data this panel is made of, each named so it can be cited rather than alluded to."""
+    src = result.provenance["sources"]
+    return [
+        f"Chen S, Francioli LC, Goodrich JK, et al. A genomic mutational constraint map using "
+        f"variation in 76,156 human genomes. Nature 2024;625:92-100. doi:10.1038/s41586-023-06045-0. "
+        f"gnomAD {src['gnomad']}, the allele frequencies every rank above rests on.",
+        f"Halldorsson BV, Palsson G, Stefansson OA, et al. Characterizing mutagenic effects of "
+        f"recombination through a sequence-level genetic map. Science 2019;363(6425):eaau1043. "
+        f"doi:10.1126/science.aau1043. The genetic map ({src['genetic_map']}) distances are read "
+        f"from.",
+        f"Landrum MJ, Lee JM, Benson M, et al. ClinVar: improving access to variant "
+        f"interpretations and supporting evidence. Nucleic Acids Res 2018;46(D1):D1062-D1067. "
+        f"doi:10.1093/nar/gkx1153. ClinVar {src['clinvar']}, for the variant record.",
+    ]
 
 def _draw_mark(c, x, y_top, size) -> bool:
     """Draw the monogram from favicon.svg, top-left at (x, y_top). False if it is absent.

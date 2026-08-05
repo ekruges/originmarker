@@ -1,4 +1,16 @@
-# Accuracy audit
+# Accuracy audits
+
+Two, one per feature that makes a call from array data. Each runs against public arrays whose
+answer was established at the bench rather than by any statistic the tool computes.
+
+| | correct | refused | incorrect |
+|---|---|---|---|
+| [Syngamy](AUDIT.txt) | 22 | 4 | **0** |
+| [Progenitor](PROGENITOR-AUDIT.txt) | 35 | 6 | **0** |
+
+---
+
+# Syngamy
 
 Syngamy, run against 27 public arrays whose answer was established at the bench rather than by
 any statistic this tool computes.
@@ -68,5 +80,62 @@ One laboratory, one platform, one sperm donor. Single pronuclei are harder mater
 trophectoderm biopsy, so this is a stress test rather than a representative one. 26 scored cases
 cannot support an accuracy percentage: 22 correct with 0 incorrect puts a 95% lower bound near
 87% on the proportion that are not incorrect, and that is as far as it goes.
+
+Research use only. Not a clinical diagnostic.
+
+---
+
+# Progenitor
+
+A man's genotype reconstructed from eight of his sons' paternal pronuclei, then scored against
+his own array, which the reconstruction never saw.
+
+**[PROGENITOR-AUDIT.txt](PROGENITOR-AUDIT.txt)** is the record.
+
+## Result
+
+| | |
+|---|---|
+| correct | 35 |
+| refused | 6 (three products set aside on call rate, three sub-floor cases recorded rather than scored) |
+| **incorrect** | **0** |
+
+He reads present at 0.12x and 0.18x on his two replicate arrays. All nine genomes that are not
+his read absent, at 4.71x to 9.11x. Membership put the five usable products in one group and
+split them cleanly from seven maternal pronuclei, with zero misread pairs out of 45.
+
+## What makes it checkable
+
+The series carries the sperm donor's own bulk DNA alongside the pronuclei. That turns three
+modelled quantities into measured ones: ascertainment against his real 16.66% heterozygosity,
+contamination by asking his array which asserted homozygotes are really heterozygous, and
+absence on nine genomes known not to be his. His two replicate arrays bound what the ground
+truth itself can be wrong about, at 4.15%.
+
+## What it found
+
+Predicted contamination sits below observed at every depth, by 0.6 to 1.1 percentage points.
+That gap is inside the replicate floor, so this data cannot separate a model that understates it
+from a truth that overstates it. It is reported rather than resolved, and the direction is
+stated: if the model is the one that is wrong, it is optimistic.
+
+The density sweep rebuilds the reference on disjoint slices of the array, down to every 16th
+marker: 31 references, 310 classifications, all clean. One array density is one observation, and
+a reconstruction that survives a sixteenth of this one is not leaning on density.
+
+## Reproducing it
+
+```sh
+node --experimental-strip-types --max-old-space-size=8192 audit/progenitor.ts raw out
+node --experimental-strip-types audit/progenitor-report.ts out
+```
+
+## What it does not show
+
+One laboratory, one platform, one man, and five usable products is the floor rather than a
+comfortable margin. The five-product floor was set on true offspring inverting below it; this
+series has no offspring of these products, so the sub-floor cases score the parent instead and
+do not reproduce that measurement. Nothing here separates this man from a close relative, since
+none is in the series.
 
 Research use only. Not a clinical diagnostic.

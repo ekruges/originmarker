@@ -601,7 +601,7 @@ export default function App() {
           <img
             src="cssi-logo.svg"
             alt="Columbia Stem Cell Initiative"
-            style={{ height: 22, width: 'auto', display: 'block' }}
+            style={{ height: 30, width: 'auto', display: 'block' }}
           />
         </a>
       </div>
