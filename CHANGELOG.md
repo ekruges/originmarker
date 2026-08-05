@@ -9,6 +9,13 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.0.2
+
+One line of throat-clearing removed from the References section of both documentation pages.
+No code changes.
+
+---
+
 ## 3.0.1
 
 An accuracy audit for Progenitor, and the report sections the other two tools already had.

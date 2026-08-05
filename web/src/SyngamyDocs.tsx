@@ -1480,12 +1480,6 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
 
         {/* --- 25 ------------------------------------------------------------------------ */}
         <Section id="references" title="References">
-          <Text size="sm" mb={10} c="dimmed">
-            Every entry was resolved against the Crossref API before being written here, none from
-            recall. That is the same rule the tool applies to genomic coordinates: a citation
-            asserted from memory is exactly the kind of fluent, plausible, unverifiable claim this
-            project exists to avoid.
-          </Text>
           <ol style={{ paddingLeft: 20, margin: 0 }}>
             {ORDER.map((id) => {
               const c = CITATIONS[id]

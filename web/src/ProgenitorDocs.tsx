@@ -748,10 +748,6 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
 
       {/* --- 19 -------------------------------------------------------------------------- */}
       <Section id="references" title="References">
-        <Text size="sm" mb={10} c="dimmed">
-          Every entry was resolved against the Crossref API before being written here, none from
-          recall.
-        </Text>
         <ol style={{ paddingLeft: 20, margin: 0 }}>
           {ORDER.map((id) => {
             const c = CITATIONS[id]
