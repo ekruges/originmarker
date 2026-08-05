@@ -11,6 +11,7 @@ import assert from 'node:assert/strict'
 import {
   accumulate, accumulateBaf, accumulateBuild, assessRelatedness, binomUpperTail, buildVerdict, callSex, criticalNocalls, detectBuild, detectProduct, emptyBafSums, emptyBuildSums, estimateDropout, finishProfile, gates, headerMap, idPrefixOf, parseRow, profileText, scanNocallClusters, verifyCoding, type ChromStats, type ProbeRow, type SampleProfile,
 } from './ingest.ts'
+import { isAutosome } from './parentage.ts'
 import type { AB } from './informativity.ts'
 
 const HEADER = 'probeset_id\tchr\tposition\tlog2R\tbaf\tcopy_number\tgenotype\tBestProbeset'
@@ -466,4 +467,25 @@ console.log('ingest.check.ts: all assertions passed')
   const fmt = gates(nuc).find((g) => g.name === 'genotype format')
   assert.equal(fmt?.verdict, 'exclude', 'a nucleotide file is excluded, not silently empty')
   assert.ok(fmt?.detail.includes('nucleotide pairs'), 'and the dialect is named')
+}
+
+// --- chr-prefixed exports are one chromosome with the bare form, everywhere ---------------------
+//
+// `parseRow` used to hand the raw field on, and only the two profiling accumulators stripped the
+// prefix. Every autosome test reads the bare form, so a chr-prefixed export profiled correctly
+// and then scored against an empty genome: Progenitor ingested zero markers and blamed the
+// sample's ploidy for it. Normalising at the parser is what makes the two agree.
+{
+  const m = headerMap('probeset_id\tchr\tposition\tgenotype')
+  const row = (chr: string) => parseRow(`AX-1\t${chr}\t1000\tAA`, m)
+  for (const [raw, want] of [['chr1', '1'], ['CHR1', '1'], ['1', '1'],
+    ['chrX', 'X'], ['X', 'X'], ['chrY', 'Y'], ['', '']] as const) {
+    assert.equal(row(raw)?.chrom, want, `'${raw}' must normalise to '${want}'`)
+  }
+  assert.equal(isAutosome(row('chr1')!.chrom), true,
+    'a chr-prefixed autosome must test as autosomal, or scoring sees no genome at all')
+  // The profiling path strips too, so it must agree rather than double-strip something.
+  const byChrom = new Map<string, ChromStats>()
+  accumulate(row('chr7')!, byChrom)
+  assert.deepEqual([...byChrom.keys()], ['7'], 'the profile keys on the same bare form')
 }

@@ -47,13 +47,21 @@ for (const id of ['ma_2017', 'egli_2018', 'zuccaro_2020', 'natesan_2014', 'ado']
   assert.ok(cited.includes(id), `${id} is no longer cited anywhere on the page`)
 }
 
-// The route the header links to, and the one the panel docs point across at.
-assert.ok(src.includes("`#/syngamy-docs/${id}`"), 'the anchor route has changed')
+// The route the header links to, and the one the other pages point across at. It lives in one
+// constant now, which the shell turns into every anchor on the page, so that constant is the
+// thing to pin.
+assert.ok(/const PREFIX = 'syngamy-docs'/.test(src), 'the anchor route has changed')
+assert.ok(src.includes('docsHelpers(PREFIX, SECTIONS)'),
+  'section numbering must come from the shell, bound to this page\'s own route')
 
-// Both directions of the cross-link between the two documentation pages.
+// Every documentation page links to the other two, in both directions.
 const panel = readFileSync(new URL('./DocsPage.tsx', import.meta.url), 'utf8')
-assert.ok(src.includes('href="#/docs"'), 'this page must link back to the panel docs')
-assert.ok(panel.includes('#/syngamy-docs'), 'the panel docs must link here')
+const prog = readFileSync(new URL('./ProgenitorDocs.tsx', import.meta.url), 'utf8')
+for (const [name, other] of [['the panel docs', '#/docs'], ['Progenitor', '#/progenitor-docs']]) {
+  assert.ok(src.includes(`href: '${other}'`), `this page must link to ${name}`)
+}
+assert.ok(panel.includes("href: '#/syngamy-docs'"), 'the panel docs must link here')
+assert.ok(prog.includes("href: '#/syngamy-docs'"), 'the Progenitor docs must link here')
 
 console.log(`SyngamyDocs.check OK (${nav.length} sections, ${cited.length} citation markers, `
   + 'nav == headings, cross-refs and citations resolve)')

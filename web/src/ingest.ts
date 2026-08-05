@@ -23,6 +23,7 @@
 
 import type { AB } from './informativity.ts'
 import { CHROM_LEN, GAPS, type Build } from './buildref.ts'
+import { isAutosome } from './parentage.ts'
 
 export type { Build }
 
@@ -154,7 +155,11 @@ export function parseRow(line: string, map: ColumnMap): ProbeRow | null {
   const raw = (at(f, map, 'genotype') ?? '').trim()
   return {
     probesetId: id,
-    chrom: (at(f, map, 'chr') ?? '').trim(),
+    // Normalised here, once, rather than at each consumer. Two of them stripped the prefix and
+    // the rest did not, so on a chr-prefixed export every autosome test read false: `isAutosome`
+    // is anchored on the bare form. The profile still built, because it strips, which is what
+    // made the split survive. Scoring silently saw an empty genome.
+    chrom: (at(f, map, 'chr') ?? '').trim().replace(/^chr/i, ''),
     pos,
     log2R: num(at(f, map, 'log2r')),
     baf: num(at(f, map, 'baf')),
@@ -198,6 +203,10 @@ export interface SampleProfile {
   coding: CodingCheck
   /** Which assembly the positions belong to, from illegal-placement counting. */
   build: BuildCall
+  /** Fraction of autosomal markers in the heterozygous BAF band. The ploidy read: 15-16% for a
+   *  diploid genome, 1.0-7.8% across confirmed haploid meiotic products, above 30% for an array
+   *  that has failed. NaN when the file carries no B-allele frequencies. */
+  hetBand: number
 }
 
 const AUTOSOMES = new Set(Array.from({ length: 22 }, (_, i) => String(i + 1)))
@@ -876,12 +885,25 @@ export function accumulateBuild(row: { chrom: string; pos: number }, s: BuildSum
   }
 }
 
-export interface BafSums { hom0: number; n0: number; hom2: number; n2: number; het: number; nHet: number }
+export interface BafSums {
+  hom0: number; n0: number; hom2: number; n2: number; het: number; nHet: number
+  /** Autosomal markers whose B-allele frequency sits mid-band, and the total that had one.
+   *  This is the zygosity read: a diploid genome measures 15-16%, a haploid meiotic product
+   *  1.0-7.8%, and a failed array can exceed 40%. Counted over every marker with a BAF rather
+   *  than only the called ones, matching `parentage.tallyRow`, because a dropped heterozygote
+   *  still has an intensity reading and is exactly what separates the two cases. */
+  band: number; nBand: number
+}
 
-export const emptyBafSums = (): BafSums => ({ hom0: 0, n0: 0, hom2: 0, n2: 0, het: 0, nHet: 0 })
+export const emptyBafSums = (): BafSums =>
+  ({ hom0: 0, n0: 0, hom2: 0, n2: 0, het: 0, nHet: 0, band: 0, nBand: 0 })
 
 export function accumulateBaf(row: ProbeRow, s: BafSums): void {
   if (row.baf === null) return
+  if (isAutosome(row.chrom)) {
+    s.nBand += 1
+    if (row.baf >= 0.35 && row.baf <= 0.65) s.band += 1
+  }
   if (row.genotype === 'AA') { s.hom0 += row.baf; s.n0++ }
   else if (row.genotype === 'BB') { s.hom2 += row.baf; s.n2++ }
   else if (row.genotype === 'AB') { s.het += row.baf; s.nHet++ }
@@ -914,6 +936,7 @@ export function finishProfile(
     idPrefix: prefix,
     coding: verifyCoding(bafSums),
     build: buildVerdict(buildSums),
+    hetBand: bafSums.nBand ? bafSums.band / bafSums.nBand : NaN,
   }
 }
 

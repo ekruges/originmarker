@@ -29,3 +29,19 @@ docker-compose.override.yml
 # the arrays are re-downloadable from the accessions listed in audit/AUDIT.txt.
 audit/raw/
 audit/out/
+
+# Validation scripts keyed to internal sample identifiers from unpublished experiments, and the
+# preview scaffolding built on their output. The measurements they produced are quoted in the
+# changelog and the documentation; the identifiers are not ours to publish. `tools/parity_check.py`
+# and `tools/step5_public_validation.py` run on public GEO accessions and ARE committed.
+#
+# These files are not in the working tree either, and that is the actual control. Ignoring them
+# only keeps them out of the git index: `Dockerfile` does `COPY web/ ./` and the deploy tarball
+# copies the working tree, so a gitignored file under web/src still reaches an image layer. This
+# block is the guard for anyone who regenerates them in place.
+tools/step1_validate.py
+tools/step2_bootstrap.py
+tools/step2b_groups.py
+tools/step3_depth.py
+web/src/PreviewProducts.tsx
+web/src/previewData50402.json

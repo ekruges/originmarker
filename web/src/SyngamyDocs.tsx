@@ -1,9 +1,9 @@
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { Alert, Anchor, Code, List, Table, Text, Title } from '@mantine/core'
 import { CITATIONS, formatCitation } from './citations'
 import type { Health } from './api'
 import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, EXAMPLE_STRIDE } from './examples'
-import { AvatarMark, GithubMark, HOME_URL, REPO_URL } from './DocsPage'
+import { DocsShell, docsHelpers, docsSectionFromHash, type DocSection } from './DocsShell'
 
 /**
  * Syngamy's own documentation, on the same furniture as the panel docs and at its own route.
@@ -16,12 +16,10 @@ import { AvatarMark, GithubMark, HOME_URL, REPO_URL } from './DocsPage'
 const ORDER = Object.keys(CITATIONS)
 const numberOf = (id: string) => ORDER.indexOf(id) + 1
 
-const docHref = (id: string) => `#/syngamy-docs/${id}`
+const PREFIX = 'syngamy-docs'
+const docHref = (id: string) => `#/${PREFIX}/${id}`
 
-export function synSectionFromHash(hash: string): string {
-  const m = /^#\/syngamy-docs\/([\w:.-]+)$/.exec(hash)
-  return m ? m[1] : ''
-}
+export const synSectionFromHash = (hash: string): string => docsSectionFromHash(PREFIX, hash)
 
 function Ref({ id }: { id: string }) {
   const n = numberOf(id)
@@ -36,7 +34,7 @@ function Ref({ id }: { id: string }) {
   )
 }
 
-const SECTIONS = [
+const SECTIONS: DocSection[] = [
   { id: 'what', label: 'What this answers' },
   { id: 'why', label: 'Why the variant site cannot answer it' },
   { id: 'biology', label: 'The biology, from first principles' },
@@ -65,71 +63,26 @@ const SECTIONS = [
   { id: 'references', label: 'References' },
 ]
 
-const sectionNo = (id: string) => SECTIONS.findIndex((s) => s.id === id) + 1
+const { Section, SecRef } = docsHelpers(PREFIX, SECTIONS)
 
 export function SyngamyDocsPage({ health }: { health: Health | null }) {
-  useEffect(() => {
-    const jump = () => {
-      const id = synSectionFromHash(window.location.hash)
-      if (!id) return
-      requestAnimationFrame(() => {
-        document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-      })
-    }
-    jump()
-    window.addEventListener('hashchange', jump)
-    return () => window.removeEventListener('hashchange', jump)
-  }, [])
-
   return (
-    <div
-      className="om-docs-wrap"
-      style={{
-        display: 'flex', gap: 24, maxWidth: 1100, margin: '0 auto', padding: 12,
-        alignItems: 'flex-start',
-      }}
-    >
-      <nav
-        className="om-docs-nav"
-        aria-label="Syngamy documentation sections"
-        style={{ position: 'sticky', top: 12, flex: '0 0 200px', alignSelf: 'flex-start' }}
-      >
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {SECTIONS.map((s, i) => (
-            <li key={s.id}>
-              <a href={docHref(s.id)}>
-                <span className="om-mono" style={{ marginRight: 6 }}>{i + 1}</span>
-                {s.label}
-              </a>
-            </li>
-          ))}
-        </ol>
-        <Text size="xs" c="dimmed" mt={10} pl={8} className="om-mono">
-          {health ? `${health.version} · ${health.release_codename}` : 'browser-only'} · in-tab
-        </Text>
-        <div className="om-docs-links">
-          <a
-            href={REPO_URL} target="_blank" rel="noreferrer"
-            aria-label="Source on GitHub" title="Source on GitHub"
-          >
-            <GithubMark />
-          </a>
-          <a href={HOME_URL} aria-label="ezrakruger.cc" title="ezrakruger.cc">
-            <AvatarMark />
-          </a>
-        </div>
-        <Text size="xs" c="dimmed" mt={10} pl={8}>
-          <Anchor href="#/docs" size="xs">Panel documentation</Anchor>
-          {' '}covers the other half of this tool: choosing markers before an experiment.
-        </Text>
-      </nav>
-
-      <article className="om-docs-body" style={{ flex: 1, minWidth: 0 }}>
-        <Title order={1} mb={4}>Syngamy documentation</Title>
-        <Text size="xs" c="dimmed" mb="md">
+    <DocsShell
+      prefix={PREFIX}
+      sections={SECTIONS}
+      health={health}
+      title="Syngamy documentation"
+      subtitle={
+        <>
           Which parent contributed the genome in this sample, from SNP array genotypes.
           Research use only, not a clinical diagnostic.
-        </Text>
+        </>
+      }
+      siblings={[
+        { label: 'Progenitor documentation', href: '#/progenitor-docs' },
+        { label: 'Panel documentation', href: '#/docs' },
+      ]}
+    >
 
         {/* --- 1 ------------------------------------------------------------------------- */}
         <Section id="what" title="What this answers">
@@ -1552,27 +1505,11 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             })}
           </ol>
         </Section>
-      </article>
-    </div>
+    </DocsShell>
   )
 }
 
 /* --- helpers, matching the panel docs ---------------------------------------------------- */
-
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section id={id} style={{ scrollMarginTop: 12, marginBottom: 22 }}>
-      <Title order={2} mb={6} pb={3} style={{ borderBottom: '1px solid var(--om-border)' }}>
-        {sectionNo(id)} · {title}
-      </Title>
-      {children}
-    </section>
-  )
-}
-
-const SecRef = ({ id }: { id: string }) => (
-  <Anchor href={docHref(id)}>section {sectionNo(id)}</Anchor>
-)
 
 const Wide = ({ children }: { children: ReactNode }) => (
   <div style={{ overflowX: 'auto', marginBottom: 10 }}>{children}</div>

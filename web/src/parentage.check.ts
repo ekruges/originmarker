@@ -351,6 +351,34 @@ assert.equal(ABSENCE_MARGIN, 3)
   assert.ok(!mixed(q), 'absence confined to four chromosomes is a loss, not a mixture')
 }
 
+// --- 16. a reconstructed reference raises the ceiling by its own known false absence -----------
+//
+// Measured on the five public pronuclei: the leave-one-out references carry 2.3 to 3.6%
+// contamination, so a true product picks up over 1% absence through no fault of its own, against
+// a ceiling of about 1%. Three of the five true products read unclear until the reference's own
+// floor was admitted into the ceiling. The floor is `Reference.spuriousAbsence`, which is
+// contamination/2 because a haploid product carries the other allele half the time.
+{
+  // 1.1% absence on a clean sample: the shape a true product has against a dirty reference.
+  const t = build({ absent: 0.011, het: 0.03, nonParental: 0.05 }).t
+  assert.equal(classify(t, NaN).verdict, 'unclear',
+    'a measured reference contributes nothing, so this sits above the sample\'s own noise')
+  assert.equal(classify(t, NaN, { spuriousAbsence: 0.0165 }).verdict, 'parent_genome_present',
+    'against a reference whose own contamination explains it, the same sample is present')
+  assert.ok(classify(t, NaN, { spuriousAbsence: 0.0165 }).explainable
+    > classify(t, NaN).explainable + 0.016, 'the floor is added, not merged into the noise term')
+
+  // The term must not rescue a genuinely unrelated sample. Unrelated haploids read 9.9 to 16.1%
+  // opposite homozygotes, far above 3x even the widened ceiling.
+  assert.equal(classify(build({ absent: 0.099, het: 0.03, nonParental: 0.12 }).t, NaN,
+    { spuriousAbsence: 0.018 }).verdict, 'no_parental_contribution')
+
+  // Omitted or unmeasurable, it changes nothing: the diploid path passes no term and is
+  // calibrated without one.
+  assert.equal(classify(t, NaN, { spuriousAbsence: NaN }).explainable, classify(t, NaN).explainable)
+  assert.equal(classify(t, NaN, {}).explainable, classify(t, NaN).explainable)
+}
+
 /** Stream one shipped example, gunzipping, exactly as the browser parses a dropped file. */
 async function eachExampleRow(name: string, fn: (r: ProbeRow) => void): Promise<void> {
   const path = new URL(`../public/examples/${name}`, import.meta.url)

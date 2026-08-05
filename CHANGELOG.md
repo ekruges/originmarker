@@ -9,6 +9,120 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.0.0 "Recombinase"
+
+The enzyme class that catalyses strand invasion and exchange.
+
+Progenitor: a parent's genotype reconstructed from the haploid cells that parent produced, with
+no array of the parent. The first release in which a reference the tool built itself can carry a
+verdict, which is why the release is major and why most of the work below is the refusals.
+
+### Added
+
+- **Progenitor.** Drop several haploid meiotic products of one parent, a pronucleus, a polar
+  body, a single sperm, and the parent's genotype is reconstructed from them. Where the parent is
+  homozygous every product carries that allele and the site is recovered exactly. Where the parent
+  is heterozygous each product carries one at random, so the site is recognised only by observing
+  both alleles, and a site where every product happened to agree enters the reference as
+  homozygous. That single error is the whole method's uncertainty, it is quantified per run, and
+  it is reported next to every number derived from it.
+
+  Depth is chosen by measurement rather than by a rule of thumb. A marker enters when at least
+  `m` products called it and agreed; the tool takes the deepest `m` whose retained marker set
+  still holds 90% of the heterozygosity the products imply. An earlier rule fixing `m = n - 1` is
+  right at five products and wrong at eight, where it demanded seven agreeing calls and left the
+  marker set at roughly 62% of the genome's heterozygosity. Against a father whose real array
+  gives 16.66% heterozygosity,
+  the m>=2 estimate lands at 16.93% with no array of him in the calculation.
+
+  The agreement probability is measured, not assumed. Products are not independent at a
+  heterozygous site, because a probe with allele-specific dropout calls the same homozygote in
+  every product. Over 133,631 heterozygous markers the excess above 2^(1-m) runs 1.24x at m=2 to
+  1.42x at m=4 and vanishes by m=6.
+
+- **Membership before reconstruction, from concordance alone.** Every pair of products is
+  compared before anything is built, because a reference built from two people is worse than no
+  reference. Measured across two experiments: 4.68% to 9.70% opposite homozygotes between products
+  of one father over 46 pairs, and 9.88% to 16.10% between products of different fathers over 45.
+  The separation is real and the margin is 0.18 of a percentage point, and one genuine
+  cross-father pair sits at 9.88%, under the same-parent cut. So a per-pair label is not evidence
+  of membership: grouping requires every pair inside a group to agree, as an exact maximum clique.
+  Single linkage merges two men through that one edge. A greedy all-pairs pass returns the wrong
+  partition outright and was replaced after a synthetic case caught it, which the real products,
+  all of one father, could not have.
+
+  This is not hypothetical. A series of fourteen products split into groups of nine and five on
+  concordance alone, with no reference and no prompting: it holds two sperm donors.
+
+- **A refusal below five products.** At three and fewer, every true offspring tested inverted to a
+  decisive wrong answer rather than to a refusal, 24 of 24 across two experiments. The tool
+  declines to build rather than returning a weak answer.
+
+- **Six things a reconstructed reference will not report**, each measured coming out wrong rather
+  than guessed at, and each travelling with the results into every export. Chief among them:
+  androgenetic against biparental, because that axis derives from the parent's own heterozygosity
+  and a reconstruction is homozygous everywhere by construction.
+
+- **Five more public example arrays load with one click**, from the same GEO series as
+  Syngamy's, GSE148488 (Zuccaro et al. 2020). Every sixteenth marker, 51,604 each, served from
+  this instance and subsampled without altering any value. They are the five paternal pronuclei
+  of one man, chosen because they are a positive case: they pass every gate, group as one,
+  reconstruct and verify. Someone seeing the feature for the first time should see it work
+  before they see it refuse. The terms of use name them alongside Syngamy's.
+
+- **Documentation for Progenitor**, and five exports: a Letter PDF in the same format as the
+  Syngamy report, pairwise concordance and the concordance matrix as CSV, per-sample results
+  including every excluded file with its reason, and the whole run as JSON. Every artefact repeats
+  on every page that the reference was inferred rather than measured, so a page lifted out of
+  context still says so. The CSV provenance sits in a leading `#` block, which pandas and R skip,
+  so the file still loads in one call.
+
+  The reconstructed genotype itself is not exported. The build is deterministic, so the product
+  files and their checksums are the reference. A file of homozygous calls belonging to an
+  identifiable person, re-importable as though it were a measured array, is a hazard with no
+  matching gain.
+
+### Fixed
+
+- **The noise ceiling ignored the reference's own false absence, so true products read unclear.**
+  At a contaminated marker the reference asserts a homozygote where the parent is really
+  heterozygous, and a haploid product carries the other allele half the time. That is absence
+  through no fault of the sample, it equals half the contamination, and the tool already computed
+  and displayed it while leaving it out of the ceiling that decides present against absent. Every
+  true product was therefore judged against a ceiling roughly its own size: on the five public
+  pronuclei, three of five read unclear at 1.10x to 1.32x. Admitting it puts all five at 0.12x to
+  0.50x. The error direction is the dangerous one, calling a true relative unrelated.
+
+  The term is passed only where it applies. A diploid sample needs the minor allele from its other
+  parent as well, so its added absence is far smaller, and the diploid path is calibrated without
+  one: an unrelated adult reads 3.37x against the reconstruction and 3.35x against the father's
+  real array. Nothing about a run against a measured parental array changes.
+
+- **Two products of one parent could be told apart by an unstripped filename.** Membership keys on
+  the product name, and the name was taken with its extension in one place and without it in
+  another, so a group's members failed to match the loaded files.
+
+### Changed
+
+- **Validated against a second father held out entirely.** 18 arrays, 16 agreeing with the answer
+  his real array gives, with 0 inversions and 0 false relationships. His own replicate array is
+  recognised at 0.14x by a reference built from nothing but his sons' pronuclei.
+
+- **The browser and Python implementations are pinned to each other.** The arithmetic exists twice
+  on purpose, and the storage differs because a tab cannot afford what a workstation can: Python
+  holds per-marker observation lists, the browser holds one `Uint8Array` of allele codes per
+  product, so eight products of 825,657 probes cost about 6.6 MB rather than tens of millions of
+  boxed tuples. A cross-implementation check compares every quantity a reader is shown, at every
+  depth, plus the grouping and the synthetic case that broke the greedy implementation. It reports
+  0 divergences.
+
+- The three documentation pages now share one shell, so their numbering, deep links and furniture
+  cannot drift. Each links to the other two as buttons rather than as a sentence of prose.
+
+- The landing page names all three tools rather than two.
+
+---
+
 ## 2.4.2
 
 README trimmed to what a repo README is for. No code changes.

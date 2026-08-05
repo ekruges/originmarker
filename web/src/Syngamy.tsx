@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useRef, useState, type ReactNode } from 'react'
 import {
   Alert, Badge, Button, Group, Paper, Progress, SegmentedControl, Table, Text,
 } from '@mantine/core'
@@ -19,6 +19,8 @@ import { analyseRuns, parseLocus, type RunResult } from './runlength'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { syngamyLogText } from './logfile'
+import { FeatureHeader, DropZone } from './FeatureHeader'
+import { RunLog } from './RunLog'
 
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
@@ -164,7 +166,6 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const [oocyte, setOocyte] = useState<DonorIndex | null>(null)
   const [stage, setStage] = useState<Stage | null>(null)
   const [lines, setLines] = useState<Line[]>([])
-  const [over, setOver] = useState(false)
   const [busy, setBusy] = useState(false)
   const [startedAt, setStartedAt] = useState<string | null>(null)
   const [examples, setExamples] = useState(false)
@@ -380,9 +381,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
 
   return (
     <>
+      <FeatureHeader name="Syngamy" tagline="parent of origin from SNP arrays" />
       <Paper p="sm" mb={10}>
-        <Group justify="space-between" align="center" mb={8}>
-          <Text fw={600} size="sm">Syngamy</Text>
+        <Group justify="flex-end" align="center" mb={8}>
           <Group gap={6}>
             <input
               ref={pick} type="file" multiple style={{ display: 'none' }}
@@ -424,26 +425,11 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           </Group>
         </Group>
 
-        <div
-          onDragOver={(e) => { e.preventDefault(); setOver(true) }}
-          onDragLeave={() => setOver(false)}
-          onDrop={(e) => {
-            e.preventDefault(); setOver(false)
-            if (e.dataTransfer.files.length) void add(e.dataTransfer.files)
-          }}
-          style={{
-            border: `1px dashed ${over ? 'var(--om-blue)' : 'var(--om-border-strong)'}`,
-            background: over ? 'var(--om-head-bg)' : 'transparent',
-            borderRadius: 2,
-            padding: entries.length ? '6px' : '20px 8px',
-            textAlign: entries.length ? 'left' : 'center',
-          }}
+        <DropZone
+          empty={entries.length === 0}
+          prompt="Drop array exports here. Label one donor, the rest samples."
+          onFiles={(f) => { void add(f) }}
         >
-          {entries.length === 0 ? (
-            <Text size="xs" c="dimmed">
-              Drop array exports here. Label one donor, the rest samples.
-            </Text>
-          ) : (
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
               {entries.map((e) => (
                 <Chip
@@ -458,9 +444,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                   onRemove={() => setEntries((p) => p.filter((x) => x.id !== e.id))}
                 />
               ))}
-            </div>
-          )}
-        </div>
+          </div>
+        </DropZone>
 
         {entries.filter((e) => e.role === 'oocyte').length > 1 && (
           <Alert color="orange" mt={8} p="xs">
@@ -495,9 +480,19 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       {lines.length > 0 && (
         <RunLog
           lines={lines}
-          tool={health ? `OriginMarker ${health.version} (${health.release_codename})`
-            : 'OriginMarker'}
-          started={startedAt}
+          colours={TAG_COLOR}
+          onDownload={() => grab(
+            new Blob([syngamyLogText(lines, {
+              tool: health ? `OriginMarker ${health.version} (${health.release_codename})`
+                : 'OriginMarker',
+              started: startedAt,
+            }, {
+              now: new Date().toISOString(),
+              url: window.location.href,
+              agent: navigator.userAgent,
+            })], { type: 'text/plain;charset=utf-8' }),
+            `syngamy-runlog-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.txt`,
+          )}
         />
       )}
       <RunInformation
@@ -1272,74 +1267,6 @@ function LocusTest({ entries, donor, oocyte, log, onResult }: {
 
 /* --- log and run information ------------------------------------------------------------------ */
 
-function RunLog({ lines, tool, started }: {
-  lines: Line[]; tool: string; started: string | null
-}) {
-  const box = useRef<HTMLDivElement>(null)
-  const pinned = useRef(true)
-  // Set while this component is doing the scrolling, so its own assignment is not mistaken for
-  // the reader scrolling away. Without it the log stops following itself: `scrollTop = scrollHeight`
-  // fires onScroll, and the geometry read there lands mid-append often enough to compute a false
-  // "they have scrolled up", after which new lines arrive below the fold in silence.
-  const selfScroll = useRef(false)
-
-  // Layout effect, not effect: the scroll lands in the same frame the line is painted, so the
-  // log never shows the previous bottom for a frame before jumping.
-  useLayoutEffect(() => {
-    const el = box.current
-    if (!el || !pinned.current) return
-    selfScroll.current = true
-    el.scrollTop = el.scrollHeight
-    requestAnimationFrame(() => { selfScroll.current = false })
-  }, [lines])
-  return (
-    <Paper p="sm" mb={10}>
-      <Group justify="space-between" align="center" mb={4}>
-        <Text fw={600} size="xs" tt="uppercase" c="dimmed" style={{ letterSpacing: '0.04em' }}>
-          Run log
-        </Text>
-        <Button
-          variant="default" size="compact-xs" px={6}
-          aria-label="Download run log as a text file"
-          onClick={() => grab(
-            new Blob([syngamyLogText(lines, { tool, started }, {
-              now: new Date().toISOString(),
-              url: window.location.href,
-              agent: navigator.userAgent,
-            })], { type: 'text/plain;charset=utf-8' }),
-            `syngamy-runlog-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '')}.txt`,
-          )}
-        >
-          <span aria-hidden style={{ fontSize: 13, lineHeight: 1 }}>&#x2913;</span>
-        </Button>
-      </Group>
-      <div
-        ref={box} className="om-mono"
-        onScroll={() => {
-          if (selfScroll.current) return
-          const el = box.current
-          // 24px, not 4: sub-pixel scroll positions and a line arriving mid-measure both put the
-          // reader a few pixels off the exact bottom while they are plainly still at it.
-          if (el) pinned.current = el.scrollHeight - el.scrollTop - el.clientHeight < 24
-        }}
-        style={{
-          maxHeight: 220, overflowY: 'auto', padding: '4px 6px',
-          background: 'var(--om-zebra)', border: '1px solid var(--om-border)',
-          borderRadius: 2, fontSize: 11, lineHeight: 1.5, color: 'var(--om-text-dim)',
-        }}
-      >
-        {lines.map((l, i) => (
-          <div key={i} style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>
-            <span style={{ color: TAG_COLOR[l.tag], display: 'inline-block', width: '8ch' }}>
-              [{l.tag}]
-            </span>
-            {l.text}
-          </div>
-        ))}
-      </div>
-    </Paper>
-  )
-}
 
 /** What a citation needs and nothing else. The reasoning behind the numbers is in the PDF. */
 function RunInformation({ entries, startedAt, health, examples }: {

@@ -35,7 +35,14 @@
   --om-zebra: #fafbfc;
   --om-lower: #2e6da4;
   --om-higher: #a6572e;
+  /* The wash behind a warning block, tinted toward --om-higher the way --om-head-bg is toward
+     --om-blue. A token because the alternative is the hex appearing in one component's inline
+     style and nowhere else, which is how the next one drifts. */
+  --om-warn-bg: #fdf6f0;
   --om-text-dim: #6b727b;
+  /* The stack .om-mono uses, as a token, so inline styles get the same face. Numeric columns
+     need `font-variant-numeric: tabular-nums` with it or digits will not align. */
+  --om-mono: ui-monospace, SFMono-Regular, 'SF Mono', Menlo, Consolas, monospace;
   color-scheme: light;
 }
 
@@ -265,7 +272,10 @@ body {
   max-width: 68ch;
 }
 
-.om-docs-nav a {
+/* The section list only. Scoped to the ol because the nav also holds the mark links and the
+   buttons to the sibling documentation, and a bare `a` rule here painted those dim grey on
+   blue and stretched them to full width. */
+.om-docs-nav ol a {
   display: block;
   padding: 2px 0;
   font-size: 12px;
@@ -275,7 +285,7 @@ body {
   padding-left: 8px;
 }
 
-.om-docs-nav a:hover {
+.om-docs-nav ol a:hover {
   color: var(--om-blue);
   border-left-color: var(--om-border-strong);
 }

@@ -18,11 +18,16 @@ import { CarrierGenotypes } from './CarrierGenotypes'
 import type { GenotypeSet } from './genotypes'
 import { DocsPage } from './DocsPage'
 import { SyngamyDocsPage } from './SyngamyDocs'
+import { ProgenitorDocsPage } from './ProgenitorDocs'
 import { SyngamyPage } from './Syngamy'
+import { ProgenitorPage } from './Progenitor'
 import { TermsPage } from './TermsPage'
 import { Logo } from './Logo'
 
 type Phase = 'idle' | 'resolving' | 'resolved' | 'building' | 'done' | 'error'
+
+/** The content width every page shares. Prose blocks narrow themselves inside it. */
+const PAGE_WIDTH = 1180
 
 /** The current hash route. Hash, not path: the deployment has no server-side rewrite. */
 function useHashRoute(): string {
@@ -74,12 +79,15 @@ export default function App() {
 
   const route = useHashRoute()
   const atDocs = route.startsWith('#/docs')
+  const atProgDocs = route.startsWith('#/progenitor-docs')
+  const atProgenitor = route.startsWith('#/progenitor') && !atProgDocs
   const atSynDocs = route.startsWith('#/syngamy-docs')
   const atSyngamy = route.startsWith('#/syngamy') && !atSynDocs
   const atTerms = route.startsWith('#/terms')
   // Keyed on having no data, not on phase === 'idle': the hero must stay mounted while a
   // resolve is in flight, or the layout tears down mid-click.
-  const atHome = !atDocs && !atSynDocs && !atTerms && !atSyngamy && !resolved && !result
+  const atHome = !atDocs && !atSynDocs && !atProgDocs && !atTerms && !atSyngamy
+    && !atProgenitor && !resolved && !result
 
   const stopWatch = () => {
     esRef.current?.close()
@@ -312,9 +320,13 @@ export default function App() {
               <Button variant="subtle" size="xs" component="a" href="#/syngamy">
                 Syngamy
               </Button>
+              <Button variant="subtle" size="xs" component="a" href="#/progenitor">
+                Progenitor
+              </Button>
               <Button
                 variant="subtle" size="xs" component="a"
-                href={atSyngamy || atSynDocs ? '#/syngamy-docs' : '#/docs'}
+                href={atProgenitor || atProgDocs ? '#/progenitor-docs'
+                  : atSyngamy || atSynDocs ? '#/syngamy-docs' : '#/docs'}
               >
                 <span className="om-wide-only">Documentation</span>
                 <span className="om-narrow-only">Docs</span>
@@ -331,7 +343,9 @@ export default function App() {
         style={{
           flex: 1,
           padding: atHome ? 0 : 12,
-          maxWidth: atDocs || atSynDocs ? 1180 : atTerms ? 900 : atSyngamy ? 1180 : 1500,
+          // One content width for every route. Pages used to set their own on top of this and
+          // drifted to three: 1180, 1100 and 1000. Prose still sets its own measure inside.
+          maxWidth: atHome ? 1500 : PAGE_WIDTH,
           width: '100%',
           margin: '0 auto',
         }}
@@ -340,6 +354,10 @@ export default function App() {
           <DocsPage health={health} />
         ) : atSynDocs ? (
           <SyngamyDocsPage health={health} />
+        ) : atProgDocs ? (
+          <ProgenitorDocsPage health={health} />
+        ) : atProgenitor ? (
+          <ProgenitorPage />
         ) : atSyngamy ? (
           <SyngamyPage health={health} />
         ) : atTerms ? (
@@ -358,8 +376,9 @@ export default function App() {
                     the largest thing on screen, so the mark adds nothing and competes. */}
                 <Logo size="hero" mark={false} />
                 <Text size="sm" c="dimmed" mt={2} mb={22} ta="center" style={{ maxWidth: '52ch' }}>
-                  Candidate flanking-SNP marker panels for PGT-M linkage before an experiment,
-                  and parent of origin from SNP arrays after one.
+                  Candidate flanking-SNP marker panels for PGT-M linkage before an experiment.
+                  After one, parent of origin from SNP arrays, and a parental genotype
+                  reconstructed from haploid cells.
                 </Text>
                 <div style={{ width: '100%', maxWidth: 820 }}>
                   <SearchPanel
@@ -371,13 +390,18 @@ export default function App() {
                     hero
                   />
                 </div>
-                <Group gap={8} mt={18} justify="center">
+                {/* No separators between these. There are three now, and a standalone divider
+                    is its own flex item: at the width where the row wraps it stranded a bare
+                    pipe at the end of the first line. Spacing carries it instead. */}
+                <Group gap={22} mt={18} justify="center">
                   <Anchor href="#/docs" size="xs" c="dimmed">
                     How it works, data sources and references
                   </Anchor>
-                  <Text size="xs" c="dimmed" aria-hidden>|</Text>
                   <Anchor href="#/syngamy" size="xs" c="dimmed">
                     Syngamy: parent of origin from arrays
+                  </Anchor>
+                  <Anchor href="#/progenitor" size="xs" c="dimmed">
+                    Progenitor: a parent&rsquo;s genotype from haploid cells
                   </Anchor>
                 </Group>
               </div>

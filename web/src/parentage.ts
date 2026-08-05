@@ -256,7 +256,7 @@ export interface ParentageResult {
 export function classify(
   t: Tally,
   parentHeterozygosity: number,
-  opts: { role?: 'paternal' | 'maternal' } = {},
+  opts: { role?: 'paternal' | 'maternal'; spuriousAbsence?: number } = {},
 ): ParentageResult {
   const role = opts.role ?? 'paternal'
   const notes: string[] = []
@@ -270,7 +270,16 @@ export function classify(
   const hetBand = t.bafTotal ? t.bafInBand / t.bafTotal : NaN
   const gtHet = t.called ? t.het / t.called : NaN
   const hetFraction = Number.isFinite(hetBand) ? hetBand : gtHet
+  // A measured parental array contributes no absence of its own, so the ceiling is the sample's
+  // noise alone. A RECONSTRUCTED reference does: at a contaminated marker the parent is really
+  // heterozygous and a haploid product carries the other allele half the time, which reads as an
+  // opposite homozygote through no fault of the sample. That floor is known rather than guessed
+  // (`Reference.spuriousAbsence`), and leaving it out judges every true product against a ceiling
+  // roughly its own size, so true products read unclear. Diploid samples need no such term and
+  // pass nothing: their added absence carries a second factor of the maternal allele frequency,
+  // and the diploid path is calibrated to 3.37x against 3.35x on the real array without it.
   const explainable = absenceExplainable(noCallRate, hetFraction) + ABSENCE_ERROR_FLOOR
+    + (Number.isFinite(opts.spuriousAbsence ?? 0) ? opts.spuriousAbsence ?? 0 : 0)
   const nonParentalRate = t.nonParentalDen ? t.nonParental / t.nonParentalDen : NaN
   // The axis is DERIVED from the parent's own heterozygosity, so a parent showing none cannot
   // supply it. A genotype reconstructed from haploid meiotic products is homozygous everywhere

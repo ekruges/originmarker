@@ -5,41 +5,11 @@ import { PRIMER_SIZE_CAP, type Health } from './api'
 import {
   FIELD_KEYS, PRIMER_FIELDS, PRIMER_GROUPS, type FieldKey, type GroupKey,
 } from './PrimerOptions'
+import {
+  AvatarMark, DocsSiblingLinks, GithubMark, HOME_URL, REPO_URL, jumpToSection,
+} from './DocsShell'
 
-export const REPO_URL = 'https://github.com/ekruges/originmarker'
-export const HOME_URL = 'https://ezrakruger.cc/'
 const CONTACT = 'kruger.ezra.s@gmail.com'
-
-/** GitHub's mark, inlined. currentColor so one CSS rule drives its resting and hover grey. */
-export const GithubMark = () => (
-  <svg viewBox="0 0 16 16" width="17" height="17" fill="currentColor" aria-hidden focusable="false">
-    <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38
-      0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01
-      1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95
-      0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27
-      2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82
-      2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0
-      .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
-  </svg>
-)
-
-/** Person in a circle: the link home. Same 16-unit box and currentColor as the mark beside
- *  it, so one CSS rule greys both. The shoulders are clipped by the ring rather than drawn
- *  to meet it, which is what keeps the silhouette reading at 17px. */
-export const AvatarMark = () => (
-  <svg viewBox="0 0 16 16" width="17" height="17" aria-hidden focusable="false">
-    <defs>
-      <clipPath id="om-av-clip">
-        <circle cx="8" cy="8" r="7.25" />
-      </clipPath>
-    </defs>
-    <circle cx="8" cy="8" r="7.25" fill="none" stroke="currentColor" strokeWidth="1.5" />
-    <g clipPath="url(#om-av-clip)" fill="currentColor">
-      <circle cx="8" cy="6.1" r="2.6" />
-      <ellipse cx="8" cy="14.6" rx="4.7" ry="3.6" />
-    </g>
-  </svg>
-)
 
 // Numbering comes from CITATIONS key order, so inline markers and the reference list
 // cannot drift apart: there is one ordering, not two.
@@ -195,10 +165,7 @@ export function DocsPage({ health }: { health: Health | null }) {
     const jump = () => {
       const id = docSectionFromHash(window.location.hash)
       if (!id) return
-      // Wait a frame: on a cold deep-link the section may not be mounted yet.
-      requestAnimationFrame(() => {
-        document.getElementById(id)?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-      })
+      jumpToSection(id)
     }
     jump()
     window.addEventListener('hashchange', jump)
@@ -206,7 +173,7 @@ export function DocsPage({ health }: { health: Health | null }) {
   }, [])
 
   return (
-    <div className="om-docs-wrap" style={{ display: 'flex', gap: 24, maxWidth: 1100, margin: '0 auto', padding: 12, alignItems: 'flex-start' }}>
+    <div className="om-docs-wrap" style={{ display: 'flex', gap: 24, margin: '0 auto', padding: 12, alignItems: 'flex-start' }}>
       <nav
         className="om-docs-nav"
         aria-label="Documentation sections"
@@ -227,12 +194,6 @@ export function DocsPage({ health }: { health: Health | null }) {
         <Text size="xs" c="dimmed" mt={10} pl={8} className="om-mono">
           {build} · {gnomad} · Ensembl {ensembl}
         </Text>
-        <Text size="xs" c="dimmed" mt={10} pl={8}>
-          <Anchor href="#/syngamy-docs" size="xs">Syngamy documentation</Anchor>
-          {' '}covers the other half of this tool: reading parent of origin off arrays after an
-          experiment.
-        </Text>
-
         <div className="om-docs-links">
           <a href={REPO_URL} target="_blank" rel="noreferrer" aria-label="Source on GitHub" title="Source on GitHub">
             <GithubMark />
@@ -241,6 +202,12 @@ export function DocsPage({ health }: { health: Health | null }) {
             <AvatarMark />
           </a>
         </div>
+        <DocsSiblingLinks
+          siblings={[
+            { label: 'Syngamy documentation', href: '#/syngamy-docs' },
+            { label: 'Progenitor documentation', href: '#/progenitor-docs' },
+          ]}
+        />
       </nav>
 
       <article className="om-docs-body" style={{ flex: 1, minWidth: 0 }}>

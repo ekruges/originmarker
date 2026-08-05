@@ -31,6 +31,7 @@ MODULES = [
     "app.ispcr",
     "app.nl",
     "app.ldlink",
+    "tools.inferred_reference",
 ]
 
 
