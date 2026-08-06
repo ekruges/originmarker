@@ -9,6 +9,47 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.1.2
+
+The other half of the copy-number work was built, measured, and refused. This entry is the
+measurement, so nobody attempts it again from the same evidence.
+
+### Changed
+
+- **Attributing an extra chromosome to a parent is refused, on measurement rather than caution.**
+  The question was: a sample has two copies of a chromosome where it should have one, so whose is
+  the extra? Three mechanisms produce that, and they were constructed from real arrays rather than
+  simulated: a haploid paternal pronucleus as background, with one chromosome merged either with a
+  second pronucleus of the SAME father, which is two independent draws of his genome, or with a
+  maternal pronucleus, which is a different person.
+
+  The first mechanism, his one copy replicated, is invisible by construction: duplicating a
+  chromosome changes no genotype at any marker.
+
+  The other two were measured, self-normalised against the sample's own other chromosomes:
+
+      construction                    het at father-het    het at father-hom
+      nothing added, 88 observations  median 1.01 max 2.03  median 1.01 max 1.91
+      both his homologues             1.46 to 7.25          1.19 to 2.17
+      a chromosome from someone else  3.74 to 4.99          2.18 to 3.17
+
+  The null runs through the signal. A chromosome carrying nothing extra reaches 2.03 while the
+  weakest real second-genome construction reaches 1.46. And the two mechanisms that are both real
+  events separate by 2.17 against 2.18, half a percent. Neither call is available.
+
+  An earlier pass looked far more promising because the control range was taken from four
+  observations of one chromosome, 0.79 to 1.27. Measured properly across 88 chromosome
+  observations the null maximum is 2.03. The gap was in the sample size, not in the genome.
+
+- **Recorded alongside it**, from the independent review: even with clean separation the statistic
+  detects material that is NOT PATERNAL, never material that is MATERNAL. The true mother and an
+  unrelated adult are indistinguishable on it at matched array quality. Dispermy, a second sperm,
+  lab contamination, a swapped sample and a genuinely retained maternal chromosome all produce the
+  same signature, so the attribution would need the oocyte donor's own array to be a measurement
+  rather than an inference from an assumed pedigree.
+
+- The refusal appears in the segments documentation with its table, and in scope and limits.
+
 ## 3.1.1
 
 Chromosomal change is stated where a reader will see it, rather than left to be inferred from a

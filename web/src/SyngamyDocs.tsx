@@ -1199,6 +1199,68 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             scanned either. Its genotype calls are not measuring it, and the same broken calls
             would produce a confident segment inside it.
           </Text>
+
+          <Title order={3} mt={16} mb={4}>
+            Why there is no gain, and no parent attached to an extra chromosome
+          </Title>
+          <Text mb={8}>
+            The obvious next question is the opposite one: a sample has TWO copies of a chromosome
+            where it should have one, so which parent supplied the extra? That was built and
+            measured, and it is refused. The measurements are below because a refusal without one
+            is just a preference.
+          </Text>
+          <Text mb={8}>
+            Three mechanisms produce two copies in a nominally haploid sample: his one copy
+            replicated, both his homologues retained, or a chromosome from someone else kept. The
+            first is invisible by construction. Duplicating a chromosome changes no genotype at any
+            marker, so allelic evidence cannot see it at all, and the copy count itself needs
+            intensity.
+          </Text>
+          <Text mb={8}>
+            The other two were constructed from real arrays: a haploid paternal pronucleus as the
+            background, with one chromosome merged either with a second pronucleus of the SAME
+            father, which is two independent draws of his genome, or with a maternal pronucleus,
+            which is a different person. Heterozygosity at the father&rsquo;s heterozygous sites
+            says both his homologues are there; heterozygosity at his HOMOZYGOUS sites says the
+            extra material is not his, since he cannot supply a second allele where he has only
+            one. Each ratio is self-normalised against the sample&rsquo;s own other chromosomes.
+          </Text>
+          <Wide>
+            <Table striped withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Construction</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Het at father-het</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Het at father-hom</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                <NumRow c={['nothing added, 88 chromosome observations',
+                  'median 1.01, max 2.03', 'median 1.01, max 1.91']} plain />
+                <NumRow c={['his copy duplicated', 'no change at all', 'no change at all']} plain />
+                <NumRow c={['both his homologues', '1.46 to 7.25', '1.19 to 2.17']} plain />
+                <NumRow c={['a chromosome from someone else', '3.74 to 4.99', '2.18 to 3.17']} plain />
+              </Table.Tbody>
+            </Table>
+          </Wide>
+          <Text mb={8}>
+            The classes overlap the noise. A chromosome carrying no extra material at all reaches
+            2.03 on the statistic, while the weakest real second-genome construction reaches 1.46,
+            so the null runs straight through the signal. And the two mechanisms that ARE both real
+            events separate by 2.17 against 2.18, a margin of half a percent. Neither call is
+            available.
+          </Text>
+          <Text mb={8}>
+            One further limit sits behind all of that, and it would apply even with clean
+            separation. The statistic detects material that is <b>not paternal</b>. It does not
+            detect material that is <b>maternal</b>: measured against the true mother and against
+            an unrelated adult at matched array quality, the two are indistinguishable. Dispermy, a
+            second sperm, contamination from another man in the lab, a swapped sample and a
+            genuinely retained maternal chromosome all produce the same signature. So even where an
+            extra chromosome is detectable, calling it maternal is an inference from an assumed
+            pedigree rather than a measurement, and it would need the oocyte donor&rsquo;s own array
+            to become one.
+          </Text>
         </Section>
 
         <Section id="report" title="The report, and how to cite it">
@@ -1519,6 +1581,13 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             validated for clinical use and no result should inform a transfer decision.
           </Text>
           <List size="sm" spacing={6} mb={10}>
+            <List.Item>
+              <b>It does not call gains, and does not attach a parent to an extra chromosome.</b>{' '}
+              Copy number needs intensity, which whole-genome-amplified material cannot support
+              here, and the allelic route was measured and refused: the noise runs through the
+              signal, and the two mechanisms that are both real events separate by half a percent.
+              See <SecRef id="segments" /> for the measurements. Loss is reported; gain is not.
+            </List.Item>
             <List.Item>
               <b>It does not phase.</b> It reports which parent contributed, not which of that
               parent&apos;s two chromosomes. Phase requires an informative relative, reads long
