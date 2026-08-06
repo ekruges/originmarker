@@ -719,6 +719,23 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     8, 'Helvetica', 2.6)
     y -= 3
   }
+  if (results.some((f) => f.result!.zygosity === 'diploid')) {
+    text('Mosaicism was assessed from the continuous B-allele frequency rather than from the '
+      + 'genotype derived from it. A genotype call is a threshold on that ratio and the '
+      + 'heterozygous-to-homozygous boundary sits near 0.917, while a chromosome present in a '
+      + 'fraction f of cells has a ratio of 1/(2-f), which does not cross that boundary until f '
+      + 'is about 0.91; below that the call is unchanged and carries no information, so no number '
+      + "of markers helps. Each chromosome's mean deviation from 0.5 over its heterozygous sites "
+      + "was contrasted against the same sample's other chromosomes, in standard deviations, "
+      + 'because a globally shifted array would make any absolute measure read as mosaic while a '
+      + 'contrast cannot. Detection is reliable from about half the cells and partial from a '
+      + 'third. No mosaic FRACTION is reported: inverting the statistic is biased low by roughly '
+      + 'half, since the truncation that hides a mosaic from the genotype also removes the '
+      + 'most-shifted markers from the mean. The axis is withheld on a uniparental genome, which '
+      + 'is homozygous by construction and has no heterozygous sites for a mixture to shift.',
+    8, 'Helvetica', 2.6)
+    y -= 3
+  }
   const fired = [...new Set(results.flatMap((f) => f.result!.limits))]
   if (fired.length) {
     text('The following limits applied to this run and are reported rather than resolved: '
@@ -775,6 +792,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       'Empirical, and fitted rather than validated. Five genomes carrying no event reached a '
       + 'maximum of 139 over 110 chromosome scans; the weakest real event at the floor scores '
       + '431. Awaits an out-of-sample clean cohort.'],
+    ['Mosaic contrast', '8 standard deviations',
+      'Per chromosome, on the heterozygous allelic ratio against the same sample\'s other '
+      + 'chromosomes. Four bulk diploid arrays with no mosaic ran -1.65 to 5.18 over 88 '
+      + 'chromosome observations; a titrated mosaic reads 9.7 to 22.7 at a third of cells and '
+      + '11.7 to 48.5 at half. The genotype cannot see one below nine tenths at all.'],
     ['Allelic-ratio floor', '0.40 of BAFs outside 0.15-0.85',
       'Below this a chromosome mis-clustered and its genotypes are not measuring it. Correctly '
       + 'clustered chromosomes run 0.752 to 0.976; one reported ABSENT at 18.36% ran 0.130.'],

@@ -9,6 +9,23 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.2.1
+
+Documentation catching up with 3.2.0. The mosaic contrast shipped after the report's Methods and
+constants table were written, so it reached the PDF only as a limit and was not described or
+sourced there.
+
+### Added
+
+- A Methods paragraph for the mosaic scan in the report, and the mosaic contrast in the report's
+  constants table with the measurement behind it: four bulk diploid arrays with no mosaic ran
+  -1.65 to 5.18 over 88 chromosome observations, against 9.7 to 22.7 at a third of cells.
+
+### Changed
+
+- The README said Syngamy reports which parental genome is present and on which chromosomes. It
+  now reports which REGIONS within them too, and has since 3.1.0.
+
 ## 3.2.0
 
 The last two items in the review. A mosaic is now detected from the allelic ratio, and the

@@ -2,8 +2,9 @@
 
 Builds a ranked, downloadable menu of candidate flanking SNP markers around a pathogenic variant,
 for PGT-M linkage and karyomapping. Syngamy then reads SNP arrays after an experiment and reports
-which parental genome is present, and on which chromosomes. Progenitor reconstructs a parent's
-genotype from the haploid cells that parent produced, for when no array of the parent exists.
+which parental genome is present, on which chromosomes, and across which regions within them.
+Progenitor reconstructs a parent's genotype from the haploid cells that parent produced, for when
+no array of the parent exists.
 
 > **Research use only. Candidate markers require validation and per-family phasing in a
 > qualified genetics laboratory. Not a clinical diagnostic.**
