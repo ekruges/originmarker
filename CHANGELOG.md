@@ -9,6 +9,47 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.2.0
+
+The last two items in the review. A mosaic is now detected from the allelic ratio, and the
+segment scan exists in both implementations rather than one.
+
+### Added
+
+- **Mosaic detection, from the continuous allelic ratio rather than the genotype.** A genotype
+  call is a threshold on that ratio, the AB-against-BB boundary sits near 0.917, and a chromosome
+  present in a fraction f of cells has a true ratio of 1/(2-f), which does not cross that boundary
+  until f = 0.909. Below it the call never changes, so no number of markers helps. The ratio
+  itself is not thresholded and moves from the first percent.
+
+  Each chromosome's mean deviation from 0.5 over its heterozygous sites is contrasted against the
+  sample's OWN other chromosomes. That being internal is load-bearing: a degraded array has a
+  globally shifted ratio, so an absolute deviation measure calls the whole genome mosaic, and a
+  contrast cannot, because the shift sits in both terms.
+
+  Measured on four bulk diploid arrays with no mosaic anywhere, 88 chromosome observations, the
+  contrast runs -1.65 to 5.18. Titrated by shifting the observed ratio on one chromosome and
+  keeping each array's own noise:
+
+      fraction of cells   contrast, four arrays        detected
+          0.15             3.4   1.1   7.9   4.0        none
+          0.20             5.2   2.1  12.2   6.3        1 of 4
+          0.30             9.7   4.6  22.7  12.5        3 of 4
+          0.50            21.3  11.7  48.5  28.6        all 4
+
+  So the floor is half the cells for a reliable call and a third for a partial one, not the 0.20 an
+  earlier estimate suggested. Still far below the genotype route's structural floor of nine tenths.
+
+  NO FRACTION IS REPORTED, only that a mixture is present: inverting the statistic is biased low by
+  roughly half, because the truncation that hides a mosaic from the genotype also removes the
+  most-shifted markers from the mean. The axis is withheld entirely on a uniparental genome, which
+  is homozygous by construction and has no heterozygous sites for a mixture to shift.
+
+- **The segment scan now exists in Python as well**, pinned to the TypeScript by a self-check on
+  the same planted event: 9,600 markers, 48.0 Mb, rate 0.108, score 2244 in both. The two
+  implementations had diverged when the scan shipped in the browser only, and a divergence there is
+  invisible to a user, who runs one of them and never the other.
+
 ## 3.1.3
 
 The last three items from the independent review. One deletion and two refusals that had no

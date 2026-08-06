@@ -1227,11 +1227,49 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             fraction.
           </Text>
           <Text mb={8}>
-            What WOULD work, and is not built: the continuous B-allele frequency rather than the
-            genotype derived from it, as a per-chromosome contrast against the sample&rsquo;s own
-            other chromosomes. That reaches <i>f</i> = 0.20 whole-chromosome, a four to six fold
-            better floor, using data already in the files. It is a different evidence channel with
-            its own validation burden and is recorded here as available rather than claimed.
+            <b>What is read instead</b> is the continuous B-allele frequency, which is not
+            thresholded and moves from the first percent. Each chromosome&rsquo;s mean deviation
+            from 0.5 over its heterozygous sites is compared against the sample&rsquo;s own other
+            chromosomes, in standard deviations. The contrast being internal is load-bearing rather
+            than tidy: a degraded array has a globally shifted ratio, so any absolute deviation
+            measure calls the whole genome mosaic, and a contrast cannot, because the shift sits in
+            both terms.
+          </Text>
+          <Text mb={8}>
+            Measured on four bulk diploid arrays with no mosaic anywhere, 88 chromosome
+            observations, the contrast runs &minus;1.65 to 5.18. Titrating a mosaic loss onto one
+            chromosome of those same arrays, shifting the observed ratio and keeping each
+            array&rsquo;s own noise:
+          </Text>
+          <Wide>
+            <Table striped withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Fraction of cells</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Contrast, four arrays</Table.Th>
+                  <Table.Th>Detected</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                <NumRow c={['0.15', '3.4  1.1  7.9  4.0', 'none']} plain />
+                <NumRow c={['0.20', '5.2  2.1  12.2  6.3', '1 of 4']} plain />
+                <NumRow c={['0.30', '9.7  4.6  22.7  12.5', '3 of 4']} plain />
+                <NumRow c={['0.50', '21.3  11.7  48.5  28.6', 'all 4']} plain />
+              </Table.Tbody>
+            </Table>
+          </Wide>
+          <Text mb={8}>
+            So detection is reliable from about half the cells and partial from a third, against a
+            structural floor of nine tenths for the genotype route. Array quality dominates the
+            rest: the same fraction reads 33.8 on one array and 128.4 on another.
+          </Text>
+          <Text mb={8}>
+            <b>No fraction is reported</b>, only that a mixture is present. Inverting the statistic
+            to a fraction is biased low by roughly half, because the same truncation that hides a
+            mosaic from the genotype also removes the most-shifted markers from the mean. And the
+            axis is withheld entirely on a uniparental genome: that is homozygous by construction,
+            so it has no heterozygous sites for a mixture to shift, and any deviation there is
+            artefact.
           </Text>
 
           <Title order={3} mt={16} mb={4}>
@@ -1641,10 +1679,10 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           </Text>
           <List size="sm" spacing={6} mb={10}>
             <List.Item>
-              <b>It does not detect mosaicism, and does not date an aneuploidy to a meiotic
-              division.</b>{' '}
-              Mosaic detection from genotypes has a structural floor at 90% and adding markers does
-              not move it; the region around the centromere carries too few informative markers to
+              <b>It detects a mosaic only above about a third of cells, and does not date an
+              aneuploidy to a meiotic division.</b>{' '}
+              Detection reads the continuous allelic ratio, since the genotype has a structural
+              floor at 90% that adding markers does not move; no fraction is reported, and the region around the centromere carries too few informative markers to
               separate the two divisions, and on chromosome 9 it carries none at all. Both are in{' '}
               <SecRef id="segments" /> with their measurements.
             </List.Item>

@@ -137,6 +137,39 @@ export const UNIFORM_CV = 0.35
  */
 export const BAF_EXTREME_FLOOR = 0.40
 
+/**
+ * How far a chromosome's allelic ratio has to sit from the rest of the genome, in standard
+ * deviations, before a mosaic is reported.
+ *
+ * The GENOTYPE cannot see a mosaic at all below a fraction of about 0.91. A genotype call is a
+ * threshold on the allelic ratio, the AB-against-BB boundary sits near 0.917, and a chromosome
+ * present at fraction f has a true ratio of 1/(2-f), which does not cross that boundary until
+ * f = 0.909. Below it the call does not change and the marker carries nothing, so adding markers
+ * buys nothing against a structural floor. The ratio ITSELF is not thresholded and moves from the
+ * first percent, which is why this reads the ratio instead.
+ *
+ * The contrast is INTERNAL, against the sample's own other chromosomes, and that is load-bearing
+ * rather than tidy. A degraded array has a globally shifted ratio, so any absolute deviation
+ * measure calls the entire genome mosaic; a contrast cannot, because the shift sits in both terms.
+ *
+ * Measured on four bulk diploid arrays with no mosaic anywhere, 88 chromosome observations: z runs
+ * -1.65 to 5.18. Titrating a mosaic loss onto one chromosome of those same arrays, shifting the
+ * observed ratio and keeping each array's own noise:
+ *
+ *     fraction   z across the four arrays        detected at this threshold
+ *       0.15      3.4   1.1   7.9   4.0            0 of 4
+ *       0.20      5.2   2.1  12.2   6.3            1 of 4
+ *       0.30      9.7   4.6  22.7  12.5            3 of 4
+ *       0.50     21.3  11.7  48.5  28.6            4 of 4
+ *
+ * So the honest floor is 0.50 for a reliable call and 0.30 for a partial one, not the 0.20 an
+ * earlier estimate suggested. Array quality dominates: the same fraction reads 33.8 on one array
+ * and 128.4 on another. NO FRACTION IS REPORTED. Inverting the statistic to a fraction is biased
+ * low by roughly half, because the truncation that hides the mosaic from the genotype also removes
+ * the most-shifted markers from the mean.
+ */
+export const MOSAIC_Z = 8
+
 export type OriginClass = 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear'
 
 /** One line per class, so the card, the table and the PDF cannot describe a call differently. */
@@ -207,6 +240,10 @@ export interface Tally {
   /** Per chromosome: [B-allele frequencies at an extreme, B-allele frequencies read]. The
    *  mis-clustering check; see BAF_EXTREME_FLOOR. */
   bafByChrom: Map<string, [number, number]>
+  /** Per chromosome: [sum of |BAF - 0.5| over heterozygous calls, count]. The mosaic contrast;
+   *  see MOSAIC_Z. Heterozygous calls only, because a homozygous site sits at an extreme
+   *  already and its deviation says nothing about a mixture. */
+  hetDevByChrom: Map<string, [number, number]>
   /** chrY markers the sample called, and chrY markers the parent's file carries. A Y-bearing
    *  sperm is measured from these, never inferred from an absent X. */
   yCalled: number
@@ -218,6 +255,7 @@ export interface Tally {
 export const emptyTally = (): Tally => ({
   byChrom: new Map(), nonParental: 0, nonParentalDen: 0,
   called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, bafByChrom: new Map(),
+  hetDevByChrom: new Map(),
   yCalled: 0, yTotal: 0, build: null,
 })
 
@@ -243,6 +281,12 @@ export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
     b[1] += 1
     if (row.baf < 0.15 || row.baf > 0.85) b[0] += 1
     t.bafByChrom.set(row.chrom, b)
+    if (row.genotype === 'AB') {
+      const d = t.hetDevByChrom.get(row.chrom) ?? [0, 0]
+      d[0] += Math.abs(row.baf - 0.5)
+      d[1] += 1
+      t.hetDevByChrom.set(row.chrom, d)
+    }
   }
   if (row.genotype === 'NC') return
   t.called += 1
@@ -277,6 +321,9 @@ export interface ChromResult {
     | 'not_measured'
   /** Fraction of this chromosome's B-allele frequencies at an extreme. The mis-clustering check. */
   bafExtreme: number
+  /** How far this chromosome's heterozygous allelic ratio sits from the sample's own others, in
+   *  standard deviations. NaN unless the sample is diploid; see MOSAIC_Z. */
+  mosaicZ: number
   note?: string
 }
 
@@ -436,6 +483,23 @@ export function classify(
     originClass = 'unclear'
   }
 
+  // The mosaic contrast, per chromosome against the sample's own others. Only meaningful on a
+  // DIPLOID sample: a uniparental genome is homozygous by construction, so it has no heterozygous
+  // sites for a mixture to shift and any deviation there is artefact.
+  const hetDev = new Map<string, number>()
+  for (const [c, [sum, n]] of t.hetDevByChrom) {
+    if (isAutosome(c) && n >= 500) hetDev.set(c, sum / n)
+  }
+  const mosaicZ = new Map<string, number>()
+  if (zygosity === 'diploid' && hetDev.size >= 4) {
+    for (const [c, v] of hetDev) {
+      const others = [...hetDev].filter(([x]) => x !== c).map(([, y]) => y)
+      const mu = others.reduce((a, b) => a + b, 0) / others.length
+      const sd = Math.sqrt(others.reduce((a, b) => a + (b - mu) ** 2, 0) / (others.length - 1))
+      if (sd > 0) mosaicZ.set(c, (v - mu) / sd)
+    }
+  }
+
   const chroms: ChromResult[] = []
   let spermType: SpermType = 'unknown'
   const yBearing = t.yTotal > 0 && t.yCalled / t.yTotal > 0.5
@@ -465,6 +529,7 @@ export function classify(
       informative: n,
       absent: a,
       bafExtreme: extreme,
+      mosaicZ: mosaicZ.get(c) ?? NaN,
       verdict: !clustered ? 'not_measured'
         : expected ? 'expected_absent'
           : rate >= explainable * ABSENCE_MARGIN ? 'absent'
@@ -499,6 +564,21 @@ export function classify(
   // Neither present nor absent, and differing by the same amount on EVERY chromosome, is two
   // genomes blended rather than one genome missing pieces. A lost segment is patchy and leaves
   // the rest clean; a blend cannot be, since every chromosome carries both contributions.
+  const mosaicHits = chroms.filter((c) => c.mosaicZ >= MOSAIC_Z)
+  if (mosaicHits.length) {
+    limits.push(
+      `The allelic ratio on ${mosaicHits.map((c) => `chr${c.chrom}`).join(', ')} sits `
+      + `${mosaicHits.map((c) => c.mosaicZ.toFixed(1)).join(', ')} standard deviations from the `
+      + "rest of this genome, measured over heterozygous sites against the sample's own other "
+      + 'chromosomes. That is the signature of a MIXTURE OF CELL LINEAGES carrying different copy '
+      + 'numbers there, and the genotype calls cannot show it: a call is a threshold on that '
+      + 'ratio, and the threshold is not crossed until roughly 90% of cells are affected. No '
+      + 'fraction is reported, because inverting this statistic to one is biased low by about '
+      + 'half. Reliable detection begins near 50% of cells and is partial from 30%, so this is a '
+      + 'floor on what was seen rather than a measure of how much.',
+    )
+  }
+
   if (verdict === 'unclear' && Number.isFinite(dispersion) && dispersion < UNIFORM_CV
       && minChrom > explainable) {
     limits.push(

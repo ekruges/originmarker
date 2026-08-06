@@ -1381,6 +1381,106 @@ def absence_explainable(no_call_rate: float, het_fraction: float) -> float:
 BAF_EXTREME_FLOOR = 0.40
 
 
+#: Smallest segment that can be called, in CALLED informative markers. Mirrors
+#: web/src/segments.ts. Titrated on real spliced genomes: at 1,200 markers the weakest
+#: construction scores 1.09x the null maximum, which is not a detection; at 2,400 it scores 3.1x.
+MIN_SEGMENT_MARKERS = 2_400
+
+#: Absence rate below which a chromosome contributes nothing to the external null. A genuinely
+#: clean genome has per-chromosome rates near zero and a median of those would make every window
+#: look catastrophic. This is the residual absence genotyping error alone produces.
+SEGMENT_NULL_FLOOR = 0.002
+
+#: Log-likelihood ratio a segment must clear. Empirical and FITTED rather than validated: five
+#: genomes carrying no event reached a maximum of 139 over 110 chromosome scans, and the weakest
+#: real event at the marker floor scores 431. Awaits an out-of-sample clean cohort.
+SEGMENT_LRT = 250
+
+
+@dataclass
+class Segment:
+    """A region within one chromosome where the parental genome is missing."""
+
+    chrom: str
+    markers: int
+    absent: int
+    rate: float
+    start_bp: int
+    end_bp: int
+    span_bp: int
+    score: float
+    null_rate: float
+
+
+def _seg_loglike(k: int, n: int, p: float) -> float:
+    if p <= 0:
+        return -math.inf if k > 0 else 0.0
+    if p >= 1:
+        return -math.inf if k < n else 0.0
+    return k * math.log(p) + (n - k) * math.log1p(-p)
+
+
+def external_null(per: dict[str, list[int]], exclude: str) -> float:
+    """Median per-chromosome absence rate over every chromosome EXCEPT the one being scanned.
+
+    Excluding the chromosome under test is what stops a whole-chromosome event from raising the
+    bar it has to clear; taking a median rather than a mean is what stops several from doing it
+    collectively. Mirrors `externalNull` in web/src/segments.ts.
+    """
+    rates = sorted(a / n for c, (n, a) in per.items()
+                   if c != exclude and _is_autosome(c) and n >= 200)
+    if not rates:
+        return SEGMENT_NULL_FLOOR
+    m = len(rates) // 2
+    med = rates[m] if len(rates) % 2 else (rates[m - 1] + rates[m]) / 2
+    return max(med, SEGMENT_NULL_FLOOR)
+
+
+def scan_chromosome(markers, null_rate: float, min_markers: int = MIN_SEGMENT_MARKERS,
+                    threshold: float = SEGMENT_LRT) -> list[Segment]:
+    """Segments within one chromosome, as (pos, absent) pairs. Mirrors `scanChromosome`.
+
+    Multiscale, because an event has no reason to match one window size. Overlapping hits are
+    PEAK-PICKED rather than merged: a whole-chromosome window carrying a diluted version of the
+    same event overlaps the tight one, and unioning them reported a 12 Mb loss as spanning 231 Mb.
+    """
+    # (position, absent, chrom) triples, in position order, since the runs are physical.
+    ms = sorted(markers)
+    n = len(ms)
+    if n < min_markers:
+        return []
+    cum = [0] * (n + 1)
+    for i, m in enumerate(ms):
+        cum[i + 1] = cum[i] + (1 if m[1] else 0)
+
+    hits: list[Segment] = []
+    w = min_markers
+    while w <= n:
+        step = max(1, w // 4)
+        for i in range(0, n - w + 1, step):
+            k = cum[i + w] - cum[i]
+            rate = k / w
+            # Only a RAISED rate is an event; a window cleaner than the genome is not a finding.
+            if rate <= null_rate:
+                continue
+            score = _seg_loglike(k, w, rate) - _seg_loglike(k, w, null_rate)
+            if score < threshold:
+                continue
+            hits.append(Segment(ms[i][2], w, k, rate,
+                                ms[i][0], ms[i + w - 1][0],
+                                ms[i + w - 1][0] - ms[i][0], score, null_rate))
+        w *= 2
+    if not hits:
+        return []
+    hits.sort(key=lambda h: -h.score)
+    picked: list[Segment] = []
+    for h in hits:
+        if any(h.start_bp <= p.end_bp and h.end_bp >= p.start_bp for p in picked):
+            continue
+        picked.append(h)
+    return sorted(picked, key=lambda h: h.start_bp)
+
+
 @dataclass
 class ChromOrigin:
     chrom: str
@@ -2242,6 +2342,26 @@ def _self_check() -> int:
     assert w.segment_state == "PAT0_MAT1", w.segment_state
     assert w.run_p < 1e-20, w.run_p
     assert any("phase source" in r for r in v.refusals), v.refusals
+
+    # The segment scan, pinned against the TypeScript it mirrors. Same planted event, same
+    # numbers: 9,600 markers, 48.0 Mb, rate 0.108, score 2244. A divergence here would be
+    # invisible to a user, who only ever runs one of the two.
+    seg_ms = [(1_000_000 + i * 5000,
+               (5000 <= i < 15000 and (i * 7919) % 1000 < 110) or ((i * 7919) % 1000 < 5),
+               "13") for i in range(40_000)]
+    segs = scan_chromosome(seg_ms, 0.005)
+    assert len(segs) == 1, segs
+    assert segs[0].markers == 9600 and segs[0].absent == 1035, segs[0]
+    assert abs(segs[0].span_bp / 1e6 - 48.0) < 0.05, segs[0].span_bp
+    assert abs(segs[0].score - 2244) < 1.0, segs[0].score
+    # A chromosome at the null rate carries nothing, and one under the floor is not scanned.
+    assert scan_chromosome([(1_000_000 + i * 5000, (i * 7919) % 1000 < 5, "13")
+                            for i in range(40_000)], 0.005) == []
+    assert scan_chromosome([(i, True, "13") for i in range(2_000)], 0.005) == []
+    # Excluding the chromosome under test is what stops one event raising its own bar.
+    _two = {"1": [50_000, 250], "2": [50_000, 25_000], "3": [50_000, 25_000]}
+    assert external_null(_two, "2") < external_null(_two, "9") / 1.9
+    assert external_null({}, "9") == SEGMENT_NULL_FLOOR
     assert run_length_p(10, 10, KOTHIYAL_FLOOR) > 0, "the run form must not underflow to zero"
     assert score_paternal("AA", "AB", "AB") is None, "presence needs a mother who cannot supply"
     assert estimate_dropout({"r": "AB"}, {"r": "AA"}, {"r": "AB"})[0] == 0.0

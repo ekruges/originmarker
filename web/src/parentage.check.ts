@@ -9,7 +9,8 @@ import { createGunzip } from 'node:zlib'
 import { createInterface } from 'node:readline'
 import { headerMap, parseRow, type ProbeRow } from './ingest.ts'
 import {
-  ABSENCE_MARGIN, BAF_EXTREME_FLOOR, absenceExplainable, agreement, classify, emptyTally,
+  ABSENCE_MARGIN, BAF_EXTREME_FLOOR, MOSAIC_Z, absenceExplainable, agreement, classify,
+  emptyTally,
   HET_BAND_DIPLOID,
   isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
 } from './parentage.ts'
@@ -443,4 +444,63 @@ console.log('parentage.check.ts OK')
   assert.equal(BAF_EXTREME_FLOOR, 0.40)
   assert.ok(BAF_EXTREME_FLOOR > 0.130 * 2, 'clear of the mis-clustered chromosome')
   assert.ok(BAF_EXTREME_FLOOR < 0.752 / 1.8, 'and clear of the worst correctly clustered one')
+}
+
+// --- 18. a mosaic is seen in the allelic ratio, where the genotype structurally cannot ----------
+//
+// A genotype call is a threshold on that ratio. The AB-against-BB boundary sits near 0.917 and a
+// chromosome at mosaic fraction f has a true ratio of 1/(2-f), which does not cross it until
+// f = 0.909, so below that the CALL never changes and more markers buy nothing. The ratio itself
+// is not thresholded. Measured on four bulk diploid arrays, 88 chromosome observations with no
+// mosaic anywhere, z runs -1.65 to 5.18; a mosaic titrated onto one of their chromosomes reads
+// 9.7/4.6/22.7/12.5 at f=0.30 and 21.3/11.7/48.5/28.6 at f=0.50.
+{
+  // A diploid genome: heterozygous everywhere, ratios at 0.5 with real spread.
+  const build = (mosaicChrom: string | null, f: number) => {
+    const t = emptyTally()
+    for (let c = 1; c <= 12; c += 1) {
+      for (let i = 0; i < 1_000; i += 1) {
+        const s = (i * 7919) % 1000
+        // Spread about 0.5, and a small per-chromosome offset. Without the offset every
+        // chromosome has an identical mean, the standard deviation of the others is exactly zero
+        // and the contrast is undefined: the statistic correctly returns NaN, and the fixture
+        // rather than the code was wrong. Real chromosomes differ.
+        const noise = ((s % 21) - 10) / 200 + ((c * 37) % 11) / 4_000
+        const shift = String(c) === mosaicChrom ? ((i % 2 ? 1 : -1) * (1 / (2 - f) - 0.5)) : 0
+        const baf = Math.min(1, Math.max(0, 0.5 + noise + shift))
+        tallyRow('AA', row(String(c), 1000 + i * 1000, 'AB', baf), t)
+      }
+    }
+    return classify(t, 0.17)
+  }
+
+  const clean = build(null, 0)
+  assert.equal(clean.zygosity, 'diploid', 'the fixture has to be diploid for this to run at all')
+  const worst = Math.max(...clean.chroms.map((c) => c.mosaicZ).filter(Number.isFinite))
+  assert.ok(worst < MOSAIC_Z, `a genome with no mosaic must not report one: worst z ${worst}`)
+  assert.ok(!clean.limits.some((l) => l.includes('MIXTURE OF CELL LINEAGES')))
+
+  const half = build('7', 0.5)
+  const hit = half.chroms.find((c) => c.chrom === '7')!
+  assert.ok(hit.mosaicZ >= MOSAIC_Z, `a 50% mosaic must be seen: z ${hit.mosaicZ}`)
+  assert.ok(half.limits.some((l) => l.includes('MIXTURE OF CELL LINEAGES') && l.includes('chr7')),
+    'and it must be reported, naming the chromosome')
+  // No fraction is claimed anywhere, because inverting this statistic is biased low by half.
+  assert.ok(half.limits.some((l) => l.includes('No fraction is reported')))
+
+  // Stronger mosaic, stronger signal. A statistic that saturated would hide the severe case.
+  assert.ok(build('7', 0.9).chroms.find((c) => c.chrom === '7')!.mosaicZ > hit.mosaicZ)
+
+  // A UNIPARENTAL genome is homozygous by construction, so it has no heterozygous sites for a
+  // mixture to shift and any deviation there is artefact. The axis is withheld, not guessed.
+  const hap = emptyTally()
+  for (let c = 1; c <= 12; c += 1) {
+    for (let i = 0; i < 1_000; i += 1) {
+      tallyRow('AA', row(String(c), 1000 + i * 1000, 'AA', i % 2 ? 0.02 : 0.98), hap)
+    }
+  }
+  const uni = classify(hap, 0.17)
+  assert.notEqual(uni.zygosity, 'diploid')
+  assert.ok(uni.chroms.every((c) => Number.isNaN(c.mosaicZ)),
+    'a uniparental genome has no heterozygous sites, so no mosaic contrast exists')
 }
