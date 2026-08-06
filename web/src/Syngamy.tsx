@@ -13,7 +13,8 @@ import {
   type ChromResult, type PairResult, type ParentageResult,
 } from './parentage'
 import {
-  scanChromosome, externalNull, MIN_SEGMENT_MARKERS, SEGMENT_LRT, type MarkerAbsence,
+  scanChromosome, externalNull, MIN_SEGMENT_MARKERS, SEGMENT_LRT,
+  type MarkerAbsence, type Segment,
 } from './segments'
 import type { Health } from './api'
 import { int, utc } from './fmt'
@@ -689,6 +690,11 @@ function ResultCard({ entry, donorName, oocyteName }: {
           <Badge size="sm" variant="outline" color="genomeGrey">
             {r.zygosity.replace(/_/g, ' ')}
           </Badge>
+          {r.segments.length > 0 && (
+            <Badge size="sm" variant="filled" color="orange">
+              {r.segments.length} chromosomal change{r.segments.length === 1 ? '' : 's'}
+            </Badge>
+          )}
           {m && (
             <Badge size="sm" variant="light" color="genomeBlue">both parents measured</Badge>
           )}
@@ -710,6 +716,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
       </div>
       {open && (
         <div style={{ padding: '2px 16px 14px' }}>
+          <SegmentCallout segments={r.segments} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">
               {entry.paired.notes.map((n) => <Text key={n} size="xs" mb={3}>{n}</Text>)}
@@ -942,6 +949,54 @@ function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate
         </Table>
       </Scroll>
     </>
+  )
+}
+
+/**
+ * Chromosomal change, said once and prominently, at the top of the detail.
+ *
+ * A partly lost chromosome is the finding a reader is least likely to go looking for and most
+ * likely to need: the whole-chromosome verdict for it is "unclear", which reads like an absence
+ * of information rather than a located event. So this states it before anything else in the
+ * detail, in the same visual language the tool uses for a warning, and the table below it carries
+ * the numbers rather than replacing the sentence.
+ */
+function SegmentCallout({ segments }: { segments: Segment[] }) {
+  if (!segments.length) return null
+  const mb = (x: number): string => `${(x / 1e6).toFixed(1)} Mb`
+  const total = segments.reduce((a, sg) => a + sg.spanBp, 0)
+  const chroms = [...new Set(segments.map((sg) => `chr${sg.chrom}`))]
+  return (
+    <div style={{
+      border: '1px solid var(--om-higher)', borderLeft: '4px solid var(--om-higher)',
+      background: 'var(--om-warn-bg)', padding: '11px 14px', margin: '10px 0 4px',
+    }}
+    >
+      <Text style={{ fontSize: 15, fontWeight: 700, color: 'var(--om-higher)', lineHeight: 1.25 }}>
+        Chromosomal change on {chroms.join(', ')}
+      </Text>
+      <Text size="sm" mt={3} style={{ maxWidth: 760, lineHeight: 1.5 }}>
+        The paternal genome is missing across{' '}
+        {segments.length === 1 ? 'one region' : `${segments.length} regions`} totalling {mb(total)},
+        at a rate the rest of this genome does not reach. The whole-chromosome verdict cannot show
+        this: a chromosome that is partly lost reads as neither present nor absent.
+      </Text>
+      <div style={{ marginTop: 7, display: 'grid', gap: 3 }}>
+        {segments.map((sg) => (
+          <Text key={`${sg.chrom}:${sg.startBp}`} size="xs" ff="monospace">
+            chr{sg.chrom}&nbsp;{int(sg.startBp)}&ndash;{int(sg.endBp)}
+            {'  '}&middot;{'  '}{mb(sg.spanBp)}
+            {'  '}&middot;{'  '}{pct(sg.rate, 1)} absent against {pct(sg.nullRate, 1)}
+          </Text>
+        ))}
+      </div>
+      <Text size="xs" c="dimmed" mt={6} style={{ maxWidth: 760, lineHeight: 1.5 }}>
+        This is a LOSS of the paternal contribution over that region. It does not say whether the
+        chromosome is physically deleted or present in two copies from one parent, which needs
+        intensity and is not reported on this platform. Nor is it a gain: gains are not called here
+        at all.
+      </Text>
+    </div>
   )
 }
 

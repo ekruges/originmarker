@@ -53,6 +53,7 @@ const SECTIONS: DocSection[] = [
   { id: 'gates', label: 'Quality gates' },
   { id: 'assembly', label: 'Assembly detection, and no liftOver' },
   { id: 'chrom', label: 'Per-chromosome and segmental results' },
+  { id: 'segments', label: 'Chromosomal change: segments' },
   { id: 'report', label: 'The report, and how to cite it' },
   { id: 'examples', label: 'The bundled example data' },
   { id: 'backend', label: 'What the backend adds' },
@@ -1104,6 +1105,102 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         </Section>
 
         {/* --- 18 ------------------------------------------------------------------------ */}
+        <Section id="segments" title="Chromosomal change: segments">
+          <Text mb={8}>
+            A chromosome that is only PARTLY lost is the case the per-chromosome verdict cannot
+            report. Its absence rate is the average of a missing region and a present one, so it
+            lands between the two references and the chromosome comes back <b>unclear</b>. That
+            reads as an absence of information when it is in fact a located event, and a reader
+            skimming a table of chromosomes has no reason to look further. So segments are scanned
+            for separately and stated at the top of the sample, in the same visual language as a
+            warning, before the tables that carry the numbers.
+          </Text>
+          <Text mb={8}>
+            <b>What is reported.</b> Each region carries its chromosome and coordinates, its
+            physical span, the number of called informative markers inside it, the local absence
+            rate, the rate it was scored against, and its score. It is a <b>loss of the paternal
+            contribution</b> over that region. It is not a statement about physical copy number:
+            whether the chromosome is deleted or present in two copies from one parent needs
+            intensity, which this platform cannot support. And it is not a gain. Gains are not
+            called here at all, in either channel.
+          </Text>
+          <Title order={3} mt={14} mb={4}>The null is external, and that is the whole design</Title>
+          <Text mb={8}>
+            Each window is scored against the median per-chromosome absence rate of that
+            sample&rsquo;s OTHER chromosomes, floored at 0.2%. Scoring against the sample&rsquo;s
+            own genome-wide rate fails exactly where it matters: a large event inflates the rate it
+            is being tested against, so the biggest losses score lowest. Taking a median rather
+            than a mean is what stops several events from doing it collectively, and excluding the
+            chromosome under test is what stops one from doing it alone.
+          </Text>
+          <Text mb={8}>
+            A consequence worth stating: a genome where EVERY chromosome is replaced produces no
+            segments, because there is nothing clean to form a null from. That is correct rather
+            than a gap. A wholly non-paternal genome is what the genome-wide verdict is for, and it
+            calls it.
+          </Text>
+          <Title order={3} mt={14} mb={4}>The threshold is empirical, never a closed-form tail</Title>
+          <Text mb={8}>
+            A Bonferroni-corrected exact binomial and an Erdos-Renyi run-length scan both fail
+            here, for the same reason the per-locus p-value did: absence artefact on amplified
+            material is spatially clustered, and a tail computed under independence reports
+            artefact as significant. Measured on this platform, runs of two occur 6 to 10 times
+            more often than independence predicts on single cells and about twice as often on bulk.
+          </Text>
+          <Text mb={8}>
+            So the threshold comes from genomes known to carry nothing. Five paternal pronuclei of
+            the sperm donor, each a meiotic product of his and so present on every autosome, reach
+            a maximum score of 139 over 110 chromosome scans. The calling threshold is 250.
+            <b> False segments on those genomes: 0 of 110.</b> That threshold is fitted on the same
+            null it is evaluated against, so it awaits an out-of-sample clean cohort, and the score
+            is printed beside every segment so a marginal call reads as marginal.
+          </Text>
+          <Title order={3} mt={14} mb={4}>The floor, and why a marker count is not a resolution</Title>
+          <Text mb={8}>
+            Titrated on real material rather than simulated noise: a block of a maternal
+            pronucleus spliced into a clean paternal one of the same series, so the segment is a
+            genuine alternative genome carrying real amplification artefact. Twelve constructions
+            per size, four backgrounds by three donors.
+          </Text>
+          <Wide>
+            <Table striped withTableBorder>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th>Spliced markers</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Score</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }}>Against null max 139</Table.Th>
+                  <Table.Th>Called</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>
+                <NumRow c={['1,200', '152 to 197', '1.09x', 'no']} plain />
+                <NumRow c={['2,400', '431 to 556', '3.1x', 'yes']} plain />
+                <NumRow c={['4,800', '968 to 1319', '7.0x', 'yes']} plain />
+                <NumRow c={['9,600', '1807 to 2450', '13x', 'yes']} plain />
+                <NumRow c={['19,200', '3489 to 4582', '25x', 'yes']} plain />
+              </Table.Tbody>
+            </Table>
+          </Wide>
+          <Text mb={8}>
+            The floor is 2,400 called informative markers, where separation becomes real rather
+            than merely nonzero. The previous 200-marker floor was not a weak test, it was no test
+            at all.
+          </Text>
+          <Text mb={8}>
+            <b>The span is the resolution, not the event.</b> Marker spacing on this array runs
+            from about 1 bp to 21 kb, so a fixed window of 2,400 markers covers anywhere from a
+            few hundred kilobases to tens of megabases depending where it falls. A real event
+            smaller than the window that found it is reported at the size of that window. Both
+            numbers travel with every segment for that reason, and only one of them is a
+            resolution.
+          </Text>
+          <Text mb={8}>
+            A chromosome withheld by the allelic-ratio gate of <SecRef id="gates" /> is not
+            scanned either. Its genotype calls are not measuring it, and the same broken calls
+            would produce a confident segment inside it.
+          </Text>
+        </Section>
+
         <Section id="report" title="The report, and how to cite it">
           <Text mb={8}>
             <b>Report (PDF)</b> writes the whole run out as a paginated document intended for a

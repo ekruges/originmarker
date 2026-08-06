@@ -9,6 +9,36 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.1.1
+
+Chromosomal change is stated where a reader will see it, rather than left to be inferred from a
+table of chromosomes.
+
+### Changed
+
+- **A segmental loss now announces itself.** It was reported only in a table below the fold, which
+  is the wrong place for it: the whole-chromosome verdict for a partly lost chromosome is
+  "unclear", and that reads as an absence of information rather than a located event, so a reader
+  skimming the result has no reason to look further.
+
+  It now appears three times over. As a filled badge in the sample headline beside the sperm type
+  and the zygosity, so it is visible without opening anything. As a bordered callout at the top of
+  the detail, naming the chromosomes, the total span and each region's coordinates and rate. And
+  as a banded block in the report PDF directly under the sample's class, before the axis numbers.
+
+  Each says the same three things: the paternal genome is missing over these regions, the
+  whole-chromosome verdict cannot show it, and it is a LOSS rather than a statement about physical
+  copy number or a gain, since gains are not called on this platform in either channel.
+
+### Added
+
+- **A Methods paragraph for the scan** in the report, and the segment floor, the segment threshold
+  and the allelic-ratio floor in the report's constants table, each with the measurement behind it.
+
+- **A documentation section** covering why the null is external, why the threshold is empirical
+  rather than a closed-form tail, the titration that set the 2,400-marker floor, and why a marker
+  count is not a resolution on an array whose spacing runs from 1 bp to 21 kb.
+
 ## 3.1.0
 
 Syngamy now reports WHERE along a chromosome the paternal genome is missing, not only whether a

@@ -397,6 +397,29 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     pdf.setFillColor(INK)
     y -= bar + 5
 
+    if (r.segments.length) {
+      // A banded callout rather than a line of text: a partly lost chromosome reads as "unclear"
+      // in the whole-chromosome table, which looks like missing information rather than a located
+      // event, and a reader skimming the report will not go looking for it.
+      const chroms = [...new Set(r.segments.map((sg) => `chr${sg.chrom}`))].join(', ')
+      const total = r.segments.reduce((a, sg) => a + sg.spanBp, 0)
+      need(20)
+      pdf.setFillColor(WARN)
+      pdf.rect(L, y - 15, 3, 15, true)
+      pdf.setFillColor(INK)
+      pdf.setFont('Helvetica-Bold', 9.5)
+      pdf.drawString(L + 8, y - 11, `Chromosomal change on ${chroms}`)
+      y -= 17
+      text(`The paternal genome is missing across ${r.segments.length === 1 ? 'one region'
+        : `${r.segments.length} regions`} totalling ${(total / 1e6).toFixed(1)} Mb, at a rate the `
+        + 'rest of this genome does not reach. The whole-chromosome verdict cannot show this: a '
+        + 'chromosome that is partly lost reads as neither present nor absent. This is a LOSS of '
+        + 'the paternal contribution over that region, not a statement about physical copy '
+        + 'number, and not a gain: gains are not called on this platform at all. The regions are '
+        + 'listed in full below.', 7.6, 'Helvetica', 2.6, INK, L + 8)
+      y -= 2
+    }
+
     text(`${m ? 'paternal ' : ''}absent ${pct(r.genomeRate)}  |  ceiling `
       + `${pct(r.explainable)}  |  ${times(r.genomeRate, r.explainable)}  |  `
       + `${int(r.informative)} informative markers  |  zygosity ${r.zygosity.replace(/_/g, ' ')}`
@@ -679,6 +702,23 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       + 'spurious-violation rate. Results are reported above.', 8, 'Helvetica', 2.6)
   }
   y -= 3
+  const anySeg = results.some((f) => f.result!.segments.length)
+  if (anySeg) {
+    text('Segmental loss was scanned for within each chromosome, because a chromosome that is '
+      + 'only partly lost reads as neither present nor absent and its whole-chromosome verdict '
+      + 'is therefore uninformative. A multiscale likelihood-ratio scan over windows of at least '
+      + '2,400 called informative markers was scored against a robust external null, the median '
+      + "per-chromosome absence rate of that sample's OTHER chromosomes, so that one event cannot "
+      + 'inflate the rate it is tested against. The calling threshold is empirical rather than a '
+      + 'closed-form tail: absence artefact on amplified material is spatially clustered, so a '
+      + 'tail computed under independence reports artefact as significant. It was set at 250 '
+      + 'against a maximum of 139 reached by five genomes known to carry no event over 110 '
+      + 'chromosome scans, and the weakest real event at the marker floor scores 431. A '
+      + 'chromosome withheld by the allelic-ratio gate is not scanned. Reported spans are the '
+      + 'resolution of the window that found the event, not the extent of the event itself.',
+    8, 'Helvetica', 2.6)
+    y -= 3
+  }
   const fired = [...new Set(results.flatMap((f) => f.result!.limits))]
   if (fired.length) {
     text('The following limits applied to this run and are reported rather than resolved: '
@@ -727,6 +767,17 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ['Diploid heterozygous BAF band', '0.08 of markers in 0.35-0.65',
       'Measured at 15-16% for diploid genomes and 1.3-3.4% for uniparental ones. Dropout does '
       + 'not mimic this: a biparental embryo at 33% dropout still reads 22.2%.'],
+    ['Segment floor', '2,400 called informative markers',
+      'Titrated on real spliced genomes. At 1,200 markers the weakest construction scores 1.09x '
+      + 'the null maximum, which is not a detection; at 2,400 it scores 3.1x. A marker count is '
+      + 'not a resolution: array spacing runs from 1 bp to 21 kb.'],
+    ['Segment threshold', '250 log-likelihood ratio',
+      'Empirical, and fitted rather than validated. Five genomes carrying no event reached a '
+      + 'maximum of 139 over 110 chromosome scans; the weakest real event at the floor scores '
+      + '431. Awaits an out-of-sample clean cohort.'],
+    ['Allelic-ratio floor', '0.40 of BAFs outside 0.15-0.85',
+      'Below this a chromosome mis-clustered and its genotypes are not measuring it. Correctly '
+      + 'clustered chromosomes run 0.752 to 0.976; one reported ABSENT at 18.36% ran 0.130.'],
     ['Per-chromosome minimum', '200 informative markers',
       'Below this a chromosome is not reported: the rate is too noisy to place against the '
       + 'ceiling.'],
