@@ -417,7 +417,6 @@ def reconcile(
 Hypothesis = Literal[
     "H1_paternal_wt_inherited",
     "H2_repaired",
-    "H2_with_local_artefact",
     "H3_paternal_segment_absent",
     "H3_paternal_chromosome_absent",
     "insufficient_evidence",
@@ -461,8 +460,6 @@ def hypotheses_at(
         if s.name in _ABSENT:
             key = ("H3_paternal_chromosome_absent" if whole_chromosome_absent
                    else "H3_paternal_segment_absent")
-        elif s.insertion:
-            key = "H2_with_local_artefact"
         elif s.name == "PAT1_MAT1":
             # Present at one copy. Whether that is H1 or H2 turns on which homologue came
             # through, which this layer cannot see; `scaffold` answers it.

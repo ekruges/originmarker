@@ -67,16 +67,20 @@ class CopyState:
     name: str
     n_pat: int
     n_mat: int
-    #: An insertion at the cut site leaves copy number nominal, so it is flagged rather than
-    #: encoded in the counts. Array data cannot see it at all; this state exists so the
-    #: mechanism ledger can say "not tested" instead of "excluded".
-    insertion: bool = False
 
     @property
     def cn(self) -> int:
         return self.n_pat + self.n_mat
 
 
+#: An insertion is deliberately NOT here. It was, as PAT1_MAT1_INS, on the reasoning that a state
+#: was needed for the mechanism ledger to say "not tested" rather than "excluded". The ledger does
+#: not read the state space: its H3f entry is built from whether reads and a construct sequence
+#: were supplied, so the state bought nothing and cost something. An insertion adds no probeset and
+#: alters no genotype at any of the 825,656 fixed markers, so its emissions were bit-identical to
+#: PAT1_MAT1 in both channels, and two states with identical emissions split the posterior between
+#: them: PAT1_MAT1 was reported at roughly half its true probability wherever the prior allowed
+#: the insertion state. Junction PCR or sequencing answers the question; an array cannot.
 STATES: tuple[CopyState, ...] = (
     CopyState("PAT1_MAT1", 1, 1),
     CopyState("PAT0_MAT1", 0, 1),
@@ -87,7 +91,6 @@ STATES: tuple[CopyState, ...] = (
     CopyState("PAT1_MAT2", 1, 2),
     CopyState("PAT2_MAT2", 2, 2),
     CopyState("PAT0_MAT0", 0, 0),
-    CopyState("PAT1_MAT1_INS", 1, 1, insertion=True),
 )
 
 BY_NAME = {s.name: s for s in STATES}

@@ -9,6 +9,49 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.1.3
+
+The last three items from the independent review. One deletion and two refusals that had no
+measurement written beside them.
+
+### Removed
+
+- **The insertion state is gone from the copy-number state space**, along with the hypothesis only
+  it could reach. It was there so the mechanism ledger could report an insertion as not tested
+  rather than excluded, but the ledger never read the state space: that entry is built from
+  whether reads and a construct sequence were supplied. So the state bought nothing, and it cost
+  something real. An insertion adds no probeset and alters no genotype at any of the 825,656 fixed
+  markers, so its emissions were bit-identical to the normal diploid state in both channels, and
+  two states with identical emissions split the posterior between them. The normal state was being
+  reported at roughly half its true probability wherever the prior allowed the other.
+
+  Nine states, not ten. A test now pins that nothing in the space shares emissions with the normal
+  state, which is the property that made this worth removing rather than merely tidy.
+
+### Changed
+
+- **Mosaic detection from genotypes is refused, with the reason.** No such feature existed, but
+  nothing said why one should not be added. A genotype call is a threshold on the allelic ratio,
+  and the AB-against-BB boundary sits at 0.9168 over 115,199 heterozygous and 372,656 homozygous
+  calls. A chromosome at mosaic fraction f has a true ratio of 1/(2-f), which does not cross that
+  boundary until f = 0.909, so below that the genotype does not change and the marker carries no
+  information at all. Power is 0.000 to 0.250 at every fraction from 0.02 to 0.80. Adding markers
+  buys nothing against a structural floor.
+
+  Recorded alongside it: the continuous B-allele frequency reaches f = 0.20 as a per-chromosome
+  contrast, four to six times better, using data already in the files. That is a different
+  evidence channel with its own validation burden and is noted as available rather than claimed.
+
+- **Meiosis I versus meiosis II is refused near the centromere, with the marker counts.** Within
+  2 Mb of the centromere the informative markers, father heterozygous and mother homozygous, number
+  ZERO on chromosome 9, one on chromosome 16 and three on chromosome 15, against a median of 30.
+  At 1 Mb the power is zero on twelve of twenty-two autosomes. That is an absence of data rather
+  than a noise problem and no threshold recovers it; the regions are probe-poor because they are
+  repeat-rich, which is a property of the sequence rather than the vendor.
+
+  Also on record: at a real trisomy an AAB locus is called AB by the array, so a meiosis II
+  isodisomy is not reliably called homozygous by the genotype channel to begin with.
+
 ## 3.1.2
 
 The other half of the copy-number work was built, measured, and refused. This entry is the

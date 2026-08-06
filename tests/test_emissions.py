@@ -375,8 +375,21 @@ def test_state_space_covers_the_signature_table():
     # Both isodisomies, which a total-copy-number state space would collapse into one.
     assert em.BY_NAME["PAT2_MAT0"].cn == em.BY_NAME["PAT0_MAT2"].cn == 2
     assert em.BY_NAME["PAT2_MAT0"].n_pat != em.BY_NAME["PAT0_MAT2"].n_pat
-    # The insertion state is copy-number-nominal and array-invisible by design.
-    ins = em.BY_NAME["PAT1_MAT1_INS"]
-    assert ins.cn == 2 and ins.insertion
-    assert band_of("PAT1_MAT1_INS").baf == pytest.approx(band_of("PAT1_MAT1").baf)
-    assert band_of("PAT1_MAT1_INS").lrr == pytest.approx(band_of("PAT1_MAT1").lrr)
+    # No insertion state. It was removed in 3.1.3: an insertion adds no probeset and alters no
+    # genotype at any fixed marker, so its emissions were bit-identical to PAT1_MAT1 in both
+    # channels, and two states with identical emissions split the posterior between them. The
+    # mechanism ledger reports it as not tested from the INPUTS supplied, not from a state.
+    assert "PAT1_MAT1_INS" not in em.BY_NAME
+    assert not any(getattr(s, "insertion", False) for s in em.STATES)
+    # And nothing else shares emissions with PAT1_MAT1, which is what made that state costly.
+    # Compared over every state that yields a single band here; nullisomy yields none, which is
+    # itself a distinguishable signature.
+    def one_band(name: str):
+        got = em.bands(em.BY_NAME[name], FA, MO, mosaic_fraction=1.0, lrr_compression=1.0)
+        return got[0] if len(got) == 1 else None
+
+    ref = one_band("PAT1_MAT1")
+    same = [s.name for s in em.STATES if s.name != "PAT1_MAT1"
+            and (b := one_band(s.name)) is not None
+            and b.baf == pytest.approx(ref.baf) and b.lrr == pytest.approx(ref.lrr)]
+    assert same == [], f"states indistinguishable from PAT1_MAT1: {same}"

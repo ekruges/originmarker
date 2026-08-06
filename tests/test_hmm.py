@@ -183,9 +183,11 @@ def test_paternal_absence_maps_to_segment_or_whole_chromosome():
                              informative_markers=20).posterior["H3_paternal_segment_absent"] == 1.0
 
 
-def test_insertion_is_its_own_hypothesis_and_gains_are_not_pooled_into_h2():
-    ins = hmm.hypotheses_at(gamma_on("PAT1_MAT1_INS"), whole_chromosome_absent=False, informative_markers=20)
-    assert ins.posterior["H2_with_local_artefact"] == pytest.approx(1.0)
+def test_gains_are_not_pooled_into_h2():
+    # There is no insertion state and no H2_with_local_artefact hypothesis. Both were removed in
+    # 3.1.3: an array cannot see an insertion at any level, and a state whose emissions match
+    # PAT1_MAT1 exactly only takes posterior mass away from it.
+    assert "H2_with_local_artefact" not in hmm.Hypothesis.__args__
     # A gain is a real state but not a reportable hypothesis. Folding it into H2 would be the
     # convenient answer rather than the true one.
     gain = hmm.hypotheses_at(gamma_on("PAT2_MAT1"), whole_chromosome_absent=False, informative_markers=20)
@@ -277,7 +279,8 @@ def test_the_homologue_axis_is_gone_and_not_merely_hidden():
     assert not hasattr(hmm, "HOMOLOGUES") and not hasattr(hmm, "State")
     assert not hasattr(hmm, "t_identifiable")
     assert hmm.STATES == em.STATES, "the states ARE the copy states"
-    assert len(hmm.STATES) == 10
+    # Nine, not ten: the insertion state was removed in 3.1.3 as array-invisible.
+    assert len(hmm.STATES) == 9
 
 
 def test_h1_and_h2_are_never_split_here_whatever_is_passed():

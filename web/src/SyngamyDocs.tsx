@@ -1200,6 +1200,65 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             would produce a confident segment inside it.
           </Text>
 
+          <Title order={3} mt={16} mb={4}>Mosaicism is not reported from genotypes</Title>
+          <Text mb={8}>
+            A mosaic sample is a mixture of cell lineages, only some carrying the event, and the
+            obvious way to look for one is the same absence indicator everything above uses. That
+            is refused, and the reason is structural rather than a matter of power.
+          </Text>
+          <Text mb={8}>
+            A genotype call is a threshold on the allelic ratio. The AB-against-BB boundary on
+            these arrays sits at a B-allele frequency of 0.9168, measured over 115,199 heterozygous
+            and 372,656 homozygous calls. A chromosome present at mosaic fraction <i>f</i> has a
+            true ratio of 1/(2&minus;<i>f</i>), which does not cross that boundary until{' '}
+            <i>f</i> = 0.909. Below that the genotype does not change at all, so the marker carries
+            no information about the mosaic whatever, and adding markers buys nothing: detection
+            power is 0.000 to 0.250 at every fraction from 0.02 to 0.80 and reaches 1.000 only at
+            0.90, identically for whole chromosomes and for segments. At <i>f</i> = 0.5 the
+            per-marker absence rate rises by 0.6 to 1.9 percentage points while the same
+            sample&rsquo;s own heterozygote-to-homozygote miscall rate runs 0.9 to 2.7, so the
+            artefact exceeds the signal.
+          </Text>
+          <Text mb={8}>
+            The dispersion measure of <SecRef id="classes" /> must not be pressed into this either.
+            It tells a blend of two whole genomes from a partial loss, which is a different
+            question, and against uniform artefact its separation ratio runs 0.58 at{' '}
+            <i>f</i> = 0.10 to 1.00 at 0.80. A ratio at or below one is no separation at any
+            fraction.
+          </Text>
+          <Text mb={8}>
+            What WOULD work, and is not built: the continuous B-allele frequency rather than the
+            genotype derived from it, as a per-chromosome contrast against the sample&rsquo;s own
+            other chromosomes. That reaches <i>f</i> = 0.20 whole-chromosome, a four to six fold
+            better floor, using data already in the files. It is a different evidence channel with
+            its own validation burden and is recorded here as available rather than claimed.
+          </Text>
+
+          <Title order={3} mt={16} mb={4}>
+            Meiosis I versus meiosis II is not called near the centromere
+          </Title>
+          <Text mb={8}>
+            Whether an extra chromosome arose at the first or second meiotic division is read, by
+            convention, from whether the region around the centromere carries both of the
+            parent&rsquo;s homologues or two copies of one. Crossovers make distal regions
+            unreliable for it, so the window has to be tight, and on this array the tight window is
+            empty. Informative markers within 2 Mb of the centromere, meaning the father is
+            heterozygous and the mother homozygous: <b>chromosome 9 has none at all</b>,
+            chromosome 16 has one and chromosome 15 has three, against a median of 30 across the
+            autosomes. At 1 Mb the power is zero on twelve of twenty-two.
+          </Text>
+          <Text mb={8}>
+            Zero markers is an absence of data rather than a noise problem, and no threshold
+            recovers it. These regions are probe-poor because they are repeat-rich, which is a
+            property of the sequence and not of the vendor, so a different SNP array does not help
+            much either. Widening the window trades the problem for crossover contamination.
+          </Text>
+          <Text mb={8}>
+            A second reason to leave it alone on this platform: at a real trisomy an AAB locus is
+            called AB by the array, so a meiosis II isodisomy is not reliably called homozygous by
+            the genotype channel in the first place.
+          </Text>
+
           <Title order={3} mt={16} mb={4}>
             Why there is no gain, and no parent attached to an extra chromosome
           </Title>
@@ -1581,6 +1640,14 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             validated for clinical use and no result should inform a transfer decision.
           </Text>
           <List size="sm" spacing={6} mb={10}>
+            <List.Item>
+              <b>It does not detect mosaicism, and does not date an aneuploidy to a meiotic
+              division.</b>{' '}
+              Mosaic detection from genotypes has a structural floor at 90% and adding markers does
+              not move it; the region around the centromere carries too few informative markers to
+              separate the two divisions, and on chromosome 9 it carries none at all. Both are in{' '}
+              <SecRef id="segments" /> with their measurements.
+            </List.Item>
             <List.Item>
               <b>It does not call gains, and does not attach a parent to an extra chromosome.</b>{' '}
               Copy number needs intensity, which whole-genome-amplified material cannot support
