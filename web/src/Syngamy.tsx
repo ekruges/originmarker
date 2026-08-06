@@ -12,6 +12,9 @@ import {
   agreement, classify, emptyTally, GLOSS, isAutosome, pair, pct, tallyRow,
   type ChromResult, type PairResult, type ParentageResult,
 } from './parentage'
+import {
+  scanChromosome, externalNull, MIN_SEGMENT_MARKERS, SEGMENT_LRT, type MarkerAbsence,
+} from './segments'
 import type { Health } from './api'
 import { int, utc } from './fmt'
 import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, loadExample } from './examples'
@@ -352,11 +355,37 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // before the sample streams, and the same across one experiment's arrays.
           t.build = pat.build
           if (tm) tm.build = mat?.build ?? null
+          // Marker-level absence, kept per chromosome for the segment scan. The tally above
+          // carries per-chromosome COUNTS, which answer "is this chromosome absent" and cannot
+          // answer "which part of it is". Collected in the same pass rather than a second one.
+          const absenceByChrom = new Map<string, MarkerAbsence[]>()
           const { profile, gates: g } = await profileFile(s.file, (r) => {
-            tallyRow(pat.gt.get(r.probesetId) ?? 'NC', r, t)
+            const fa = pat.gt.get(r.probesetId) ?? 'NC'
+            tallyRow(fa, r, t)
             if (tm && mat) tallyRow(mat.gt.get(r.probesetId) ?? 'NC', r, tm)
+            // Only a marker where the parent is homozygous and the sample is called can say
+            // anything about presence, which is the same informative set the rates use.
+            if ((fa === 'AA' || fa === 'BB') && r.genotype !== 'NC' && isAutosome(r.chrom)) {
+              const arr = absenceByChrom.get(r.chrom) ?? []
+              arr.push({ chrom: r.chrom, pos: r.pos,
+                absent: r.genotype !== 'AB' && r.genotype !== fa })
+              absenceByChrom.set(r.chrom, arr)
+            }
           }, bar(s.id, s.file.size), log)
           const result = classify(t, pat.heterozygosity)
+          // Segments, after the per-chromosome verdicts, because a chromosome whose calls are not
+          // measuring it must not be scanned either: the same broken calls would produce a
+          // confident segment inside it.
+          const measured = new Set(result.chroms
+            .filter((c) => c.verdict !== 'not_measured').map((c) => c.chrom))
+          result.segments = [...absenceByChrom].filter(([c]) => measured.has(c))
+            .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c)))
+            .sort((a, b) => b.score - a.score)
+          if (result.segments.length) {
+            log('WARN', `${s.file.name}: ${result.segments.length} segment(s) where the paternal `
+              + `genome is missing: ${result.segments.map((x) => `chr${x.chrom} `
+                + `${(x.spanBp / 1e6).toFixed(1)}Mb at ${pct(x.rate, 1)}`).join(', ')}`)
+          }
           const maternal = tm && mat
             ? classify(tm, mat.heterozygosity, { role: 'maternal' }) : undefined
           const paired = maternal ? pair(result, maternal, agree) : undefined
@@ -982,6 +1011,57 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
       <Section title={maternal ? 'Chromosomes, sperm donor' : 'Chromosomes'}>
         <ChromTable chroms={r.chroms} ceiling={r.explainable} />
       </Section>
+
+      {r.segments.length > 0 && (
+        <Section title="Segments where the paternal genome is missing">
+          <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
+            A chromosome that is partly lost reads as neither present nor absent, so the whole
+            chromosome comes back unclear and the missing part goes unreported. These are the
+            regions inside a chromosome where the paternal allele is absent at a rate the rest of
+            this genome does not reach. Each is scored against the median rate of the sample&rsquo;s
+            OTHER chromosomes, which one event cannot move.
+          </Text>
+          <Table striped withTableBorder>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Chromosome</Table.Th>
+                <Table.Th ta="right">Span</Table.Th>
+                <Table.Th ta="right">Markers</Table.Th>
+                <Table.Th ta="right">Absent</Table.Th>
+                <Table.Th ta="right">Against</Table.Th>
+                <Table.Th ta="right">Score</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {r.segments.map((sg) => (
+                <Table.Tr key={`${sg.chrom}:${sg.startBp}`}>
+                  <Table.Td>
+                    chr{sg.chrom}
+                    <Text span size="xs" c="dimmed" ff="monospace">
+                      {' '}{int(sg.startBp)}&ndash;{int(sg.endBp)}
+                    </Text>
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace">
+                    {(sg.spanBp / 1e6).toFixed(1)} Mb
+                  </Table.Td>
+                  <Table.Td ta="right" ff="monospace" c="dimmed">{int(sg.markers)}</Table.Td>
+                  <Table.Td ta="right" ff="monospace">{pct(sg.rate, 2)}</Table.Td>
+                  <Table.Td ta="right" ff="monospace" c="dimmed">{pct(sg.nullRate, 2)}</Table.Td>
+                  <Table.Td ta="right" ff="monospace">{sg.score.toFixed(0)}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+          <Text size="xs" c="dimmed" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
+            The span is the resolution, not the event: the smallest region that can be called here
+            is {int(MIN_SEGMENT_MARKERS)} informative markers, which on this array covers anywhere
+            from a few hundred kilobases to tens of megabases depending on marker density. A real
+            event smaller than that is reported at the size of the window that found it. The score
+            is a log-likelihood ratio against a threshold of {SEGMENT_LRT}, and one just over it is
+            a weak finding rather than a strong one.
+          </Text>
+        </Section>
+      )}
 
       {maternal && (
         <Section title="Chromosomes, oocyte donor">

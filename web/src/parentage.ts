@@ -28,6 +28,7 @@
  */
 import { type ProbeRow } from './ingest.ts'
 import { type AB } from './informativity.ts'
+import type { Segment } from './segments.ts'
 
 /** Residual absence on clean data, from genotyping error alone. Measured at 0.03% and 0.05%. */
 export const ABSENCE_ERROR_FLOOR = 0.005
@@ -299,6 +300,9 @@ export interface ParentageResult {
   /** The cleanest chromosome. Near zero means some of the genome is untouched. */
   minChromRate: number
   chroms: ChromResult[]
+  /** Where along a chromosome the parental genome is missing, rather than whether. Populated by
+   *  the caller, which is the only place marker positions are in hand; see `segments.ts`. */
+  segments: Segment[]
   notes: string[]
   limits: string[]
 }
@@ -522,6 +526,7 @@ export function classify(
 
   return {
     verdict, originClass, zygosity, spermType, genomeRate, explainable, informative: nTot,
+    segments: [],
     nonParentalRate, secondParentExpected, hetBand, noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, notes, limits,
   }

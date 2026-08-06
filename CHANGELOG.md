@@ -9,6 +9,59 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.1.0
+
+Syngamy now reports WHERE along a chromosome the paternal genome is missing, not only whether a
+whole chromosome is. First half of the copy-number work; the half an independent review found
+recoverable.
+
+### Added
+
+- **Segmental loss detection.** A chromosome that is partly lost reads as neither present nor
+  absent: the rate lands between the two references, the chromosome comes back unclear, and the
+  part that IS missing goes unreported. A multiscale scan now finds those regions and reports each
+  with its span, its marker count, its local absence rate, the rate it was scored against, and its
+  score.
+
+  Three things had to be right, each measured rather than chosen.
+
+  The null is EXTERNAL: the median per-chromosome rate over the sample's OTHER chromosomes. Scoring
+  a window against the sample's own genome-wide rate misses the largest events, because a big event
+  inflates the rate it is being tested against.
+
+  The threshold is EMPIRICAL, never a closed-form tail. A Bonferroni exact binomial and an
+  Erdos-Renyi run-length scan both fail here for the same reason the run-length p-value did:
+  absence artefact on amplified single cells is spatially clustered, so a tail computed under
+  independence calls artefact significant. Measured on five genomes carrying no event, 110
+  chromosome scans, the maximum score reached was 139. The threshold sits at 250.
+
+  The floor is 2,400 called informative markers, titrated on real material: a block of a maternal
+  pronucleus spliced into a clean paternal pronucleus of the same series, so the segment is a
+  genuine alternative genome carrying real amplification artefact. Twelve constructions per size.
+  At 1,200 markers the weakest scores 152 against a null maximum of 139, which is 1.09x and not a
+  detection; at 2,400 the weakest scores 431, which is 3.1x. The old 200-marker floor was not a
+  weak test, it was no test at all.
+
+  False segments on the five genomes known to carry none: **0 of 110 chromosome scans.** That
+  threshold is fitted on the same null it is evaluated against, so it awaits an out-of-sample
+  clean cohort, and the score is printed beside every segment so a marginal call reads marginal.
+
+  A chromosome withheld by the mis-clustering gate is not scanned either: the same broken calls
+  would produce a confident segment inside it.
+
+### Fixed
+
+- **Localisation, caught during titration.** Merging every overlapping window across scales
+  reported a 12 Mb loss as spanning 231 Mb, because a whole-chromosome window carrying a diluted
+  version of the same event overlaps the tight one. Replaced with peak-picking: the highest-scoring
+  window wins and everything overlapping it is discarded as another view of the same event.
+
+### Changed
+
+- Segments appear in the result page, in the report PDF, and in the run log. The span is stated as
+  the resolution rather than the event, because a marker count is not a resolution on an array
+  whose spacing runs from 1 bp to 21 kb.
+
 ## 3.0.4
 
 A chromosome whose genotype calls are not measuring it now gets no verdict. Found while scoping
