@@ -1245,6 +1245,37 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             would produce a confident segment inside it.
           </Text>
 
+          <Title order={3} mt={16} mb={4}>Two indicators, because they are two events</Title>
+          <Text mb={8}>
+            The scan above asks where a <b>parent&rsquo;s alleles</b> are missing. A region can do
+            that with its DNA entirely present, if it came from the other parent alone. A second
+            scan asks where <b>the DNA itself</b> is not there, and reads it from the array no
+            longer calling: a region that is gone stops producing genotypes. Both are reported,
+            labelled, and never merged, because reading one as the other is the mistake that
+            matters.
+          </Text>
+          <Text mb={8}>
+            A copy-number region is called only where the no-call rate rises AND the intensity
+            agrees by at least 1.0 log2. That requirement is doing real work rather than being
+            cautious: across 46 arrays the scan without it returns 31 regions, one of them a 44.9 Mb
+            loss on the sperm donor&rsquo;s own bulk DNA, who is a diploid adult and cannot have
+            one. With it, 17 survive and <b>none fall on any of the six bulk diploid arrays</b>,
+            whose truth is zero. The regions it rejects carry shifts of &minus;0.72 to +0.38; those
+            it keeps carry &minus;0.97 to &minus;1.94.
+          </Text>
+          <Text mb={8}>
+            The largest call in that data is a contiguous 38 Mb loss at the start of one
+            chromosome, reaching 85% no-call against a 14% background at &minus;1.94 log2, reported
+            with its coordinates and length like every other.
+          </Text>
+          <Text mb={8}>
+            <b>Extra copies</b> are found by the same machinery with the shift reversed, and the
+            status of that direction is stated exactly: no segmental gain occurs anywhere in those
+            46 arrays, so it has never been shown to fire on a true positive, only never to fire on
+            a true negative. Whole-chromosome gains ARE validated, in{' '}
+            <SecRef id="aneuploidy" />, where the effect is an order of magnitude larger.
+          </Text>
+
           <Title order={3} mt={16} mb={4}>Mosaicism is not reported from genotypes</Title>
           <Text mb={8}>
             A mosaic sample is a mixture of cell lineages, only some carrying the event, and the

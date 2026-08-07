@@ -9,6 +9,35 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.4.0
+
+Segmental copy number, on a second indicator. The aneuploidy work is now complete on both scales
+and in both directions.
+
+### Added
+
+- **Segmental gains and losses, with their coordinates and length.** A second segment scan, on a
+  different indicator from the first and deliberately so. The existing one asks where a PARENT's
+  alleles are missing, which a region can do with its DNA entirely present, if it came from the
+  other parent alone. This asks where the DNA itself is not there, read from the array no longer
+  calling: a region that is gone stops producing genotypes. Both events are real, both are
+  reported, and they are labelled rather than merged.
+
+  A region is called only where the no-call rate rises AND the intensity agrees by at least 1.0
+  log2. That requirement is load-bearing rather than cautious. Across 46 arrays the scan without
+  it returns 31 regions, one of them a 44.9 Mb loss on the sperm donor's own bulk DNA, who is a
+  diploid adult and cannot have one. With it, 17 survive and NONE fall on any of the six bulk
+  diploid arrays, whose truth is zero. Rejected regions carry shifts of -0.72 to +0.38; kept ones
+  carry -0.97 to -1.94.
+
+  The largest call is a contiguous 38 Mb loss at the start of one chromosome, reaching 85% no-call
+  against a 14% background at -1.94 log2.
+
+  EXTRA COPIES use the same machinery with the shift reversed, and the status of that direction is
+  stated plainly rather than implied: no segmental gain occurs anywhere in those 46 arrays, so it
+  has never been shown to fire on a true positive, only never to fire on a true negative.
+  Whole-chromosome gains ARE validated, where the effect is an order of magnitude larger.
+
 ## 3.3.0
 
 Whole-chromosome aneuploidy, called from the call rate. And a correction: three chromosomes this

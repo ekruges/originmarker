@@ -6,7 +6,8 @@
 // segment carries real amplification artefact.
 import assert from 'node:assert/strict'
 import {
-  MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, externalNull, scanChromosome,
+  MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, externalNull,
+  scanChromosome, scanCopyNumber,
   type MarkerAbsence,
 } from './segments.ts'
 
@@ -118,3 +119,58 @@ const chrom = (n: number, from = -1, to = -1, rate = 0.11, bg = 0.005): MarkerAb
 }
 
 console.log('segments.check.ts: all assertions passed')
+
+// --- 7. copy number is a different indicator from parental absence -----------------------------
+//
+// `scanChromosome` asks where a PARENT's alleles are missing, which a region can do with its DNA
+// entirely present. `scanCopyNumber` asks where the DNA itself is gone, read from the array no
+// longer calling. Both events are real and they are not the same event.
+//
+// Measured across 46 arrays: without the intensity requirement the copy scan returns 31 regions
+// including a 44.9 Mb one on a bulk diploid adult, who cannot have it. With it, 17 survive and
+// none fall on any of the six bulk diploid arrays. Rejected regions carry -0.72 to +0.38 log2;
+// kept ones carry -0.97 to -1.94.
+{
+  const cn = (n: number, from: number, to: number, noCall: number, lrr: number, bg = 0.10) =>
+    Array.from({ length: n }, (_, i) => {
+      const inSeg = i >= from && i <= to
+      const s = (i * 7919) % 1000
+      return {
+        chrom: '4',
+        pos: 1_000_000 + i * 5_000,
+        called: !(s < (inSeg ? noCall : bg) * 1000),
+        log2R: inSeg ? lrr : 0,
+      }
+    })
+
+  // A real deletion: the array stops calling and the intensity agrees.
+  const lost = scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, -1.9), 0.10, 0)
+  assert.equal(lost.length, 1, `a real deletion is one region: ${JSON.stringify(lost)}`)
+  assert.equal(lost[0].kind, 'copy-loss')
+  assert.ok(lost[0].spanBp > 20e6 && lost[0].spanBp < 120e6, 'and it is localised')
+
+  // The same call-rate collapse with no intensity behind it is an array failing, not a deletion.
+  // This is the case that produced a 44.9 Mb false loss on a bulk diploid adult.
+  assert.deepEqual(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, -0.3), 0.10, 0), [],
+    'a region the array merely failed on is not a copy-number change')
+
+  // Extra copies are the same machinery with the shift reversed. IMPLEMENTED AND UNVALIDATED: no
+  // segmental gain occurs in the 46 arrays, so this has never fired on a true positive.
+  const gained = scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, 1.9), 0.10, 0)
+  assert.equal(gained.length, 1)
+  assert.equal(gained[0].kind, 'copy-gain')
+
+  // A clean chromosome yields nothing in either direction.
+  assert.deepEqual(scanCopyNumber(cn(40_000, -1, -1, 0, 0), 0.10, 0), [])
+
+  // The two channels are independent: a region whose DNA is present but whose PARENT is absent
+  // is found by the allelic scan and not by this one.
+  const parental = scanChromosome(
+    Array.from({ length: 40_000 }, (_, i) => ({
+      chrom: '4', pos: 1_000_000 + i * 5_000,
+      absent: ((i * 7919) % 1000) < (i >= 5_000 && i < 15_000 ? 110 : 5),
+    })), 0.005)
+  assert.equal(parental.length, 1)
+  assert.equal(parental[0].kind, 'parental-absence')
+  assert.equal(SEGMENT_LRR_SHIFT, 1.0)
+}

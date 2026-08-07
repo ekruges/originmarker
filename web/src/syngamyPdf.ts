@@ -518,7 +518,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       )
     }
     if (r.segments.length) {
-      heading('Segments where the paternal genome is missing', 8.6)
+      heading('Segmental change', 8.6)
       text('A partly lost chromosome reads as neither present nor absent, so the whole chromosome '
         + 'comes back unclear and the missing part goes unreported. Each region below is scored '
         + "against the median rate of this sample's OTHER chromosomes, which one event cannot "
@@ -526,11 +526,15 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'is 2,400 informative markers, and a real event smaller than that is reported at the '
         + 'size of the window that found it.', 7.4, 'Helvetica', 2.4, GREY)
       table(
-        [{ head: 'Chromosome', w: 150 }, { head: 'Span', w: 62, right: true },
-          { head: 'Markers', w: 56, right: true }, { head: 'Absent', w: 54, right: true },
-          { head: 'Against', w: 54, right: true }, { head: 'Score', w: 52, right: true }],
+        [{ head: 'Chromosome', w: 132 }, { head: 'What', w: 92 },
+          { head: 'Span', w: 54, right: true },
+          { head: 'Markers', w: 50, right: true }, { head: 'Rate', w: 48, right: true },
+          { head: 'Against', w: 48, right: true }, { head: 'Score', w: 44, right: true }],
         r.segments.map((sg) => [
           `chr${sg.chrom} ${int(sg.startBp)}-${int(sg.endBp)}`,
+          { v: sg.kind === 'copy-loss' ? 'DNA absent'
+            : sg.kind === 'copy-gain' ? 'extra copies' : 'paternal alleles absent',
+          colour: sg.kind === 'parental-absence' ? INK : WARN },
           `${(sg.spanBp / 1e6).toFixed(1)} Mb`,
           int(sg.markers), pct(sg.rate, 2), pct(sg.nullRate, 2), sg.score.toFixed(0),
         ]),

@@ -13,8 +13,8 @@ import {
   type ChromResult, type PairResult, type ParentageResult,
 } from './parentage'
 import {
-  scanChromosome, externalNull, MIN_SEGMENT_MARKERS, SEGMENT_LRT,
-  type MarkerAbsence, type Segment,
+  scanChromosome, scanCopyNumber, externalNull, MIN_SEGMENT_MARKERS, SEGMENT_LRT,
+  type MarkerAbsence, type Segment, type SegmentKind,
 } from './segments'
 import type { Health } from './api'
 import { int, utc } from './fmt'
@@ -360,12 +360,22 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // carries per-chromosome COUNTS, which answer "is this chromosome absent" and cannot
           // answer "which part of it is". Collected in the same pass rather than a second one.
           const absenceByChrom = new Map<string, MarkerAbsence[]>()
+          // The copy-number channel: every marker on the array, called or not, with its intensity.
+          // A region that is GONE stops producing calls, which the parental-absence indicator
+          // above cannot see, because a no-call is excluded from it as uninformative.
+          const cnByChrom = new Map<string,
+            { chrom: string; pos: number; called: boolean; log2R: number | null }[]>()
           const { profile, gates: g } = await profileFile(s.file, (r) => {
             const fa = pat.gt.get(r.probesetId) ?? 'NC'
             tallyRow(fa, r, t)
             if (tm && mat) tallyRow(mat.gt.get(r.probesetId) ?? 'NC', r, tm)
             // Only a marker where the parent is homozygous and the sample is called can say
             // anything about presence, which is the same informative set the rates use.
+            if (isAutosome(r.chrom)) {
+              const cn = cnByChrom.get(r.chrom) ?? []
+              cn.push({ chrom: r.chrom, pos: r.pos, called: r.genotype !== 'NC', log2R: r.log2R })
+              cnByChrom.set(r.chrom, cn)
+            }
             if ((fa === 'AA' || fa === 'BB') && r.genotype !== 'NC' && isAutosome(r.chrom)) {
               const arr = absenceByChrom.get(r.chrom) ?? []
               arr.push({ chrom: r.chrom, pos: r.pos,
@@ -379,9 +389,23 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // confident segment inside it.
           const measured = new Set(result.chroms
             .filter((c) => c.verdict !== 'not_measured').map((c) => c.chrom))
-          result.segments = [...absenceByChrom].filter(([c]) => measured.has(c))
-            .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c)))
-            .sort((a, b) => b.score - a.score)
+          // Copy number first: a chromosome already called whole is not scanned for a segment
+          // inside it, since that is the same event described twice.
+          const whole = new Set(result.chroms.filter((c) => c.aneuploidy).map((c) => c.chrom))
+          const noCall = new Map<string, [number, number]>()
+          for (const [c, ms] of cnByChrom) {
+            noCall.set(c, [ms.length, ms.filter((m) => !m.called).length])
+          }
+          const lrrAll = [...cnByChrom.values()].flat()
+            .map((m) => m.log2R).filter((x): x is number => x !== null).sort((a, b) => a - b)
+          const genomeLrr = lrrAll.length ? lrrAll[lrrAll.length >> 1] : 0
+          const copy = [...cnByChrom].filter(([c]) => !whole.has(c))
+            .flatMap(([c, ms]) => scanCopyNumber(ms, externalNull(noCall, c), genomeLrr))
+          result.segments = [
+            ...copy,
+            ...[...absenceByChrom].filter(([c]) => measured.has(c))
+              .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))),
+          ].sort((a, b) => b.score - a.score)
           if (result.segments.length) {
             log('WARN', `${s.file.name}: ${result.segments.length} segment(s) where the paternal `
               + `genome is missing: ${result.segments.map((x) => `chr${x.chrom} `
@@ -1021,6 +1045,14 @@ function AneuploidyCallout({ chroms, role }: { chroms: ChromResult[]; role: stri
   )
 }
 
+/** What each segment kind is, in one line, because they are different events and a reader must
+ *  not read a copy loss as a parental one or the reverse. */
+const KIND: Record<SegmentKind, string> = {
+  'copy-loss': 'DNA absent',
+  'copy-gain': 'extra copies',
+  'parental-absence': 'paternal alleles absent',
+}
+
 function SegmentCallout({ segments }: { segments: Segment[] }) {
   if (!segments.length) return null
   const mb = (x: number): string => `${(x / 1e6).toFixed(1)} Mb`
@@ -1036,25 +1068,31 @@ function SegmentCallout({ segments }: { segments: Segment[] }) {
         Chromosomal change on {chroms.join(', ')}
       </Text>
       <Text size="sm" mt={3} style={{ maxWidth: 760, lineHeight: 1.5 }}>
-        The paternal genome is missing across{' '}
-        {segments.length === 1 ? 'one region' : `${segments.length} regions`} totalling {mb(total)},
-        at a rate the rest of this genome does not reach. The whole-chromosome verdict cannot show
-        this: a chromosome that is partly lost reads as neither present nor absent.
+        {segments.length === 1 ? 'One region' : `${segments.length} regions`} totalling{' '}
+        {mb(total)}, at a rate the rest of this genome does not reach. The whole-chromosome verdict
+        cannot show this: a chromosome that is partly changed reads as neither present nor absent.
+        Two different things are listed and the difference matters: <b>DNA absent</b> means the
+        region is not there at all, read from the array no longer calling it with the intensity
+        agreeing, while <b>paternal alleles absent</b> means the DNA is present but came from the
+        other parent.
       </Text>
       <div style={{ marginTop: 7, display: 'grid', gap: 3 }}>
         {segments.map((sg) => (
           <Text key={`${sg.chrom}:${sg.startBp}`} size="xs" ff="monospace">
             chr{sg.chrom}&nbsp;{int(sg.startBp)}&ndash;{int(sg.endBp)}
             {'  '}&middot;{'  '}{mb(sg.spanBp)}
-            {'  '}&middot;{'  '}{pct(sg.rate, 1)} absent against {pct(sg.nullRate, 1)}
+            {'  '}&middot;{'  '}{KIND[sg.kind]}
+            {'  '}&middot;{'  '}{pct(sg.rate, 1)} against {pct(sg.nullRate, 1)}
           </Text>
         ))}
       </div>
       <Text size="xs" c="dimmed" mt={6} style={{ maxWidth: 760, lineHeight: 1.5 }}>
-        This is a LOSS of the paternal contribution over that region. It does not say whether the
-        chromosome is physically deleted or present in two copies from one parent, which needs
-        intensity and is not reported on this platform. Nor is it a gain: gains are not called here
-        at all.
+        A copy-number region is called only where the array stopped genotyping AND the intensity
+        agrees by at least 1.0 log2. Measured over 46 arrays that requirement takes the scan from
+        31 regions, including a 44.9 Mb one on a bulk diploid adult who cannot have it, to 17 with
+        none on any of the six bulk arrays. Extra copies are found by the same machinery with the
+        shift reversed; no segmental gain occurs anywhere in those 46 arrays, so that direction has
+        never been shown to fire on a true positive, only never on a true negative.
       </Text>
     </div>
   )
