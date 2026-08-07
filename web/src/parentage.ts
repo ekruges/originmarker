@@ -170,6 +170,47 @@ export const BAF_EXTREME_FLOOR = 0.40
  */
 export const MOSAIC_Z = 8
 
+/**
+ * Fraction of the genome's median call rate below which a chromosome is not merely noisy: it is
+ * not there to be genotyped.
+ *
+ * A chromosome that has been lost yields no DNA, so the array reads nothing at its probes and the
+ * call rate collapses. That is a GENOTYPE-level signal and needs no intensity, which matters
+ * because intensity on amplified material cannot be trusted for fine copy-number work.
+ *
+ * Measured over 1,012 chromosome observations from 46 arrays across three experiments:
+ *
+ *     eleven chromosomes      0.20x to 0.41x the genome median
+ *     the other 1,001         0.78x to 1.16x
+ *
+ * The gap is empty by a factor of 1.9. Every one of the eleven also carries a large intensity
+ * shift, |log2R| of 1.59 to 2.04 against a spread of -0.79 to +0.42 on the rest, from two
+ * channels that fail in unrelated ways.
+ *
+ * THIS CORRECTS AN EARLIER ERROR. Three of those chromosomes were previously diagnosed as array
+ * mis-clustering and withheld, on the reasoning that a paternal pronucleus is its father's on
+ * every autosome by construction. That reasoning was wrong: the series exists because chromosomes
+ * ARE lost in these embryos, so a pronucleus can genuinely lack one. Mis-clustering and loss both
+ * depress the allelic ratio, and the call rate is what separates them, because a mis-clustered
+ * chromosome still calls.
+ */
+export const CALL_COLLAPSE = 0.60
+
+/**
+ * Which way a collapsed chromosome went. Only the SIGN is used, and only once the call rate has
+ * already established that something is wrong.
+ *
+ * Measured on the same eleven: six sit at log2R -1.59 to -2.04 against the genome, and five at
+ * +1.60 to +1.95. Nothing else in 1,012 observations leaves -0.79 to +0.42. So the sign is not a
+ * threshold on a noisy quantity, it is the direction of a shift already known to be real.
+ *
+ * A gain is reported more cautiously than a loss and says so: fine copy-number work on amplified
+ * material is refused elsewhere in this tool for good measured reasons, and what makes this
+ * different is only that the effect is an order of magnitude larger than the noise those
+ * measurements were about.
+ */
+export const LRR_SHIFT = 1.0
+
 export type OriginClass = 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear'
 
 /** One line per class, so the card, the table and the PDF cannot describe a call differently. */
@@ -244,6 +285,12 @@ export interface Tally {
    *  see MOSAIC_Z. Heterozygous calls only, because a homozygous site sits at an extreme
    *  already and its deviation says nothing about a mixture. */
   hetDevByChrom: Map<string, [number, number]>
+  /** Per chromosome: [markers called, markers on the array]. A chromosome that is not there
+   *  cannot be genotyped, so this is what an aneuploidy shows up in; see CALL_COLLAPSE. */
+  callByChrom: Map<string, [number, number]>
+  /** Per chromosome, every log2 intensity ratio read. Only the SIGN of the median is used, to
+   *  tell a loss from a gain once the call rate has already said something is wrong. */
+  lrrByChrom: Map<string, number[]>
   /** chrY markers the sample called, and chrY markers the parent's file carries. A Y-bearing
    *  sperm is measured from these, never inferred from an absent X. */
   yCalled: number
@@ -255,13 +302,23 @@ export interface Tally {
 export const emptyTally = (): Tally => ({
   byChrom: new Map(), nonParental: 0, nonParentalDen: 0,
   called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, bafByChrom: new Map(),
-  hetDevByChrom: new Map(),
+  hetDevByChrom: new Map(), callByChrom: new Map(), lrrByChrom: new Map(),
   yCalled: 0, yTotal: 0, build: null,
 })
 
 /** One marker of the sample, against the parent's call at the same marker. */
 export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   t.markers += 1
+  if (isAutosome(row.chrom)) {
+    const cc = t.callByChrom.get(row.chrom) ?? [0, 0]
+    cc[1] += 1
+    if (row.genotype !== 'NC') cc[0] += 1
+    t.callByChrom.set(row.chrom, cc)
+    if (row.log2R !== null) {
+      (t.lrrByChrom.get(row.chrom) ?? t.lrrByChrom.set(row.chrom, []).get(row.chrom)!)
+        .push(row.log2R)
+    }
+  }
   if (row.chrom === 'Y' || row.chrom === '24') {
     // Whether the SAMPLE carries a Y is a property of the sample alone, so the denominator is
     // chrY probes on its array. Gating this on the parent's own call collapsed it to zero
@@ -324,6 +381,16 @@ export interface ChromResult {
   /** How far this chromosome's heterozygous allelic ratio sits from the sample's own others, in
    *  standard deviations. NaN unless the sample is diploid; see MOSAIC_Z. */
   mosaicZ: number
+  /** Whole-chromosome copy change, from the call rate collapsing; see CALL_COLLAPSE. */
+  aneuploidy?: 'loss' | 'gain'
+  /** Whose copy changed, where determinable. 'this' is the parent this result is scored against;
+   *  'other' means their alleles survive on what is left, so the copy that went was the other
+   *  parent's. Undefined where the sample carries none of this parent's genome anywhere. */
+  aneuploidyParent?: 'this' | 'other'
+  /** This chromosome's call rate as a fraction of the genome's median. */
+  callFraction: number
+  /** Median log2 intensity ratio against the genome's. Its SIGN tells a loss from a gain. */
+  lrrShift: number
   note?: string
 }
 
@@ -500,6 +567,33 @@ export function classify(
     }
   }
 
+  // Aneuploidy, from the call rate rather than from the alleles. A chromosome that is gone yields
+  // no DNA and cannot be genotyped, so it collapses here while its allelic statistics only look
+  // noisy. Computed before the per-chromosome verdicts because it changes what they may say.
+  const callPerChrom = new Map<string, number>()
+  for (const [c, [k, n]] of t.callByChrom) if (isAutosome(c) && n >= 200) callPerChrom.set(c, k / n)
+  const callSorted = [...callPerChrom.values()].sort((x, y) => x - y)
+  const callMedian = callSorted.length ? callSorted[callSorted.length >> 1] : NaN
+  const medianOf = (xs: number[]): number => {
+    if (!xs.length) return NaN
+    const q = [...xs].sort((x, y) => x - y)
+    return q[q.length >> 1]
+  }
+  const genomeLrr = medianOf([...t.lrrByChrom.values()].flat())
+  const aneuploidy = new Map<string, 'loss' | 'gain'>()
+  const callFrac = new Map<string, number>()
+  const lrrShift = new Map<string, number>()
+  for (const [c, r] of callPerChrom) {
+    const frac = callMedian > 0 ? r / callMedian : NaN
+    callFrac.set(c, frac)
+    const shift = medianOf(t.lrrByChrom.get(c) ?? []) - genomeLrr
+    lrrShift.set(c, shift)
+    if (!(frac < CALL_COLLAPSE)) continue
+    // Which way it went. Without a usable intensity the collapse is still reported, as a loss,
+    // because that is what a chromosome absent from the array looks like from the genotypes alone.
+    aneuploidy.set(c, Number.isFinite(shift) && shift >= LRR_SHIFT ? 'gain' : 'loss')
+  }
+
   const chroms: ChromResult[] = []
   let spermType: SpermType = 'unknown'
   const yBearing = t.yTotal > 0 && t.yCalled / t.yTotal > 0.5
@@ -522,7 +616,11 @@ export function classify(
     // calls and would agree with each other about a chromosome that was never measured.
     const [ext, nBaf] = t.bafByChrom.get(c) ?? t.bafByChrom.get(c.replace(':PAR', '')) ?? [0, 0]
     const extreme = nBaf ? ext / nBaf : NaN
-    const clustered = !Number.isFinite(extreme) || extreme >= BAF_EXTREME_FLOOR
+    // A collapsed call rate says the chromosome is not there, which ALSO depresses the allelic
+    // ratio. Both look identical to the ratio alone, so the ratio may only diagnose mis-clustering
+    // where the chromosome is still being genotyped. Withholding a real loss was the earlier bug.
+    const aneu = aneuploidy.get(c)
+    const clustered = !Number.isFinite(extreme) || extreme >= BAF_EXTREME_FLOOR || aneu !== undefined
 
     chroms.push({
       chrom: c,
@@ -530,12 +628,40 @@ export function classify(
       absent: a,
       bafExtreme: extreme,
       mosaicZ: mosaicZ.get(c) ?? NaN,
+      aneuploidy: aneu,
+      // Whose copy went. Determinable only where the parent is measurable on this chromosome at
+      // all: a sample carrying none of this parent's genome anywhere cannot say anything per
+      // chromosome, and a chromosome with nothing left has no surviving copy to attribute.
+      aneuploidyParent: !aneu || !present ? undefined
+        : rate <= explainable ? 'other'
+          : rate >= explainable * ABSENCE_MARGIN ? 'this' : undefined,
+      callFraction: callFrac.get(c) ?? NaN,
+      lrrShift: lrrShift.get(c) ?? NaN,
       verdict: !clustered ? 'not_measured'
-        : expected ? 'expected_absent'
-          : rate >= explainable * ABSENCE_MARGIN ? 'absent'
-            : rate <= explainable ? 'present' : 'unclear',
+        : aneu === 'loss' ? 'absent'
+          : expected ? 'expected_absent'
+            : rate >= explainable * ABSENCE_MARGIN ? 'absent'
+              : rate <= explainable ? 'present' : 'unclear',
       rate,
-      note: !clustered
+      note: aneu
+        ? `${aneu === 'loss' ? 'LOST' : 'GAINED'}: this chromosome calls at `
+          + `${pct(callFrac.get(c) ?? NaN, 0)} of the genome's median rate and its intensity sits `
+          + `${(lrrShift.get(c) ?? NaN).toFixed(2)} log2 from the rest. A chromosome that is not `
+          + 'there cannot be genotyped, which is what the call rate is reading; the intensity says '
+          + `which way it went. Measured over 1,012 chromosomes, an intact one calls at 0.78x to `
+          + '1.16x and never leaves -0.79 to +0.42 log2.'
+          + (!present
+            ? ` No parent is attached: this sample carries none of the ${role} genome anywhere, `
+              + 'so there is nothing to attribute per chromosome.'
+            : rate <= explainable
+              ? ` The ${role} alleles ARE present on what remains, so the copy that went was the `
+                + "other parent's."
+              : rate >= explainable * ABSENCE_MARGIN
+                ? ` The ${role} alleles are absent from what remains, so the copy that went was `
+                  + `the ${role} one.`
+                : ' Which parent lost the copy is not resolved: absence here sits between what '
+                  + "this sample's own noise explains and the margin needed to call it.")
+        : !clustered
         ? `${pct(extreme, 1)} of this chromosome's B-allele frequencies sit at an extreme, `
           + `against a ${pct(BAF_EXTREME_FLOOR, 0)} floor and ${pct(0.752, 0)} to `
           + `${pct(0.976, 0)} on chromosomes that clustered correctly. The genotype calls here `

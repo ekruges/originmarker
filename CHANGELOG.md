@@ -9,6 +9,49 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.3.0
+
+Whole-chromosome aneuploidy, called from the call rate. And a correction: three chromosomes this
+tool was suppressing as artefact are real losses.
+
+### Added
+
+- **Aneuploidy calling.** A chromosome that has been lost yields no DNA, so the array reads
+  nothing at its probes and cannot genotype it. The call rate on that chromosome collapses while
+  every allelic statistic there merely looks noisy. That is a genotype-level signal needing no
+  intensity, which matters because fine copy-number work on amplified material is refused
+  elsewhere in this tool for measured reasons.
+
+  Over 1,012 chromosome observations from 46 arrays across three experiments, eleven chromosomes
+  sat at 0.20x to 0.41x their genome's median call rate and the other 1,001 at 0.78x to 1.16x. The
+  gap is empty by a factor of 1.9. All eleven also carried an intensity shift of 1.59 to 2.04 log2
+  where the rest never left -0.79 to +0.42, so two channels that fail in unrelated ways agree on
+  every event.
+
+  The sign of that shift says which way it went, used only after the call rate has established
+  that something is wrong: six sat at -1.59 to -2.04 and five at +1.60 to +1.95. So gains ARE
+  called at whole-chromosome scale, where the effect is an order of magnitude larger than the
+  noise that forced the refusal of finer copy-number work.
+
+  Whose copy went is read from what survives: if the declared parent's alleles are still present
+  on the remainder, the copy that went was the other parent's; if absent, it was theirs. Where
+  nothing remains, or the sample carries none of that parent's genome anywhere, no parent is
+  attached and the report says so.
+
+### Fixed
+
+- **Three real chromosome losses were being suppressed as array mis-clustering.** The 3.0.4 gate
+  withheld any chromosome whose allelic ratio was depressed, on the reasoning that a paternal
+  pronucleus is its father's on every autosome by construction. That reasoning was wrong: the
+  series this tool is validated against exists precisely because chromosomes ARE lost in these
+  embryos, so a pronucleus can genuinely lack one.
+
+  Both a loss and a mis-clustering depress the allelic ratio. The CALL RATE separates them,
+  because a mis-clustered chromosome still calls and an absent one cannot. The gate now applies
+  only where the chromosome is still being genotyped, and a collapsed one is reported as the loss
+  it is. Every chromosome the gate had suppressed carries a call rate at 0.28x to 0.36x and an
+  intensity shift near -1.8, which is a lost chromosome and not a clustering failure.
+
 ## 3.2.1
 
 Documentation catching up with 3.2.0. The mosaic contrast shipped after the report's Methods and

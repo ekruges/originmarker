@@ -690,6 +690,12 @@ function ResultCard({ entry, donorName, oocyteName }: {
           <Badge size="sm" variant="outline" color="genomeGrey">
             {r.zygosity.replace(/_/g, ' ')}
           </Badge>
+          {r.chroms.some((c) => c.aneuploidy) && (
+            <Badge size="sm" variant="filled" color="orange">
+              {r.chroms.filter((c) => c.aneuploidy).map((c) =>
+                `chr${c.chrom} ${c.aneuploidy}`).join(', ')}
+            </Badge>
+          )}
           {r.segments.length > 0 && (
             <Badge size="sm" variant="filled" color="orange">
               {r.segments.length} chromosomal change{r.segments.length === 1 ? '' : 's'}
@@ -716,6 +722,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
       </div>
       {open && (
         <div style={{ padding: '2px 16px 14px' }}>
+          <AneuploidyCallout chroms={r.chroms} role="paternal" />
           <SegmentCallout segments={r.segments} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">
@@ -961,6 +968,59 @@ function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate
  * detail, in the same visual language the tool uses for a warning, and the table below it carries
  * the numbers rather than replacing the sentence.
  */
+/**
+ * Whole-chromosome gain or loss, said before anything else in the detail.
+ *
+ * The signal is the CALL RATE, not the alleles: a chromosome that is not there yields no DNA and
+ * cannot be genotyped, so it collapses here while its allelic statistics only look noisy. The
+ * intensity then says which way it went. Both channels are enormous on a real event and fail in
+ * unrelated ways, which is why this is stated plainly rather than hedged.
+ */
+function AneuploidyCallout({ chroms, role }: { chroms: ChromResult[]; role: string }) {
+  const hits = chroms.filter((c) => c.aneuploidy)
+  if (!hits.length) return null
+  const other = role === 'paternal' ? 'maternal' : 'paternal'
+  return (
+    <div style={{
+      border: '1px solid var(--om-higher)', borderLeft: '4px solid var(--om-higher)',
+      background: 'var(--om-warn-bg)', padding: '11px 14px', margin: '10px 0 4px',
+    }}
+    >
+      <Text style={{ fontSize: 15, fontWeight: 700, color: 'var(--om-higher)', lineHeight: 1.25 }}>
+        Aneuploidy: {hits.map((c) => `chromosome ${c.chrom} ${c.aneuploidy}`).join(', ')}
+      </Text>
+      <div style={{ marginTop: 7, display: 'grid', gap: 4 }}>
+        {hits.map((c) => (
+          <Text key={c.chrom} size="sm" style={{ lineHeight: 1.5 }}>
+            <b>chr{c.chrom} {c.aneuploidy}</b>
+            {' '}&middot; calls at{' '}
+            <span style={{ fontFamily: 'var(--om-mono)' }}>{c.callFraction.toFixed(2)}x</span>
+            {' '}the genome rate, intensity{' '}
+            <span style={{ fontFamily: 'var(--om-mono)' }}>
+              {c.lrrShift > 0 ? '+' : ''}{c.lrrShift.toFixed(2)}
+            </span>
+            {' '}log2 from the rest &middot;{' '}
+            {c.aneuploidyParent === 'this'
+              ? `the ${role} copy`
+              : c.aneuploidyParent === 'other'
+                ? `the ${other} copy, since the ${role} alleles survive on what remains`
+                : 'parent not determined'}
+          </Text>
+        ))}
+      </div>
+      <Text size="xs" c="dimmed" mt={6} style={{ maxWidth: 760, lineHeight: 1.5 }}>
+        A chromosome that is gone cannot be genotyped, so the call rate collapses; measured over
+        1,012 chromosomes an intact one calls at 0.78x to 1.16x of its genome&rsquo;s median and
+        never leaves &minus;0.79 to +0.42 log2. The parent is attached only where something
+        survives on the chromosome to attribute and this sample carries that parent&rsquo;s genome
+        elsewhere. A gain is reported more cautiously than a loss: fine copy-number work on
+        amplified material is refused in this tool, and what differs here is only that the effect
+        is an order of magnitude larger than the noise those refusals concern.
+      </Text>
+    </div>
+  )
+}
+
 function SegmentCallout({ segments }: { segments: Segment[] }) {
   if (!segments.length) return null
   const mb = (x: number): string => `${(x / 1e6).toFixed(1)} Mb`

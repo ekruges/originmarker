@@ -493,6 +493,30 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       heading('Sex chromosomes', 8.6)
       chromTable(sex, r.explainable)
     }
+    const aneu = r.chroms.filter((c) => c.aneuploidy)
+    if (aneu.length) {
+      heading('Aneuploidy', 8.6)
+      text('A chromosome that is not there cannot be genotyped, so a whole-chromosome change '
+        + 'shows up as a collapse in call rate rather than as an allelic mismatch; the intensity '
+        + 'then says which way it went. Measured over 1,012 chromosomes, an intact one calls at '
+        + '0.78x to 1.16x of its genome median and never leaves -0.79 to +0.42 log2. A parent is '
+        + 'attached only where something survives on the chromosome to attribute and the sample '
+        + 'carries that parent elsewhere.', 7.4, 'Helvetica', 2.4, GREY)
+      table(
+        [{ head: 'Chromosome', w: 92 }, { head: 'Change', w: 56 },
+          { head: 'Call rate', w: 62, right: true }, { head: 'Intensity', w: 62, right: true },
+          { head: 'Whose copy', w: 156 }],
+        aneu.map((c) => [
+          `chr${c.chrom}`,
+          { v: c.aneuploidy!.toUpperCase(), colour: WARN },
+          `${c.callFraction.toFixed(2)}x`,
+          `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2`,
+          c.aneuploidyParent === 'this' ? 'the parent scored against'
+            : c.aneuploidyParent === 'other' ? 'the other parent'
+              : 'not determined',
+        ]),
+      )
+    }
     if (r.segments.length) {
       heading('Segments where the paternal genome is missing', 8.6)
       text('A partly lost chromosome reads as neither present nor absent, so the whole chromosome '
@@ -792,6 +816,15 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       'Empirical, and fitted rather than validated. Five genomes carrying no event reached a '
       + 'maximum of 139 over 110 chromosome scans; the weakest real event at the floor scores '
       + '431. Awaits an out-of-sample clean cohort.'],
+    ['Aneuploidy call rate', '0.60 of the genome median',
+      'A chromosome that is gone cannot be genotyped. Over 1,012 chromosome observations from 46 '
+      + 'arrays, eleven sat at 0.20x to 0.41x and the other 1,001 at 0.78x to 1.16x. The gap is '
+      + 'empty by a factor of 1.9, and all eleven also carried |log2R| of 1.59 to 2.04 where the '
+      + 'rest never left -0.79 to +0.42.'],
+    ['Loss against gain', 'sign of the intensity shift',
+      'Used only once the call rate has established that something is wrong. Six of the eleven '
+      + 'sat at -1.59 to -2.04 and five at +1.60 to +1.95, so this is a direction rather than a '
+      + 'threshold on a noisy quantity.'],
     ['Mosaic contrast', '8 standard deviations',
       'Per chromosome, on the heterozygous allelic ratio against the same sample\'s other '
       + 'chromosomes. Four bulk diploid arrays with no mosaic ran -1.65 to 5.18 over 88 '

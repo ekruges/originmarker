@@ -9,7 +9,8 @@ import { createGunzip } from 'node:zlib'
 import { createInterface } from 'node:readline'
 import { headerMap, parseRow, type ProbeRow } from './ingest.ts'
 import {
-  ABSENCE_MARGIN, BAF_EXTREME_FLOOR, MOSAIC_Z, absenceExplainable, agreement, classify,
+  ABSENCE_MARGIN, BAF_EXTREME_FLOOR, CALL_COLLAPSE, MOSAIC_Z, absenceExplainable, agreement,
+  classify,
   emptyTally,
   HET_BAND_DIPLOID,
   isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
@@ -19,8 +20,9 @@ import type { AB } from './informativity.ts'
 
 const row = (
   chrom: string, pos: number, genotype: AB, baf: number | null = null,
+  log2R: number | null = null,
 ): ProbeRow => ({
-  probesetId: `m${pos}`, chrom, pos, log2R: null, baf, copyNumber: null,
+  probesetId: `m${pos}`, chrom, pos, log2R, baf, copyNumber: null,
   genotype, bestProbeset: true,
 })
 
@@ -503,4 +505,57 @@ console.log('parentage.check.ts OK')
   assert.notEqual(uni.zygosity, 'diploid')
   assert.ok(uni.chroms.every((c) => Number.isNaN(c.mosaicZ)),
     'a uniparental genome has no heterozygous sites, so no mosaic contrast exists')
+}
+
+// --- 19. a chromosome that is GONE is a loss, not a chromosome that failed to measure ----------
+//
+// This pins a correction. Three chromosomes were previously diagnosed as array mis-clustering and
+// withheld, on the reasoning that a paternal pronucleus is its father's on every autosome by
+// construction. That was wrong: the series exists because chromosomes ARE lost in these embryos.
+// Both a loss and a mis-clustering depress the allelic ratio; the CALL RATE separates them,
+// because a mis-clustered chromosome still calls and an absent one cannot.
+//
+// Measured over 1,012 chromosome observations from 46 arrays: eleven sit at 0.20x to 0.41x the
+// genome's median call rate and the other 1,001 at 0.78x to 1.16x. Every one of the eleven also
+// carries |log2R| of 1.59 to 2.04 where the rest never leave -0.79 to +0.42.
+{
+  // `gone` collapses the call rate and the intensity, as an absent chromosome does. `broken`
+  // keeps both and only corrupts the allelic ratio, as mis-clustering does.
+  const build = (mode: 'clean' | 'gone' | 'broken', shift = -1.9) => {
+    const t = emptyTally()
+    for (let c = 1; c <= 12; c += 1) {
+      const target = c === 7
+      for (let i = 0; i < 3_000; i += 1) {
+        const s = (i * 7919) % 1000
+        const bad = target && mode !== 'clean'
+        // A lost chromosome yields no DNA: four fifths of its probes say nothing at all.
+        const silent = target && mode === 'gone' && s < 800
+        const baf = bad ? 0.5 : (s % 2 ? 0.02 : 0.98)
+        tallyRow('AA', row(String(c), 1000 + i * 1000, silent ? 'NC' : 'AA', baf, target && mode === 'gone' ? shift : 0), t)
+      }
+    }
+    return classify(t, 0.17).chroms.find((x) => x.chrom === '7')!
+  }
+
+  const gone = build('gone')
+  assert.equal(gone.aneuploidy, 'loss', `a collapsed chromosome is a LOSS: ${JSON.stringify(gone)}`)
+  assert.equal(gone.verdict, 'absent', 'and it is reported, not withheld')
+  assert.ok(gone.callFraction < CALL_COLLAPSE)
+  assert.ok(gone.note!.includes('LOST'))
+
+  // The same collapse with the intensity going the other way is a gain, not a loss.
+  assert.equal(build('gone', 1.9).aneuploidy, 'gain')
+
+  // Mis-clustering still withholds: the ratio is corrupt but the chromosome is being genotyped.
+  const broken = build('broken')
+  assert.equal(broken.aneuploidy, undefined, 'a chromosome that still calls has not been lost')
+  assert.equal(broken.verdict, 'not_measured', 'so the ratio may still diagnose mis-clustering')
+
+  const clean = build('clean')
+  assert.equal(clean.aneuploidy, undefined)
+  assert.ok(clean.callFraction > 0.9, 'an intact chromosome calls with the rest of the genome')
+
+  // The threshold sits in the empty gap between the two measured populations.
+  assert.equal(CALL_COLLAPSE, 0.60)
+  assert.ok(CALL_COLLAPSE > 0.41 && CALL_COLLAPSE < 0.78)
 }

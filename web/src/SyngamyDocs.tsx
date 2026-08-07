@@ -53,6 +53,7 @@ const SECTIONS: DocSection[] = [
   { id: 'gates', label: 'Quality gates' },
   { id: 'assembly', label: 'Assembly detection, and no liftOver' },
   { id: 'chrom', label: 'Per-chromosome and segmental results' },
+  { id: 'aneuploidy', label: 'Aneuploidy: whole chromosomes' },
   { id: 'segments', label: 'Chromosomal change: segments' },
   { id: 'report', label: 'The report, and how to cite it' },
   { id: 'examples', label: 'The bundled example data' },
@@ -1105,6 +1106,50 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         </Section>
 
         {/* --- 18 ------------------------------------------------------------------------ */}
+        <Section id="aneuploidy" title="Aneuploidy: whole chromosomes">
+          <Text mb={8}>
+            A chromosome that has been lost yields no DNA, so the array reads nothing at its probes
+            and cannot genotype it. That is the signal: the <b>call rate collapses</b> on that
+            chromosome while every allelic statistic there only looks noisy. It is a genotype-level
+            reading and needs no intensity, which matters because fine copy-number work on
+            amplified material is refused elsewhere in this tool for measured reasons.
+          </Text>
+          <Text mb={8}>
+            Measured over 1,012 chromosome observations from 46 arrays across three experiments,
+            eleven chromosomes sat at 0.20 to 0.41 times their genome&rsquo;s median call rate and
+            the other 1,001 at 0.78 to 1.16. The gap is empty by a factor of 1.9. Every one of the
+            eleven also carried an intensity shift of 1.59 to 2.04 log2 where the rest never left
+            &minus;0.79 to +0.42, so two channels that fail in unrelated ways agree on every event.
+          </Text>
+          <Text mb={8}>
+            <b>Which way it went</b> comes from the sign of that intensity shift, and only once the
+            call rate has already established that something is wrong. Six of the eleven sat at
+            &minus;1.59 to &minus;2.04 and five at +1.60 to +1.95. A gain is reported more
+            cautiously than a loss and the report says so: what makes this different from the
+            copy-number work refused in <SecRef id="segments" /> is only that the effect here is an
+            order of magnitude larger than the noise those refusals concern.
+          </Text>
+          <Title order={3} mt={14} mb={4}>Whose copy went</Title>
+          <Text mb={8}>
+            Where something survives on the chromosome, the parent is determinable from it. If the
+            declared parent&rsquo;s alleles are still present on what remains, the copy that went
+            was the other parent&rsquo;s; if they are absent, it was theirs. Where nothing remains,
+            or where the sample carries none of that parent&rsquo;s genome anywhere, no parent is
+            attached and the report says that rather than guessing.
+          </Text>
+          <Title order={3} mt={14} mb={4}>A correction this replaced</Title>
+          <Text mb={8}>
+            Three of these chromosomes were previously diagnosed as array mis-clustering and
+            withheld, on the reasoning that a paternal pronucleus is its father&rsquo;s on every
+            autosome by construction. That reasoning was wrong, and the series this tool is
+            validated against exists precisely because chromosomes ARE lost in these embryos. Both
+            a loss and a mis-clustering depress the allelic ratio; the call rate is what separates
+            them, because a mis-clustered chromosome still calls and an absent one cannot. The
+            allelic-ratio gate of <SecRef id="gates" /> now applies only where the chromosome is
+            still being genotyped.
+          </Text>
+        </Section>
+
         <Section id="segments" title="Chromosomal change: segments">
           <Text mb={8}>
             A chromosome that is only PARTLY lost is the case the per-chromosome verdict cannot
