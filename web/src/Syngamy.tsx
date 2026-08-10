@@ -1091,8 +1091,10 @@ function SegmentCallout({ segments }: { segments: Segment[] }) {
         agrees by at least 1.0 log2. Measured over 46 arrays that requirement takes the scan from
         31 regions, including a 44.9 Mb one on a bulk diploid adult who cannot have it, to 17 with
         none on any of the six bulk arrays. Extra copies are found by the same machinery with the
-        shift reversed; no segmental gain occurs anywhere in those 46 arrays, so that direction has
-        never been shown to fire on a true positive, only never on a true negative.
+        shift reversed, validated on a constructed positive class since no segmental gain occurs in
+        those 46 arrays: a block of a whole-chromosome-gain array spliced into a clean one is
+        called copy-gain at all four sizes tested, and the same splice from a euploid array returns
+        nothing.
       </Text>
     </div>
   )

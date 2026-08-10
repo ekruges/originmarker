@@ -242,8 +242,29 @@ export function scanChromosome(
  * start of one chromosome, reaching 85% no-call against a 14% background at -1.94 log2.
  *
  * A GAIN is detected by the same machinery with the shift reversed. No segmental gain occurs
- * anywhere in the 46 arrays, so that direction is implemented and UNVALIDATED: it has never been
- * shown to fire on a true positive, only never to fire on a true negative.
+ * anywhere in the 46 arrays, so its positive class is CONSTRUCTED, by the method already used to
+ * titrate the marker floor: a block of one real array spliced into another of the same series, on
+ * the same platform from the same lab, so it carries genuine trisomic intensity and genuine
+ * amplification artefact rather than a simulated shift. The block is taken from a chromosome this
+ * tool calls as a whole-chromosome gain (0.34x to 0.41x call rate at +1.60 to +1.95 log2) and
+ * spliced into the same chromosome of an array carrying no event:
+ *
+ *     spliced markers   span    no-call        score   verdict
+ *          2,400        6.9 Mb  83% vs 12%     3,162   copy-gain
+ *          4,800       14.0 Mb  82% vs 12%     6,256   copy-gain
+ *          9,600       30.6 Mb  82% vs 12%    12,312   copy-gain
+ *         19,200       62.8 Mb  82% vs 12%    25,007   copy-gain
+ *
+ * Four of four, the right direction every time, at 12.6x to 100x the threshold. The identical
+ * construction with the block taken from a EUPLOID array returns nothing at all four sizes, so
+ * what is measured is the gain and not the act of splicing, and the recipient unspliced returns
+ * nothing on every autosome. Localisation was checked at three offsets on a 40 to 47 Mb block:
+ * the reported interval lands within 3.5 Mb of the spliced one. Below the marker floor the scan
+ * refuses rather than answering weakly, at 600 and at 1,200 markers.
+ *
+ * What that is and is not: it establishes that the direction, the threshold and the localisation
+ * behave on a real gain, and it does NOT establish a false-positive rate for gains in the wild,
+ * because a spliced boundary is sharper than most biological ones.
  */
 export function scanCopyNumber(
   markers: readonly { chrom: string; pos: number; called: boolean; log2R: number | null }[],

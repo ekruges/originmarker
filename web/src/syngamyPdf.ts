@@ -438,6 +438,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       // event, and a reader skimming the report will not go looking for it.
       const chroms = [...new Set(r.segments.map((sg) => `chr${sg.chrom}`))].join(', ')
       const total = r.segments.reduce((a, sg) => a + sg.spanBp, 0)
+      // The two channels answer different questions and a reader must not be told the wrong one.
+      // Counted rather than assumed: a sample can carry both at once.
+      const nAbs = r.segments.filter((sg) => sg.kind === 'parental-absence').length
+      const nCn = r.segments.length - nAbs
+      const span = (n: number): string => (n === 1 ? 'one region' : `${n} regions`)
       need(20)
       pdf.setFillColor(WARN)
       pdf.rect(L, y - 15, 3, 15, true)
@@ -445,13 +450,21 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       pdf.setFont('Helvetica-Bold', 9.5)
       pdf.drawString(L + 8, y - 11, `Chromosomal change on ${chroms}`)
       y -= 17
-      text(`The paternal genome is missing across ${r.segments.length === 1 ? 'one region'
-        : `${r.segments.length} regions`} totalling ${(total / 1e6).toFixed(1)} Mb, at a rate the `
-        + 'rest of this genome does not reach. The whole-chromosome verdict cannot show this: a '
-        + 'chromosome that is partly lost reads as neither present nor absent. This is a LOSS of '
-        + 'the paternal contribution over that region, not a statement about physical copy '
-        + 'number, and not a gain: gains are not called on this platform at all. The regions are '
-        + 'listed in full below.', 7.6, 'Helvetica', 2.6, INK, L + 8)
+      text(`${r.segments.length === 1 ? 'One region' : `${r.segments.length} regions`} totalling `
+        + `${(total / 1e6).toFixed(1)} Mb, at a rate the rest of this genome does not reach. The `
+        + 'whole-chromosome verdict cannot show this: a chromosome that is partly changed reads '
+        + 'as neither present nor absent. '
+        // Only said when both are actually here. Announcing two kinds of finding above a list
+        // containing one reads as a missing section rather than as a distinction being drawn.
+        + (nAbs && nCn ? 'Two DIFFERENT findings are reported here and they are labelled rather '
+          + 'than merged. ' : '')
+        + (nAbs ? `PATERNAL ALLELES ABSENT (${span(nAbs)}): the donor's alleles are missing over `
+          + 'that region, which a region can be while its DNA is entirely present, if it came '
+          + 'from the other parent alone. This is not a statement about physical copy number. ' : '')
+        + (nCn ? `COPY LOSS or COPY GAIN (${span(nCn)}): the DNA itself is absent or present in `
+          + 'extra copies, called only where the array stopped genotyping AND the intensity '
+          + 'agrees by at least 1.0 log2. ' : '')
+        + 'The regions are listed in full below.', 7.6, 'Helvetica', 2.6, INK, L + 8)
       y -= 2
     }
 
@@ -781,6 +794,22 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       + 'resolution of the window that found the event, not the extent of the event itself.',
     8, 'Helvetica', 2.6)
     y -= 3
+    text('The same scan was run a second time on a DIFFERENT indicator, because the one above '
+      + "asks where a parent's alleles are missing, which a region can be while its DNA is "
+      + 'entirely present. The copy-number channel asks where the DNA itself is gone, read from '
+      + 'the array no longer calling at all, and a region is reported only where that no-call '
+      + 'rate rises AND the median intensity departs from the rest of the genome by at least 1.0 '
+      + 'log2. That second requirement is load-bearing: across 46 arrays the scan without it '
+      + 'returns 31 regions including a 44.9 Mb loss on a bulk diploid adult who cannot carry '
+      + 'one, and with it 17 survive with none on any of the six bulk diploid arrays. The sign of '
+      + 'the shift then gives the direction. Extra copies use the same machinery reversed; no '
+      + 'segmental gain occurs in those 46 arrays, so that direction was validated on a '
+      + 'constructed positive class, a block of a whole-chromosome-gain array spliced into a '
+      + 'clean array of the same series, called copy-gain at all four sizes tested while the same '
+      + 'splice from a euploid array returns nothing. A chromosome already called whole is not '
+      + 'scanned for a region inside it, since that is one event described twice.',
+    8, 'Helvetica', 2.6)
+    y -= 3
   }
   if (results.some((f) => f.result!.zygosity === 'diploid')) {
     text('Mosaicism was assessed from the continuous B-allele frequency rather than from the '
@@ -855,6 +884,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       'Empirical, and fitted rather than validated. Five genomes carrying no event reached a '
       + 'maximum of 139 over 110 chromosome scans; the weakest real event at the floor scores '
       + '431. Awaits an out-of-sample clean cohort.'],
+    ['Segment intensity shift', '1.0 log2, on top of the call-rate rise',
+      'What separates a real copy-number change from a region the array merely failed on. Across '
+      + '46 arrays the scan without it returns 31 regions including a 44.9 Mb loss on a bulk '
+      + 'diploid adult; with it 17 survive and none fall on the six bulk diploid arrays. Rejected '
+      + 'regions carry -0.72 to +0.38, kept ones -0.97 to -1.94.'],
     ['Aneuploidy call rate', '0.60 of the genome median',
       'A chromosome that is gone cannot be genotyped. Over 1,012 chromosome observations from 46 '
       + 'arrays, eleven sat at 0.20x to 0.41x and the other 1,001 at 0.78x to 1.16x. The gap is '

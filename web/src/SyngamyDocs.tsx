@@ -1269,10 +1269,29 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             with its coordinates and length like every other.
           </Text>
           <Text mb={8}>
-            <b>Extra copies</b> are found by the same machinery with the shift reversed, and the
-            status of that direction is stated exactly: no segmental gain occurs anywhere in those
-            46 arrays, so it has never been shown to fire on a true positive, only never to fire on
-            a true negative. Whole-chromosome gains ARE validated, in{' '}
+            <b>Extra copies</b> are found by the same machinery with the shift reversed. No
+            segmental gain occurs anywhere in those 46 arrays, so its positive class is
+            <b> constructed</b>, by the method already used to set the marker floor: a block of one
+            real array spliced into another of the same series, on the same platform from the same
+            lab, so it carries genuine trisomic intensity and genuine amplification artefact rather
+            than a simulated shift. The block comes from a chromosome this tool calls as a
+            whole-chromosome gain, spliced into the same chromosome of an array carrying no event.
+          </Text>
+          <Text mb={8}>
+            Four constructions, four detections, the right direction every time, at 12.6x to 100x
+            the threshold: 2,400 markers scores 3,162 over 6.9 Mb, and 19,200 scores 25,007 over
+            62.8 Mb, each at about 82% no-call against a 12% background. The identical construction
+            with the block taken from a <b>euploid</b> array returns nothing at all four sizes, so
+            what is being measured is the gain and not the act of splicing, and the recipient
+            unspliced returns nothing on every autosome. The reported interval lands within 3.5 Mb
+            of the spliced one at three different offsets, and below the marker floor the scan
+            refuses rather than answering weakly.
+          </Text>
+          <Text mb={8}>
+            What that does and does not establish: the direction, the threshold and the
+            localisation behave on a real gain. It does <b>not</b> establish a false-positive rate
+            for gains in the wild, because a spliced boundary is sharper than most biological ones.
+            Whole-chromosome gains are validated on unconstructed data, in{' '}
             <SecRef id="aneuploidy" />, where the effect is an order of magnitude larger.
           </Text>
 

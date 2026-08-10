@@ -9,6 +9,57 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.4.2
+
+The segmental gain direction is no longer unvalidated, and the report no longer tells the reader
+that gains are not called.
+
+### Added
+
+- **A positive class for segmental GAINS, constructed from real arrays.** 3.4.0 shipped the gain
+  direction with its status stated plainly: no segmental gain occurs anywhere in the 46 arrays, so
+  it had never been shown to fire on a true positive. It now has been, by the method already used
+  to set the marker floor rather than by simulation. A block of one real array is spliced into
+  another of the same series, on the same platform from the same lab, so it carries genuine
+  trisomic intensity and genuine amplification artefact. The block is taken from a chromosome this
+  tool already calls as a whole-chromosome gain (0.34x to 0.41x call rate at +1.60 to +1.95 log2)
+  and spliced into the same chromosome of an array carrying no event.
+
+      spliced markers   span      no-call       score    verdict
+           2,400         6.9 Mb   83% vs 12%    3,162    copy-gain
+           4,800        14.0 Mb   82% vs 12%    6,256    copy-gain
+           9,600        30.6 Mb   82% vs 12%   12,312    copy-gain
+          19,200        62.8 Mb   82% vs 12%   25,007    copy-gain
+
+  Four of four, the right direction every time, at 12.6x to 100x the threshold. The IDENTICAL
+  construction with the block taken from a euploid array returns nothing at all four sizes, so
+  what is being measured is the gain and not the act of splicing, and the recipient unspliced
+  returns nothing on every autosome. Localisation was checked at three offsets: the reported
+  interval lands within 3.5 Mb of the spliced one on a 40 to 47 Mb block. Below the marker floor
+  the scan refuses rather than answering weakly, at 600 and at 1,200 markers.
+
+  What this does NOT establish is a false-positive rate for gains in the wild, because a spliced
+  boundary is sharper than most biological ones. That is stated wherever the result is quoted.
+
+- **`origin.py` gained the copy-number scan.** `scan_copy_number` and `SEGMENT_LRR_SHIFT` mirror
+  the TypeScript, and `Segment` carries the `kind` that distinguishes the two channels. The
+  self-check pins both languages to the same fixture: 9,600 markers, 8,009 no-calls, 47,995,000 bp
+  span, score 14,298.1603, kind copy-loss, identical to sixteen significant figures. A divergence
+  here would be invisible to a user, who only ever runs one of the two.
+
+### Fixed
+
+- **The report told the reader that gains are not called on this platform.** That sentence was
+  correct when it was written and became false in 3.4.0, when the copy-number channel shipped. The
+  per-sample callout now names which of the two findings it is looking at, and says what each one
+  means, since `parental alleles absent` and `copy loss` are different claims about a region and
+  were being introduced by the same paragraph.
+
+- **The Methods section described only the allelic channel.** A reader reconstructing the analysis
+  from the report would not have learnt that a second scan runs on a different indicator, nor that
+  the intensity requirement is what separates a real deletion from a region the array merely failed
+  on. Both are now stated, along with the constant and its measurement in the constants table.
+
 ## 3.4.1
 
 The report's first section now says whether a chromosome is missing, rather than leaving it to a

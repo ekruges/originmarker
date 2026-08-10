@@ -154,11 +154,20 @@ console.log('segments.check.ts: all assertions passed')
   assert.deepEqual(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, -0.3), 0.10, 0), [],
     'a region the array merely failed on is not a copy-number change')
 
-  // Extra copies are the same machinery with the shift reversed. IMPLEMENTED AND UNVALIDATED: no
-  // segmental gain occurs in the 46 arrays, so this has never fired on a true positive.
+  // Extra copies are the same machinery with the shift reversed. Validated on a constructed
+  // positive class, since no segmental gain occurs in the 46 arrays: a block of a
+  // whole-chromosome-gain array spliced into a clean array of the same series scores 3,162 at
+  // the marker floor and 25,007 at 19,200 markers, copy-gain at all four sizes, while the same
+  // splice from a EUPLOID array returns nothing at any of them. See scanCopyNumber's docstring.
   const gained = scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, 1.9), 0.10, 0)
   assert.equal(gained.length, 1)
   assert.equal(gained[0].kind, 'copy-gain')
+
+  // The direction is read from the SIGN, so the two must never collapse onto each other.
+  assert.equal(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, -1.9), 0.10, 0)[0].kind, 'copy-loss')
+  // And a shift that does not clear the bar is neither, in either direction.
+  assert.deepEqual(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, 0.9), 0.10, 0), [])
+  assert.deepEqual(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, -0.9), 0.10, 0), [])
 
   // A clean chromosome yields nothing in either direction.
   assert.deepEqual(scanCopyNumber(cn(40_000, -1, -1, 0, 0), 0.10, 0), [])

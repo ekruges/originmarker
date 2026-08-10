@@ -35,7 +35,7 @@ import gzip
 import math
 import statistics as st
 import sys
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal, Optional, Sequence
 
@@ -1396,10 +1396,25 @@ SEGMENT_NULL_FLOOR = 0.002
 #: real event at the marker floor scores 431. Awaits an out-of-sample clean cohort.
 SEGMENT_LRT = 250
 
+#: Intensity shift a COPY-NUMBER segment must carry, in log2, on top of its call-rate elevation.
+#: A raised no-call rate has two causes - the DNA is not there, or the array is poor just there -
+#: and requiring the intensity to agree separates them. Across 46 arrays the scan without it
+#: returns 31 regions including a 44.9 Mb "loss" on a bulk diploid adult who cannot have one;
+#: with it, 17 survive and none fall on any of the six bulk diploid arrays. Mirrors
+#: SEGMENT_LRR_SHIFT in web/src/segments.ts.
+SEGMENT_LRR_SHIFT = 1.0
+
 
 @dataclass
 class Segment:
-    """A region within one chromosome where the parental genome is missing."""
+    """A region within one chromosome carrying a change, of one of two distinct kinds.
+
+    `parental-absence` is the allelic channel: the PARENT's alleles are missing across this
+    region, which a region can do with its DNA entirely present, if it came from the other
+    parent alone. `copy-loss` and `copy-gain` are the copy-number channel: the DNA itself is
+    not there, or there in extra copies. Both events are real and they are not the same event,
+    so they are labelled rather than merged. Mirrors `Segment` in web/src/segments.ts.
+    """
 
     chrom: str
     markers: int
@@ -1410,6 +1425,7 @@ class Segment:
     span_bp: int
     score: float
     null_rate: float
+    kind: Literal["parental-absence", "copy-loss", "copy-gain"] = "parental-absence"
 
 
 def _seg_loglike(k: int, n: int, p: float) -> float:
@@ -1479,6 +1495,33 @@ def scan_chromosome(markers, null_rate: float, min_markers: int = MIN_SEGMENT_MA
             continue
         picked.append(h)
     return sorted(picked, key=lambda h: h.start_bp)
+
+
+def scan_copy_number(markers, null_no_call: float, genome_lrr: float,
+                     min_markers: int = MIN_SEGMENT_MARKERS,
+                     threshold: float = SEGMENT_LRT,
+                     shift: float = SEGMENT_LRR_SHIFT) -> list[Segment]:
+    """Copy-number segments, as (pos, called, chrom, log2r) tuples. Mirrors `scanCopyNumber`.
+
+    A DIFFERENT indicator from `scan_chromosome`, deliberately. That one asks where a parent's
+    alleles are missing; this asks where the DNA itself is gone, read from the array no longer
+    calling. The intensity requirement is what separates a real deletion from a region the array
+    merely failed on, and the sign of the shift then gives the direction.
+    """
+    ms = sorted(markers)
+    hits = scan_chromosome([(pos, not called, chrom) for pos, called, chrom, _ in ms],
+                           null_no_call, min_markers, threshold)
+    out: list[Segment] = []
+    for h in hits:
+        inside = sorted(lrr for pos, _, _, lrr in ms
+                        if h.start_bp <= pos <= h.end_bp and lrr is not None)
+        if not inside:
+            continue
+        delta = inside[len(inside) // 2] - genome_lrr
+        if abs(delta) < shift:
+            continue
+        out.append(replace(h, kind="copy-gain" if delta >= shift else "copy-loss"))
+    return out
 
 
 @dataclass
@@ -2362,6 +2405,21 @@ def _self_check() -> int:
     _two = {"1": [50_000, 250], "2": [50_000, 25_000], "3": [50_000, 25_000]}
     assert external_null(_two, "2") < external_null(_two, "9") / 1.9
     assert external_null({}, "9") == SEGMENT_NULL_FLOOR
+    # The copy-number channel, pinned against the same TypeScript fixture. A real deletion is the
+    # call-rate collapse AND the intensity agreeing; the same collapse with no intensity behind
+    # it is an array failing, which is the case that produced a false 44.9 Mb loss on a diploid.
+    cn_ms = [(1_000_000 + i * 5000,
+              not ((i * 7919) % 1000 < (850 if 5000 <= i < 15000 else 100)),
+              "4", -1.9 if 5000 <= i < 15000 else 0.0) for i in range(40_000)]
+    lost = scan_copy_number(cn_ms, 0.10, 0.0)
+    assert len(lost) == 1 and lost[0].kind == "copy-loss", lost
+    assert 20e6 < lost[0].span_bp < 120e6, lost[0].span_bp
+    flat = [(pos, called, c, 0.0 if 5000 <= i < 15000 else 0.0)
+            for i, (pos, called, c, _) in enumerate(cn_ms)]
+    assert scan_copy_number(flat, 0.10, 0.0) == [], "no intensity behind it is not a deletion"
+    gained = [(pos, called, c, 1.9 if 5000 <= i < 15000 else 0.0)
+              for i, (pos, called, c, _) in enumerate(cn_ms)]
+    assert [g.kind for g in scan_copy_number(gained, 0.10, 0.0)] == ["copy-gain"]
     assert run_length_p(10, 10, KOTHIYAL_FLOOR) > 0, "the run form must not underflow to zero"
     assert score_paternal("AA", "AB", "AB") is None, "presence needs a mother who cannot supply"
     assert estimate_dropout({"r": "AB"}, {"r": "AA"}, {"r": "AB"})[0] == 0.0
