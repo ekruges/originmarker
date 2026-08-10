@@ -9,6 +9,27 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.4.1
+
+The report's first section now says whether a chromosome is missing, rather than leaving it to a
+per-sample block further down.
+
+### Changed
+
+- **Chromosomal change is flagged in the Result summary.** A reader who takes only the first
+  section of the PDF was previously told the origin call and the absence rates, and had to reach
+  the per-sample detail to learn that a chromosome was gone. Whole-chromosome and segmental
+  changes now appear twice in that first section: as a banded line above the table naming the
+  affected samples and what was found in each, and as a per-sample column in the table itself.
+  The coordinates and the evidence stay where they were, below.
+
+  Samples with nothing found read "none detected" rather than being left blank, and the note
+  under the table says what that does and does not mean: a region under the size floor, or one on
+  a chromosome whose calls are not measuring it, is not reported either way.
+
+- The summary table was over-wide and ran past the right margin when an oocyte donor was loaded.
+  Every column is narrower; the table now ends exactly at the margin in both layouts.
+
 ## 3.4.0
 
 Segmental copy number, on a second indicator. The aneuploidy work is now complete on both scales

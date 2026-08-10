@@ -330,17 +330,46 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   heading('Result summary')
   const times = (a: number, b: number): string =>
     (Number.isFinite(a / b) ? `${(a / b).toFixed(1)}x` : '-')
+
+  /** Whole chromosomes first, then regions, in the fewest words that stay unambiguous. */
+  const changeOf = (r: ParentageResult): string => {
+    const whole = r.chroms.filter((c) => c.aneuploidy)
+      .map((c) => `chr${c.chrom} ${c.aneuploidy}`)
+    const copy = r.segments.filter((sg) => sg.kind !== 'parental-absence')
+      .map((sg) => `chr${sg.chrom} ${sg.kind === 'copy-gain' ? 'gain' : 'loss'} `
+        + `${(sg.spanBp / 1e6).toFixed(0)}Mb`)
+    const parental = r.segments.filter((sg) => sg.kind === 'parental-absence')
+      .map((sg) => `chr${sg.chrom} paternal ${(sg.spanBp / 1e6).toFixed(0)}Mb`)
+    return [...whole, ...copy, ...parental].join(', ')
+  }
+  const flagged = results.filter((f) => changeOf(f.result!))
+  if (flagged.length) {
+    // Said before the table as well as inside it. A reader who takes only the first section must
+    // not miss a chromosome-scale finding because it sat in a column they skimmed past.
+    const msg = `Chromosomal change in ${flagged.length} of ${results.length} sample(s): `
+      + flagged.map((f) => `${f.name} ${changeOf(f.result!)}`).join('; ')
+      + '. Coordinates and evidence per sample below.'
+    const h = wrap(msg, 'Helvetica-Bold', 9, R - L - 10).length * 11 + 3
+    need(h + 4)
+    pdf.setFillColor(WARN)
+    pdf.rect(L, y - h, 3, h, true)
+    text(msg, 9, 'Helvetica-Bold', 2, WARN, L + 10)
+    y -= 4
+  }
+
+  const wide = paired ? 0 : 1
   table([
-    { head: 'Sample', w: 150 },
-    { head: 'Origin', w: 68 },
+    { head: 'Sample', w: 100 + wide * 12 },
+    { head: 'Origin', w: 58 },
+    { head: 'Chromosomal change', w: 86 + wide * 12 },
     ...(paired
-      ? [{ head: 'Pat absence', w: 50, right: true }, { head: 'Pat x ceil', w: 44, right: true },
-        { head: 'Mat absence', w: 50, right: true }, { head: 'Mat x ceil', w: 44, right: true }]
-      : [{ head: 'Absence', w: 46, right: true }, { head: 'Ceiling', w: 46, right: true },
-        { head: 'x ceiling', w: 46, right: true }]),
-    { head: 'Zygosity', w: 62 },
-    { head: 'Sperm', w: 46 },
-    { head: 'Informative', w: 46, right: true },
+      ? [{ head: 'Pat abs', w: 42, right: true }, { head: 'Pat x', w: 36, right: true },
+        { head: 'Mat abs', w: 42, right: true }, { head: 'Mat x', w: 36, right: true }]
+      : [{ head: 'Absence', w: 44, right: true }, { head: 'Ceiling', w: 44, right: true },
+        { head: 'x ceiling', w: 44, right: true }]),
+    { head: 'Zygosity', w: 54 },
+    { head: 'Sperm', w: 38 },
+    { head: 'Informative', w: 40, right: true },
   ], results.map((f) => {
     const r = f.result!
     const m = f.maternal
@@ -351,6 +380,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         v: cls.replace(/_/g, ' '),
         colour: cls === 'unclear' || cls === 'neither_parent' ? WARN : INK,
       },
+      { v: changeOf(r) || 'none detected', colour: changeOf(r) ? WARN : GREY },
       ...(paired
         ? [pct(r.genomeRate), times(r.genomeRate, r.explainable),
           m ? pct(m.genomeRate) : '-', m ? times(m.genomeRate, m.explainable) : '-']
@@ -360,6 +390,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       int(r.informative),
     ]
   }))
+  text('Chromosomal change is a whole chromosome or a region whose DNA is absent or present in '
+    + 'extra copies, read from the array no longer genotyping it with the intensity agreeing, and '
+    + 'reported per sample below with its coordinates. "none detected" is not a clean bill: a '
+    + 'region under the size floor, or on a chromosome whose calls are not measuring it, is not '
+    + 'reported either way.', 6.5, 'Helvetica-Oblique', 2, GREY)
   text('Absence is the rate at which the donor\'s obligate allele is missing where he is '
     + 'homozygous. Ceiling is what this sample\'s own noise can manufacture: its no-call rate '
     + 'times its heterozygous fraction. A sample is called as lacking a paternal contribution '
