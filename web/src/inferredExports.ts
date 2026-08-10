@@ -12,11 +12,8 @@
  * file stays loadable in one call while still carrying what it was made from. The JSON carries
  * the same fields as real keys.
  *
- * What is deliberately NOT exported is the reconstructed genotype itself. The build is
- * deterministic, so the product files and their checksums ARE the reference and re-running
- * reproduces it exactly. A file of 600,000 homozygous calls belonging to an identifiable man,
- * in a format that opens in Excel and could be re-imported as though it were a measured array,
- * is a hazard with no matching benefit.
+ * The reconstructed genotype itself is written by `inferredArray.ts`, which carries its own note
+ * on why a file of homozygous calls belonging to an identifiable person is marked the way it is.
  */
 
 export interface RunProvenance {
@@ -48,6 +45,8 @@ export interface SampleResult {
   sample: string
   role: string
   group: string
+  /** The parental-origin call, which is the answer the run exists to produce. */
+  origin?: string
   callRate?: number
   hetBand?: number
   absence?: number
@@ -128,16 +127,18 @@ export function concordanceMatrixCsv(
 
 /** One row per array, including the ones excluded and why. */
 export function sampleResultsCsv(rows: SampleResult[], p: RunProvenance): string {
-  const cols = ['sample', 'role', 'parent_group', 'call_rate', 'het_baf_band', 'absence',
-    'noise_ceiling', 'ratio_to_ceiling', 'verdict', 'excluded_because']
+  const cols = ['sample', 'origin', 'role', 'parent_group', 'call_rate', 'het_baf_band',
+    'absence', 'noise_ceiling', 'ratio_to_ceiling', 'verdict', 'excluded_because']
   return [
     ...provenanceComments(p),
-    '# One row per array. Excluded arrays are kept with the reason, so the table accounts for',
+    '# One row per array. origin is the parental-origin call: an array carrying the reconstructed',
+    '# parent\'s genome came from that parent, one decisively lacking it came from the other.',
+    '# Excluded arrays are kept with the reason, so the table accounts for',
     '# every file that went in. ratio_to_ceiling is absence divided by that sample\'s own noise',
     '# ceiling; at or below 1 reads present, at or above 3 reads absent, between is uncalled.',
     '#',
     cols.join(','),
-    ...rows.map((r) => rowOf([r.sample, r.role, r.group,
+    ...rows.map((r) => rowOf([r.sample, r.origin, r.role, r.group,
       r.callRate?.toFixed(4), r.hetBand?.toFixed(4), r.absence?.toFixed(6),
       r.ceiling?.toFixed(6), r.ratio?.toFixed(4), r.verdict, r.excludedBecause])),
   ].join('\n') + '\n'

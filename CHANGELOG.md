@@ -9,6 +9,76 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.5.0
+
+Progenitor calls parental origin. Drop an experiment's arrays in and it works out which came from
+which parent, with no array of either parent anywhere in the run.
+
+### Added
+
+- **Parental origin for every array, from products alone.** The reconstruction was already the
+  hard part and it stopped one step short: it established which arrays share a parent and how
+  contaminated a reference built from them would be, then left the question the whole thing exists
+  for unanswered. Now every array that goes in is scored against the reconstructed genotype, not
+  only the ones it was built from. An array carrying that parent's genome came from that parent;
+  one decisively lacking it came from the other.
+
+  Which parent gets reconstructed is not chosen and does not need to be. The largest group that
+  clears the five-product floor is built, whichever parent it belongs to, because the other side
+  reads off it. An experiment whose paternal products are too few but whose maternal ones are not
+  is answered by reconstructing the mother.
+
+  Arrays the gates excluded are called too, and their rows say so. A product has to be a clean
+  haploid cell to go INTO a reference; that is not a reason to withhold an answer ABOUT it, and a
+  fused or half-failed zygote is the case this gets asked about most.
+
+- **Naming the reconstructed parent, from chromosome Y.** Grouping products by shared parent says
+  nothing about which parent: a set of siblings looks the same either way. A maternal cell cannot
+  carry a Y, so a group with one Y-bearing product is the father's.
+
+  TWO measurements are required and neither is sufficient. Each rule alone inverts a real
+  experiment. Call rate alone is wrong on an array that genotypes 86.2% of its Y probes while its
+  Y intensity sits a full log2 below its own autosomes, exactly where arrays with no Y sit: an
+  absent chromosome still produces calls, and taking that at its word names a maternal group
+  paternal and inverts every call in it. Intensity alone is wrong in the other direction, on an
+  array reading -0.10 log2 while calling not one Y probe.
+
+  Requiring both separates cleanly over 46 arrays: Y-bearing arrays call 93.7% to 97.3% of their Y
+  probes at +0.16 to +0.43 log2, and every other array either calls 0.0% or sits at -0.81 to
+  -1.25. Naming is withheld rather than guessed where no group carries a Y, where more than one
+  does, and where the file's Y panel is too thin to ask. The split between the two sides holds in
+  every case; only the naming is withheld.
+
+- **The reconstructed genotype is exported as an array file.** It was withheld for several
+  releases on the reasoning that a file of homozygous calls belonging to an identifiable person
+  could be re-imported as though it had been measured. That reasoning was right about the hazard
+  and wrong about the gain: reconstructing a parent exists in order to have something to call
+  parental origin against, and an experiment with no array of that parent has nothing else to use.
+  It is written now, and the hazard is handled where it lives. Every such file opens with a banner
+  saying it is not a measured array and carries a machine-readable mark saying the same. The
+  banner lines are comments the header sniffer skips, so it loads anywhere a real export does, and
+  it can be dropped into Syngamy as the donor to call arrays the Progenitor run never saw.
+
+### Changed
+
+- **Run does the whole run.** It used to compare pairs and stop, then wait again for a choice of
+  which group to reconstruct, which is not a decision the person holding the folder can make
+  better than the arrays can. One press now groups, names, reconstructs and calls. Sample chips
+  appear as each file finishes rather than when the whole batch does, they carry the origin call
+  once there is one, and the answer sits at the top of the page rather than four sections down.
+
+### Validation
+
+Three experiments, 46 arrays, no array of either parent used anywhere in the pipeline. On the one
+experiment where the answer is known independently, the sperm donor's own array was held back and
+used only to mark the result: 16 of 18 arrays were callable and all 16 agree with it, including
+two the laboratory record has the wrong way round. The other two are below the call-rate floor and
+read unclear against both. No inversions.
+
+The remaining two experiments have no such array. Both are internally consistent: the group named
+paternal by its Y is the group the arrays labelled paternal fall in, and in one of them the
+buildable group is the mother's, which the run reports as such and reads the paternal side off.
+
 ## 3.4.2
 
 The segmental gain direction is no longer unvalidated, and the report no longer tells the reader

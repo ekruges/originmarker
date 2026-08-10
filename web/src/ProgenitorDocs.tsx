@@ -32,6 +32,8 @@ const SECTIONS: DocSection[] = [
   { id: 'formats', label: 'File formats it accepts' },
   { id: 'quality', label: 'Stage 1: quality and ploidy' },
   { id: 'membership', label: 'Stage 2: which products share a parent' },
+  { id: 'naming', label: 'Which group is the father\u2019s' },
+  { id: 'origin', label: 'Calling parental origin' },
   { id: 'depth', label: 'Stage 3: how deep to build' },
   { id: 'contamination', label: 'Contamination, and the absence it adds' },
   { id: 'verify', label: 'Leave-one-out verification' },
@@ -251,26 +253,29 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
             instead, which is the fastest way to see the whole flow (<SecRef id="examples" />).
           </List.Item>
           <List.Item>
-            Each file is streamed and triaged as it arrives. The <b>run log</b> records what was
+            Each file is streamed and triaged as it arrives, and appears on the page as it
+            finishes rather than when the whole batch does. The <b>run log</b> records what was
             read and what was set aside, in order, and downloads as a text file.
           </List.Item>
           <List.Item>
-            <b>Run</b> compares every pair of usable products and reports the groups. This builds
-            nothing: it only says how many parents the files represent.
+            <b>Run</b> does the rest in one pass: every pair of usable products is compared and
+            the products split into groups sharing a parent, the father&rsquo;s group is named
+            from the Y its products carry (<SecRef id="naming" />), the largest group that clears
+            the floor is reconstructed, and every array that went in is called against it
+            (<SecRef id="origin" />). Members of the reconstructed group are verified against a
+            reference built without them.
           </List.Item>
           <List.Item>
-            <b>Reconstruct group N</b> builds the reference for one group and verifies every
-            member of it against a reference built without that member.
-          </List.Item>
-          <List.Item>
-            Export. Five artefacts, all written in the browser (<SecRef id="exports" />).
+            Export. Six artefacts, all written in the browser (<SecRef id="exports" />),
+            including the reconstructed genotype as an array file.
           </List.Item>
         </List>
         <Text size="sm" mb={10}>
           Each stage carries its own headline outcome and a collapsed <b>Show the evidence</b>{' '}
           panel holding the numbers behind it. The headline is the answer; the panel is the
-          working. Adding or removing a file invalidates the membership result rather than leaving
-          a stale one on screen, and the run has to be repeated.
+          working, and the first stage is the parental-origin call itself. Adding or removing a
+          file invalidates the result rather than leaving a stale one on screen, and Run has to
+          be pressed again.
         </Text>
         <Text size="sm">
           The order of the stages is a safety property rather than presentation. Running
@@ -387,6 +392,74 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
       </Section>
 
       {/* --- 8 --------------------------------------------------------------------------- */}
+      <Section id="naming" title="Which group is the father&rsquo;s">
+        <Text size="sm" mb={10}>
+          Splitting products into groups that share a parent says nothing about WHICH parent. A
+          group of siblings looks the same whether the parent they share is the mother or the
+          father, and an experiment with no array of either has nothing to compare against. One
+          signal settles it: a maternal cell cannot carry a Y chromosome, so a group with one
+          Y-bearing product is the father&rsquo;s.
+        </Text>
+        <Text size="sm" mb={10}>
+          Two measurements are required and neither is sufficient on its own. This is not
+          caution; each rule alone inverts a real experiment in the validation set.
+        </Text>
+        <Text size="sm" mb={10}>
+          Call rate alone is wrong on an array that genotypes 86.2% of its Y probes while its Y
+          intensity sits a full log2 below its own autosomes, exactly where arrays with no Y sit.
+          An absent chromosome still produces calls; those are noise on nothing. Taking that
+          array at its word names a maternal group paternal and inverts every call in it.
+          Intensity alone is wrong in the other direction, on an array reading &minus;0.10 log2
+          while calling not one Y probe: there is nothing there to genotype.
+        </Text>
+        <Text size="sm" mb={10}>
+          Requiring both separates cleanly across 46 arrays. Y-bearing arrays call 93.7% to 97.3%
+          of their Y probes at +0.16 to +0.43 log2 against their own autosomes. Every other array
+          either calls 0.0% or sits at &minus;0.81 to &minus;1.25. The cuts sit inside both gaps.
+        </Text>
+        <Text size="sm" mb={10}>
+          Naming is withheld rather than guessed in two cases. If no product carries a Y, the
+          father is not established: a paternal group of n products is all X-bearing 2
+          <sup>&minus;n</sup> of the time, which at five products is 3%. If more than one group
+          carries a Y, one sperm donor cannot have produced them, so the input is not what it was
+          described as. In both cases the split still holds and the two sides are reported as
+          &ldquo;this parent&rdquo; and &ldquo;the other parent&rdquo;. Chromosome Y is read only
+          to name the group; no product is selected or dropped by it, which would leave no
+          paternal X in the reference by construction. See <SecRef id="limits" />.
+        </Text>
+      </Section>
+
+      <Section id="origin" title="Calling parental origin">
+        <Text size="sm" mb={10}>
+          This is what the reconstruction is for. Once one parent&rsquo;s genotype exists, every
+          array in the experiment is scored against it, not only the ones it was built from. An
+          array carrying that parent&rsquo;s genome came from that parent; one decisively lacking
+          it came from the other. The measurement is the same one <SecRef id="verify" /> describes
+          and is read the same way: at or below the array&rsquo;s own noise ceiling reads present,
+          at or above three times it reads absent, and in between is left uncalled.
+        </Text>
+        <Text size="sm" mb={10}>
+          Which parent gets reconstructed is not chosen. The largest group that clears the
+          five-product floor is built, whichever parent it belongs to, because the call does not
+          depend on it: an experiment whose paternal products are too few but whose maternal ones
+          are not is answered by reconstructing the mother and reading the other side off it.
+        </Text>
+        <Text size="sm" mb={10}>
+          Arrays the gates excluded are called too, and their rows say so. A product has to be a
+          clean haploid cell to go INTO a reference, since a diploid compared against a haploid
+          has a different expected rate entirely and an array below the call-rate floor reads
+          high against everyone. Neither is a reason to withhold an answer about it. A fused
+          zygote or a half-failed amplification is the case this gets asked about most.
+        </Text>
+        <Text size="sm" mb={10}>
+          Validation, on an experiment where the answer is known independently: 18 arrays were
+          dropped in with the sperm donor&rsquo;s own array held back. Sixteen were callable and
+          all sixteen match what that array says, including two the laboratory record has the
+          wrong way round. The other two are below the call-rate floor and read unclear against
+          both. No inversions. See <SecRef id="validation" />.
+        </Text>
+      </Section>
+
       <Section id="depth" title="Stage 3: how deep to build">
         <Text size="sm" mb={10}>
           A marker enters the reference when at least <Code>m</Code> products called it and all of
@@ -587,11 +660,17 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
         </Text>
         <Alert color="orange" p="xs">
           <Text size="xs">
-            <b>The reconstructed genotype itself is not exported.</b> The build is deterministic,
-            so the product files and their checksums <i>are</i> the reference and re-running
-            reproduces it exactly. A file of homozygous calls belonging to an identifiable person,
-            which could be re-imported as though it were a measured array, is a hazard with no
-            matching gain.
+            <b>The reconstructed genotype is exported as an array file</b>, in the same four
+            columns every other export in this family uses, so it can be dropped into Syngamy as
+            the donor and used to call arrays this run never saw. It was withheld for several
+            releases on the reasoning that a file of homozygous calls belonging to an identifiable
+            person could be re-imported as though it had been measured. That reasoning was right
+            about the hazard and wrong about the gain: reconstructing a parent exists in order to
+            have something to call parental origin against. The hazard is handled where it lives.
+            Every such file opens with a banner stating it is not a measured array, and carries a
+            machine-readable mark saying the same, which the tools that ingest arrays look for.
+            The banner lines are comments the header sniffer skips, so the file still loads
+            anywhere a real export does.
           </Text>
         </Alert>
       </Section>

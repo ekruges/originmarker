@@ -105,6 +105,9 @@ export class ProductSet {
   /** probe id -> dense index, assigned once and shared by every product. */
   private index = new Map<string, number>()
   private chrom: string[] = []
+  /** Kept alongside the chromosome so the reference can be written out as an array file. The
+   *  reconstruction itself never needs a coordinate; every consumer of the export does. */
+  private pos: number[] = []
   private alleles: Uint8Array[] = []
   private capacity = 0
   /** Per product diagnostics, in the order of `ids`. */
@@ -153,6 +156,7 @@ export class ProductSet {
       i = this.index.size
       this.index.set(row.probesetId, i)
       this.chrom.push(row.chrom)
+      this.pos.push(row.pos)
       this.grow(i + 1)
     }
     this.alleles[slot][i] = row.genotype === 'AA' ? A : B
@@ -164,6 +168,13 @@ export class ProductSet {
   }
 
   get size(): number { return this.ids.length }
+
+  /** Where a probe sits, for writing the reference out. Empty for a probe never seen homozygous
+   *  in any product, which is also a probe the reference has no call at. */
+  locus(id: string): { chrom: string; pos: number } | null {
+    const i = this.index.get(id)
+    return i === undefined ? null : { chrom: this.chrom[i], pos: this.pos[i] }
+  }
 
   private keep(exclude: readonly string[]): number[] {
     const drop = new Set(exclude)

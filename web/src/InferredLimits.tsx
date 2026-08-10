@@ -32,8 +32,24 @@ export const LIMITS: Limit[] = [
   },
   {
     what: 'Sperm type, and any result on chromosome X',
-    why: 'the reconstruction is built from autosomes only. Selecting products by chromosome Y '
-      + 'would also leave no paternal X in the reference by construction.',
+    why: 'the reconstruction is built from autosomes only. Chromosome Y is read, but only to '
+      + 'decide which group is the father\'s; no product is ever selected or dropped by it, '
+      + 'which would leave no paternal X in the reference by construction.',
+  },
+  {
+    what: 'Which side is which, when no product carries a Y',
+    why: 'a maternal cell cannot carry a Y, so one product that does names its group the '
+      + 'father\'s. Nothing names it the other way. A paternal group of n products is all '
+      + 'X-bearing 2^-n of the time, which at five products is 3%, so the two sides are reported '
+      + 'as "this parent" and "the other parent" rather than guessed at. The split between them '
+      + 'is unaffected and stays exact.',
+  },
+  {
+    what: 'A parental-origin call on an array the gates excluded',
+    why: 'every array is called, including the ones set aside as too poor or not haploid, '
+      + 'because a fused or half-failed zygote is what this gets asked about most. Those rows '
+      + 'carry the ratio like any other and say on their face that they were excluded: the '
+      + 'reference was not built from them and their own noise ceiling is what it is.',
   },
   {
     what: 'A decisive call on a diploid sample',

@@ -35,6 +35,15 @@ export interface InferredReportInput {
   members: { name: string; absence: number; ceiling: number; ratio: number; verdict: string }[]
   controls: { name: string; role: string; absence: number; ratio: number; verdict: string }[]
   limits: Limit[]
+  /** The parental-origin call for every array, which is the result the run exists to produce.
+   *  'paternal' | 'maternal' when the father's group was named, 'this parent' | 'the other
+   *  parent' when it was not, 'unclear' when the array's own noise can manufacture its absence. */
+  origins: {
+    name: string; origin: string; absence: number; ceiling: number; ratio: number
+    usable: boolean; inReference: boolean
+  }[]
+  /** Which parent was reconstructed, or '' when the products did not say. */
+  side: string
   /** Every file read, with the hash of the bytes as read, so a reviewer can confirm the input
    *  without being sent it. Parity with the Syngamy report, which has carried this since 2.0. */
   files: { name: string; role: string; size: number; markers: number; sha256: string }[]
@@ -222,6 +231,38 @@ export async function buildInferredPdf(input: InferredReportInput): Promise<Blob
   ])
 
   // --- membership, which comes before the reference exists --------------------------------
+  // --- the answer, before any of the working that produced it ------------------------------
+  if (input.origins.length) {
+    const decided = input.origins.filter((o) => o.origin !== 'unclear').length
+    heading('Parental origin')
+    text(`${decided} of ${input.origins.length} arrays called, against a `
+      + `${input.side || 'reconstructed'} genotype built from ${input.provenance.products.length} `
+      + 'of these same arrays. No array of either parent was used at any point.',
+    8, 'Helvetica', 3)
+    table(
+      [{ head: 'Array', w: 132 }, { head: 'Parental origin', w: 88 },
+        { head: 'Absence', w: 52, right: true }, { head: 'Ceiling', w: 52, right: true },
+        { head: 'x ceiling', w: 52, right: true }, { head: 'Note', w: 156 }],
+      input.origins.map((o) => [
+        o.name,
+        { v: o.origin, colour: o.origin === 'unclear' ? GREY : INK },
+        pct(o.absence, 2), pct(o.ceiling, 2), `${o.ratio.toFixed(2)}x`,
+        !o.usable
+          ? { v: 'excluded as a product, still called', colour: WARN }
+          : o.inReference ? 'in the reference set, scored without itself' : '',
+      ]),
+    )
+    text('An array carrying the reconstructed parent\'s genome came from that parent; one '
+      + 'decisively lacking it came from the other. The reference is built from the largest '
+      + 'group of products sharing a parent, whichever parent that is, and that group is named '
+      + 'the father\'s when one of its products carries a Y chromosome, which a maternal cell '
+      + 'cannot. Where no product carries one the sides are reported as this parent and the '
+      + 'other parent rather than guessed at. Arrays the gates excluded are called too and say '
+      + 'so on their row: they were not built into the reference and are measured against their '
+      + 'own noise ceiling like everything else.',
+    6.5, 'Helvetica-Oblique', 2, GREY)
+  }
+
   heading('Membership, established before the reference was built')
   text('Two haploid products of one parent differ only where that parent is heterozygous and the '
     + 'two drew differently. Measured across two experiments: 4.68% to 9.70% within one parent '
