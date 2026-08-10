@@ -43,6 +43,20 @@ export interface InferredArrayInput {
  *  callers pass the first few kilobytes of a file, not the whole thing. */
 export const inferredMark = (head: string): boolean => head.includes(INFERRED_MARK)
 
+/** How much of a file has to be read to answer. The banner is the first thing written, so this
+ *  is generous by an order of magnitude and still costs one small read. */
+export const MARK_BYTES = 4096
+
+/** Whether a dropped file is an inferred reference. Reads only the head. */
+export async function isInferredFile(f: File): Promise<boolean> {
+  try {
+    return inferredMark(await f.slice(0, MARK_BYTES).text())
+  } catch {
+    // A file that cannot be read at all fails later and more informatively than here.
+    return false
+  }
+}
+
 export function inferredArrayText(i: InferredArrayInput): string {
   const nl = String.fromCharCode(10)
   const head = [

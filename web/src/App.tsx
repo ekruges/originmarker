@@ -401,7 +401,7 @@ export default function App() {
                     Syngamy: parent of origin from arrays
                   </Anchor>
                   <Anchor href="#/progenitor" size="xs" c="dimmed">
-                    Progenitor: a parent&rsquo;s genotype from haploid cells
+                    Progenitor: parental origin with no parent array
                   </Anchor>
                 </Group>
               </div>

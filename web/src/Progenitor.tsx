@@ -9,7 +9,7 @@ import { ProductSet, groupByParent, MIN_PRODUCTS } from './inferredReference'
 import {
   emptySex, accumulateSex, sexCall, paternalGroup, type SexCall,
 } from './sexing'
-import { inferredArrayText } from './inferredArray'
+import { inferredArrayText, isInferredFile } from './inferredArray'
 import { classify, emptyTally, tallyRow, pct } from './parentage'
 import { ReferenceBlock, type Scored } from './ReferencePanel'
 import { LimitsPanel, ProvenanceStamp, LIMITS } from './InferredLimits'
@@ -191,6 +191,22 @@ export function ProgenitorPage() {
       setPctDone(0)
       log('READ', `${f.name}  ${mb(f.size)}`)
       const name = f.name.replace(/\.(csv|txt|probes)(\.gz)?$/i, '')
+      // Refused before it is read, on the mark rather than on its numbers. The ploidy gate does
+      // reject the file as written, but only incidentally: the export carries no BAF column, so
+      // the band is undefined and the gate lands on "borderline". That is a column happening to
+      // be absent, not a reconstruction being recognised. On the genotypes themselves it is
+      // homozygous at every marker, which is 0% heterozygosity and the cleanest haploid product
+      // ever submitted. Add a BAF column, or convert the file, and it would pass. Building from
+      // it would fold a reference into itself, agree with itself everywhere, and report a
+      // contamination of nothing.
+      if (await isInferredFile(f)) {
+        const why = 'this is a reconstructed genotype, not a haploid cell. It cannot be a '
+          + 'product: it is homozygous everywhere by construction, so it would agree with a '
+          + 'reference built from it at every marker and report a contamination of nothing.'
+        errs.push(`${f.name}: ${why}`)
+        log('WARN', `${name}: ${why}`)
+        continue
+      }
       try {
         const slot = ps.begin(name)
         const baf = { inBand: 0, total: 0 }
@@ -580,7 +596,11 @@ export function ProgenitorPage() {
       hint: 'The whole run as JSON: reference parameters, membership, every sample, every pair, '
         + 'and what was withheld. For a pipeline or a LIMS.',
       build: () => runManifestJson(provenance, groups.map((g) => g.map((i) => usable[i].name)),
-        sampleRows, pairs, Object.fromEntries(ref!.ratios), LIMITS),
+        sampleRows, pairs, Object.fromEntries(ref!.ratios), LIMITS, {
+          side: ref!.side,
+          paternalGroup: analysis?.paternal ?? null,
+          yBearing: Object.fromEntries(usable.map((u) => [u.name, sexOf(u).yBearing])),
+        }),
     },
   ] : []
 

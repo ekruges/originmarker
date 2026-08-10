@@ -39,6 +39,8 @@ export interface ReportFile {
   maternal?: ParentageResult
   paired?: PairResult
   error?: string
+  /** This file is a reconstructed genotype rather than a measured array. */
+  inferred?: boolean
 }
 
 export interface ReportInput {
@@ -328,6 +330,23 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
 
   // --- summary ------------------------------------------------------------------------------
   heading('Result summary')
+
+  // Said before anything else in the section. Every number below inherits it, and a reader who
+  // takes only the first section must not come away thinking a person was measured.
+  const inferredIn = input.files.filter((f) => f.inferred)
+  if (inferredIn.length) {
+    const msg = `Measured against a RECONSTRUCTED genotype, not an array of anyone: `
+      + `${inferredIn.map((f) => `${f.name} (${f.role})`).join(', ')}. It was rebuilt from the `
+      + 'haploid cells that parent produced, so it is homozygous everywhere by construction and '
+      + 'covers only the markers those cells could establish. Absence rates against it are not '
+      + 'the same quantity as absence against a measured array and must not be compared with one.'
+    const h = wrap(msg, 'Helvetica-Bold', 9, R - L - 10).length * 11 + 3
+    need(h + 4)
+    pdf.setFillColor(WARN)
+    pdf.rect(L, y - h, 3, h, true)
+    text(msg, 9, 'Helvetica-Bold', 2, WARN, L + 10)
+    y -= 4
+  }
   const times = (a: number, b: number): string =>
     (Number.isFinite(a / b) ? `${(a / b).toFixed(1)}x` : '-')
 

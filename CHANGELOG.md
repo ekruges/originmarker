@@ -9,6 +9,44 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.5.3
+
+3.5.0 documented a safety property it had not implemented, and left the exports and pages
+describing the feature as it was before it. Both fixed.
+
+### Fixed
+
+- **The inferred-array mark now does something.** The export banner said, and the docs repeated,
+  that a reconstructed genotype carries a machine-readable mark "which the tools that ingest
+  arrays look for". Nothing looked for it. Two things do now.
+
+  Syngamy reads the mark on drop, before anything is profiled. It warns in the run log and states
+  it in the first section of the report, naming the file and saying that absence measured against
+  a reconstruction is not the same quantity as absence against a measured array. Nothing is
+  blocked: using one as the donor is the intended workflow and the reason the file is written.
+
+  Progenitor REFUSES such a file as a product. This is the direction that could have been quietly
+  wrong. The ploidy gate does reject the file as currently written, but only because the export
+  carries no BAF column and an undefined band lands on "borderline" - a column happening to be
+  absent, not a reconstruction being recognised. On its genotypes the file is homozygous at every
+  marker, which is 0% heterozygosity and the cleanest haploid product ever submitted. Add a BAF
+  column or convert the file and it would pass, fold a reference into itself, agree with itself
+  everywhere, and report a contamination of nothing.
+
+### Changed
+
+- **The run manifest records how the parent was named.** A `naming` block: which side was
+  reconstructed, which group is the father's, whether naming was withheld and for which of the
+  three reasons, and the Y verdict for every product. The per-sample rows already carried the
+  origin call; there was no record of what the naming rested on.
+
+- **Documentation caught up with 3.5.0.** The Progenitor exports table lists six artefacts rather
+  than five and describes the new one. The samples CSV and run manifest entries say they carry the
+  origin call. "Using the page" describes what Run actually does now. Syngamy's docs gained a
+  section on using a reconstructed donor: how it is detected, what is stated where, and the two
+  ways its numbers are not comparable with a measured array's. The README and the home page card
+  described Progenitor as reconstructing a genotype, which was its 3.4 scope.
+
 ## 3.5.2
 
 Laboratory sample identifiers had reached three source files in 3.5.0 and 3.5.1, in comments

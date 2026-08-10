@@ -619,7 +619,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
       {/* --- 13 -------------------------------------------------------------------------- */}
       <Section id="exports" title="Exports and the report">
         <Text size="sm" mb={10}>
-          Five artefacts, all written in the browser, all named{' '}
+          Six artefacts, all written in the browser, all named{' '}
           <Code>progenitor-&lt;artefact&gt;-&lt;report id&gt;</Code> so a directory of them from
           several runs stays sorted and attributable.
         </Text>
@@ -633,6 +633,12 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
             </Table.Thead>
             <Table.Tbody>
               {[
+                ['inferred (.probes)', 'The reconstructed genotype itself, as an array file in '
+                  + 'the same four columns every other export in this family uses. Drop it into '
+                  + 'Syngamy as the donor to call arrays this run never saw. It opens with a '
+                  + 'banner saying it is not a measured array and carries a machine-readable '
+                  + 'mark: Syngamy reads that mark and states it on every artefact of a run made '
+                  + 'against it, and Progenitor refuses the file as a product.'],
                 ['report (PDF)', 'Letter, in the same format as the Syngamy report. Every page '
                   + 'states that the reference was inferred, so a page lifted out of context '
                   + 'still says so.'],
@@ -641,9 +647,11 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
                 ['matrix (CSV)', 'The square concordance matrix as printed, ordered by group. '
                   + 'Loads with index_col=0 for a heatmap or a supplementary table.'],
                 ['samples (CSV)', 'One row per array including the excluded ones, each with its '
-                  + 'reason, so the table accounts for every file submitted.'],
-                ['run manifest (JSON)', 'The whole run: reference parameters, membership, every '
-                  + 'sample, every pair, and every refusal. For a pipeline or a LIMS.'],
+                  + 'parental-origin call and, where it was excluded, the reason. The table '
+                  + 'accounts for every file submitted.'],
+                ['run manifest (JSON)', 'The whole run: reference parameters, membership, how the '
+                  + 'parent was named and which products carry a Y, every sample with its origin '
+                  + 'call, every pair, and every refusal. For a pipeline or a LIMS.'],
               ].map(([k, v]) => (
                 <Table.Tr key={k}>
                   <Table.Td className="om-mono" style={{ fontSize: 11 }}>{k}</Table.Td>

@@ -148,6 +148,14 @@ export function sampleResultsCsv(rows: SampleResult[], p: RunProvenance): string
 export function runManifestJson(
   p: RunProvenance, groups: string[][], samples: SampleResult[], pairs: PairRate[],
   ascertainmentLadder: Record<string, number>, limits: { what: string; why: string }[],
+  naming: {
+    /** 'paternal' | 'maternal', or '' when which parent this is was not established. */
+    side: string
+    /** 1-based index of the father's group, or null when naming was withheld. */
+    paternalGroup: number | null
+    /** Per product, whether it carries a Y: true, false, or null for a panel too thin to ask. */
+    yBearing: Record<string, boolean | null>
+  } = { side: '', paternalGroup: null, yBearing: {} },
 ): string {
   return `${JSON.stringify({
     reference_kind: 'inferred',
@@ -172,6 +180,23 @@ export function runManifestJson(
       different_parent_at_or_above: p.differentParentMin,
       groups: groups.map((g, i) => ({ group: i + 1, members: g })),
     },
+    naming: {
+      method: 'a maternal cell cannot carry a Y, so one product with a whole Y names its group '
+        + 'the father\'s. Both the Y call rate and the Y intensity must agree; either alone '
+        + 'inverts a real experiment.',
+      reconstructed_side: naming.side || null,
+      paternal_group: naming.paternalGroup === null ? null : naming.paternalGroup + 1,
+      withheld: naming.paternalGroup === null,
+      withheld_because: naming.paternalGroup !== null ? null
+        : Object.values(naming.yBearing).every((v) => v === null)
+          ? 'no file carries enough chromosome Y probes to ask'
+          : Object.values(naming.yBearing).some((v) => v === true)
+            ? 'more than one group carries a Y, which one sperm donor cannot do'
+            : 'no product carries a Y. A paternal group of n products is all X-bearing 2^-n of '
+              + 'the time, so this is a real outcome and not an error',
+      y_bearing_by_product: naming.yBearing,
+    },
+    /** One row per array, including `origin`: the parental-origin call this run exists to make. */
     samples,
     pairs,
     not_reported: limits,

@@ -48,6 +48,7 @@ const SECTIONS: DocSection[] = [
   { id: 'band', label: 'The uncalled band' },
   { id: 'chrx', label: 'Sperm type from chrX, not chrY' },
   { id: 'oocyte', label: 'Adding the oocyte donor' },
+  { id: 'inferred', label: 'When the donor array is reconstructed' },
   { id: 'locus', label: 'The per-locus deletion test' },
   { id: 'confidence', label: 'Confidence, and why no percentage' },
   { id: 'gates', label: 'Quality gates' },
@@ -798,6 +799,38 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         </Section>
 
         {/* --- 14 ------------------------------------------------------------------------ */}
+        <Section id="inferred" title="When the donor array is reconstructed">
+          <Text size="sm" mb={10}>
+            The donor here does not have to be an array anyone measured. Progenitor reconstructs a
+            parent&rsquo;s genotype from the haploid cells that parent produced and writes it out
+            as an array file, which drops in here as the donor. That is the case an experiment
+            with no array of the parent has, and it is the reason the file exists.
+          </Text>
+          <Text size="sm" mb={10}>
+            Such a file is detected rather than taken on trust. It carries a machine-readable mark
+            in its first bytes; this page reads that mark on drop, says so in the run log, and
+            states it in the result summary of the report, so a page lifted out of context still
+            says what the calls were made against. Nothing is blocked: using one is the intended
+            workflow.
+          </Text>
+          <Text size="sm" mb={10}>
+            Two things change in how the numbers read. A reconstruction is homozygous at every
+            marker by construction, so it contributes none of the heterozygous markers a measured
+            array does, and an absence rate against it is not the same quantity as an absence rate
+            against a measured array. The two must not be compared with each other. It also covers
+            only the markers the products could establish, which is fewer than the array carries,
+            and a fraction of its calls are heterozygous sites every product happened to agree on
+            and which it therefore asserts as homozygous. Progenitor reports that fraction as
+            contamination and writes it into the file&rsquo;s own banner.
+          </Text>
+          <Text size="sm">
+            Everything else on this page behaves the same way: the same absence rate against the
+            same per-sample ceiling, the same three bands, the same refusals. Validation on an
+            experiment where the sperm donor&rsquo;s real array was held back and used only to
+            mark the result: 16 of 18 arrays callable and all 16 agreeing with it, no inversions.
+          </Text>
+        </Section>
+
         <Section id="locus" title="The per-locus deletion test">
           <Text mb={8}>
             Everything above is a rate across the genome. This asks a different question about one

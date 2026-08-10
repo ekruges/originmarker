@@ -22,6 +22,7 @@ import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, loadExample } from './exam
 import { analyseRuns, measureClustering, parseLocus, type RunResult } from './runlength'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
+import { isInferredFile } from './inferredArray'
 import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
@@ -59,6 +60,8 @@ interface Entry {
   maternal?: ParentageResult
   paired?: PairResult
   error?: string
+  /** This file is a genotype Progenitor reconstructed, not an array anyone measured. */
+  inferred?: boolean
 }
 
 /** One parent held as a call per marker, plus the heterozygosity the second-parent axis needs.
@@ -202,6 +205,17 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     if (!fresh.length) return
     setEntries((prev) => [...prev, ...fresh])
 
+    // A reconstructed parent is a legitimate donor here and is the reason Progenitor writes one.
+    // It is not a measured array, and every artefact of this run has to say which it was, so the
+    // mark is read before anything is profiled rather than trusted to the file name.
+    for (const e of fresh) {
+      if (await isInferredFile(e.file)) {
+        patch(e.id, { inferred: true })
+        log('WARN', `${e.file.name}: this is a RECONSTRUCTED genotype, not a measured array. `
+          + 'Every call made against it inherits that, and the report says so throughout.')
+      }
+    }
+
     // Profile immediately, so the chip carries a shape and a quality read before anything is
     // compared. Nothing here needs the donor, which is why it can run on drop.
     for (const e of fresh) {
@@ -259,6 +273,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           maternal: e.maternal,
           paired: e.paired,
           error: e.error,
+          inferred: e.inferred,
         })
       }
       const rank = { donor: 0, oocyte: 1, sample: 2 }

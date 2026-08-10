@@ -3,7 +3,9 @@
 // The point of the export is that another tool can read it, so this reads it back with the real
 // ingest rather than asserting on the text.
 import assert from 'node:assert/strict'
-import { INFERRED_MARK, inferredMark, inferredArrayText } from './inferredArray.ts'
+import {
+  INFERRED_MARK, MARK_BYTES, inferredMark, isInferredFile, inferredArrayText,
+} from './inferredArray.ts'
 import { headerMap, parseRow } from './ingest.ts'
 import type { AB } from './informativity.ts'
 
@@ -87,6 +89,31 @@ const text = inferredArrayText({
   assert.ok(text.includes('0.480%'), 'contamination, as a percentage')
   assert.ok(text.includes('0.240%'), 'and the absence it manufactures on a true offspring')
   assert.ok(text.includes('5 (p1, p2, p3, p4, p5)'), 'and what it was built from')
+}
+
+// --- 5. detection, which two features now depend on --------------------------------------------
+//
+// Syngamy states it on every artefact of a run made against such a file, and Progenitor REFUSES
+// it as a product. The ploidy gate does reject the file as this module writes it, but only
+// because the export carries no BAF column and an undefined band lands on "borderline". That is
+// a column happening to be absent, not a reconstruction being recognised: on its genotypes the
+// file is homozygous at every marker, which is 0% heterozygosity and the cleanest haploid
+// product ever submitted. The mark refuses it for the reason that holds however it is converted.
+{
+  assert.equal(await isInferredFile(new File([text], 'inferred.probes')), true)
+
+  const measured = 'probeset_id\tchr\tposition\tgenotype\nAX-1\t1\t100\tAA\n'
+  assert.equal(await isInferredFile(new File([measured], 'real.probes')), false,
+    'a measured export must not be refused')
+
+  // The mark has to be inside the window the detector actually reads, whatever else is written.
+  assert.ok(text.indexOf(INFERRED_MARK) < MARK_BYTES,
+    `the mark must sit inside the first ${MARK_BYTES} bytes, which is all that is read`)
+  const padded = new File([`${'#'.repeat(MARK_BYTES * 2)}\n${text}`], 'buried.probes')
+  assert.equal(await isInferredFile(padded), false,
+    'and a mark past that window is honestly reported as not found rather than half-searched')
+
+  assert.equal(await isInferredFile(new File([], 'empty.probes')), false, 'an empty file is not one')
 }
 
 console.log('inferredArray.check.ts: all assertions passed')
