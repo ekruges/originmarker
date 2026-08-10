@@ -9,6 +9,47 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.5.1
+
+The validation record for 3.5.0, written down. No behaviour changed.
+
+### Validation
+
+3.5.0 shipped with one experiment's answer checked against a held-back sperm array. Three further
+tests were run afterwards, on everything else available, and are now on the docs page.
+
+- **A second held-back parent array, on an independent public dataset.** Reconstructed from five
+  pronuclei, the reference reads the father's own bulk array at 0.03x and a SECOND array of the
+  same man at 0.09x, both present, and his own zygote at 0.75x. Two unrelated oocyte donors read
+  3.06x, absent, and 2.44x, refused. No wrong answer.
+
+- **Specificity, on 26 arrays of other people.** One experiment's paternal reference against every
+  array of the two unrelated experiments: not one reads as carrying him. Nineteen decisive at
+  1.75x to 10.84x, seven uncalled, five of those already excluded by the gates.
+
+- **Robustness to depth.** Rebuilding from five of the eight products moves no call: 17 of 18
+  identical, one degrading to a refusal, no inversion. Contamination rises from 0.48% to 2.24%
+  across that drop, which is where the refusal comes from.
+
+- **The Y as an independent witness.** Y-bearing is read from chromosome Y call rate and intensity
+  and shares nothing with the autosomal agreement that produces the call. Across the twelve
+  Y-bearing arrays in three experiments the two never disagree: seven agree, five are refused by
+  the autosomal side, all of them low-quality arrays.
+
+### Measured and deliberately not acted on
+
+- **The BestProbeset column stays ignored.** These arrays flag 7,180 of 825,656 probes as not
+  best, and 95% of those sit at a locus that already has a best probeset, so honouring the flag
+  looked like an obvious improvement. It is not one. Filtering to best probes only moves no call
+  of 18, shifts every ratio by at most 0.07x, raises contamination from 0.483% to 0.492% rather
+  than lowering it, and costs 5,795 markers. The flag is parsed and ignored on purpose, and this
+  is the measurement saying so.
+
+- **50402-30 is not a parent array.** It has no row in the laboratory record and would have
+  anchored the experiment that has no sperm array. It does not: every one of that experiment's 17
+  arrays reads no parental contribution against it at 2.17x to 10.22x. It is an unrelated female
+  diploid.
+
 ## 3.5.0
 
 Progenitor calls parental origin. Drop an experiment's arrays in and it works out which came from

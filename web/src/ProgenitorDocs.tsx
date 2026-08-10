@@ -724,6 +724,43 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
           Every threshold on this page came off real arrays. The record below is what was run, not
           a summary of what it is hoped to do.
         </Text>
+        <Text size="sm" fw={600} mb={6}>Parental origin, four ways</Text>
+        <List size="sm" spacing={6} mb={10}>
+          <List.Item>
+            <b>Against a held-back parent array, twice.</b> On an experiment of 18 arrays the sperm
+            donor&rsquo;s own array was withheld from the run and used only to mark the result: 16
+            were callable and all 16 agree, including two the laboratory record has the wrong way
+            round. The other two are below the call-rate floor and read unclear against both. On an
+            independent public dataset the same test was run from five pronuclei: the
+            father&rsquo;s own bulk array reads 0.03x, a SECOND array of the same man 0.09x, and
+            his own zygote 0.75x, all present. Two unrelated oocyte donors read 3.06x, absent, and
+            2.44x, refused. No wrong answer in either.
+          </List.Item>
+          <List.Item>
+            <b>Specificity, on 26 arrays of other people.</b> A reference built from one
+            experiment&rsquo;s father was run against every array of two unrelated experiments.
+            Not one read as carrying him. Nineteen are decisive at 1.75x to 10.84x and seven are
+            uncalled, five of those being arrays the gates had already excluded.
+          </List.Item>
+          <List.Item>
+            <b>Robustness to depth.</b> Rebuilding from five of the eight products moved no call:
+            17 of 18 identical and one degrading to a refusal. No inversion. Contamination rises
+            from 0.48% to 2.24% over that drop, which is where the refusal comes from.
+          </List.Item>
+          <List.Item>
+            <b>An independent witness.</b> Y-bearing is read from chromosome Y call rate and
+            intensity and shares nothing with the autosomal genotype agreement that produces the
+            call. Across the twelve Y-bearing arrays in three experiments the two never disagree:
+            seven agree on paternal and five are refused by the autosomal side, all of them
+            low-quality arrays.
+          </List.Item>
+        </List>
+        <Text size="sm" mb={10}>
+          One thing measured and deliberately NOT acted on: these arrays carry a BestProbeset
+          column, and honouring it changes nothing. Filtering to best probes only moves no call of
+          18, shifts every ratio by at most 0.07x, raises contamination slightly rather than
+          lowering it, and costs 5,795 markers. The flag is parsed and ignored on purpose.
+        </Text>
         <List size="sm" spacing={6} mb={10}>
           <List.Item>
             <b>Against a known father.</b> A reference reconstructed from six haploid products,
