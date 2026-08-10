@@ -45,14 +45,14 @@ const array = (yCall: number, yLrr: number, aCall = 0.87) => {
 // Both are real arrays. Either rule on its own names a group that the other rule, and the rest
 // of the evidence, says is the other parent.
 {
-  // 50402-11: genotypes 86.2% of its Y probes with no Y chromosome under them. Call rate alone
-  // would name the maternal group of Experiment 5 paternal, inverting every call in it.
+  // A real array: genotypes 86.2% of its Y probes with no Y chromosome under them. Call rate
+  // alone would name a maternal group paternal, inverting every call in it.
   const noisy = array(0.862, -0.996, 0.761)
   assert.ok(noisy.callRatio >= Y_CALL_MIN, 'it clears the call bar')
   assert.ok(noisy.lrrShift < Y_LRR_MIN, 'and fails the intensity bar')
   assert.equal(noisy.yBearing, false, 'so it is not Y-bearing')
 
-  // 52461-16: sits at -0.096 log2 with nothing to genotype. Intensity alone would name it
+  // A real array: sits at -0.096 log2 with nothing to genotype. Intensity alone would name it
   // Y-bearing on an array that called not one Y probe.
   const quiet = array(0.0, -0.096, 0.903)
   assert.ok(quiet.lrrShift >= Y_LRR_MIN, 'it clears the intensity bar')

@@ -9,6 +9,13 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.5.2
+
+Laboratory sample identifiers had reached three source files in 3.5.0 and 3.5.1, in comments
+citing the two arrays that set the chromosome Y thresholds and the one that turned out not to be
+a parent array. The measurements are what those comments are for and they are unchanged; the
+identifiers are gone. Nothing else changed.
+
 ## 3.5.1
 
 The validation record for 3.5.0, written down. No behaviour changed.
@@ -45,10 +52,10 @@ tests were run afterwards, on everything else available, and are now on the docs
   than lowering it, and costs 5,795 markers. The flag is parsed and ignored on purpose, and this
   is the measurement saying so.
 
-- **50402-30 is not a parent array.** It has no row in the laboratory record and would have
-  anchored the experiment that has no sperm array. It does not: every one of that experiment's 17
-  arrays reads no parental contribution against it at 2.17x to 10.22x. It is an unrelated female
-  diploid.
+- **The one array with no row in the laboratory record is not a parent array.** It sits in the
+  same folder as an experiment that has no sperm array, and would have anchored it. It does not:
+  every one of that experiment's 17 arrays reads no parental contribution against it at 2.17x to
+  10.22x. It is an unrelated female diploid.
 
 ## 3.5.0
 

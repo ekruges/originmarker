@@ -9,15 +9,16 @@
  * TWO signals are required and neither is sufficient. Measured over the 46 arrays of three
  * experiments:
  *
- *   - Call rate alone is wrong on 50402-11, which genotypes 86.2% of its Y probes while its Y
+ *   - Call rate alone is wrong on an array that genotypes 86.2% of its Y probes while its Y
  *     intensity sits at -1.00 against its own autosomes, exactly where arrays with no Y sit.
  *     An absent chromosome still produces calls; that is noise on nothing, not a chromosome.
- *   - Intensity alone is wrong on 52461-16, which reads -0.10 while calling 0.0% of its Y
- *     probes. Nothing is there to genotype.
+ *     Believing it names a maternal group paternal and inverts every call in that group.
+ *   - Intensity alone is wrong in the other direction, on an array reading -0.10 while calling
+ *     0.0% of its Y probes. Nothing is there to genotype.
  *
  * Requiring both separates cleanly with room on either side. Y-bearing arrays call 93.7% to
  * 97.3% of Y probes at +0.16 to +0.43 log2; every other array either calls 0.0% or sits at
- * -0.81 to -1.25 log2. The nearest miss on each axis is the array named above.
+ * -0.81 to -1.25 log2. The nearest miss on each axis is one of the two arrays above.
  */
 import type { ProbeRow } from './ingest.ts'
 import { isAutosome } from './parentage.ts'
