@@ -193,7 +193,7 @@ export function DocsShell({ prefix, sections, title, subtitle, health, siblings,
             lineHeight: 1.6,
           }}
         >
-          Developed with the{' '}
+          Developed by &amp; for the{' '}
           <a href="https://eglilab.com" target="_blank" rel="noopener noreferrer">Egli Lab</a>
           {' '}at Columbia University Irving Medical Center, and the Columbia Stem Cell
           Initiative. Research use only: candidate markers and parental-origin calls require
