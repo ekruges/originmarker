@@ -807,6 +807,16 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             with no array of the parent has, and it is the reason the file exists.
           </Text>
           <Text size="sm" mb={10}>
+            It does not have to arrive through a file picker. Progenitor&rsquo;s export list
+            carries a <b>Download and open in Syngamy</b> button, which saves the array and opens
+            this page in a new tab with it already loaded as the donor. The file is passed
+            between the two tabs in memory rather than through browser storage, so no copy of a
+            reconstructed person&rsquo;s genotype is left behind after the run; the saved file is
+            the only copy that persists, and it is the one you keep for the record. If the
+            browser blocks the new tab the array is still saved and can be dropped in here by
+            hand, which the button says at the time.
+          </Text>
+          <Text size="sm" mb={10}>
             Such a file is detected rather than taken on trust. It carries a machine-readable mark
             in its first bytes; this page reads that mark on drop, says so in the run log, and
             states it in the result summary of the report, so a page lifted out of context still

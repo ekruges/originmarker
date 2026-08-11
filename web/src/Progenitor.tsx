@@ -12,10 +12,12 @@ import {
   emptySex, accumulateSex, sexCall, paternalGroup, type SexCall,
 } from './sexing'
 import { inferredArrayText, isInferredFile } from './inferredArray'
+import { sendToSyngamy } from './handoff'
 import { classify, emptyTally, tallyRow, pct } from './parentage'
 import { ReferenceBlock, type Scored } from './ReferencePanel'
 import { LimitsPanel, ProvenanceStamp, LIMITS } from './InferredLimits'
 import { ExportBar } from './ExportBar'
+import { download } from './inferredExports'
 import { buildInferredPdf } from './inferredPdf'
 import {
   concordanceLongCsv, concordanceMatrixCsv, sampleResultsCsv, runManifestJson,
@@ -197,6 +199,52 @@ function GroupRoster({ groups, names, paternal, yBearing, built }: {
           </div>
         )
       })}
+    </div>
+  )
+}
+
+/**
+ * Download the reconstructed array and open it in Syngamy, in one action.
+ *
+ * The two features are halves of one workflow and the seam between them was three steps of
+ * clerical work: save a 16MB file, open the other page, find it again in a picker. The file is
+ * still saved, because a run you cannot reproduce from disk is not a run, but the copy Syngamy
+ * gets is handed straight across in memory.
+ */
+function HandoffButton({ filename, text, side, note }: {
+  filename: string
+  text: () => string
+  side: string
+  note: string
+}) {
+  const [state, setState] = useState<'idle' | 'sent' | 'blocked'>('idle')
+  return (
+    <div style={{ marginTop: 8 }}>
+      <Button
+        size="xs"
+        radius={2}
+        variant="light"
+        onClick={() => {
+          const body = text()
+          // Saved as well as sent. The handoff is a convenience; the file is the record.
+          download(body, filename, 'text/plain')
+          const f = new File([body], filename, { type: 'text/plain' })
+          setState(sendToSyngamy(f, note) ? 'sent' : 'blocked')
+        }}
+      >
+        Download and open in Syngamy
+      </Button>
+      <div style={{ fontSize: 11, color: 'var(--om-text-dim)', marginTop: 4, lineHeight: 1.45 }}>
+        {state === 'blocked'
+          ? 'The browser blocked the new tab. The file was still saved, so open Syngamy and '
+            + 'drop it in as the donor.'
+          : state === 'sent'
+            ? `Saved, and opened in a new Syngamy tab as the ${side || 'reconstructed'} donor. `
+              + 'Add the arrays you want called there.'
+            : `Saves the file and opens Syngamy in a new tab with it already loaded as the `
+              + `${side || 'reconstructed'} donor. Syngamy marks every result as measured `
+              + 'against a reconstruction rather than a real array.'}
+      </div>
     </div>
   )
 }
@@ -730,6 +778,27 @@ export function ProgenitorPage() {
         generatedAt: provenance.generatedAt,
         build: products[0]?.profile.build.build ?? null,
       }),
+      after: (
+        <HandoffButton
+          filename={`progenitor-inferred-${ref?.side || 'parent'}-${provenance.reportId}.probes`}
+          text={() => inferredArrayText({
+            genotype: ref!.stats.genotype,
+            locus: (id) => set!.locus(id),
+            products: chosenNames,
+            mMin: ref!.stats.mMin,
+            contamination: ref!.stats.contamination,
+            spuriousAbsence: ref!.stats.spuriousAbsence,
+            hRetained: ref!.stats.hRetained,
+            side: ref!.side,
+            reportId: provenance.reportId,
+            generatedAt: provenance.generatedAt,
+            build: products[0]?.profile.build.build ?? null,
+          })}
+          side={ref?.side ?? ''}
+          note={`${ref?.side || 'Reconstructed'} array from ${chosenNames.length} products of `
+            + `${provenance.experiment || 'this experiment'}, report ${provenance.reportId}`}
+        />
+      ),
     },
     {
       label: 'The report',

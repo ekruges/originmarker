@@ -1,4 +1,4 @@
-import { useRef, useState, type ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import {
   Alert, Badge, Button, Group, Paper, Progress, SegmentedControl, Table, Text,
 } from '@mantine/core'
@@ -23,6 +23,7 @@ import { analyseRuns, measureClustering, parseLocus, type RunResult } from './ru
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { isInferredFile } from './inferredArray'
+import { receiveHandoff, wantsHandoff } from './handoff'
 import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
@@ -183,6 +184,20 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const log = (tag: Tag, text: string) => setLines((p) => [...p.slice(-499), { tag, text }])
   const patch = (id: string, d: Partial<Entry>) =>
     setEntries((p) => p.map((e) => (e.id === id ? { ...e, ...d } : e)))
+
+  // Opened from Progenitor with an array in hand. The reconstruction is passed across in
+  // memory rather than through storage or a file picker, and lands here as the donor.
+  const [handoff, setHandoff] = useState(() => wantsHandoff(window.location.hash))
+  useEffect(() => {
+    const stop = receiveHandoff((file, note) => {
+      log('READ', `handed over from Progenitor: ${note}`)
+      setHandoff(false)
+      void add([file], () => 'donor')
+    })
+    return stop
+    // Once, on mount. The opener only answers the first request.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const add = async (files: FileList | File[], roleFor?: (name: string) => Role | undefined) => {
     // Built OUTSIDE the state updater. Populating a local array from inside one and then looping
@@ -450,6 +465,14 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
 
   return (
     <>
+      {handoff && (
+        <Alert color="blue" p="xs" mb={8}>
+          <Text size="xs">
+            Waiting for the reconstructed array from Progenitor. If nothing arrives, the tab that
+            opened this one was closed: save the array there and drop it in here as the donor.
+          </Text>
+        </Alert>
+      )}
       <FeatureHeader name="Syngamy" tagline="parent of origin from SNP arrays" />
 
       {lines.length > 0 && (
