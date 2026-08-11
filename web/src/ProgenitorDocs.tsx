@@ -339,7 +339,10 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
           </List.Item>
           <List.Item>
             Export. Six artefacts, all written in the browser (<SecRef id="exports" />),
-            including the reconstructed genotype as an array file.
+            including the reconstructed genotype as an array file. Under that one is{' '}
+            <b>Download and open in Syngamy</b>, which saves the array and opens Syngamy in a new
+            tab with it already loaded as the donor, so the two halves of the run do not need a
+            file picker between them.
           </List.Item>
         </List>
         <Text size="sm" mb={10}>
@@ -710,7 +713,8 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
                   + 'Syngamy as the donor to call arrays this run never saw. It opens with a '
                   + 'banner saying it is not a measured array and carries a machine-readable '
                   + 'mark: Syngamy reads that mark and states it on every artefact of a run made '
-                  + 'against it, and Progenitor refuses the file as a product.'],
+                  + 'against it, and Progenitor refuses the file as a product. The button under '
+                  + 'this row saves it and hands a copy straight to a new Syngamy tab.'],
                 ['report (PDF)', 'Letter, in the same format as the Syngamy report. Every page '
                   + 'states that the reference was inferred, so a page lifted out of context '
                   + 'still says so.'],

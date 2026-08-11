@@ -9,6 +9,41 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.7.0
+
+The two halves of a run are joined up. Progenitor builds the array; Syngamy is what you point it
+at; between them sat a file picker.
+
+### Added
+
+- **Download and open in Syngamy**, under the inferred-array export. Saves the file, opens
+  Syngamy in a new tab, and hands the array across already loaded as the donor. The saved copy is
+  still written, because a run you cannot reproduce from disk is not a run; the handoff is the
+  convenience on top of it.
+
+  The transfer is a `postMessage` between the two tabs rather than storage. `localStorage` caps
+  out around 5MB and this file is three times that, `sessionStorage` is per tab and its
+  inheritance by an opened tab is not something to rely on, and IndexedDB would work but leaves a
+  copy of an identifiable person's reconstructed genotype sitting in the browser after the run,
+  which is the one thing this tool has always refused to do. The new tab asks and the opener
+  answers, in that order, because the opener cannot know when the receiver's listener is mounted
+  and a message sent before then is simply lost.
+
+  The new tab says what it is waiting for while it waits, and says what to do if nothing arrives.
+
+### Fixed
+
+- **A blocked popup no longer destroys the run it came from.** The obvious way to write this is
+  `window.open(url, '_blank')`, and it has a bad failure mode that showed up on the first test:
+  the target differs from the current page only by its hash, so a browser blocking the popup can
+  fall back to navigating THAT tab to it instead. Measured: `window.open` returned null, meaning
+  the code believed it had failed, and the current tab navigated to Syngamy anyway, taking the
+  finished Progenitor run and the array it was handing over with it.
+
+  The blank tab is now opened first, with no URL at all, and only pointed at Syngamy once it is
+  known to exist. An empty target has nothing to fall back to, so a blocked open stays blocked:
+  the page stays put, the file is still saved, and the button says so.
+
 ## 3.6.1
 
 One button at a time. 3.6.0 put all three steps in the toolbar at once, where two of them sat

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Button, Text } from '@mantine/core'
 import { download } from './inferredExports'
 
@@ -17,6 +17,8 @@ export interface ExportItem {
   mime: string
   /** Async so a PDF, which has to typeset before it exists, fits the same row as a CSV. */
   build: () => string | Promise<Blob>
+  /** Rendered under the row. For the one export that is also the input to another feature. */
+  after?: ReactNode
 }
 
 function Row({ item }: { item: ExportItem }) {
@@ -60,6 +62,7 @@ function Row({ item }: { item: ExportItem }) {
         <div style={{ fontSize: 11, color: 'var(--om-text-dim)', lineHeight: 1.45 }}>
           {item.hint}
         </div>
+        {item.after}
       </div>
     </div>
   )
