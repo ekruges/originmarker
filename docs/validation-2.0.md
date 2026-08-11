@@ -605,7 +605,7 @@ groups stay unnamed and H1 versus H2 remains unseparated.
 ## Reproducing
 
 ```bash
-python origin.py --father father.txt --mother mother.txt --embryo offspring.txt --chrom X --pos 75000000 --compression 0.594
+python -m originmarker.origin --father father.txt --mother mother.txt --embryo offspring.txt --chrom X --pos 75000000 --compression 0.594
 ```
 
 Swap `--chrom X` for `3`, `11` or `20`, centring `--pos` on 4,035,000 and 81,185,000 for the

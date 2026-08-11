@@ -17,8 +17,8 @@ import pathlib
 import re
 from xml.etree import ElementTree
 
-import build_info
-import panelbuilder as pb
+from originmarker import build_info
+from originmarker import panelbuilder as pb
 from app import ispcr
 
 # gnomAD ancestry codes, in the engine's own order (AFR AMR ASJ EAS FIN NFE SAS MID).
@@ -1806,7 +1806,7 @@ if __name__ == "__main__":
     # 12. Primers. Synthesised, because primer design is optional and is not in the default
     # image: the golden fixture may carry no pair at all, and every branch below still has to
     # be proven. A panel with no primer is the OTHER case, and it is `r` itself.
-    import primers
+    from originmarker import primers
 
     # A panel with no primer says NOTHING about primers: no column, no block, no "0 designed".
     # This is the default server (primer3 is optional and absent from the default image), and

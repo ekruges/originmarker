@@ -31,8 +31,7 @@ import re
 from functools import lru_cache
 from typing import NamedTuple, Optional, Tuple
 
-import panelbuilder as pb
-
+from originmarker import panelbuilder as pb
 MODEL = "claude-haiku-4-5-20251001"
 MAX_TOKENS = 200
 

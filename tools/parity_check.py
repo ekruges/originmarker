@@ -24,7 +24,7 @@ import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import origin  # noqa: E402
+from originmarker import origin  # noqa: E402
 from tools.inferred_reference import (  # noqa: E402
     MIN_ASCERTAINMENT, MIN_PRODUCTS, SAME_PARENT_MAX, DIFFERENT_PARENT_MIN,
     Products, build, choose_m, group_by_parent, kinship,

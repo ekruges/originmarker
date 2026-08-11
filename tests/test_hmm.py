@@ -12,9 +12,8 @@ import math
 
 import pytest
 
-import emissions as em
-import hmm
-
+from originmarker import emissions as em
+from originmarker import hmm
 FA, MO = "AA", "BB"
 PARAMS = em.EmissionParams(lrr_compression=0.78, sigma_baf=0.03, sigma_lrr=0.12, eps=0.01)
 TP = hmm.TransitionParams(event_length_bp=200_000.0)

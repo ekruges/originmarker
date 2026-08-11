@@ -7,10 +7,8 @@ import math
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
-import origin
-import report
-
-
+from originmarker import origin
+from originmarker import report
 def plate(tmp_path, *, absent=0.002, het_band=0.02, nonpaternal=0.04, n=3_000):
     fp, sp = {}, {}
     for i in range(n):

@@ -39,8 +39,7 @@ import urllib.parse
 import urllib.request
 from typing import Optional
 
-import panelbuilder as pb
-
+from originmarker import panelbuilder as pb
 UCSC = "https://genome.ucsc.edu"
 
 # R6: hg38 stated on every request. UCSC's default db is not ours to inherit.
@@ -520,7 +519,7 @@ if __name__ == "__main__":
         #     number, so raising the design's ceiling without raising this fails here.
         import inspect
 
-        import primers
+        from originmarker import primers
         _default_max = inspect.signature(verify).parameters["max_product"].default
         assert _default_max == REPORT_MAX_BP >= 4000, _default_max
         assert REPORT_MAX_BP > primers.PRODUCT_CAP, (

@@ -25,7 +25,7 @@ That duplication is deliberate and bounded: the browser needs phases 1 and 2 wit
 two external artefacts - `informativity_table.csv` and the 12-case golden fixture - so a
 divergence fails a test rather than reaching a result.
 
-Self-check:  python -m origin          (no arguments; the CLI needs --father/--embryo/...)
+Self-check:  python -m originmarker.origin          (no arguments; the CLI needs --father/--embryo/...)
 Full tests:  python -m pytest tests/test_origin.py
 """
 
@@ -39,11 +39,11 @@ from dataclasses import dataclass, field, replace
 from pathlib import Path
 from typing import Literal, Optional, Sequence
 
-import buildref
-import emissions as em
-import hmm
-import normalize as nz
-import structural
+from originmarker import buildref
+from originmarker import emissions as em
+from originmarker import hmm
+from originmarker import normalize as nz
+from originmarker import structural
 
 #: Kothiyal 2019's per-trio Mendelian-inconsistency floor, 0.63% of variant sites across 1,314
 #: nuclear families. A LOWER BOUND on the spurious-violation rate, never the value itself.
@@ -2242,8 +2242,7 @@ def run_experiment(
     cannot have inherited a chromosome that is not present, and reporting a homologue anyway is
     exactly how a deletion gets read as a correction.
     """
-    import scaffold as _scaffold
-
+    from originmarker import scaffold as _scaffold
     rep = ExperimentReport(father_id=father.sample_id, variant_chrom=variant_chrom,
                            variant_pos=variant_pos)
 

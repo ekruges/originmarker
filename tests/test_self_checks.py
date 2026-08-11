@@ -17,16 +17,16 @@ ROOT = Path(__file__).resolve().parent.parent
 
 # Every module carrying an assert-based self-check. Add new ones here.
 MODULES = [
-    "build_info",
-    "genetic_map",
-    "origin",
-    "report",
-    "scaffold",
-    "structural",
-    "panelbuilder",
+    "originmarker.build_info",
+    "originmarker.genetic_map",
+    "originmarker.origin",
+    "originmarker.report",
+    "originmarker.scaffold",
+    "originmarker.structural",
+    "originmarker.panelbuilder",
     # Skips itself, exit 0, where primer3 is not installed: it is optional (GPLv2), so the
     # default image runs this check in its skipped form.
-    "primers",
+    "originmarker.primers",
     "app.exports",
     "app.ispcr",
     "app.nl",
@@ -60,7 +60,9 @@ def test_every_self_check_is_registered() -> None:
     runs it.
     """
     found = set()
-    for path in [*ROOT.glob("*.py"), *(ROOT / "app").glob("*.py")]:
+    # Every directory a self-check can live in. A new package here needs adding, which is
+    # the same maintenance the MODULES list above already asks for.
+    for path in [*(ROOT / "originmarker").glob("*.py"), *(ROOT / "app").glob("*.py")]:
         if path.name.startswith("test_"):
             continue
         src = path.read_text()

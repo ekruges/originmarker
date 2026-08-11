@@ -19,8 +19,8 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from typing import Optional
 
-import panelbuilder as pb
-import primers
+from originmarker import panelbuilder as pb
+from originmarker import primers
 from app import ispcr
 
 _log = logging.getLogger(__name__)

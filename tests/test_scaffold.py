@@ -6,9 +6,7 @@ import math
 
 import pytest
 
-import scaffold
-
-
+from originmarker import scaffold
 def trio_markers(n=40, *, embryos=("A", "B", "C"), carries=None, start=17_200_000, step=5_000,
                  mother="AA", flip_after=None):
     """Markers with a heterozygous father and a homozygous mother, so every allele is deducible.

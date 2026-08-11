@@ -15,9 +15,8 @@ from typing import Optional, Sequence
 
 import pytest
 
-import normalize as nz
-import origin
-
+from originmarker import normalize as nz
+from originmarker import origin
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 
 #: The two header lines below are copied verbatim from published GEO supplementary files, so they

@@ -26,7 +26,7 @@ Two things limit it, and both are reported rather than assumed away:
               yields a confident deduction of the wrong allele, at roughly half the dropout
               rate, which is why bulk DNA matters so much more here than sample count.
 
-Self-check:  python -m scaffold
+Self-check:  python -m originmarker.scaffold
 """
 
 from __future__ import annotations
@@ -35,7 +35,7 @@ import math
 from dataclasses import dataclass, field
 from typing import Literal, Optional, Sequence
 
-import genetic_map
+from originmarker import genetic_map
 
 #: Beyond this the recombination fraction is close enough to one half that a marker carries
 #: almost nothing about the variant, and including it only adds error.

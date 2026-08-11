@@ -14,8 +14,7 @@ from pathlib import Path
 
 import pytest
 
-import emissions as em
-
+from originmarker import emissions as em
 ROOT = Path(__file__).resolve().parent.parent
 FIXTURES = ROOT / "tests" / "fixtures"
 

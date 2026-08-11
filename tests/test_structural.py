@@ -6,8 +6,8 @@ from pathlib import Path
 
 import pytest
 
-import origin
-import structural
+from originmarker import origin
+from originmarker import structural
 
 
 # --- PLINK ------------------------------------------------------------------------------------
@@ -193,7 +193,7 @@ def test_no_structural_input_at_all_says_the_mechanisms_are_untested():
 def test_reads_make_the_two_mechanisms_an_array_cannot_see_testable(tmp_path):
     """An array cannot see an insertion at all, and cannot see a deletion shorter than r_min
     markers however clean the data. Reads have neither limit."""
-    import normalize as nz
+    from originmarker import normalize as nz
     p = tmp_path / "sv.vcf"
     p.write_text(SV_VCF + "\n")
     svs = structural.read_sv_vcf(p)

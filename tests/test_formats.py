@@ -11,9 +11,7 @@ from pathlib import Path
 
 import pytest
 
-import origin
-
-
+from originmarker import origin
 def w(tmp_path, name, text):
     p = tmp_path / name
     p.write_text(text)

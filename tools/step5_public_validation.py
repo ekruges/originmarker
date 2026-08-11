@@ -33,7 +33,7 @@ from itertools import combinations
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import origin  # noqa: E402
+from originmarker import origin  # noqa: E402
 from tools.inferred_reference import Products, build  # noqa: E402
 
 GEO = Path(sys.argv[1]).expanduser()

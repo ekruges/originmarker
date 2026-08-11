@@ -29,8 +29,7 @@ import os
 import re
 from typing import Optional
 
-import panelbuilder as pb
-
+from originmarker import panelbuilder as pb
 LDLINK = "https://ldlink.nih.gov/LDlinkRest"
 
 # R6: LDlink defaults to GRCh37. Everything else in this app is GRCh38, and a

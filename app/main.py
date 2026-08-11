@@ -29,10 +29,10 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
-import build_info
-import genetic_map
-import panelbuilder as pb
-import primers
+from originmarker import build_info
+from originmarker import genetic_map
+from originmarker import panelbuilder as pb
+from originmarker import primers
 from app import jobs
 
 VERSION = build_info.VERSION

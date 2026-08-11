@@ -39,8 +39,8 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Callable, Iterable, Optional, Union
 
-import genetic_map
-import primers
+from originmarker import genetic_map
+from originmarker import primers
 
 # --------------------------------------------------------------------------- #
 # Config

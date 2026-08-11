@@ -17,7 +17,7 @@ What this module will not do is turn absence of an SV call into evidence of abse
 that was never run, or was run with a size threshold above the event, produces exactly the same
 empty result as a genome with no structural variant, and those are reported differently.
 
-Self-check:  python -m structural
+Self-check:  python -m originmarker.structural
 """
 
 from __future__ import annotations

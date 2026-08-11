@@ -20,7 +20,7 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import origin  # noqa: E402
+from originmarker import origin  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 EX = ROOT / "web" / "public" / "examples"

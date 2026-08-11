@@ -28,7 +28,7 @@ EXPECTED = {
 
 # Where a URL constant lives. app/nl.py reaches Anthropic through their SDK rather than a
 # literal, so it is matched on the import instead.
-_SOURCES = [ROOT / "panelbuilder.py", *(ROOT / "app").glob("*.py")]
+_SOURCES = [ROOT / "originmarker" / "panelbuilder.py", *(ROOT / "app").glob("*.py")]
 
 # Loopback is this process talking to itself (the container healthcheck), never a third party.
 _LOOPBACK = re.compile(r"^(127\.|localhost$|0\.0\.0\.0$|\[?::1)")

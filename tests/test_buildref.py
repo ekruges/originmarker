@@ -6,9 +6,8 @@ import json
 import re
 from pathlib import Path
 
-import buildref
-import origin
-
+from originmarker import buildref
+from originmarker import origin
 ROOT = Path(__file__).resolve().parent.parent
 
 

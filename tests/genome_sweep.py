@@ -27,7 +27,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 os.environ.setdefault("PANELBUILDER_CACHE", "/tmp/om_genome_sweep")
 
-import panelbuilder as pb  # noqa: E402
+from originmarker import panelbuilder as pb  # noqa: E402
 
 CHROMS = [str(c) for c in range(1, 23)] + ["X"]
 

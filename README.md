@@ -36,7 +36,7 @@ cd web && npm install && npm run dev
 The Syngamy analysis also runs standalone, with more than the page exposes:
 
 ```sh
-python origin.py --father sperm.txt --samples embryo1.txt embryo2.txt
+python -m originmarker.origin --father sperm.txt --samples embryo1.txt embryo2.txt
 ```
 
 ## Tests
@@ -49,6 +49,20 @@ cd web && npm run build && for f in src/*.check.ts; do node "$f"; done
 
 Offline, against recorded API responses in `tests/fixtures/`. `npm run build` is `tsc -b && vite
 build`, and the `-b` is the typecheck: bare `tsc` has no inputs here and exits 0 regardless.
+
+## Layout
+
+| | |
+|---|---|
+| `originmarker/` | the library: panel building, array reading, the HMM, the report writer. Every module carries a self-check, run as `python -m originmarker.<module>` |
+| `app/` | FastAPI over that library. `app/main.py` is the only entry point |
+| `web/` | the SPA. Syngamy and Progenitor run entirely in the browser; nothing is uploaded |
+| `data/` | 23MB of bundled deCODE recombination maps, read from disk and never re-downloaded |
+| `tests/` | offline, against recorded API responses in `tests/fixtures/` |
+| `tools/` | one-off analysis scripts, kept because their numbers are cited in the docs |
+| `audit/` | the accuracy audit and its record |
+| `docs/` | validation write-ups per major version |
+| `deploy/` | the deployment runbook |
 
 ## Documentation
 

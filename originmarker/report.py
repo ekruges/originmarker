@@ -15,7 +15,7 @@ origin runs to 10^11,660 because it multiplies across half a million markers, wh
 own error rate is bounded by the samples it has been checked against, which is a far smaller
 number. Printing a confidence would be reporting the first as though it were the second.
 
-Self-check:  python -m report
+Self-check:  python -m originmarker.report
 """
 
 from __future__ import annotations
@@ -27,9 +27,8 @@ from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Literal, Optional, Sequence
 
-import build_info
-import origin
-
+from originmarker import build_info
+from originmarker import origin
 HeadlineState = Literal["result", "inconclusive", "not_determined"]
 
 #: Every constant the parent-of-origin path can use, with where its value comes from. Printed in

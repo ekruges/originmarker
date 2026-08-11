@@ -34,7 +34,7 @@ from pathlib import Path
 from typing import Iterable, Optional
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-import origin  # noqa: E402
+from originmarker import origin  # noqa: E402
 
 #: Products contribute homozygous calls only. A heterozygous call in a haploid genome is an
 #: error by construction, and counting it as evidence of parental heterozygosity inflates the

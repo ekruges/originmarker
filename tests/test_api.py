@@ -24,7 +24,7 @@ sys.path.insert(0, str(ROOT))
 
 from fastapi.testclient import TestClient  # noqa: E402
 
-import primers  # noqa: E402
+from originmarker import primers  # noqa: E402
 from app import jobs  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -70,12 +70,11 @@ def test_bad_variant_fails_loudly(monkeypatch):
     """Unresolvable input must 400, never fall back to a guessed coordinate."""
     # Monkeypatched because pb-raises -> 400 is this layer's whole contract, and the real
     # call costs ~90s of Ensembl retries. test_bad_variant_live does it for real.
-    import panelbuilder as pb
-
+    from originmarker import panelbuilder as pb
     def boom(*a, **kw):
         raise pb.ApiError("cannot resolve rsNOPE on GRCh38")
 
-    monkeypatch.setattr("panelbuilder.resolve_variant", boom)
+    monkeypatch.setattr("originmarker.panelbuilder.resolve_variant", boom)
     r = client.post("/api/resolve", json={"variant": "rsNOPE"})
     assert r.status_code == 400
     d = r.json()["detail"].lower()
@@ -141,7 +140,7 @@ def test_health_states_the_primer_defaults_the_form_draws_from(monkeypatch):
     It shipped absent, so a whole section of the form was invisible on the live site while
     every test passed: the flag said primers were enabled and the numbers never arrived.
     """
-    monkeypatch.setattr("primers.available", lambda: True)
+    monkeypatch.setattr("originmarker.primers.available", lambda: True)
     j = client.get("/api/health").json()
     assert j["primers_enabled"] is True
     d = j["primer_defaults"]
@@ -151,7 +150,7 @@ def test_health_states_the_primer_defaults_the_form_draws_from(monkeypatch):
     assert d["opt_tm"] == primers.DEFAULTS.opt_tm
 
     # No primer3, no design to configure, so no form: null rather than numbers nothing reads.
-    monkeypatch.setattr("primers.available", lambda: False)
+    monkeypatch.setattr("originmarker.primers.available", lambda: False)
     j = client.get("/api/health").json()
     assert j["primers_enabled"] is False
     assert j["primer_defaults"] is None
@@ -387,8 +386,7 @@ def test_a_typed_identifier_is_never_reported_as_a_model_choice():
 def test_job_errors_do_not_leak_internals(monkeypatch):
     """job.error is served to the browser, so an unforeseen exception must not arrive
     there as a raw traceback string."""
-    import panelbuilder as pb
-
+    from originmarker import panelbuilder as pb
     def boom(*a, **kw):
         raise OSError("[Errno 8] nodename nor servname provided")
 
@@ -463,8 +461,7 @@ def test_the_browser_knows_every_tag_the_engine_emits():
     the reader disguised as routine chatter rather than as itself, and nothing else fails.
     Neither side can see the other, which is why the check has to sit across them.
     """
-    import panelbuilder as pb
-
+    from originmarker import panelbuilder as pb
     src = (ROOT / "web" / "src" / "api.ts").read_text()
     m = re.search(r"export const LOG_TAGS = \[(.*?)\] as const", src, re.S)
     assert m, "LOG_TAGS is not where this check expects it in web/src/api.ts"
@@ -482,8 +479,7 @@ def test_the_stream_delivers_a_line_that_lands_as_the_job_finishes(monkeypatch):
     failure. The poller cannot lose it (it re-reads the whole log), which is exactly why
     the two transports have to be compared, not just the surviving one.
     """
-    import panelbuilder as pb
-
+    from originmarker import panelbuilder as pb
     class FlipsWhenStatusIsRead:
         """Appends its final line at the instant status is read: the writer landing in the
         window between the stream's two reads, made deterministic.
@@ -552,13 +548,13 @@ def test_unknown_job_404():
 
 
 def pb_disclaimer():
-    import panelbuilder as pb
+    from originmarker import panelbuilder as pb
     return pb.DISCLAIMER
 
 
 def pb_query(**kw):
     """The golden case as a StructuredQuery, for tests that drive jobs.py directly."""
-    import panelbuilder as pb
+    from originmarker import panelbuilder as pb
     return pb.StructuredQuery(variant=GOLDEN, **kw)
 
 
@@ -570,8 +566,7 @@ def test_log_tags_match_the_frontend():
     import re
     from pathlib import Path
 
-    import panelbuilder as pb
-
+    from originmarker import panelbuilder as pb
     api_ts = Path(__file__).resolve().parent.parent / "web" / "src" / "api.ts"
     if not api_ts.exists():
         pytest.skip("web/src/api.ts not present")

@@ -42,14 +42,17 @@ RUN if [ "$WITH_PRIMERS" = "1" ]; then pip install --no-cache-dir -r requirement
 # bug. requirements.txt pins 0.139.0 today; this fails the build if that ever slips.
 RUN python -c "import fastapi; v=tuple(int(p) for p in fastapi.__version__.split('.')[:3]); assert v>=(0,109,0), 'fastapi '+fastapi.__version__+' < 0.109.0: no root_path stripping, /originmarker/* would 404 through the tunnel'"
 
-# panelbuilder.py + genetic_map.py sit at the root: genetic_map resolves its maps as
-# Path(__file__).parent/"data"/"maps", so data/ must stay beside them. 23MB, bundled
-# on purpose - never re-downloaded at runtime.
+# The whole library package, not the four modules the app happens to import today. Naming
+# them meant a COPY line tracking a transitive import graph, and the failure mode was an
+# ImportError at container start rather than at build. It is 300KB of first-party source.
+#
+# genetic_map resolves the maps as <package>/../data/maps, so data/ has to land beside the
+# package and not inside it. 23MB, bundled on purpose - never re-downloaded at runtime.
 #
 # primers.py ships whatever WITH_PRIMERS says: the module is ours and Apache 2.0, only the
 # primer3 dependency is GPLv2. app/jobs.py imports it at module load, so leaving it out
 # does not disable primers, it stops the app from starting.
-COPY panelbuilder.py genetic_map.py build_info.py primers.py ./
+COPY originmarker/ ./originmarker/
 COPY data/ ./data/
 COPY app/ ./app/
 # app/main.py resolves DIST as <repo>/web/dist -> /app/web/dist

@@ -15,8 +15,7 @@ import math
 
 import pytest
 
-import normalize as nz
-
+from originmarker import normalize as nz
 UKB = "UK Biobank Axiom Array"
 
 # Measured medians. A male's chrX sits 0.4075 below his autosomes; a known FEMALE's sits 0.1908

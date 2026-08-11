@@ -17,7 +17,7 @@ in requirements.txt: see requirements-primers.txt. Absent, design() returns a re
 The pair is a CANDIDATE (R3). It has not been run against the genome unless a verification
 lane has set `insilico_pcr`, and `warnings` says so on every result.
 
-Self-check:  python primers.py
+Self-check:  python -m originmarker.primers
 """
 
 from __future__ import annotations

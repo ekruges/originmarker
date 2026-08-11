@@ -28,7 +28,9 @@ from typing import Optional
 #: field-of-use restriction that Apache 2.0 cannot sublicense.
 MAP_BUILD = "GRCh38"
 
-MAPS_DIR = Path(__file__).parent / "data" / "maps"
+# The maps live at the repo root, not in this package: 23MB of bundled data that the
+# image copies as its own layer. One level up from here, in both layouts.
+MAPS_DIR = Path(__file__).resolve().parent.parent / "data" / "maps"
 
 # Ships to the reader: stamped into export provenance and shown in the UI beside the cM
 # and theta columns.

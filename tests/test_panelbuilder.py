@@ -22,7 +22,7 @@ os.environ.setdefault("PANELBUILDER_CACHE", str(FIXTURES))
 # them age out would quietly turn this offline suite into a live one.
 os.environ.setdefault("PANELBUILDER_CACHE_TTL", "0")
 
-import panelbuilder as pb  # noqa: E402  (env set before import)
+from originmarker import panelbuilder as pb  # noqa: E402  (env set before import)
 
 GOLDEN_QUERY = "NM_000352.6(ABCC8):c.3989-9G>A"
 
@@ -30,7 +30,7 @@ GOLDEN_QUERY = "NM_000352.6(ABCC8):c.3989-9G>A"
 @pytest.fixture(scope="module")
 def result():
     if not FIXTURES.exists():
-        pytest.skip("fixtures/ not present - run `python panelbuilder.py` once, then "
+        pytest.skip("fixtures/ not present - run `python -m originmarker.panelbuilder` once, then "
                     "copy .panelbuilder_cache -> fixtures/ to record them")
     return pb.build(GOLDEN_QUERY)
 
@@ -894,8 +894,7 @@ def test_a_deletion_overhanging_the_template_is_still_masked():
     primers.design already clamps an overhanging site; the caller could simply never hand
     it one, so the clamp's own check exercised a path production could not reach.
     """
-    import primers
-
+    from originmarker import primers
     flank = 400
     marker_pos = 17_397_055
     lo, hi = marker_pos - flank, marker_pos + flank
