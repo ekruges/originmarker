@@ -9,6 +9,63 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.6.0
+
+Progenitor is a SNP array builder that also calls parental origin, rather than the other way
+round, and it no longer freezes the tab while it works.
+
+### Fixed
+
+- **The page stopped locking up.** Two passes had no yield in them and nothing to show, so a run
+  spent tens of seconds looking hung. Both now report progress and hand the main thread back
+  between chunks.
+
+  The arithmetic underneath was also doing several times the work it needed to. Choosing the
+  agreement depth called the full build once per candidate depth, and a build materialises a
+  600,000-entry map, so picking a threshold cost more than the build it was picking for; there is
+  now a path returning the one scalar that choice needs. Contamination was a SECOND full pass
+  over every probe, with a map lookup each, to recover a number the first pass already had. And
+  every build rebuilt an 825,657-element array of probe pairs to iterate over. Measured on an
+  18-array experiment, the blocking arithmetic went from roughly ten seconds to 2.4, and what
+  remains is chunked.
+
+  What is NOT optimised away is the re-read: scoring an array needs its B-allele frequencies, and
+  the allele codes held in memory carry only genotypes, so every file streams a second time. That
+  is most of the wall clock. It now sits behind its own button and reports per file.
+
+### Changed
+
+- **Three buttons instead of one.** Compare the products, build the reference, then call the
+  arrays. Each states what it is about to do, and the expensive step is no longer reached by
+  surprise: a run that turns out to have three parent groups can stop after the first.
+
+- **Every step logs what it is doing.** Each pair with its rate, shared marker count and verdict;
+  each group with its members, its Y-bearing products and whether it clears the floor; each rung
+  of the depth ladder with the ascertainment it retains; each array as it is scored, and for
+  reference members the depth and marker count of the leave-one-out build behind it.
+
+- **The groups are stated, not only plotted.** Membership led with a concordance matrix, which is
+  the evidence and is unreadable past about eight products. A roster above it now names the
+  members of each group, which one is the father and on what basis, which group the reference
+  came from, and which groups sit under the floor. The report carries the same, with Y-bearing
+  counts per group.
+
+- **Framed as what it is.** The page builds a parent's SNP array out of the cells that parent
+  produced. Parental origin is what scoring arrays against that array gives you, not the other
+  way round.
+
+### Added
+
+- **A methods paragraph written to be pasted into a paper.** Prose rather than documentation:
+  what was gated and at what threshold, how products were grouped and why chained links are not
+  accepted, how chromosome Y named the parent and when that naming is withheld, how the depth was
+  chosen, what contamination means, and how a call is read. Bracketed where the text depends on
+  the samples rather than on the software.
+
+- **The Egli Lab and Columbia University Irving Medical Center are named** in the README and at
+  the foot of every documentation page. The Columbia Stem Cell Initiative mark was already on the
+  home page; nothing said it in words.
+
 ## 3.5.3
 
 3.5.0 documented a safety property it had not implemented, and left the exports and pages

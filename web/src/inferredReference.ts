@@ -108,6 +108,10 @@ export class ProductSet {
   /** Kept alongside the chromosome so the reference can be written out as an array file. The
    *  reconstruction itself never needs a coordinate; every consumer of the export does. */
   private pos: number[] = []
+  /** Probe id by dense index, the inverse of `index`. Kept so a build can walk probes by
+   *  integer instead of materialising `[...index.entries()]`, which allocated 825,657 pairs
+   *  per build and there are a dozen builds in a run. */
+  private probeId: string[] = []
   private alleles: Uint8Array[] = []
   private capacity = 0
   /** Per product diagnostics, in the order of `ids`. */
@@ -157,6 +161,7 @@ export class ProductSet {
       this.index.set(row.probesetId, i)
       this.chrom.push(row.chrom)
       this.pos.push(row.pos)
+      this.probeId.push(row.probesetId)
       this.grow(i + 1)
     }
     this.alleles[slot][i] = row.genotype === 'AA' ? A : B
@@ -168,6 +173,9 @@ export class ProductSet {
   }
 
   get size(): number { return this.ids.length }
+
+  /** Distinct markers any product called homozygous, which is what every pass walks. */
+  get markerCount(): number { return this.index.size }
 
   /** Where a probe sits, for writing the reference out. Empty for a probe never seen homozygous
    *  in any product, which is also a probe the reference has no call at. */
@@ -182,16 +190,52 @@ export class ProductSet {
   }
 
   /** A reference from every marker where at least mMin products spoke and all agreed. */
+  /**
+   * The parent's heterozygosity over the markers a given depth retains, and nothing else.
+   *
+   * `chooseM` needs this scalar at every candidate depth and used to get it by running a full
+   * build, which meant constructing and discarding a 600,000-entry map per candidate. Choosing
+   * the threshold cost several times the build it was choosing for.
+   */
+  hRetainedAt(mMin: number, exclude: readonly string[] = []): number {
+    const use = this.keep(exclude)
+    const n = this.index.size
+    let disagreed = 0
+    let surviving = 0
+    let detect = 0
+    for (let i = 0; i < n; i += 1) {
+      let m = 0
+      let first = NONE
+      let mixed = false
+      for (const p of use) {
+        const v = this.alleles[p][i]
+        if (v === NONE) continue
+        m += 1
+        if (first === NONE) first = v
+        else if (v !== first) mixed = true
+      }
+      if (m < mMin) continue
+      surviving += 1
+      detect += 1 - pAgree(m)
+      if (mixed) disagreed += 1
+    }
+    return surviving && detect > 0 ? (disagreed / surviving) / (detect / surviving) : NaN
+  }
+
   build(mMin: number, exclude: readonly string[] = [], hPrior?: number): Reference {
     const use = this.keep(exclude)
-    const probes = [...this.index.entries()]
+    const n = this.index.size
     const genotype = new Map<string, AB>()
     let mSum = 0
     let disagreed = 0
     let surviving = 0
     let detect = 0
+    // How many products spoke at each marker the reference kept, in marker order. Contamination
+    // used to be a SECOND full pass over every probe with a map lookup per probe to find these
+    // again; they are free to record here and the pass is over the kept markers alone.
+    const keptM: number[] = []
 
-    for (const [id, i] of probes) {
+    for (let i = 0; i < n; i += 1) {
       let m = 0
       let first = NONE
       let mixed = false
@@ -206,7 +250,8 @@ export class ProductSet {
       surviving += 1
       detect += 1 - pAgree(m)
       if (mixed) { disagreed += 1; continue }
-      genotype.set(id, first === A ? 'AA' : 'BB')
+      genotype.set(this.probeId[i], first === A ? 'AA' : 'BB')
+      keptM.push(m)
       mSum += m
     }
 
@@ -220,10 +265,9 @@ export class ProductSet {
     let contamination = NaN
     if (genotype.size && Number.isFinite(h)) {
       let acc = 0
-      for (const [id, i] of probes) {
-        if (!genotype.has(id)) continue
-        let m = 0
-        for (const p of use) if (this.alleles[p][i] !== NONE) m += 1
+      // Same values in the same order the two-pass version summed them in, so the float result
+      // is identical and the cross-implementation fixture still pins.
+      for (const m of keptM) {
         const odds = h * pAgree(m)
         acc += odds / (1 - h + odds)
       }
@@ -257,11 +301,11 @@ export class ProductSet {
    */
   chooseM(exclude: readonly string[] = []): { mMin: number; ratios: Map<number, number> } {
     const n = this.keep(exclude).length
-    const base = this.build(2, exclude).hRetained
+    const base = this.hRetainedAt(2, exclude)
     const ratios = new Map<number, number>()
     let best = 2
     for (let m = 2; m <= n; m += 1) {
-      const r = this.build(m, exclude).hRetained / base
+      const r = this.hRetainedAt(m, exclude) / base
       ratios.set(m, r)
       if (Number.isFinite(r) && r >= MIN_ASCERTAINMENT) best = m
     }
@@ -283,7 +327,8 @@ export class ProductSet {
     const y = this.alleles[b]
     let shared = 0
     let opp = 0
-    for (let i = 0; i < this.index.size; i += 1) {
+    const n = this.index.size
+    for (let i = 0; i < n; i += 1) {
       const u = x[i]
       const v = y[i]
       if (u === NONE || v === NONE) continue

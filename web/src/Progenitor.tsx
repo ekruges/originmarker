@@ -5,7 +5,9 @@ import {
   finishProfile, headerMap, parseRow,
   type ChromStats, type ProbeRow, type SampleProfile,
 } from './ingest'
-import { ProductSet, groupByParent, MIN_PRODUCTS } from './inferredReference'
+import {
+  ProductSet, groupByParent, kinship, MIN_ASCERTAINMENT, MIN_PRODUCTS,
+} from './inferredReference'
 import {
   emptySex, accumulateSex, sexCall, paternalGroup, type SexCall,
 } from './sexing'
@@ -59,12 +61,14 @@ interface Origin {
   inReference: boolean
 }
 
-type Tag = 'READ' | 'GATE' | 'PAIR' | 'BUILD' | 'WARN' | 'DONE'
+type Tag = 'READ' | 'GATE' | 'PAIR' | 'GROUP' | 'BUILD' | 'CALL' | 'WARN' | 'DONE'
 const TAG_COLOUR: Record<Tag, string> = {
   READ: 'var(--om-text-dim)',
   GATE: 'var(--om-text-dim)',
-  PAIR: 'var(--om-blue)',
+  PAIR: 'var(--om-text-dim)',
+  GROUP: 'var(--om-blue)',
   BUILD: 'var(--om-blue)',
+  CALL: 'var(--om-text-dim)',
   WARN: 'var(--om-higher)',
   DONE: 'var(--om-blue)',
 }
@@ -95,6 +99,20 @@ interface Loaded {
 
 const mb = (b: number): string => `${(b / 1e6).toFixed(1)} MB`
 
+/**
+ * Hand the main thread back so the browser can paint.
+ *
+ * Comparing every pair and choosing a depth are hundreds of millions of typed-array reads with
+ * no I/O in them, so nothing yields on its own and the tab freezes for the duration. A zero
+ * timeout between chunks costs about a millisecond each and turns a frozen page into one with a
+ * moving bar. `setTimeout` rather than a microtask: a resolved promise does not let the renderer
+ * in, and the whole point is that it does.
+ */
+const breathe = (): Promise<void> => new Promise((r) => { setTimeout(r, 0) })
+
+/** Chunk size for the pairwise pass. At roughly 3ms per pair this paints about every 40ms. */
+const PAIR_CHUNK = 12
+
 async function eachLine(
   file: File, fn: (line: string) => void, onChunk?: (bytes: number) => void,
 ): Promise<void> {
@@ -118,6 +136,69 @@ async function eachLine(
     await new Promise((r) => { setTimeout(r, 0) })
   }
   if (carry) fn(carry)
+}
+
+/**
+ * Who ended up in which group, said in words.
+ *
+ * The concordance matrix below this is the evidence and is unreadable at a glance past about
+ * eight products. This states the grouping itself: how many parents the files represent, which
+ * arrays belong to each, which one is the father and on what basis, and which group the
+ * reference was built from.
+ */
+function GroupRoster({ groups, names, paternal, yBearing, built }: {
+  groups: number[][]
+  names: string[]
+  paternal: number | null
+  yBearing: (boolean | null)[]
+  built: number | null
+}) {
+  if (!groups.length) return null
+  return (
+    <div style={{ marginTop: 8 }}>
+      <Text size="xs" fw={600} mb={6}>
+        {groups.length === 1
+          ? `One parent across ${names.length} products`
+          : `${groups.length} parents across ${names.length} products`}
+      </Text>
+      {groups.map((g, i) => {
+        const ys = g.filter((x) => yBearing[x] === true)
+        const isDad = i === paternal
+        return (
+          <div
+            key={i}
+            style={{
+              borderLeft: `3px solid ${isDad ? 'var(--om-blue)' : 'var(--om-border)'}`,
+              padding: '4px 0 4px 8px',
+              marginBottom: 6,
+            }}
+          >
+            <div style={{ fontSize: 11, fontWeight: 600 }}>
+              Group {i + 1}
+              {': '}
+              {g.length} product{g.length === 1 ? '' : 's'}
+              {isDad ? ' \u00b7 the father' : paternal === null ? '' : ' \u00b7 not the father'}
+              {built === i ? ' \u00b7 reference built from this group' : ''}
+            </div>
+            <div style={{ fontSize: 11, fontFamily: 'var(--om-mono)', marginTop: 2 }}>
+              {g.map((x) => names[x] + (yBearing[x] === true ? ' (Y)' : '')).join(', ')}
+            </div>
+            <div style={{ fontSize: 10, color: 'var(--om-text-dim)', marginTop: 2 }}>
+              {isDad
+                ? `named the father because ${ys.length} of its ${g.length} products carry a `
+                  + 'whole Y, which a maternal cell cannot'
+                : paternal === null
+                  ? 'which parent this is was not established'
+                  : 'no product here carries a Y'}
+              {g.length >= MIN_PRODUCTS
+                ? `. Clears the ${MIN_PRODUCTS}-product floor.`
+                : `. Under the ${MIN_PRODUCTS}-product floor, so it cannot be reconstructed.`}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
 }
 
 /** The answer, one row per array. Everything else in this page is how it was arrived at. */
@@ -160,6 +241,9 @@ export function ProgenitorPage() {
   const [products, setProducts] = useState<Loaded[]>([])
   const [set, setSet] = useState<ProductSet | null>(null)
   const [state, setState] = useState<Stage0>('idle')
+  // What the page is doing right now, and how far in. Every phase reports through this, not
+  // just file reading: a run spends most of its wall clock on work that used to leave the page
+  // looking hung because nothing said otherwise.
   const [busyName, setBusyName] = useState('')
   const [pctDone, setPctDone] = useState(0)
   const [errors, setErrors] = useState<string[]>([])
@@ -286,57 +370,94 @@ export function ProgenitorPage() {
    * that and a parental-origin call is mechanical, so none of them is a question to put to the
    * person holding the folder.
    */
-  const run = async (): Promise<void> => {
+  /**
+   * STAGE 1 of three, on its own button.
+   *
+   * Compare every pair and split the products into groups sharing a parent. Nothing is built
+   * and no file is re-read: this is the cheap step, and it is the one whose answer decides
+   * whether the expensive ones are worth running at all.
+   */
+  const compare = async (): Promise<void> => {
     if (!set || usable.length < 2) return
     setRef(null)
-    log('PAIR', `comparing ${usable.length * (usable.length - 1) / 2} pairs of products`)
-    let lo = 1
-    let hi = 0
-    for (let a = 0; a < usable.length; a += 1) {
-      for (let b = a + 1; b < usable.length; b += 1) {
-        const r = rate(a, b)
-        lo = Math.min(lo, r)
-        hi = Math.max(hi, r)
+    setBuilding(true)
+    try {
+      const total = usable.length * (usable.length - 1) / 2
+      log('PAIR', `comparing ${total} pairs across ${usable.length} products, `
+        + `${int(set.markerCount)} markers each`)
+      setBusyName(`comparing ${total} pairs of products`)
+      setPctDone(0)
+      let lo = 1
+      let hi = 0
+      let done = 0
+      for (let a = 0; a < usable.length; a += 1) {
+        for (let b = a + 1; b < usable.length; b += 1) {
+          const o = set.opposite(usableSlots[a], usableSlots[b])
+          lo = Math.min(lo, o.rate)
+          hi = Math.max(hi, o.rate)
+          log('PAIR', `${usable[a].name} vs ${usable[b].name}: ${pct(o.rate, 2)} opposite `
+            + `over ${int(o.shared)} shared homozygous markers, `
+            + `${kinship(o.rate).replace('_', ' ')}`)
+          done += 1
+          // Yield between chunks. Without this the whole pass is one synchronous block and
+          // the tab is frozen for the length of it.
+          if (done % PAIR_CHUNK === 0) {
+            setPctDone(Math.round((done / total) * 100))
+            await breathe()
+          }
+        }
       }
+      setPctDone(100)
+      log('PAIR', `opposite-homozygote rate ${pct(lo, 2)} to ${pct(hi, 2)} across all `
+        + `${total} pairs`)
+
+      setBusyName('grouping products by shared parent')
+      await breathe()
+      const g = groupByParent(usable.length, rate)
+      const pat = paternalGroup(g, usable.map((u) => sexOf(u).yBearing))
+      log('GROUP', `${g.length} parent group${g.length === 1 ? '' : 's'} from `
+        + `${usable.length} products, by exact maximum clique over the pair table`)
+      g.forEach((grp, i) => {
+        const names = grp.map((x) => usable[x].name)
+        const ys = grp.filter((x) => sexOf(usable[x]).yBearing).map((x) => usable[x].name)
+        log(i === pat ? 'DONE' : 'GROUP',
+          `group ${i + 1}, ${grp.length} product${grp.length === 1 ? '' : 's'}`
+          + `${i === pat ? ', THE FATHER' : ''}: ${names.join(', ')}`)
+        log('GROUP', `  group ${i + 1} Y-bearing: `
+          + (ys.length ? `${ys.join(', ')} (${ys.length} of ${grp.length})` : 'none'))
+        log('GROUP', `  group ${i + 1} ${grp.length >= MIN_PRODUCTS
+          ? `clears the ${MIN_PRODUCTS}-product floor and can be reconstructed`
+          : `is under the ${MIN_PRODUCTS}-product floor and cannot be reconstructed`}`)
+      })
+      if (g.length > 1) {
+        log('WARN', `${g.length} parent groups. A reference built from all of these would be `
+          + 'built from more than one person, which is why only one group is used.')
+      }
+      if (pat === null) {
+        // Three different reasons, and they are not interchangeable. A file with no Y probes at
+        // all was never asked the question; a set that answered "no" everywhere was.
+        const noProbes = usable.every((u) => sexOf(u).yBearing === null)
+        const anyY = usable.some((u) => sexOf(u).yBearing)
+        log('WARN', noProbes
+          ? 'none of these files carries chromosome Y probes, so nothing here can say which '
+            + "group is the father's. The split still holds; only the naming is withheld."
+          : anyY
+            ? 'more than one group carries a Y, which one sperm donor cannot do. Which side is '
+              + 'which is left unnamed.'
+            : 'no product carries a Y, so which group is the father cannot be established. A '
+              + 'paternal group of n products is all X-bearing 2^-n of the time. The split '
+              + 'still holds; only the naming is withheld.')
+      }
+      setAnalysis({ groups: g, usableIds: usable.map((u) => u.id), paternal: pat })
+      const bi = g.findIndex((x) => x.length >= MIN_PRODUCTS)
+      log(bi < 0 ? 'WARN' : 'DONE', bi < 0
+        ? `no group reaches the ${MIN_PRODUCTS} products this method needs; nothing can be built`
+        : `ready to reconstruct group ${bi + 1}`)
+    } finally {
+      setBuilding(false)
+      setBusyName('')
+      setPctDone(0)
     }
-    log('PAIR', `opposite-homozygote rate ${pct(lo, 2)} to ${pct(hi, 2)}`)
-    const g = groupByParent(usable.length, rate)
-    const pat = paternalGroup(g, usable.map((u) => sexOf(u).yBearing))
-    g.forEach((grp, i) => {
-      log(g.length > 1 ? 'WARN' : 'DONE',
-        `group ${i + 1}: ${grp.map((x) => usable[x].name).join(', ')}`
-        + (i === pat ? '  <- the father, by the Y its products carry' : ''))
-    })
-    if (g.length > 1) {
-      log('WARN', `${g.length} parent groups. A reference built from all of these would be `
-        + 'built from more than one person.')
-    }
-    if (pat === null) {
-      // Three different reasons, and they are not interchangeable. A file with no Y probes at
-      // all was never asked the question; a set that answered "no" everywhere was.
-      const noProbes = usable.every((u) => sexOf(u).yBearing === null)
-      const anyY = usable.some((u) => sexOf(u).yBearing)
-      log('WARN', noProbes
-        ? 'none of these files carries chromosome Y probes, so nothing here can say which group '
-          + 'is the father\'s. The split still holds; only the naming is withheld.'
-        : anyY
-          ? 'more than one group carries a Y, which one sperm donor cannot do. Which side is '
-            + 'which is left unnamed.'
-          : 'no product carries a Y, so which group is the father cannot be established. A '
-            + 'paternal group of n products is all X-bearing 2^-n of the time. The split still '
-            + 'holds; only the naming is withheld.')
-    }
-    setAnalysis({ groups: g, usableIds: usable.map((u) => u.id), paternal: pat })
-    // Reconstruct the largest group that clears the floor. Whether it is the father's or the
-    // mother's does not change the call: an array either carries that parent's genome or it does
-    // not, and the other side follows.
-    const bi = g.findIndex((x) => x.length >= MIN_PRODUCTS)
-    if (bi < 0) {
-      log('WARN', `no group reaches the ${MIN_PRODUCTS} products this method needs; `
-        + 'nothing is reconstructed')
-      return
-    }
-    await buildFor(bi, g, pat)
   }
 
   const loadExamples = async (): Promise<void> => {
@@ -364,6 +485,14 @@ export function ProgenitorPage() {
    * it. A product scored against a reference containing itself reads exactly zero absence, a
    * bias the size of the whole signal, so leave-one-out is the only honest check.
    */
+  /**
+   * STAGE 2 of three, on its own button.
+   *
+   * Choose the agreement depth and reconstruct one group's genotype. Reads no files: everything
+   * it needs is already in memory as allele codes. Nothing is scored here, because scoring
+   * re-reads every array and that is the expensive step this stage exists to let you decide
+   * about first.
+   */
   const buildFor = async (
     gi: number, gs: number[][] = groups, pat: number | null = analysis?.paternal ?? null,
   ): Promise<void> => {
@@ -373,49 +502,117 @@ export function ProgenitorPage() {
       const chosen = gs[gi].map((i) => usable[i])
       const keep = new Set(chosen.map((c) => products.find((p) => p.id === c.id)!.name))
       const drop = set.ids.filter((id) => !keep.has(id))
-      log('BUILD', `${chosen.length} products in the group, ${drop.length} of `
-        + `${set.ids.length} loaded excluded`)
-      const { mMin, ratios } = set.chooseM(drop)
-      const full = set.build(mMin, drop)
       const side = pat === null ? '' : gi === pat ? 'paternal' : 'maternal'
+      log('BUILD', `reconstructing group ${gi + 1}, ${chosen.length} products`
+        + `${side ? ` (the ${side} parent)` : ' (which parent is not established)'}`)
+      log('BUILD', `products in: ${chosen.map((c) => c.name).join(', ')}`)
+      log('BUILD', `${drop.length} of ${set.ids.length} loaded arrays excluded from the build`)
+
+      // The depth ladder, one rung at a time so the bar moves and the log shows the trade the
+      // threshold is making rather than only its answer.
+      setBusyName('choosing the agreement depth')
+      setPctDone(0)
+      const ratios = new Map<number, number>()
+      const base = set.hRetainedAt(2, drop)
+      let mMin = 2
+      for (let m = 2; m <= chosen.length; m += 1) {
+        const r = set.hRetainedAt(m, drop) / base
+        ratios.set(m, r)
+        if (Number.isFinite(r) && r >= MIN_ASCERTAINMENT) mMin = m
+        log('BUILD', `  m >= ${m}: ascertainment ${pct(r, 1)} of the genome's heterozygosity`
+          + `${r >= MIN_ASCERTAINMENT ? '' : `, under the ${pct(MIN_ASCERTAINMENT, 0)} floor`}`)
+        setPctDone(Math.round(((m - 1) / Math.max(chosen.length - 1, 1)) * 100))
+        await breathe()
+      }
+      log('BUILD', `depth chosen: m >= ${mMin}, the deepest still retaining `
+        + `${pct(MIN_ASCERTAINMENT, 0)} of the genome`)
+
+      setBusyName(`building the reference over ${int(set.markerCount)} markers`)
+      setPctDone(0)
+      await breathe()
+      const full = set.build(mMin, drop)
+      setPctDone(100)
+      log('BUILD', `${int(full.markers)} markers retained of ${int(set.markerCount)}, `
+        + `mean ${full.meanM.toFixed(1)} products per marker`)
+      log('BUILD', `parent heterozygosity over those markers ${pct(full.hRetained, 3)}`)
+      log('BUILD', `contamination ${pct(full.contamination, 3)}: heterozygous sites every `
+        + 'product happened to agree on, so the reference asserts them as homozygous')
+      log('BUILD', `a true haploid offspring therefore reads ${pct(full.spuriousAbsence, 3)} `
+        + 'absence against this reference for that reason alone')
+      setRef({ group: gi, stats: full, ratios, members: [], origins: [], side })
+      log('DONE', `reference built. ${products.length} arrays are ready to be called against it`)
+    } finally {
+      setBuilding(false)
+      setBusyName('')
+      setPctDone(0)
+    }
+  }
+
+  /**
+   * STAGE 3 of three, on its own button.
+   *
+   * Score every array against the reference. This is the slow one and it is slow for a reason
+   * that cannot be optimised away: an array's absence rate needs its genotypes AND its B-allele
+   * frequencies, and the allele codes held in memory carry neither, so every file is streamed
+   * again. It is gated behind its own button and reports per file, because a run that silently
+   * re-reads twenty arrays looks like a hung page.
+   */
+  const callOrigins = async (): Promise<void> => {
+    if (!set || !ref) return
+    setBuilding(true)
+    try {
+      const gi = ref.group
+      const chosen = groups[gi].map((i) => usable[i])
+      const keep = new Set(chosen.map((c) => products.find((p) => p.id === c.id)!.name))
+      const drop = set.ids.filter((id) => !keep.has(id))
+      const { mMin, side } = { mMin: ref.stats.mMin, side: ref.side }
       const other = side === 'paternal' ? 'maternal' : 'paternal'
-      log('BUILD', `m >= ${mMin}, ${int(full.markers)} markers, `
-        + `ascertainment ${pct(ratios.get(mMin) ?? NaN, 1)}, `
-        + `contamination ${pct(full.contamination, 2)}`)
+      const full = ref.stats
       const scored: Scored[] = []
       const called: Origin[] = []
       const inGroup = new Set(chosen.map((c) => c.id))
+      log('CALL', `scoring ${products.length} arrays against the reference. Each is streamed `
+        + 'again: the absence rate needs B-allele frequencies, which the in-memory allele codes '
+        + 'do not carry.')
       // EVERY array is scored, not only the ones the reference was built from. The arrays that
       // did not go into it are the ones the answer is wanted for: an array that carries this
       // parent's genome came from this parent, and one that decisively does not came from the
       // other. Excluded arrays are scored too, and say on their own row that they were excluded,
       // because a fused or half-failed zygote is the case this is most often asked about and
       // silently dropping it answers nothing.
-      for (const load of products) {
+      for (const [n, load] of products.entries()) {
         const mine = inGroup.has(load.id)
+        setBusyName(`calling ${load.name}  (${n + 1} of ${products.length})`)
+        setPctDone(0)
+        await breathe()
         // A product scored against a reference containing itself reads exactly zero absence, a
         // bias the size of the whole signal, so a member is scored leave-one-out. n-1 products
         // cannot reach a threshold of n, so that build sits one below the chosen depth.
-        const ref = mine
+        const ref1 = mine
           ? set.build(Math.min(mMin, chosen.length - 1), [...drop, load.name]) : full
+        if (mine) {
+          log('CALL', `  ${load.name} is in the reference, so it is scored against one rebuilt `
+            + `without it: m >= ${Math.min(mMin, chosen.length - 1)}, `
+            + `${int(ref1.markers)} markers`)
+        }
         const t = emptyTally()
         let map: ReturnType<typeof headerMap> = null
         await eachLine(load.file, (line) => {
           if (!map) { map = headerMap(line); return }
           const r = parseRow(line, map)
-          if (r) tallyRow(ref.genotype.get(r.probesetId) ?? 'NC', r, t)
-        })
+          if (r) tallyRow(ref1.genotype.get(r.probesetId) ?? 'NC', r, t)
+        }, (bytes) => setPctDone(Math.round((bytes / load.file.size) * 100)))
         // The leave-one-out reference is built from one fewer product, so it is dirtier than the
         // full one and carries its own floor rather than the full build's.
-        const res = classify(t, ref.hRetained, { spuriousAbsence: ref.spuriousAbsence })
+        const res = classify(t, ref1.hRetained, { spuriousAbsence: ref1.spuriousAbsence })
         const ratio = res.genomeRate / res.explainable
         const origin = res.verdict === 'unclear' ? 'unclear'
           : side === '' ? (res.verdict === 'parent_genome_present'
             ? 'this parent' : 'the other parent')
             : res.verdict === 'parent_genome_present' ? side : other
-        log(res.verdict === 'parent_genome_present' ? 'DONE' : 'WARN',
-          `${load.name}: ${pct(res.genomeRate, 2)} absent of ${pct(res.explainable, 2)} `
-          + `= ${ratio.toFixed(2)}x, ${origin}`)
+        log(res.verdict === 'unclear' ? 'WARN' : 'DONE',
+          `${load.name}: ${pct(res.genomeRate, 2)} absent against a ${pct(res.explainable, 2)} `
+          + `ceiling = ${ratio.toFixed(2)}x -> ${origin}`)
         called.push({
           name: load.name,
           origin,
@@ -438,9 +635,11 @@ export function ProgenitorPage() {
       const decided = called.filter((c) => c.origin !== 'unclear').length
       log('DONE', `${decided} of ${called.length} arrays called`
         + (side ? `, against a ${side} reference` : ', as one side or the other'))
-      setRef({ group: gi, stats: full, ratios, members: scored, origins: called, side })
+      setRef({ ...ref, members: scored, origins: called })
     } finally {
       setBuilding(false)
+      setBusyName('')
+      setPctDone(0)
     }
   }
 
@@ -542,6 +741,9 @@ export function ProgenitorPage() {
         provenance,
         origins: ref!.origins,
         side: ref!.side,
+        paternalGroup: analysis?.paternal ?? null,
+        builtGroup: ref!.group,
+        yBearing: Object.fromEntries(usable.map((u) => [u.name, sexOf(u).yBearing])),
         groups: groups.map((g) => g.map((i) => usable[i].name)),
         samples: sampleRows,
         pairs,
@@ -606,7 +808,7 @@ export function ProgenitorPage() {
 
   return (
     <div style={{ paddingBottom: 60 }}>
-      <FeatureHeader name="Progenitor" tagline="parental origin with no parent array" />
+      <FeatureHeader name="Progenitor" tagline="builds a parent\u2019s SNP array from the cells it produced" />
 
       {lines.length > 0 && (
         <RunLog
@@ -688,10 +890,29 @@ export function ProgenitorPage() {
               size="xs"
               disabled={state === 'reading' || building || usable.length < 2
                 || (!!analysis && !stale)}
-              loading={building}
-              onClick={() => { void run() }}
+              loading={building && !ref}
+              onClick={() => { void compare() }}
             >
-              Run
+              1. Compare products
+            </Button>
+            <Button
+              size="xs"
+              disabled={state === 'reading' || building || !analysis || stale
+                || biggest < MIN_PRODUCTS || !!ref}
+              onClick={() => {
+                const bi = groups.findIndex((g) => g.length >= MIN_PRODUCTS)
+                if (bi >= 0) void buildFor(bi)
+              }}
+            >
+              2. Build the reference
+            </Button>
+            <Button
+              size="xs"
+              disabled={state === 'reading' || building || !ref || ref.origins.length > 0}
+              loading={building && !!ref && !ref.origins.length}
+              onClick={() => { void callOrigins() }}
+            >
+              3. Call {products.length} array{products.length === 1 ? '' : 's'}
             </Button>
             {products.length > 0 && (
               <Button
@@ -709,9 +930,10 @@ export function ProgenitorPage() {
 
         <DropZone
           empty={products.length === 0}
-          prompt={'Drop every array from the experiment. Which came from which parent is what '
-            + 'this works out; they do not need sorting first, and an array of either parent is '
-            + 'not needed. Read in this browser; nothing is uploaded.'}
+          prompt={'Drop every array from the experiment. These are the haploid cells; this '
+            + 'builds the SNP array of the parent behind them. They do not need sorting first '
+            + 'and no array of either parent is needed. Read in this browser; nothing is '
+            + 'uploaded.'}
           disabled={state === 'reading'}
           onFiles={(f) => { void add(f) }}
         >
@@ -757,10 +979,18 @@ export function ProgenitorPage() {
           </div>
         </DropZone>
 
-        {state === 'reading' && (
+        {(state === 'reading' || building) && busyName && (
           <>
-            <Text size="xs" c="dimmed" mt={6}>Reading {busyName}</Text>
-            <Progress value={pctDone} size="sm" mt={4} radius={0} />
+            <Text size="xs" c="dimmed" mt={6}>
+              {state === 'reading' ? 'Reading ' : ''}{busyName}
+            </Text>
+            <Progress
+              value={pctDone}
+              size="sm"
+              mt={4}
+              radius={0}
+              animated={pctDone === 0}
+            />
           </>
         )}
         {errors.map((e) => (
@@ -822,6 +1052,13 @@ export function ProgenitorPage() {
             : `All ${usable.length} products agree on one parent`}
           defaultOpen
         >
+          <GroupRoster
+            groups={groups}
+            names={names}
+            paternal={analysis?.paternal ?? null}
+            yBearing={usable.map((u) => sexOf(u).yBearing)}
+            built={ref?.group ?? null}
+          />
           <ConcordanceMatrix names={names} rate={rate} groups={groups} />
           <Why>
             Two haploid products of one parent differ only where that parent is heterozygous and
@@ -850,7 +1087,10 @@ export function ProgenitorPage() {
               : `No group has the ${MIN_PRODUCTS} products this method needs`}
           defaultOpen
         >
-          {biggest >= MIN_PRODUCTS && !ref && (
+          {/* Only when the choice is real. With one buildable group the "2. Build" button above
+              already does this, and two buttons for one action is worse than none. */}
+          {biggest >= MIN_PRODUCTS && !ref
+            && groups.filter((g) => g.length >= MIN_PRODUCTS).length > 1 && (
             <Group gap={8} mt={8}>
               {groups.map((g, i) => (
                 <Button
@@ -902,13 +1142,15 @@ export function ProgenitorPage() {
 
       {products.length === 0 && (
         <Text size="xs" c="dimmed" mt={10} style={{ maxWidth: 760, lineHeight: 1.55 }}>
-          Drop an experiment and press Run. The arrays are gated, split into groups sharing a
-          parent, the father's group named by the Y its products carry, that parent's genotype
-          reconstructed, and every array called against it, in one pass and with no array of
-          either parent required. At least {MIN_PRODUCTS} products of one parent have to be
-          present before anything is reconstructed. Takes the same exports the rest of the tool
-          does: Axiom <code>.probes</code>, or a genotype table as CSV or TSV, gzipped or not.
-          {int(825657)} markers streams in a few seconds per file.
+          Builds a SNP array for a parent nobody genotyped, out of the haploid cells that parent
+          produced. Three steps, each on its own button so you can see what each one costs:{' '}
+          <b>compare</b> the products and split them into groups sharing a parent,{' '}
+          <b>build</b> the array for one group, then <b>call</b> every input against it for
+          parental origin. At least {MIN_PRODUCTS} products of one parent are needed before
+          anything is built. The array itself exports as a file you can use anywhere an array
+          goes. Takes the same formats the rest of the tool does: Axiom <code>.probes</code>, or
+          a genotype table as CSV or TSV, gzipped or not. {int(825657)} markers streams in a few
+          seconds per file.
         </Text>
       )}
     </div>

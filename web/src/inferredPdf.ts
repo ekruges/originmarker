@@ -44,6 +44,12 @@ export interface InferredReportInput {
   }[]
   /** Which parent was reconstructed, or '' when the products did not say. */
   side: string
+  /** Index into `groups` of the father's group, or null when naming was withheld. */
+  paternalGroup: number | null
+  /** Index into `groups` of the group the reference was built from. */
+  builtGroup: number
+  /** Per product name, whether it carries a whole Y. */
+  yBearing: Record<string, boolean | null>
   /** Every file read, with the hash of the bytes as read, so a reviewer can confirm the input
    *  without being sent it. Parity with the Syngamy report, which has carried this since 2.0. */
   files: { name: string; role: string; size: number; markers: number; sha256: string }[]
@@ -272,17 +278,31 @@ export async function buildInferredPdf(input: InferredReportInput): Promise<Blob
   7.4, 'Helvetica', 2.4, GREY)
   y -= 2
   table(
-    [{ head: 'Group', w: 60 }, { head: 'Products', w: 300 },
-      { head: 'Weakest pair inside', w: 112, right: true }],
+    [{ head: 'Group', w: 44 }, { head: 'Which parent', w: 84 }, { head: 'Products', w: 240 },
+      { head: 'Y-bearing', w: 52, right: true },
+      { head: 'Weakest pair inside', w: 92, right: true }],
     input.groups.map((g, i) => {
       const idx = g.map((n) => input.matrixNames.indexOf(n)).filter((x) => x >= 0)
       let worst = 0
       for (const a of idx) for (const b of idx) if (a < b) {
         worst = Math.max(worst, input.matrixRate(a, b))
       }
-      return [`${i + 1}`, g.join(', '), idx.length > 1 ? pct(worst, 2) : 'n/a']
+      const ys = g.filter((n) => input.yBearing?.[n] === true).length
+      const role = input.paternalGroup === null ? 'not established'
+        : i === input.paternalGroup ? 'the father' : 'not the father'
+      return [
+        `${i + 1}${i === input.builtGroup ? ' *' : ''}`,
+        { v: role, colour: i === input.paternalGroup ? INK : GREY },
+        g.join(', '),
+        ys ? `${ys} of ${g.length}` : '0',
+        idx.length > 1 ? pct(worst, 2) : 'n/a',
+      ]
     }),
   )
+  text('* the group the reference was built from. A group is named the father\'s when one of its '
+    + 'products carries a whole Y, which a maternal cell cannot; where none does, or where more '
+    + 'than one group does, which side is which is left unnamed and the two sides are reported '
+    + 'as this parent and the other parent.', 6.5, 'Helvetica-Oblique', 2, GREY)
   if (input.groups.length > 1) {
     y -= 2
     text(`These products are not all from one parent. ${input.groups.length} groups are `

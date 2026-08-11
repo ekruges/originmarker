@@ -182,6 +182,23 @@ export function DocsShell({ prefix, sections, title, subtitle, health, siblings,
         <Title order={1} mb={4}>{title}</Title>
         <Text size="xs" c="dimmed" mb="md">{subtitle}</Text>
         {children}
+
+        <div
+          style={{
+            borderTop: '1px solid var(--om-border)',
+            marginTop: 28,
+            paddingTop: 10,
+            fontSize: 11,
+            color: 'var(--om-text-dim)',
+            lineHeight: 1.6,
+          }}
+        >
+          Developed with the{' '}
+          <a href="https://eglilab.com" target="_blank" rel="noopener noreferrer">Egli Lab</a>
+          {' '}at Columbia University Irving Medical Center, and the Columbia Stem Cell
+          Initiative. Research use only: candidate markers and parental-origin calls require
+          validation in a qualified genetics laboratory. Not a clinical diagnostic.
+        </div>
       </article>
     </div>
   )

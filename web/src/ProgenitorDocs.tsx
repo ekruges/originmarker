@@ -1,4 +1,4 @@
-import { Alert, Anchor, Code, List, Table, Text } from '@mantine/core'
+import { Alert, Anchor, Code, List, Paper, Table, Text } from '@mantine/core'
 import { CITATIONS, formatCitation } from './citations'
 import type { Health } from './api'
 import { DocsShell, docsHelpers, type DocSection } from './DocsShell'
@@ -26,6 +26,7 @@ const PREFIX = 'progenitor-docs'
 
 const SECTIONS: DocSection[] = [
   { id: 'what', label: 'What this answers' },
+  { id: 'procedure', label: 'Methods text, for a paper' },
   { id: 'method', label: 'The method, and its one error' },
   { id: 'products', label: 'What counts as a product' },
   { id: 'using', label: 'Using the page' },
@@ -137,6 +138,77 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
       </Section>
 
       {/* --- 2 --------------------------------------------------------------------------- */}
+      <Section id="procedure" title="Methods text, for a paper">
+        <Text size="sm" mb={10}>
+          The whole procedure in prose, written to be quoted or adapted in a methods section
+          rather than read as documentation. It states what the software does and what it
+          refuses to do; it does not state what your samples are, so the bracketed parts are
+          yours to fill in. Every threshold named here is the shipped value and is derived in
+          the sections below.
+        </Text>
+        <Paper withBorder p="sm" style={{ background: 'var(--om-zebra)' }}>
+          <Text size="sm" style={{ lineHeight: 1.7 }}>
+            Parental origin was determined with OriginMarker (Progenitor,
+            v{health?.version ?? 'x.y.z'}), which reconstructs a parental genotype from
+            haploid meiotic products and requires no array of either parent. SNP array genotypes
+            for [N] [pronuclei / polar bodies / single sperm] were supplied as [platform] exports
+            and processed entirely client-side.
+          </Text>
+          <Text size="sm" mt={8} style={{ lineHeight: 1.7 }}>
+            Arrays were first gated on call rate and ploidy: any array below a{' '}
+            {pct(CALL_RATE_FLOOR, 0)} call rate, or whose B-allele frequency band and genotype
+            heterozygosity were inconsistent with a single haploid genome, was excluded from
+            reconstruction. Remaining products were compared pairwise at markers where both were
+            called homozygous, and the rate of opposite homozygous calls was used to partition
+            them into groups sharing one parent. Grouping required every pair within a group to
+            fall below {pct(SAME_PARENT_MAX, 1)}; a chain of pairwise links was not accepted,
+            and groups were found as exact maximum cliques rather than by greedy assignment.
+          </Text>
+          <Text size="sm" mt={8} style={{ lineHeight: 1.7 }}>
+            Which group derived from the father was established from chromosome Y, on the basis
+            that a maternal cell cannot carry one. A product was called Y-bearing only where its
+            Y call rate and its median Y intensity, each relative to its own autosomes, both
+            indicated a whole chromosome; either signal alone is insufficient. Where no group
+            carried a Y, or more than one did, the assignment of groups to parents was withheld
+            and the two sides are reported without parental labels.
+          </Text>
+          <Text size="sm" mt={8} style={{ lineHeight: 1.7 }}>
+            The parental genotype was reconstructed from the largest group meeting a minimum of{' '}
+            {MIN_PRODUCTS} products. At each marker, the parental allele was called where at
+            least m products were called and all agreed; m was chosen as the deepest threshold
+            retaining at least {pct(MIN_ASCERTAINMENT, 0)} of the parent&rsquo;s genome-wide
+            heterozygosity. Parental heterozygosity was estimated from the rate at which products
+            disagreed. Sites at which the parent is heterozygous but all products drew the same
+            allele are asserted homozygous by construction; this residual is reported as
+            contamination and propagates to a known floor of spurious absence.
+          </Text>
+          <Text size="sm" mt={8} style={{ lineHeight: 1.7 }}>
+            Every array was then scored against the reconstructed genotype as the rate at which
+            the parent&rsquo;s obligate allele was absent where that parent is homozygous, and
+            compared with a per-array noise ceiling computed from that array&rsquo;s own no-call
+            rate and heterozygous fraction. An array at or below its ceiling was called as
+            carrying that parent&rsquo;s genome, at or above {ABSENCE_MARGIN.toFixed(0)}x its
+            ceiling as lacking it, and between the two as uncalled. Products contributing to the
+            reconstruction were scored against a reference rebuilt without them. No confidence
+            percentage is reported.
+          </Text>
+          <Text size="sm" mt={8} style={{ lineHeight: 1.7 }}>
+            Arrays excluded by the ploidy and call-rate gates were scored and reported, since
+            exclusion from the reconstruction is not a reason to withhold a call about the array
+            itself. The tool does not report [list what you are not claiming, for example
+            androgenetic versus biparental status, results on chromosome X, or discrimination of
+            the reconstructed parent from a close relative], all of which it withholds against an
+            inferred reference.
+          </Text>
+        </Paper>
+        <Text size="xs" c="dimmed" mt={10} style={{ lineHeight: 1.55 }}>
+          Cite the software and the version, which is on every export and on the report. The
+          reconstruction is deterministic: the same product files at the same version reproduce
+          the same genotype byte for byte, so the input files and their checksums, which the run
+          manifest records, are what makes it reproducible.
+        </Text>
+      </Section>
+
       <Section id="method" title="The method, and its one error">
         <Text size="sm" mb={10}>
           A haploid cell is one meiotic product: it carries one of the parent&rsquo;s two
