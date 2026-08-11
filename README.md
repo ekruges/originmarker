@@ -8,7 +8,7 @@ produced. It works out which of the two parents it built from the Y those cells 
 array out as a file usable anywhere an array goes, and calls the parental origin of every input
 against it.
 
-Developed with the [Egli Lab](https://eglilab.com) at Columbia University Irving Medical
+Developed by & for the [Egli Lab](https://eglilab.com) at Columbia University Irving Medical
 Center.
 
 > **Research use only. Candidate markers require validation and per-family phasing in a
