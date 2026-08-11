@@ -1,0 +1,55 @@
+# Dependency updates.
+#
+# Grouped on purpose. Ungrouped, this repo's three ecosystems open eleven separate pull requests
+# on a quiet week, which on a single-maintainer project means none of them get read. One PR per
+# ecosystem per week is a thing someone actually merges.
+#
+# Majors are separated from the rest everywhere: a minor or patch group can be merged on a green
+# check, and a major is a decision. Security updates ignore grouping and arrive on their own,
+# which is what you want.
+version: 2
+
+updates:
+  # --- the browser half -------------------------------------------------------------------
+  # Every feature runs client-side, so a bad update here is a bad update to the thing users
+  # touch. `npm run lint` and the src/*.check.ts self-checks are the gate.
+  - package-ecosystem: npm
+    directory: /web
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
+      npm-major:
+        update-types: [major]
+
+  # --- the API and the panel builder ------------------------------------------------------
+  # Picks up requirements.txt and requirements-primers.txt, which is intended. The latter is
+  # GPLv2 and deliberately outside the default image; an update PR does not change that, and
+  # the licence note at the top of that file is the thing to re-read before merging one.
+  - package-ecosystem: pip
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    groups:
+      pip-minor-patch:
+        update-types: [minor, patch]
+      pip-major:
+        update-types: [major]
+
+  # --- the image ---------------------------------------------------------------------------
+  # Two stages, node:22-alpine and python:3.12-slim. Both are pinned to a major, so this tracks
+  # the rebuilds within them; moving off 22 or 3.12 stays a deliberate edit.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    groups:
+      docker:
+        patterns: ["*"]
