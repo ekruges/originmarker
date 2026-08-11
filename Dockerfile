@@ -2,7 +2,7 @@
 # See deploy/README-deploy.md for the runbook.
 
 # ---- stage 1: build the SPA -------------------------------------------------
-FROM node:22-alpine AS web
+FROM node:26-alpine AS web
 
 WORKDIR /web
 # Lockfile first: this layer only rebuilds when deps actually change.
@@ -15,7 +15,7 @@ RUN npm run build
 
 
 # ---- stage 2: runtime -------------------------------------------------------
-FROM python:3.12-slim
+FROM python:3.14-slim
 
 WORKDIR /app
 
