@@ -9,6 +9,18 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.6.1
+
+One button at a time. 3.6.0 put all three steps in the toolbar at once, where two of them sat
+disabled until their turn came: three buttons together, two of them dead, is a worse instruction
+than one.
+
+Run is the only control in the toolbar now. The build button appears at the foot of the
+reconstruction section once there is a group worth building, one per buildable group since with
+more than one that is the actual decision, and it names the parent it is about to build. The
+call button appears below the reference once there is an array to score against, with a line
+saying it re-reads every file and why. Each disappears when its step is done.
+
 ## 3.6.0
 
 Progenitor is a SNP array builder that also calls parental origin, rather than the other way

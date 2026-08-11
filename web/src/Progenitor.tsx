@@ -886,33 +886,17 @@ export function ProgenitorPage() {
                 Examples
               </Button>
             )}
+            {/* The only button up here. The next two appear in the sections they belong to,
+                once the step before them has produced something to act on: three buttons
+                sitting together, two of them dead, is a worse instruction than one. */}
             <Button
               size="xs"
               disabled={state === 'reading' || building || usable.length < 2
                 || (!!analysis && !stale)}
-              loading={building && !ref}
+              loading={building && !analysis}
               onClick={() => { void compare() }}
             >
-              1. Compare products
-            </Button>
-            <Button
-              size="xs"
-              disabled={state === 'reading' || building || !analysis || stale
-                || biggest < MIN_PRODUCTS || !!ref}
-              onClick={() => {
-                const bi = groups.findIndex((g) => g.length >= MIN_PRODUCTS)
-                if (bi >= 0) void buildFor(bi)
-              }}
-            >
-              2. Build the reference
-            </Button>
-            <Button
-              size="xs"
-              disabled={state === 'reading' || building || !ref || ref.origins.length > 0}
-              loading={building && !!ref && !ref.origins.length}
-              onClick={() => { void callOrigins() }}
-            >
-              3. Call {products.length} array{products.length === 1 ? '' : 's'}
+              Run
             </Button>
             {products.length > 0 && (
               <Button
@@ -1087,24 +1071,28 @@ export function ProgenitorPage() {
               : `No group has the ${MIN_PRODUCTS} products this method needs`}
           defaultOpen
         >
-          {/* Only when the choice is real. With one buildable group the "2. Build" button above
-              already does this, and two buttons for one action is worse than none. */}
-          {biggest >= MIN_PRODUCTS && !ref
-            && groups.filter((g) => g.length >= MIN_PRODUCTS).length > 1 && (
+          {/* Step two, and it only exists once step one has found a group worth building. One
+              button per buildable group, because with more than one that IS the decision. */}
+          {biggest >= MIN_PRODUCTS && !ref && (
             <Group gap={8} mt={8}>
-              {groups.map((g, i) => (
-                <Button
-                  key={i}
-                  size="sm"
-                  radius={2}
-                  variant={g.length >= MIN_PRODUCTS ? 'filled' : 'default'}
-                  disabled={g.length < MIN_PRODUCTS || building}
-                  loading={building}
-                  onClick={() => void buildFor(i)}
-                >
-                  Reconstruct group {i + 1} ({g.length} products)
-                </Button>
-              ))}
+              {groups.filter((g) => g.length >= MIN_PRODUCTS).map((g) => {
+                const i = groups.indexOf(g)
+                const side = analysis?.paternal === null ? ''
+                  : i === analysis?.paternal ? 'paternal' : 'maternal'
+                return (
+                  <Button
+                    key={i}
+                    size="sm"
+                    radius={2}
+                    disabled={building}
+                    loading={building}
+                    onClick={() => void buildFor(i)}
+                  >
+                    Build the {side || 'group '}
+                    {side ? ' array' : `${i + 1} array`} from {g.length} products
+                  </Button>
+                )
+              })}
             </Group>
           )}
           {ref && (
@@ -1120,6 +1108,26 @@ export function ProgenitorPage() {
               members={ref.members}
               controls={[]}
             />
+          )}
+          {/* Step three. The slow one, and the only one that re-reads every file, so it waits
+              until there is an array to score against and says what it is about to cost. */}
+          {ref && ref.origins.length === 0 && (
+            <Group gap={8} mt={12} align="center">
+              <Button
+                size="sm"
+                radius={2}
+                disabled={building}
+                loading={building}
+                onClick={() => { void callOrigins() }}
+              >
+                Call parental origin for {products.length} array
+                {products.length === 1 ? '' : 's'}
+              </Button>
+              <Text size="xs" c="dimmed">
+                Streams every file a second time: the absence rate needs B-allele frequencies,
+                which the genotypes held in memory do not carry.
+              </Text>
+            </Group>
           )}
         </Stage>
       )}
