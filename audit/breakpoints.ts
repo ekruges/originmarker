@@ -193,6 +193,38 @@ const g = await grid(files[0])
 const haploid = inExperiment.filter((l) => l.hetRate < 0.14 && l.callRate >= REFINE_CALL_FLOOR)
 say(`hosts passing the ${REFINE_CALL_FLOOR} call-rate gate: ${haploid.length}`)
 
+// An array unrelated to the reference parent, used as the splice source. Picked by absence rate
+// against him: his own products sit near zero, anyone else sits far above it.
+const unrelatedPool = loaded.filter((l) => l !== donor && !haploid.includes(l))
+let spliceSource: Loaded | undefined
+let bestAbs = 0
+for (const cand of unrelatedPool) {
+  let inf = 0
+  let abs = 0
+  for (const [, ms] of await grid(files[0])) {
+    for (const m of ms) {
+      const fa = donor.genotype.get(m.id)
+      if (fa !== 'AA' && fa !== 'BB') continue
+      const gt = cand.genotype.get(m.id)
+      if (!gt || gt === 'NC') continue
+      inf += 1
+      if (gt !== 'AB' && gt !== fa) abs += 1
+    }
+    break
+  }
+  const rate = inf ? abs / inf : 0
+  // Unrelated AND well genotyped. Absence alone picks whichever array is most degraded, since
+  // dropout looks like absence; the spliced block would then carry that array's failure rather
+  // than a clean origin switch. Require a real contrast, then take the best call rate.
+  if (rate < 0.10) continue
+  if (!spliceSource || cand.callRate > spliceSource.callRate) {
+    spliceSource = cand
+    bestAbs = rate
+  }
+}
+say(`splice source: ${spliceSource?.name ?? 'NONE'} at ${pct(bestAbs, 1)} absence against the `
+  + 'reference parent, i.e. a different genome')
+
 // =================================================================================================
 // A. Constructed events with a known breakpoint
 // =================================================================================================
@@ -202,23 +234,33 @@ const refinedErr: number[] = []
 let localised = 0
 let attempted = 0
 const CHROMS = ['1', '2', '3', '4', '5', '6', '7', '8']
-const SIZES = FLOOR >= 2_400 ? [2_400, 4_800, 9_600] : [FLOOR, FLOOR * 2, FLOOR * 4]
+const SIZES = FLOOR >= 2_400 ? [2_400, 4_800, 9_600] : [FLOOR, Math.round(FLOOR * 1.5)]
 
 for (const host of haploid.slice(0, 4)) {
-  // A donor of the OTHER parental origin, so the spliced block is a real origin switch carrying
-  // real amplification artefact rather than anything synthetic.
-  const other = haploid.find((x) => x !== host)
+  // THE SPLICE SOURCE MUST BE A DIFFERENT PARENT'S GENOME, or there is no event to find.
+  //
+  // Splicing one product of this father into another produces no contrast at all: both are his,
+  // so both read as present against him everywhere and the spliced block is indistinguishable
+  // from its surroundings. That mistake planted 44 events and detected 0, which looked like a
+  // detector failure and was a construction failure.
+  //
+  // The source is therefore an array that is NOT descended from the reference parent, so the
+  // block reads as this parent's alleles being absent - which is exactly what a real origin
+  // switch or a real loss looks like, carrying that array's own real amplification artefact.
+  const other = spliceSource
   if (!other) continue
   const hostAbs = absenceOf(host, g)
   const otherAbs = absenceOf(other, g)
   for (const chrom of CHROMS) {
     const hs = hostAbs.get(chrom) ?? []
     const os = otherAbs.get(chrom) ?? []
-    // Enough room for the largest planted block plus background either side of it.
-    const need = Math.max(...SIZES) + 400
-    if (hs.length < need || os.length < need) continue
+    if (hs.length < FLOOR || os.length < FLOOR) continue
     const byPos = new Map(os.map((x) => [x.pos, x.absent]))
     for (const size of SIZES) {
+      // Room for the block plus background either side, checked per size rather than once for
+      // the largest, so a chromosome that can host a small event is not skipped because it
+      // cannot host a large one.
+      if (hs.length < size + 400 || os.length < size + 400) continue
       const from = Math.max(100, Math.floor((hs.length - size) / 2))
       const to = from + size
       if (to >= hs.length - 100) continue

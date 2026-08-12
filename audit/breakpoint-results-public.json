@@ -1,13 +1,13 @@
 {
   "constructed": {
-    "events": 90,
-    "detected": 0,
-    "localised": 0,
-    "windowEdgeMedianMarkers": null,
-    "windowEdgeP95Markers": null,
-    "refinedMedianMarkers": null,
-    "refinedP95Markers": null,
-    "improvement": null
+    "events": 46,
+    "detected": 3,
+    "localised": 3,
+    "windowEdgeMedianMarkers": 300,
+    "windowEdgeP95Markers": 300,
+    "refinedMedianMarkers": 24.5,
+    "refinedP95Markers": 27.5,
+    "improvement": 12.244897959183673
   },
   "splitHalf": {
     "segments": 0,

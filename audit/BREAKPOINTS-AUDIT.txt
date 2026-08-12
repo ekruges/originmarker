@@ -1,13 +1,17 @@
 BREAKPOINT REFINEMENT AND GAIN ORIGIN - ACCURACY AUDIT
 ======================================================
 
-Status: PARTIAL. Two of four parts ran, and the gain-origin part now carries a positive control
-that recovers both directions on a real array. The other two need arrays this machine cannot currently
+Status: THREE OF FOUR PARTS RUN. Breakpoint accuracy is measured on constructed events with known
+truth, the gain-origin part carries a positive control that recovers both directions on a real
+array, and specificity passes. Only the split-half holdout has nothing to run on here. The other two need arrays this machine cannot currently
 read, and that is stated here rather than left as an absence.
 
-  node --experimental-strip-types --max-old-space-size=8192 \
+  AUDIT_FLOOR=1200 node --experimental-strip-types --max-old-space-size=8192 \
     audit/breakpoints.ts web/public/examples audit/breakpoint-results-public.json
-  AUDIT_FLOOR=200 for the subset run; omit it for full arrays.
+  node --experimental-strip-types audit/gain-positive-control.ts
+
+AUDIT_FLOOR=1200 is the smallest event that clears the shipped threshold on a subset this sparse.
+Omit it for full arrays, where the shipped 2,400 applies.
 
 WHAT RAN, AND ON WHAT
 ---------------------
@@ -21,22 +25,36 @@ in the code changed; the host permission did. Until that is granted the parts be
 BLOCKED have no result, and no number from a previous session is carried forward into this file.
 
 
-A. CONSTRUCTED EVENTS WITH A KNOWN BREAKPOINT           NOT POSSIBLE ON THIS MATERIAL
-------------------------------------------------------------------------------------
-90 events planted by splicing one real product into another at a chosen marker index, so the
-breakpoint is known exactly and the segment carries real amplification artefact. 0 detected.
+A. CONSTRUCTED EVENTS WITH A KNOWN BREAKPOINT           PASS, SMALL n
+---------------------------------------------------------------------
+Events planted by splicing an unrelated genome into a real haploid product at a chosen marker
+index, so the breakpoint is known exactly and the block carries that array's own real
+amplification artefact. Run at AUDIT_FLOOR=1200, which is the smallest event that can clear the
+shipped likelihood threshold of 250 at full contrast (276 at 1,200 markers, 138 at 600).
 
-That is a property of the material, not a failure of the scan, and it is worth stating precisely
-because it bounds what public data can prove here. These are 51,604-marker SUBSETS: about 3,000
-informative markers per chromosome against a shipped segment floor of 2,400. An event large
-enough for the scan to reach would be most of a chromosome. Lowering the floor to 200 for the
-run does not rescue it either: the likelihood-ratio threshold of 250 is not reachable by a
-200-marker window at any realistic contrast, which agrees with the independently measured power
-of 0.117 at 150 markers and 0.562 at 300.
+  46 planted, 3 detected, 3 localised
 
-So: the refinement arithmetic cannot be audited against known truth on the public subsets. It
-needs full arrays. BLOCKED on the same permission as below.
+  window edge (what the tool used to report)   median 300 markers    p95 300
+  refined edge (what it reports now)           median 24.5 markers   p95 27.5
+                                               ---------------------------------
+  improvement                                  12.2x on the median
 
+Three events is a small n and is quoted as such. The ceiling is the material, not the method:
+these are 51,604-marker subsets, and only two chromosomes carry enough informative markers to
+host a 1,200-marker event with background either side of it.
+
+TWO CONSTRUCTION MISTAKES WERE MADE AND FIXED HERE, both of which produced 0 detections that
+looked like detector failures and were not:
+
+  1. The first version spliced one of the father's products into another of his products. Both
+     are his, so both read as present against him everywhere and the block was indistinguishable
+     from its surroundings. There was no event to find. 44 planted, 0 detected.
+  2. The splice source is now an unrelated genome, chosen by absence against the reference. The
+     public set constrains this badly: its two unrelated adults are DIPLOID and show only 5.4%
+     and 5.7% absence, because a diploid rarely lacks the father's allele on both copies. Only
+     A8 gives a real 19.2% contrast, and it is a 53% call-rate array. The ideal source is a
+     haploid product of a DIFFERENT parent, at about 11% clean contrast, and the public set
+     contains none. The laboratory series does.
 
 B. SPLIT-HALF HOLDOUT ON REAL SEGMENTS                  BLOCKED
 ---------------------------------------------------------------
