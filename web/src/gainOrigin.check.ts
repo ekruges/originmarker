@@ -8,7 +8,8 @@ import assert from 'node:assert/strict'
 import {
   paternalShare, paternalShareOneParent, recentre, callGainOrigin, callHomologue,
   MIN_INFORMATIVE_DEFAULT, MIN_INFORMATIVE_TROPHECTODERM, SHARE_MARGIN, EXPECTED_SEPARATION,
-  HETERO_MULTIPLE, HET_BACKGROUND_FLOOR, externalHetBackground, type DosageMarker,
+  HETERO_MULTIPLE, HETERO_ABSOLUTE_MIN, HET_BACKGROUND_FLOOR, externalHetBackground,
+  type DosageMarker,
 } from './gainOrigin.ts'
 import type { AB } from './informativity.ts'
 
@@ -179,6 +180,20 @@ const region = (share: number, n: number, chrom = '1'): DosageMarker[] =>
   // Under the marker floor it refuses rather than reading noise.
   assert.equal(callHomologue(0.50, 49, 0.085).verdict, 'indistinguishable')
   assert.equal(HETERO_MULTIPLE, 2.0)
+
+  // A RATIO IS NOT ENOUGH, and this is a real case from the audit. Two clean chromosomes whose
+  // amplification noise differs by a factor of two: 7.4% against a 3.4% background clears the
+  // doubling and is nowhere near what a second homologue produces. The absolute floor removes it.
+  assert.ok(0.074 >= HETERO_MULTIPLE * 0.034, 'it does clear the ratio test')
+  assert.equal(callHomologue(0.074, 5000, 0.034).verdict, 'indistinguishable',
+    'and must still be refused, because 7.4% is not a second homologue')
+  assert.ok(HETERO_ABSOLUTE_MIN > 0.074 && HETERO_ABSOLUTE_MIN < 0.17,
+    'the floor sits above amplification noise and below the parent heterozygosity a real '
+    + 'duplication reads at')
+  // The genuine ones from the same audit, at 55-61%, still call.
+  for (const r of [0.551, 0.613, 0.600, 0.601]) {
+    assert.equal(callHomologue(r, 5000, 0.045).verdict, 'other homologue', `${r} is real`)
+  }
 }
 
 // --- 7. direction is reported; a copy number is not ----------------------------------------------

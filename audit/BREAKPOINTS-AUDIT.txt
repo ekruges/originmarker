@@ -1,0 +1,112 @@
+BREAKPOINT REFINEMENT AND GAIN ORIGIN - ACCURACY AUDIT
+======================================================
+
+Status: PARTIAL. Two of four parts ran. The other two need arrays this machine cannot currently
+read, and that is stated here rather than left as an absence.
+
+  node --experimental-strip-types --max-old-space-size=8192 \
+    audit/breakpoints.ts web/public/examples audit/breakpoint-results-public.json
+  AUDIT_FLOOR=200 for the subset run; omit it for full arrays.
+
+WHAT RAN, AND ON WHAT
+---------------------
+Public arrays shipped in this repo: web/public/examples, GSE145984 / GSE148488, 51,604 markers
+per array. Reference parent GSM4472397 (sperm donor bulk gDNA, call 95.4%, het 16.8%). Hosts:
+five pMII haploid meiotic products of that donor, all passing the 0.70 call-rate gate.
+
+The lab arrays were NOT audited in this run. macOS denies this process access to the directory
+holding them (EPERM on ~/Downloads, and on ~/Documents, while the repo reads normally). Nothing
+in the code changed; the host permission did. Until that is granted the parts below marked
+BLOCKED have no result, and no number from a previous session is carried forward into this file.
+
+
+A. CONSTRUCTED EVENTS WITH A KNOWN BREAKPOINT           NOT POSSIBLE ON THIS MATERIAL
+------------------------------------------------------------------------------------
+90 events planted by splicing one real product into another at a chosen marker index, so the
+breakpoint is known exactly and the segment carries real amplification artefact. 0 detected.
+
+That is a property of the material, not a failure of the scan, and it is worth stating precisely
+because it bounds what public data can prove here. These are 51,604-marker SUBSETS: about 3,000
+informative markers per chromosome against a shipped segment floor of 2,400. An event large
+enough for the scan to reach would be most of a chromosome. Lowering the floor to 200 for the
+run does not rescue it either: the likelihood-ratio threshold of 250 is not reachable by a
+200-marker window at any realistic contrast, which agrees with the independently measured power
+of 0.117 at 150 markers and 0.562 at 300.
+
+So: the refinement arithmetic cannot be audited against known truth on the public subsets. It
+needs full arrays. BLOCKED on the same permission as below.
+
+
+B. SPLIT-HALF HOLDOUT ON REAL SEGMENTS                  BLOCKED
+---------------------------------------------------------------
+0 segments available to test, for the reason in A: no segment clears the shipped threshold in a
+subset this sparse. The test itself is implemented and runs; it has nothing to run on here.
+
+
+C. FALSE SEGMENTS ON A GENOME THAT CANNOT CARRY ONE     PASS
+------------------------------------------------------------
+The reference parent scored against himself. He IS this genome, so every absence is his own
+genotyping error and any segment reported is a false positive with no interpretation available.
+
+  GSM4472397 sperm donor bulk gDNA        0 segments
+
+One array, so this is a weak control on its own. It is the only genome in the public set whose
+segment count is known a priori.
+
+
+D. GAIN ORIGIN                                          PASS, WITH ONE CORROBORATION
+------------------------------------------------------------------------------------
+D1. Orientation invariance, on real markers rather than constructed ones.
+
+An extra paternal copy pushes raw B-allele frequency DOWN where the father is AA and UP where he
+is BB. A statistic that does not orient each marker first either cancels the signal or inverts
+the call. Tested by reading the same physical dosage at both marker orientations:
+
+  78,227 of 78,227 real markers invariant        no exceptions
+
+D2. The homologue channel, run on every chromosome reading above twice its external background.
+
+  GSM4774681 (pMII-2)  chr1    59.5%  vs  10.1%   ->  other homologue
+  GSM4774685 (pMII-6)  chr4    14.3%  vs   7.0%   ->  other homologue
+  GSM4774685 (pMII-6)  chr15   15.2%  vs   7.0%   ->  other homologue
+
+The first of those is a genuine corroboration and the reason this audit exists. GSM4774681 was
+described in this repo's own segment calibration as one of five products "present on every
+autosome"; an external review found it carries a real chr1 event, and a check on the shipped
+subset put chr1 at 9.78% ABSENCE against 1.04% genome-wide. This audit reaches the same
+chromosome from a different statistic entirely - heterozygosity at donor-homozygous markers,
+59.5% against a 10.1% background - and calls it the parent's other homologue. Two independent
+channels, same chromosome, same array.
+
+The other two are near the floor and should be treated as unresolved rather than as findings:
+14-15% against a 7% background clears both the doubling and the 10% absolute floor, but sits far
+from the 59.5% of the corroborated case.
+
+WHAT D DOES NOT SHOW. There is no confirmed gain with a known parent in this material, so the
+parental direction of a gain has never been shown to fire correctly on a true positive - only to
+refuse correctly and to be orientation-safe. The same limitation was reached independently by an
+external review of 34 trio-usable arrays: every dosage event in that series is a LOSS.
+
+
+REFUSALS AND LIMITS, STATED
+---------------------------
+- Iso-duplication (an extra copy of the SAME homologue) is undetectable in every channel this
+  array carries and is reported as such rather than as "no gain".
+- Parental direction of a gain needs a biparental cell and both parents loaded.
+- A focal gain on a WGA single cell is refused: the direction needs 400 informative markers,
+  which span a median 47.6 Mb.
+- Breakpoint refinement is not reported below a 0.70 call rate, and an event that does not
+  localise says so rather than receiving a wide interval.
+- Every breakpoint is reported as an interval. A point estimate would claim about 151x more
+  precision than the calibration supports.
+
+
+TO COMPLETE THIS AUDIT
+----------------------
+Grant this process read access to the directory holding the full arrays, then:
+
+  node --experimental-strip-types --max-old-space-size=14336 \
+    audit/breakpoints.ts <array-dir> audit/breakpoint-results.json
+
+Parts A and B will then run against 825,656-marker arrays where the shipped floor is reachable,
+and this file should be regenerated rather than appended to.

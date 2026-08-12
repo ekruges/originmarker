@@ -212,6 +212,18 @@ export function callGainOrigin(
 export const HETERO_MULTIPLE = 2.0
 
 /**
+ * And an ABSOLUTE floor, because a ratio alone is not enough.
+ *
+ * A region carrying the parent's other homologue reads heterozygous wherever that parent is
+ * heterozygous, which is roughly the parent's own heterozygosity: about 17% on this material. A
+ * ratio test alone fires on 7.4% against a 3.4% background, which is two clean chromosomes'
+ * amplification noise differing from each other, not a second homologue. Measured on the audit
+ * set, requiring both a doubling AND this floor removes every such call while keeping the ones
+ * that read at 55-61%.
+ */
+export const HETERO_ABSOLUTE_MIN = 0.10
+
+/**
  * The heterozygosity a region is judged against: the median over the OTHER chromosomes.
  *
  * NOT the genome-wide rate. A cell carrying several gained chromosomes raises the genome-wide
@@ -262,6 +274,21 @@ export function callHomologue(
       ...base,
       verdict: 'indistinguishable',
       why: `${regionMarkers} markers is under the ${minMarkers} this needs`,
+    }
+  }
+  // Order matters: each refusal has to give ITS OWN reason. A region sitting at the background
+  // is the iso-duplication case and needs the bit-identical explanation; a region that doubles
+  // the background but is still only a few percent is amplification noise and needs a different
+  // one. Collapsing them into one message loses the finding that matters.
+  if (regionHet >= HETERO_MULTIPLE * backgroundHet && regionHet < HETERO_ABSOLUTE_MIN) {
+    return {
+      ...base,
+      verdict: 'indistinguishable',
+      why: `${(regionHet * 100).toFixed(1)}% heterozygous doubles the ${
+        (backgroundHet * 100).toFixed(1)}% background but is under the ${
+        (HETERO_ABSOLUTE_MIN * 100).toFixed(0)}% a second homologue would produce. A region `
+        + `carrying both homologues reads near the parent's own heterozygosity; two clean `
+        + 'chromosomes whose amplification noise differs by a factor of two do not',
     }
   }
   if (regionHet >= HETERO_MULTIPLE * backgroundHet) {

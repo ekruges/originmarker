@@ -7,6 +7,12 @@ answer was established at the bench rather than by any statistic the tool comput
 |---|---|---|---|
 | [Syngamy](AUDIT.txt) | 22 | 4 | **0** |
 | [Progenitor](PROGENITOR-AUDIT.txt) | 35 | 6 | **0** |
+| [Breakpoints and gain origin](BREAKPOINTS-AUDIT.txt) | see below | | |
+
+The third is PARTIAL. Two of its four parts need full arrays and the public subsets in this repo
+are too sparse to reach the shipped segment floor; the other two pass, including an independent
+corroboration of a real chr1 event from a statistic unrelated to the one that first found it.
+What is missing is named in the file rather than left as an absence.
 
 ---
 

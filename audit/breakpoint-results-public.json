@@ -1,0 +1,59 @@
+{
+  "constructed": {
+    "events": 90,
+    "detected": 0,
+    "localised": 0,
+    "windowEdgeMedianMarkers": null,
+    "windowEdgeP95Markers": null,
+    "refinedMedianMarkers": null,
+    "refinedP95Markers": null,
+    "improvement": null
+  },
+  "splitHalf": {
+    "segments": 0,
+    "bothHalvesInsideInterval": 0,
+    "passRate": null,
+    "medianHalfGapBp": null
+  },
+  "specificity": {
+    "arrays": 1,
+    "rows": [
+      {
+        "array": "GSM4472397_sperm_DNA_71.subset.csv.gz",
+        "segments": 0
+      }
+    ],
+    "totalFalseSegments": 0
+  },
+  "orientation": {
+    "checked": 78227,
+    "invariant": 78227,
+    "allInvariant": true
+  },
+  "homologue": {
+    "flagged": 3,
+    "rows": [
+      {
+        "array": "GSM4774681_pMII-2.subset.csv.gz",
+        "chrom": "1",
+        "regionHet": 0.5947843530591775,
+        "background": 0.10109717868338558,
+        "verdict": "other homologue"
+      },
+      {
+        "array": "GSM4774685_pMII-6.subset.csv.gz",
+        "chrom": "4",
+        "regionHet": 0.14278131634819533,
+        "background": 0.07007952286282307,
+        "verdict": "other homologue"
+      },
+      {
+        "array": "GSM4774685_pMII-6.subset.csv.gz",
+        "chrom": "15",
+        "regionHet": 0.15195071868583163,
+        "background": 0.07007952286282307,
+        "verdict": "other homologue"
+      }
+    ]
+  }
+}
