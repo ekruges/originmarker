@@ -21,6 +21,7 @@ import type { Health } from './api'
 import { int, utc } from './fmt'
 import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, loadExample } from './examples'
 import { analyseRuns, measureClustering, parseLocus, type RunResult } from './runlength'
+import type { GainAnnotation } from './parentage'
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground,
   MIN_INFORMATIVE_DEFAULT, type DosageMarker,
@@ -890,6 +891,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
             </div>
           )}
           <SegmentCallout segments={r.segments} />
+          <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">
               {entry.paired.notes.map((n) => <Text key={n} size="xs" mb={3}>{n}</Text>)}
@@ -1193,6 +1195,42 @@ const KIND: Record<SegmentKind, string> = {
   'copy-loss': 'DNA absent',
   'copy-gain': 'extra copies',
   'parental-absence': 'paternal alleles absent',
+}
+
+/**
+ * Where each extra copy came from, or why that cannot be said.
+ *
+ * A gain with no origin is still shown. Hiding it would leave the reader believing the tool had
+ * nothing to say about a finding it did make, and the reason for the refusal is the useful part:
+ * an extra copy of the same homologue is bit-identical to a single copy and no channel this
+ * array carries can see it.
+ */
+function GainCallout({ gains }: { gains: GainAnnotation[] }) {
+  if (!gains.length) return null
+  return (
+    <div style={{ marginTop: 10, border: '1px solid var(--om-border)', padding: '10px 12px' }}>
+      <Text size="xs" fw={700} mb={6}>
+        Extra copies, and where they came from
+      </Text>
+      {gains.map((g) => (
+        <div key={g.where} style={{ marginBottom: 8 }}>
+          <div style={{ fontSize: 12 }}>
+            <span style={{ fontFamily: 'var(--om-mono)', fontWeight: 600 }}>{g.where}</span>
+            <span style={{ color: 'var(--om-text-dim)' }}>{' '}{g.kind}{' \u00b7 '}</span>
+            <span style={{ color: g.called ? 'var(--om-blue)' : 'var(--om-higher)', fontWeight: 600 }}>
+              {g.origin}
+            </span>
+          </div>
+          <div style={{ fontSize: 11, color: 'var(--om-text-dim)', lineHeight: 1.45 }}>{g.why}</div>
+        </div>
+      ))}
+      <Text size="xs" c="dimmed" style={{ lineHeight: 1.45 }}>
+        Not validated on a true positive: no confirmed gain with a known origin exists in the
+        material behind these thresholds, so this has been shown to refuse correctly and never to
+        fire correctly. See the audit.
+      </Text>
+    </div>
+  )
 }
 
 function SegmentCallout({ segments }: { segments: Segment[] }) {
