@@ -1,7 +1,8 @@
 BREAKPOINT REFINEMENT AND GAIN ORIGIN - ACCURACY AUDIT
 ======================================================
 
-Status: PARTIAL. Two of four parts ran. The other two need arrays this machine cannot currently
+Status: PARTIAL. Two of four parts ran, and the gain-origin part now carries a positive control
+that recovers both directions on a real array. The other two need arrays this machine cannot currently
 read, and that is stated here rather than left as an absence.
 
   node --experimental-strip-types --max-old-space-size=8192 \
@@ -102,10 +103,40 @@ validated on either body of data available: no confirmed trisomy with a known pa
 the laboratory series, independently established across 34 trio-usable arrays by an external
 review, and no usable trio exists in the public series.
 
-WHAT D DOES NOT SHOW. There is no confirmed gain with a known parent in this material, so the
-parental direction of a gain has never been shown to fire correctly on a true positive - only to
-refuse correctly and to be orientation-safe. The same limitation was reached independently by an
-external review of 34 trio-usable arrays: every dosage event in that series is a LOSS.
+D4. Positive control: the direction IS recovered, on a real array.        PASS
+
+  node --experimental-strip-types audit/gain-positive-control.ts
+
+No confirmed trisomy exists, so the control is CONSTRUCTED - by the same method an external
+review used, and labelled the same way: re-weighting real per-marker allele intensities on a real
+array rather than simulating genotypes. The two allele intensities are (1-BAF)*2^logR and
+BAF*2^logR and the call is B/(A+B), so the common intensity factor cancels and only the ratio
+matters, which BAF already carries.
+
+The array is A8, the sperm donor's own zygote: biparental, with the father genotyped and the
+mother absent from the series, which is the one-parent path the tool implements and marks
+provisional. 12,185 informative markers, being those where the father is homozygous and A8 is
+heterozygous, so the other allele came from the mother.
+
+  euploid, untouched      share 0.5993   deviation +0.0000   ->  unclear    correct
+  paternal gain 2:1       share 0.7494   deviation +0.1502   ->  paternal   correct
+  maternal gain 1:2       share 0.4278   deviation -0.1714   ->  maternal   correct
+
+Both directions recovered, and the untouched array correctly refused.
+
+AND IT INDEPENDENTLY PROVES THE RECENTRING, on real data rather than by argument. A8's own centre
+is 0.5993, not the theoretical 0.5000 - a real offset of 0.099 on a real array, from marker
+ascertainment and this array's own noise. Judged against the theoretical centre the UNTOUCHED
+euploid array sits +0.0993 from it, over the 0.056 margin, and would be reported as a paternal
+gain. That is a false positive on a real euploid array, produced by the one design decision this
+module refuses to make. Recentring on the sample's own median removes it exactly: +0.0000.
+
+WHAT D STILL DOES NOT SHOW. The control above is constructed, and no confirmed BIOLOGICAL gain
+with a known parent exists in this material to check it against. An external review reached the
+same limitation independently across 34 trio-usable arrays: every dosage event in that series is
+a LOSS. So the direction is shown to be recoverable and orientation-safe on real data, and has
+still never been checked against a real trisomy. A named parent stays provisional until one
+exists.
 
 
 REFUSALS AND LIMITS, STATED

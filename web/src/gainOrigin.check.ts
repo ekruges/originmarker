@@ -114,6 +114,25 @@ const region = (share: number, n: number, chrom = '1'): DosageMarker[] =>
     'the measured offset is a large fraction of the whole separation')
 }
 
+// --- 3b. the same failure, with the numbers measured on a REAL array -----------------------------
+//
+// From audit/gain-positive-control.ts: A8's own centre is 0.5993, not the theoretical 0.5000. Its
+// untouched euploid genome therefore sits +0.0993 from the theoretical centre, over the margin, and
+// would be reported as a paternal gain that is not there. This is the argument for recentring made
+// as a measurement rather than a claim.
+{
+  const A8_CENTRE = 0.5993
+  const untouched = region(A8_CENTRE, 12_185)
+  assert.equal(callGainOrigin(untouched, 0.5).origin, 'paternal',
+    'against the theoretical centre a real euploid array reads as a gain it does not have')
+  assert.equal(callGainOrigin(untouched, recentre(untouched)).origin, 'unclear',
+    'and against its own centre it correctly reads as nothing')
+
+  // Both directions, at the deviations the control actually produced.
+  assert.equal(callGainOrigin(region(0.7494, 12_185), A8_CENTRE).origin, 'paternal')
+  assert.equal(callGainOrigin(region(0.4278, 12_185), A8_CENTRE).origin, 'maternal')
+}
+
 // --- 4. it refuses where the review says the evidence does not reach ------------------------------
 {
   // Too few informative markers. 400 is the WGA blastomere requirement and the default.

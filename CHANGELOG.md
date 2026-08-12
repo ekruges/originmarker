@@ -9,6 +9,35 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.0.1
+
+A positive control for the parental direction of a gain. 4.0.0 shipped that annotation shown only
+to refuse correctly and to be orientation-safe, never to fire correctly, because no confirmed
+trisomy with a known parent exists in either body of data. That gap is now partly closed.
+
+### Added
+
+- **The direction is recovered on a real array, both ways.** Constructed by the same method an
+  external review used and labelled the same way: re-weighting real per-marker allele intensities
+  rather than simulating genotypes. The array is the sperm donor's own zygote, 12,185 informative
+  markers, one parent genotyped and the mother absent, which is the one-parent path the tool marks
+  provisional.
+
+      euploid, untouched    deviation +0.0000  ->  unclear     correct
+      paternal gain 2:1     deviation +0.1502  ->  paternal    correct
+      maternal gain 1:2     deviation -0.1714  ->  maternal    correct
+
+  Runs as `node --experimental-strip-types audit/gain-positive-control.ts`.
+
+- **And it proves the recentring on real data rather than by argument.** That array's own centre
+  is 0.5993, not the theoretical 0.5000. Judged against the theoretical centre its UNTOUCHED
+  euploid genome sits +0.0993 away, over the margin, and would be reported as a paternal gain that
+  is not there. Recentring on the sample's own median puts it at exactly +0.0000. Both numbers are
+  now pinned in the module's check, so the one design decision that would invert calls cannot be
+  undone silently.
+
+Still not checked against a real trisomy, and the tool still says so everywhere it makes the call.
+
 ## 4.0.0 "Crossover"
 
 Chromosomal change is specific now: every breakpoint is measured rather than read off a scanning

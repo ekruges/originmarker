@@ -38,7 +38,9 @@
  * maternal-looking allele share. Measured offsets: +0.013 at five products, +0.032 at four,
  * +0.073 to +0.077 at three. That last is 46-72% of the entire band separation, which is enough
  * to invert calls outright. Recentring on the sample's own median removes it (residual 0.0001 to
- * 0.0130). It is valid only while less than about half the genome carries a gain, which is stated
+ * 0.0130). Confirmed on a real array in the audit: A8's own centre is 0.5993 rather than 0.5000,
+ * and against the theoretical centre its UNTOUCHED euploid genome reads +0.0993, over the margin,
+ * i.e. a false paternal gain. Recentring puts it at +0.0000. It is valid only while less than about half the genome carries a gain, which is stated
  * rather than checked because a sample past that point is not one this tool can reason about.
  */
 import type { AB } from './informativity.ts'
