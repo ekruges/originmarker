@@ -1,9 +1,24 @@
 // Self-check for the segment scan. Run: node src/segments.check.ts
 //
 // Every figure quoted here was measured on GSE148488, on real genomes rather than simulated ones:
-// the null on five paternal pronuclei of the sperm donor, which are present on every autosome, and
-// the positive class by splicing a maternal pronucleus of the same series into one of them so the
-// segment carries real amplification artefact.
+// the null on five paternal pronuclei of the sperm donor, and the positive class by splicing a
+// maternal pronucleus of the same series into one of them so the segment carries real
+// amplification artefact.
+//
+// CORRECTION, 3.7.2. That null set was described here as "present on every autosome" and it is
+// not. GSM4774681 (pMII-2) carries a real chr1 event: an external review measured absence 0.190
+// against 0.0105 genome-wide with log2R -1.79 and a multiscale LRT of 5,411 against a
+// leave-one-out threshold of 134. Checked against the subset this repo ships, scoring pMII-2
+// against a reference built from the other four products: chr1 is its worst chromosome at 9.78%
+// absence against 1.04% genome-wide, 9.4x, which corroborates the direction on 460 informative
+// markers. The same check flags pMII-6 chr20 at 12x, so the number of affected arrays is not
+// established either.
+//
+// What follows from that, and it is not cosmetic: a real event sat inside the set the null was
+// calibrated on, counted as noise. Every false-positive rate derived from that set is therefore
+// OPTIMISTIC by an unknown margin. The thresholds below are not changed here, because changing
+// them without recalibrating on a verified-clean set would be trading a known bias for an
+// unknown one. They are flagged instead, and the recalibration is tracked as an open item.
 import assert from 'node:assert/strict'
 import {
   MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, externalNull,

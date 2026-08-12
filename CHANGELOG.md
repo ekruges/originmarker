@@ -9,6 +9,50 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.7.2
+
+Hotfix. An external review of the chromosomal-change work found two things wrong with what this
+repo says about itself. Neither changes a call the tool makes today; both would have if the
+statements had been trusted one step further.
+
+### Fixed
+
+- **A real event was sitting in the clean-genome calibration set.** `segments.check.ts` described
+  the five paternal pronuclei the segment null was calibrated on as "present on every autosome".
+  They are not: GSM4774681 (pMII-2) carries a chr1 event, measured at absence 0.190 against 0.0105
+  genome-wide with log2R -1.79 and a multiscale LRT of 5,411 against a leave-one-out threshold of
+  134. Checked here against the subset this repo ships, scoring that product against a reference
+  built from the other four: chr1 is its worst chromosome at 9.78% absence against 1.04%
+  genome-wide, 9.4x, which corroborates the direction on 460 informative markers. The same check
+  flags pMII-6 chr20 at 12x, so the number of affected arrays is not established either.
+
+  A real event counted as noise makes every false-positive rate derived from that set optimistic
+  by an unknown margin. The thresholds are NOT changed here: swapping them without recalibrating
+  on a verified-clean set trades a known bias for an unknown one. The claim is corrected, the
+  consequence is stated, and the recalibration is an open item.
+
+- **The ploidy gate is documented for what it actually covers.** The BAF-band gate separates a
+  haploid meiotic product from a bulk diploid adult, which is the only distinction it was measured
+  on, and it does that correctly on all 46 arrays this tool has run. It does not generalise: on 120
+  post-zygotic arrays, 91 fall inside the haploid band range and 22 blastomeres sit below the
+  diploid-exclusion floor, because whole-genome amplification widens the heterozygote band and
+  fills the homozygote band until they are one distribution. It was never wrong here; it would
+  have become wrong the moment it was reused as a general ploidy branch.
+
+### Added
+
+- **`obligateHet.ts`**, the statistic that does separate there, against the day the tool handles
+  cleavage-stage material. Heterozygous fraction at markers where a parent is homozygous: haploid
+  products measure 0.047 to 0.100 and the lowest post-zygotic array 0.4213, a gap four times the
+  width of the entire haploid range, where the BAF band has no gap at all. Boundaries at 0.20 and
+  0.45 sit inside that gap rather than on either edge, which means the lowest observed diploid is
+  refused rather than called, and that is the intended trade.
+
+  It carries its own limits. With one parent instead of two the diploid signal is diluted to the
+  markers where the unseen parent differs, so the boundaries narrow, every call is marked
+  provisional, and the same fraction can be a call with two parents and a refusal with one. Under
+  200 informative markers it refuses outright. Nothing is wired to it yet.
+
 ## 3.7.1
 
 Progenitor's tagline read "builds a parent\u2019s SNP array" on the live page, with the escape

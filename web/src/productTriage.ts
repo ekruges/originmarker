@@ -22,6 +22,17 @@ import type { SampleProfile } from './ingest.ts'
  * such call is error: twelve confirmed products ran 5.3% to 13.7% and that adult reads 15.0%.
  * The margin is 1.3 points, which is thin, so a sample that fails EITHER signal is withheld
  * rather than argued about.
+ *
+ * SCOPE, and it is narrower than it looks. Every figure above is a haploid meiotic product against
+ * a BULK diploid adult, and that is the only distinction this gate has ever been measured on. On
+ * the 46 arrays this tool has run it does that job with nothing misread. It does NOT generalise to
+ * post-zygotic material: measured on 120 non-haploid arrays spanning cleavage blastomeres,
+ * trophectoderm biopsies and ESC lines, 91 of the 120 fall inside the haploid BAF-band range and
+ * 22 blastomeres sit below the 10% diploid-exclusion floor. Whole-genome amplification widens the
+ * heterozygote band and fills the homozygote band until the two are one distribution, and a BAF
+ * core fraction fails the same way. So this gate must not be used as a general ploidy branch.
+ * `obligateHet.ts` is the statistic that separates there, and it needs at least one parent, which
+ * is why this one still exists for triage that has none.
  */
 export type Ploidy = 'haploid' | 'borderline' | 'diploid'
 
