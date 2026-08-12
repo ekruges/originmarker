@@ -9,6 +9,13 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 3.7.1
+
+Progenitor's tagline read "builds a parent\u2019s SNP array" on the live page, with the escape
+printed rather than the apostrophe. A JSX attribute in quotes is raw text and does not process
+string escapes, so the six characters went straight to the screen. Found while screenshotting the
+page for a presentation, which is the only reason anyone looked at that line closely.
+
 ## 3.7.0
 
 The two halves of a run are joined up. Progenitor builds the array; Syngamy is what you point it

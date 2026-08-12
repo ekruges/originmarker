@@ -877,7 +877,12 @@ export function ProgenitorPage() {
 
   return (
     <div style={{ paddingBottom: 60 }}>
-      <FeatureHeader name="Progenitor" tagline="builds a parent\u2019s SNP array from the cells it produced" />
+      {/* Braces, not a quoted attribute: a JSX attribute string is raw text and does not process
+          escapes, so "\u2019" written there renders those six characters on the page. */}
+      <FeatureHeader
+        name="Progenitor"
+        tagline={'builds a parent\u2019s SNP array from the cells it produced'}
+      />
 
       {lines.length > 0 && (
         <RunLog
