@@ -56,6 +56,8 @@ import { isAutosome } from './parentage.ts'
  * on a denser stretch the same 2,400 markers cover far less. Both numbers travel with every
  * segment for that reason.
  */
+import { refineEdges, SEARCH_RADIUS, LR_DROP } from './refine.ts'
+
 export const MIN_SEGMENT_MARKERS = 2_400
 
 /**
@@ -112,6 +114,17 @@ export type SegmentKind =
   | 'copy-gain'
 
 export interface Segment {
+  /** Marker-resolution edges with their intervals, when refinement localised the event. Absent
+   *  when it did not, and the window edges below are then all there is. */
+  refined?: {
+    startBp: number
+    startLoBp: number
+    startHiBp: number
+    endBp: number
+    endLoBp: number
+    endHiBp: number
+    spanBp: number
+  }
   kind: SegmentKind
   chrom: string
   /** Called informative markers inside the segment. The statistic is computed in these. */
@@ -126,6 +139,37 @@ export interface Segment {
   score: number
   /** The rate this was scored against, and where it came from. */
   nullRate: number
+}
+
+/**
+ * A segment's coordinates as they should be shown: refined edges with their intervals where the
+ * event localised, window edges labelled as such where it did not.
+ *
+ * Never print a refined edge as a bare number. The point estimate is a median 9 markers from the
+ * truth but the interval around it is a median 151 markers, and a bare coordinate claims 151x
+ * more precision than the calibration supports.
+ */
+export function segmentCoords(sg: Segment): {
+  start: number; end: number; spanBp: number; localised: boolean; interval: string
+} {
+  if (!sg.refined) {
+    return {
+      start: sg.startBp,
+      end: sg.endBp,
+      spanBp: sg.spanBp,
+      localised: false,
+      interval: 'window edges, not localised',
+    }
+  }
+  const r = sg.refined
+  const w = (lo: number, hi: number): string => `${((hi - lo) / 1e6).toFixed(2)} Mb`
+  return {
+    start: r.startBp,
+    end: r.endBp,
+    spanBp: r.spanBp,
+    localised: true,
+    interval: `+/-${w(r.startLoBp, r.startHiBp)} / +/-${w(r.endLoBp, r.endHiBp)}`,
+  }
 }
 
 export interface MarkerAbsence {
@@ -223,7 +267,51 @@ export function scanChromosome(
     if (picked.some((p) => h.startBp <= p.endBp && h.endBp >= p.startBp)) continue
     picked.push(h)
   }
-  return picked.sort((a, b) => a.startBp - b.startBp)
+
+  // Sharpen every kept window to marker resolution. The window edges above are a scanning
+  // artefact quantised to a quarter of the window; this finds where the event actually starts and
+  // stops. Done here rather than by each caller so no consumer can forget it, and it costs one
+  // cumulative-sum pass over the chromosome regardless of how many segments were kept.
+  const flags = new Uint8Array(n)
+  for (let i = 0; i < n; i += 1) flags[i] = ms[i].absent ? 1 : 0
+  const posOf = (i: number): number => ms[Math.max(0, Math.min(n - 1, i))].pos
+  for (const seg of picked) {
+    // Window edges back to marker indices. Binary search would be tidier; the arrays are sorted
+    // and this runs once per segment, so a scan is not worth optimising.
+    let a0 = 0
+    while (a0 < n && ms[a0].pos < seg.startBp) a0 += 1
+    let b0 = a0
+    while (b0 < n && ms[b0].pos <= seg.endBp) b0 += 1
+    const r = refineEdges(flags, a0, b0, nullRate, SEARCH_RADIUS, LR_DROP, threshold)
+    if (!r.localised) continue
+    seg.refined = {
+      startBp: posOf(r.start.index),
+      startLoBp: posOf(r.start.lo),
+      startHiBp: posOf(r.start.hi),
+      endBp: posOf(r.end.index - 1),
+      endLoBp: posOf(r.end.lo - 1),
+      endHiBp: posOf(r.end.hi - 1),
+      spanBp: posOf(r.end.index - 1) - posOf(r.start.index),
+    }
+  }
+
+  // Peak-picking ran on WINDOW coordinates, which are quantised to a quarter of a window, so one
+  // event that straddles a window boundary survives as two adjacent non-overlapping hits.
+  // Refinement then expands each to the true extent and they turn out to be the same event: on a
+  // real array this reported a chr4 loss as 0.06-5.84 Mb plus 5.85-38.29 Mb, and refinement
+  // resolved both to one region running to 42 Mb. Reporting it twice would double-count an event
+  // in exactly the analysis this precision was built for, so the pick is re-run on the sharpened
+  // coordinates. Segments that did not localise keep their window edges and are judged on those.
+  const extent = (x: Segment): [number, number] =>
+    (x.refined ? [x.refined.startBp, x.refined.endBp] : [x.startBp, x.endBp])
+  const byScore = [...picked].sort((a, b) => b.score - a.score)
+  const kept: Segment[] = []
+  for (const h of byScore) {
+    const [hs, he] = extent(h)
+    if (kept.some((k) => { const [ks, ke] = extent(k); return hs <= ke && he >= ks })) continue
+    kept.push(h)
+  }
+  return kept.sort((a, b) => extent(a)[0] - extent(b)[0])
 }
 
 /**

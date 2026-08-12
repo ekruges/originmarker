@@ -9,6 +9,62 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## Unreleased
+
+Breakpoints are measured now, not read off a scanning window. This is the precondition for
+everything the lab wants to do next with them.
+
+### Added
+
+- **Marker-resolution breakpoint refinement.** The scan slides windows of 2,400 markers and up,
+  stepping a quarter of a window, and used to report the winning window's EDGES as the event's
+  coordinates. Those edges are an artefact of the scan: the step alone quantises them to a median
+  1.96 Mb. Measured against 848 events spliced from real arrays at known marker positions, the
+  window edge lands a median 373.5 markers from the truth, 2.51 Mb, with a p95 of 15.46 Mb.
+
+  Once the window has found roughly where the event is, coordinate ascent on the two edges at
+  marker resolution finds where it actually starts and stops, evaluating the same
+  segment-versus-background likelihood ratio the scan already uses. Off a cumulative sum each
+  candidate is O(1). Median error 9 markers, 0.063 Mb: **40x better**, and it localises more
+  events than the window edge did, 629 of 848 against 412. Circular binary segmentation and binary
+  segmentation were measured on the same constructs; both beat the window edge, both lost to this,
+  and both cost more.
+
+- **A confidence interval on every breakpoint, and no bare coordinates.** A point estimate would
+  claim 151x more precision than the calibration supports. The interval is a profile
+  likelihood-ratio drop, and the drop is 12 rather than the nominal chi-squared 1.92: the nominal
+  value gives 75.5% coverage of a nominal 95%, and deflating by the measured variance-inflation
+  factor only reaches 92.0%. Twelve was calibrated empirically to 96.9% on 470 edges. Every
+  bootstrap fails outright, 64.9% to 66.7%, and widening the block length does not rescue them,
+  because the failure is model misspecification rather than the resampling scheme.
+
+  On the lab's own chr4 event the intervals come out at 0.23 Mb and 0.40 Mb.
+
+### Fixed
+
+- **One event was being reported as two.** Peak-picking ran on window coordinates, so an event
+  straddling a window boundary survived as two adjacent non-overlapping hits. On a real array a
+  chr4 loss was reported as 0.06-5.84 Mb plus 5.85-38.29 Mb; refinement resolves both to one
+  region running to 42 Mb, which is also what the laboratory record says, singular. The pick is
+  now re-run on the sharpened coordinates, so an event that straddles a boundary is counted once.
+  This would have double-counted events in exactly the enrichment analysis the precision was built
+  for.
+
+### Refused, and stated in the code
+
+- **Intensity plays no part.** log2R localises 6% of these events against 74% for the absence
+  channel, because half of what this tool looks for is an origin switch, a haplotype substitution
+  with no dosage step to find at all. Combining the two is worse than absence alone, 53% against
+  74%. The same conclusion the copy-number scan reached independently.
+- **Refinement below a 0.70 call rate is not reported.** Positional error rises from 6-9 markers
+  to 160-222 and coverage falls to 0.81.
+- **An event that does not localise says so** rather than being given a wide interval.
+  Unconditional coverage never exceeded 0.743 for any method measured; the shortfall is a
+  localisation failure and no interval width fixes it.
+- **The 2,400-marker floor is unchanged.** An external review measured a full-contrast floor of
+  800, which conflicts with this project's standing 2,428-marker figure, and the conflict cannot
+  be resolved from the record. Changing it would trade a measured floor for an unreconciled one.
+
 ## 3.7.2
 
 Hotfix. An external review of the chromosomal-change work found two things wrong with what this

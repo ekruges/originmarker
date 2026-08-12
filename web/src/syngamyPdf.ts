@@ -12,6 +12,7 @@ import {
   GLOSS, pct,
   type ChromResult, type PairClass, type PairResult, type ParentageResult,
 } from './parentage.ts'
+import { segmentCoords } from './segments.ts'
 import type { Gate, SampleProfile } from './ingest.ts'
 import type { RunResult } from './runlength.ts'
 import { int, utc } from './fmt.ts'
@@ -356,9 +357,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       .map((c) => `chr${c.chrom} ${c.aneuploidy}`)
     const copy = r.segments.filter((sg) => sg.kind !== 'parental-absence')
       .map((sg) => `chr${sg.chrom} ${sg.kind === 'copy-gain' ? 'gain' : 'loss'} `
-        + `${(sg.spanBp / 1e6).toFixed(0)}Mb`)
+        + `${(segmentCoords(sg).spanBp / 1e6).toFixed(0)}Mb`)
     const parental = r.segments.filter((sg) => sg.kind === 'parental-absence')
-      .map((sg) => `chr${sg.chrom} paternal ${(sg.spanBp / 1e6).toFixed(0)}Mb`)
+      .map((sg) => `chr${sg.chrom} paternal ${(segmentCoords(sg).spanBp / 1e6).toFixed(0)}Mb`)
     return [...whole, ...copy, ...parental].join(', ')
   }
   const flagged = results.filter((f) => changeOf(f.result!))
@@ -593,16 +594,19 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'is 2,400 informative markers, and a real event smaller than that is reported at the '
         + 'size of the window that found it.', 7.4, 'Helvetica', 2.4, GREY)
       table(
-        [{ head: 'Chromosome', w: 132 }, { head: 'What', w: 92 },
-          { head: 'Span', w: 54, right: true },
-          { head: 'Markers', w: 50, right: true }, { head: 'Rate', w: 48, right: true },
-          { head: 'Against', w: 48, right: true }, { head: 'Score', w: 44, right: true }],
+        [{ head: 'Chromosome', w: 118 }, { head: 'What', w: 82 },
+          { head: 'Breakpoint interval', w: 78 },
+          { head: 'Span', w: 48, right: true },
+          { head: 'Markers', w: 44, right: true }, { head: 'Rate', w: 44, right: true },
+          { head: 'Against', w: 44, right: true }, { head: 'Score', w: 40, right: true }],
         r.segments.map((sg) => [
-          `chr${sg.chrom} ${int(sg.startBp)}-${int(sg.endBp)}`,
+          `chr${sg.chrom} ${int(segmentCoords(sg).start)}-${int(segmentCoords(sg).end)}`,
           { v: sg.kind === 'copy-loss' ? 'DNA absent'
             : sg.kind === 'copy-gain' ? 'extra copies' : 'paternal alleles absent',
           colour: sg.kind === 'parental-absence' ? INK : WARN },
-          `${(sg.spanBp / 1e6).toFixed(1)} Mb`,
+          { v: segmentCoords(sg).interval,
+            colour: segmentCoords(sg).localised ? GREY : WARN },
+          `${(segmentCoords(sg).spanBp / 1e6).toFixed(1)} Mb`,
           int(sg.markers), pct(sg.rate, 2), pct(sg.nullRate, 2), sg.score.toFixed(0),
         ]),
       )

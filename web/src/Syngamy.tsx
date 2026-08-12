@@ -13,7 +13,8 @@ import {
   type ChromResult, type PairResult, type ParentageResult,
 } from './parentage'
 import {
-  scanChromosome, scanCopyNumber, externalNull, MIN_SEGMENT_MARKERS, SEGMENT_LRT,
+  scanChromosome, scanCopyNumber, externalNull, segmentCoords,
+  MIN_SEGMENT_MARKERS, SEGMENT_LRT,
   type MarkerAbsence, type Segment, type SegmentKind,
 } from './segments'
 import type { Health } from './api'
@@ -439,7 +440,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           if (result.segments.length) {
             log('WARN', `${s.file.name}: ${result.segments.length} segment(s) where the paternal `
               + `genome is missing: ${result.segments.map((x) => `chr${x.chrom} `
-                + `${(x.spanBp / 1e6).toFixed(1)}Mb at ${pct(x.rate, 1)}`).join(', ')}`)
+                + `${(segmentCoords(x).spanBp / 1e6).toFixed(1)}Mb `
+                + `${segmentCoords(x).localised ? segmentCoords(x).interval : '(not localised)'} `
+                + `at ${pct(x.rate, 1)}`).join(', ')}`)
           }
           const maternal = tm && mat
             ? classify(tm, mat.heterozygosity, { role: 'maternal' }) : undefined
@@ -1231,11 +1234,19 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
                   <Table.Td>
                     chr{sg.chrom}
                     <Text span size="xs" c="dimmed" ff="monospace">
-                      {' '}{int(sg.startBp)}&ndash;{int(sg.endBp)}
+                      {' '}{int(segmentCoords(sg).start)}&ndash;{int(segmentCoords(sg).end)}
+                    </Text>
+                    <Text
+                      span
+                      size="xs"
+                      ff="monospace"
+                      c={segmentCoords(sg).localised ? 'dimmed' : 'var(--om-higher)'}
+                    >
+                      {' '}{segmentCoords(sg).interval}
                     </Text>
                   </Table.Td>
                   <Table.Td ta="right" ff="monospace">
-                    {(sg.spanBp / 1e6).toFixed(1)} Mb
+                    {(segmentCoords(sg).spanBp / 1e6).toFixed(1)} Mb
                   </Table.Td>
                   <Table.Td ta="right" ff="monospace" c="dimmed">{int(sg.markers)}</Table.Td>
                   <Table.Td ta="right" ff="monospace">{pct(sg.rate, 2)}</Table.Td>
