@@ -9,9 +9,12 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
-## Unreleased
+## 4.0.0 "Crossover"
 
-Breakpoints are measured now, not read off a scanning window. This is the precondition for
+Chromosomal change is specific now: every breakpoint is measured rather than read off a scanning
+window, and every extra copy is asked where it came from.
+
+Breakpoints are measured, not read off a scanning window. This is the precondition for
 everything the lab wants to do next with them.
 
 ### Added
@@ -50,6 +53,41 @@ everything the lab wants to do next with them.
   This would have double-counted events in exactly the enrichment analysis the precision was built
   for.
 
+### Added: where an extra copy came from
+
+- **Every gain is annotated with its origin, or with the reason there is none.** A gain is two
+  different questions and the tool answers whichever one the material supports.
+
+  In a cell carrying ONE parent's genome, which is what a pronucleus is, the parent is not in
+  question. What is asked instead is whether the extra copy is that parent's OTHER homologue,
+  which is meiotic, or a duplicate of the same one, which is mitotic. A haploid genome cannot be
+  heterozygous, so the other homologue shows as heterozygosity far above the array's error rate:
+  AUC 1.000 from 50 markers, holding even on degraded arrays at 24-45% spurious heterozygosity. A
+  duplicate of the SAME homologue is bit-identical to a single copy: AUC 0.037 to 0.119, below
+  chance, and intensity does not rescue it. So the meiotic case is reported and the identical case
+  is reported as indistinguishable from a normal single copy, which is NOT the same as reporting
+  no gain, and the wording says so.
+
+  In a cell carrying both parents, allele dosage names the parent, at 400 informative markers by
+  default. Two details are load-bearing and both are checked. Each marker is converted to a
+  paternal allele share before anything is averaged, because in raw B-allele frequency an extra
+  paternal copy pushes the value down at father-AA markers and up at father-BB markers, so a
+  statistic that mixes them cancels the signal to exactly nothing. And the centre is the sample's
+  own median, never the theoretical 0.5, which against a reconstructed parent is biased toward
+  maternal by up to 0.077, or 46-72% of the whole band separation, and inverts calls.
+
+  Medians, never means. On a single amplified cell the mean band separation compresses 36% to
+  0.106, which would put the bands inside the decision margin and refuse every single-cell gain;
+  the medians do not compress. That is asserted as a test rather than left as a comment.
+
+### Fixed while building it
+
+- **The gain background was self-referential.** The first implementation judged a chromosome's
+  heterozygosity against the genome-wide rate, so where several chromosomes carry an event the bar
+  is lifted by the very events under test and each one reads as ordinary. This is the same failure
+  the segment scan already solves with an external per-chromosome null, made again. The background
+  is now the median of the OTHER chromosomes, floored, with thin chromosomes excluded.
+
 ### Refused, and stated in the code
 
 - **Intensity plays no part.** log2R localises 6% of these events against 74% for the absence
@@ -61,6 +99,19 @@ everything the lab wants to do next with them.
 - **An event that does not localise says so** rather than being given a wide interval.
   Unconditional coverage never exceeded 0.743 for any method measured; the shortfall is a
   localisation failure and no interval width fixes it.
+- **Naming a parent for a gain needs a biparental cell and both parents loaded.** On a
+  uniparental product the question does not arise and the tool says so rather than reporting a
+  parent it inferred from nothing.
+- **Focal gains cannot be annotated on a single amplified cell.** 400 informative markers span a
+  median 47.6 Mb; a 5 Mb region carries a median 51. Whole chromosomes and large arms can be
+  annotated, focal events cannot, and the refusal names the marker count.
+- **NOT VALIDATED ON A TRUE POSITIVE.** The bands and marker requirements are measured, but on
+  constructed contrasts: no confirmed gain with an independently known parent of origin exists in
+  the material behind them, where every dosage event is a loss. This has been shown to refuse
+  correctly and has never been shown to fire correctly. The one array in the set carrying
+  whole-chromosome gains is a 42% call-rate QC failure and the tool refuses all five of its gains,
+  which is the right answer and not a positive control. Stated on the page, in the report and in
+  the documentation, not only here.
 - **The 2,400-marker floor is unchanged.** An external review measured a full-contrast floor of
   800, which conflicts with this project's standing 2,428-marker figure, and the conflict cannot
   be resolved from the record. Changing it would trade a measured floor for an unreconciled one.

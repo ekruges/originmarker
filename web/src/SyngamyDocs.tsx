@@ -55,6 +55,8 @@ const SECTIONS: DocSection[] = [
   { id: 'assembly', label: 'Assembly detection, and no liftOver' },
   { id: 'chrom', label: 'Per-chromosome and segmental results' },
   { id: 'aneuploidy', label: 'Aneuploidy: whole chromosomes' },
+  { id: 'breakpoints', label: 'How precisely a breakpoint is placed' },
+  { id: 'gainorigin', label: 'Where an extra copy came from' },
   { id: 'segments', label: 'Chromosomal change: segments' },
   { id: 'report', label: 'The report, and how to cite it' },
   { id: 'examples', label: 'The bundled example data' },
@@ -1191,6 +1193,114 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             allelic-ratio gate of <SecRef id="gates" /> now applies only where the chromosome is
             still being genotyped.
           </Text>
+        </Section>
+
+        <Section id="breakpoints" title="How precisely a breakpoint is placed">
+          <Text size="sm" mb={10}>
+            The scan finds a region by sliding windows of 2,400 markers and
+            up, stepping a quarter of a window at a time. Those window edges are an artefact of the
+            scan rather than a measurement of the event: the step alone quantises them to a median
+            1.96 Mb. Measured against 848 events spliced from real arrays at known marker
+            positions, a window edge lands a median 373.5 markers from the truth, 2.51 Mb, with a
+            p95 of 15.46 Mb.
+          </Text>
+          <Text size="sm" mb={10}>
+            Once the window has found roughly where the event is, the edges are refined at marker
+            resolution by coordinate ascent on the same segment-versus-background likelihood ratio
+            the scan already uses. Median error 9 markers, 0.063 Mb: forty times better, and it
+            localises more events than the window edge did, 629 of 848 against 412. Circular
+            binary segmentation and binary segmentation were measured on the same constructs; both
+            beat the window edge, both lost to this, and both cost more compute.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>No breakpoint is reported as a single number.</b> A point estimate would claim about
+            151 times more precision than the calibration supports. Each edge carries an interval
+            from a profile likelihood-ratio drop, and the drop is 12 rather than the nominal
+            chi-squared 1.92: the nominal value gives 75.5% coverage of a nominal 95%, and
+            deflating by the measured variance-inflation factor still only reaches 92.0%. Twelve
+            was calibrated empirically to 96.9% on 470 edges. Both bootstrap families fail
+            outright at 64.9% to 66.7%, and widening the block length does not rescue them, because
+            the failure is model misspecification rather than the resampling scheme.
+          </Text>
+          <Text size="sm" mb={10}>
+            Three limits travel with every interval. It is conditional on the event having been
+            localised at all, and an event that does not localise says so rather than being given
+            a wide interval, because unconditional coverage never exceeded 74.3% for any method
+            measured. It is not reported below a 0.70 call rate, where positional error rises from
+            6 to 9 markers up to 160 to 222 and coverage falls to 0.81. And the drop of 12 is a
+            property of this array, this call-rate range and this amplification artefact; it is
+            not a chi-squared quantile and will not transfer to another platform without being
+            recalibrated on known events in that material.
+          </Text>
+          <Text size="sm">
+            Intensity plays no part in placing a breakpoint. It localises 6% of these events
+            against 74% for the allele channel, because an origin switch is a haplotype
+            substitution with no dosage step to find at all, and combining the two is worse than
+            the allele channel alone. See <SecRef id="segments" />.
+          </Text>
+        </Section>
+
+        <Section id="gainorigin" title="Where an extra copy came from">
+          <Text size="sm" mb={10}>
+            A gain is two different questions depending on what the cell is, and they are answered
+            by different evidence.
+          </Text>
+          <Text size="sm" mb={10}>
+            In a cell carrying <b>one parent&rsquo;s genome</b>, which is what a pronucleus is,
+            everything present came from that parent already, so which parent is not in question.
+            What is worth asking is whether the extra copy is that parent&rsquo;s OTHER homologue,
+            which is a meiotic error, or a duplicate of the same one, which is mitotic. Only one of
+            those is visible. A haploid genome cannot be heterozygous, so every heterozygous call
+            in one is amplification error; an extra copy that is the other homologue differs from
+            the first wherever the parent is heterozygous, and the region reads far above that
+            error rate. Measured AUC 1.000 from 50 markers upward, holding even on degraded arrays
+            running 24% to 45% spurious heterozygosity. A duplicate of the SAME homologue is
+            bit-identical to a single copy at every marker: measured AUC 0.037 to 0.119, which is
+            below chance, and intensity does not rescue it either. So the tool reports the meiotic
+            case and, where the evidence is absent, says an identical duplicate cannot be
+            distinguished from a normal single copy. <b>That is not the same as reporting no
+            gain</b>, and it does not say so.
+          </Text>
+          <Text size="sm" mb={10}>
+            In a cell carrying <b>both parents</b>, allele dosage names the parent. At a marker
+            where the parents are homozygous for different alleles a euploid cell carries one of
+            each, and an extra copy tips the ratio toward whoever supplied it. Two details are
+            load-bearing. Each marker is converted to a paternal allele share before anything is
+            averaged, because in raw B-allele frequency an extra paternal copy pushes the value
+            down at one kind of marker and up at the other, so a statistic that mixes them cancels
+            the signal to nothing. And the centre is the sample&rsquo;s own genome-wide median,
+            never the theoretical 0.5: against a reconstructed parent the theoretical value is
+            biased toward maternal by up to 0.077, which is 46% to 72% of the entire band
+            separation and enough to invert calls outright.
+          </Text>
+          <Text size="sm" mb={10}>
+            It is a window statistic and never a per-marker one. The per-marker spread is 0.0585 in
+            bulk material, 0.1410 in a trophectoderm biopsy and 0.3079 in a single amplified cell,
+            against a band separation of 0.167, so a per-marker call is worthless at every stage.
+            The default requires 400 informative markers, which is the measured requirement for
+            under 1% two-way error on the worst single-cell array. That costs a median 47.6 Mb, so
+            at the default a whole chromosome or a large arm can be annotated and a focal gain
+            cannot. On multi-cell material the requirement is 50 to 100 and a 5 Mb region clears
+            it.
+          </Text>
+          <Text size="sm" mb={10}>
+            The background a region is judged against is the median of the sample&rsquo;s OTHER
+            chromosomes, not its genome-wide rate. Where several chromosomes carry an event, a
+            genome-wide rate is lifted by the very events under test and each one reads as
+            ordinary. This is the same failure the segment scan solves with an external
+            per-chromosome null, and it is solved the same way here.
+          </Text>
+          <Alert color="orange" p="xs">
+            <Text size="xs">
+              <b>Not validated on a true positive.</b> The band positions and marker requirements
+              are measured, but on constructed contrasts: no confirmed gain with an independently
+              known parent of origin exists in the material behind them. Every dosage event in that
+              material is a loss. This has therefore been shown to refuse correctly and has never
+              been shown to fire correctly. The only array in the validation set carrying
+              whole-chromosome gains is a 42% call-rate QC failure, and the tool refuses all five
+              of its gains, which is the right answer but not a positive control.
+            </Text>
+          </Alert>
         </Section>
 
         <Section id="segments" title="Chromosomal change: segments">

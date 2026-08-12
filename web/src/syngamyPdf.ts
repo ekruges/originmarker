@@ -353,8 +353,12 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
 
   /** Whole chromosomes first, then regions, in the fewest words that stay unambiguous. */
   const changeOf = (r: ParentageResult): string => {
+    const originOf = (chrom: string): string => {
+      const g = r.gains.find((x) => x.where === `chr${chrom}`)
+      return g && g.called ? ` (${g.origin})` : ''
+    }
     const whole = r.chroms.filter((c) => c.aneuploidy)
-      .map((c) => `chr${c.chrom} ${c.aneuploidy}`)
+      .map((c) => `chr${c.chrom} ${c.aneuploidy}${c.aneuploidy === 'gain' ? originOf(c.chrom) : ''}`)
     const copy = r.segments.filter((sg) => sg.kind !== 'parental-absence')
       .map((sg) => `chr${sg.chrom} ${sg.kind === 'copy-gain' ? 'gain' : 'loss'} `
         + `${(segmentCoords(sg).spanBp / 1e6).toFixed(0)}Mb`)
@@ -584,6 +588,28 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
               : 'not determined',
         ]),
       )
+    }
+    if (r.gains.length) {
+      heading('Extra copies, and where they came from', 8.6)
+      table(
+        [{ head: 'Where', w: 132 }, { head: 'Kind', w: 84 }, { head: 'Origin', w: 104 },
+          { head: 'Evidence', w: 212 }],
+        r.gains.map((g) => [
+          g.where,
+          g.kind,
+          { v: g.origin, colour: g.called ? INK : WARN },
+          { v: g.why, colour: GREY },
+        ]),
+      )
+      text('An extra copy in a cell carrying ONE parent\'s genome is that parent\'s by '
+        + 'construction, and the question worth asking is whether it is that parent\'s other '
+        + 'homologue, which is meiotic and shows as heterozygosity in a genome that should have '
+        + 'none, or a duplicate of the same homologue, which is bit-identical to a single copy '
+        + 'and cannot be detected in any channel this array carries. Naming a PARENT for a gain '
+        + 'needs a cell carrying both parents, and both parents loaded. NOT VALIDATED ON A TRUE '
+        + 'POSITIVE: no confirmed gain with a known origin exists in the material behind these '
+        + 'thresholds, so this has been shown to refuse correctly and never to fire correctly.',
+      6.5, 'Helvetica-Oblique', 2, GREY)
     }
     if (r.segments.length) {
       heading('Segmental change', 8.6)

@@ -394,6 +394,18 @@ export interface ChromResult {
   note?: string
 }
 
+/** A gain, annotated with where the extra copy came from or why that cannot be said. */
+export interface GainAnnotation {
+  where: string
+  kind: 'whole chromosome' | 'segment'
+  /** Which parent, when the cell carries both and the region has the markers for it. */
+  origin: string
+  /** The evidence, or the reason there is none. */
+  why: string
+  /** True when a direction was established. */
+  called: boolean
+}
+
 export interface ParentageResult {
   verdict: Verdict
   originClass: OriginClass
@@ -417,6 +429,9 @@ export interface ParentageResult {
   /** Where along a chromosome the parental genome is missing, rather than whether. Populated by
    *  the caller, which is the only place marker positions are in hand; see `segments.ts`. */
   segments: Segment[]
+  /** One entry per gain found, whole-chromosome or segmental. Empty when there are no gains,
+   *  which is not the same as gains with no origin: those appear here saying so. */
+  gains: GainAnnotation[]
   notes: string[]
   limits: string[]
 }
@@ -733,6 +748,7 @@ export function classify(
   return {
     verdict, originClass, zygosity, spermType, genomeRate, explainable, informative: nTot,
     segments: [],
+    gains: [],
     nonParentalRate, secondParentExpected, hetBand, noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, notes, limits,
   }

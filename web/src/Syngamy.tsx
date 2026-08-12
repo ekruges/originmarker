@@ -21,6 +21,10 @@ import type { Health } from './api'
 import { int, utc } from './fmt'
 import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, loadExample } from './examples'
 import { analyseRuns, measureClustering, parseLocus, type RunResult } from './runlength'
+import {
+  paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground,
+  MIN_INFORMATIVE_DEFAULT, type DosageMarker,
+} from './gainOrigin'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { isInferredFile } from './inferredArray'
@@ -390,6 +394,14 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // Marker-level absence, kept per chromosome for the segment scan. The tally above
           // carries per-chromosome COUNTS, which answer "is this chromosome absent" and cannot
           // answer "which part of it is". Collected in the same pass rather than a second one.
+          // Allele dosage, for saying which parent an extra copy came from. Only computable
+          // where BOTH parents are known and homozygous for different alleles, so this stays
+          // empty on a single-donor run and the annotation says why rather than guessing.
+          const dosageByChrom = new Map<string, DosageMarker[]>()
+          // Heterozygosity at the donor's homozygous markers, per chromosome and genome-wide.
+          // In a haploid product every one of these is amplification error, and a region running
+          // far above the array's own rate carries the parent's OTHER homologue.
+          const hetByChrom = new Map<string, { informative: number; het: number }>()
           const absenceByChrom = new Map<string, MarkerAbsence[]>()
           // The copy-number channel: every marker on the array, called or not, with its intensity.
           // A region that is GONE stops producing calls, which the parental-absence indicator
@@ -408,6 +420,20 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               cnByChrom.set(r.chrom, cn)
             }
             if ((fa === 'AA' || fa === 'BB') && r.genotype !== 'NC' && isAutosome(r.chrom)) {
+              // The homologue channel: every heterozygous call here is error in a haploid.
+              const h = hetByChrom.get(r.chrom) ?? { informative: 0, het: 0 }
+              h.informative += 1
+              if (r.genotype === 'AB') h.het += 1
+              hetByChrom.set(r.chrom, h)
+              if (mat) {
+                const mo = mat.gt.get(r.probesetId) ?? 'NC'
+                const share = paternalShare(fa, mo, r.baf)
+                if (share !== null) {
+                  const d = dosageByChrom.get(r.chrom) ?? []
+                  d.push({ chrom: r.chrom, pos: r.pos, patShare: share })
+                  dosageByChrom.set(r.chrom, d)
+                }
+              }
               const arr = absenceByChrom.get(r.chrom) ?? []
               arr.push({ chrom: r.chrom, pos: r.pos,
                 absent: r.genotype !== 'AB' && r.genotype !== fa })
@@ -437,6 +463,66 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             ...[...absenceByChrom].filter(([c]) => measured.has(c))
               .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))),
           ].sort((a, b) => b.score - a.score)
+          // --- where each extra copy came from ---------------------------------------------
+          //
+          // Two different questions and the tool must not confuse them. With both parents loaded
+          // the cell can be biparental and allele dosage says WHICH parent supplied the extra
+          // copy. With one parent the cell is uniparental by construction, so the parent is not
+          // in question and the answer worth having is whether the extra copy is that parent's
+          // other homologue, which is meiotic, or a duplicate of the same one, which is invisible.
+          const allDosage = [...dosageByChrom.values()].flat()
+          // The sample's own centre, never the theoretical 0.5: against a reconstructed parent
+          // the theoretical value is biased toward maternal by up to 0.077, which is enough to
+          // invert a call outright.
+          const centre = allDosage.length ? recentre(allDosage) : NaN
+          // Background per chromosome, excluding the one being judged. A genome-wide rate is
+          // lifted by the very events under test where several chromosomes carry one.
+          const annotate = (
+            where: string, kind: 'whole chromosome' | 'segment', chrom: string,
+            from: number, to: number,
+          ) => {
+            if (mat && allDosage.length) {
+              const inside = (dosageByChrom.get(chrom) ?? [])
+                .filter((d) => d.pos >= from && d.pos <= to)
+              const c = callGainOrigin(inside, centre, MIN_INFORMATIVE_DEFAULT)
+              return {
+                where,
+                kind,
+                origin: c.origin,
+                why: c.why,
+                called: c.origin !== 'unclear',
+              }
+            }
+            const h = hetByChrom.get(chrom) ?? { informative: 0, het: 0 }
+            const background = externalHetBackground(hetByChrom, chrom)
+            const c = callHomologue(
+              h.informative ? h.het / h.informative : NaN, h.informative, background,
+            )
+            return {
+              where,
+              kind,
+              origin: c.verdict === 'other homologue'
+                ? 'this parent, other homologue (meiotic)' : 'not determinable',
+              why: mat ? c.why
+                : `${c.why}. Which PARENT supplied it is not in question: this cell carries one `
+                  + 'parent\'s genome, so the extra copy is that parent\'s. Naming a parent for a '
+                  + 'gain needs a biparental cell and both parents loaded.',
+              called: c.verdict === 'other homologue',
+            }
+          }
+          result.gains = [
+            ...result.chroms.filter((c) => c.aneuploidy === 'gain')
+              .map((c) => annotate(`chr${c.chrom}`, 'whole chromosome', c.chrom, 0, Infinity)),
+            ...result.segments.filter((sg) => sg.kind === 'copy-gain')
+              .map((sg) => annotate(
+                `chr${sg.chrom} ${(sg.startBp / 1e6).toFixed(1)}-${(sg.endBp / 1e6).toFixed(1)}Mb`,
+                'segment', sg.chrom, sg.startBp, sg.endBp,
+              )),
+          ]
+          for (const g of result.gains) {
+            log(g.called ? 'DONE' : 'WARN', `gain ${g.where}: ${g.origin}. ${g.why}`)
+          }
+
           if (result.segments.length) {
             log('WARN', `${s.file.name}: ${result.segments.length} segment(s) where the paternal `
               + `genome is missing: ${result.segments.map((x) => `chr${x.chrom} `
@@ -788,6 +874,21 @@ function ResultCard({ entry, donorName, oocyteName }: {
       {open && (
         <div style={{ padding: '2px 16px 14px' }}>
           <AneuploidyCallout chroms={r.chroms} role="paternal" />
+          {r.gains.length > 0 && (
+            <div style={{ marginTop: 10 }}>
+              <Text size="xs" fw={700} mb={4}>Extra copies, and where they came from</Text>
+              {r.gains.map((g) => (
+                <div key={g.where} style={{ fontSize: 11, marginBottom: 5, lineHeight: 1.45 }}>
+                  <span style={{ fontFamily: 'var(--om-mono)', fontWeight: 600 }}>{g.where}</span>
+                  {'  '}
+                  <span style={{ color: g.called ? 'var(--om-blue)' : 'var(--om-higher)' }}>
+                    {g.origin}
+                  </span>
+                  <div style={{ color: 'var(--om-text-dim)' }}>{g.why}</div>
+                </div>
+              ))}
+            </div>
+          )}
           <SegmentCallout segments={r.segments} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">
