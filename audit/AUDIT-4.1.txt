@@ -174,3 +174,39 @@ channel is the one validated on 330 karyotype-confirmed trisomies at AUC 0.9779 
   reference: a bulk parental array per experimental group. Any future analysis must take its
   regions from result.segments and result.chroms rather than re-deriving them from heterozygosity,
   which is what produced every one of the artefacts recorded above.
+
+
+THE ARRAYS WITH A PARENT AND THE ARRAYS WITH AN EVENT ARE DISJOINT
+-------------------------------------------------------------------
+Run through the shipped modules (audit/linkage.ts) across all 884 arrays, four experiments:
+
+  83   arrays meet the bulk-reference bar (call >= 93%, heterozygosity 12-22%)
+  20   arrays are CHILDREN of one of them, established in two stages
+  217  arrays are close relatives that are NOT children: same individual, clonal cells or haploid
+       products, each recorded with the fraction that excluded it
+  192  arrays carry a copy-number region
+   0   arrays are in BOTH sets
+
+That last line is the result. Every one of the 20 children was checked against the region tables
+independently and carries no copy-number event; the 192 arrays that do carry one have no genotyped
+parent. The two populations do not intersect anywhere in this series.
+
+So the parental question cannot be answered from this material, and the reason is not the method.
+Sub-chromosome parental direction measures AUC 0.9301 against a bulk parent, and detection measures
+AUC 0.9779 on 330 karyotype-confirmed trisomies. Both work. There is simply no array here that is
+both a child of a genotyped parent AND carries an event to assign.
+
+A SELECTION EFFECT IS THE LIKELY CAUSE AND IT IS NOT REASSURING. To be counted a child, an array
+needs a bulk-quality reference in its own experiment. Experiments with bulk-quality material are
+the better-run ones, and better-run material carries fewer events. So the requirement that makes a
+parental call possible is correlated with the absence of the thing to be called.
+
+WHAT THIS DOES NOT SAY. It is not evidence that events are rare, nor that parental origin is
+unknowable in this system. It says the 884 arrays in hand cannot answer it, and that adding a bulk
+parental array to an experiment that ALREADY has events is what would change that. A parent
+collected alongside the material that carries events, rather than in place of it.
+
+TWO STAGES, BECAUSE ONE IS NOT ENOUGH. Opposite-homozygote rate alone called 13 of 85 arrays
+children in one experiment and 10 were wrong: the rate is near zero for a parent and child AND for
+the same genome twice. Requiring the candidate to read BIPARENTAL against the reference removed
+them. The 217 set-aside arrays are the visible evidence that the second stage does work.
