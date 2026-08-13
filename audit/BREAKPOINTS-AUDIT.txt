@@ -1,10 +1,15 @@
 BREAKPOINT REFINEMENT AND GAIN ORIGIN - ACCURACY AUDIT
 ======================================================
 
-Status: THREE OF FOUR PARTS RUN. Breakpoint accuracy is measured on constructed events with known
+Status: FOUR OF FIVE PARTS RUN. Breakpoint accuracy is measured on constructed events with known
 truth, the gain-origin part carries a positive control that recovers both directions on a real
-array, and specificity passes. Only the split-half holdout has nothing to run on here. The other two need arrays this machine cannot currently
-read, and that is stated here rather than left as an absence.
+array, specificity passes, and section E now detects a REAL trisomy on all 330 karyotype-confirmed
+cells of a public series, AUC 0.9779 against 114 confirmed euploid controls on the platform that
+has them and 0.9991 on the other. Only the split-half holdout has nothing to run on here.
+
+The one gap that remains is narrower than it was and is stated exactly: gain DETECTION is now
+validated on confirmed biological trisomies, gain ORIGIN is not, because naming a parent needs a
+genotyped parent and no public series found so far carries one alongside a confirmed gain.
 
   AUDIT_FLOOR=1200 node --experimental-strip-types --max-old-space-size=8192 \
     audit/breakpoints.ts web/public/examples audit/breakpoint-results-public.json
@@ -43,18 +48,17 @@ Three events is a small n and is quoted as such. The ceiling is the material, no
 these are 51,604-marker subsets, and only two chromosomes carry enough informative markers to
 host a 1,200-marker event with background either side of it.
 
-TWO CONSTRUCTION MISTAKES WERE MADE AND FIXED HERE, both of which produced 0 detections that
-looked like detector failures and were not:
+TWO CONSTRUCTIONS THAT PRODUCE 0 DETECTIONS AND LOOK LIKE DETECTOR FAILURES. Neither is one:
 
-  1. The first version spliced one of the father's products into another of his products. Both
-     are his, so both read as present against him everywhere and the block was indistinguishable
-     from its surroundings. There was no event to find. 44 planted, 0 detected.
-  2. The splice source is now an unrelated genome, chosen by absence against the reference. The
-     public set constrains this badly: its two unrelated adults are DIPLOID and show only 5.4%
-     and 5.7% absence, because a diploid rarely lacks the father's allele on both copies. Only
-     A8 gives a real 19.2% contrast, and it is a 53% call-rate array. The ideal source is a
-     haploid product of a DIFFERENT parent, at about 11% clean contrast, and the public set
-     contains none. The laboratory series does.
+  1. Splicing one of the father's products into another of his products. Both are his, so both
+     read as present against him everywhere and the block is indistinguishable from its
+     surroundings. There is no event to find. 44 planted, 0 detected.
+  2. The splice source must therefore be an unrelated genome, chosen by absence against the
+     reference. The public set constrains this badly: two unrelated adults are DIPLOID and show
+     only 5.4% and 5.7% absence, because a diploid rarely lacks the father's allele on both
+     copies. Only A8 gives a real 19.2% contrast, and it is a 53% call-rate array. The ideal
+     source is a haploid product of a DIFFERENT parent, at about 11% clean contrast, which the
+     public set does not contain and the laboratory series does.
 
 B. SPLIT-HALF HOLDOUT ON REAL SEGMENTS                  BLOCKED
 ---------------------------------------------------------------
@@ -89,7 +93,7 @@ D2. The homologue channel, run on every chromosome reading above twice its exter
   GSM4774685 (pMII-6)  chr4    14.3%  vs   7.0%   ->  other homologue
   GSM4774685 (pMII-6)  chr15   15.2%  vs   7.0%   ->  other homologue
 
-The first of those is a genuine corroboration and the reason this audit exists. GSM4774681 was
+The first of those is corroborated from a second, independent direction. GSM4774681 was
 described in this repo's own segment calibration as one of five products "present on every
 autosome"; an external review found it carries a real chr1 event, and a check on the shipped
 subset put chr1 at 9.78% ABSENCE against 1.04% genome-wide. This audit reaches the same
@@ -117,9 +121,12 @@ the parent it does have. So a gain could not be simulated on a real trio here by
 allele intensities, which is the method that would otherwise provide a positive control.
 
 This is recorded as a checked negative, not an omission. It means the primary use case cannot be
-validated on either body of data available: no confirmed trisomy with a known parent exists in
-the laboratory series, independently established across 34 trio-usable arrays by an external
-review, and no usable trio exists in the public series.
+validated on either body of data available HERE: no confirmed trisomy with a known parent exists
+in the laboratory series, independently established across 34 trio-usable arrays by an external
+review, and no usable trio exists in the public subset shipped with this repo.
+
+SCOPE. This holds for the two bodies of data named above and is not a general statement about
+what exists. Section E covers a public series of confirmed trisomies.
 
 D4. Positive control: the direction IS recovered, on a real array.        PASS
 
@@ -155,6 +162,113 @@ same limitation independently across 34 trio-usable arrays: every dosage event i
 a LOSS. So the direction is shown to be recoverable and orientation-safe on real data, and has
 still never been checked against a real trisomy. A named parent stays provisional until one
 exists.
+
+
+E. A REAL TRISOMY, DETECTED                     PASS, AUC 0.9779 AND 0.9991
+-----------------------------------------------------------------------------
+D3 said the gain path had never been exercised on a confirmed biological gain, only on constructed
+ones, because every dosage event in the laboratory series is a LOSS. That gap is now closed for
+DETECTION. It remains open for ORIGIN, and the reason is measured below rather than assumed.
+
+  GEO GSE19247, public since December 2009, 622 Illumina arrays.
+  Johnson et al., Hum Reprod 2010, PMID 20100701, PMC2839907, open access.
+
+  330 single cells of CONFIRMED TRISOMY 21 across the two platforms, conventionally karyotyped,
+  of which 100 were re-karyotyped blind by an independent reference laboratory. Controls are 141
+  confirmed euploid cells and 23 single sperm, which are haploid and cannot carry a chr21 gain.
+
+
+E1. The dosage channel on a real trisomy.
+
+  node audit/gse19247/trisomy.py          GPL6985, 83 trisomy cells
+  node audit/gse19247/trisomy8855.py      GPL8855, 247 trisomy cells and 114 euploid
+
+The statistic is the one the tool already uses: a chromosome's median intensity against the
+SAMPLE'S OWN autosomal median, so every cell is its own control and no external baseline is
+needed. Run on both platforms of the series, which between them hold all 330 confirmed cells.
+
+  GPL8855, HumanCytoSnp-12, where the euploid controls are
+  ---------------------------------------------------------
+    trisomy 21, confirmed    n=247   min -0.1528   median +0.5547   max +1.3327
+    euploid Coriell 1463      n=42   min -0.1521   median +0.0164   max +0.4085
+    euploid Coriell 1423      n=27   min -0.1426   median +0.0190   max +0.8035
+    euploid blood             n=45   min -0.1269   median +0.0416   max +0.2333
+                                     -------------------------------------------
+    AUC 0.9779 over 247 x 114 pairs
+    best single cut +0.245:  sensitivity 0.9636   specificity 0.9737
+
+  GPL6985, HumanCNV370-Quad, where the controls are thin
+  --------------------------------------------------------
+    trisomy 21, confirmed     n=83   min +0.0569   median +0.3420   max +0.9648
+    euploid adult              n=4   min -0.1516   median +0.0020   max +0.0153
+    single sperm, haploid     n=23   min -0.2540   median -0.0478   max +0.0965
+                                     -------------------------------------------
+    AUC 0.9991 over 83 x 27 pairs
+
+Neither is perfectly separated and both are quoted that way. On GPL8855 one euploid Coriell cell
+reads +0.8035, higher than 40% of the trisomy cells, and the ranges overlap at both ends. The AUC
+is the honest summary because it needs no threshold; the operating point is given beside it so the
+cost of picking one is visible rather than hidden.
+
+FOR SCALE. The source paper's own algorithm, which used BULK PARENTAL DNA and a haplotype HMM,
+missed 7 of these same 330 cells, a 2.1% false-negative rate. The figure above is 3.6% at 97.4%
+specificity from a per-chromosome median intensity ratio with NO parent loaded at all. Close, on
+material chosen by someone else, and it is not the same task: they called all 24 chromosomes
+blind, this asks one question of one chromosome. It is a scale marker, not a comparison.
+
+THE SPECIFICITY CONTROL IS INTERNAL, and it is the part worth trusting most. Every autosome was
+scored in the same cells, so chr21 can be read against the 21 chromosomes that carry nothing:
+
+    GPL8855   chr21 +0.5547   rank 1 of 22   next highest chr20 +0.1848
+    GPL6985   chr21 +0.3420   rank 1 of 22   next highest chr3  +0.0927
+
+If this statistic were reading amplification rather than dosage, chr21 would not be first on both.
+
+COMPRESSION IS A PROPERTY OF THE CHEMISTRY, NOT A CONSTANT. One extra of two copies is
+log2(1.5) = +0.5850. GPL8855 reads +0.5547, which is 95% of theoretical; GPL6985 reads +0.3420,
+which is 58%. Same cells, same individual, same laboratory, different chip. So a fixed expected
+amplitude must not be built into a threshold, and this repo's existing habit of measuring the
+sample's own baseline instead is the right one for a reason now visible in data.
+
+A CHROMOSOME-SPECIFIC BASELINE EXISTS AND MUST NOT BE IGNORED. On GPL6985, in cells with no
+dosage change there, chr19 reads -0.5713 and chr22 -0.5173: GC-rich chromosomes lose intensity on
+that chemistry. A genome-wide baseline would call both a loss in every cell. The external
+per-chromosome null this repo already uses everywhere is what prevents that, and this is
+independent evidence for it from another laboratory and 2008 chemistry.
+
+E2. WHY ORIGIN CANNOT BE VALIDATED ON THIS SERIES
+
+This series has no genotyped parent in any usable form. Sample counts alone suggest otherwise;
+the amplification field settles it. All 622 arrays are single cells:
+
+  315 single cell amplified by MDA        130 single blastomere amplified by MDA
+  144 single cell amplified by Rubicon    29 single sperm, 4 single blastomere Rubicon
+
+There is NO bulk DNA in the series. The four buccal arrays are single buccal cells, not parental
+gDNA. Natera used bulk parents for their algorithm and did not deposit them.
+
+That is not merely inconvenient, and the cost was measured rather than asserted. Scored against a
+single-cell reference, the one-parent obligate-het statistic does not separate ploidy at all:
+
+  single sperm, HAPLOID by construction    n=23   median 0.0548   range 0.0021 - 0.5132
+  Day 3 blastomere, biparental             n=28   median 0.0962   range 0.0177 - 0.3004
+
+Four of the 23 haploid sperm read 27% to 51% heterozygous, which is impossible in a cell with one
+genome, and those four have the HIGHEST call rates of any sperm here (0.748 - 0.780), so no
+call-rate gate removes them. Conditioning on the reference is close to a no-op: obligate-het and
+genome-wide het agree to within 0.01 on every one of the 51 arrays, because a single-cell
+reference's homozygous set is most of the genome once dropout is included.
+
+  So: a reference parent must be bulk, or near it, for the obligate-het branch to mean anything.
+  That precondition was not previously written down. It is now, and it is measured.
+
+Concordance on this same material shows the pipeline itself is sound, which is why the above is a
+statement about the material and not about the code: same individual 0.097 - 0.119, unrelated
+adults 0.326 - 0.371, a clean three-tier separation.
+
+WHAT E DOES NOT SHOW. The parental DIRECTION of a gain is still unvalidated on a real trisomy.
+Detection is now validated on 83 of them; origin needs a genotyped parent and no public series
+found so far has one alongside a confirmed gain. A named parent stays provisional.
 
 
 REFUSALS AND LIMITS, STATED

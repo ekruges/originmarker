@@ -13,6 +13,7 @@ import {
   type ChromResult, type PairClass, type PairResult, type ParentageResult,
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
+import { DEFAULT_PERMUTATIONS, MIN_REGIONS } from './features.ts'
 import type { Gate, SampleProfile } from './ingest.ts'
 import type { RunResult } from './runlength.ts'
 import { int, utc } from './fmt.ts'
@@ -492,6 +493,97 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       y -= 2
     }
 
+    // Where those regions sit. Printed with the segments rather than in a section of its own, so
+    // the enrichment and the regions that produced it are read together, and printed WITH ITS NULL
+    // because the figure is uninterpretable without it: regions are only callable where markers
+    // are, marker density tracks gene density, and an unmatched comparison would report an
+    // enrichment for almost any feature.
+    const place = (r.placement ?? []).filter((e) => Number.isFinite(e.p))
+    if (place.length) {
+      need(30 + place.length * 16)
+      pdf.setFont('Helvetica-Bold', 9)
+      pdf.drawString(L + 8, y - 10, 'Where these regions sit in the genome')
+      y -= 14
+      text('Each feature is compared against intervals drawn on the same chromosome carrying the '
+        + 'same number of informative markers as the region, not against the genome at large. The '
+        + 'bar is the middle 95% of that null and the dot is what was observed.',
+        7.4, 'Helvetica', 2.6, INK, L + 8)
+
+      // Observed against the null interval, drawn. A permutation p is only interpretable against
+      // the distribution it came from, and a table of p values hides that: on this material a
+      // ratio of 0.97 reached p 0.002 because the null was tight, which a reader shown only the
+      // p would take for a finding. Drawing the interval makes the effect size unmissable.
+      const PX = L + 150          // plot left
+      const PW = 190              // plot width
+      const top = place.reduce((a, e) => Math.max(a, e.observed, e.nullQuantiles[2]), 0) * 1.15
+      const at = (v: number): number => PX + (top > 0 ? (v / top) * PW : 0)
+      for (const e of place) {
+        need(16)
+        const mid = y - 7
+        pdf.setFont('Helvetica', 7.4)
+        pdf.drawString(L + 8, mid - 2, e.feature)
+        // null 95% interval
+        pdf.setFillColor(RULE)
+        pdf.rect(at(e.nullQuantiles[0]), mid - 2.5,
+                 Math.max(at(e.nullQuantiles[2]) - at(e.nullQuantiles[0]), 0.6), 5, true)
+        // null median tick
+        pdf.setStrokeColor(INK)
+        pdf.setLineWidth(0.4)
+        pdf.line(at(e.nullQuantiles[1]), mid - 3.5, at(e.nullQuantiles[1]), mid + 3.5)
+        // observed
+        pdf.setFillColor(e.p < 0.05 ? WARN : INK)
+        pdf.circle(at(e.observed), mid, e.p < 0.05 ? 2.6 : 1.9, true)
+        pdf.setFont(e.p < 0.05 ? 'Helvetica-Bold' : 'Helvetica', 7.2)
+        pdf.drawString(PX + PW + 8, mid - 2,
+          `${pct(e.observed, 1)} vs ${pct(e.nullQuantiles[1], 1)}   `
+          + `${e.ratio.toFixed(2)}x   p ${e.p < 0.001 ? '<0.001' : e.p.toFixed(3)}`)
+        y -= 13
+      }
+      y -= 2
+
+      // The null distribution itself, for anything that cleared 0.05. This is the figure a
+      // reviewer asks for: it shows whether the observation sits in a tail or merely beside a
+      // very narrow null.
+      for (const e of place.filter((x) => x.p < 0.05 && x.nullHist.counts.length)) {
+        need(52)
+        pdf.setFont('Helvetica-Bold', 7.6)
+        pdf.drawString(L + 8, y - 9, `Null distribution: ${e.feature}`)
+        y -= 12
+        const H = 32
+        const W = 250
+        const maxC = Math.max(...e.nullHist.counts, 1)
+        const bw = W / e.nullHist.counts.length
+        pdf.setFillColor(RULE)
+        e.nullHist.counts.forEach((c, i) => {
+          const h = (c / maxC) * H
+          if (h > 0) pdf.rect(L + 12 + i * bw, y - H, Math.max(bw - 0.7, 0.5), h, true)
+        })
+        const span = (e.nullHist.hi - e.nullHist.lo) || 1
+        const ox = L + 12 + ((e.observed - e.nullHist.lo) / span) * W
+        pdf.setStrokeColor(WARN)
+        pdf.setLineWidth(1.1)
+        pdf.line(ox, y - H - 3, ox, y + 3)
+        pdf.setFont('Helvetica', 6.6)
+        pdf.setFillColor(INK)
+        pdf.drawString(L + 12, y - H - 9, pct(e.nullHist.lo, 1))
+        pdf.drawRightString(L + 12 + W, y - H - 9, pct(e.nullHist.hi, 1))
+        pdf.drawString(Math.min(ox + 3, L + 12 + W - 40), y + 5, `observed ${pct(e.observed, 1)}`)
+        y -= H + 16
+      }
+
+      const named = place.filter((e) => e.p < 0.05 && e.hits.length)
+      for (const e of named) {
+        text(`${e.feature}: ${e.hits.slice(0, 12).join(', ')}`
+          + (e.hits.length > 12 ? ` and ${e.hits.length - 12} more` : ''),
+          7.2, 'Helvetica', 2.6, INK, L + 8)
+      }
+      text('Positional only. This says nothing about which parent a change came from: the '
+        + 'late-replicating fragile compartment is established on both parental genomes from the '
+        + 'first cell cycle, so a result here does not support a parental one.',
+        7.2, 'Helvetica-Oblique', 2.6, INK, L + 8)
+      y -= 2
+    }
+
     text(`${m ? 'paternal ' : ''}absent ${pct(r.genomeRate)}  |  ceiling `
       + `${pct(r.explainable)}  |  ${times(r.genomeRate, r.explainable)}  |  `
       + `${int(r.informative)} informative markers  |  zygosity ${r.zygosity.replace(/_/g, ' ')}`
@@ -882,6 +974,44 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     text('The following limits applied to this run and are reported rather than resolved: '
       + fired.map((l, i) => `(${i + 1}) ${l.replace(/\.$/, '')}.`).join(' '), 8, 'Helvetica', 2.6)
     y -= 3
+  }
+
+  // Written to be pasted into a methods section, so it names versions, counts and definitions
+  // rather than describing them. Only printed when a run actually scored placement.
+  if (results.some((r) => (r.placement ?? []).some((e) => Number.isFinite(e.p)))) {
+    const any = results.find((r) => (r.placement ?? []).some((e) => Number.isFinite(e.p)))!
+    const pl = (any.placement ?? []).filter((e) => Number.isFinite(e.p))
+    heading('Methods: positional enrichment', 9.5)
+    text('Called regions were tested for positional enrichment against reference feature sets on '
+      + 'GRCh37/hg19. Common fragile sites were the classical aphidicolin-induced set, given '
+      + 'coordinates from their published cytogenetic bands through the UCSC cytoBand table. '
+      + 'Genes were UCSC refGene, from which intervals of genes exceeding 500 kb were merged. '
+      + 'Centromeric and telomeric intervals were taken from the UCSC gap table. Replication '
+      + 'timing was represented by Repli-seq valleys, the local minima of the ENCODE '
+      + 'wgEncodeUwRepliSeq wavelet-smoothed signal, taken both from the BG02ES embryonic stem '
+      + 'line and as a constitutive set called in at least 8 of 10 ENCODE cell lines; valleys '
+      + 'mark the latest-replicating positions rather than late-replicating domains.', 7.6)
+    text('Significance was assessed by permutation. Because a region can only be called where the '
+      + 'array carries markers and where amplification produced calls, and because marker density '
+      + 'covaries with gene density, intervals drawn uniformly along the genome are not a valid '
+      + 'null. Each null interval was therefore drawn on the same chromosome as the observed '
+      + 'region and constrained to contain the same number of informative markers, so that a '
+      + 'region of n markers was compared against other stretches of n markers rather than '
+      + `against an equivalent physical length. ${DEFAULT_PERMUTATIONS} permutations were drawn `
+      + 'per feature set from a fixed seed, making each reported p reproducible from the same '
+      + 'inputs. The reported p is the proportion of permutations at or beyond the observed value '
+      + 'in the tail the observation falls in, so depletion is reported as well as enrichment, '
+      + `with a Laplace correction giving a floor of 1/${DEFAULT_PERMUTATIONS + 1}. Enrichment was `
+      + `not computed for fewer than ${MIN_REGIONS} regions.`, 7.6)
+    text(`In this report ${pl.length} feature sets were tested against `
+      + `${pl[0].regions} region(s). Effect size should govern interpretation rather than the p `
+      + 'value alone: with a narrow null distribution a difference of a few per cent can reach a '
+      + 'small p while carrying no biological meaning, which is why the null interval and its '
+      + 'distribution are plotted beside every result.', 7.6)
+    text('This analysis is positional and carries no information about parent of origin. It uses '
+      + 'breakpoint position only and requires no parental genotype, and the late-replicating '
+      + 'fragile compartment is reported to be established on both parental genomes from the '
+      + 'first cell cycle, so a positional result here does not support a parental one.', 7.6)
   }
 
   heading('Interpretation', 10)

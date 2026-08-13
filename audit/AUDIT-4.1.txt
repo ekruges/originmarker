@@ -1,0 +1,147 @@
+ORIGINMARKER 4.1 - AUDIT
+========================
+One record for the parental-origin work. The per-topic files remain for detail:
+AUDIT.txt, BREAKPOINTS-AUDIT.txt, PROGENITOR-AUDIT.txt, FORMATS.txt,
+regions/FINDINGS.txt, gse19247/README.txt.
+
+Everything below is measured. Where a claim could not be tested it says so.
+
+
+WHAT IS VALIDATED
+-----------------
+- Gain DETECTION on real trisomies. 330 karyotype-confirmed trisomy 21 single cells, 100 of them
+  re-karyotyped blind by an independent laboratory. AUC 0.9779 against 114 confirmed euploid on
+  one platform, 0.9991 against 27 on the other. Inside the trisomy cells chr21 ranks first of 22
+  autosomes on BOTH platforms, which is what shows the statistic reads dosage and not amplification.
+- Breakpoint refinement. Median 9 markers, about 60 kb, with an interval on every edge. 12.2x
+  better than the window edge on public data. Needs no parental genotypes.
+- Sub-chromosome parental resolution, AGAINST A BULK PARENT. Per 5-Mb bin, AUC 0.9301 and
+  sensitivity 0.8148 at 95% specificity, measured on a bulk-genotyped father's biparental children
+  against his own one-genome products.
+- Orientation. 78,227 of 78,227 real markers invariant, and gain and loss now pinned in opposite
+  directions so reusing one call for the other event fails a test rather than naming the wrong
+  parent.
+- Format handling. Three deposit shapes in circulation, all sharing the AX- probeset namespace and
+  joining directly: tab-separated .CEL.probes; comma-separated GEO .CEL.txt, which omits log2R and
+  supplies normalized_intensity instead; and the repo's subset. Pinned against their real headers.
+
+
+WHAT IS NOT
+-----------
+- A parental SPLIT. No number of the form "x% of losses are maternal" is admissible from this
+  material yet. Six one-directional results were produced during this work and every one was
+  artefact; the reasons are listed below.
+- Gain ORIGIN on a confirmed trisomy. Detection is validated on 330 of them; naming the parent of
+  one is not, because no confirmed trisomy with a genotyped parent has been found.
+- Anything at 5-Mb resolution against a RECONSTRUCTED parent. That configuration measures 0.065 to
+  0.184 sensitivity, and it is the configuration most of this series is in.
+
+
+THE CONFOUNDS, EACH MEASURED
+----------------------------
+- A self-derived null turns platform failure into a parental result. 154 regions, all maternal,
+  with chr16:0-1Mb appearing in 18 of 32 cells. An external per-window null cut it to 59.
+- A single-parent reference cannot see a paternal loss. Headroom +0.019 above the centre against
+  -0.090 below, on a 0.10 threshold, so one direction is invisible by geometry.
+- A median B-allele frequency measures dropout, not dosage. Only 21-53% of obligate-het markers
+  are called heterozygous; the rest sit at zero and drag the median. No threshold recovers it.
+  Genotype calls do work and are what the shipped module uses.
+- Reconstructing a father from the cells being scored is circular unless the criterion is
+  HETEROZYGOSITY in the child and the selecting cells are held out. The wrong criterion put
+  paternal share at 0.96-0.98 where 0.5 is correct.
+- Relatedness baselines do not transfer between platforms. Unrelated adults sit near 0.30 on a
+  dense Illumina panel and at 0.0727 on GPL28377, which is enriched for low-frequency variants.
+  A cutoff carried across admits unrelated material, and did.
+- Sampling is not searching. A 90-array sample concluded no biparental child of the bulk father
+  existed; scanning all 884 found nine children across four experiments, five biparental. Two
+  conclusions in this audit were wrong for that reason and are corrected here.
+
+
+THE CALIBRATION, AND A CORRECTION TO THIS AUDIT'S OWN EXPLANATION
+-----------------------------------------------------------------
+A 29-region result, all maternal and none paternal at p < 0.0001, was produced on five biparental
+children of a genotyped father and is NOT reportable. The control that refutes it: the
+non-paternal allele fraction in regions with no loss (0.007 to 0.042) matches the loss regions
+(0.005 to 0.043) and is slightly lower where a copy is supposedly missing, so the statistic
+assigning the parent carries no information about the parent.
+
+This audit previously attributed that to the array's per-allele calling asymmetry. MEASURED, IT IS
+NOT THE CAUSE. At a marker where the father is heterozygous, meiosis gives each of his gametes A
+or B with probability exactly one half, so his haploid products calibrate the array against a known
+truth with no biology in it. Over 127,826 such markers and four of his gametes:
+
+    AA fraction 0.4948, 0.4945, 0.4880, 0.4964      mean 0.4934 against an expected 0.5000
+    bias -0.0066; the array calls A 0.974x as often as B when the truth is 1:1
+
+Correcting an observed non-paternal fraction of 0.02 gives 0.0195. The bias is real, it is under
+one percent, and it explains none of the excess.
+
+The actual explanation is simpler and was missed. At a father-AA marker most homozygous calls are
+legitimately AA because the mother transmitted A as well, so a low non-paternal fraction is the
+EXPECTED baseline rather than evidence of anything. The bins flagged as losses were amplification
+dropout rather than copy loss, which is why they carried no parental signal: nothing had been lost.
+
+  So the calibration is done, the array is close to unbiased, and the maternal excess was a
+  detection artefact of the loss caller rather than of the platform.
+
+
+WHAT WOULD CLOSE THE REMAINING GAP
+-----------------------------------
+- A bulk parental array per experimental group. This is the whole of it. With one, resolution goes
+  from 0.065-0.184 sensitivity to 0.815 at 95% specificity. The laboratory is isolating sperm, and
+  a bulk sperm donor already exists for part of the set.
+- A loss caller that separates copy loss from amplification dropout, since the current one does
+  not and that is what produced the 29 unsupported regions.
+- Parity confirmed on material where parity is known, before any split is reported. The
+  non-allele-specific Cas9 arm is the candidate, conditional on the guides being confirmed
+  non-allele-specific.
+- Roughly 20-30 oocyte donors before an asymmetry claim carries meaning. At 10 the minimum
+  detectable effect is a paternal fraction of 0.64 to 0.70.
+
+
+DATA
+----
+- 884 probe exports held locally, verified byte-for-byte against source, 736 unique samples.
+- 684 CEL files named in the three submission sheets; 474 present, 210 absent from the shared
+  drive and never deposited there.
+- One cumulus sample in the entire set, 14801-05, bulk-quality and confirmed as the mother of the
+  other arrays in its experiment.
+- 14 polar bodies, publicly deposited, genome-wide heterozygosity median 0.1116 where truth is
+  zero. That is the error floor for one-genome material on this platform.
+- Two arrays labelled MII oocyte biopsies read inside the biparental range and should not be used
+  as maternal references.
+
+
+PARENTAL LINKAGE: WHAT HAS BEEN TESTED, AND THE PROOF OF CONCEPT THAT DOES NOT EXIST PUBLICLY
+----------------------------------------------------------------------------------------------
+Validated, on data with known relationships:
+- Parent-child versus unrelated separation. Three tiers on real single cells: same individual
+  0.097-0.119 opposite-homozygote, related 0.14-0.18, unrelated 0.326-0.371. The tiers do not
+  overlap.
+- A maternal reference confirmed against 33 arrays, with one of the donor's own MII oocytes at
+  0.0061 as an internal control, and four amplification failures separating at 0.31-0.52.
+- Parental direction at 5 Mb against a BULK parent: AUC 0.9301, sensitivity 0.8148 at 95%
+  specificity, on a bulk-genotyped father's biparental children against his own one-genome
+  products.
+- Platform allele-calling bias against meiosis, where the true ratio is fixed at one half by
+  segregation: 0.4934 over 127,826 markers and four gametes, a bias of -0.0066.
+- Trisomy DETECTION on 330 karyotype-confirmed trisomy 21 cells, AUC 0.9779 and 0.9991.
+
+NOT VALIDATED, AND NOT VALIDATABLE ON PUBLIC DATA AS OF THIS AUDIT: the parental ORIGIN of a
+confirmed trisomy. That requires an aneuploid sample with BOTH parents genotyped on an array.
+
+Searched twice, systematically, and it does not exist in GEO:
+- Trisomy series with parents: GSE19247 carries 330 confirmed trisomy 21 cells and NO bulk DNA at
+  all, so its parents are single amplified buccal cells rather than parental gDNA.
+- Trisomy-with-family series: GSE230995 and GSE230994 are RNA-seq and GRO-seq of trisomy 21
+  families, so they carry expression rather than genotypes and cannot answer a parental-origin
+  question.
+- The one design that fits, 1,270 trophectoderm biopsies with both parents genotyped and 366
+  meiotic aneuploidies, is Gennet's and is not public: patient confidentiality prevents sharing
+  the SNP files, and access is by request to the senior author with local ethics approval.
+
+So the honest position is that trisomy DETECTION is validated at scale on real confirmed cases and
+trisomy ORIGIN is not, because the material to validate it on is not publicly available. The
+nearest substitute already run is the constructed positive control, which re-weights real allele
+intensities on a real array and recovers both directions, and it is labelled constructed wherever
+it is quoted.

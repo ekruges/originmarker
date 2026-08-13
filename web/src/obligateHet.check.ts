@@ -10,7 +10,6 @@ import {
   emptyHet, addOneParent, addTwoParent, hetCall,
 } from './obligateHet.ts'
 import { ploidyOf } from './productTriage.ts'
-import type { AB } from './informativity.ts'
 
 /** A tally at a given heterozygous fraction over `n` informative markers. */
 const at = (fraction: number, n = 1000) => {
@@ -70,11 +69,16 @@ const at = (fraction: number, n = 1000) => {
   assert.equal(hetCall(at(0.0705), 2).provisional, false)
 
   // The same number reads differently depending on how the informative set was defined, which is
-  // why the flag has to travel with the call. At 0.15: a clean uniparental call with both parents
-  // known, and a refusal with only one, because one parent cannot tell a diluted diploid signal
-  // from a haploid's error rate at that level.
+  // why the flag has to travel with the call. At 0.15, with BOTH parents the informative set is
+  // obligate-het and a diploid must read near 0.42, so 0.15 is uniparental. With ONE parent the
+  // set is diluted to markers where the unseen parent differs and a diploid reads about 0.09, so
+  // the same 0.15 is comfortably biparental.
+  //
+  // This second line previously expected a refusal, on the assumption that one parent could not
+  // separate a diluted diploid from a haploid's error rate here. Measured against a bulk parent it
+  // separates by a factor of two, one-genome products at 0.043-0.059 against children at 0.089 up.
   assert.equal(hetCall(at(0.15), 2).ploidy, 'uniparental')
-  assert.equal(hetCall(at(0.15), 1).ploidy, 'uncalled')
+  assert.equal(hetCall(at(0.15), 1).ploidy, 'biparental')
 
   // The boundaries are exclusive: a fraction sitting exactly on one is not called by it.
   assert.equal(hetCall(at(HAPLOID_MAX), 2).ploidy, 'uncalled')
@@ -113,3 +117,55 @@ const at = (fraction: number, n = 1000) => {
 }
 
 console.log('obligateHet.check.ts: all assertions passed')
+
+// --- the reference parent must be bulk, measured externally on GSE19247 ------------------------
+//
+// The numbers this pins are the ones that would otherwise be forgotten: scored against a
+// SINGLE-CELL reference, haploid sperm and biparental blastomeres overlap almost completely, so
+// no boundary placed anywhere separates them. Kept here so a future tightening of the one-parent
+// band cannot quietly claim to have fixed a problem that is not in the band.
+{
+  const SPERM_HAPLOID_RANGE = [0.0021, 0.5132]   // n=23, every one haploid by construction
+  const BLASTOMERE_RANGE = [0.0177, 0.3004]      // n=28, every one biparental
+
+  const overlaps = SPERM_HAPLOID_RANGE[0] < BLASTOMERE_RANGE[1]
+    && BLASTOMERE_RANGE[0] < SPERM_HAPLOID_RANGE[1]
+  assert.ok(overlaps, 'the measured single-cell-reference distributions overlap; that is the point')
+
+  // Whatever the boundaries are, they cannot separate that material. Assert it rather than trust
+  // the prose: pick the shipped one-parent band and show it misclassifies in both directions.
+  const worstSperm = SPERM_HAPLOID_RANGE[1]
+  const bestBlastomere = BLASTOMERE_RANGE[0]
+  assert.ok(worstSperm > ONE_PARENT_DIPLOID_MIN,
+    'a haploid sperm reaches the diploid boundary, so the band cannot exclude it')
+  assert.ok(bestBlastomere < ONE_PARENT_HAPLOID_MAX,
+    'a biparental blastomere falls under the haploid boundary, so the band cannot admit it')
+}
+
+// --- the one-parent boundaries, against a BULK reference where they do work ---------------------
+//
+// The same statistic separates cleanly once the reference is bulk. These are the measured values,
+// pinned so the boundaries cannot drift back to the scaled guesses that called every biparental
+// child of a single genotyped parent uniparental.
+{
+  const ONE_GENOME = [0.0428, 0.0514, 0.0570, 0.0587]   // products of a bulk-genotyped parent
+  const BIPARENTAL = [0.0894, 0.0973]                   // his children, two parental genomes
+
+  for (const v of ONE_GENOME) {
+    assert.equal(hetCall({ informative: 50_000, het: Math.round(50_000 * v) }, 1).ploidy,
+      'uniparental', `${v} is a one-genome product and must call uniparental`)
+  }
+  for (const v of BIPARENTAL) {
+    assert.equal(hetCall({ informative: 50_000, het: Math.round(50_000 * v) }, 1).ploidy,
+      'biparental', `${v} is a biparental child and must call biparental`)
+  }
+  // The regression this replaces: at the old 0.12 bound every one of those biparental children
+  // fell in the uniparental class.
+  assert.ok(Math.min(...BIPARENTAL) < 0.12,
+    'the old bound sat above the biparental class, which is why it was wrong')
+  assert.ok(ONE_PARENT_HAPLOID_MAX < Math.min(...BIPARENTAL)
+    && ONE_PARENT_DIPLOID_MIN <= Math.min(...BIPARENTAL),
+    'the boundaries must bracket the measured separation')
+}
+
+console.log('obligateHet.check.ts: bulk-reference precondition pinned')

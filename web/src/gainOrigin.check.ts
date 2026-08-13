@@ -6,12 +6,11 @@
 // that would do it silently: marker orientation, and a biased centre.
 import assert from 'node:assert/strict'
 import {
-  paternalShare, paternalShareOneParent, recentre, callGainOrigin, callHomologue,
+  paternalShare, paternalShareOneParent, recentre, callGainOrigin, callLossOrigin, callHomologue,
   MIN_INFORMATIVE_DEFAULT, MIN_INFORMATIVE_TROPHECTODERM, SHARE_MARGIN, EXPECTED_SEPARATION,
   HETERO_MULTIPLE, HETERO_ABSOLUTE_MIN, HET_BACKGROUND_FLOOR, externalHetBackground,
   type DosageMarker,
 } from './gainOrigin.ts'
-import type { AB } from './informativity.ts'
 
 /** `n` markers at a given paternal share, alternating which parent carries the A allele. */
 const region = (share: number, n: number, chrom = '1'): DosageMarker[] =>
@@ -135,11 +134,23 @@ const region = (share: number, n: number, chrom = '1'): DosageMarker[] =>
 
 // --- 4. it refuses where the review says the evidence does not reach ------------------------------
 {
-  // Too few informative markers. 400 is the WGA blastomere requirement and the default.
-  assert.equal(MIN_INFORMATIVE_DEFAULT, 400)
-  const thin = callGainOrigin(region(0.70, 399), 0.5)
+  // Too few informative markers. 200 is the WGA blastomere requirement and the default. It was
+  // 400, and was lowered on two measurements taken on the material the floor governs: two-way
+  // error against a bulk-genotyped father on five of his biparental real WGA arrays, which reads
+  // 0.0030 at 200 markers against a 1% bar, and direction recovery on a real CEPH trio under
+  // dropout drawn from real arrays, which reads 1.00 at 200 and 0.87 at 50.
+  assert.equal(MIN_INFORMATIVE_DEFAULT, 200)
+  // Specificity alone cannot justify a floor, since a caller that never calls has no error, so
+  // the sensitivity edge is pinned too: the floor must sit above where direction recovery fell.
+  assert.ok(MIN_INFORMATIVE_DEFAULT > 50, 'the floor must exceed the count where recovery broke')
+  // Derived from the constant rather than written out, so a future change to the floor cannot
+  // leave this case sitting above it and silently stop testing the refusal.
+  const thin = callGainOrigin(region(0.70, MIN_INFORMATIVE_DEFAULT - 1), 0.5)
   assert.equal(thin.origin, 'unclear', 'under the marker floor is a refusal however strong')
-  assert.ok(thin.why.includes('399'))
+  assert.ok(thin.why.includes(String(MIN_INFORMATIVE_DEFAULT - 1)),
+    'the refusal names how many markers it had')
+  assert.ok(thin.why.includes(String(MIN_INFORMATIVE_DEFAULT)),
+    'and how many it needed')
 
   // A focal gain on a WGA single cell: 400 markers span a median 47.6 Mb, so a 5 Mb region
   // carrying a median 51 informative markers cannot be annotated at the default.
@@ -324,3 +335,38 @@ const region = (share: number, n: number, chrom = '1'): DosageMarker[] =>
 }
 
 console.log('gainOrigin.check.ts: all assertions passed')
+
+// --- a loss names the opposite parent to a gain of the same size --------------------------------
+//
+// The single most dangerous confusion in this module: the same deviation means different parents
+// depending on whether the region was gained or lost. Pinned in both directions so that reusing
+// one call for the other event fails here rather than in a result.
+{
+  const at = (share: number, n = 600): DosageMarker[] =>
+    Array.from({ length: n }, (_, i) => ({ chrom: '1', pos: i * 1000, patShare: share }))
+
+  const CENTRE = 0.5
+  // Paternal alleles over-represented: a paternal GAIN, but a MATERNAL loss.
+  const high = at(0.75)
+  assert.equal(callGainOrigin(high, CENTRE).origin, 'paternal')
+  assert.equal(callLossOrigin(high, CENTRE).origin, 'maternal')
+
+  // Paternal alleles gone: a maternal gain, but a PATERNAL loss.
+  const low = at(0.05)
+  assert.equal(callGainOrigin(low, CENTRE).origin, 'maternal')
+  assert.equal(callLossOrigin(low, CENTRE).origin, 'paternal')
+
+  // Every refusal the gain path makes, the loss path must make identically. A loss is a bigger
+  // signal, which is not a reason to call one on thinner evidence.
+  assert.equal(callLossOrigin(at(0.75, 10), CENTRE).origin, 'unclear', 'too few markers')
+  assert.equal(callLossOrigin(at(0.51), CENTRE).origin, 'unclear', 'inside the margin')
+  assert.equal(callLossOrigin(at(0.75), NaN).origin, 'unclear', 'no centre to measure against')
+
+  // A complete loss is far larger than a gain, so it must never be the marginal case: losing one
+  // of two copies empties that parent's share, where gaining one only shifts it to two thirds.
+  assert.ok(Math.abs(callLossOrigin(at(0.0), CENTRE).deviation)
+    > Math.abs(callGainOrigin(at(2 / 3), CENTRE).deviation),
+    'a whole missing copy must read larger than one extra copy')
+}
+
+console.log('gainOrigin.check.ts: loss direction pinned opposite to gain')

@@ -489,3 +489,37 @@ console.log('ingest.check.ts: all assertions passed')
   accumulate(row('chr7')!, byChrom)
   assert.deepEqual([...byChrom.keys()], ['7'], 'the profile keys on the same bare form')
 }
+
+// --- the three real export shapes in circulation, pinned by their actual headers ---------------
+//
+// These are copied verbatim from files in use, not invented: a laboratory .CEL.probes, the GEO
+// deposit of the same platform's bulk gDNA, and a GEO polar-body export. All three carry the same
+// AX- probeset namespace and join directly; what differs is the delimiter, the column order, and
+// whether log2R is present under that name at all.
+{
+  const HEADERS: Array<[string, string, boolean]> = [
+    ['laboratory .CEL.probes, tab',
+     'probeset_id\tchr\tposition\tlog2R\tbaf\tcopy_number\tgenotype', true],
+    ['GEO .CEL.txt, comma, no log2R column',
+     'probeset_id,copy_number,chr,position,probe_classification,baf,genotype,normalized_intensity',
+     true],
+    ['GEO polar-body export, tab, extra column',
+     'probeset_id\tchr\tposition\tlog2R\tbaf\tcopy_number\tgenotype\tbestProbeset', true],
+  ]
+  for (const [what, header, shouldParse] of HEADERS) {
+    const map = headerMap(header)
+    assert.equal(!!map, shouldParse, `${what}: header must resolve`)
+    if (!map) continue
+    for (const need of ['probeset_id', 'chr', 'position', 'baf', 'genotype']) {
+      assert.ok(need in map, `${what}: missing ${need}`)
+    }
+    // normalized_intensity is the GEO name for the same quantity; the dosage channel reads log2r
+    // and must not have to know which deposit it came from.
+    assert.ok('log2r' in map, `${what}: log2r must resolve, by alias if necessary`)
+  }
+  // A header with no recognisable delimiter must refuse rather than guess.
+  assert.equal(headerMap('probeset_id;chr;position;baf;genotype'), null,
+    'an unrecognised delimiter is a refusal, not a silent single-column parse')
+}
+
+console.log('ingest.check.ts: three real export shapes pinned')

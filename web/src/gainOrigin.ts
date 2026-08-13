@@ -48,16 +48,35 @@ import type { AB } from './informativity.ts'
 /**
  * Informative markers a window needs before a direction is reported.
  *
- * Stage-dependent, measured as the smallest count at which the WORST array in the stage is under
- * 1% two-way error: 100 in a bulk ESC line, 50 to 100 in a trophectoderm biopsy, 400 in a WGA
- * blastomere. The default is the strictest of those, because the tool cannot see which stage it
- * has been handed and a wrong parent is worse than a refusal.
+ * WAS 400, LOWERED TO 200 ON MEASUREMENT. The original figure came from the smallest count at
+ * which the worst array in a stage stays under 1% two-way error, taken as 100 in a bulk ESC line,
+ * 50 to 100 in a trophectoderm biopsy and 400 in a WGA blastomere, with the strictest shipped
+ * because the tool cannot see which stage it has been handed.
  *
- * The cost is stated plainly: 400 informative markers span a median 47.6 Mb, so at the default a
- * whole chromosome or a large arm can be annotated and a focal gain cannot. A 5 Mb region carries
- * a median 51 informative markers, which clears the trophectoderm bar and is an eighth of this.
+ * The blastomere figure was re-measured against a BULK-GENOTYPED FATHER on five of his biparental
+ * children, real WGA arrays, using the same criterion: every window here is euploid, so any
+ * directional call is an error.
+ *
+ *     markers    worst array, two-way error
+ *        100         0.0051
+ *        200         0.0030
+ *        400         0.0023
+ *
+ * Every count tested is already under the 1% bar, and 200 is under it by a factor of three.
+ *
+ * SPECIFICITY ALONE WOULD NOT JUSTIFY THIS, since a caller that never calls anything has no
+ * error. Sensitivity was measured separately, on a real HapMap CEPH trio with a trisomy built
+ * from the parents' own alleles and dropout drawn from a Markov model fitted to real WGA arrays
+ * (a marker beside a dropped one is 2.18x more likely to drop). At 200 markers the direction is
+ * recovered at 1.00 with half the alleles dropping; at 50 it falls to 0.87.
+ *
+ * So both halves are measured on the material the floor governs, and 200 is where they meet.
+ *
+ * The cost, restated at the new value: 200 informative markers span a median 23.8 Mb rather than
+ * 47.6, which halves the smallest region that can carry a parental label. A focal gain still
+ * cannot be annotated; an arm, and now a large sub-arm region, can.
  */
-export const MIN_INFORMATIVE_DEFAULT = 400
+export const MIN_INFORMATIVE_DEFAULT = 200
 export const MIN_INFORMATIVE_TROPHECTODERM = 100
 export const MIN_INFORMATIVE_BULK = 100
 
@@ -190,6 +209,43 @@ export function callGainOrigin(
     why: `${deviation > 0 ? 'paternal' : 'maternal'} alleles are over-represented by `
       + `${Math.abs(deviation).toFixed(3)} against this sample's own centre of `
       + `${centre.toFixed(3)}, over the ${margin} margin`,
+  }
+}
+
+/**
+ * Which parent's copy is MISSING across a region, in a biparental cell.
+ *
+ * THE DIRECTION IS THE OPPOSITE OF A GAIN, and this function exists so that inversion is written
+ * down once rather than rediscovered. An extra paternal copy raises the paternal share; a missing
+ * paternal copy removes it. So the same deviation means different parents depending on which
+ * event it belongs to:
+ *
+ *     paternal GAIN   share rises      deviation > 0
+ *     paternal LOSS   share falls      deviation < 0
+ *
+ * Passing a loss to callGainOrigin therefore names the wrong parent every time.
+ *
+ * A loss is the larger signal of the two. One extra of two copies moves the share to 0.667, while
+ * losing one of two removes that parent's alleles entirely and moves it to 0 or 1. The margin is
+ * kept as a floor rather than raised to suit, because whole-genome amplification compresses the
+ * observed value and a partial or mosaic loss lands between the two.
+ */
+export function callLossOrigin(
+  region: readonly DosageMarker[],
+  centre: number,
+  minInformative = MIN_INFORMATIVE_DEFAULT,
+  margin = SHARE_MARGIN,
+): OriginCall {
+  const call = callGainOrigin(region, centre, minInformative, margin)
+  if (call.origin === 'unclear') return call
+  // Same measurement, opposite reading: the parent under-represented here is the one lost.
+  const lost = call.deviation < 0 ? 'paternal' : 'maternal'
+  return {
+    ...call,
+    origin: lost,
+    why: `${lost} alleles are under-represented by ${Math.abs(call.deviation).toFixed(3)} against `
+      + `this sample's own centre of ${centre.toFixed(3)}, over the ${margin} margin, which is `
+      + `the ${lost} copy missing rather than the other parent's gained`,
   }
 }
 

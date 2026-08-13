@@ -39,6 +39,22 @@
  * mismatch, not every marker. The direction and the ordering survive; the boundary does not
  * transfer unchanged. `oneParent` therefore carries its own, wider band and refuses more often.
  *
+ * AND THE REFERENCE PARENT MUST BE BULK. This is a hard precondition, measured externally rather
+ * than argued, on GSE19247, where the truth is known by construction: single sperm are haploid,
+ * Day 3 blastomeres are biparental. Scored against a SINGLE-CELL reference parent the statistic
+ * does not separate them at all.
+ *
+ *     single sperm, haploid        n=23   median 0.0548   range 0.0021 - 0.5132
+ *     Day 3 blastomere, biparental n=28   median 0.0962   range 0.0177 - 0.3004
+ *
+ * Four of the 23 haploid sperm read 27% to 51% heterozygous, which one genome cannot do, and they
+ * carry the HIGHEST call rates in the set, so no call-rate gate removes them. The mechanism is the
+ * reference: dropout turns its true heterozygous markers into apparent homozygotes, so its
+ * "homozygous" set becomes most of the genome and conditioning on it stops doing anything.
+ * Measured, obligate-het and plain genome-wide heterozygosity agreed to within 0.01 on all 51
+ * arrays. A reference that is itself amplified single-cell material carries no information here.
+ * See audit/BREAKPOINTS-AUDIT.txt section E2.
+ *
  * PER CHROMOSOME, NOT PER ARRAY. This series is chromosome-loss experiments and the review found
  * 7 arrays that are genome-wide partial: 6 to 12 uniparental chromosomes inside an otherwise
  * biparental cell. A per-array verdict would call those diploid and hide exactly the event the
@@ -55,12 +71,26 @@ export const DIPLOID_MIN = 0.45
 
 /**
  * With one parent only, the diploid signal is diluted to the markers where the unseen parent
- * differs, so the boundaries widen and the uncalled band between them is deliberately large.
- * Not measured on this material; set from the two-parent figures scaled by the dilution and
- * treated as provisional. Any call made under it says so.
+ * differs. These were previously 0.12 and 0.30, set by scaling the two-parent figures and
+ * described as provisional. MEASURED NOW, and the dilution is far larger than that scaling
+ * assumed, so the old values called every biparental child of a single genotyped parent
+ * uniparental.
+ *
+ * Against a BULK reference parent, genome-wide at his 639,543 autosomal homozygous markers, on
+ * nine of his children found across four experiments:
+ *
+ *     his one-genome products    0.0428  0.0514  0.0570  0.0587
+ *     his biparental children    0.0894  0.0973  and above
+ *
+ * Both classes sat under the old 0.12 bound. The real separation is an order of magnitude lower
+ * than assumed, and the boundaries below bracket it with the gap left uncalled.
+ *
+ * THE PRECONDITION IS UNCHANGED AND STILL BINDING: this is measured against a BULK parent, and
+ * against a single-cell reference the same statistic does not separate at all. See the section
+ * above and audit/regions/FINDINGS.txt.
  */
-export const ONE_PARENT_HAPLOID_MAX = 0.12
-export const ONE_PARENT_DIPLOID_MIN = 0.30
+export const ONE_PARENT_HAPLOID_MAX = 0.065
+export const ONE_PARENT_DIPLOID_MIN = 0.085
 
 /** Fewest called informative markers before a fraction means anything. The review's per-chromosome
  *  informative minimum was 304 with a median of 918 to 1,362, so this refuses the thin tail. */

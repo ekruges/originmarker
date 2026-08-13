@@ -56,8 +56,8 @@ RELEASES: tuple[Release, ...] = (
             "can stop predicting the other."),
 )
 
-VERSION = "4.0.1"
-CODENAME = "Crossover"
+VERSION = "4.5.0"
+CODENAME = "Chiasma"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

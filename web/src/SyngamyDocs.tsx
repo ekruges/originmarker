@@ -58,6 +58,7 @@ const SECTIONS: DocSection[] = [
   { id: 'breakpoints', label: 'How precisely a breakpoint is placed' },
   { id: 'gainorigin', label: 'Where an extra copy came from' },
   { id: 'segments', label: 'Chromosomal change: segments' },
+  { id: 'contribution', label: 'One parent or two, per chromosome' },
   { id: 'report', label: 'The report, and how to cite it' },
   { id: 'examples', label: 'The bundled example data' },
   { id: 'backend', label: 'What the backend adds' },
@@ -1605,6 +1606,37 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             extra chromosome is detectable, calling it maternal is an inference from an assumed
             pedigree rather than a measurement, and it would need the oocyte donor&rsquo;s own array
             to become one.
+          </Text>
+        </Section>
+
+        <Section id="contribution" title="One parent or two, per chromosome">
+          <Text size="sm" mb={10}>
+            Beside every chromosome&rsquo;s verdict the report now says whether that chromosome
+            carries <b>one parental contribution or two</b>. This is the question that matters on
+            material past the pronucleus stage, where a cell can be biparental overall and
+            uniparental on part of its genome. A verdict for the whole array would hide exactly
+            that.
+          </Text>
+          <Text size="sm" mb={10}>
+            The evidence is heterozygosity at markers where a parent is homozygous. A cell carrying
+            only that parent&rsquo;s genome cannot be heterozygous there at all, so every such call
+            is amplification error; a cell carrying a second parent&rsquo;s genome reads
+            heterozygous wherever the two parents differ. With both parents loaded the informative
+            markers are those where they are homozygous for opposite alleles, and the measured
+            boundaries are 20% and 45%. With one parent the signal is diluted to wherever the
+            unseen parent differs, so the boundaries widen to 12% and 30%, every call is marked
+            provisional, and the tool refuses more often.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>It is reported, never used as a gate.</b> Nothing is admitted or refused on the
+            strength of it. Two reasons, both measured rather than assumed. The boundaries hold for
+            a reference parent that is bulk DNA; scored against a reference that is itself an
+            amplified single cell they do not separate at all, because dropout turns that
+            reference&rsquo;s heterozygous markers into apparent homozygotes until conditioning on
+            them stops meaning anything. And the older B-allele band gate, which remains in use for
+            triage where no parent is available, was only ever measured on a haploid meiotic
+            product against a bulk adult: on 120 post-zygotic arrays 91 fall inside its haploid
+            range. Neither statistic is safe as a general ploidy branch, so neither is used as one.
           </Text>
         </Section>
 

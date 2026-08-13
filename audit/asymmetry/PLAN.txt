@@ -1,0 +1,130 @@
+PARENT-OF-ORIGIN ASYMMETRY: WHAT THE DESIGN MUST DO
+===================================================
+Target question: do breakpoints and losses affect the paternal and maternal genomes differentially
+or equally. Design constraints below come from an external statistical review; measurements marked
+MEASURED HERE were made on the laboratory arrays (GPL28377, 825,657 markers, 884 exports).
+
+THE BINDING CONSTRAINT IS NOT POWER, IT IS DETECTION SENSITIVITY
+----------------------------------------------------------------
+If maternal and maternal events are detected with unequal sensitivity, true parity reads as
+asymmetry. The exchange rate, at one cell per embryo, is that a 7.7% maternal detection shortfall
+alone manufactures an apparent paternal fraction of 0.52. At 3 cells it takes 19.2%, at 8 cells
+46.6%. So arraying more cells per embryo is a BIAS control, not only a precision measure, and on
+single-cell-per-embryo material no claim is supportable at all.
+
+  Claimable floor: no effect below paternal fraction 0.60, and nothing on 1-cell-per-embryo material.
+  Roughly 20-30 oocyte donors before a null means anything; at 10 donors the MDE is 0.64-0.70.
+
+UNIT OF ANALYSIS
+----------------
+The EVENT, deduplicated within embryo. Not the array (replicate arrays per cell exist here) and not
+the cell (a meiotic event is one event seen in every blastomere). Primary test is a binomial GLMM
+with donor and embryo-within-donor random intercepts, by likelihood ratio.
+
+THE MITOTIC/MEIOTIC LABEL IS LATENT AND ITS ERRORS ARE PARENT-DEPENDENT
+-----------------------------------------------------------------------
+An event missed in some cells is called mitotic. At true parity with a 0.70 sensitivity ratio, the
+apparent paternal fraction splits 0.743 meiotic against 0.476 mitotic, a 26.8 point gap that is
+entirely artefact. At equal sensitivity the gap is 0.000. The class-stratified analysis is
+therefore the MOST vulnerable, not the least, and is exploratory only.
+
+THE NULL IS NOT 50:50, AND NOT ONE NULL
+----------------------------------------
+Direction flips between classes: meiotic whole-chromosome runs about 0.10 paternal across two
+independent studies, meiotic segmental 0.58-0.71 paternal. For mitotic segmental, the target class,
+there is NO published parental split in any species, because haplotype methods define a mitotic
+event as one with a normal biparental pattern and so cannot assign its parent. That gap is what
+this work fills, and it means no informative prior can be borrowed. Pooling classes can return a
+null that is an artefact of pooling.
+
+RECONSTRUCTING THE MOTHER IS DISQUALIFYING
+-------------------------------------------
+Cross-donor sharing recovers the FATHER well (99.28% over 65.6% of markers from 14 embryos across
+4 donors). It fails for the mother, who is shared only within her own sibship, and the failure runs
+in the direction being measured: substituting a reconstructed mother turns a true
+log2(maternal/paternal) absence ratio of -0.40 into +2.18. The mechanism is that reconstruction
+inflates the informative marker count 1.27x to 1.84x by admitting markers where she is actually
+heterozygous, and those read as maternal absence.
+
+  Use a maternal array where one exists. Where none exists, report the embryo as unlabelled and
+  state the fraction. Never mix reconstructed and genotyped donors silently.
+  Polar bodies are the correct substitute for a maternal array, not sibling reconstruction.
+  PB1 is 2C, not haploid: it carries both sister chromatids of the non-transmitted homologue. A
+  PB1+PB2 pair observes 3 chromatids of the tetrad and is worth 3.66-4.06 independent 1C products
+  for reconstruction, while counting as ONE meiosis for event-level inference.
+
+MEASURED HERE: HOMOZYGOTE DIRECTION SKEW ON GPL28377
+-----------------------------------------------------
+12 laboratory arrays sampled across studies and stages, every 7th marker:
+
+  AA-vs-BB homozygote skew   median -0.1797   mean -0.2054   sd 0.0502   range -0.3271 .. -0.1635
+
+BB is called consistently more often than AA, on every array, at every stage. THIS IS NOT YET
+EVIDENCE OF A BIASED PARENTAL SPLIT and must not be used as one. The measurement conflates two
+things and cannot separate them without a parent array:
+
+  1. Marker composition. The two obligate-het orientations are not equinumerous. This does NOT
+     bias the parental split: one obligate-het marker detects loss of EITHER parent, so the
+     informative denominator is identical for both directions.
+  2. A genuine direction-of-call asymmetry, which DOES propagate, because paternal and maternal
+     loss are read out through opposite homozygous states at any given marker. On a public series
+     with a known trio this is 0.0297 (expected homozygote recovered at 0.9134 in the AA direction
+     against 0.9430 in the BB direction) - an order of magnitude smaller than the raw skew above.
+
+  TO DO: repeat against a genotyped parent and haploid controls on this platform to separate the
+  two, and feed only component 2 into the ascertainment bound. Do not re-centre the null on a
+  marker-count ratio.
+
+TWO PREMISES TO VERIFY BEFORE THE CALIBRATION ARM IS USED
+----------------------------------------------------------
+The chr16 and chrX arm is a symmetry control only if those guides are NOT allele specific. The same
+laboratory's published headline result is allele-SPECIFIC chromosome removal after Cas9 cleavage.
+If any calibration guide is allele specific the expected 50:50 split fails and the control inverts.
+Check the guide sequences.
+
+And the arm is weaker than hoped even if the premise holds: at 20 induced events the 95% interval
+on the sensitivity ratio is 0.354-2.827. Below roughly 115 events against 150 spontaneous ones, a
+point correction adds more variance than it removes bias. Use the arm as a BOUND and a sensitivity
+analysis, never as a routine correction.
+
+COHORT STRUCTURE: TWO GROUPS THAT MUST BE ANALYSED SEPARATELY
+--------------------------------------------------------------
+Stated by the laboratory, and it decides which parental route is available:
+
+  2PN-THAWED embryos (Turocy, much of Jerabek)   ONE egg donor and ONE sperm per group.
+    Cross-donor sharing cannot identify the father here: there is only one mother per group, so
+    nothing distinguishes a shared paternal haplotype from a shared maternal one. This group needs
+    a real parental array, from polar bodies, cumulus, or sperm.
+  MII-plus-SPERM embryos (some Jerabek, Robles)  DIFFERENT egg donors, SAME sperm.
+    This is the structure the cross-donor construction requires, and the one where paternal
+    reconstruction is sound.
+
+A GENOTYPED FATHER EXISTS FOR PART OF THE SET. The EYS sperm donor is on this platform as bulk
+gDNA in four replicates, GSM4472397-4472400 of GSE148488, and two of those already ship in this
+repo as example data. Where EYS was the sperm source, the paternal side needs no inference at all.
+
+THE MATERNAL REFERENCE IS ONE SAMPLE, AND IT IS USABLE
+-------------------------------------------------------
+There is exactly one cumulus sample in the whole set: 14801-05, experiment 8. Measured against
+the known bulk gDNA on this platform, it is bulk-like rather than single-cell:
+
+  GSM4472397  sperm donor bulk gDNA      call 0.954   het 0.168
+  14801-05    cumulus, maternal somatic  call 0.950   het 0.145
+
+NOTE THE PLATFORM RANGE. A diploid genome reads about 0.15-0.17 heterozygous on GPL28377, not the
+0.30 typical of a denser common-SNP array. A threshold carried over from another platform will
+call every diploid here haploid.
+
+Experiment 14801 is therefore the one complete unit in the set: a maternal somatic reference, a
+polar body, three MII oocyte biopsies, isolated zygote nuclei, and a genotyped father if EYS was
+the sperm source. 38 arrays. Whatever is built should be built and checked here first.
+
+FOUR ARRAYS IN THAT EXPERIMENT ARE FAILURES and must be excluded rather than modelled:
+14801-20, -23, -27 and -38 read 0.53-0.56 heterozygous at 0.45-0.59 call rate. No genome does
+that; it is amplification failure or mixture.
+
+COHORT ARITHMETIC
+-----------------
+The three public series total 459 arrays (135 + 166 + 158). 884 probe exports are held locally, so
+the difference is unpublished material or duplication across folders. Reconcile before any methods
+section quotes a sample count.

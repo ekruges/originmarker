@@ -25,7 +25,10 @@ import type { GainAnnotation } from './parentage'
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground,
   MIN_INFORMATIVE_DEFAULT, type DosageMarker,
+  callLossOrigin,
 } from './gainOrigin'
+import { addTwoParent, emptyHet, hetCall, type HetTally } from './obligateHet'
+import { scoreAll, type FeatureTrack, type Enrichment } from './features'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { isInferredFile } from './inferredArray'
@@ -172,6 +175,22 @@ async function profileFile(
     }
   }
   return { profile, gates: g }
+}
+
+/**
+ * hg19 feature intervals, fetched once and shared. 13 KB gzipped, so it is fetched rather than
+ * bundled, and a failure is not an error: placement is an addition to a run, never a gate on one.
+ */
+let featureTrack: FeatureTrack | null = null
+let trackTried = false
+async function loadFeatureTrack(): Promise<FeatureTrack | null> {
+  if (featureTrack || trackTried) return featureTrack
+  trackTried = true
+  try {
+    const r = await fetch(`${import.meta.env.BASE_URL}hg19_features.json`)
+    if (r.ok) featureTrack = (await r.json()) as FeatureTrack
+  } catch { /* offline or blocked; the run is unaffected */ }
+  return featureTrack
 }
 
 export function SyngamyPage({ health }: { health?: Health | null }) {
@@ -403,6 +422,11 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // In a haploid product every one of these is amplification error, and a region running
           // far above the array's own rate carries the parent's OTHER homologue.
           const hetByChrom = new Map<string, { informative: number; het: number }>()
+          // Parental contribution, per chromosome. With both parents this is the obligate set:
+          // both homozygous and OPPOSITE, where a biparental cell must read heterozygous. With one
+          // parent `hetByChrom` above is already the same tally in its one-parent form, so nothing
+          // extra is collected for that case.
+          const obligateByChrom = new Map<string, HetTally>()
           const absenceByChrom = new Map<string, MarkerAbsence[]>()
           // The copy-number channel: every marker on the array, called or not, with its intensity.
           // A region that is GONE stops producing calls, which the parental-absence indicator
@@ -428,6 +452,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               hetByChrom.set(r.chrom, h)
               if (mat) {
                 const mo = mat.gt.get(r.probesetId) ?? 'NC'
+                const ob = obligateByChrom.get(r.chrom) ?? emptyHet()
+                addTwoParent(fa, mo, r.genotype, ob)
+                obligateByChrom.set(r.chrom, ob)
                 const share = paternalShare(fa, mo, r.baf)
                 if (share !== null) {
                   const d = dosageByChrom.get(r.chrom) ?? []
@@ -442,6 +469,24 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             }
           }, bar(s.id, s.file.size), log)
           const result = classify(t, pat.heterozygosity)
+          // One contribution or two, per chromosome. Reported, never used to admit or reject a
+          // sample: the boundaries are measured for a BULK reference parent, and against a
+          // single-cell reference they do not separate at all (audit section E2).
+          for (const c of result.chroms) {
+            const two = mat !== null && mat !== undefined
+            const tally = two
+              ? obligateByChrom.get(c.chrom) ?? emptyHet()
+              : hetByChrom.get(c.chrom) ?? emptyHet()
+            const call = hetCall(tally, two ? 2 : 1)
+            if (call.ploidy !== 'uncalled') c.contribution = call
+          }
+          const uni = result.chroms.filter((c) => c.contribution?.ploidy === 'uniparental')
+          if (uni.length) {
+            log('WARN', `one parental contribution only on ${uni.map((c) => `chr${c.chrom}`)
+              .join(', ')}: ${uni[0].contribution!.why}`
+              + (uni[0].contribution!.provisional
+                ? '. One parent loaded, so this boundary is provisional' : ''))
+          }
           // Segments, after the per-chromosome verdicts, because a chromosome whose calls are not
           // measuring it must not be scanned either: the same broken calls would produce a
           // confident segment inside it.
@@ -480,12 +525,16 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // lifted by the very events under test where several chromosomes carry one.
           const annotate = (
             where: string, kind: 'whole chromosome' | 'segment', chrom: string,
-            from: number, to: number,
+            from: number, to: number, event: 'gain' | 'loss' = 'gain',
           ) => {
             if (mat && allDosage.length) {
               const inside = (dosageByChrom.get(chrom) ?? [])
                 .filter((d) => d.pos >= from && d.pos <= to)
-              const c = callGainOrigin(inside, centre, MIN_INFORMATIVE_DEFAULT)
+              // A loss reads the same share in the opposite direction, so the two must not share
+              // one call: the under-represented parent is the one LOST, not the one that gained.
+              const c = event === 'loss'
+                ? callLossOrigin(inside, centre, MIN_INFORMATIVE_DEFAULT)
+                : callGainOrigin(inside, centre, MIN_INFORMATIVE_DEFAULT)
               return {
                 where,
                 kind,
@@ -520,8 +569,46 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 'segment', sg.chrom, sg.startBp, sg.endBp,
               )),
           ]
+          // The same for losses, which is the direction the whole question usually turns on:
+          // a lost chromosome or segment belonged to one parent, and which one is the answer.
+          result.losses = [
+            ...result.chroms.filter((c) => c.aneuploidy === 'loss')
+              .map((c) => annotate(`chr${c.chrom}`, 'whole chromosome', c.chrom, 0, Infinity,
+                'loss')),
+            ...result.segments.filter((sg) => sg.kind === 'copy-loss')
+              .map((sg) => annotate(
+                `chr${sg.chrom} ${(sg.startBp / 1e6).toFixed(1)}-${(sg.endBp / 1e6).toFixed(1)}Mb`,
+                'segment', sg.chrom, sg.startBp, sg.endBp, 'loss',
+              )),
+          ]
+          // Where the regions landed, against fragile sites and long genes. Positional only, and
+          // scored against a null matched on THIS sample's informative markers per chromosome:
+          // a region can only be called where markers are, so a uniform null would report an
+          // enrichment for anything that tracks marker density.
+          const track = await loadFeatureTrack()
+          if (track && result.segments.length) {
+            const byChrom = new Map<string, number[]>()
+            for (const [c, ms] of absenceByChrom) {
+              byChrom.set(c, ms.map((m) => m.pos).sort((a, b) => a - b))
+            }
+            result.placement = scoreAll(
+              track,
+              result.segments.map((sg) => {
+                const co = segmentCoords(sg)
+                return { chrom: sg.chrom, startBp: co.startBp, endBp: co.endBp }
+              }),
+              byChrom,
+            )
+            for (const e of result.placement) {
+              log(Number.isNaN(e.p) ? 'WARN' : 'DONE', `placement: ${e.why}`
+                + (e.hits.length ? `. Touching ${e.hits.slice(0, 6).join(', ')}` : ''))
+            }
+          }
           for (const g of result.gains) {
             log(g.called ? 'DONE' : 'WARN', `gain ${g.where}: ${g.origin}. ${g.why}`)
+          }
+          for (const l of result.losses) {
+            log(l.called ? 'DONE' : 'WARN', `loss ${l.where}: ${l.origin} copy missing. ${l.why}`)
           }
 
           if (result.segments.length) {
@@ -891,6 +978,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
             </div>
           )}
           <SegmentCallout segments={r.segments} />
+          <PlacementCallout placement={r.placement} />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">
@@ -1228,6 +1316,68 @@ function GainCallout({ gains }: { gains: GainAnnotation[] }) {
         Not validated on a true positive: no confirmed gain with a known origin exists in the
         material behind these thresholds, so this has been shown to refuse correctly and never to
         fire correctly. See the audit.
+      </Text>
+    </div>
+  )
+}
+
+/**
+ * Where the regions landed. Positional only, and the null is stated on the page rather than left
+ * to the reader, because the number means nothing without it: a region is only callable where
+ * markers are, so the comparison is against intervals carrying the same number of markers.
+ */
+function PlacementCallout({ placement }: { placement?: Enrichment[] }) {
+  const rows = (placement ?? []).filter((e) => Number.isFinite(e.p))
+  if (!rows.length) return null
+  const sig = rows.filter((e) => e.p < 0.05)
+  return (
+    <div style={{
+      border: '1px solid var(--om-line)', padding: '11px 14px', margin: '10px 0 4px',
+    }}
+    >
+      <Text style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.25 }}>
+        Where these regions sit in the genome
+      </Text>
+      <Text size="sm" mt={3} style={{ maxWidth: 760, lineHeight: 1.5 }}>
+        Each is compared against {rows[0].regions} intervals drawn on the same chromosome carrying
+        the same number of informative markers, not against the genome at large. That matters:
+        regions can only be called where markers are, and marker density tracks gene density, so an
+        unmatched comparison reports an enrichment for almost any feature.
+      </Text>
+      <table style={{ borderCollapse: 'collapse', marginTop: 8, fontSize: 13 }}>
+        <thead>
+          <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--om-line)' }}>
+            <th style={{ padding: '3px 14px 3px 0' }}>feature</th>
+            <th style={{ padding: '3px 14px 3px 0' }}>observed</th>
+            <th style={{ padding: '3px 14px 3px 0' }}>matched null</th>
+            <th style={{ padding: '3px 14px 3px 0' }}>ratio</th>
+            <th style={{ padding: '3px 0' }}>p</th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((e) => (
+            <tr key={e.feature} style={{ fontWeight: e.p < 0.05 ? 700 : 400 }}>
+              <td style={{ padding: '3px 14px 3px 0' }}>{e.feature}</td>
+              <td style={{ padding: '3px 14px 3px 0' }}>{pct(e.observed, 1)}</td>
+              <td style={{ padding: '3px 14px 3px 0' }}>{pct(e.nullMean, 1)}</td>
+              <td style={{ padding: '3px 14px 3px 0' }}>{e.ratio.toFixed(2)}x</td>
+              <td style={{ padding: '3px 0' }}>{e.p < 0.001 ? '< 0.001' : e.p.toFixed(3)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {sig.map((e) => (
+        e.hits.length ? (
+          <Text key={e.feature} size="sm" mt={6} style={{ maxWidth: 760, lineHeight: 1.5 }}>
+            <b>{e.feature}:</b> {e.hits.slice(0, 10).join(', ')}
+            {e.hits.length > 10 ? ` and ${e.hits.length - 10} more` : ''}
+          </Text>
+        ) : null
+      ))}
+      <Text size="sm" mt={6} c="dimmed" style={{ maxWidth: 760, lineHeight: 1.5 }}>
+        This says nothing about which parent a change came from. The late-replicating fragile
+        compartment is established on both parental genomes from the first cell cycle, so a
+        positional result here does not support a parental one.
       </Text>
     </div>
   )

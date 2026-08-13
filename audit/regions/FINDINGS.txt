@@ -1,0 +1,504 @@
+REGION CALLING AGAINST A SINGLE MATERNAL REFERENCE: TWO CONFOUNDS, BOTH MEASURED
+================================================================================
+Material: experiment 14801, the one complete unit in the laboratory set. 825,657-marker arrays.
+Reference: 14801-05, the single cumulus sample, maternal somatic DNA at bulk quality on this
+platform (call 0.950, het 0.145 against 0.954 / 0.168 for known bulk gDNA).
+
+THE REFERENCE IS CONFIRMED, NOT ASSUMED
+----------------------------------------
+Opposite-homozygote rate of every array in the experiment against the cumulus donor:
+
+  14801-02   0.0012      33 arrays span 0.0012 to 0.114
+  14801-12   0.0061      an MII oocyte biopsy, her own gamete, which is the internal control
+  ...
+  14801-20/23/27/38   0.307 to 0.523   amplification failures, excluded
+
+Unrelated adults sit near 0.30. Everything under 0.12 is her material or her child. So the
+maternal assignment is measured, and the four failures separate cleanly from it.
+
+CONFOUND 1: A SELF-DERIVED NULL CONVERTS PLATFORM ARTEFACT INTO A PARENTAL RESULT
+----------------------------------------------------------------------------------
+Scoring each cell against its own genome-wide centre returns 154 regions, and the shape of that
+result is the giveaway rather than the count:
+
+  154 of 154 called MATERNAL copy missing.  Zero paternal.
+  60% fall in 1-Mb bins recurring in 5 or more different cells.
+  chr16:0-1Mb appears in 18 of 32 cells.  chr6:32-33Mb, the HLA region, in 10.
+  chr11:2-3Mb, an imprinted cluster, in 7.  chr1:2-3Mb and chr19:0-1Mb, GC-rich subtelomeres, in 5.
+
+No biological process runs one way in every cell and lands on the same megabase in half of them.
+These are places where genotyping fails on this platform, and the failure drops maternal-matching
+signal, so a self-derived null reports it as a parental finding.
+
+Replacing the null with the SAME WINDOW ACROSS THE OTHER CELLS, each cell held out of its own
+null, removes them: 154 regions fall to 59, the cohort median at the surviving positions sits at
+about 0.000, and what remains is cell-specific at 5 to 23 robust SD. That is the repo's existing
+external-null principle applied at region level, and it was necessary here.
+
+CONFOUND 2: THE STATISTIC CANNOT SEE A PATERNAL LOSS AT ALL
+------------------------------------------------------------
+After the external null all 59 surviving regions are STILL maternal, and that is not biology
+either. Measured, pooled over every window and cell:
+
+  headroom ABOVE each cell's centre   p99  +0.0191
+  headroom BELOW                      p1   -0.0904
+                                           -------------
+  4.7x more range downward, and the detection threshold is 0.10
+
+A lost PATERNAL copy pushes maternal share UP, toward a ceiling 0.019 away. A lost MATERNAL copy
+pushes it DOWN, and the observed events reach -0.45. So one direction is structurally invisible
+and the other is easy, and any parental split computed this way is a property of the geometry.
+
+The cause is the informative set. With only the mother genotyped, most of her homozygous markers
+are uninformative because the father carried the same allele, and those markers sit at share 1.0
+and pin the centre near the top of the range. The dynamic range above the centre is what is left
+over, which is nothing.
+
+  CONSEQUENCE. Do not report a parental split from a single-parent reference. An external review
+  independently identified detection asymmetry as the binding confound for this question and put
+  the exchange rate at a 7.7% maternal detection shortfall being enough to manufacture an apparent
+  paternal fraction of 0.52. What is measured here is that same failure at its limit: a 100:0
+  split produced entirely by measurement.
+
+WHAT IS NEEDED, AND IT IS ALREADY INDICATED
+--------------------------------------------
+Restrict to markers where the father DIFFERS from the mother, which is the obligate-het class the
+gain and loss callers already consume. That needs the father. He is recoverable: cross-donor
+sharing reconstructs a father at 99.28% over 65.6% of markers from 8 or more embryos spanning 3 or
+more oocyte donors, and unlike the maternal case that reconstruction does not bias the direction
+under test. Where the EYS sperm donor was the source, his bulk array exists and no inference is
+needed at all.
+
+The 59 regions are therefore kept as a MATERNAL-LOSS CANDIDATE LIST with breakpoint intervals, not
+as a parental split, and the strongest of them are worth checking against the laboratory's manual
+breakpoint maps:
+
+  14801-29  chr9   21.22-22.99, 34.47-35.75, 106.93-108.13 Mb   z -17 to -23
+  14801-30  chr12  32.48-34.01, 111.32-113.35, 120.47-122.22 Mb  z -14 to -19
+  14801-19  chr5  178.79-180.17 Mb                                z -21
+
+
+CONFOUND 3: RECONSTRUCTING THE FATHER FROM THE CELLS THAT WILL BE SCORED IS CIRCULAR
+--------------------------------------------------------------------------------------
+The father was called homozygous-opposite at a maternal-homozygous marker when a large majority of
+her children carried a NON-MATERNAL allele there. That criterion counts a child reading the other
+homozygote, which is a maternal copy ABSENT, as evidence about the father. It therefore selects
+markers where the maternal allele is missing and then measures that it is missing.
+
+Measured: 11,600 markers selected this way, and paternal share at them sits at a centre of 0.96 to
+0.98 in 27 of 33 cells. A biparental cell at a true obligate-het marker reads about 0.5. The
+selection produced the answer.
+
+  Correct criterion: the child must be HETEROZYGOUS at the marker, not merely non-maternal. Only
+  AB is evidence that the father contributed the opposite allele to a mother who could not.
+  Selection must also come from cells DISJOINT from the ones being scored, or the same circularity
+  returns in a weaker form.
+
+THE ORIENTATION ITSELF IS CORRECT, and three cells prove it independently of the above. Their
+centres sit where the biology says they should, without being told what they are:
+
+  14801-04   paternal share 0.158   the POLAR BODY, maternal material, so near zero is right
+  14801-02   0.104   14801-06  0.112     maternal-only material
+  14801-01   0.547   14801-07  0.558     biparental
+  14801-12   0.417   an MII oocyte biopsy
+
+So the statistic separates maternal-only from biparental material on real arrays with no labels
+supplied. What is wrong is the marker selection feeding it, not the measure.
+
+
+CONFOUND 4: ON THIS MATERIAL A MEDIAN B-ALLELE FREQUENCY MEASURES DROPOUT, NOT DOSAGE
+---------------------------------------------------------------------------------------
+With the father called leave-one-out from HETEROZYGOUS children only, the circularity of confound 3
+is gone: centres move from 0.96-0.98 to a range that responds to the threshold, and the p1/p99
+headroom becomes symmetric. Two things then failed to line up, and the second explains the first.
+
+Paternal share never reaches the 0.5 a biparental cell must show, at any marker-selection
+threshold, and the plateau rules out selection as the cause:
+
+  HET_FRAC   markers   median centre
+      0.30     78093          0.138
+      0.45     20653          0.191
+      0.60      4449          0.220
+      0.65      2597          0.252
+
+The cause is that the median is taken over markers most of which have dropped to a homozygote.
+Measured per cell at HET_FRAC 0.50:
+
+  markers CALLED heterozygous          0.21 to 0.53
+  median BAF-share over all markers    0.04 to 0.25
+  BAF-share AT the heterozygous calls  0.26 to 0.43
+
+So BAF at a genuine heterozygous call is only mildly compressed, and the low medians come from the
+50-80% of markers that are homozygous through allele dropout and sit at share 0. A median over
+that mixture reports the dropout rate.
+
+  CONSEQUENCE. The dosage statistic that works on bulk and on pronuclei does not transfer to WGA
+  blastomeres, and no threshold rescues it. The genotype-based statistic does: count the fraction
+  of obligate-het markers CALLED heterozygous, which is what obligateHet.ts already implements and
+  is insensitive to where BAF lands inside a het call. Region calling on this material should be
+  built on that fraction, with BAF used only as a secondary channel on samples whose call rate
+  supports it.
+
+ORIENTATION, RECORDED BECAUSE IT WAS GOT WRONG HERE FIRST
+----------------------------------------------------------
+At an obligate-het marker the father carries the allele the mother does not. Where she is AA his
+share is the B-allele frequency itself; where she is BB it is the complement. Taking the maternal
+orientation and labelling it paternal inverts every call downstream, silently, because the
+distribution still looks reasonable. Both orientations are now pinned in gainOrigin.check.ts.
+
+
+THE GENOTYPE STATISTIC WORKS, AND VALIDATES ON KNOWN MATERIAL
+---------------------------------------------------------------
+Rebuilt on the channel that survives WGA: per 5-Mb bin, the fraction of obligate-het markers
+CALLED heterozygous, against the same bin in the other cells with each cell held out of its own
+null. Direction comes from the non-heterozygous calls, by which parent's allele they carry.
+
+  node audit/regions/geno_regions.py        9 regions across 33 cells
+
+Every one of the 9 is PATERNAL copy missing, and they fall in exactly two cells:
+
+  14801-02   8 regions   chr1, 7, 8, 11, 12, 18, 19, 20     his-allele fraction 0.00-0.01
+  14801-16   1 region    chr1 155.00-159.99 Mb              his-allele fraction 0.22
+
+Those two are the positive control, and neither was labelled to the caller. 14801-02 reads 0.0012
+opposite-homozygote against the mother, which is her own genome rather than a child's, and
+14801-16 is a POLAR BODY. Both are maternal-only material and therefore paternal-absent by
+construction. The statistic found the right cells, the right direction, and a his-allele fraction
+of essentially zero, from genotype calls alone.
+
+Three earlier attempts on the same data returned 154 regions all maternal (self-null artefact),
+59 all maternal (single-parent headroom), and 1 (BAF measuring dropout). This one returns 9, all
+in cells that must carry the event.
+
+SENSITIVITY IS THE OPEN NUMBER, NOT DIRECTION. A maternal-only cell is paternal-absent on every
+bin, and 8 of about 560 were flagged in 14801-02, so the per-bin detection rate at z >= 4 is low
+even where truth is certain. Bin size sets it: at 2 Mb a bin holds about 43 obligate-het markers
+and the sampling standard deviation of the fraction is 0.076, the same size as the signal. 5 Mb
+halves that. Larger bins or a segment-level likelihood, rather than independent bins, is the way
+to raise it, and the positive control above is what any change should be measured against.
+
+Nothing here is a parental asymmetry result. It is the first configuration on this material where
+a parental call is made for a reason that survives its own controls.
+
+
+THE RESOLUTION THIS MATERIAL SUPPORTS, MEASURED
+------------------------------------------------
+Truth for these numbers is material type from the submission sheet, not a call: polar bodies, MII
+oocyte biopsies and isolated pronuclei carry one parental genome, so every scoreable window in them
+is a true positive for a uniparental call.
+
+  PER 5-Mb BIN, binomial likelihood ratio      sensitivity 0.065 at false-positive 0.027
+                                               sensitivity 0.140 at false-positive 0.075
+  PER CHROMOSOME, heterozygous fraction        AUC 0.922
+  PER CELL, all autosomes pooled               AUC 0.804
+
+Per-bin discrimination is roughly two-fold and that is not usable. The binomial is the wrong error
+model: it assumes markers within a bin fail independently, and whole-genome amplification drops
+them in spatially clustered runs, so the likelihood ratio overstates significance and returned 419
+regions across nearly every cell. Chromosome scale is where this material actually separates.
+
+  CONSEQUENCE FOR THE STUDY. A parental label can be attached at chromosome scale on WGA single
+  cells with this marker set. It cannot be attached at 5 Mb. Breakpoint POSITION is a separate
+  question and is refined from the dosage channel, which does not depend on parental genotypes;
+  what is bounded here is how finely the PARENT can be named.
+
+CELL RANKING RECOVERS MATERIAL TYPE WITHOUT BEING TOLD IT
+-----------------------------------------------------------
+Ordering all 33 cells by heterozygous fraction at obligate-het markers puts six of the seven lowest
+on known one-genome material, with the cumulus donor's own pronucleus at the bottom:
+
+  14801-02  0.1160  pronucleus        14801-12  0.2477  MII oocyte biopsy
+  14801-06  0.2003  pronucleus        14801-16  0.2701  polar body
+  14801-03  0.2269  pronucleus        14801-01  0.2835  pronucleus
+  14801-04  0.2404  polar body
+
+TWO SAMPLES CONTRADICT THEIR LABEL and are worth raising with the laboratory: 14801-13 and
+14801-14 are recorded as MII oocyte biopsies but read 0.4555 and 0.4516, inside the biparental
+range and above 20 of the 23 unlabelled cells. Either those biopsies carried surrounding diploid
+material or the arrays are mixtures. They should not be used as maternal references.
+
+
+SUB-CHROMOSOME PARENTAL CALLING FAILS ON A RECONSTRUCTED FATHER. THREE METHODS, ONE ANSWER
+--------------------------------------------------------------------------------------------
+Sensitivity measured against material type, where every chromosome in a polar body, MII oocyte
+biopsy or isolated pronucleus is a true positive:
+
+  per 5-Mb bin, MAD z on the fraction     8 detections of ~560 in a cell uniparental everywhere
+  per 5-Mb bin, binomial likelihood       sensitivity 0.065 at false-positive 0.027
+  per segment, maximum-segment-sum with
+  a within-cell permutation null          sensitivity 0.184 at false-positive 0.133
+
+The third was built to fix the first two: it pools evidence across bins instead of testing them
+independently, and its null is the cell's own bins reshuffled, so the marginal noise including
+clustered dropout is preserved exactly and only spatial structure is destroyed. It still separates
+barely 1.4-fold, and the segments it returns are 40 to 190 Mb, which is a whole chromosome by
+another name.
+
+Per chromosome the same underlying fraction reaches AUC 0.922. So the failure is specific to
+sub-chromosome resolution and is not a threshold that was set wrong.
+
+WHAT LIMITS IT. The obligate-het marker set, not the statistic. The father here is reconstructed
+from the mother's own children at a 0.30 heterozygous-fraction cut, which admits markers where he
+was HETEROZYGOUS - a normal cell reads those AB only half the time - and markers where the mother
+was miscalled homozygous. Both dilute the class in the same direction, and no downstream test
+recovers what the marker class does not carry. Raising the cut removes the contamination and the
+markers together: 0.60 keeps 4,401 of 654,348, which is 8 per 5-Mb bin.
+
+  THE FIX IS A GENOTYPED FATHER, and it is available rather than hypothetical. The EYS sperm donor
+  is on this platform as bulk gDNA in four replicates where he was the sperm source, and the
+  laboratory is isolating sperm for the rest. With a real paternal array the obligate-het class is
+  defined rather than inferred, and every measurement above should be repeated on it before any
+  conclusion about resolution is treated as final.
+
+WHAT IS SAFE TO STATE NOW
+--------------------------
+  parental origin, whole chromosome    AUC 0.922, usable
+  parental origin, segment             not supported on a reconstructed father
+  breakpoint POSITION                  a separate question, answered by the dosage channel, which
+                                       needs no parental genotypes and refines to about 60 kb
+
+
+THE POLAR-BODY ERROR FLOOR, MEASURED ON 14 REAL ARRAYS
+--------------------------------------------------------
+An external review had to INTERPOLATE the error model for a polar body between measured 1C and bulk
+rates, because the public series it worked from contains none. GSE186407 contains 14, from 6 oocyte
+donors, and they are deposited as ingestible probe exports.
+
+  genome-wide heterozygous fraction, 14 polar bodies
+  median 0.1116, range 0.0937 to 0.2320, call rate 0.731 to 0.917
+
+A polar body carries one parental genome, so its true heterozygous fraction is zero and every one
+of those calls is error. That is the floor any ploidy statistic built on heterozygosity has to
+clear on this material, and it is measured rather than assumed.
+
+It also OVERLAPS the diploid range on this platform, where a bulk genome reads about 0.145 to 0.168
+and single-cell diploids run lower still. So heterozygosity alone does not separate a polar body
+from a diploid cell here, which is the same conclusion reached independently from the obligate-het
+side and the reason a parental call needs the marker class rather than a global rate.
+
+The PB1-versus-PB2 split could not be made from these records: the GEO titles number the polar
+bodies within an embryo rather than by meiotic division, so which of a pair is 2C is not recoverable
+without the laboratory's own annotation. That is the one question to ask, since a PB1 and PB2 pair
+observes three chromatids of the tetrad and is worth substantially more than two independent
+haploid products for reconstructing a mother.
+
+
+THE RELATEDNESS BASELINE IS PLATFORM-SPECIFIC, AND CARRYING IT ACROSS WAS AN ERROR
+------------------------------------------------------------------------------------
+Relatedness above was judged against "unrelated adults sit near 0.30 opposite-homozygote", which is
+correct on a dense common-SNP Illumina array and WRONG on GPL28377. Measured directly, on the full
+825,657-marker exports:
+
+  EYS sperm donor vs the 14801 cumulus mother   0.0727 over 552,595 shared homozygous markers
+
+Those two are an unrelated donor couple, so 0.073 IS the unrelated baseline here. The array is
+enriched for low-frequency variants - the sperm donor reads 0.163 heterozygous against the 0.30 of
+a common-SNP panel - so both members of any pair are the same homozygote at most markers and
+opposite homozygotes are intrinsically rare.
+
+CONSEQUENCE. A cutoff of 0.12, chosen against the 0.30 benchmark, admits unrelated material.
+Rechecking experiment 14801 against the correct baseline:
+
+  14801-02  0.0012   her own genome
+  14801-01  0.0155   14801-06  0.0195   14801-04  0.0214    her material
+  14801-03  0.1141   ABOVE the 0.073 unrelated baseline, so NOT her child
+
+So the 33-cell cohort used for the region work contains at least one array that is not this
+mother's, and every cohort-null figure computed from it carries that contamination. The direction
+of the effect is to widen the null and lose sensitivity, not to create false regions, which is
+consistent with the low sensitivity measured throughout.
+
+  Every relatedness threshold must be calibrated on the platform in use, from a pair known to be
+  unrelated. There is one here: the sperm donor and the cumulus donor.
+
+FORMAT NORMALISATION, CONFIRMED ACROSS THE THREE EXPORTS IN USE
+----------------------------------------------------------------
+Three shapes appear in this material and all three carry the same core columns, so one reader
+covers them once the delimiter is not assumed:
+
+  .CEL.probes            tab-separated,   7 columns   probeset_id chr position log2R baf
+                                                      copy_number genotype
+  .CEL.txt.gz  (GEO)     COMMA-separated, 8 columns   adds probe_classification and
+                                                      normalized_intensity, drops log2R
+  .subset.csv.gz (repo)  comma-separated, 6 columns   a marker subset of the above
+
+probeset_id is the same AX- namespace in all three, so they join directly with no lift-over. The
+GEO export omits log2R, which the dosage channel consumes, and carries normalized_intensity
+instead; anything reading log2R must therefore fall back or refuse rather than assume the column.
+
+
+A GENOTYPED FATHER AND HIS CHILDREN ARE PRESENT AFTER ALL
+-----------------------------------------------------------
+Everything above was limited by a father reconstructed from siblings. A real one exists in the
+material, and it was found by testing rather than assumed.
+
+The EYS sperm donor is deposited as BULK gDNA on this platform at full density, 825,657 markers,
+four replicates (GSM4472397-4472400 of GSE148488). Scoring him against a sample of 90 laboratory
+arrays and reading against the platform's own unrelated baseline of 0.073:
+
+  32477-19  0.0033      32477-13  0.0081        five arrays of the 16 in this series are his
+  32477-16  0.0042      32477-15  0.0117        children, an order of magnitude below unrelated
+  32477-12  0.0073
+
+He is NOT the father of experiment 14801: every array there reads 0.069 to 0.127 against him,
+which is at or above the unrelated baseline. So the region work above could not have used him, and
+the reconstructed father was the only option for that experiment.
+
+THE 32477 SERIES HAS STRUCTURE WORTH USING. Heterozygosity separates its members into two classes:
+
+  his children, LOW het        32477-19 0.0498, -16 0.0660, -12 0.0582, -13 0.0644
+                               one-genome material of his: paternal pronuclei or sperm
+  his child, DIPLOID het       32477-15 0.1445, call rate 0.912
+                               a biparental embryo of his, which is the trio member wanted
+  not his, HAPLOID             32477-14 het 0.0526 at 0.1203 against him
+                               one-genome material of somebody else, so maternal material
+  not his, diploid             seven arrays at 0.062 to 0.077 against him, het 0.13 to 0.21
+
+That is a father with a bulk array, one-genome products of his, at least one biparental child of
+his, and haploid maternal material in the same series.
+
+WHAT THIS CHANGES. obligateHet.ts states that its boundaries hold for a BULK reference parent and
+that a single-cell reference carries no information; section E2 measured that failure. This series
+supplies the bulk reference the whole method was specified for. Every resolution figure recorded
+above was measured against a RECONSTRUCTED father and should be re-measured here before being
+treated as the ceiling.
+
+  NOT YET RUN. The trio is identified, not analysed. What is needed is the mother of 32477-15,
+  which the haploid non-EYS material in the same series may supply, and then the obligate-het class
+  is defined rather than inferred for the first time in this work.
+
+
+RUN AGAINST THE BULK FATHER: THE MODULE IS CONFIRMED, THE CONFIGURATION IS ABSENT
+-----------------------------------------------------------------------------------
+  node audit/regions/real_father.py
+
+Scored against EYS bulk gDNA at 639,543 autosomal homozygous markers, the one-parent obligate-het
+fraction of his six children:
+
+  32477-19  0.0428    32477-16  0.0587    32477-10  0.0894
+  32477-12  0.0514    32477-13  0.0570    32477-15  0.0973
+
+obligateHet.ts calls uniparental below 0.12 with one parent loaded. Six of six fall under it, so
+every one of his arrays here is one-genome material and the module's one-parent boundary behaves as
+specified WHEN THE REFERENCE IS BULK. Section E2 measured the same statistic failing entirely
+against a single-cell reference, where haploid sperm and biparental blastomeres overlapped
+completely. Both results together are the evidence for the precondition, from the two sides.
+
+AND THE ANSWER ON RESOLUTION IS NOW DEFINITE, BECAUSE THE LIMIT IS NOT THE METHOD.
+
+  bins available for a uniparental cell   3,363
+  bins available for a biparental cell    0
+
+He has no biparental child in this series. Six haploid products and nothing else. So sub-chromosome
+parental resolution cannot be MEASURED here at all, let alone achieved, and the earlier ceiling
+stands unchallenged rather than confirmed.
+
+THE CONFIGURATION THAT WOULD SETTLE IT DOES NOT EXIST IN THIS MATERIAL. It requires one parent with
+a BULK array together with that parent's BIPARENTAL children. What is present instead:
+
+  experiment 14801   a mother, and her children, but her array is a single cumulus cell and the
+                     father is reconstructed from the children themselves
+  series 32477       a father with a true bulk array, and only his haploid products
+
+Neither is a trio. That is why every resolution figure in this file was measured against a
+reconstructed father, and why none of them should be quoted as the ceiling for the METHOD. They are
+the ceiling for the material.
+
+  WHAT WOULD CLOSE IT, in order of how little it costs:
+  1. The sperm array being isolated by the laboratory, for a group that has biparental embryos.
+     This is the whole of the problem; nothing else here is a blocker.
+  2. The 210 CEL files named in the submission sheets and absent from the shared drive, which may
+     contain the missing configuration already.
+  3. Bulk parental gDNA for any group with embryos, which is what the original studies lacked and
+     the reason this insight does not yet exist in the literature.
+
+
+SUB-CHROMOSOME RESOLUTION WORKS AGAINST A BULK PARENT. THE CEILING WAS THE REFERENCE
+--------------------------------------------------------------------------------------
+The statement above that no biparental child of the bulk father exists was made from a 90-array
+sample and is WRONG. Scanning all 884 finds nine of his children, five of them biparental, spread
+across four experiments rather than concentrated in one:
+
+  32477-15  het 0.1475  vs father 0.0084      22549-31  het 0.2168  vs father 0.0423
+  22424-02  het 0.1660  vs father 0.0411      A1        het 0.1281  vs father 0.0357
+  32477-10  het 0.1235  vs father 0.0418
+
+Scored per 5-Mb bin at 639,543 father-homozygous markers, his biparental children against his
+one-genome products, which are the negative control by construction:
+
+  biparental bins   n=2759   median 0.1085   p5  0.0633
+  uniparental bins  n=2208   median 0.0418   p95 0.1098
+                             --------------------------------
+  AUC 0.9301        sensitivity 0.8148 at 95% specificity
+
+Against a RECONSTRUCTED father the same resolution gave 0.065 to 0.184 sensitivity at false-positive
+rates of 0.027 to 0.133, by three separate methods. The material did not change. Only the reference
+did.
+
+  So sub-chromosome parental resolution IS supported on WGA single cells at 5 Mb, and every ceiling
+  recorded earlier in this file is a property of reconstructing the parent, not of the data. Those
+  figures must not be quoted as limits on the method.
+
+AND THE SHIPPED ONE-PARENT BOUNDARIES ARE TOO WIDE FOR THIS PLATFORM. obligateHet.ts carries
+ONE_PARENT_HAPLOID_MAX 0.12 and ONE_PARENT_DIPLOID_MIN 0.30, described in the module as provisional
+and not measured on this material. Measured here, genome-wide against a bulk father:
+
+  his one-genome products   0.0428, 0.0514, 0.0570, 0.0587
+  his biparental children   0.0894, 0.0973 and above
+
+Both classes fall UNDER the 0.12 uniparental bound, so the shipped boundaries call every biparental
+child of a single genotyped parent uniparental on this platform. The separation is real and sits an
+order of magnitude lower than the module assumes, near 0.07. The boundaries should be recalibrated
+against this control before the one-parent path is used on Axiom data.
+
+
+CONFOUND 5: A LOSS CALLER THAT CANNOT SEPARATE COPY LOSS FROM DROPOUT
+----------------------------------------------------------------------
+[MECHANISM CORRECTED. This section first blamed the array's per-allele calling asymmetry. That was
+measured afterwards, against meiosis, and is under one percent - see the calibration at the end of
+this section. The result below is still not reportable; the cause is the loss caller.]
+Run on the five biparental children of the bulk father, direction taken Mendelianly: at a marker
+where the father is homozygous he can transmit only that allele, so a child carrying the OTHER
+allele homozygously cannot have his copy. That is sound genetics and it produced:
+
+  29 regions where a parental copy is lost.  PATERNAL 0.  MATERNAL 29.  binomial p < 0.0001.
+
+It is wrong, and the control that shows it is the non-paternal fraction in regions with NO loss:
+
+  cell         non-paternal in LOSS bins   in NORMAL bins
+  32477-15               0.0048                0.0073
+  22424-02               0.0268                0.0404
+  22549-31               0.0209                0.0416
+  A1                     0.0220                0.0311
+  32477-10               0.0430                0.0420
+
+The two are the same, and slightly LOWER where a copy is supposedly missing. The statistic that
+assigns the parent therefore carries no information about the parent, and all 29 calls are
+unsupported.
+
+THE CALIBRATION, WHICH RULES OUT THE PLATFORM. Meiosis fixes the true answer at markers where the
+father is HETEROZYGOUS: each of his gametes receives A or B with probability exactly one half, so
+his haploid products measure the array against a known ratio with no biology in it. Over 127,826
+such markers and four of his gametes:
+
+  AA fraction 0.4948, 0.4945, 0.4880, 0.4964     mean 0.4934 against an expected 0.5000
+  bias -0.0066, so the array calls A 0.974x as often as B when the truth is 1:1
+
+Correcting an observed non-paternal fraction of 0.02 gives 0.0195. The bias is real, under one
+percent, and explains none of the excess.
+
+THE ACTUAL MECHANISM. At a father-AA marker most homozygous calls are legitimately AA, because the
+mother transmitted A as well; the child is heterozygous only where she differs. A low non-paternal
+fraction is therefore the EXPECTED baseline and not evidence of anything, which is exactly what the
+loss-versus-normal control shows. The bins flagged as losses were amplification dropout rather than
+copy loss, and carried no parental signal because nothing had been lost.
+
+This remains the most dangerous confound in this file, because it produces the publishable-looking
+result the study wants, at p < 0.0001, from five real children of a real genotyped father.
+
+  WHAT IS REQUIRED BEFORE ANY SPLIT IS REPORTED. The per-allele asymmetry is now measured and is
+  not the obstacle. What is needed is a loss caller that separates a real copy loss from
+  amplification dropout, since the present one does not, and then parity reproduced on material
+  where parity is known - the non-allele-specific Cas9 arm, if its guides are confirmed
+  non-allele-specific. Until both hold, no parental split from this material is admissible,
+  however small its p value.

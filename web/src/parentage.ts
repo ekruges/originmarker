@@ -29,6 +29,8 @@
 import { type ProbeRow } from './ingest.ts'
 import { type AB } from './informativity.ts'
 import type { Segment } from './segments.ts'
+import type { HetCall } from './obligateHet.ts'
+import type { Enrichment } from './features.ts'
 
 /** Residual absence on clean data, from genotyping error alone. Measured at 0.03% and 0.05%. */
 export const ABSENCE_ERROR_FLOOR = 0.005
@@ -383,6 +385,15 @@ export interface ChromResult {
   mosaicZ: number
   /** Whole-chromosome copy change, from the call rate collapsing; see CALL_COLLAPSE. */
   aneuploidy?: 'loss' | 'gain'
+  /**
+   * Whether this chromosome carries one parental contribution or two, from heterozygosity at
+   * markers where a parent is homozygous. See obligateHet.ts.
+   *
+   * PER CHROMOSOME rather than per array, because a cell can be biparental overall and
+   * uniparental on part of its genome, which is the event a whole-array verdict would hide.
+   * Absent when no parent made enough markers informative here.
+   */
+  contribution?: HetCall
   /** Whose copy changed, where determinable. 'this' is the parent this result is scored against;
    *  'other' means their alleles survive on what is left, so the copy that went was the other
    *  parent's. Undefined where the sample carries none of this parent's genome anywhere. */
@@ -432,6 +443,17 @@ export interface ParentageResult {
   /** One entry per gain found, whole-chromosome or segmental. Empty when there are no gains,
    *  which is not the same as gains with no origin: those appear here saying so. */
   gains: GainAnnotation[]
+  /**
+   * Which parent's copy is MISSING, for every loss called. Separate from `gains` because the two
+   * read the same measurement in opposite directions: an under-represented parent is the one lost,
+   * and the one that GAINED when the event is a gain. See callLossOrigin.
+   */
+  losses: GainAnnotation[]
+  /**
+   * Where the called regions sit against fragile sites, long genes and centromeres. Positional
+   * only: it needs no parental genotype, and says nothing about parent of origin.
+   */
+  placement?: Enrichment[]
   notes: string[]
   limits: string[]
 }
@@ -749,6 +771,7 @@ export function classify(
     verdict, originClass, zygosity, spermType, genomeRate, explainable, informative: nTot,
     segments: [],
     gains: [],
+    losses: [],
     nonParentalRate, secondParentExpected, hetBand, noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, notes, limits,
   }
