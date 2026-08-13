@@ -1,0 +1,564 @@
+{
+  "refs": [
+    "29304-20",
+    "29304-22",
+    "29304-23",
+    "29304-24",
+    "29304-25",
+    "29304-28",
+    "22547-01",
+    "22547-02",
+    "22548-10",
+    "22548-12",
+    "22548-17",
+    "22548-22",
+    "22548-23",
+    "22548-24",
+    "22548-25",
+    "22548-29",
+    "22548-33",
+    "22548-36",
+    "22548-37",
+    "22549-30",
+    "22549-10",
+    "22549-16",
+    "22549-26",
+    "22549-31",
+    "22549-32",
+    "18828-25",
+    "22547-14",
+    "22550-18",
+    "22424-01",
+    "22424-02",
+    "22424-10",
+    "22424-14",
+    "22424-21",
+    "22476-07",
+    "22476-13",
+    "22549-30",
+    "22549-10",
+    "22549-16",
+    "22549-26",
+    "22476-07",
+    "22476-13",
+    "22424-25",
+    "22424-27",
+    "20107-13"
+  ],
+  "linked": [
+    {
+      "cell": "22531-73",
+      "parent": "22547-01",
+      "rate": 0.01886157899162019,
+      "markers": 35681,
+      "hetFraction": 0.08591570901449386
+    },
+    {
+      "cell": "22549-33",
+      "parent": "22547-02",
+      "rate": 0.013351665139016193,
+      "markers": 32730,
+      "hetFraction": 0.09590949302969336
+    },
+    {
+      "cell": "22547-11",
+      "parent": "22547-14",
+      "rate": 0.013451827913552818,
+      "markers": 24755,
+      "hetFraction": 0.13172614791415874
+    },
+    {
+      "cell": "22547-17",
+      "parent": "22547-14",
+      "rate": 0.014520842029936191,
+      "markers": 33538,
+      "hetFraction": 0.09126107351208938
+    },
+    {
+      "cell": "22547-20",
+      "parent": "22549-31",
+      "rate": 0.017793742951422248,
+      "markers": 23941,
+      "hetFraction": 0.13057201871993598
+    },
+    {
+      "cell": "22547-22",
+      "parent": "22547-14",
+      "rate": 0.012239902080783354,
+      "markers": 34314,
+      "hetFraction": 0.09785229516601439
+    },
+    {
+      "cell": "22424-05",
+      "parent": "22424-02",
+      "rate": 0.017870811988459048,
+      "markers": 33966,
+      "hetFraction": 0.08666883591161942
+    },
+    {
+      "cell": "22424-06",
+      "parent": "22424-01",
+      "rate": 0.016011018335198416,
+      "markers": 34851,
+      "hetFraction": 0.09466323470628474
+    },
+    {
+      "cell": "22424-11",
+      "parent": "22424-14",
+      "rate": 0.016869728209934397,
+      "markers": 33077,
+      "hetFraction": 0.09780150058262256
+    },
+    {
+      "cell": "22424-26",
+      "parent": "22476-13",
+      "rate": 0.011893980559077462,
+      "markers": 33126,
+      "hetFraction": 0.12932769606383612
+    },
+    {
+      "cell": "20107-09",
+      "parent": "20107-13",
+      "rate": 0.01713229252259655,
+      "markers": 24340,
+      "hetFraction": 0.14983028895538386
+    }
+  ],
+  "skipped": [
+    {
+      "cell": "22531-39",
+      "ref": "22547-02",
+      "rate": 0.016452570540743002,
+      "fraction": 0.07513124168693042,
+      "why": "7.5% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-02",
+      "ref": "22548-10",
+      "rate": 0.014296699228206077,
+      "fraction": 0.0672426656809999,
+      "why": "6.7% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-02",
+      "ref": "22548-12",
+      "rate": 0.01488087096862434,
+      "fraction": 0.07000279747897777,
+      "why": "7.0% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-02",
+      "ref": "22548-17",
+      "rate": 0.019819619196080614,
+      "fraction": 0.07848375128810346,
+      "why": "7.8% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-02",
+      "ref": "22548-22",
+      "rate": 0.017621513278770668,
+      "fraction": 0.07368917886675139,
+      "why": "7.4% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-05",
+      "ref": "22548-10",
+      "rate": 0.014881727901792176,
+      "fraction": 0.07887314236485031,
+      "why": "7.9% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-05",
+      "ref": "22548-12",
+      "rate": 0.014424549580908356,
+      "fraction": 0.08106403686489493,
+      "why": "8.1% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-05",
+      "ref": "22548-17",
+      "rate": 0.01457578566012301,
+      "fraction": 0.07986733939006042,
+      "why": "8.0% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-05",
+      "ref": "22548-22",
+      "rate": 0.013505166217430368,
+      "fraction": 0.07468551222557103,
+      "why": "7.5% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-06",
+      "ref": "22548-17",
+      "rate": 0.01879523377087977,
+      "fraction": 0.06837544983848579,
+      "why": "6.8% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-06",
+      "ref": "22548-22",
+      "rate": 0.018766088184007306,
+      "fraction": 0.0673407267500722,
+      "why": "6.7% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-07",
+      "ref": "22548-10",
+      "rate": 0.009860475689807052,
+      "fraction": 0.07117791932059447,
+      "why": "7.1% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-07",
+      "ref": "22548-12",
+      "rate": 0.00971619915463578,
+      "fraction": 0.07767775058010513,
+      "why": "7.8% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-07",
+      "ref": "22548-17",
+      "rate": 0.0109877882555843,
+      "fraction": 0.08041131594530003,
+      "why": "8.0% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-07",
+      "ref": "22548-22",
+      "rate": 0.011005544565489956,
+      "fraction": 0.07713989390473261,
+      "why": "7.7% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-09",
+      "ref": "22548-10",
+      "rate": 0.01950062586468147,
+      "fraction": 0.07008890063178508,
+      "why": "7.0% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-18",
+      "ref": "22548-17",
+      "rate": 0.01677939646201873,
+      "fraction": 0.058113579426047515,
+      "why": "5.8% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-19",
+      "ref": "22548-17",
+      "rate": 0.01873279867420319,
+      "fraction": 0.0579695373380397,
+      "why": "5.8% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-20",
+      "ref": "22548-22",
+      "rate": 0.010006387055567384,
+      "fraction": 0.045018483488960676,
+      "why": "4.5% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-21",
+      "ref": "22548-22",
+      "rate": 0.0040055916984784124,
+      "fraction": 0.026269586972742835,
+      "why": "2.6% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-26",
+      "ref": "22548-23",
+      "rate": 0.005783002296986894,
+      "fraction": 0.03902964133122704,
+      "why": "3.9% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-26",
+      "ref": "22548-24",
+      "rate": 0.0032931726907630523,
+      "fraction": 0.03156791068038199,
+      "why": "3.2% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-26",
+      "ref": "22548-25",
+      "rate": 0.007377746084857794,
+      "fraction": 0.04321120472287407,
+      "why": "4.3% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-26",
+      "ref": "22548-29",
+      "rate": 0.0198838641562555,
+      "fraction": 0.06521126909307245,
+      "why": "6.5% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22548-30",
+      "ref": "22548-29",
+      "rate": 0.014679066374908826,
+      "fraction": 0.05184927990189379,
+      "why": "5.2% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-31",
+      "ref": "22548-29",
+      "rate": 0.015005854440130646,
+      "fraction": 0.055550896652484964,
+      "why": "5.6% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-34",
+      "ref": "22548-29",
+      "rate": 0.013583018385382626,
+      "fraction": 0.06162875883515174,
+      "why": "6.2% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22548-34",
+      "ref": "22548-37",
+      "rate": 0.0002066756226103131,
+      "fraction": 0.013777027963193885,
+      "why": "1.4% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-09",
+      "ref": "22549-10",
+      "rate": 0.002384295440697274,
+      "fraction": 0.030264986327507133,
+      "why": "3.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-09",
+      "ref": "22549-10",
+      "rate": 0.002384295440697274,
+      "fraction": 0.030264986327507133,
+      "why": "3.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-12",
+      "ref": "22549-10",
+      "rate": 0.0023571163726892313,
+      "fraction": 0.036215854386608355,
+      "why": "3.6% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-12",
+      "ref": "22549-10",
+      "rate": 0.0023571163726892313,
+      "fraction": 0.036215854386608355,
+      "why": "3.6% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-13",
+      "ref": "22549-10",
+      "rate": 0.0028315118156077164,
+      "fraction": 0.0289277493955779,
+      "why": "2.9% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-13",
+      "ref": "22549-10",
+      "rate": 0.0028315118156077164,
+      "fraction": 0.0289277493955779,
+      "why": "2.9% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-33",
+      "ref": "22547-01",
+      "rate": 0.0006945602044785242,
+      "fraction": 0.010479644586318568,
+      "why": "1.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22547-07",
+      "ref": "22549-31",
+      "rate": 0.007492340825674159,
+      "fraction": 0.05523989607550222,
+      "why": "5.5% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22547-09",
+      "ref": "22549-31",
+      "rate": 0.00685063681976071,
+      "fraction": 0.0671316848785904,
+      "why": "6.7% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22547-15",
+      "ref": "22549-31",
+      "rate": 0.013630274614869391,
+      "fraction": 0.06563678633935012,
+      "why": "6.6% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22547-16",
+      "ref": "22549-31",
+      "rate": 0.004436262675036214,
+      "fraction": 0.05311583732118755,
+      "why": "5.3% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22547-17",
+      "ref": "22549-31",
+      "rate": 0.0036476213830308976,
+      "fraction": 0.05495097811439989,
+      "why": "5.5% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22547-19",
+      "ref": "22549-31",
+      "rate": 0.013122807017543859,
+      "fraction": 0.07234233497514221,
+      "why": "7.2% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22547-21",
+      "ref": "22549-31",
+      "rate": 0.01290504566129544,
+      "fraction": 0.07605808208633666,
+      "why": "7.6% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22547-22",
+      "ref": "22549-31",
+      "rate": 0.002399644497111539,
+      "fraction": 0.05099648406077423,
+      "why": "5.1% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22547-23",
+      "ref": "22550-18",
+      "rate": 0.0070140573399187535,
+      "fraction": 0.08220514550009636,
+      "why": "8.2% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22550-19",
+      "ref": "22550-18",
+      "rate": 0.005134610047182903,
+      "fraction": 0.043176194022022316,
+      "why": "4.3% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22550-20",
+      "ref": "22550-18",
+      "rate": 0.012428884026258205,
+      "fraction": 0.08080628675209434,
+      "why": "8.1% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22550-22",
+      "ref": "22550-18",
+      "rate": 0.016793306330012123,
+      "fraction": 0.07586250647606763,
+      "why": "7.6% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22550-24",
+      "ref": "22550-18",
+      "rate": 0.01845578787524822,
+      "fraction": 0.07252175827478416,
+      "why": "7.3% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22550-25",
+      "ref": "22550-18",
+      "rate": 0.01906226426043057,
+      "fraction": 0.06305231608203882,
+      "why": "6.3% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22424-07",
+      "ref": "22424-14",
+      "rate": 0.015227527592516084,
+      "fraction": 0.07652667741709318,
+      "why": "7.7% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22424-11",
+      "ref": "22424-10",
+      "rate": 0.003851452025526412,
+      "fraction": 0.06914903483758257,
+      "why": "6.9% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22424-12",
+      "ref": "22424-14",
+      "rate": 0.016507232851143257,
+      "fraction": 0.07512223440848627,
+      "why": "7.5% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22424-13",
+      "ref": "22424-14",
+      "rate": 0.006343746475696402,
+      "fraction": 0.04988428281211737,
+      "why": "5.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22424-22",
+      "ref": "22424-21",
+      "rate": 0.0038507756172165173,
+      "fraction": 0.056020837241422816,
+      "why": "5.6% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-09",
+      "ref": "22549-10",
+      "rate": 0.002384295440697274,
+      "fraction": 0.030264986327507133,
+      "why": "3.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-09",
+      "ref": "22549-10",
+      "rate": 0.002384295440697274,
+      "fraction": 0.030264986327507133,
+      "why": "3.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-12",
+      "ref": "22549-10",
+      "rate": 0.0023571163726892313,
+      "fraction": 0.036215854386608355,
+      "why": "3.6% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-12",
+      "ref": "22549-10",
+      "rate": 0.0023571163726892313,
+      "fraction": 0.036215854386608355,
+      "why": "3.6% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-13",
+      "ref": "22549-10",
+      "rate": 0.0028315118156077164,
+      "fraction": 0.0289277493955779,
+      "why": "2.9% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22549-13",
+      "ref": "22549-10",
+      "rate": 0.0028315118156077164,
+      "fraction": 0.0289277493955779,
+      "why": "2.9% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22424-26",
+      "ref": "22549-32",
+      "rate": 0.0017384477344100494,
+      "fraction": 0.06706412855975546,
+      "why": "6.7% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "20107-12",
+      "ref": "20107-13",
+      "rate": 0.011005534760213712,
+      "fraction": 0.08428415349785431,
+      "why": "8.4% sits between the 7% and 9% boundaries, which is neither"
+    }
+  ],
+  "regions": []
+}

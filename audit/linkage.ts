@@ -79,6 +79,20 @@ const readArray = (path: string): Row[] => {
   return out
 }
 
+/**
+ * A stable name for an array, from its filename.
+ *
+ * NOT the first underscore-delimited field. One experiment names its exports 01_chr16pcq_Z10__49
+ * and 21_A1_PB_94, so that rule collapses every array in it to a bare leading number: eight
+ * references reduced to three names, and because a candidate is skipped when its name matches a
+ * reference, the collisions silently excluded the whole directory. It reported zero children and
+ * zero set-aside, which reads as a measured emptiness and was a parsing failure.
+ *
+ * The full basename minus the .CEL.probes suffix is unique by construction and is used instead.
+ */
+const nameOf = (path: string): string =>
+  path.split('/').pop()!.replace(/\.CEL\.probes$/i, '').replace(/\.(probes|txt|gz)$/i, '')
+
 const gtOf = (rows: Row[]): Map<string, string> => {
   const m = new Map<string, string>()
   for (const r of rows) m.set(r.probesetId, r.genotype)
@@ -133,7 +147,7 @@ for (const f of files) {
   const callRate = called.length / rows.length
   const het = called.filter((r) => r.genotype === 'AB').length / Math.max(called.length, 1)
   if (callRate >= 0.93 && het >= 0.12 && het <= 0.22) {
-    refs.push({ name: f.split('/').pop()!.split('_')[0], gt: gtOf(rows) })
+    refs.push({ name: nameOf(f), gt: gtOf(rows) })
     console.log(`  reference candidate ${f.split('/').pop()}  call ${pct(callRate, 1)} `
       + `het ${pct(het, 1)}`)
   }
@@ -211,7 +225,7 @@ const scoreCell = (name: string, rows: Row[], ref: { name: string, gt: Map<strin
 }
 
 for (const f of files) {
-  const name = f.split('/').pop()!.split('_')[0]
+  const name = nameOf(f)
   if (refs.some((r) => r.name === name)) continue
   const rows = readArray(f)
   if (rows.length < 100_000) continue

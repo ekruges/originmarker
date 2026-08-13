@@ -1,0 +1,227 @@
+{
+  "refs": [
+    "22537-02",
+    "22537-07",
+    "22537-12",
+    "22537-13",
+    "22537-15",
+    "22537-17",
+    "22537-34",
+    "22537-38"
+  ],
+  "linked": [
+    {
+      "cell": "22537-11",
+      "parent": "22537-02",
+      "rate": 0.013424533121416813,
+      "markers": 35234,
+      "hetFraction": 0.08957164716126959
+    },
+    {
+      "cell": "22537-18",
+      "parent": "22537-07",
+      "rate": 0.01586777851100846,
+      "markers": 33338,
+      "hetFraction": 0.09249312128115152
+    },
+    {
+      "cell": "22537-48",
+      "parent": "22537-02",
+      "rate": 0.015982067479840472,
+      "markers": 34351,
+      "hetFraction": 0.08607581076734622
+    }
+  ],
+  "skipped": [
+    {
+      "cell": "22537-01",
+      "ref": "22537-02",
+      "rate": 0.009139244144273603,
+      "fraction": 0.05098252047942222,
+      "why": "5.1% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-01",
+      "ref": "22537-07",
+      "rate": 0.008027286894645535,
+      "fraction": 0.05367525987673859,
+      "why": "5.4% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-03",
+      "ref": "22537-02",
+      "rate": 0.006618564531004178,
+      "fraction": 0.044827977517589414,
+      "why": "4.5% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-03",
+      "ref": "22537-07",
+      "rate": 0.005787549844926894,
+      "fraction": 0.046728956166356236,
+      "why": "4.7% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-04",
+      "ref": "22537-02",
+      "rate": 0.005932477618379894,
+      "fraction": 0.043495834885825306,
+      "why": "4.3% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-04",
+      "ref": "22537-07",
+      "rate": 0.006140375030977229,
+      "fraction": 0.04517679599942656,
+      "why": "4.5% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-09",
+      "ref": "22537-02",
+      "rate": 0.0069553877085257836,
+      "fraction": 0.04444791357172952,
+      "why": "4.4% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-09",
+      "ref": "22537-07",
+      "rate": 0.005919132972071696,
+      "fraction": 0.046299886401512835,
+      "why": "4.6% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-10",
+      "ref": "22537-02",
+      "rate": 0.009758254716981132,
+      "fraction": 0.05689978437339192,
+      "why": "5.7% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-10",
+      "ref": "22537-07",
+      "rate": 0.010055832382782013,
+      "fraction": 0.05998755781558519,
+      "why": "6.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-14",
+      "ref": "22537-12",
+      "rate": 0.004121173196317705,
+      "fraction": 0.03689636641726262,
+      "why": "3.7% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-14",
+      "ref": "22537-13",
+      "rate": 0.002149861045566567,
+      "fraction": 0.0277934892419155,
+      "why": "2.8% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-14",
+      "ref": "22537-15",
+      "rate": 0.004482860440769871,
+      "fraction": 0.03980782429649966,
+      "why": "4.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-14",
+      "ref": "22537-17",
+      "rate": 0.0019027484143763213,
+      "fraction": 0.02822337196581478,
+      "why": "2.8% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-14",
+      "ref": "22537-34",
+      "rate": 0.01876683284625523,
+      "fraction": 0.07978560308449671,
+      "why": "8.0% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22537-16",
+      "ref": "22537-12",
+      "rate": 0.0038573839436393345,
+      "fraction": 0.037595996189048304,
+      "why": "3.8% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-16",
+      "ref": "22537-13",
+      "rate": 0.0018098835379288638,
+      "fraction": 0.02831331398329018,
+      "why": "2.8% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-16",
+      "ref": "22537-15",
+      "rate": 0.004003116520243948,
+      "fraction": 0.039889663374186514,
+      "why": "4.0% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-16",
+      "ref": "22537-17",
+      "rate": 0.0020848727963686266,
+      "fraction": 0.028769283848390753,
+      "why": "2.9% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-16",
+      "ref": "22537-34",
+      "rate": 0.01867898542407896,
+      "fraction": 0.080116971929783,
+      "why": "8.0% sits between the 7% and 9% boundaries, which is neither"
+    },
+    {
+      "cell": "22537-32",
+      "ref": "22537-07",
+      "rate": 0.015305396717020853,
+      "fraction": 0.05424365010713367,
+      "why": "5.4% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-32",
+      "ref": "22537-34",
+      "rate": 0.013127997980308004,
+      "fraction": 0.051896422783428056,
+      "why": "5.2% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-32",
+      "ref": "22537-38",
+      "rate": 0.01944958242250995,
+      "fraction": 0.0638207853284001,
+      "why": "6.4% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-33",
+      "ref": "22537-34",
+      "rate": 0.0056498747564709155,
+      "fraction": 0.03784843767470263,
+      "why": "3.8% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-33",
+      "ref": "22537-38",
+      "rate": 0.003909749938910157,
+      "fraction": 0.030993836021278393,
+      "why": "3.1% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-37",
+      "ref": "22537-34",
+      "rate": 0.006157702577516212,
+      "fraction": 0.04286873036211793,
+      "why": "4.3% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    },
+    {
+      "cell": "22537-37",
+      "ref": "22537-38",
+      "rate": 0.003985016338566988,
+      "fraction": 0.035307192193603384,
+      "why": "3.5% heterozygous where a parent is homozygous, under 7%: one parent's genome and nothing else"
+    }
+  ],
+  "regions": []
+}

@@ -1,0 +1,468 @@
+
+PER-EVENT PARENTAL ORIGIN IN A SINGLE-CELL SNP-ARRAY SERIES
+Assessment of constructions A-E, with a recommended method
+Affymetrix Axiom UK Biobank, 825,657 markers, GRCh37; 884 arrays, 1,189 CNV regions in 192 arrays
+
+===============================================================================
+0. HEADLINE
+===============================================================================
+
+Obstacle 1 as stated is not a geometric limit. It is an artefact of recentring on
+the median. The two loss hypotheses sit SYMMETRICALLY about the disomic
+expectation, at -q/2 and +q/2, where q is the alternate-allele frequency at the
+informative marker. Simulated at ADO 0.308, 400k markers:
+
+  q      E[share | CN2]    loss of KNOWN copy   loss of UNKNOWN copy
+  0.10   0.9500            0.8998  (-0.050)     1.0000  (+0.050)
+  0.25   0.8751            0.7499  (-0.125)     1.0000  (+0.125)
+  0.40   0.8003            0.6007  (-0.200)     1.0000  (+0.200)
+
+Analytic: E[share|CN2] = 1 - q/2, loss-of-known = 1 - q, loss-of-unknown = 1.
+Headroom is q/2 on EACH side. The measured +0.019 / -0.090 asymmetry is what
+happens when the centre is set to the median rather than the mean: for every
+q < 0.5 the majority of known-parent-hom markers sit at share 1.0, so the
+MEDIAN IS the ceiling and the upward headroom is 0.000 by construction.
+
+  q      fraction of markers at share 1.0   median   mean     headroom above median / above mean
+  0.10   0.916                              1.000    0.9502   +0.0000 / +0.0498
+  0.25   0.788                              1.000    0.8749   +0.0000 / +0.1251
+  0.40   0.661                              1.000    0.7995   +0.0000 / +0.2005
+
+That is the generator of the six one-directional results: a statistic whose
+centre is a boundary point of its own support can only move one way. The fix is
+not a better parent panel. It is (i) centre on the model expectation 1 - q/2, not
+on an order statistic of a boundary-heavy distribution, and (ii) drop the share
+scalar for a per-marker likelihood, which needs no centring at all.
+
+Second result, independent of the first: ADO cannot manufacture a direction.
+Allele dropout sends AB to AA or BB with equal probability, so E[share] is
+invariant in ADO (0.8754 / 0.8748 / 0.8748 / 0.8754 at ADO 0.000 / 0.199 /
+0.308 / 0.600, analytic 0.8750). Dropout inflates variance only. Any
+one-directional statistic in this dataset is a centring or conditioning defect,
+not a dropout effect.
+
+===============================================================================
+1. THE CONSTRUCTIONS
+===============================================================================
+
+A. SIBLING CELLS AS THE REFERENCE - SOUND, and it is the load-bearing idea.
+
+Informative marker class: markers where the embryo is heterozygous, established
+from event-FREE sibling cells of the same embryo, and where the region in the
+affected cell has CN != 2 from the intensity channel. Heterozygosity of the
+EMBRYO is what makes a marker one-way; it does not require either parent.
+
+Critical detail: het must be established from SIBLING cells, never from the
+affected cell's own genotype. Conditioning on the affected cell's own het call
+forces share = 0.5 exactly (simulated mean 0.5000, zero markers at either tail),
+destroys all information, and re-derives the region from heterozygosity, which
+the brief forbids. Sibling-established het keeps both tails: 15.3% of markers at
+1.0 and 15.3% at 0.0 in the same simulation.
+
+phi is the fraction of the informative set that is FALSELY het. It is the only
+quantity that biases this statistic one way, because a false het always retains
+the reference allele and therefore always reads as loss-of-the-other-copy.
+phi is driven by DROP-IN (false het at a homozygous marker), and this project has
+already measured drop-in on 7 real 1C WGA arrays: 0.0569-0.0939, median 0.0854.
+That is roughly 85-fold higher than a nominal 1e-3 genotyping error, and it
+changes the design conclusion, so the rest of this section uses the measured
+value.
+
+THE FIXED ">=2 SIBLING CELLS" RULE IS UNSAFE, and it fails in the direction that
+matters: at measured drop-in, phi INCREASES with the number of siblings, because
+more cells mean more chances for a spurious het call to appear somewhere.
+
+  clean sibs k   phi at fixed rule >=2   phi at scaled rule >=ceil(k/2)
+  2              0.0512                  0.0512  (>=2)
+  3              0.0864                  0.0864  (>=2)
+  4              0.1317                  0.1317  (>=2)
+  5              0.1835                  0.0229  (>=3)
+  6              0.2375                  0.0378  (>=3)
+  8              0.3393                  0.0105  (>=4)
+
+So the het rule must SCALE with k, not sit at a constant 2. Use >=ceil(k/2) with
+a floor of 2. Under the fixed rule, adding sibling arrays makes the bias worse
+while appearing to make the het call more reliable, which is precisely the shape
+of error that produced the six one-directional results.
+
+There is a HARD CEILING on tolerable phi. Above roughly phi = 0.15-0.20 the
+loss-of-reference arm becomes unresolvable at ANY marker count, because the
+false-het floor exceeds the separation between hypotheses:
+
+  phi     markers needed for the reference-copy-lost arm (eps 0.05 / eps 0.10)
+  0.05    5    / 9
+  0.10    10   / 13
+  0.15    23   / 35
+  0.20    unresolvable at n<=600, and not rescued by more markers
+  >=0.25  unresolvable
+
+This is a wall, not a slope. Any configuration whose phi exceeds ~0.15 must
+refuse the call outright rather than report a low-confidence one. Note that the
+fixed >=2 rule crosses that wall at k = 5 siblings.
+
+Realistic operating points, blastomere ADO 0.308, drop-in 0.0854, eps 0.05:
+
+  arrayed cells  clean sibs  rule   P(het est.)  phi      n_eff/Mb  min event
+  3              2           >=2    0.479        0.0512   3.7       1,347 kb
+  4              3           >=2    0.774        0.0864   6.0       1,667 kb
+  5              4           >=2    0.910        0.1317   7.1       1,984 kb
+  6              5           >=3    0.826        0.0229   6.4         781 kb
+  8              7           >=4    0.863        0.0061   6.7         747 kb
+
+Read the non-monotonicity carefully: from 3 to 5 arrayed cells the minimum
+callable event gets WORSE (1,347 -> 1,984 kb) under the fixed rule, because
+rising phi costs more than rising marker count gains. The scaled rule at 6-8
+cells is where this route actually becomes good (about 750-780 kb).
+
+Addressability. This route requires the event absent in >=2 arrayed sibling
+cells, so with median 3 cells/embryo it addresses mitotic events in embryos with
+>=3 arrayed cells, and at 3 cells the het-establishment rate is only 0.479.
+It does NOT address meiotic events present in every cell. Given "an almost equal
+number of meiotic and mitotic aneuploidies" in a comparable PGT-M series
+(Kubikova/Handyside 2025, Sci Rep), plus the requirement of >=3 cells, expect
+this route alone to reach well under half of the 1,189 regions. It is a
+necessary component, not a complete answer.
+
+B. RELATIVE (UNNAMED) ASSIGNMENT PLUS ONE ANCHOR PER FAMILY - SOUND, and it is
+the correct answer to the power question.
+
+Relative assignment is valid: sibling embryos are repeated draws from four
+founder haplotypes, and same-haplotype vs different-haplotype is estimable
+without naming a parent. It does cost real power, because only the unordered
+split is observed and each family's direction must be inferred:
+
+  configuration          p_true   power named   power unnamed
+  10 donors x 5 events   0.60     0.412         0.106
+  10 x 10                0.65     0.921         0.504
+  20 x 5                 0.65     0.916         0.316
+  20 x 10                0.65     0.997         0.716
+  30 x 10                0.65     1.000         0.860
+
+  minimum detectable paternal fraction at 80% power:
+  10 x 5   named 0.676   unnamed 0.779
+  20 x 5   named 0.626   unnamed 0.729
+  20 x 10  named 0.588   unnamed 0.662
+  30 x 10  named 0.572   unnamed 0.642
+
+Unnamed assignment does not reach the 0.60 claimable floor at any configuration
+tested. Named assignment reaches it at 20 donors x 10 events. So the anchor is
+not a convenience, it is the difference between a claimable and an unclaimable
+result.
+
+The anchor economy is the strongest fact in this consult. In the 2PN groups
+there is ONE egg donor per group. A single maternal anchor therefore names all
+four founder haplotypes for EVERY embryo in that group. Arrays needed: one per
+egg donor, not one per event-carrying cell. The 0-of-192 intersection does not
+apply, because the anchor never has to be in the same array as the event.
+
+Anchor options, in order of preference:
+  1. Cumulus/granulosa cells - somatic, maternal, diploid, bulk-quality, and one
+     experiment already includes a cumulus sample. This is the cheapest correct
+     anchor available and it is already in the freezer.
+  2. A PB1+PB2 pair from one oocyte of that donor. Per this project's prior
+     computation, PB1+PB2 observe 3 chromatids of the {A,A,B,B} tetrad and prove
+     maternal heterozygosity at 100% of maternal-het markers, so a PB pair is a
+     complete maternal anchor. PB1 alone is not (p_SDS genome-wide 0.4357).
+  3. A sperm array for the single sperm donor, same logic on the paternal side.
+
+C. RECONSTRUCTED FATHER x POLAR-BODY MOTHER - UNSOUND AS SPECIFIED, salvageable
+only in the MII-plus-sperm arm.
+
+Three separate problems.
+  (i) Availability. Father reconstruction needs 8+ embryos across 3+ oocyte
+      donors. That is the MII-plus-sperm structure. The 2PN groups have one egg
+      donor, so the construction is unavailable exactly where most of the
+      material is.
+  (ii) A single PB1 is not a maternal genotype. It is 2C and carries both sister
+      chromatids of the NON-transmitted homologue, so it reports the homologue
+      the oocyte did not receive. Used as "the mother" it produces the same
+      class of error as the reconstructed mother: markers where she is actually
+      het get admitted and read as maternal absence. That is the mechanism that
+      turned -0.40 into +2.18, and PB1 alone will reproduce it.
+  (iii) The father's missing 34.4% of markers IS directional, and predictably so.
+      Reconstruction covers markers where the founder haplotypes are
+      distinguishable in the embryo panel, i.e. it is enriched for high-MAF
+      markers and depleted where the donor is homozygous. Since headroom is q/2,
+      the retained set has systematically LARGER q and the missing set smaller
+      q. Any comparison that pools the covered and uncovered fractions without
+      weighting compares two different effective headrooms and will read as a
+      parental asymmetry that is really a coverage asymmetry. If C is used at
+      all, the obligate-het set must be restricted to markers covered on BOTH
+      sides and the comparison stratified by q.
+
+With a PB1+PB2 PAIR rather than a single PB1, and restricted to MII-plus-sperm
+embryos, and stratified by q, C becomes sound. As written it is not.
+
+D. INTENSITY PLUS GENOTYPE JOINTLY - SOUND AS AN INPUT, INSUFFICIENT AS A FIX.
+
+The premise is right and worth keeping: dropout removes a genotype call without
+removing DNA, so log2R and the genotype channel disagree on dropout and agree on
+a real event. That is a genuine and useful discriminator, and it is how the
+refusal state gets teeth.
+
+But it does not rescue the one-parent case, because the one-parent problem was
+never a dropout problem. Section 0 shows headroom is symmetric and ADO is
+mean-unbiased; the asymmetry came from the centring. Adding an intensity channel
+to a mis-centred share statistic yields a mis-centred joint statistic. D belongs
+in the model as the CN clamp and as a dropout-vs-deletion discriminator, not as
+the answer to obstacle 1.
+
+E. COPY-NUMBER-AWARE INHERITANCE HMM OVER FOUR FOUNDER HAPLOTYPES - THIS IS THE
+RECOMMENDED SHAPE. State space below.
+
+===============================================================================
+2. RECOMMENDED METHOD
+===============================================================================
+
+A per-embryo HMM over four latent founder haplotypes {A,B,C,D}, unnamed within
+family, with copy number CLAMPED from the intensity channel, plus one anchor per
+egg donor to convert unnamed to named.
+
+State space. Emitting states are multisets of founders of size CN, with each
+founder appearing at most twice (two sister chromatids):
+
+  CN=0  nullisomy              1 state
+  CN=1  monosomy/hemizygous    4 states   A B C D
+  CN=2  disomy                10 states   AA AB AC AD BB BC BD CC CD DD
+  CN=3  trisomy               16 states   AAB AAC AAD ABB ABC ABD ACC ACD ADD
+                                          BBC BBD BCC BCD BDD CCD CDD
+  CN=4  tetrasomy             19 states
+  total                       50 emitting states
+
+Plus one GLOBAL per-family latent nuisance variable: which unordered pair,
+{A,B} or {C,D}, is maternal. One bit. The anchor observes it directly. Without
+an anchor it is marginalised, which is precisely the named/unnamed power gap in
+section 1B.
+
+Transitions. Within a CN block: crossover only, per parent, with rates from a
+SEX-SPECIFIC cM map, not a flat 1 cM/Mb - female autosomal crossover rate is
+about 1.6-fold male (Bherer 2017), and the direction reverses near telomeres.
+Between CN blocks: clamped, probability 1 at intensity-called breakpoints. The
+regions are NOT re-derived from heterozygosity; the HMM is conditioned on them.
+
+Emissions. Per marker, P(observed genotype | founder multiset) with an explicit
+ADO parameter fitted per array, and a clustered-dropout correction. Dropout is
+Markov with P(D|D) = 2.18 x r, giving lag-1 autocorrelation rho = a - b and
+variance inflation (1+rho)/(1-rho):
+
+  stage           ADO     P(D|D)   rho     VIF    n_eff
+  blastomere      0.308   0.671    0.525   3.21   n/3.21
+  single ESC      0.199   0.434    0.293   1.83   n/1.83
+  trophectoderm   0.050   0.109    0.062   1.13   n/1.13
+  bulk            0.013   0.028    0.016   1.03   n/1.03
+
+Do not report an effective marker count without this divisor. A 200-marker
+window in a blastomere carries the information of ~62 independent markers.
+
+Informative marker density for the loss call. The informative class is
+(reference hom) x (embryo het), whose expected fraction is exactly H/2 where H is
+the diploid het rate - identity mean(pq) = H/2:
+
+  H       informative markers   per Mb
+  0.15    61,924                20.0
+  0.22    90,822                29.3
+  0.30    123,849               40.0
+
+At H = 0.22, k = 3 siblings with a >=2 rule, and cell call rate 0.85: 19.3
+usable markers/Mb, falling to 6.0 independent markers/Mb after VIF 3.21.
+
+Per-event call and refusal rule. Three hypotheses per region: loss of the
+reference-side copy, loss of the other copy, and uninformative/artefact
+(share 0.5, i.e. the region is a dropout cluster, not a deletion). Take the
+posterior over the three; CALL only if max posterior > 0.95, else REFUSE.
+Markers needed, at genotyping error eps and false-het fraction phi:
+
+  eps    phi     n needed, reference copy lost   other copy lost
+  0.02   0.000   5                               5
+  0.05   0.012   5                               5
+  0.05   0.110   14                              5
+  0.10   0.110   17                              9
+
+Minimum callable event size, at MEASURED drop-in 0.0854 and the scaled het rule:
+  6 arrayed cells (k=5, rule >=3): phi 0.023, n_eff 6.4/Mb  ->  about 780 kb
+  8 arrayed cells (k=7, rule >=4): phi 0.006, n_eff 6.7/Mb  ->  about 750 kb
+  4 arrayed cells (k=3, rule >=2): phi 0.086, n_eff 6.0/Mb  ->  about 1.7 Mb
+  3 arrayed cells (k=2, rule >=2): phi 0.051, n_eff 3.7/Mb  ->  about 1.3 Mb
+An idealised phi of 0.012 would give about 830 kb at 6.0 markers/Mb, but that phi
+is not attainable at this platform's measured drop-in and should not be planned
+against.
+
+The stated breakpoint resolution is a median 9 markers / 60 kb. That is the
+resolution of the BREAKPOINT, not the information content of the REGION. Events
+smaller than ~1 Mb will be detected and refused a parental call. State this
+plainly rather than reporting a call for them.
+
+GAINS ARE A SEPARATE AND MUCH HARDER PROBLEM. With only one reference parent,
+a CN3 region at reference-hom markers gives:
+  maternal extra copy, mother AA           -> A,A,B  share 0.667
+  paternal extra, father BB                -> A,B,B  share 0.333
+  paternal extra, father AB                -> unresolved between the two
+Separating 0.667 from 0.333 at 95% power needs >=117 informative markers, about
+19.5 Mb at the usable density, and only WITH both parents. For the 318 gains,
+the honest position is: whole-chromosome and large segmental gains are callable
+in the anchored arm; sub-10-Mb gains are not. Note also that the embryo-only
+gain-of-heterozygosity approach (Ranjbar 2026, RBMO) identifies MEIOTIC trisomy
+without parents but does NOT assign a parent, and requires ~150 het markers per
+bin with >=3 consecutive bins; it is a meiotic/mitotic classifier, not a
+parental-origin method.
+
+===============================================================================
+3. WHAT NAMES THE PARENT WITHOUT AN ANCHOR
+===============================================================================
+
+One anchor-free discriminator survives scrutiny, and it is worth building as an
+internal consistency check even though it should not be the primary evidence.
+Female autosomal crossover count exceeds male by about 1.6-fold (Bherer 2017;
+Halldorsson 2019 carries an erratum, PMID 30733390 - consult it). Once the
+HMM has resolved haplotype groups, the group with more crossovers is maternal:
+
+  meioses per group   P(correct call)
+  1                   0.971
+  2                   0.997
+  3                   0.999
+  5                   1.000
+
+This assumes Poisson counts at mu_f = 42, mu_m = 26 per meiosis and, more
+importantly, assumes crossovers are correctly counted. In WGA single cells at
+ADO 0.308 the crossover count is itself noisy and biased toward false positives
+from switch errors, which inflates BOTH groups and erodes the ratio. Treat the
+tabulated probabilities as an upper bound and use this as corroboration of an
+anchor-based naming, never as a substitute for one. If it disagrees with the
+anchor, the haplotype resolution is wrong.
+
+Note the check that keeps this honest: crossover-count naming and anchor naming
+are independent, so their agreement rate is a direct empirical estimate of the
+haplotype-resolution error rate.
+
+===============================================================================
+4. WHAT THE SIBLING-EMBRYO PANEL CANNOT DO ALONE
+===============================================================================
+
+Founder reconstruction from sibling embryos alone does not converge, which is
+the quantitative reason an anchor is required rather than merely preferable.
+Simulated per-locus identifiability, MAF 0.25:
+
+  n embryos   ADO     P(>=1 het seen)   P(>=2 genotypes)   P(all 3 genotypes)
+  3           0.308   0.506             0.532              0.080
+  5           0.308   0.600             0.628              0.229
+  8           0.308   0.662             0.673              0.375
+  12          0.308   0.677             0.680              0.477
+  12          0.050   0.679             0.642              0.203
+
+Saturation at about 0.68 with 12 embryos is not a dropout limit - it barely
+moves between ADO 0.308 and 0.050. It is the founder-configuration limit: at
+roughly a third of loci the four founders do not differ enough to be
+distinguished at all, whatever the sample size. This is consistent with the
+reported 65.6% marker coverage of father reconstruction and is an independent
+confirmation of that number.
+
+===============================================================================
+5. STATED FAILURE MODES
+===============================================================================
+
+1. phi, the false-het fraction, is the one-directional term. A falsely het
+   marker always retains the reference allele, so it always reads as loss of the
+   OTHER copy. At this platform's MEASURED drop-in (0.0854 median, 0.0939 max on
+   7 real 1C WGA arrays) a FIXED >=2-sibling rule drives phi from 0.051 at k=2 to
+   0.339 at k=8 - i.e. adding arrays makes the bias worse - and crosses the
+   unresolvable wall (phi ~0.15-0.20) at k=5. Use >=ceil(k/2), floor 2. Report
+   phi with every analysis; if phi is not reported the analysis is not
+   interpretable, and if phi > 0.15 the call must be refused rather than
+   downgraded.
+2. Centring on any order statistic of a boundary-heavy distribution re-creates
+   the original artefact. Centre on the model expectation 1 - q/2, or use the
+   per-marker likelihood and do not centre at all.
+3. Anchor misassignment inverts one family wholesale. A cumulus sample
+   contaminated with, or swapped for, another donor's material flips every call
+   in that group. Verify each anchor against its embryos by requiring
+   biparental-consistent transmission at >=95% of markers, using the same
+   stricter criterion that caught the 10 false children out of 13.
+4. Coverage-dependent q stratification (obstacle in C) will read as parental
+   asymmetry. Always stratify by q, or restrict to markers covered on both
+   sides.
+5. The refusal state must be reported as a count, not suppressed. If the number
+   of events refused is not stated alongside the split, the split is a
+   conditional statistic on an unstated selection.
+6. Crossover-count naming inherits every haplotype-resolution error. Use as a
+   check, never as the primary call.
+
+===============================================================================
+6. HONEST BOTTOM LINE
+===============================================================================
+
+Per-event parental origin is recoverable for a MINORITY of the 1,189 regions,
+and the minority is well defined:
+
+RECOVERABLE
+ - Losses >= ~1 Mb in embryos whose egg donor has one anchor array (cumulus or a
+   PB1+PB2 pair), any cell type. This is the large majority of the 871 losses if
+   an anchor exists per donor group, since anchoring does not require the anchor
+   and the event to share an array.
+ - Mitotic losses in embryos with >=3, preferably >=4, arrayed sibling cells,
+   with NO anchor at all, by construction A.
+ - Whole-chromosome and >=20 Mb segmental gains, anchored arm only.
+
+NOT RECOVERABLE
+ - Any event below about 750-780 kb even in the best case (6-8 arrayed cells,
+   scaled het rule), and below about 1.3-1.7 Mb at the median 3-4 cells.
+   Detected, breakpointed to 60 kb, and refused a parental call. This is a hard
+   information limit at 3.7-6.7 independent markers/Mb, not a modelling
+   shortfall.
+ - Gains < ~10-20 Mb, even anchored.
+ - Meiotic events in embryos with <3 arrayed cells and no anchor.
+ - Anything in a donor group with no anchor and only one egg donor: the 2PN
+   structure makes cross-donor reconstruction unavailable there, and without an
+   anchor those calls stay unnamed. Relative assignment is still valid and still
+   answers the aggregate question at a worse MDE (0.642 at 30x10).
+
+The single highest-value action is not a modelling change. It is arraying one
+cumulus or PB1+PB2 sample per egg donor. That is a small number of arrays, it
+converts unnamed to named for every embryo in the group, and it moves the
+minimum detectable effect from 0.642-0.779 (unnamed, never reaching the floor)
+to 0.572-0.676 (named, reaching 0.60 at 20 donors x 10 events).
+
+===============================================================================
+REFERENCES
+===============================================================================
+Karyomapping, original - https://doi.org/10.1136/jmg.2009.069971
+Karyomapping + intensity, meiotic vs mitotic, 342 PGT-M cycles (2025)
+  - https://doi.org/10.1038/s41598-025-21029-y
+Gain of heterozygosity, embryo-only meiotic trisomy, no parents (2026)
+  - https://doi.org/10.1016/j.rbmo.2026.105704
+APCAD, BAF-category method without haplotyping (2025)
+  - https://doi.org/10.3390/genes16020115
+Haplarithmisis, WGS, trio-based aneuploidy origin (PGT-AO) (2024)
+  - https://doi.org/10.1038/s41467-024-51508-1
+Single-cell GBS haplotyping + copy number (2022; erratum PMID 35979958)
+  - https://doi.org/10.1093/nar/gkac134
+Sex-specific fine-scale recombination maps, female:male ~1.6x
+  - https://doi.org/10.1038/ncomms14994
+Sequence-level genetic map, 4.5M crossovers (erratum PMID 30733390)
+  - https://doi.org/10.1126/science.aau1043
+Pedigree-free oocyte/PB phasing precedent - https://doi.org/10.1016/j.cell.2013.11.040
+Recombination and segregation maps, human oocytes, reverse segregation
+  - https://doi.org/10.1038/ng.3306
+
+Retraction/correction status checked via PubMed EFetch, 2026-08-13 (CommentsCorrections
+RefType). No retractions among the cited set. Two errata on record, both resolved to
+their linked records:
+  Halldorsson 2019 (Science, PMID 30679340) -> erratum Science 2019 Feb 8;363(6427):
+    eaaw8705, doi 10.1126/science.aaw8705, PMID 30733390
+  Masset 2022 (Nucleic Acids Res, PMID 35212381) -> erratum Nucleic Acids Res 2022
+    Sep 9;50(16):9597, doi 10.1093/nar/gkac729, PMID 35979958
+Consult both before citing.
+
+Uncertainties requiring empirical validation, not resolvable analytically:
+ - H, the diploid het rate on this Axiom panel in these samples, drives the
+   informative density linearly. Measured 12-22% in the bulk bar; the 0.22 used
+   here is the top of that range and may be optimistic.
+ - Drop-in has now been measured in this project (0.0569-0.0939, median 0.0854,
+   on 7 real 1C WGA arrays) and it is the whole failure mode. Re-measure it on
+   the same-individual and clonal replicate arrays among the 217 close relatives,
+   which are ideal for exactly this, and re-derive the het rule and phi from the
+   result rather than reusing the numbers above.
+ - The 2.18x adjacency ratio is a lag-1 summary. If dropout clustering has longer
+   correlation length, VIF 3.21 understates the inflation and every marker count
+   here is optimistic.
+ - Whether the single cumulus sample is from a donor with event-carrying embryos.
+   If yes, one array validates this entire construction end to end.

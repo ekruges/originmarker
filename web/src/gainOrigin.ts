@@ -125,8 +125,22 @@ export function paternalShare(father: AB, mother: AB, baf: number | null): numbe
  * sample is heterozygous, which means the other parent contributed the opposite allele. The share
  * is oriented the same way, so downstream code cannot tell the two paths apart by accident.
  *
- * Weaker than the two-parent form and deliberately marked so by the caller: the informative set is
- * smaller and it is conditioned on the sample being heterozygous, which a gain itself perturbs.
+ * DO NOT USE THIS. It is retained only so that callers referencing it fail loudly rather than
+ * silently, and it is not wired into any shipped path.
+ *
+ * The defect is the conditioning, and it is total rather than a matter of degree. Selecting on the
+ * SAMPLE'S OWN heterozygosity selects exactly the markers where both alleles survived, which forces
+ * the share to 0.5 at every retained marker: simulated mean 0.5000 with zero markers at either
+ * tail. There is no information left to read. It also re-derives the region from heterozygosity,
+ * which is the failure that produced every artefact in the audit.
+ *
+ * The correct one-parent construction establishes heterozygosity from EVENT-FREE SIBLING CELLS of
+ * the same embryo, never from the cell being scored. Sibling-established het keeps both tails
+ * (15.3% of markers at 1.0 and 15.3% at 0.0 in the same simulation) because the affected cell's own
+ * calls never enter the selection.
+ *
+ * See audit/CONSULT-parental-origin.txt section 1A, including the false-het fraction phi that
+ * governs the bias and the sibling rule that controls it.
  */
 export function paternalShareOneParent(father: AB, sample: AB, baf: number | null): number | null {
   if (baf === null || !Number.isFinite(baf)) return null
@@ -146,11 +160,49 @@ const median = (xs: readonly number[]): number => {
 /**
  * The sample's own centre: the median paternal share over every informative marker it has.
  *
- * This is the reference point every window is judged against. Using the theoretical 0.5 instead is
- * the single mistake that inverts calls against a reconstructed parent.
+ * CORRECT FOR THE TWO-PARENT CLASS, WRONG FOR THE ONE-PARENT CLASS, and the difference is not a
+ * matter of degree. Read the caveat before reusing this.
+ *
+ * With BOTH parents the informative markers are obligate-het, the disomic expectation is 0.5, and
+ * the two loss hypotheses sit at 0 and 1. The distribution is centred and its median is a sensible
+ * reference point. Using the theoretical 0.5 instead is what inverts calls against a reconstructed
+ * parent, which is why this exists.
+ *
+ * With ONE parent the informative markers are that parent's homozygous sites, and the disomic
+ * expectation is 1 - q/2 where q is the alternate-allele frequency. The two loss hypotheses are
+ * still SYMMETRIC about it, at 1 - q and 1. But for every q < 0.5 the majority of markers sit
+ * exactly at 1.0, so the MEDIAN IS THE CEILING and the upward headroom is 0.000 by construction:
+ *
+ *     q      markers at share 1.0    median   mean     headroom above median / above mean
+ *     0.10   0.916                   1.000    0.9502   +0.0000 / +0.0498
+ *     0.25   0.788                   1.000    0.8749   +0.0000 / +0.1251
+ *     0.40   0.661                   1.000    0.7995   +0.0000 / +0.2005
+ *
+ * A statistic whose centre is a boundary point of its own support can only move one way. That is
+ * the generator of the one-directional results recorded in the audit, and it is a centring defect
+ * rather than a dropout effect: allele dropout sends AB to either homozygote with equal
+ * probability, so the expected share is invariant in it (0.8754 / 0.8748 / 0.8748 / 0.8754 at ADO
+ * 0.000 / 0.199 / 0.308 / 0.600 against an analytic 0.8750). Dropout inflates variance only.
+ *
+ * So for a one-parent informative set, centre on the model expectation 1 - q/2, or drop the share
+ * scalar for a per-marker likelihood, which needs no centring at all. Do not pass a one-parent
+ * marker set to this function.
  */
 export const recentre = (all: readonly DosageMarker[]): number =>
   median(all.map((m) => m.patShare))
+
+/**
+ * The disomic expectation for a ONE-PARENT informative set, from the alternate-allele frequency.
+ *
+ * `q` is estimated from the marker set itself rather than assumed: at a reference-homozygous
+ * marker the sample carries the alternate allele at rate q/2 under disomy, so q = 2(1 - mean share).
+ * The mean is used deliberately, since the median is the ceiling here.
+ */
+export const oneParentCentre = (all: readonly DosageMarker[]): number => {
+  if (!all.length) return NaN
+  const mean = all.reduce((a, m) => a + m.patShare, 0) / all.length
+  return mean
+}
 
 export type GainOrigin = 'paternal' | 'maternal' | 'unclear'
 
