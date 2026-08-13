@@ -33,6 +33,8 @@ import { gunzipSync } from 'node:zlib'
 const W = new URL('../web/src/', import.meta.url).pathname
 const { headerMap, parseRow } = await import(`${W}ingest.ts`)
 const { isAutosome, pct } = await import(`${W}parentage.ts`)
+const { hetCall, addOneParent, emptyHet } = await import(`${W}obligateHet.ts`)
+type AB = 'AA' | 'AB' | 'BB' | 'NC'
 const { scanCopyNumber, externalNull, segmentCoords } = await import(`${W}segments.ts`)
 const {
   paternalShare, callGainOrigin, callLossOrigin, recentre, MIN_INFORMATIVE_DEFAULT,
@@ -43,6 +45,17 @@ const OUT = process.argv[3] ?? 'audit/linkage-results.json'
 if (!DIR) throw new Error('usage: linkage.ts <array-dir> [out.json]')
 
 /**
+ * A LOW OPPOSITE-HOMOZYGOTE RATE IS NOT PARENTHOOD. It means the two share essentially every
+ * allele, which is true of a parent and child AND of the same genome twice, and both sit near
+ * zero. Screening on it alone linked clonal cells to their own array as though they were
+ * offspring: measured, heterozygosity at the reference's homozygous markers read 0.0411 to 0.0481
+ * for three such pairs, inside the one-genome range of 0.0428-0.0587, where a child reads 0.0894
+ * upward.
+ *
+ * So the screen is two-stage. The rate below admits close relatives, and hetCall then requires the
+ * candidate to be BIPARENTAL before it is called a child, using the boundaries measured for this
+ * platform rather than a second guess.
+ *
  * Parent-child bound for THIS platform, not carried from another.
  * Measured: parent-child 0.0002-0.02, unrelated adults 0.0727 on GPL28377, which is enriched for
  * low-frequency variants and so compresses every relatedness figure toward zero.
@@ -112,7 +125,7 @@ console.log(`${files.length} arrays in ${DIR}`)
 //
 // A reference is admitted on its own numbers rather than on its filename: bulk gDNA on this
 // platform runs about 95% called and 15-17% heterozygous, and a single cell does not.
-const refs: { name: string, gt: Map<string, string>, rows: Row[] }[] = []
+const refs: { name: string, gt: Map<string, string> }[] = []
 for (const f of files) {
   const rows = readArray(f)
   if (!rows.length) continue
@@ -120,7 +133,7 @@ for (const f of files) {
   const callRate = called.length / rows.length
   const het = called.filter((r) => r.genotype === 'AB').length / Math.max(called.length, 1)
   if (callRate >= 0.93 && het >= 0.12 && het <= 0.22) {
-    refs.push({ name: f.split('/').pop()!.split('_')[0], gt: gtOf(rows), rows })
+    refs.push({ name: f.split('/').pop()!.split('_')[0], gt: gtOf(rows) })
     console.log(`  reference candidate ${f.split('/').pop()}  call ${pct(callRate, 1)} `
       + `het ${pct(het, 1)}`)
   }
@@ -132,9 +145,71 @@ if (!refs.length) {
   process.exit(0)
 }
 
-// --- 2. linkage ---------------------------------------------------------------------------------
-const linked: { cell: string, parent: string, rate: number, markers: number }[] = []
-const cells: { name: string, rows: Row[], parent: string }[] = []
+// --- 2. linkage, scoring each cell as it is read ------------------------------------------------
+//
+// Cells are scored in the same pass that links them and their rows are dropped immediately. Holding
+// every linked array to score later put 17 GB resident on a 16 GB box and drove it into swap: at
+// 825,657 rows per array that is megabytes each, and none of it is needed once the cell's regions
+// are out.
+const linked: { cell: string, parent: string, rate: number, markers: number,
+  hetFraction: number }[] = []
+/** Close relatives that are NOT children: same genome, clonal cells, or haploid products. */
+const skipped: { cell: string, ref: string, rate: number, fraction: number, why: string }[] = []
+const out: unknown[] = []
+
+// A parental DIRECTION needs two references. With one the informative set is dominated by markers
+// the unseen parent also matched, leaving 0.019 of headroom above the centre against 0.090 below,
+// so a loss of the unknown parent's copy cannot reach detection and any split is geometry.
+const twoRefs = refs.length >= 2
+
+const scoreCell = (name: string, rows: Row[], ref: { name: string, gt: Map<string, string> }): void => {
+  const other = refs.find((r) => r.name !== ref.name) ?? null
+  const cn = new Map<string, { chrom: string, pos: number, called: boolean, log2R: number | null }[]>()
+  const noCall = new Map<string, [number, number]>()
+  const dosage = new Map<string, { chrom: string, pos: number, patShare: number }[]>()
+  for (const r of rows) {
+    if (!isAutosome(r.chrom)) continue
+    const arr = cn.get(r.chrom) ?? []
+    arr.push({ chrom: r.chrom, pos: r.pos, called: r.genotype !== 'NC', log2R: r.log2R })
+    cn.set(r.chrom, arr)
+    if (!other) continue
+    const fa = ref.gt.get(r.probesetId)
+    const mo = other.gt.get(r.probesetId)
+    if (!fa || !mo || r.genotype === 'NC') continue
+    const share = paternalShare(fa as AB, mo as AB, r.baf)
+    if (share !== null) {
+      const d = dosage.get(r.chrom) ?? []
+      d.push({ chrom: r.chrom, pos: r.pos, patShare: share })
+      dosage.set(r.chrom, d)
+    }
+  }
+  for (const [chrom, ms] of cn) noCall.set(chrom, [ms.length, ms.filter((m) => !m.called).length])
+  const lrr = [...cn.values()].flat().map((m) => m.log2R)
+    .filter((x): x is number => x !== null).sort((a, b) => a - b)
+  const genomeLrr = lrr.length ? lrr[lrr.length >> 1] : 0
+  const segs = [...cn].flatMap(([chrom, ms]) =>
+    scanCopyNumber(ms, externalNull(noCall, chrom), genomeLrr))
+  const allShare = [...dosage.values()].flat()
+  const centre = allShare.length ? recentre(allShare) : NaN
+  for (const sg of segs) {
+    const co = segmentCoords(sg)
+    const inside = (dosage.get(sg.chrom) ?? []).filter((d) => d.pos >= co.start && d.pos <= co.end)
+    const call = !twoRefs
+      ? { origin: 'unclear',
+          why: 'one reference only; a direction from a single parent is a property of the '
+            + 'measurement geometry rather than of the cell, so none is reported' }
+      : sg.kind === 'copy-loss'
+        ? callLossOrigin(inside, centre, MIN_INFORMATIVE_DEFAULT)
+        : callGainOrigin(inside, centre, MIN_INFORMATIVE_DEFAULT)
+    out.push({
+      cell: name, parent: ref.name, chrom: sg.chrom, startBp: co.start, endBp: co.end,
+      spanMb: +((co.end - co.start) / 1e6).toFixed(3), kind: sg.kind,
+      refined: Boolean(sg.refined), interval: co.interval,
+      informative: inside.length, origin: call.origin, why: call.why,
+    })
+  }
+}
+
 for (const f of files) {
   const name = f.split('/').pop()!.split('_')[0]
   if (refs.some((r) => r.name === name)) continue
@@ -143,77 +218,35 @@ for (const f of files) {
   const g = gtOf(rows)
   for (const ref of refs) {
     const [rate, n] = oppositeHom(ref.gt, g)
-    if (n > 3_000 && rate <= KIN_MAX) {
-      linked.push({ cell: name, parent: ref.name, rate, markers: n })
-      cells.push({ name, rows, parent: ref.name })
-      break
+    if (n <= 3_000 || rate > KIN_MAX) continue
+    // Close, but is it a CHILD or the same genome again? Only a second parental contribution
+    // produces heterozygosity where this reference is homozygous.
+    const tally = emptyHet()
+    for (const r of rows) {
+      if (!isAutosome(r.chrom)) continue
+      const pg = ref.gt.get(r.probesetId)
+      if (pg) addOneParent(pg as AB, r.genotype as AB, tally)
     }
+    const ploidy = hetCall(tally, 1)
+    if (ploidy.ploidy !== 'biparental') {
+      skipped.push({ cell: name, ref: ref.name, rate, fraction: ploidy.fraction, why: ploidy.why })
+      continue
+    }
+    linked.push({ cell: name, parent: ref.name, rate, markers: n, hetFraction: ploidy.fraction })
+    scoreCell(name, rows, ref)
+    break
   }
 }
-console.log(`\n${linked.length} arrays linked to a bulk parent, of ${files.length - refs.length}`)
-for (const l of linked.slice(0, 20)) {
+
+console.log(`\n${linked.length} arrays are CHILDREN of a bulk reference, of ${files.length - refs.length}`)
+console.log(`${skipped.length} were close but carry one genome, so are the same individual, `
+  + 'clonal cells or haploid products rather than offspring')
+for (const l of linked.slice(0, 25)) {
   console.log(`  ${l.cell} -> ${l.parent}  ${l.rate.toFixed(4)} over ${l.markers} markers`)
-}
-
-// --- 3. regions from the intensity channel, then direction ---------------------------------------
-const out: unknown[] = []
-// A second reference, when one exists, is what makes a parental direction reportable at all.
-const mother = refs.find((r) => r.name !== refs[0].name) ?? null
-for (const c of cells) {
-  const ref = refs.find((r) => r.name === c.parent)!
-  const cn = new Map<string, { chrom: string, pos: number, called: boolean, log2R: number | null }[]>()
-  const noCall = new Map<string, [number, number]>()
-  const dosage = new Map<string, { chrom: string, pos: number, patShare: number }[]>()
-  for (const r of c.rows) {
-    if (!isAutosome(r.chrom)) continue
-    const arr = cn.get(r.chrom) ?? []
-    arr.push({ chrom: r.chrom, pos: r.pos, called: r.genotype !== 'NC', log2R: r.log2R })
-    cn.set(r.chrom, arr)
-    // Allele dosage is collected ONLY where BOTH parents are known and homozygous for opposite
-    // alleles, which is what paternalShare requires and what makes the two directions symmetric.
-    // With one parent it is tempting to substitute the opposite homozygote for the missing one;
-    // that asserts something false at every marker and is how a one-directional artefact is built.
-    // Measured on the one-parent path, the headroom is +0.019 above the sample's centre against
-    // -0.090 below, so one direction cannot reach detection and any split is a property of the
-    // geometry. Regions in one-parent cells are therefore reported WITHOUT a parental label.
-    const fa = ref.gt.get(r.probesetId)
-    const mo = mother ? mother.gt.get(r.probesetId) : undefined
-    if (fa && mo && r.genotype !== 'NC') {
-      const share = paternalShare(fa as 'AA' | 'BB' | 'AB' | 'NC',
-        mo as 'AA' | 'BB' | 'AB' | 'NC', r.baf)
-      if (share !== null) {
-        const d = dosage.get(r.chrom) ?? []
-        d.push({ chrom: r.chrom, pos: r.pos, patShare: share })
-        dosage.set(r.chrom, d)
-      }
-    }
-  }
-  for (const [chrom, ms] of cn) noCall.set(chrom, [ms.length, ms.filter((m) => !m.called).length])
-  const all = [...cn.values()].flat().map((m) => m.log2R)
-    .filter((x): x is number => x !== null).sort((a, b) => a - b)
-  const genomeLrr = all.length ? all[all.length >> 1] : 0
-  const segs = [...cn].flatMap(([chrom, ms]) =>
-    scanCopyNumber(ms, externalNull(noCall, chrom), genomeLrr))
-
-  const allShare = [...dosage.values()].flat()
-  const centre = allShare.length ? recentre(allShare) : NaN
-  for (const s of segs) {
-    const co = segmentCoords(s)
-    const inside = (dosage.get(s.chrom) ?? []).filter((d) => d.pos >= co.start && d.pos <= co.end)
-    const call = !mother
-      ? { origin: 'unclear',
-          why: 'one parent loaded; a direction from a single reference is a property of the '
-            + 'measurement geometry rather than of the cell, so none is reported' }
-      : s.kind === 'copy-loss'
-        ? callLossOrigin(inside, centre, MIN_INFORMATIVE_DEFAULT)
-        : callGainOrigin(inside, centre, MIN_INFORMATIVE_DEFAULT)
-    out.push({
-      cell: c.name, parent: c.parent, chrom: s.chrom, startBp: co.start, endBp: co.end,
-      kind: s.kind, informative: inside.length, origin: call.origin, why: call.why,
-    })
-  }
 }
 const called = out.filter((r) => (r as { origin: string }).origin !== 'unclear')
 console.log(`\n${out.length} regions in linked cells, ${called.length} carry a parental direction`)
-writeFileSync(OUT, JSON.stringify({ refs: refs.map((r) => r.name), linked, regions: out }, null, 2))
+console.log(twoRefs ? '' : 'One reference only, so no direction is reported. This is not a failure.')
+writeFileSync(OUT,
+  JSON.stringify({ refs: refs.map((r) => r.name), linked, skipped, regions: out }, null, 2))
 console.log(`wrote ${OUT}`)
