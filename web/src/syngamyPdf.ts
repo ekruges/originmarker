@@ -978,9 +978,10 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
 
   // Written to be pasted into a methods section, so it names versions, counts and definitions
   // rather than describing them. Only printed when a run actually scored placement.
-  if (results.some((r) => (r.placement ?? []).some((e) => Number.isFinite(e.p)))) {
-    const any = results.find((r) => (r.placement ?? []).some((e) => Number.isFinite(e.p)))!
-    const pl = (any.placement ?? []).filter((e) => Number.isFinite(e.p))
+  const placed = results.find((r) => (r.result?.placement ?? [])
+    .some((e) => Number.isFinite(e.p)))
+  if (placed) {
+    const pl = (placed.result?.placement ?? []).filter((e) => Number.isFinite(e.p))
     heading('Methods: positional enrichment', 9.5)
     text('Called regions were tested for positional enrichment against reference feature sets on '
       + 'GRCh37/hg19. Common fragile sites were the classical aphidicolin-induced set, given '

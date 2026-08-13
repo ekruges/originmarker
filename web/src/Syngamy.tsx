@@ -595,7 +595,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               track,
               result.segments.map((sg) => {
                 const co = segmentCoords(sg)
-                return { chrom: sg.chrom, startBp: co.startBp, endBp: co.endBp }
+                return { chrom: sg.chrom, startBp: co.start, endBp: co.end }
               }),
               byChrom,
             )
