@@ -71,9 +71,23 @@ things and cannot separate them without a parent array:
      with a known trio this is 0.0297 (expected homozygote recovered at 0.9134 in the AA direction
      against 0.9430 in the BB direction) - an order of magnitude smaller than the raw skew above.
 
-  TO DO: repeat against a genotyped parent and haploid controls on this platform to separate the
-  two, and feed only component 2 into the ascertainment bound. Do not re-centre the null on a
-  marker-count ratio.
+  DONE, AND COMPONENT 2 IS NEGLIGIBLE ON THIS PLATFORM. Separated using meiosis rather than a
+  trio, which fixes the true ratio without assuming anything: at a marker where the father is
+  HETEROZYGOUS, each of his gametes receives A or B with probability exactly one half, so his
+  haploid products measure the array against a known answer with no biology in it. Over 127,826
+  such markers and four of his gametes:
+
+      AA fraction 0.4948, 0.4945, 0.4880, 0.4964     mean 0.4934 against an expected 0.5000
+      bias -0.0066, so the array calls A 0.974x as often as B when the truth is 1:1
+
+  Correcting an observed non-paternal fraction of 0.02 gives 0.0195. The direction-of-call
+  asymmetry is real, under one per cent here, and does NOT need to enter the ascertainment bound.
+  The -0.18 skew above is therefore component 1, marker composition, which does not bias a
+  parental split. Do not re-centre the null on a marker-count ratio.
+
+  The maternal excess that prompted this was not the platform. It was a loss caller taking regions
+  from heterozygosity, where amplification dropout removes calls without removing DNA. The shipped
+  caller takes losses from the intensity channel and does not have that failure.
 
 TWO PREMISES TO VERIFY BEFORE THE CALIBRATION ARM IS USED
 ----------------------------------------------------------

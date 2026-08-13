@@ -5,7 +5,8 @@ Status: FOUR OF FIVE PARTS RUN. Breakpoint accuracy is measured on constructed e
 truth, the gain-origin part carries a positive control that recovers both directions on a real
 array, specificity passes, and section E now detects a REAL trisomy on all 330 karyotype-confirmed
 cells of a public series, AUC 0.9779 against 114 confirmed euploid controls on the platform that
-has them and 0.9991 on the other. Only the split-half holdout has nothing to run on here.
+has them and 0.9991 on the other. The split-half holdout now has material, 1,189 called regions,
+and has not yet been run on it.
 
 The one gap that remains is narrower than it was and is stated exactly: gain DETECTION is now
 validated on confirmed biological trisomies, gain ORIGIN is not, because naming a parent needs a
@@ -24,10 +25,10 @@ Public arrays shipped in this repo: web/public/examples, GSE145984 / GSE148488, 
 per array. Reference parent GSM4472397 (sperm donor bulk gDNA, call 95.4%, het 16.8%). Hosts:
 five pMII haploid meiotic products of that donor, all passing the 0.70 call-rate gate.
 
-The lab arrays were NOT audited in this run. macOS denies this process access to the directory
-holding them (EPERM on ~/Downloads, and on ~/Documents, while the repo reads normally). Nothing
-in the code changed; the host permission did. Until that is granted the parts below marked
-BLOCKED have no result, and no number from a previous session is carried forward into this file.
+SUPERSEDED. This paragraph recorded that macOS denied the process access to the laboratory arrays.
+That permission has since been granted and 884 arrays have been read, so the access blocker is
+gone. What follows below was measured on the public subset and is retained as such; where a part
+is still without a result the reason is now the material, not the host.
 
 
 A. CONSTRUCTED EVENTS WITH A KNOWN BREAKPOINT           PASS, SMALL n
@@ -60,10 +61,17 @@ TWO CONSTRUCTIONS THAT PRODUCE 0 DETECTIONS AND LOOK LIKE DETECTOR FAILURES. Nei
      source is a haploid product of a DIFFERENT parent, at about 11% clean contrast, which the
      public set does not contain and the laboratory series does.
 
-B. SPLIT-HALF HOLDOUT ON REAL SEGMENTS                  BLOCKED
----------------------------------------------------------------
-0 segments available to test, for the reason in A: no segment clears the shipped threshold in a
-subset this sparse. The test itself is implemented and runs; it has nothing to run on here.
+B. SPLIT-HALF HOLDOUT ON REAL SEGMENTS                  NOW RUNNABLE, NOT YET RUN
+----------------------------------------------------------------------------------
+Recorded as BLOCKED because the public subset was too sparse for any segment to clear the shipped
+threshold: 0 segments to test. That is no longer the constraint. 1,189 copy-number regions have
+since been called across the laboratory series, so the holdout has material.
+
+It has NOT been run on them, and the regions committed under audit/features carry window-quantised
+bin edges from an offline script rather than refined coordinates, so they are not the right input
+either. The correct route is audit/linkage.ts, which takes its regions from scanCopyNumber and
+therefore gets the refinement the shipped path applies. Until that has run, this part has no
+result, and the reason is sequencing rather than a blocker.
 
 
 C. FALSE SEGMENTS ON A GENOME THAT CANNOT CARRY ONE     PASS

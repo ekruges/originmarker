@@ -72,11 +72,23 @@ const gtOf = (rows: Row[]): Map<string, string> => {
   return m
 }
 
-/** Opposite-homozygote rate. The one relatedness statistic that needs no allele frequencies. */
+/**
+ * Opposite-homozygote rate. The one relatedness statistic that needs no allele frequencies.
+ *
+ * Screened on every STRIDE-th marker rather than all 825,657. Relatedness is a genome-wide
+ * property and its standard error at 50,000 informative markers is under 0.002, which is two
+ * orders of magnitude below the gap being resolved (parent-child under 0.02 against unrelated
+ * 0.07 on this platform). At full density the screen is references x cells full-genome map
+ * lookups, which does not finish; at this stride it does, and resolves the same question.
+ */
+const STRIDE = 16
 const oppositeHom = (a: Map<string, string>, b: Map<string, string>): [number, number] => {
   let opp = 0
   let tot = 0
+  let seen = 0
   for (const [k, ga] of a) {
+    seen += 1
+    if (seen % STRIDE) continue
     const gb = b.get(k)
     if (!gb) continue
     if ((ga === 'AA' || ga === 'BB') && (gb === 'AA' || gb === 'BB')) {
@@ -131,7 +143,7 @@ for (const f of files) {
   const g = gtOf(rows)
   for (const ref of refs) {
     const [rate, n] = oppositeHom(ref.gt, g)
-    if (n > 20_000 && rate <= KIN_MAX) {
+    if (n > 3_000 && rate <= KIN_MAX) {
       linked.push({ cell: name, parent: ref.name, rate, markers: n })
       cells.push({ name, rows, parent: ref.name })
       break
