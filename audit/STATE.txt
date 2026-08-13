@@ -1,0 +1,81 @@
+VERIFIED STATE - read this before asserting anything about this repo
+=====================================================================
+Every line below was read out of the repository or the data, not recalled. Regenerate it by
+re-reading; do not extend it from memory.
+
+Written because summaries of this work drifted from the audit files repeatedly: features already
+implemented were described as missing, a threshold already measured was proposed as new work, and a
+data fact was stated four times before being checked. The audit files were correct throughout. The
+failure was asserting state without opening them.
+
+
+RELEASE
+-------
+VERSION 4.5.0, CODENAME "Chiasma", in originmarker/build_info.py.
+Live on both sites, verified by /api/health: originmarker.app and ezrakruger.cc/originmarker.
+Tagged v4.5.0, GitHub release published, CHANGELOG.md entry present.
+
+
+WHAT IS IMPLEMENTED AND SHIPPED
+--------------------------------
+Confirmed by reading web/src, not by recall. Every one of these EXISTS; none is outstanding work.
+
+  refine.ts        breakpoint refinement, LR_DROP 12, SEARCH_RADIUS, REFINE_CALL_FLOOR,
+                   MIN_INTERVAL_MARKERS. The drop is EMPIRICAL, calibrated to 96.9% coverage on
+                   470 edges. A variance-inflation correction for clustered dropout was tried and
+                   reaches only 92.0%, so it is NOT an improvement to add.
+  segments.ts      scanChromosome refines its edges; scanCopyNumber calls scanChromosome and
+                   spreads the result, so COPY-NUMBER SEGMENTS ARE ALREADY REFINED.
+  gainOrigin.ts    paternalShare (two parents), paternalShareOneParent (one parent, informative
+                   where the parent is homozygous AND the sample heterozygous, and its own
+                   docstring records that this conditions on an outcome a gain perturbs),
+                   callGainOrigin, callLossOrigin (opposite direction, pinned by test),
+                   callHomologue, externalHetBackground, recentre.
+                   Floors are STAGE-SPECIFIC: DEFAULT 200, TROPHECTODERM 100, BULK 100.
+  obligateHet.ts   hetCall, addOneParent, addTwoParent. HAPLOID_MAX 0.20 / DIPLOID_MIN 0.45 for
+                   two parents; ONE_PARENT_HAPLOID_MAX 0.065 / ONE_PARENT_DIPLOID_MIN 0.085,
+                   measured, replacing scaled provisional values of 0.12 / 0.30.
+  features.ts      enrichment, scoreAll, markersIn, geneDensity, with a marker-matched null.
+                   DEFAULT_PERMUTATIONS 2000, MIN_REGIONS 5.
+  Syngamy.tsx      PlacementCallout renders the enrichment table in the UI. IMPLEMENTED.
+  syngamyPdf.ts    placement section, null-distribution figures, pasteable methods. IMPLEMENTED.
+
+
+AUDIT FILES, AND WHAT EACH HOLDS
+---------------------------------
+  AUDIT-4.1.txt          176 lines. The consolidated record: validated, not validated, confounds.
+  AUDIT.txt              589 lines. The original panel-builder audit.
+  BREAKPOINTS-AUDIT.txt  295 lines. Breakpoint accuracy, sections A-E, including GSE19247.
+  PROGENITOR-AUDIT.txt   449 lines.
+  FORMATS.txt            598 lines. The three deposit shapes.
+  regions/FINDINGS.txt   504 lines. Every confound, with the measurement that exposed it.
+  features/README.txt    144 lines. Positional analysis, tracks, and the full-cohort result.
+  trio/README.txt        111 lines. The CEPH trio validation.
+  asymmetry/PLAN.txt     130 lines. Design constraints for the parental question.
+  gse19247/README.txt     59 lines. External trisomy validation.
+
+
+DATA, AS COUNTED
+----------------
+  884   probe exports held locally, verified byte-for-byte, 736 unique samples
+  684   CEL files named across the three submission sheets
+  474   of those present locally; 210 absent from the shared drive and never deposited there
+    1   cumulus sample in the whole set, 14801-05, bulk-quality, confirmed mother of 33 arrays
+   14   polar bodies, public, median genome-wide heterozygosity 0.1116 where truth is zero
+   17+  arrays in ROBLES alone meet the bulk-reference bar (93%+ call, 12-22% het). "One usable
+        parent" was WRONG as stated: it was true of cumulus samples only, and bulk-QUALITY is not
+        the same as parent, which is what the linkage harness decides.
+
+Committed region tables, counted from the files:
+  regions-dieter.tsv 93, regions-dieter-sensitive.tsv 324, regions-JENNA.tsv 164,
+  regions-ROBLES.tsv 417, regions-TREFF.tsv 515.
+  NOTE: these were produced by an OFFLINE script and carry 5-Mb bin edges, NOT refined
+  coordinates. The shipped path would give marker-resolution intervals for the same events.
+  audit/linkage.ts is the correct route and supersedes them.
+
+
+THE RULE THAT WAS BROKEN REPEATEDLY
+------------------------------------
+Do not re-derive this analysis outside the shipped modules. Every artefact in FINDINGS.txt came
+from doing so. audit/linkage.ts and audit/breakpoints.ts import web/src directly; new analysis goes
+through them. Regions come from scanCopyNumber and scanChromosome, never from heterozygosity.
