@@ -9,6 +9,97 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.5.0 "Chiasma"
+
+4.0 said where a chromosomal change is and which parent an extra copy came from. This release
+answers the question actually asked of the data: when a piece of a genome is MISSING, whose was it,
+and where does it sit.
+
+### Added
+
+- **Losses now name which parent's copy is missing.** Only gains carried a parental annotation
+  before, and in this material a loss is the more common event. The direction INVERTS between the
+  two: an extra paternal copy raises the paternal allele share and a missing one removes it, so the
+  same deviation names opposite parents depending on the event. Passing a loss through the gain
+  call named the wrong parent every time. `callLossOrigin` writes that down once, and a test now
+  fails if the two calls ever agree.
+
+- **Each chromosome reports one parental contribution or two**, from heterozygosity at markers
+  where a parent is homozygous. Reported, never used as a gate: the boundaries hold for a bulk
+  reference parent, and against a single-cell reference they do not separate at all.
+
+- **Called regions are scored for WHERE they sit**, against common fragile sites, genes over
+  500 kb, centromeres and telomeres, and ENCODE Repli-seq late-replication valleys. Needs only
+  breakpoint position and no parental genotype, so it runs on every sample.
+
+  The null is the substance of it. A region can only be called where the array carries markers and
+  where amplification produced calls, and marker density tracks gene density, so intervals drawn
+  uniformly along the genome report an enrichment for almost any feature. Each null interval is
+  drawn on the same chromosome carrying the same number of informative markers as the observed
+  region. The self-check constructs a genome where marker density and feature position are
+  deliberately confounded and requires no enrichment to be reported, because that failure is
+  invisible in the output: it produces a confident p from a biased comparison.
+
+- **The report plots the null**, not just a p value. Observed against the middle 95% of the null
+  per feature, and for anything clearing 0.05 the null distribution itself with the observation
+  marked. On this material a ratio of 0.97 reached p 0.002 because the null was narrow, and a
+  reader shown only the p would take that for a finding. A methods section is included that can be
+  pasted rather than paraphrased.
+
+### Fixed
+
+- **The one-parent ploidy boundaries were wrong, and quietly so.** They were 0.12 and 0.30, scaled
+  from the two-parent figures and marked provisional in the source rather than measured. Against a
+  bulk parent across nine of his children, his one-genome products read 0.0428 to 0.0587 and his
+  biparental children 0.0894 upward. BOTH CLASSES SAT UNDER THE OLD 0.12 BOUND, so every biparental
+  child of a single genotyped parent was called uniparental. Now 0.065 and 0.085.
+
+  Anyone who ran a single-parent reference on a 4.0.x build should re-run: the affected calls read
+  "one parent's genome and nothing else" for cells that had two.
+
+### Changed
+
+- **The informative-marker floor halves, 400 to 200**, which halves the smallest region that can
+  carry a parental label from a median 47.6 Mb to 23.8 Mb. Re-measured on the material it governs
+  by the criterion it was originally set by, and both halves were required, since specificity alone
+  cannot justify a floor: a caller that never calls has no error.
+
+      specificity   0.0030 two-way error at 200 markers, against a 1% bar, on five biparental
+                    real WGA arrays scored against a bulk-genotyped father, where every window is
+                    euploid so any directional call is an error
+      sensitivity   1.00 at 200 markers with half the alleles dropping, 0.87 at 50, on a real CEPH
+                    trio with a trisomy built from the parents' own alleles and dropout drawn from
+                    a Markov model fitted to real arrays (a marker beside a dropped one is 2.18x
+                    more likely to drop)
+
+### Validation
+
+- **Gain detection on 330 karyotype-confirmed trisomy 21 cells**, 100 re-karyotyped blind by an
+  independent laboratory. AUC 0.9779 against 114 confirmed euploid on one platform, 0.9991 against
+  27 on the other. Inside the trisomy cells the affected chromosome ranks first of 22 autosomes on
+  both, which is what shows the statistic reads dosage and not amplification.
+- **Parental origin on a real CEPH trio**, its structure established from the genotypes rather than
+  from a pedigree file: 0.0002 opposite homozygotes for parent-child against 0.0677 for the couple.
+  Nine of nine calls correct, including refusing the euploid child.
+- **1,189 copy-number regions across four experiments**, 318 gains and 871 losses, each scored
+  against every feature set.
+- **Per-allele calling bias measured against meiosis**, where segregation fixes the true ratio at
+  exactly one half: 0.4934 over 127,826 markers, a bias of -0.0066.
+
+### Not claimed
+
+No parental split is admissible from this material. Six one-directional results were produced while
+building this release and every one was an artefact; each is recorded in the audit with the
+measurement that exposed it, including that a self-derived null turns platform failure into a
+parental result, that a single-parent reference cannot see a paternal loss at all, and that
+reconstructing a father from the cells being scored is circular.
+
+The parental origin of a biologically real trisomy remains unvalidated: no public series carries
+one with both parents genotyped. Detection is validated on 330 real cases; naming the parent of one
+is not.
+
+---
+
 ## 4.0.1
 
 A positive control for the parental direction of a gain. 4.0.0 shipped that annotation shown only
