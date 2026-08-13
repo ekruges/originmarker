@@ -145,3 +145,32 @@ trisomy ORIGIN is not, because the material to validate it on is not publicly av
 nearest substitute already run is the constructed positive control, which re-weights real allele
 intensities on a real array and recovers both directions, and it is labelled constructed wherever
 it is quoted.
+
+
+THE DROPOUT BLOCKER, RESOLVED: THE SHIPPED CALLER ALREADY REQUIRES INTENSITY
+-----------------------------------------------------------------------------
+This audit named "a loss caller that separates copy loss from amplification dropout" as the
+remaining blocker on a parental split. Checked against the code and the data, the SHIPPED caller
+already does this and the failure was in an offline script, not in the product.
+
+The discriminator is physical. Amplification dropout removes genotype CALLS but not DNA, so
+intensity is unchanged. A real copy loss removes both. The two channels therefore disagree on
+dropout and agree on a real loss.
+
+The shipped path takes losses only from the intensity channel: whole-chromosome losses from the
+call-rate collapse, and segmental ones from scanCopyNumber, which reads log2R against a
+per-chromosome external null. A region flagged by heterozygosity alone never reaches result.losses.
+
+The 29 unsupported regions came from an offline het-only script that had no such gate. Measured,
+the separation is complete:
+
+  the 5 cells carrying all 29 het-based "losses"     0, 0, 0, 0 and 1 intensity-based regions
+  cells with a genuine intensity-based region        173 of 884
+
+So the het channel flagged 29 losses in cells the intensity channel calls clean, and the intensity
+channel is the one validated on 330 karyotype-confirmed trisomies at AUC 0.9779 and 0.9991.
+
+  CONSEQUENCE. The blocker on a parental split is NOT the loss caller. It is the parental
+  reference: a bulk parental array per experimental group. Any future analysis must take its
+  regions from result.segments and result.chroms rather than re-deriving them from heterozygosity,
+  which is what produced every one of the artefacts recorded above.
