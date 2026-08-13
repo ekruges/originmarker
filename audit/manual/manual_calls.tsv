@@ -1,0 +1,93 @@
+sample	chrom	class	source_text	sheet	manual_Mb
+52461-30		unspecified	46XX failed fertilization oocyte - MII genome	PCSK9 & HBG	
+52461-31		unspecified	23Y	PCSK9 & HBG	
+52461-32	15	unspecified	21X-15-20	PCSK9 & HBG	
+52461-32	20	unspecified	21X-15-20	PCSK9 & HBG	
+52461-33	1	segmental	meiotic segmental on 1 at 76.5Mb	PCSK9 & HBG	76.5
+52461-34		unspecified	23X	PCSK9 & HBG	
+52461-35	23	unspecified	23 Y 3PN	PCSK9 & HBG	
+52461-35	Y	unspecified	23 Y 3PN	PCSK9 & HBG	
+52461-36	23	unspecified	23 X 3PN	PCSK9 & HBG	
+52461-36	X	unspecified	23 X 3PN	PCSK9 & HBG	
+52461-37	23	unspecified	23 X 3PN	PCSK9 & HBG	
+52461-37	X	unspecified	23 X 3PN	PCSK9 & HBG	
+53712-14		unspecified	failed  morula	PCSK9 & HBG	
+53712-15	1	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-15	11	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-16	1	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-16	11	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-17	1	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-17	11	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-18	1	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-18	11	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-19	1	segmental	complex aneuploid, balanced, 1, 11, segmental on chr2 at chr2:233813302-233823850 and X at 31.1Mb morula	PCSK9 & HBG	31.1
+53712-19	11	segmental	complex aneuploid, balanced, 1, 11, segmental on chr2 at chr2:233813302-233823850 and X at 31.1Mb morula	PCSK9 & HBG	31.1
+53712-19	2	segmental	complex aneuploid, balanced, 1, 11, segmental on chr2 at chr2:233813302-233823850 and X at 31.1Mb morula	PCSK9 & HBG	31.1
+53712-19	X	segmental	complex aneuploid, balanced, 1, 11, segmental on chr2 at chr2:233813302-233823850 and X at 31.1Mb morula	PCSK9 & HBG	31.1
+53712-20	1	segmental	segmental 1  at PCSK9 6-C	PCSK9 & HBG	
+53712-20	6	segmental	segmental 1  at PCSK9 6-C	PCSK9 & HBG	
+53712-21	1	segmental	segmental 1  at PCSK9 break site chr1:55505668-55518381 6-C	PCSK9 & HBG	
+53712-21	6	segmental	segmental 1  at PCSK9 break site chr1:55505668-55518381 6-C	PCSK9 & HBG	
+53712-22	6	unspecified	46XX 6-C	PCSK9 & HBG	
+53712-23	1	segmental	segmental 1  at PCSK9 high quality plot; chr1:55505671-55509593 6-C	PCSK9 & HBG	
+53712-23	6	segmental	segmental 1  at PCSK9 high quality plot; chr1:55505671-55509593 6-C	PCSK9 & HBG	
+53712-24	1	segmental	segmental 1  at PCSK9, complex aneuploid 6-C	PCSK9 & HBG	
+53712-24	6	segmental	segmental 1  at PCSK9, complex aneuploid 6-C	PCSK9 & HBG	
+53712-25	1	segmental	segmental 1  at PCSK9 chr1:55505668-55505671 break site 6-C	PCSK9 & HBG	
+53712-25	6	segmental	segmental 1  at PCSK9 chr1:55505668-55505671 break site 6-C	PCSK9 & HBG	
+52461-20		unspecified	46, XX 5AA TE biopsy > ICM hESC	PCSK9 & HBG	
+52461-21		unspecified	46, XX 5AB  TE biopsy > ICM hESC	PCSK9 & HBG	
+52461-22		unspecified	46, XY 5BA TE biopsy > ICM hESC	PCSK9 & HBG	
+52461-23		unspecified	46, XY 5BA TE biopsy > ICM hESC	PCSK9 & HBG	
+52461-24		unspecified	46, XY 4BB TE biopsy > ICM hESC	PCSK9 & HBG	
+53712-02		unspecified	46, XX BEes8	PCSK9 & HBG	
+53712-03		unspecified	46, XX BEes9	PCSK9 & HBG	
+53712-04		unspecified	46, XY BEes10	PCSK9 & HBG	
+53712-05		unspecified	46, XY BEes11	PCSK9 & HBG	
+53712-06		unspecified	46, XY BEes12	PCSK9 & HBG	
+52461-30		unspecified	46XX failed fertilization oocyte - MII genome	PCSK9 & HBG	
+52461-31		unspecified	23Y	PCSK9 & HBG	
+52461-32	15	unspecified	21X-15-20	PCSK9 & HBG	
+52461-32	20	unspecified	21X-15-20	PCSK9 & HBG	
+52461-33	1	segmental	meiotic segmental on 1 at 76.5Mb	PCSK9 & HBG	76.5
+52461-34		unspecified	23X	PCSK9 & HBG	
+52461-35	23	unspecified	23 Y 3PN	PCSK9 & HBG	
+52461-35	Y	unspecified	23 Y 3PN	PCSK9 & HBG	
+52461-36	23	unspecified	23 X 3PN	PCSK9 & HBG	
+52461-36	X	unspecified	23 X 3PN	PCSK9 & HBG	
+52461-37	23	unspecified	23 X 3PN	PCSK9 & HBG	
+52461-37	X	unspecified	23 X 3PN	PCSK9 & HBG	
+53712-14		unspecified	failed  morula	PCSK9 & HBG	
+53712-15	1	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-15	11	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-16	1	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-16	11	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-17	1	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-17	11	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-18	1	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-18	11	unspecified	complex aneuploid, balanced, 1, 11 morula	PCSK9 & HBG	
+53712-19	1	segmental	complex aneuploid, balanced, 1, 11, segmental on chr2 at chr2:233813302-233823850 and X at 31.1Mb morula	PCSK9 & HBG	31.1
+53712-19	11	segmental	complex aneuploid, balanced, 1, 11, segmental on chr2 at chr2:233813302-233823850 and X at 31.1Mb morula	PCSK9 & HBG	31.1
+53712-19	2	segmental	complex aneuploid, balanced, 1, 11, segmental on chr2 at chr2:233813302-233823850 and X at 31.1Mb morula	PCSK9 & HBG	31.1
+53712-19	X	segmental	complex aneuploid, balanced, 1, 11, segmental on chr2 at chr2:233813302-233823850 and X at 31.1Mb morula	PCSK9 & HBG	31.1
+53712-20	1	segmental	segmental 1  at PCSK9 6-C	PCSK9 & HBG	
+53712-20	6	segmental	segmental 1  at PCSK9 6-C	PCSK9 & HBG	
+53712-21	1	segmental	segmental 1  at PCSK9 break site chr1:55505668-55518381 6-C	PCSK9 & HBG	
+53712-21	6	segmental	segmental 1  at PCSK9 break site chr1:55505668-55518381 6-C	PCSK9 & HBG	
+53712-22	6	unspecified	46XX 6-C	PCSK9 & HBG	
+53712-23	1	segmental	segmental 1  at PCSK9 high quality plot; chr1:55505671-55509593 6-C	PCSK9 & HBG	
+53712-23	6	segmental	segmental 1  at PCSK9 high quality plot; chr1:55505671-55509593 6-C	PCSK9 & HBG	
+53712-24	1	segmental	segmental 1  at PCSK9, complex aneuploid 6-C	PCSK9 & HBG	
+53712-24	6	segmental	segmental 1  at PCSK9, complex aneuploid 6-C	PCSK9 & HBG	
+53712-25	1	segmental	segmental 1  at PCSK9 chr1:55505668-55505671 break site 6-C	PCSK9 & HBG	
+53712-25	6	segmental	segmental 1  at PCSK9 chr1:55505668-55505671 break site 6-C	PCSK9 & HBG	
+52461-20		unspecified	46, XX 5AA TE biopsy > ICM hESC	PCSK9 & HBG	
+52461-21		unspecified	46, XX 5AB  TE biopsy > ICM hESC	PCSK9 & HBG	
+52461-22		unspecified	46, XY 5BA TE biopsy > ICM hESC	PCSK9 & HBG	
+52461-23		unspecified	46, XY 5BA TE biopsy > ICM hESC	PCSK9 & HBG	
+52461-24		unspecified	46, XY 4BB TE biopsy > ICM hESC	PCSK9 & HBG	
+53712-02		unspecified	46, XX BEes8	PCSK9 & HBG	
+53712-03		unspecified	46, XX BEes9	PCSK9 & HBG	
+53712-04		unspecified	46, XY BEes10	PCSK9 & HBG	
+53712-05		unspecified	46, XY BEes11	PCSK9 & HBG	
+53712-06		unspecified	46, XY BEes12	PCSK9 & HBG	
