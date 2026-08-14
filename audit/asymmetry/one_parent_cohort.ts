@@ -90,7 +90,7 @@ const REF_IS_PATH = !!REF && (REF.includes('/') || REF.endsWith('.probes'))
 
 /** A reference must be bulk. These are the platform's own figures, not a general array's. */
 const BULK_CALL_MIN = 0.90
-const BULK_HET_MIN = 0.135
+const BULK_HET_MIN = 0.120
 const BULK_HET_MAX = 0.190
 
 /** Opposite-homozygote rate under which a relationship is possible. Necessary, NOT sufficient. */
@@ -361,10 +361,21 @@ if (REF_IS_PATH) {
   refUsed = ref.id
   process.stderr.write(`reference ${ref.id}: call ${ref.profile.callRate.toFixed(4)} `
     + `het ${ref.profile.hetRate.toFixed(4)} -> ${rs.stage}, ${ref.gt.size} autosomal calls\n\n`)
-  if (rs.stage !== 'bulk') {
-    throw new Error(`reference ${ref.id} stages as ${rs.stage}, not bulk. Measured against a `
-      + 'single-cell reference the obligate-het statistic does not separate ploidy at all, so '
-      + 'this is refused rather than run')
+  // THE REFERENCE GATE IS CALL RATE, NOT THE STAGE LABEL. What the obligate-het statistic needs
+  // from a reference is complete and accurate genotypes, which is dropout, which call rate
+  // measures directly. The stage label is derived from heterozygosity against a population
+  // anchor, and that misclassifies real bulk DNA from anyone whose heterozygosity differs from
+  // the anchor: it called this series' best array, an egg donor's gDNA at a 0.9837 call rate,
+  // single-cell, and did the same to a cumulus sample at 0.951. Gating on the label refused two
+  // genuine parental arrays. The heterozygosity band here is only wide enough to exclude what is
+  // not a diploid genome at all.
+  const okCall = ref.profile.callRate >= BULK_CALL_MIN
+  const okHet = ref.profile.hetRate >= BULK_HET_MIN && ref.profile.hetRate <= BULK_HET_MAX
+  if (rs.stage === 'failed' || !okCall || !okHet) {
+    throw new Error(`reference ${ref.id} is not usable: call ${ref.profile.callRate.toFixed(4)}, `
+      + `het ${ref.profile.hetRate.toFixed(4)}, stage ${rs.stage}. A reference needs a call rate `
+      + `at or above ${BULK_CALL_MIN} and a heterozygosity a diploid can produce; measured `
+      + 'against an amplified reference the obligate-het statistic does not separate ploidy at all')
   }
   let screened = 0
   for (const f of files) {

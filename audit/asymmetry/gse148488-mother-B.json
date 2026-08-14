@@ -1,0 +1,295 @@
+{
+ "dir": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/3c118711-4d48-4e68-8965-a274aeadc9c7/scratchpad/gse_embryos",
+ "reference": "GSM4472417",
+ "bulkLike": [],
+ "excluded": [
+  {
+   "id": "GSM4472405",
+   "callRate": 0.5785169610588429,
+   "hetRate": 0.2779238615237744
+  },
+  {
+   "id": "GSM4472406",
+   "callRate": 0.5879058590987045,
+   "hetRate": 0.28980156898938625
+  },
+  {
+   "id": "GSM4472409",
+   "callRate": 0.5300900132742934,
+   "hetRate": 0.31223381893289953
+  },
+  {
+   "id": "GSM4472421",
+   "callRate": 0.6752255176489966,
+   "hetRate": 0.35242796464240617
+  },
+  {
+   "id": "GSM4472422",
+   "callRate": 0.7570416735298963,
+   "hetRate": 0.31457021450878003
+  },
+  {
+   "id": "GSM4552387",
+   "callRate": 0.7734262210896548,
+   "hetRate": 0.31935657642534104
+  },
+  {
+   "id": "GSM4552388",
+   "callRate": 0.7408896683364501,
+   "hetRate": 0.3762767279147322
+  },
+  {
+   "id": "GSM4552389",
+   "callRate": 0.7611499220014146,
+   "hetRate": 0.3425327155150466
+  },
+  {
+   "id": "GSM4552394",
+   "callRate": 0.7678839613592101,
+   "hetRate": 0.6128629291743952
+  },
+  {
+   "id": "GSM4552395",
+   "callRate": 0.7586307130330308,
+   "hetRate": 0.5945259017063451
+  },
+  {
+   "id": "GSM4552396",
+   "callRate": 0.7686106562539362,
+   "hetRate": 0.6021733101379119
+  },
+  {
+   "id": "GSM4552397",
+   "callRate": 0.7701318709002296,
+   "hetRate": 0.6016632487450146
+  },
+  {
+   "id": "GSM4552398",
+   "callRate": 0.7307062505450211,
+   "hetRate": 0.5487707852653354
+  },
+  {
+   "id": "GSM4552399",
+   "callRate": 0.7313554313176431,
+   "hetRate": 0.5493567917754136
+  },
+  {
+   "id": "GSM4552400",
+   "callRate": 0.7284098946776866,
+   "hetRate": 0.5453130611756255
+  },
+  {
+   "id": "GSM4552401",
+   "callRate": 0.7341750075091806,
+   "hetRate": 0.5537137728976403
+  },
+  {
+   "id": "GSM4552402",
+   "callRate": 0.7477399788774017,
+   "hetRate": 0.5666044679417406
+  },
+  {
+   "id": "GSM4552403",
+   "callRate": 0.7426531146143188,
+   "hetRate": 0.5634140931804246
+  },
+  {
+   "id": "GSM4552404",
+   "callRate": 0.7433119846522038,
+   "hetRate": 0.5651176432249234
+  },
+  {
+   "id": "GSM4552405",
+   "callRate": 0.7467613630858372,
+   "hetRate": 0.5792191615523349
+  },
+  {
+   "id": "GSM4552406",
+   "callRate": 0.7625548654645519,
+   "hetRate": 0.6146046428889087
+  },
+  {
+   "id": "GSM4552407",
+   "callRate": 0.7627098937087601,
+   "hetRate": 0.6126122692683919
+  },
+  {
+   "id": "GSM4552408",
+   "callRate": 0.7616925208561435,
+   "hetRate": 0.6182643871164708
+  },
+  {
+   "id": "GSM4552409",
+   "callRate": 0.7649481139845166,
+   "hetRate": 0.6218776916451335
+  },
+  {
+   "id": "GSM4552410",
+   "callRate": 0.7539314193804684,
+   "hetRate": 0.614257624243359
+  },
+  {
+   "id": "GSM4552411",
+   "callRate": 0.7499006850310541,
+   "hetRate": 0.6201304993862653
+  },
+  {
+   "id": "GSM4552412",
+   "callRate": 0.7657523230013468,
+   "hetRate": 0.6195416988270426
+  },
+  {
+   "id": "GSM4552413",
+   "callRate": 0.7579233966688306,
+   "hetRate": 0.6248162305204351
+  },
+  {
+   "id": "GSM4552414",
+   "callRate": 0.7660333116939743,
+   "hetRate": 0.6180748798380976
+  },
+  {
+   "id": "GSM4552415",
+   "callRate": 0.7642989332118946,
+   "hetRate": 0.6000431029018395
+  },
+  {
+   "id": "GSM4552416",
+   "callRate": 0.7623126338329764,
+   "hetRate": 0.6244216787838731
+  },
+  {
+   "id": "GSM4552417",
+   "callRate": 0.7624676620771846,
+   "hetRate": 0.6236084989579627
+  },
+  {
+   "id": "GSM4552418",
+   "callRate": 0.5624909163138159,
+   "hetRate": 0.6412933009491327
+  },
+  {
+   "id": "GSM4552419",
+   "callRate": 0.5654364529537725,
+   "hetRate": 0.6339770721592953
+  },
+  {
+   "id": "GSM4552422",
+   "callRate": 0.7560339899425427,
+   "hetRate": 0.6193161429230533
+  },
+  {
+   "id": "GSM4552424",
+   "callRate": 0.6412937106979177,
+   "hetRate": 0.31644154352884296
+  },
+  {
+   "id": "GSM4552427",
+   "callRate": 0.5981667910122376,
+   "hetRate": 0.605993358710618
+  },
+  {
+   "id": "GSM4552428",
+   "callRate": 0.5919753505091709,
+   "hetRate": 0.5931975906769674
+  },
+  {
+   "id": "GSM4774684",
+   "callRate": 0.5539740521476256,
+   "hetRate": 0.32974778745583655
+  },
+  {
+   "id": "GSM4774686",
+   "callRate": 0.5372988266299766,
+   "hetRate": 0.430003786990785
+  }
+ ],
+ "results": [
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4472448",
+   "stage": "bulk",
+   "regions": 0
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4472449",
+   "stage": "bulk",
+   "regions": 0
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4472450",
+   "stage": "bulk",
+   "regions": 0
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4472451",
+   "stage": "bulk",
+   "regions": 0
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4774673",
+   "stage": "haploid",
+   "regions": 0
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4774675",
+   "stage": "haploid",
+   "kind": "whole-chromosome loss",
+   "locus": "chr13:19,020,095-115,103,150",
+   "verdict": "refused",
+   "posterior": null,
+   "markers": 5379,
+   "exclusive": 1073,
+   "why": "61.9% of the informative markers read heterozygous, over the 40% ceiling. Where the loaded parent is homozygous a biparental sample can only be heterozygous when the other parent transmitted the allele this one lacks, so a rate this high means the genotypes are not measuring the region. No origin is called from them"
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4774676",
+   "stage": "haploid",
+   "dropout": 0.02,
+   "kind": "copy-loss",
+   "locus": "chr11:59,554,522-74,379,821",
+   "verdict": "both-present",
+   "posterior": 1,
+   "markers": 2333,
+   "exclusive": 220,
+   "why": "both-present at posterior 1.0000 over 2333 markers where the loaded parent is homozygous. 220 carry the allele that parent does not have (9.4%), which only its absence explains, and 925 are heterozygous, which only both copies being present explains"
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4774676",
+   "stage": "haploid",
+   "dropout": 0.02,
+   "kind": "copy-loss",
+   "locus": "chr11:116,349,950-123,006,473",
+   "verdict": "both-present",
+   "posterior": 1,
+   "markers": 1015,
+   "exclusive": 57,
+   "why": "both-present at posterior 1.0000 over 1015 markers where the loaded parent is homozygous. 57 carry the allele that parent does not have (5.6%), which only its absence explains, and 283 are heterozygous, which only both copies being present explains"
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4774677",
+   "stage": "haploid",
+   "regions": 0
+  },
+  {
+   "ref": "GSM4472417",
+   "sample": "GSM4774679",
+   "stage": "haploid",
+   "kind": "whole-chromosome loss",
+   "locus": "chr21:10,873,592-48,088,571",
+   "verdict": "refused",
+   "posterior": null,
+   "markers": 2658,
+   "exclusive": 485,
+   "why": "55.1% of the informative markers read heterozygous, over the 40% ceiling. Where the loaded parent is homozygous a biparental sample can only be heterozygous when the other parent transmitted the allele this one lacks, so a rate this high means the genotypes are not measuring the region. No origin is called from them"
+  }
+ ]
+}

@@ -126,3 +126,43 @@ and what that cohort lacks is a parental anchor for the donors carrying them. On
 group is enough, and the EYS donor is an anchor for exactly one group in the local corpus: five
 arrays of experiment 32477, four of which are uniparental paternal and therefore answer the
 parent question trivially.
+
+
+BOTH PARENTAL SIDES, GSE148488
+------------------------------
+  reference          children   events
+  sperm donor              36        3
+  egg donor B               9        4
+  egg donor C              23        0
+  egg donor A               5        0
+  egg donor D          not usable: call 0.819, heterozygosity 0.345, above the diploid ceiling
+
+  SEVEN EVENTS. FOUR both-copies-present, THREE refused, ZERO naming a parent.
+
+THE REFERENCE GATE CANNOT BE THE STAGE LABEL, and two real parental arrays proved it. Egg donor A
+is bulk gDNA at a 0.9837 call rate, the highest in the series, and the heterozygosity ladder calls
+it single-cell because it reads 0.1414 against a 0.168 anchor. The cumulus sample in experiment
+14801 fails the same way at 0.951. What the obligate-het statistic needs from a reference is
+complete, accurate genotypes, which is dropout, which call rate measures directly. Heterozygosity
+against a population anchor measures the individual as much as the material. The gate is call rate
+now, with a heterozygosity band only wide enough to exclude what is not a diploid genome at all.
+
+THE DETECTOR AND THE CALLER ARE IN TENSION ON WHOLE CHROMOSOMES, and this is the finding worth
+carrying forward. Split the seven events by kind:
+
+  segmental copy loss        4 of 4 called      all both-copies-present
+  whole-chromosome loss      3 of 3 REFUSED     all for unmeasurable genotypes
+
+That is not a coincidence of three. A whole-chromosome loss is DETECTED by the collapse of its
+genotype call rate, and the origin call is MADE from genotypes. The signal that identifies the
+event is the destruction of the evidence needed to assign it. On chr1 of GSM4774681 the collapse
+is 69% no-call and the surviving calls read 59.7% heterozygous where the father is homozygous.
+
+  WHAT FOLLOWS. Assigning a whole-chromosome loss to a parent probably cannot be done from
+  genotype calls at all, and needs allele DOSAGE from the intensity channel, which survives a
+  call-rate collapse because intensity is measured whether or not a genotype is emitted. The
+  shipped two-parent path already reads dosage. The one-parent path does not, and that is the
+  gap. Segmental losses are unaffected: their call rates do not collapse, and all four were
+  scored normally.
+
+  n IS 3 AND 4. This is a hypothesis with a mechanism, not a measured law.
