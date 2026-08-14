@@ -1734,6 +1734,17 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             first polar body sits is labelled as one rather than having its real heterozygosity
             counted as noise.
           </Text>
+          <Text size="sm" mb={10}>
+            <b>The B-allele-frequency band can veto a haploid call but cannot confirm one.</b>
+            Intensity sees a heterozygous locus whether or not the genotype caller dropped it, so a
+            sample whose band sits at the diploid line carries two genomes however few heterozygous
+            calls survived, and that is the one remaining path by which a heavily dropped-out
+            diploid was still being read as one genome. The converse fails on this material and was
+            measured failing: across 120 non-haploid arrays spanning blastomeres, trophectoderm
+            biopsies and stem cell lines, 91 fall inside the haploid band range, because
+            amplification widens the heterozygote band and fills the homozygote band until the two
+            are one distribution. So a low band is treated as no evidence at all.
+          </Text>
         </Section>
 
         <Section id="report" title="The report, and how to cite it">

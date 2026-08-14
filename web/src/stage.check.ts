@@ -16,6 +16,7 @@
 import assert from 'node:assert/strict'
 import {
   inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, QC_CALL_FLOOR,
+  BAND_DIPLOID_CERTAIN,
 } from './stage.ts'
 
 const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
@@ -120,6 +121,33 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   const phiCorr = pOne / (pOne + (1 - 2 * d + pBoth))
   assert.ok(dropoutFromReplicates(phiCorr) < dropoutFromReplicates(phiIdeal),
     'shared failures must make the estimate an underestimate, not an overestimate')
+}
+
+// --- 4e. the BAF band vetoes a haploid call, and only vetoes ------------------------------------
+//
+// Intensity sees a heterozygous locus whether or not the caller dropped it, so a band at the
+// diploid line means two genomes however few heterozygotes survived. The converse does NOT hold on
+// amplified material: 91 of 120 measured non-haploid arrays fall inside the haploid band range,
+// so a low band must not be allowed to confirm one genome.
+{
+  const h = 0.04
+  assert.equal(inferStage({ hetRate: h, callRate: 0.95 }).stage, 'haploid',
+    'without band evidence this is the existing behaviour')
+
+  const vetoed = inferStage({ hetRate: h, callRate: 0.95, hetBand: 0.22 })
+  assert.notEqual(vetoed.stage, 'haploid', 'a diploid-range BAF band must veto the haploid call')
+  assert.ok(vetoed.dropout > 0.5, 'and the sample it produces instead is barely powered')
+  assert.ok(vetoed.why.includes('one template'))
+
+  // A low band is uninformative on WGA material, so it changes nothing in the other direction.
+  assert.equal(inferStage({ hetRate: h, callRate: 0.95, hetBand: 0.03 }).stage, 'haploid')
+  assert.equal(inferStage({ hetRate: h, callRate: 0.95, hetBand: NaN }).stage, 'haploid')
+
+  // The veto never reclassifies material that was already diploid by heterozygosity.
+  assert.equal(inferStage({ hetRate: 0.150, callRate: 0.95, hetBand: 0.30 }).stage, 'trophectoderm')
+  // Quality still outranks it: a dead array is failed, not rescued into a stage by its band.
+  assert.equal(inferStage({ hetRate: h, callRate: 0.22, hetBand: 0.30 }).stage, 'failed')
+  assert.ok(BAND_DIPLOID_CERTAIN >= 0.15)
 }
 
 // --- 5. an unusually clean array of a lossy stage is not credited with bulk amplification ---------

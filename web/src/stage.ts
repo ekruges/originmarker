@@ -45,6 +45,18 @@
  *
  * QUALITY IS GATED FIRST, ALWAYS. A failed amplification drives heterozygosity toward zero, which
  * without a gate reads as haploid and receives a confident parameter set instead of a rejection.
+ *
+ * THE BAF BAND VETOES HAPLOID BUT CANNOT CONFIRM IT. The audit asked for B-allele-frequency band
+ * position as a required second signal, on the reasoning that intensity sees a heterozygous locus
+ * whether or not the genotype caller dropped it. That holds one way only, and this project has the
+ * measurement: across 120 non-haploid arrays spanning blastomeres, trophectoderm biopsies and ESC
+ * lines, 91 fall INSIDE the haploid band range and 22 blastomeres sit below the diploid-exclusion
+ * floor, because whole-genome amplification widens the heterozygote band and fills the homozygote
+ * band until the two are one distribution. So a low band is no evidence of one genome on amplified
+ * material and is not treated as any. A HIGH band is still decisive: intensity cannot manufacture
+ * intermediate signal from a single template, so a sample above the diploid line carries two
+ * genomes no matter how few heterozygous calls survived, and that is the one path by which a
+ * heavily dropped-out diploid was still being called haploid after the quality gate.
  */
 import type { SampleProfile } from './ingest.ts'
 
@@ -97,6 +109,15 @@ export const QC_CALL_FLOOR = 0.40
 export const HAPLOID_MAX_HET = 0.105
 
 /**
+ * BAF band at or above which the sample carries two genomes whatever its genotype calls say.
+ *
+ * Taken from the diploid arm of the triage gate rather than invented here, so the two modules
+ * cannot drift apart. Used ONLY to veto a haploid call: see the header for why the converse fails
+ * on amplified material.
+ */
+export const BAND_DIPLOID_CERTAIN = 0.15
+
+/**
  * Dropout from two independent amplifications of ONE genome, which needs no population anchor.
  *
  * Among markers called heterozygous in at least one replicate, the discordant fraction is
@@ -129,9 +150,12 @@ const BOUNDS: { stage: Stage, minHet: number, dropout: number, templates: string
  * confident parameter set rather than being rejected. The two are indistinguishable by
  * heterozygosity alone, so call rate has to decide first.
  */
-export function inferStage(profile: Pick<SampleProfile, 'hetRate' | 'callRate'>): StageCall {
+export function inferStage(
+  profile: Pick<SampleProfile, 'hetRate' | 'callRate'> & { hetBand?: number },
+): StageCall {
   const h = profile.hetRate
   const call = profile.callRate
+  const band = profile.hetBand
 
   if (!Number.isFinite(h) || !Number.isFinite(call)) {
     return {
@@ -150,7 +174,13 @@ export function inferStage(profile: Pick<SampleProfile, 'hetRate' | 'callRate'>)
     }
   }
 
-  if (h <= HAPLOID_MAX_HET) {
+  // Intensity outranks the genotype calls in this one direction. A sample whose BAF band is at
+  // the diploid line has intermediate signal at a large fraction of its markers, which one
+  // template cannot produce, so it is diploid however few heterozygotes the caller kept. Without
+  // this a blastomere at 0.40 dropout crosses the heterozygosity boundary and is called haploid.
+  const bandSaysDiploid = Number.isFinite(band as number) && (band as number) >= BAND_DIPLOID_CERTAIN
+
+  if (h <= HAPLOID_MAX_HET && !bandSaysDiploid) {
     // PB2, pronuclei and sperm carry one chromatid and are homozygous throughout. A FIRST polar
     // body carries a dyad and is genuinely heterozygous distal to each crossover, expected h about
     // 0.074, so the two are distinguished by where in the band the sample sits rather than lumped.
@@ -175,6 +205,24 @@ export function inferStage(profile: Pick<SampleProfile, 'hetRate' | 'callRate'>)
   }
 
   const hit = BOUNDS.find((b) => h >= b.minHet) ?? BOUNDS[BOUNDS.length - 1]
+  if (bandSaysDiploid && h <= HAPLOID_MAX_HET) {
+    return {
+      stage: hit.stage,
+      // The shortfall formula is calibrated against a diploid's heterozygosity, and this sample
+      // is diploid, so it applies. It saturates at the 0.6 ceiling here, which is the point.
+      dropout: Math.min(0.6, Math.max(0.005, 1 - h / BULK_HETEROZYGOSITY)),
+      basis: 'heterozygosity-shortfall',
+      templates: hit.templates,
+      markerFloor: hit.floor,
+      caveat: 'genotype heterozygosity alone would have called this one genome; the BAF band '
+        + 'overrode that. Dropout is at or near its ceiling, so every downstream call on this '
+        + 'sample is weakly powered even where it is admitted',
+      why: `${(h * 100).toFixed(1)}% heterozygous is in the haploid range, but a BAF band of `
+        + `${((band as number) * 100).toFixed(1)}% is at or above the ${(BAND_DIPLOID_CERTAIN * 100)
+          .toFixed(0)}% diploid line. Intermediate intensity at that many markers cannot come from `
+        + 'one template, so this is a heavily dropped-out diploid rather than one genome',
+    }
+  }
   const implied = Math.min(0.6, Math.max(0.005, 1 - h / BULK_HETEROZYGOSITY))
   return {
     stage: hit.stage,

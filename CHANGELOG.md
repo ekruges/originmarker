@@ -9,6 +9,28 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.8.2 "Holliday"
+
+### Fixed
+
+- **A heavily dropped-out diploid can no longer be called haploid.** The call-rate gate added in
+  4.8.1 catches an array that failed outright, but not a blastomere that amplified acceptably and
+  simply lost most of its heterozygotes: at 0.40 dropout it sits at 0.101 heterozygous, below the
+  0.105 boundary, and was called one genome. The BAF band now vetoes that. Intensity sees a
+  heterozygous locus whether or not the genotype caller kept it, and intermediate signal at a large
+  fraction of markers cannot come from a single template, so a band at the diploid line decides
+  against haploid however few heterozygous calls survived.
+
+  **The veto is one-directional, deliberately.** The review asked for band position as a required
+  second signal in both directions; this project has the measurement that it does not work that
+  way here. Across 120 non-haploid arrays spanning blastomeres, trophectoderm biopsies and ESC
+  lines, 91 fall inside the haploid band range and 22 blastomeres sit below the diploid-exclusion
+  floor, because amplification widens the heterozygote band and fills the homozygote band until the
+  two are one distribution. A low band is therefore treated as no evidence of one genome, and the
+  recommendation was adopted only in the direction it survives contact with this material.
+
+---
+
 ## 4.8.1 "Holliday"
 
 The stage mechanism asserted in 4.8.0 was put to an external review. Three of its six claims did not
