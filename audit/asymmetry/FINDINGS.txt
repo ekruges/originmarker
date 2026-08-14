@@ -60,3 +60,69 @@ rather than chosen by the harness.
 
   WHAT WOULD CHANGE IT. A paternal array for this group. The maternal side is anchored and the
   paternal side is not, and the events sit on arrays that cannot be tied to either.
+
+
+GSE148488: 122 ARRAYS AGAINST A GENOTYPED FATHER
+------------------------------------------------
+The published series behind the laboratory's own Cas9 work. One sperm donor in four replicates,
+four egg donors, and 123 embryo and stem-cell samples. Reference GSM4472397, the sperm donor's
+bulk gDNA, which loads through the shipped ingest at call 0.9547 and heterozygosity 0.1626 and
+stages as bulk. That is within a thousandth of the call rate PLAN.txt recorded for it.
+
+  40 ARRAYS EXCLUDED as not-a-genome by the ceiling added in 4.8.4, out of 122. Every one has a
+  call rate ABOVE the 40% quality floor, between 43% and 59%, with heterozygosity from 26% to 64%.
+  Before that ceiling existed all forty were classified as BULK GENOMIC DNA and handed a dropout
+  of 0.008. This is a third of the series, not an edge case.
+
+  36 CHILDREN CONFIRMED, at opposite-homozygote 0.0030 to 0.0192 with a second parental
+  contribution of 9.5% to 14.9% over 590,000 to 630,000 informative markers. The linkage is
+  unambiguous: unrelated adults on this platform sit near 0.07.
+
+  THREE EVENTS ACROSS THIRTY-SIX CHILDREN.
+
+    GSM4552365  TE biopsy    chr16:47,677,040-59,753,701   copy loss   both present
+    GSM4552366  TE biopsy    chr16:47,566,785-59,747,742   copy loss   both present
+    GSM4774681  blastomere   chr1 whole chromosome         loss        REFUSED
+
+  THE TWO chr16 CALLS ARE THE SAME EVENT SEEN TWICE, in two biopsies of one embryo, and they
+  agree: 216 exclusive markers in both, 11.7% of 1,853 and 11.3% of 1,909. Two independent
+  amplifications landing on the same count is the internal check that the statistic is reading
+  something real. Both say the father's copy is PRESENT, so the lost copy is the mother's or the
+  loss is mosaic within the biopsy, which a trophectoderm biopsy of five to ten cells permits.
+
+  THE chr1 REFUSAL IS THE POINT OF THIS RUN. Before 4.8.5 it returned BOTH COPIES PRESENT AT
+  POSTERIOR 1.000. The array carries a call-rate collapse on chromosome 1, 69% no-call, and across
+  the 16,120 markers where the father is homozygous it reads:
+
+      heterozygous                                 9,628   59.7%
+      homozygous for the allele the father lacks   2,959   18.4%
+      homozygous for the father's own allele       3,533   21.9%
+
+  No genome reads that way. Where the loaded parent is homozygous a biparental sample is
+  heterozygous only when the other parent transmitted the allele this one lacks, which is the
+  panel's allele frequency. The likelihood took the heterozygote count at face value, because a
+  heterozygote is near-impossible under either deletion hypothesis, and produced a confident
+  verdict from an input that carried no information. It now refuses.
+
+
+WHAT THESE RUNS ESTABLISH, AND WHAT THEY DO NOT
+-----------------------------------------------
+ESTABLISHED. The method runs end to end on real material, from three independent directions:
+laboratory arrays with a maternal reference, laboratory arrays with a public paternal reference,
+and a published series with a genotyped father. Linkage separates children from unrelated adults
+and from duplicates cleanly. Three defects were found by running it that inspection had not
+found, all of them producing confident wrong answers rather than errors, and all three now
+refuse instead.
+
+NOT ESTABLISHED, and not close. No parental asymmetry, in either direction. Three events across
+thirty-six confirmed children is not a denominator anything can be said from, and PLAN.txt's
+floor stands: nothing below a paternal fraction of 0.60, nothing on one-cell-per-embryo material,
+and roughly 20 to 30 oocyte donors before a null means anything. What these runs produce is a
+working instrument and a measured event rate, not an answer to the question.
+
+THE BINDING SHORTAGE IS EVENTS, NOT METHOD. 122 arrays yielded three. The material with the
+events is the laboratory cohort, where 1,189 regions are already called from the dosage channel,
+and what that cohort lacks is a parental anchor for the donors carrying them. One anchor per donor
+group is enough, and the EYS donor is an anchor for exactly one group in the local corpus: five
+arrays of experiment 32477, four of which are uniparental paternal and therefore answer the
+parent question trivially.

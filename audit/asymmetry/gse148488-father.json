@@ -429,50 +429,11 @@
    "stage": "blastomere",
    "kind": "whole-chromosome loss",
    "locus": "chr1:86,028-249,222,527",
-   "verdict": "both-present",
-   "posterior": 1,
+   "verdict": "refused",
+   "posterior": null,
    "markers": 16120,
    "exclusive": 2959,
-   "why": "both-present at posterior 1.0000 over 16120 markers where the loaded parent is homozygous. 2959 carry the allele that parent does not have (18.4%), which only its absence explains, and 9628 are heterozygous, which only both copies being present explains"
-  },
-  {
-   "ref": "EYS-sperm",
-   "sample": "GSM4774681",
-   "stage": "blastomere",
-   "dropout": 0.2768211932245759,
-   "kind": "copy-loss",
-   "locus": "chr1:86,028-57,878,306",
-   "verdict": "both-present",
-   "posterior": 1,
-   "markers": 5370,
-   "exclusive": 856,
-   "why": "both-present at posterior 1.0000 over 5370 markers where the loaded parent is homozygous. 856 carry the allele that parent does not have (15.9%), which only its absence explains, and 3291 are heterozygous, which only both copies being present explains"
-  },
-  {
-   "ref": "EYS-sperm",
-   "sample": "GSM4774681",
-   "stage": "blastomere",
-   "dropout": 0.2768211932245759,
-   "kind": "copy-loss",
-   "locus": "chr1:57,883,320-228,036,805",
-   "verdict": "both-present",
-   "posterior": 1,
-   "markers": 9048,
-   "exclusive": 1773,
-   "why": "both-present at posterior 1.0000 over 9048 markers where the loaded parent is homozygous. 1773 carry the allele that parent does not have (19.6%), which only its absence explains, and 5326 are heterozygous, which only both copies being present explains"
-  },
-  {
-   "ref": "EYS-sperm",
-   "sample": "GSM4774681",
-   "stage": "blastomere",
-   "dropout": 0.2768211932245759,
-   "kind": "copy-loss",
-   "locus": "chr1:231,727,767-244,544,519",
-   "verdict": "both-present",
-   "posterior": 1,
-   "markers": 1020,
-   "exclusive": 191,
-   "why": "both-present at posterior 1.0000 over 1020 markers where the loaded parent is homozygous. 191 carry the allele that parent does not have (18.7%), which only its absence explains, and 615 are heterozygous, which only both copies being present explains"
+   "why": "59.7% of the informative markers read heterozygous, over the 40% ceiling. Where the loaded parent is homozygous a biparental sample can only be heterozygous when the other parent transmitted the allele this one lacks, so a rate this high means the genotypes are not measuring the region. No origin is called from them"
   },
   {
    "ref": "EYS-sperm",
