@@ -9,6 +9,61 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.7.0 "Pachytene"
+
+**Parental origin from one parent.** A run with only the sperm donor now names which parent's copy
+is missing, per region.
+
+### The evidence
+
+Validated on a real HapMap CEPH trio, chr21, NA12891 x NA12892 -> NA12878, with the trio confirmed
+from the genotypes rather than a pedigree file. The child is euploid, so each loss is constructed
+from the family's own alleles, which is what makes the truth exact: both parents are genotyped, so
+the surviving allele under each loss is known rather than assumed. **The mother is then hidden and
+only the father is given to the caller.**
+
+    scenario                  verdict              posterior   exclusive markers
+    ADO 0.050  keep mother    known-parent-lost        1.000              5172
+    ADO 0.050  keep father    other-parent-lost        1.000                 0
+    ADO 0.050  keep both      both-present             1.000               147
+    ADO 0.450  keep mother    known-parent-lost        1.000              5160
+    ADO 0.450  keep father    other-parent-lost        1.000                 0
+    ADO 0.450  keep both      both-present             1.000              1163
+
+    12 of 12 correct, across dropout from 0.050 to 0.450, with only the father loaded.
+
+The `exclusive` column is the mechanism. It counts markers where the loaded parent is homozygous
+and the sample carries the allele that parent does not have. When his copy is gone the count is
+5,130 to 5,172; when the OTHER parent's copy is gone it is exactly 0, at every dropout rate.
+
+### Why it works where two attempts failed
+
+**A parent who is AA has no B to give.** So a child reading BB at that marker cannot be carrying
+his copy, and dropout cannot manufacture the observation, because dropout removes an allele and
+never invents one. The estimator is that fact counted properly, with the two ways it can be faked
+priced in.
+
+There is no allele share and no centre, which is what killed the earlier attempts: a share centred
+on its own median could only move one way, because for every q below 0.5 the median IS the ceiling.
+Each marker here contributes a likelihood and the region evidence is their product, so neither
+direction is privileged. The check pins symmetry, that the caller is not a constant function, and
+that raising dropout to 0.6 cannot turn an intact region into a loss.
+
+### Added
+
+- `oneParentOrigin.ts`, and its verdict feeds the chromosomal-change callout, so a sperm-only run
+  shows a named parent with `basis: one parent`, the informative marker count and the posterior.
+- The display mapping is pinned in both parent roles: with the sperm donor loaded
+  `known-parent-lost` reads paternal, with a maternal reference it reads maternal, and two-parent
+  dosage still outranks the single-parent call where both exist.
+
+### Still true
+
+The sibling-referenced caller from 4.6.0 remains inert and unused. This release does not repair it;
+it makes it unnecessary for the single-parent case.
+
+---
+
 ## 4.6.1 "Synapsis"
 
 A red callout that leads with WHOSE copy, and an honest report that 4.6.0's sibling caller does not

@@ -459,6 +459,18 @@ export interface ParentageResult {
    * Says whether a copy is genuinely missing rather than which parent's: naming a side needs
    * phase, and naming the parent needs an anchor. See siblingOrigin.ts.
    */
+  /**
+   * Per-segment origin from a SINGLE loaded parent. 'known-parent-lost' means the loaded parent's
+   * copy is missing; with the sperm donor loaded that is paternal. See oneParentOrigin.ts.
+   */
+  oneParent?: {
+    where: string
+    verdict: string
+    posterior: number
+    markers: number
+    exclusive: number
+    why: string
+  }[]
   siblingCalls?: {
     where: string
     hypothesis: string

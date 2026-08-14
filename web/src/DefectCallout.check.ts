@@ -73,3 +73,44 @@ const seg = (chrom: string, startBp: number, endBp: number, kind: Segment['kind'
 }
 
 console.log('DefectCallout.check.ts: all assertions passed, including the no-borrowed-origin case')
+
+// --- 5. a one-parent call fills the origin, and maps to the right parent -------------------------
+//
+// The path that matters for a sperm-only run. 'known-parent-lost' means the LOADED parent's copy
+// is gone, so with the sperm donor loaded it reads paternal; 'other-parent-lost' reads maternal.
+// Getting that mapping backwards would invert every call in the display while looking healthy.
+{
+  const s = seg('7', 1_000_000, 9_000_000, 'copy-loss')
+  const one = [{
+    where: 'chr7 1.0-9.0Mb', verdict: 'known-parent-lost', posterior: 0.999,
+    markers: 4200, exclusive: 610, why: 'known-parent-lost at posterior 0.999',
+  }]
+  const [d] = defectsFrom([s], [], [], one, 'paternal')
+  assert.equal(d.origin, 'paternal', 'the loaded parent losing its copy is that parent')
+  assert.equal(d.basis, 'one-parent')
+  assert.equal(d.informative, 4200)
+  assert.equal(d.posterior, 0.999)
+
+  const [flip] = defectsFrom([s], [], [], [{ ...one[0], verdict: 'other-parent-lost' }], 'paternal')
+  assert.equal(flip.origin, 'maternal', 'the other parent losing its copy is the other parent')
+
+  // With the MOTHER loaded the same verdicts must map the other way round.
+  const [asMum] = defectsFrom([s], [], [], one, 'maternal')
+  assert.equal(asMum.origin, 'maternal')
+
+  // A refusal must not fill anything in.
+  const [ref] = defectsFrom([s], [], [], [{ ...one[0], verdict: 'refused', posterior: NaN }],
+    'paternal')
+  assert.equal(ref.origin, 'unclear', 'a refused one-parent call names nobody')
+  assert.equal(ref.basis, undefined)
+
+  // Two-parent evidence must win where both exist.
+  const ann: GainAnnotation[] = [{
+    where: 'chr7 1.0-9.0Mb', kind: 'segment', origin: 'maternal', why: 'dosage', called: true,
+  }]
+  const [both] = defectsFrom([s], [], ann, one, 'paternal')
+  assert.equal(both.origin, 'maternal', 'two-parent dosage outranks the single-parent call')
+  assert.equal(both.basis, 'two-parent')
+}
+
+console.log('DefectCallout.check.ts: one-parent mapping pinned in both parent roles')
