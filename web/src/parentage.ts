@@ -31,6 +31,7 @@ import { type AB } from './informativity.ts'
 import type { Segment } from './segments.ts'
 import type { HetCall } from './obligateHet.ts'
 import type { Enrichment } from './features.ts'
+import type { StageCall } from './stage.ts'
 
 /** Residual absence on clean data, from genotyping error alone. Measured at 0.03% and 0.05%. */
 export const ABSENCE_ERROR_FLOOR = 0.005
@@ -463,6 +464,8 @@ export interface ParentageResult {
    * Per-segment origin from a SINGLE loaded parent. 'known-parent-lost' means the loaded parent's
    * copy is missing; with the sperm donor loaded that is paternal. See oneParentOrigin.ts.
    */
+  /** Developmental stage inferred from this array, and the dropout its template count implies. */
+  stage?: StageCall
   oneParent?: {
     where: string
     verdict: string

@@ -39,7 +39,8 @@ import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
 import { defectsFrom } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
-import { callOneParentOrigin, inferDropout } from './oneParentOrigin'
+import { callOneParentOrigin } from './oneParentOrigin'
+import { inferStage, locus } from './stage'
 
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
@@ -486,6 +487,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           }, bar(s.id, s.file.size), log)
           sampleGt.set(s.id, myGt)
           const result = classify(t, pat.heterozygosity)
+          // Stage from the array itself, since template copy number sets dropout and stage sets
+          // template count. Bundled into the result so every output carries it.
+          result.stage = inferStage(profile)
+          log('DONE', `stage: ${result.stage.stage} — ${result.stage.why}`)
           // One contribution or two, per chromosome. Reported, never used to admit or reject a
           // sample: the boundaries are measured for a BULK reference parent, and against a
           // single-cell reference they do not separate at all (audit section E2).
@@ -637,9 +642,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 const pg = pat.gt.get(probe)
                 if (pg) pairs.push([pg, gt])
               }
-              // Dropout inferred from this sample's own heterozygosity, so a trophectoderm biopsy and
-              // a blastomere are handled differently without the user declaring either.
-              const c = callOneParentOrigin(pairs as never, inferDropout(profile.hetRate))
+              // Dropout comes from the inferred stage, which is grounded in template copy
+              // number: bulk starts from ~10^6 molecules per locus and a blastomere from 2.
+              const c = callOneParentOrigin(pairs as never, result.stage!.dropout)
               return {
                 where: `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`,
                 verdict: c.verdict,

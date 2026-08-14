@@ -59,6 +59,8 @@ const SECTIONS: DocSection[] = [
   { id: 'gainorigin', label: 'Where an extra copy came from' },
   { id: 'segments', label: 'Chromosomal change: segments' },
   { id: 'contribution', label: 'One parent or two, per chromosome' },
+  { id: 'oneparent', label: 'Parental origin from one parent' },
+  { id: 'stage', label: 'Material, amplification and stage' },
   { id: 'report', label: 'The report, and how to cite it' },
   { id: 'examples', label: 'The bundled example data' },
   { id: 'backend', label: 'What the backend adds' },
@@ -1637,6 +1639,71 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             triage where no parent is available, was only ever measured on a haploid meiotic
             product against a bulk adult: on 120 post-zygotic arrays 91 fall inside its haploid
             range. Neither statistic is safe as a general ploidy branch, so neither is used as one.
+          </Text>
+        </Section>
+
+        <Section id="oneparent" title="Parental origin from one parent">
+          <Text size="sm" mb={10}>
+            With a single parental array loaded, the tool names which parent&rsquo;s copy is missing
+            across a region. It rests on a Mendelian fact rather than a threshold: a parent who is
+            homozygous <b>AA</b> has no B to give, so a sample reading <b>BB</b> at that marker
+            cannot be carrying that parent&rsquo;s copy. Dropout cannot manufacture the observation,
+            because dropout removes an allele and never invents one.
+          </Text>
+          <Text size="sm" mb={10}>
+            Three hypotheses are weighed at every informative marker, being those where the loaded
+            parent is homozygous: both copies present, the loaded parent&rsquo;s copy lost, the
+            other parent&rsquo;s copy lost. A heterozygous sample argues both are present; a sample
+            carrying the allele the parent lacks argues that parent&rsquo;s copy is gone. The
+            region&rsquo;s evidence is the product of the per-marker likelihoods, and a call is made
+            only above a 0.95 posterior.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>There is no allele share and no centre here, deliberately.</b> Two earlier attempts
+            formed a share and centred it on the sample&rsquo;s own median. For every allele
+            frequency below one half the majority of these markers sit at the top of the range, so
+            the median IS the ceiling and one direction had no room to move: every call came back
+            the same way. A quantity that is never centred cannot be mis-centred.
+          </Text>
+          <Text size="sm" mb={10}>
+            Validated on a real HapMap CEPH trio with the mother hidden and only the father given to
+            the caller: <b>12 of 12 correct</b> across dropout from 0.050 to 0.450. The child is
+            euploid, so each loss is constructed from the family&rsquo;s own alleles, which is what
+            makes the truth exact rather than assumed. Markers carrying the allele the loaded parent
+            lacks numbered 5,130 to 5,172 when his copy was removed, and exactly zero when the other
+            parent&rsquo;s was.
+          </Text>
+        </Section>
+
+        <Section id="stage" title="Material, amplification and stage">
+          <Text size="sm" mb={10}>
+            The developmental stage of a sample is inferred from the array rather than declared, and
+            it is bundled into every output. Nothing is asked of you that the data already answers.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>The physical cause is template copy number.</b> Allele dropout is a sampling failure
+            during amplification, and its rate is set by how many template molecules the reaction
+            started from. A locus in bulk genomic DNA is present in millions of copies, so losing
+            every copy of one allele is impossible. The same locus in a single cell is present in
+            exactly two molecules, one per homologue, and a heterozygote survives only if both
+            amplify. Nothing about the genome changed; the reaction lost it.
+          </Text>
+          <Text size="sm" mb={10}>
+            So the observed heterozygous rate, read against the figure for bulk DNA on this
+            platform, measures the dropout the stage implies: bulk from about a million cells drops
+            0.013, a trophectoderm biopsy of five to ten cells drops 0.050, a single embryonic stem
+            cell drops 0.199 and a cleavage-stage blastomere 0.308. The last two both start from two
+            molecules yet differ nearly two-fold, which is chromatin rather than copy number: a
+            blastomere is in a rapid cell cycle with a decondensed, replication-active genome that
+            primes less reliably.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Haploid material is a different axis and is separated first.</b> A polar body, a
+            pronucleus or a sperm carries one genome and is homozygous everywhere by construction,
+            so on heterozygosity alone it resembles a catastrophically dropped-out diploid. Reading
+            it as one would attach a nonsensical dropout to it. An array whose call rate is too low
+            to support any of this is called unknown and given the most conservative dropout rather
+            than the most flattering.
           </Text>
         </Section>
 

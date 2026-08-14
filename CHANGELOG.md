@@ -9,6 +9,54 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.8.0 "Holliday"
+
+Stage inferred from physics rather than fitted, carried in every output, and regions written the
+way a genome browser writes them.
+
+### Added
+
+- **`stage.ts` infers the developmental stage of each array, grounded in template copy number.**
+  Allele dropout is a sampling failure during amplification and its rate is set by how many
+  template molecules the reaction started from. A locus in bulk DNA is present in millions of
+  copies, so losing every copy of one allele is impossible; the same locus in a single cell is
+  present in exactly two, and a heterozygote survives only if both amplify. Nothing about the
+  genome changed, the reaction lost it.
+
+      bulk genomic DNA      >10^6 cells    ~2x10^6 templates/locus    dropout 0.013   floor 100
+      trophectoderm         5-10 cells     10-20 templates            0.050           floor 100
+      single ES cell, WGA   1 cell         2 templates                0.199           floor 200
+      cleavage blastomere   1 cell         2 templates                0.308           floor 200
+
+  The last two both start from two molecules yet differ nearly two-fold, which is chromatin rather
+  than copy number: a blastomere is in a rapid cell cycle with a decondensed, replication-active
+  genome that primes less reliably.
+
+- **Haploid material is separated before any diploid stage.** A polar body, pronucleus or sperm
+  carries one genome and is homozygous by construction, so on heterozygosity alone it resembles a
+  catastrophically dropped-out diploid; reading it as one would attach a nonsensical dropout to it.
+  The boundary sits in the empty gap between measured populations, 0.002-0.10 for haploid products
+  against 0.116 for the lowest diploid.
+
+- **Stage is bundled into the result** and printed in the report, with its template count, the
+  dropout it implies and the marker floor it sets. A failed array is called unknown and given the
+  most conservative dropout rather than the most flattering.
+
+- **The marker floor now varies by stage**, which the previous release recorded as outstanding:
+  `MIN_INFORMATIVE_TROPHECTODERM` and `MIN_INFORMATIVE_BULK` existed and were never used.
+
+### Changed
+
+- **Regions are written `chr6:39,302-294,904`**, the conventional genome-browser form, in the
+  callout chips and in the report's segment table. Thousands separators included because these are
+  read by people, and an unseparated nine-digit coordinate is where a reader loses an order of
+  magnitude.
+
+- Documentation gains two sections, on parental origin from one parent and on material,
+  amplification and stage, both stating the mechanism rather than the setting.
+
+---
+
 ## 4.7.1 "Pachytene"
 
 Stage handled without asking, and breakpoint intervals readable in the unit they live in.

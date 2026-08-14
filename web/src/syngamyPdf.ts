@@ -13,6 +13,7 @@ import {
   type ChromResult, type PairClass, type PairResult, type ParentageResult,
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
+import { locus } from './stage.ts'
 import { DEFAULT_PERMUTATIONS, MIN_REGIONS } from './features.ts'
 import type { Gate, SampleProfile } from './ingest.ts'
 import type { RunResult } from './runlength.ts'
@@ -718,7 +719,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { head: 'Markers', w: 44, right: true }, { head: 'Rate', w: 44, right: true },
           { head: 'Against', w: 44, right: true }, { head: 'Score', w: 40, right: true }],
         r.segments.map((sg) => [
-          `chr${sg.chrom} ${int(segmentCoords(sg).start)}-${int(segmentCoords(sg).end)}`,
+          locus(sg.chrom, segmentCoords(sg).start, segmentCoords(sg).end),
           { v: sg.kind === 'copy-loss' ? 'DNA absent'
             : sg.kind === 'copy-gain' ? 'extra copies' : 'paternal alleles absent',
           colour: sg.kind === 'parental-absence' ? INK : WARN },
@@ -737,6 +738,19 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     }
 
     if (f.profile) {
+      if (r.stage) {
+        heading('Material and amplification', 8.6)
+        text(`Inferred stage: ${r.stage.stage}. ${r.stage.why}. Template copies per locus `
+          + `${r.stage.templates}; allele dropout ${r.stage.dropout.toFixed(3)} is used to `
+          + `parameterise every directional call, and ${r.stage.markerFloor} informative markers `
+          + 'are required for one.', 7.6)
+        text('Stage is inferred from the array rather than declared. Allele dropout is a sampling '
+          + 'failure during amplification and its rate is set by how many template molecules the '
+          + 'reaction started from: a locus in bulk DNA is present in millions of copies, the same '
+          + 'locus in a single cell in exactly two, and a heterozygote survives only if both '
+          + 'amplify. So the observed heterozygous rate, read against the bulk figure for this '
+          + 'platform, measures the dropout that the stage implies.', 7.4)
+      }
       heading('Sample quality', 8.6)
       const p = f.profile
       const baf = [p.coding.meanBafHom0, p.coding.meanBafHet, p.coding.meanBafHom2]

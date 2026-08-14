@@ -9,6 +9,7 @@
 import type { Segment } from './segments.ts'
 import type { GainAnnotation } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
+import { locus } from './stage.ts'
 
 /** What is known about one defect, gathered from whichever channels produced it. */
 export interface Defect {
@@ -16,6 +17,8 @@ export interface Defect {
   startBp: number
   endBp: number
   kind: 'copy-loss' | 'copy-gain' | 'parental-absence' | 'whole-chromosome'
+  /** The region in genome-browser form, chr6:39,302-294,904. */
+  locus: string
   /** Refined interval text where the breakpoint was localised, e.g. '+/- 61 kb'. */
   interval?: string
   /** Origin as the tool determined it, with the reason. */
@@ -62,6 +65,7 @@ export function defectsFrom(
       chrom: sg.chrom,
       startBp: co.start,
       endBp: co.end,
+      locus: locus(sg.chrom, co.start, co.end),
       kind: sg.kind === 'copy-gain' ? 'copy-gain'
         : sg.kind === 'copy-loss' ? 'copy-loss' : 'parental-absence',
       interval: sg.refined ? co.interval : undefined,

@@ -63,7 +63,7 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
             </Text>
 
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 5, marginTop: 5 }}>
-              <Chip label="at" value={`${mb(d.startBp)}–${mb(d.endBp)} Mb`} mono />
+              <Chip label="at" value={d.locus} mono />
               <Chip label="span" value={`${mb(d.endBp - d.startBp)} Mb`} mono />
               {d.interval ? <Chip label="edge" value={d.interval} mono /> : null}
               <Chip label="event" value={d.kind.replace('copy-', '').replace('-', ' ')} />
