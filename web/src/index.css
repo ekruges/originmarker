@@ -39,6 +39,12 @@
      --om-blue. A token because the alternative is the hex appearing in one component's inline
      style and nowhere else, which is how the next one drifts. */
   --om-warn-bg: #fdf6f0;
+  /* A chromosomal defect is a different class from a warning: it is a finding about the sample
+     rather than a caution about the run, so it gets its own red rather than reusing --om-higher.
+     The wash is tinted toward it on the same principle as --om-warn-bg. */
+  --om-defect: #b12222;
+  --om-defect-bg: #fdf3f3;
+  --om-defect-chip: #f7e4e4;
   --om-text-dim: #6b727b;
   /* The stack .om-mono uses, as a token, so inline styles get the same face. Numeric columns
      need `font-variant-numeric: tabular-nums` with it or digits will not align. */

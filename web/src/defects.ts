@@ -1,0 +1,59 @@
+/**
+ * What the defect display is told, separate from how it is drawn.
+ *
+ * Kept out of the .tsx for two reasons: node cannot strip JSX, so a component file cannot carry a
+ * self-check, and this is the layer where getting it wrong matters. Showing a confident parent for
+ * a region that never had one is the most damaging thing this UI could do, so the mapping that
+ * decides it is testable on its own.
+ */
+import type { Segment } from './segments.ts'
+import type { GainAnnotation } from './parentage.ts'
+import { segmentCoords } from './segments.ts'
+
+/** What is known about one defect, gathered from whichever channels produced it. */
+export interface Defect {
+  chrom: string
+  startBp: number
+  endBp: number
+  kind: 'copy-loss' | 'copy-gain' | 'parental-absence' | 'whole-chromosome'
+  /** Refined interval text where the breakpoint was localised, e.g. '+/- 61 kb'. */
+  interval?: string
+  /** Origin as the tool determined it, with the reason. */
+  origin: 'paternal' | 'maternal' | 'unclear'
+  why: string
+  /** How the origin was reached, which decides how much weight it carries. */
+  basis?: 'two-parent' | 'one-parent' | 'sibling' | 'homologue'
+  informative?: number
+  posterior?: number
+  phi?: number
+}
+
+/** Build the display list from a run's segments and whatever origin annotations exist for them. */
+export function defectsFrom(
+  segments: readonly Segment[],
+  gains: readonly GainAnnotation[],
+  losses: readonly GainAnnotation[],
+): Defect[] {
+  const byWhere = new Map<string, GainAnnotation>()
+  for (const a of [...gains, ...losses]) byWhere.set(a.where, a)
+  return segments.map((sg) => {
+    const co = segmentCoords(sg)
+    const where = `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`
+    const ann = byWhere.get(where)
+    const origin = ann?.origin?.startsWith('paternal') ? 'paternal'
+      : ann?.origin?.startsWith('maternal') ? 'maternal' : 'unclear'
+    return {
+      chrom: sg.chrom,
+      startBp: co.start,
+      endBp: co.end,
+      kind: sg.kind === 'copy-gain' ? 'copy-gain'
+        : sg.kind === 'copy-loss' ? 'copy-loss' : 'parental-absence',
+      interval: sg.refined ? co.interval : undefined,
+      origin,
+      why: ann?.why
+        ?? 'No parental genotype was loaded for this run, so allele dosage cannot be oriented and '
+          + 'the parent is not determined. The position and its interval are unaffected.',
+      basis: ann ? 'two-parent' : undefined,
+    } as Defect
+  })
+}

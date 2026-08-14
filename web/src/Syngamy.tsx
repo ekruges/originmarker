@@ -36,6 +36,8 @@ import { receiveHandoff, wantsHandoff } from './handoff'
 import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
+import { DefectCallout } from './DefectCallout'
+import { defectsFrom } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 
 /**
@@ -1025,6 +1027,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
           )}
           <SegmentCallout segments={r.segments} />
           <PlacementCallout placement={r.placement} />
+          <DefectCallout defects={defectsFrom(r.segments, r.gains, r.losses ?? [])} />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">

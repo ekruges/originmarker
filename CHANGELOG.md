@@ -9,6 +9,45 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.6.1 "Synapsis"
+
+A red callout that leads with WHOSE copy, and an honest report that 4.6.0's sibling caller does not
+work.
+
+### Added
+
+- **Chromosomal change now has its own callout, and origin is the headline.** A reader wants whose
+  copy first and the coordinates second, so the parent is the large text and the evidence sits
+  beneath it as chips: interval, span, refined edge, event type, informative markers, posterior,
+  false-heterozygous fraction, and which channel the call rests on. Where origin cannot be
+  determined the headline says so in the same place and the same size, because a defect with no
+  origin is a result rather than a missing field.
+
+- **`defects.ts` carries the mapping, separately from the markup.** Which origin is shown, and what
+  is said when there is none, is the layer where a mistake does real damage, so it is testable on
+  its own. The check pins the case that matters: a region with no annotation must not borrow a
+  neighbour's origin, must not claim a basis, and must keep its coordinates, since position needs
+  no parental genotype.
+
+### Fixed
+
+- **A homologue call is no longer displayed as a named parent.** The uniparental path writes
+  "this parent, other homologue (meiotic)", which names no parent; a prefix match would have shown
+  it as one.
+
+### Does not work
+
+- **The sibling-referenced caller shipped in 4.6.0 is inert.** Measured against the intensity
+  channel on real arrays, 8 embryos with 3 or more arrayed cells: of 74 regions the intensity
+  channel called a copy-loss, the sibling caller reported no deletion for all 74, and reported no
+  deletion for all 74 matched negatives as well. Sensitivity 0.000, specificity 1.000. It is a
+  constant function and carries no information. Two candidate causes are open, an allele-dropout
+  parameter fed the array's no-call rate instead, and sibling-established heterozygous markers that
+  are not reliably heterozygous, and they have not been distinguished. Stated here rather than
+  quietly patched.
+
+---
+
 ## 4.6.0 "Synapsis"
 
 Parental origin without a parental array. The blocker was never the method.
