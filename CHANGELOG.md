@@ -9,6 +9,28 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.8.5 "Holliday"
+
+### Fixed
+
+- **The one-parent caller issued confident verdicts on genotypes that were not measuring the
+  region.** Found on a real array rather than by inspection: a blastomere with a call-rate collapse
+  on chromosome 1, 69% no-call, read 59.7% heterozygous across the markers where the father is
+  homozygous. Where the loaded parent is homozygous a biparental sample can only be heterozygous
+  when the OTHER parent transmitted the allele this one lacks, which is the panel's allele
+  frequency, so 59.7% is not a genome. The likelihood took the heterozygote count at face value,
+  because a heterozygote is near-impossible under either deletion hypothesis, and returned
+  both-copies-present at **posterior 1.000** from an input carrying no information.
+
+  `MAX_REGION_HET = 0.40` now refuses the region instead. The ceiling clears `q` plus drop-in at
+  the top of the measured range, so a real region is never refused, and the check asserts that
+  directly. This is the region-level form of the array-level ceiling added in 4.8.4, and it exists
+  for the same reason: an impossible rate is evidence about the reaction, not about the genome.
+  A confident verdict from meaningless input is worse than a refusal, because only the refusal is
+  visible to the reader.
+
+---
+
 ## 4.8.4 "Holliday"
 
 ### Fixed

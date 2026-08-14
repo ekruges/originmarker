@@ -12,6 +12,7 @@
 import assert from 'node:assert/strict'
 import {
   callOneParentOrigin, informative, inferDropout, CALL_POSTERIOR, MIN_MARKERS, DEFAULT_Q,
+  MAX_REGION_HET, DROP_IN,
 } from './oneParentOrigin.ts'
 import type { AB } from './informativity.ts'
 
@@ -145,6 +146,31 @@ console.log('oneParentOrigin.check.ts: all assertions passed, including symmetry
   assert.equal(inferDropout(0), 0.308)
   // Bounded, so a pathological array cannot drive the likelihood to a degenerate value.
   assert.ok(inferDropout(0.0001) <= 0.6 && inferDropout(0.5) >= 0.01)
+}
+
+// --- an impossible heterozygosity is refused, not scored ------------------------------------------
+//
+// Found on a real array. A blastomere with a call-rate collapse on chromosome 1, 69% no-call,
+// read 59.7% heterozygous across the markers where the father is homozygous. No genome does that:
+// where the loaded parent is homozygous a biparental sample is heterozygous only when the other
+// parent transmitted the allele this one lacks. The likelihood took the count at face value,
+// because a heterozygote is near-impossible under either deletion hypothesis, and returned
+// both-copies-present at posterior 1.000 from genotypes carrying no information.
+{
+  const junk: [AB, AB][] = []
+  for (let i = 0; i < 2_000; i += 1) junk.push(['AA', i % 10 < 6 ? 'AB' : 'AA'])
+  const c = callOneParentOrigin(junk, 0.30)
+  assert.equal(c.verdict, 'refused', 'a 60% heterozygous region must not receive a verdict')
+  assert.ok(Number.isNaN(c.posterior))
+  assert.ok(c.why.includes('not measuring'))
+
+  // A real biparental region sits near the allele frequency and must still be scored.
+  const real: [AB, AB][] = []
+  for (let i = 0; i < 2_000; i += 1) real.push(['AA', i % 10 < 3 ? 'AB' : 'AA'])
+  assert.notEqual(callOneParentOrigin(real, 0.30).verdict, 'refused',
+    'a region at the expected heterozygosity must still be called')
+  assert.ok(MAX_REGION_HET > 0.30 + DROP_IN,
+    'the ceiling must clear q plus drop-in, or real regions are refused')
 }
 
 console.log('oneParentOrigin.check.ts: dropout inference pinned across four stages')

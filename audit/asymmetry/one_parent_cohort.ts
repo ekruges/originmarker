@@ -266,7 +266,12 @@ function scoreCandidate(ref: Loaded, c: Loaded, stage: Stage): Record<string, un
   const lrrAll = [...c.cnByChrom.values()].flat()
     .map((m) => m.log2R).filter((x): x is number => x !== null).sort((a, b) => a - b)
   const genomeLrr = lrrAll.length ? lrrAll[lrrAll.length >> 1] : 0
-  const segs = [...c.cnByChrom]
+  // A chromosome already called whole-chromosome aneuploid is EXCLUDED from the segmental scan,
+  // which is what the app does. Without it one monosomy is reported four times, as the whole
+  // chromosome and as every segment the scan carves out of it, and a count of events becomes a
+  // count of ways of describing one event.
+  const whole = new Set(aneuploid.map((a) => a.chrom))
+  const segs = [...c.cnByChrom].filter(([ch]) => !whole.has(ch))
     .flatMap(([ch, ms]) => scanCopyNumber(ms as never, externalNull(noCall, ch), genomeLrr))
 
   process.stderr.write(`  ${c.id}: CHILD of ${ref.id} (opp ${opp.rate.toFixed(4)}, second `

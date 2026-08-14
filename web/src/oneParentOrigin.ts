@@ -55,6 +55,24 @@ export const CALL_POSTERIOR = 0.95
 export const MIN_MARKERS = 50
 
 /**
+ * Heterozygosity above which the region's genotypes are not measuring it, and no verdict is issued.
+ *
+ * At a marker where the known parent is HOMOZYGOUS, a biparental child is heterozygous exactly
+ * when the other parent transmitted the allele this one lacks. That is the panel's own allele
+ * frequency, so with `q` at its default 0.30 and drop-in at the top of the range measured here,
+ * the most a real region can show is 0.30 + 0.0525, and dropout only lowers it. The ceiling sits
+ * above that with margin.
+ *
+ * WHY IT IS NEEDED, from a real array. A blastomere carrying a call-rate collapse on chromosome 1,
+ * 69% no-call, returned 59.7% heterozygous across the markers where the father is homozygous. No
+ * genome reads that way. The likelihood took the heterozygote count at face value, since a
+ * heterozygote is near-impossible under either deletion hypothesis, and returned both-copies-
+ * present at posterior 1.000 on genotypes that carried no information at all. A confident verdict
+ * from meaningless input is worse than a refusal, because only the refusal is visible.
+ */
+export const MAX_REGION_HET = 0.40
+
+/**
  * Allele dropout for a sample, inferred from the sample itself rather than declared.
  *
  * The drag-and-drop contract means nothing may be asked of the user that the data can answer, and
@@ -162,6 +180,20 @@ export function callOneParentOrigin(
       ...base, verdict: 'refused', posterior: NaN,
       why: `${n} informative markers is under the ${MIN_MARKERS} this needs; a marker only counts `
         + 'where the loaded parent is homozygous',
+    }
+  }
+
+  // The genotypes must be measuring the region before their likelihood means anything. This is
+  // the region-level form of the array-level ceiling in stage.ts, and it exists for the same
+  // reason: an impossible rate is evidence about the reaction, not about the genome.
+  if (het / n > MAX_REGION_HET) {
+    return {
+      ...base, verdict: 'refused', posterior: NaN,
+      why: `${(100 * het / n).toFixed(1)}% of the informative markers read heterozygous, over the `
+        + `${(100 * MAX_REGION_HET).toFixed(0)}% ceiling. Where the loaded parent is homozygous a `
+        + 'biparental sample can only be heterozygous when the other parent transmitted the allele '
+        + 'this one lacks, so a rate this high means the genotypes are not measuring the region. '
+        + 'No origin is called from them',
     }
   }
 
