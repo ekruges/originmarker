@@ -1681,29 +1681,58 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             it is bundled into every output. Nothing is asked of you that the data already answers.
           </Text>
           <Text size="sm" mb={10}>
-            <b>The physical cause is template copy number.</b> Allele dropout is a sampling failure
-            during amplification, and its rate is set by how many template molecules the reaction
-            started from. A locus in bulk genomic DNA is present in millions of copies, so losing
-            every copy of one allele is impossible. The same locus in a single cell is present in
-            exactly two molecules, one per homologue, and a heterozygote survives only if both
-            amplify. Nothing about the genome changed; the reaction lost it.
+            <b>Dropout is a sampling failure during amplification.</b> A heterozygous locus in a
+            single cell is represented by one molecule per allele before amplification. If that
+            molecule fails to prime in the early cycles it is absent from everything downstream and
+            the marker reads homozygous. Nothing about the genome changed; the reaction lost it.
           </Text>
           <Text size="sm" mb={10}>
-            So the observed heterozygous rate, read against the figure for bulk DNA on this
-            platform, measures the dropout the stage implies: bulk from about a million cells drops
-            0.013, a trophectoderm biopsy of five to ten cells drops 0.050, a single embryonic stem
-            cell drops 0.199 and a cleavage-stage blastomere 0.308. The last two both start from two
-            molecules yet differ nearly two-fold, which is chromatin rather than copy number: a
-            blastomere is in a rapid cell cycle with a decondensed, replication-active genome that
-            primes less reliably.
+            <b>The ladder below is a set of calibration constants, not a copy-number model.</b> Bulk
+            DNA drops 0.013, a trophectoderm biopsy of five to ten cells 0.050, a single embryonic
+            stem cell 0.199 and a cleavage-stage blastomere 0.308. An earlier version of this page
+            attributed those figures to template count. It cannot be that: if each template failed
+            independently, calibrating on the single-cell rung would predict 0.0000055 for a
+            fifteen-template biopsy against a measured 0.050, and exactly zero for bulk against a
+            measured 0.013. The low rungs are dominated by genotyping error rather than by loss;
+            0.013 sits inside this platform&rsquo;s own replicate disagreement, measured here at
+            3.31% between technical replicates of one bulk sample.
           </Text>
           <Text size="sm" mb={10}>
-            <b>Haploid material is a different axis and is separated first.</b> A polar body, a
-            pronucleus or a sperm carries one genome and is homozygous everywhere by construction,
-            so on heterozygosity alone it resembles a catastrophically dropped-out diploid. Reading
-            it as one would attach a nonsensical dropout to it. An array whose call rate is too low
-            to support any of this is called unknown and given the most conservative dropout rather
-            than the most flattering.
+            <b>Why a blastomere and a single stem cell differ is unresolved</b>, and this page no
+            longer offers a mechanism. An experiment varying reaction conditions across more than
+            three thousand single-cell amplifications found amplicon size, DNA degradation,
+            freeze-thaw and cell number all mattered while cell type had little or no effect{' '}
+            <Ref id="piyamongkol_2003" />. A
+            previous version of this section attributed the difference to chromatin state; that is
+            the mechanism that study looked for and did not find. First polar bodies, which carry
+            one genome, have also been reported with the lowest dropout of three cell types{' '}
+            <Ref id="rechitsky_1998" />, so template count does not order these data either.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>The heterozygosity shortfall is a correlate, not a measurement.</b> Consanguinity,
+            copy-neutral loss of heterozygosity, uniparental disomy and ancestry differing from the
+            anchor all depress heterozygosity and are absorbed into the number: first-cousin parents
+            shift it by +0.050, twenty percent of the genome in LOH by +0.160, and an East Asian
+            sample against this European-derived anchor by +0.155, which is enough to read bulk DNA
+            as a single cell. Every stage call carries that caveat in its own output rather than
+            leaving it to be discovered. Where two amplifications of one genome exist, the
+            discordance between them recovers dropout with no population anchor at all, and is
+            preferred.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Quality is gated before ploidy.</b> A failed amplification drives heterozygosity
+            toward zero, so without a call-rate floor it is read as haploid and handed a confident
+            parameter set instead of a rejection. The two cannot be separated by heterozygosity, so
+            call rate decides first and a failed array is reported as failed.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Haploid material is a different axis, and not a uniform one.</b> A second polar body,
+            a pronucleus or a sperm carries one chromatid and has no heterozygous sites, so its
+            heterozygous calls are error. A <i>first</i> polar body carries a dyad, and distal to
+            every crossover its two sister chromatids carry different haplotypes: roughly 44% of
+            that genome is genuinely heterozygous with no dropout at all. A sample sitting where a
+            first polar body sits is labelled as one rather than having its real heterozygosity
+            counted as noise.
           </Text>
         </Section>
 

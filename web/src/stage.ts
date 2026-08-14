@@ -1,37 +1,50 @@
 /**
  * What kind of material this array is, inferred from the array itself.
  *
- * THE PHYSICAL CAUSE, which is what everything here is grounded in. Allele dropout is a sampling
- * failure during amplification, and its rate is set by HOW MANY TEMPLATE MOLECULES the reaction
- * started from. A diploid locus in bulk genomic DNA is present in millions of copies, so losing
- * every copy of one allele is impossible. The same locus in a single cell is present in exactly
- * two molecules, one per homologue, and a heterozygote survives only if BOTH amplify: if the one
- * copy of an allele fails to prime in the first cycles, that allele is absent from everything
- * downstream and the marker reads homozygous. Nothing about the genome changed; the reaction lost
- * it. So dropout is a function of starting template count, and that count is a property of the
- * developmental stage the sample was taken at:
+ * READ THE LIMITS BEFORE THE LADDER. An external audit (audit/STAGE-AUDIT.txt) found the first
+ * version of this module overstated its mechanism and shipped an estimator that is biased in ways
+ * invisible in its output. What follows is the corrected account.
  *
- *   bulk genomic DNA        > 10^6 cells      ~2 x 10^6 templates per locus    dropout ~0.013
- *   ES cell line, bulk      cultured colony   same order                      ~0.013
- *   trophectoderm biopsy    5-10 cells        10-20 templates                 ~0.050
- *   single ES cell, WGA     1 cell            2 templates                     ~0.199
- *   cleavage blastomere     1 cell            2 templates                     ~0.308
+ * WHY DROPOUT HAPPENS, which is the part that holds. A heterozygous locus in a single cell is
+ * represented by one molecule per allele before amplification. If that molecule fails to prime in
+ * the early cycles the allele is absent from everything downstream and the marker reads homozygous.
+ * Nothing about the genome changed; the reaction lost it.
  *
- * The last two are both one cell and both start from two molecules, yet differ nearly two-fold.
- * That is not template count but chromatin: a cleavage-stage blastomere is in a rapid cell cycle
- * with a decondensed, replication-active genome and carries more single-stranded and partially
- * replicated template, which primes less reliably. A cultured ES cell is a more ordinary
- * interphase nucleus. So the ordering is template count first, chromatin state second.
+ * WHY THE LADDER IS NOT A COPY-NUMBER MODEL, which is where the first version was wrong. If each
+ * template failed independently with probability f, dropout would be f^n for n starting molecules.
+ * Calibrating f on the single-cell rung predicts 5.5e-6 for a 15-template biopsy against a measured
+ * 0.050, four orders of magnitude out, and exactly 0 for bulk against a measured 0.013. The bulk and
+ * biopsy figures are therefore NOT template loss: losing every one of a million copies is
+ * impossible, and 0.013 sits inside this platform's own replicate error, measured at 3.31% marker
+ * disagreement between technical replicates of one bulk sample, 98.4% of it heterozygote-to-
+ * homozygote. The values below are CALIBRATION CONSTANTS measured on this material, not predictions
+ * of a mechanism, and the low rungs are dominated by genotyping error rather than dropout.
  *
- * HAPLOID MATERIAL IS A DIFFERENT AXIS ENTIRELY and must not be read as heavy dropout. A polar
- * body, a pronucleus or a sperm carries ONE genome, so it is homozygous everywhere by construction
- * and its heterozygous calls are all error. Judged by heterozygosity alone it would look like a
- * catastrophically dropped-out diploid, and treating it as one would put the dropout parameter at
- * a nonsensical value. It is separated first, by how far below any diploid stage it sits.
+ * WHY SINGLE ES CELLS AND BLASTOMERES DIFFER IS UNKNOWN. Both begin from two molecules. A published
+ * experiment varying reaction conditions across >3000 single-cell amplifications found amplicon
+ * size, DNA degradation, freeze-thaw and cell number affected dropout, while CELL TYPE had little or
+ * no effect (Piyamongkol 2003). An earlier version of this file attributed the difference to
+ * chromatin state; that is the mechanism that study looked for and did not find, and it has been
+ * removed. A same-laboratory comparison also reports first polar bodies, with one genome, showing
+ * the LOWEST dropout of three cell types, so template count does not order these data either
+ * (Rechitsky 1998). The parameter is empirical.
  *
- * WHY THIS IS INFERRED RATHER THAN ASKED. The tool's contract is that a file is dropped in and
- * nothing else is required. Stage is knowable from the array, so asking would be asking the user
- * to restate something already in front of the program.
+ * HETEROZYGOSITY SHORTFALL IS A CORRELATE, NOT A MEASUREMENT. Consanguinity, copy-neutral loss of
+ * heterozygosity, uniparental disomy and ancestry differing from the anchor population all depress
+ * heterozygosity and are absorbed into the estimate: first-cousin consanguinity biases it +0.050,
+ * 20% genome LOH +0.160, and an East Asian sample against a European anchor +0.155, which is enough
+ * to classify bulk DNA as a single cell with nothing in the output indicating a problem. Where two
+ * amplifications of one genome exist, `dropoutFromReplicates` needs no anchor and should be
+ * preferred.
+ *
+ * HAPLOID IS A DIFFERENT AXIS, AND FIRST POLAR BODIES ARE NOT HOMOZYGOUS. A PB2, pronucleus or
+ * sperm carries one chromatid and has true heterozygosity of zero. A FIRST polar body carries a
+ * dyad, two sister chromatids of one homologue, and distal to every crossover those sisters carry
+ * different haplotypes: roughly 44% of a PB1 genome is genuinely heterozygous, expected h about
+ * 0.074 with no dropout at all. Treating its heterozygous calls as error mis-parameterises it.
+ *
+ * QUALITY IS GATED FIRST, ALWAYS. A failed amplification drives heterozygosity toward zero, which
+ * without a gate reads as haploid and receives a confident parameter set instead of a rejection.
  */
 import type { SampleProfile } from './ingest.ts'
 
@@ -41,39 +54,66 @@ export type Stage =
   | 'single-cell'
   | 'blastomere'
   | 'haploid'
+  | 'failed'
   | 'unknown'
 
 export interface StageCall {
   stage: Stage
-  /** Expected allele dropout for this stage, used to parameterise every downstream likelihood. */
+  /** Expected allele dropout, used to parameterise downstream likelihoods. */
   dropout: number
-  /** Order-of-magnitude template molecules per locus the amplification started from. */
+  /** How the dropout figure was arrived at, which decides how much it can be trusted. */
+  basis: 'replicate-discordance' | 'heterozygosity-shortfall' | 'stage-default' | 'none'
+  /** Order-of-magnitude template molecules per locus. Reported, NOT used to predict dropout. */
   templates: string
-  /** Informative markers a directional call needs at this stage. */
   markerFloor: number
+  /** Confounds that would be absorbed into a shortfall estimate, stated rather than hidden. */
+  caveat: string
   why: string
 }
 
 /**
- * Heterozygosity of a diploid genome on this platform's marker set, measured on bulk gDNA.
- * Every dropout estimate below is a shortfall against it.
+ * Heterozygosity of a diploid genome on this platform, measured on bulk gDNA under this project's
+ * marker QC.
+ *
+ * A PANEL AND ANCESTRY PROPERTY, NOT A CONSTANT OF NATURE. Common-SNP panels run 0.32 to 0.44
+ * expected heterozygosity in Europeans, so 0.168 implies roughly half this panel is rare content;
+ * any change to marker QC moves it. Relative to a European anchor, mean expected heterozygosity is
+ * 0.99 in South Asian, 0.93 in African and 0.81 in East Asian samples, and that last ratio alone
+ * biases a shortfall estimate by +0.155.
  */
 export const BULK_HETEROZYGOSITY = 0.168
 
+/** Call rate below which no stage is inferred, because a failed reaction imitates haploid material. */
+export const QC_CALL_FLOOR = 0.40
+
 /**
- * Below this, the sample carries one genome rather than a heavily dropped-out two.
+ * Below this the sample carries one genome rather than a heavily dropped-out two.
  *
- * Measured: haploid meiotic products run 0.002 to 0.10 genome-wide heterozygosity, and the lowest
- * diploid material sits far above. The boundary is placed in the gap rather than at either edge.
+ * NOT SAFE IN BOTH DIRECTIONS, and the audit quantified which way it fails. A blastomere at 0.308
+ * dropout sits at h = 0.1163, eleven thousandths above the line; add first-cousin consanguinity and
+ * it falls to 0.1090, effectively on it; at 0.40 dropout it crosses and is called haploid. A PB1 at
+ * expected h 0.074 is below the line, but its upper tail reaches 0.092 before drop-in is added.
  */
 export const HAPLOID_MAX_HET = 0.105
 
 /**
- * Stage boundaries in heterozygosity, derived from the dropout rates above.
+ * Dropout from two independent amplifications of ONE genome, which needs no population anchor.
  *
- * A diploid reading h has lost the fraction 1 - h/H of its heterozygotes to dropout, so each
- * dropout rate implies a heterozygosity and the boundaries sit between them rather than on them.
+ * Among markers called heterozygous in at least one replicate, the discordant fraction is
+ * 2d/(1+d), so d = phi/(2-phi). Immune to consanguinity, LOH, UPD and ancestry, because those
+ * change WHICH markers are heterozygous but not the chance a heterozygous one survives twice.
+ *
+ * TWO DOCUMENTED LIMITS. Correlated failure biases it low in proportion: recovery falls to 0.90x at
+ * 10% shared failures and 0.50x at 50%, so it is a lower bound. And it has a floor set by the
+ * platform's own genotyping error, which on bulk replicates returns about 0.10 where the true
+ * dropout is near zero, so it must not be applied to bulk or ES-line material where that floor
+ * dominates the signal.
  */
+export function dropoutFromReplicates(discordantFraction: number): number {
+  const phi = Math.min(0.999, Math.max(0, discordantFraction))
+  return phi / (2 - phi)
+}
+
 const BOUNDS: { stage: Stage, minHet: number, dropout: number, templates: string, floor: number }[] = [
   { stage: 'bulk', minHet: 0.158, dropout: 0.013, templates: '~10^6', floor: 100 },
   { stage: 'trophectoderm', minHet: 0.145, dropout: 0.050, templates: '10-20', floor: 100 },
@@ -84,35 +124,53 @@ const BOUNDS: { stage: Stage, minHet: number, dropout: number, templates: string
 /**
  * Call the stage from a sample's own profile.
  *
- * `callRate` is used only as a guard: an array that failed outright can show any heterozygosity at
- * all, and calling a stage from it would attach a confident dropout parameter to noise.
+ * QUALITY IS GATED BEFORE PLOIDY, which is the ordering the audit required. A failed amplification
+ * drives heterozygosity toward zero, so without this gate it is classified as haploid and given a
+ * confident parameter set rather than being rejected. The two are indistinguishable by
+ * heterozygosity alone, so call rate has to decide first.
  */
 export function inferStage(profile: Pick<SampleProfile, 'hetRate' | 'callRate'>): StageCall {
   const h = profile.hetRate
   const call = profile.callRate
 
-  if (!Number.isFinite(h) || !Number.isFinite(call) || call < 0.40) {
+  if (!Number.isFinite(h) || !Number.isFinite(call)) {
     return {
-      stage: 'unknown',
-      dropout: 0.308,
-      templates: 'unknown',
-      markerFloor: 200,
-      why: `call rate ${Number.isFinite(call) ? (call * 100).toFixed(1) : '?'}% is too low for the `
-        + 'stage to be read from this array; the most conservative dropout is assumed',
+      stage: 'unknown', dropout: 0.308, basis: 'none', templates: 'unknown', markerFloor: 200,
+      caveat: 'no usable profile',
+      why: 'the array does not report a heterozygous rate and a call rate, so no stage is inferred',
+    }
+  }
+  if (call < QC_CALL_FLOOR) {
+    return {
+      stage: 'failed', dropout: NaN, basis: 'none', templates: 'not applicable', markerFloor: 200,
+      caveat: 'amplification failure and haploid material are indistinguishable by heterozygosity',
+      why: `call rate ${(call * 100).toFixed(1)}% is below the ${(QC_CALL_FLOOR * 100).toFixed(0)}% `
+        + 'floor. This is an amplification failure rather than a stage: near-total dropout drives '
+        + 'heterozygosity toward zero and would otherwise be read as one genome',
     }
   }
 
   if (h <= HAPLOID_MAX_HET) {
+    // PB2, pronuclei and sperm carry one chromatid and are homozygous throughout. A FIRST polar
+    // body carries a dyad and is genuinely heterozygous distal to each crossover, expected h about
+    // 0.074, so the two are distinguished by where in the band the sample sits rather than lumped.
+    const looksPB1 = h >= 0.055
     return {
       stage: 'haploid',
-      // One genome cannot be heterozygous, so there is no heterozygote to drop. The residual rate
-      // is genotyping error, not dropout, and the dosage channel is what such a sample is read by.
+      // One chromatid has no heterozygote to drop, so the residual is genotyping error. A PB1's
+      // heterozygosity is largely real, so no dropout is inferred from it either.
       dropout: 0.02,
-      templates: '1 genome',
+      basis: 'stage-default',
+      templates: looksPB1 ? '1 homologue, 2 chromatids' : '1 chromatid',
       markerFloor: 200,
+      caveat: looksPB1
+        ? 'consistent with a FIRST polar body, whose sister chromatids differ distal to each '
+          + 'crossover, so roughly 44% of its genome is genuinely heterozygous and those calls are '
+          + 'not error'
+        : 'a heavily dropped-out or consanguineous diploid can also fall below this boundary',
       why: `${(h * 100).toFixed(1)}% heterozygous is below the ${(HAPLOID_MAX_HET * 100).toFixed(1)}% `
-        + 'a diploid reaches at any stage, so this carries one genome: a polar body, a pronucleus '
-        + 'or a sperm. Its heterozygous calls are error rather than biology',
+        + `a diploid reaches at any stage, so this carries one genome`
+        + (looksPB1 ? ', and sits where a first polar body sits rather than at the drop-in floor' : ''),
     }
   }
 
@@ -120,14 +178,18 @@ export function inferStage(profile: Pick<SampleProfile, 'hetRate' | 'callRate'>)
   const implied = Math.min(0.6, Math.max(0.005, 1 - h / BULK_HETEROZYGOSITY))
   return {
     stage: hit.stage,
-    // The sample's own implied rate, floored at the stage's expectation so that an unusually clean
-    // array of a lossy stage is not credited with bulk-quality amplification.
     dropout: Math.max(implied, hit.dropout * 0.6),
+    basis: 'heterozygosity-shortfall',
     templates: hit.templates,
     markerFloor: hit.floor,
+    caveat: 'consanguinity, copy-neutral LOH, UPD and ancestry differing from the anchor all '
+      + 'depress heterozygosity and are absorbed into this estimate; an East Asian sample against '
+      + 'this European-derived anchor is biased by about +0.155, enough to shift the stage by one '
+      + 'rung. Where a same-genome replicate exists, prefer dropoutFromReplicates',
     why: `${(h * 100).toFixed(1)}% heterozygous against ${(BULK_HETEROZYGOSITY * 100).toFixed(1)}% `
-      + `for bulk DNA implies ${(implied * 100).toFixed(1)}% allele dropout, which is `
-      + `${hit.stage} material amplified from ${hit.templates} template copies per locus`,
+      + `for bulk DNA on this panel implies ${(implied * 100).toFixed(1)}% dropout, which is where `
+      + `${hit.stage} material sits. Template count is reported for context and does not predict `
+      + 'this figure',
   }
 }
 

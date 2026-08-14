@@ -2,15 +2,21 @@
 //
 // Two properties matter more than the boundaries themselves.
 //
-//   HAPLOID IS A DIFFERENT AXIS. A polar body carries one genome and is homozygous by
-//   construction, so on heterozygosity alone it looks like a catastrophically dropped-out diploid.
-//   Reading it as one would attach a nonsensical dropout parameter to it, so it must be separated
-//   before any diploid stage is considered.
+//   QUALITY BEFORE PLOIDY. A failed amplification drives heterozygosity toward zero, so without a
+//   call-rate gate it is classified as haploid and handed a confident parameter set instead of
+//   being rejected. The two cannot be separated by heterozygosity, so quality decides first.
 //
-//   A FAILED ARRAY MUST NOT GET A CONFIDENT STAGE. An array that failed outright can show any
-//   heterozygosity at all, and calling a stage from it attaches a precise dropout to noise.
+//   HAPLOID IS A DIFFERENT AXIS, BUT NOT A UNIFORM ONE. A PB2, pronucleus or sperm carries one
+//   chromatid and has true heterozygosity of zero. A FIRST polar body carries a dyad, and distal to
+//   each crossover its sister chromatids differ, so roughly 44% of its genome is genuinely
+//   heterozygous. An earlier version of this module asserted all haploid heterozygosity was error.
+//
+//   EVERY SHORTFALL ESTIMATE CARRIES ITS CONFOUNDS. Consanguinity, LOH, UPD and ancestry all
+//   depress heterozygosity and are absorbed into the number, so the number must not travel alone.
 import assert from 'node:assert/strict'
-import { inferStage, locus, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET } from './stage.ts'
+import {
+  inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, QC_CALL_FLOOR,
+} from './stage.ts'
 
 const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
 
@@ -22,10 +28,11 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   assert.equal(inferStage(p(0.116)).stage, 'blastomere')
 }
 
-// --- 2. haploid is separated FIRST, and not read as a lossy diploid -------------------------------
+// --- 2. haploid is separated from the diploid stages ---------------------------------------------
 //
-// Measured haploid products run 0.002 to 0.10. Every one must come back haploid rather than
-// blastomere, and must not carry a large dropout parameter.
+// Measured haploid products run 0.002 to 0.10, which spans both a single chromatid at the drop-in
+// floor and a first polar body with real heterozygosity. All must come back haploid rather than
+// blastomere, and none may carry a large dropout parameter.
 {
   for (const h of [0.002, 0.021, 0.055, 0.099]) {
     const s = inferStage(p(h))
@@ -47,13 +54,72 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   }
 }
 
-// --- 4. a failed array gets the conservative answer, not a confident one --------------------------
+// --- 4. QUALITY IS GATED BEFORE PLOIDY ------------------------------------------------------------
+//
+// The failure an audit found in the first version: near-total dropout drives heterozygosity toward
+// zero, so a failed amplification was classified as HAPLOID and handed a confident parameter set
+// rather than being rejected. The two are indistinguishable by heterozygosity, so call rate must
+// decide first, and the gate must fire even when the heterozygosity looks haploid.
 {
-  const s = inferStage(p(0.30, 0.31))
-  assert.equal(s.stage, 'unknown', 'a 31% call rate cannot support a stage call')
-  assert.equal(s.dropout, 0.308, 'and must assume the worst rather than the best')
-  assert.ok(s.why.includes('too low'))
+  const dead = inferStage(p(0.004, 0.22))
+  assert.equal(dead.stage, 'failed', 'a failed amplification must not be called haploid')
+  assert.ok(!Number.isFinite(dead.dropout), 'and must not carry a usable dropout parameter')
+  assert.equal(dead.basis, 'none')
+
+  // The gate is on call rate, so a plausible heterozygosity does not rescue a dead array.
+  assert.equal(inferStage(p(0.30, 0.31)).stage, 'failed')
+  // And a good call rate with the same heterozygosity IS classified.
+  assert.notEqual(inferStage(p(0.004, 0.95)).stage, 'failed')
   assert.equal(inferStage(p(NaN)).stage, 'unknown')
+  assert.ok(QC_CALL_FLOOR > 0.2 && QC_CALL_FLOOR < 0.7)
+}
+
+// --- 4b. FIRST polar bodies are not homozygous, and are not treated as error ----------------------
+//
+// A PB1 carries a dyad, and distal to each crossover its two sister chromatids differ, so about 44%
+// of its genome is genuinely heterozygous at an expected h near 0.074. The first version asserted
+// all haploid heterozygosity was error, which mis-parameterises exactly this material.
+{
+  const pb1 = inferStage(p(0.074))
+  assert.equal(pb1.stage, 'haploid')
+  assert.ok(pb1.caveat.includes('FIRST polar body') || pb1.templates.includes('chromatids'),
+    'a sample sitting where a PB1 sits must say so rather than calling its heterozygosity error')
+
+  const pb2 = inferStage(p(0.008))
+  assert.equal(pb2.stage, 'haploid')
+  assert.equal(pb2.templates, '1 chromatid', 'a single chromatid is a different object from a dyad')
+}
+
+// --- 4c. every shortfall-based call carries its confounds -----------------------------------------
+//
+// The estimate absorbs consanguinity, LOH, UPD and ancestry, and an East Asian sample against this
+// European anchor shifts by enough to change the stage. If that is not stated with the number, the
+// number reads as a measurement.
+{
+  for (const h of [0.168, 0.150, 0.135, 0.116]) {
+    const c = inferStage(p(h))
+    assert.equal(c.basis, 'heterozygosity-shortfall')
+    assert.ok(c.caveat.includes('ancestry'), 'ancestry bias must travel with the estimate')
+    assert.ok(c.caveat.includes('replicate'), 'and the better estimator must be named')
+  }
+}
+
+// --- 4d. the replicate estimator inverts correctly, and is a lower bound --------------------------
+{
+  for (const d of [0.05, 0.199, 0.308]) {
+    const phi = (2 * d) / (1 + d)
+    assert.ok(Math.abs(dropoutFromReplicates(phi) - d) < 1e-9,
+      `phi = 2d/(1+d) must invert to d, failed at ${d}`)
+  }
+  // Correlated failure lowers the discordant fraction, so the recovered value must fall too:
+  // the estimator is a lower bound rather than unbiased.
+  const d = 0.199
+  const phiIdeal = (2 * d) / (1 + d)
+  const pBoth = d * d + 0.25 * d * (1 - d)
+  const pOne = 2 * (d - pBoth)
+  const phiCorr = pOne / (pOne + (1 - 2 * d + pBoth))
+  assert.ok(dropoutFromReplicates(phiCorr) < dropoutFromReplicates(phiIdeal),
+    'shared failures must make the estimate an underestimate, not an overestimate')
 }
 
 // --- 5. an unusually clean array of a lossy stage is not credited with bulk amplification ---------
@@ -77,7 +143,8 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
 {
   assert.ok(inferStage(p(0.168)).templates.includes('10^6'))
   assert.equal(inferStage(p(0.116)).templates, '2')
-  assert.equal(inferStage(p(0.021)).templates, '1 genome')
+  assert.equal(inferStage(p(0.021)).templates, '1 chromatid',
+    'a PB2, pronucleus or sperm is one chromatid, not loosely one genome')
 }
 
 // --- 8. locus formatting is the conventional one --------------------------------------------------
@@ -95,5 +162,5 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   assert.ok(s.dropout < 0.03, 'a sample at the bulk rate has essentially no dropout')
 }
 
-console.log('stage.check.ts: all assertions passed, including haploid separated before diploid '
-  + 'stages and a failed array refusing a confident call')
+console.log('stage.check.ts: all assertions passed, including quality gated before ploidy, '
+  + 'first polar bodies not treated as error, and confounds travelling with every estimate')

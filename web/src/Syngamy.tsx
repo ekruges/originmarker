@@ -487,8 +487,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           }, bar(s.id, s.file.size), log)
           sampleGt.set(s.id, myGt)
           const result = classify(t, pat.heterozygosity)
-          // Stage from the array itself, since template copy number sets dropout and stage sets
-          // template count. Bundled into the result so every output carries it.
+          // Stage from the array itself, since the dropout each stage carries is what every
+          // downstream likelihood is parameterised by. Bundled into the result so every output
+          // carries it, with the basis and the confounds attached to the number.
           result.stage = inferStage(profile)
           log('DONE', `stage: ${result.stage.stage} — ${result.stage.why}`)
           // One contribution or two, per chromosome. Reported, never used to admit or reject a
@@ -642,9 +643,11 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 const pg = pat.gt.get(probe)
                 if (pg) pairs.push([pg, gt])
               }
-              // Dropout comes from the inferred stage, which is grounded in template copy
-              // number: bulk starts from ~10^6 molecules per locus and a blastomere from 2.
-              const c = callOneParentOrigin(pairs as never, result.stage!.dropout)
+              // Dropout comes from the inferred stage. A failed array carries no usable figure
+              // rather than a flattering one, so it gets the most conservative dropout measured
+              // on any stage instead of NaN, which would silently void every likelihood below.
+              const ado = Number.isFinite(result.stage!.dropout) ? result.stage!.dropout : 0.308
+              const c = callOneParentOrigin(pairs as never, ado)
               return {
                 where: `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`,
                 verdict: c.verdict,

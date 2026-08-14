@@ -740,16 +740,20 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     if (f.profile) {
       if (r.stage) {
         heading('Material and amplification', 8.6)
+        const d = Number.isFinite(r.stage.dropout) ? r.stage.dropout.toFixed(3) : 'not assigned'
         text(`Inferred stage: ${r.stage.stage}. ${r.stage.why}. Template copies per locus `
-          + `${r.stage.templates}; allele dropout ${r.stage.dropout.toFixed(3)} is used to `
-          + `parameterise every directional call, and ${r.stage.markerFloor} informative markers `
-          + 'are required for one.', 7.6)
-        text('Stage is inferred from the array rather than declared. Allele dropout is a sampling '
-          + 'failure during amplification and its rate is set by how many template molecules the '
-          + 'reaction started from: a locus in bulk DNA is present in millions of copies, the same '
-          + 'locus in a single cell in exactly two, and a heterozygote survives only if both '
-          + 'amplify. So the observed heterozygous rate, read against the bulk figure for this '
-          + 'platform, measures the dropout that the stage implies.', 7.4)
+          + `${r.stage.templates}, reported for context and not used to predict dropout. Allele `
+          + `dropout ${d} (basis: ${r.stage.basis}) parameterises every directional call, and `
+          + `${r.stage.markerFloor} informative markers are required for one.`, 7.6)
+        text(`Limits of this figure: ${r.stage.caveat}.`, 7.4)
+        text('Stage is inferred from the array rather than declared. Dropout is a sampling failure '
+          + 'during amplification: a heterozygous locus in a single cell is one molecule per '
+          + 'allele before amplification, and an allele that fails to prime early is absent from '
+          + 'everything downstream. The per-stage figures are calibration constants measured on '
+          + 'this material rather than predictions from template count, which cannot reproduce '
+          + 'them, and the low rungs are dominated by genotyping error rather than by loss. Call '
+          + 'rate is gated before ploidy, because a failed amplification drives heterozygosity '
+          + 'toward zero and would otherwise be read as one genome.', 7.4)
       }
       heading('Sample quality', 8.6)
       const p = f.profile

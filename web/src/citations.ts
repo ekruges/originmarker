@@ -244,6 +244,33 @@ export const CITATIONS: Record<string, Citation> = {
     url: 'https://doi.org/10.1038/gim.2014.45',
     note: 'The call-rate band this tool gates on, and the only published threshold measured on amplified embryo biopsy material rather than bulk DNA.',
   },
+  piyamongkol_2003: {
+    id: 'piyamongkol_2003',
+    authors: 'Piyamongkol et al.',
+    year: 2003,
+    title: 'Detailed investigation of factors influencing amplification efficiency and allele drop-out in single cell PCR: implications for preimplantation genetic diagnosis',
+    journal: 'Molecular Human Reproduction',
+    volume: '9',
+    page: '411-420',
+    doi: '10.1093/molehr/gag051',
+    url: 'https://doi.org/10.1093/molehr/gag051',
+    // Crossref's deposit for this record lists only the first author. The full list, confirmed
+    // against PubMed 12802048, is Piyamongkol, Bermudez, Harper and Wells, so "et al." is right
+    // and a future author-field check against Crossref alone will disagree for that reason.
+    note: 'Varied reaction conditions across >3000 single-cell amplifications; amplicon size, DNA degradation, freeze-thaw and cell number affected dropout, cell type had little or no effect.',
+  },
+  rechitsky_1998: {
+    id: 'rechitsky_1998',
+    authors: 'Rechitsky et al.',
+    year: 1998,
+    title: 'Allele Dropout in Polar Bodies and Blastomeres',
+    journal: 'Journal of Assisted Reproduction and Genetics',
+    volume: '15',
+    page: '253-257',
+    doi: '10.1023/a:1022532108472',
+    url: 'https://doi.org/10.1023/a:1022532108472',
+    note: 'Same-laboratory comparison of three cell types; first polar bodies, carrying one genome, showed the lowest dropout, so template count does not order these data.',
+  },
 }
 
 /** Vancouver-ish one-liner: 'Handyside et al. Karyomapping... J Med Genet. 2009;47:651-658.' */

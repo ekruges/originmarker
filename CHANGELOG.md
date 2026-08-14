@@ -9,6 +9,74 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.8.1
+
+The stage mechanism asserted in 4.8.0 was put to an external review. Three of its six claims did not
+survive, and one of them was a failure mode rather than a wording problem: an array whose
+amplification failed outright was being classified as haploid and handed a confident parameter set.
+This release retracts what was wrong, fixes what was broken, and states the remaining uncertainty in
+the output rather than in a footnote.
+
+### Fixed
+
+- **A failed amplification can no longer be classified as haploid.** Near-total dropout drives
+  heterozygosity toward zero, which is exactly where a polar body sits, so on heterozygosity alone
+  the two are indistinguishable. 4.8.0 read one as the other and attached a confident dropout of
+  0.02 to what was noise. Call rate is now gated first, at `QC_CALL_FLOOR = 0.40`, and an array
+  below it is reported as `failed` with no dropout figure at all.
+
+- **A `failed` array no longer voids the one-parent caller silently.** Its dropout is not a number,
+  and passing that into the likelihood would have produced `NaN` posteriors that compare false
+  against every threshold, so a failed array would have refused every call for an invisible reason.
+  It now takes the most conservative dropout measured on any stage.
+
+### Changed
+
+- **The ladder is documented as calibration constants, not as a copy-number model.** If each
+  template failed independently with probability f, calibrating f on the single-cell rung predicts
+  0.0000055 dropout for a 15-template biopsy against a measured 0.050, four orders of magnitude out,
+  and exactly 0 for bulk against a measured 0.013. The bulk and biopsy rungs are therefore not
+  template loss: 0.013 sits inside this platform's own replicate error, measured at 3.31% marker
+  disagreement between technical replicates of one bulk sample, 98.4% of it heterozygote to
+  homozygote. The numbers are unchanged and still measured; the mechanism claimed for them is
+  withdrawn.
+
+- **The chromatin explanation for blastomere against single ES cell is withdrawn.** A published
+  experiment varying reaction conditions across more than 3,000 single-cell amplifications found
+  amplicon size, DNA degradation, freeze-thaw and cell number all affected dropout while cell type
+  had little or no effect (Piyamongkol 2003), which is the mechanism 4.8.0 asserted and the one that
+  study looked for and did not find. A same-laboratory comparison also reports first polar bodies,
+  carrying one genome, with the lowest dropout of three cell types (Rechitsky 1998), so template
+  count does not order these data either. The difference is unresolved and is now stated as such.
+
+- **First polar bodies are no longer treated as homozygous.** A PB1 carries a dyad, and distal to
+  each crossover its two sister chromatids carry different haplotypes: roughly 44% of a PB1 genome
+  is genuinely heterozygous, expected heterozygosity about 0.074 with no dropout whatsoever. 4.8.0
+  called every heterozygous site in a haploid sample an error, which mis-parameterises exactly this
+  material. A sample in that band is now labelled `1 homologue, 2 chromatids` and says so.
+
+- **Every heterozygosity-shortfall estimate now carries its confounds in its own output.**
+  Consanguinity, copy-neutral LOH, uniparental disomy and ancestry differing from the anchor all
+  depress heterozygosity and are absorbed into the figure: first-cousin parents bias it +0.050, 20%
+  of the genome in LOH +0.160, and an East Asian sample against this European-derived anchor +0.155,
+  which is enough to classify bulk DNA as a single cell with nothing in the output indicating a
+  problem. `StageCall` gains `basis` and `caveat`, both printed in the report.
+
+### Added
+
+- **`dropoutFromReplicates` estimates dropout with no population anchor.** Among markers called
+  heterozygous in at least one of two amplifications of one genome, the discordant fraction is
+  2d/(1+d), so d = phi/(2-phi). It is immune to consanguinity, LOH, UPD and ancestry, because those
+  change which markers are heterozygous and not the chance a heterozygous one survives twice. Two
+  limits are documented with it: correlated failure biases it low in proportion, to 0.90x at 10%
+  shared failures and 0.50x at 50%, so it is a lower bound; and it has a floor set by the platform's
+  own genotyping error, returning about 0.10 on bulk replicates where true dropout is near zero.
+
+- The review and the model behind it are committed at `audit/STAGE-AUDIT.txt` and
+  `audit/stage_audit_core.py`, so the arithmetic above can be re-run rather than taken on trust.
+
+---
+
 ## 4.8.0 "Holliday"
 
 Stage inferred from physics rather than fitted, carried in every output, and regions written the
@@ -32,11 +100,17 @@ way a genome browser writes them.
   than copy number: a blastomere is in a rapid cell cycle with a decondensed, replication-active
   genome that primes less reliably.
 
+  **RETRACTED in 4.8.1.** The dropout figures are measured and stand; the copy-number mechanism and
+  the chromatin explanation do not. See 4.8.1.
+
 - **Haploid material is separated before any diploid stage.** A polar body, pronucleus or sperm
   carries one genome and is homozygous by construction, so on heterozygosity alone it resembles a
   catastrophically dropped-out diploid; reading it as one would attach a nonsensical dropout to it.
   The boundary sits in the empty gap between measured populations, 0.002-0.10 for haploid products
   against 0.116 for the lowest diploid.
+
+  **PARTLY RETRACTED in 4.8.1.** A FIRST polar body is not homozygous, and a failed amplification
+  reached this branch and was called haploid. Both corrected in 4.8.1.
 
 - **Stage is bundled into the result** and printed in the report, with its template count, the
   dropout it implies and the marker floor it sets. A failed array is called unknown and given the

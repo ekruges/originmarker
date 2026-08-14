@@ -20,6 +20,8 @@ FINAL = {
     "zuccaro_2020":  "10.1016/j.cell.2020.10.025",
     "kothiyal_2019": "10.1089/cmb.2018.0253",
     "natesan_2014":  "10.1038/gim.2014.45",
+    "piyamongkol_2003": "10.1093/molehr/gag051",
+    "rechitsky_1998":   "10.1023/a:1022532108472",
 }
 
 def get(doi):
