@@ -296,15 +296,6 @@ def resolve(body: ResolveIn, request: Request):
     except Exception:  # noqa: BLE001 - unexpected: keep it generic, leak nothing
         _log.exception("unexpected failure resolving %r on %s", body.variant, body.build)
         raise HTTPException(400, f"Could not resolve {body.variant!r} on {body.build}.")
-    # Warm the Ensembl calls assess_rarity is about to make, concurrently. Measured on the
-    # deployed container: rest.ensembl.org takes 12.8s for a 2 KB variation record and 18.9s
-    # for a 426-byte gene lookup, while its own /info/ping answers in 0.30s from the same
-    # place, so the route is fine and it is per-IP throttling, which charges for round trips
-    # rather than bytes. Those calls do not depend on each other, only on the record just
-    # resolved, so issuing them together costs the slowest instead of the sum. Nothing about
-    # the result changes: these are the same GETs, warming the same cache the sequential
-    # calls read, and a failure here is discarded so the real call behaves exactly as before.
-    pb.prefetch_for(v)
     r = pb.assess_rarity(v)
     acc = v.clinvar_accession
     return {"variant": asdict(v), "rarity": asdict(r),

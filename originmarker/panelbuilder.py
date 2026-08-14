@@ -658,9 +658,19 @@ def _prefetch(urls: list) -> None:
     same outcome, including the same error text. The only observable difference is
     latency.
 
-    Threads rather than async because `_http` is blocking urllib and the rest of this
-    module is synchronous; making it async would be a rewrite, and this is not one.
+    DISABLED, AND THE MEASUREMENT IS WHY. Issuing the three together made resolution
+    SLOWER, not faster: 69s against a 35s baseline, and one request reached 125s and was
+    cut off by the tunnel with a 524. Ensembl's throttle is not a simple per-second cap
+    that concurrency can hide under; concurrent requests from one IP queue behind each
+    other or are penalised, so three at once cost more than three in a row. Two of the
+    three were also speculative, since the gene lookup is only a fallback and the assembly
+    call is not always reached, so this was adding load to a throttled endpoint to warm a
+    cache that was often not read.
+
+    Kept, unused, with its numbers, because the next person to look at this page will have
+    the same idea and should not have to re-run the experiment to find out.
     """
+    return  # measured slower; see above
     if len(urls) < 2:
         return
 

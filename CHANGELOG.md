@@ -9,6 +9,29 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.10.3 "Diplotene"
+
+### Reverted
+
+- **4.10.2's concurrent Ensembl prefetch made resolution slower and is withdrawn.** Measured on the
+  deployed build: 69s against a 35s baseline, and one request reached 125s and was cut off by the
+  tunnel with a 524. The reasoning behind it was wrong in a way worth writing down. Ensembl's
+  throttle is not a simple per-second cap that concurrency can hide under: concurrent requests from
+  one IP queue behind each other or are penalised, so three at once cost more than three in a row.
+  Two of the three were speculative as well, since the gene lookup is only a fallback and the
+  assembly call is not always reached, so it was adding load to a throttled endpoint to warm a
+  cache that often went unread.
+
+  The helper is kept in place, disabled, carrying its numbers, because the next person to read that
+  page will have the same idea and should not have to re-run the experiment.
+
+  The measurement that stands: NCBI answers in 0.09s, gnomAD moves 928 KB in 0.14s, Ensembl takes
+  12.8s for a 2 KB record and 18.9s for a 426-byte one, and Ensembl's own /info/ping answers in
+  0.30s from the same container. The route is fine and the payloads are tiny. The cost is per-IP
+  throttling at Ensembl and it is not something this end can optimise around by rearranging calls.
+
+---
+
 ## 4.10.2 "Diplotene"
 
 ### Fixed
