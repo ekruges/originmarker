@@ -1,0 +1,14 @@
+{
+ "dir": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/3c118711-4d48-4e68-8965-a274aeadc9c7/scratchpad/g32477",
+ "reference": "EYS-sperm",
+ "bulkLike": [],
+ "excluded": [],
+ "results": [
+  {
+   "ref": "EYS-sperm",
+   "sample": "32477-15",
+   "stage": "single-cell",
+   "regions": 0
+  }
+ ]
+}

@@ -27,8 +27,13 @@
  *      zero for a parent AND for the same genome twice, which is how a previous screen returned
  *      77% wrong. Biparental confirmation via hetCall is required on top of it.
  *
- *   4  REGIONS FROM THE INTENSITY CHANNEL ONLY. Amplification dropout removes genotype calls
- *      without removing DNA, so a region derived from heterozygosity is a dropout report.
+ *   4  EVENTS, OF BOTH KINDS. Segmental change comes from the intensity channel, never from
+ *      heterozygosity: amplification dropout removes genotype calls without removing DNA, so a
+ *      het-derived region is a dropout report. WHOLE-CHROMOSOME aneuploidy is a separate detector
+ *      and must not be omitted, which the first version of this harness did. The copy-number scan
+ *      excludes whole chromosomes by construction, so a trisomy 21 produced no segment and the
+ *      array came back with nothing to assign. In embryos that is where most of the abnormality
+ *      is, and it is the thing the question is about.
  *
  *   5  ORIGIN, from callOneParentOrigin, parameterised by the dropout the stage inferred.
  *
@@ -46,12 +51,13 @@
  * against real material; it is not the cohort a claim would rest on.
  */
 import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
+import { gunzipSync } from 'node:zlib'
 import { join, basename } from 'node:path'
 
 const W = new URL('../../web/src/', import.meta.url).pathname
 const { headerMap, parseRow, emptyBafSums, accumulateBaf, accumulate, finishProfile } =
   await import(`${W}ingest.ts`)
-const { isAutosome } = await import(`${W}parentage.ts`)
+const { isAutosome, emptyTally, tallyRow, classify } = await import(`${W}parentage.ts`)
 const { hetCall, addOneParent, emptyHet } = await import(`${W}obligateHet.ts`)
 const { scanCopyNumber, externalNull, segmentCoords } = await import(`${W}segments.ts`)
 const { callOneParentOrigin } = await import(`${W}oneParentOrigin.ts`)
@@ -100,6 +106,9 @@ interface Loaded {
   /** The copy-number channel: EVERY marker, called or not, with its intensity ratio. A region
    *  that is gone stops producing calls, which a genotype-derived indicator cannot see. */
   cnByChrom: Map<string, CnMarker[]>
+  /** chrom:pos -> probeset id, so the per-chromosome tally can be built from the copy-number
+   *  channel without carrying a fourth map of the file. */
+  probeAt: Map<string, string>
   profile: ReturnType<typeof finishProfile>
 }
 
@@ -124,7 +133,11 @@ interface Loaded {
 const SCREEN_STRIDE = 8
 
 function load(path: string, id: string, full: boolean, stride = 1): Loaded | null {
-  const lines = readFileSync(path, 'utf8').split('\n')
+  // Public arrays arrive gzipped and are kept that way: uncompressed the series is five times
+  // the size and this machine does not have it to spare.
+  const raw = readFileSync(path)
+  const lines = (path.endsWith('.gz') ? gunzipSync(raw).toString('utf8') : raw.toString('utf8'))
+    .split('\n')
   let h = -1
   for (let i = 0; i < Math.min(60, lines.length); i += 1) {
     if (lines[i] && !lines[i].startsWith('#')) { h = i; break }
@@ -136,6 +149,7 @@ function load(path: string, id: string, full: boolean, stride = 1): Loaded | nul
   const gt = new Map<string, AB>()
   const pos = new Map<string, { chrom: string, pos: number }>()
   const cnByChrom = new Map<string, CnMarker[]>()
+  const probeAt = new Map<string, string>()
   const byChrom = new Map<string, never>()
   const baf = emptyBafSums()
   let firstId = ''
@@ -154,8 +168,9 @@ function load(path: string, id: string, full: boolean, stride = 1): Loaded | nul
     const cn = cnByChrom.get(row.chrom) ?? []
     cn.push({ chrom: row.chrom, pos: row.pos, called: row.genotype !== 'NC', log2R: row.log2R })
     cnByChrom.set(row.chrom, cn)
+    probeAt.set(`${row.chrom}:${row.pos}`, row.probesetId)
   }
-  return { id, gt, pos, cnByChrom, profile: finishProfile(id, byChrom as never, baf as never, firstId) }
+  return { id, gt, pos, cnByChrom, probeAt, profile: finishProfile(id, byChrom as never, baf as never, firstId) }
 }
 
 /** Opposite homozygotes: a parent and child cannot be AA and BB at the same marker. */
@@ -179,13 +194,15 @@ function probesUnder(dir: string, rel = ''): string[] {
   for (const e of readdirSync(join(dir, rel)).sort()) {
     const r = rel ? join(rel, e) : e
     if (statSync(join(dir, r)).isDirectory()) out.push(...probesUnder(dir, r))
-    else if (e.endsWith('.probes')) out.push(r)
+    else if (e.endsWith('.probes') || e.endsWith('.txt.gz')) out.push(r)
   }
   return out
 }
 const files = probesUnder(DIR)
 if (!files.length) throw new Error(`no .probes files in ${DIR}`)
-const idOf = (f: string) => basename(f).replace(/_\d+\.CEL\.probes$/, '').replace(/\.probes$/, '')
+const idOf = (f: string) => basename(f)
+  .replace(/_\d+\.CEL\.probes$/, '').replace(/\.probes$/, '')
+  .replace(/\.CEL\.txt\.gz$/, '').replace(/^(GSM\d+)_.*$/, '$1')
 process.stderr.write(`${files.length} arrays in ${DIR}\n\n`)
 
 /**
@@ -222,6 +239,24 @@ function scoreCandidate(ref: Loaded, c: Loaded, stage: Stage): Record<string, un
     return []
   }
 
+  // WHOLE-CHROMOSOME ANEUPLOIDY, which the segmental scan cannot see because it excludes whole
+  // chromosomes by construction. classify supplies it from the call-rate collapse plus the
+  // direction of the intensity shift, which is the shipped detector rather than a local one.
+  const t = emptyTally()
+  for (const [ch, ms] of c.cnByChrom) {
+    for (const m of ms) {
+      const probe = c.probeAt.get(`${ch}:${m.pos}`)
+      tallyRow((probe ? ref.gt.get(probe) ?? 'NC' : 'NC') as never, {
+        probesetId: probe ?? '', chrom: ch, pos: m.pos, log2R: m.log2R, baf: null,
+        genotype: (probe ? c.gt.get(probe) ?? 'NC' : 'NC'), copyNumber: null,
+      } as never, t as never)
+    }
+  }
+  const cls = classify(t as never, ref.profile.hetRate, { role: 'paternal' }) as {
+    chroms: { chrom: string, aneuploidy?: 'loss' | 'gain' }[]
+  }
+  const aneuploid = cls.chroms.filter((x) => x.aneuploidy)
+
   // Regions from the INTENSITY channel, per chromosome, against a null that EXCLUDES the
   // chromosome under test. A self-derived null lets one large event set its own baseline.
   const noCall = new Map<string, [number, number]>()
@@ -236,12 +271,42 @@ function scoreCandidate(ref: Loaded, c: Loaded, stage: Stage): Record<string, un
 
   process.stderr.write(`  ${c.id}: CHILD of ${ref.id} (opp ${opp.rate.toFixed(4)}, second `
     + `contribution ${(link.fraction * 100).toFixed(1)}% of ${link.informative}), `
-    + `${stage.stage}, ${segs.length} region(s)\n`)
-  if (!segs.length) {
-    return [{ ref: ref.id, sample: c.id, stage: stage.stage, regions: 0 }]
+    + `${stage.stage}, ${segs.length} segment(s), ${aneuploid.length} whole chromosome(s)\n`)
+  const out: Record<string, unknown>[] = []
+
+  // Whole chromosomes first: they are the larger event and the one an embryo is most likely to
+  // carry. Every marker on the chromosome is informative for the origin call, which is why these
+  // are the best powered rows in the output rather than the worst.
+  for (const a of aneuploid) {
+    const pairs: [string, string][] = []
+    let lo = Infinity
+    let hi = 0
+    for (const [probe, p] of c.pos) {
+      if (p.chrom !== a.chrom) continue
+      if (p.pos < lo) lo = p.pos
+      if (p.pos > hi) hi = p.pos
+      const pg = ref.gt.get(probe)
+      const cg = c.gt.get(probe)
+      if (pg && cg) pairs.push([pg, cg])
+    }
+    const ado = Number.isFinite(stage.dropout) ? stage.dropout : 0.308
+    const call = callOneParentOrigin(pairs as never, ado) as {
+      verdict: string, posterior: number, markers: number, exclusive: number, why: string
+    }
+    out.push({
+      ref: ref.id, sample: c.id, stage: stage.stage, kind: `whole-chromosome ${a.aneuploidy}`,
+      locus: Number.isFinite(lo) ? locus(a.chrom, lo, hi) : `chr${a.chrom}`,
+      verdict: call.verdict, posterior: call.posterior, markers: call.markers,
+      exclusive: call.exclusive, why: call.why,
+    })
+    process.stderr.write(`      chr${a.chrom} whole-chromosome ${a.aneuploidy}: ${call.verdict} `
+      + `(posterior ${call.posterior.toFixed(3)}, ${call.markers} informative, `
+      + `${call.exclusive} exclusive)\n`)
   }
 
-  const out: Record<string, unknown>[] = []
+  if (!segs.length && !aneuploid.length) {
+    return [{ ref: ref.id, sample: c.id, stage: stage.stage, regions: 0 }]
+  }
   for (const sg of segs as { chrom: string, kind: string }[]) {
     const co = segmentCoords(sg as never) as { start: number, end: number }
     const pairs: [string, string][] = []
@@ -285,7 +350,7 @@ if (REF_IS_PATH) {
   // ONE PASS PER ARRAY. The reference is external and loaded once, so profiling, staging,
   // linkage, segmentation and the origin call all come from a single read of each candidate and
   // nothing but the reference stays resident.
-  const ref = load(REF, basename(REF).replace(/\.(probes|CEL\.txt)$/, ''), true)
+  const ref = load(REF, basename(REF).replace(/\.(probes|CEL\.txt|CEL\.txt\.gz)$/, '').replace(/^(GSM\d+)_.*$/, '$1'), true)
   if (!ref) throw new Error(`reference ${REF} could not be read`)
   const rs = inferStage(ref.profile)
   refUsed = ref.id
