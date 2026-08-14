@@ -210,3 +210,63 @@ TWO STAGES, BECAUSE ONE IS NOT ENOUGH. Opposite-homozygote rate alone called 13 
 children in one experiment and 10 were wrong: the rate is near zero for a parent and child AND for
 the same genome twice. Requiring the candidate to read BIPARENTAL against the reference removed
 them. The 217 set-aside arrays are the visible evidence that the second stage does work.
+
+
+PARENTAL ORIGIN WITHOUT A PARENT: THE SIBLING-REFERENCED CALL (4.6.0)
+----------------------------------------------------------------------
+Two findings from an external assessment overturn what this audit previously recorded as limits,
+and the second removes the blocker entirely.
+
+THE ONE-PARENT ASYMMETRY WAS A CENTRING ARTEFACT, NOT A GEOMETRIC LIMIT. The two loss hypotheses
+sit symmetrically about the disomic expectation at 1-q and 1, so headroom is q/2 on each side. For
+every q below 0.5 the majority of reference-homozygous markers sit exactly at share 1.0, which
+makes the MEDIAN the ceiling and the upward headroom 0.000 by construction: 91.6% of markers at 1.0
+for q=0.10, 78.8% for q=0.25, 66.1% for q=0.40. A statistic whose centre is a boundary point of its
+own support can only move one way. That, not dropout, generated every one-directional result
+recorded above. Dropout is mean-unbiased: expected share 0.8754 to 0.8748 across ADO 0.000 to
+0.600 against an analytic 0.8750.
+
+THE DISJOINTNESS DOES NOT BLOCK ANYTHING. An anchor names all four founder haplotypes for every
+embryo in its donor group, and the 2PN groups have ONE egg donor each. So one array per donor group
+suffices and the anchor never has to share an array with the event. The 0-of-192 intersection
+recorded above is real and irrelevant.
+
+WHAT SHIPS IN 4.6.0. web/src/siblingOrigin.ts calls which parental copy is missing using the
+embryo's OWN event-free cells as the reference, with no parental array at any point.
+
+  Heterozygosity is established from SIBLINGS, never from the cell being scored. Conditioning on
+  the scored cell's own heterozygous calls selects the markers where both alleles survived and
+  forces the share to 0.5 at every one of them, leaving nothing to read.
+  There is no centre. Each marker contributes a likelihood under three hypotheses and the region's
+  evidence is their product, so the quantity that was mis-centred does not exist here.
+  The third hypothesis is no-deletion, which absorbs dropout clusters. Verified: a region of
+  balanced homozygotes with no heterozygotes reads as no deletion rather than as a lost copy, and
+  reads the same with the alleles swapped.
+
+DROP-IN, MEASURED HERE, AND IT IS BETTER THAN ASSUMED. False heterozygosity is the only
+one-directional term, because a falsely heterozygous marker always retains the reference allele.
+Measured on 113 same-genome array pairs across four experiments, being replicate and clonal
+material where a marker the reference calls homozygous is homozygous in truth:
+
+    ROBLES  n=40  median 0.0525        DIETER  n=25  median 0.0435
+    JENNA   n=16  median 0.0410        TREFF   n=32  median 0.0390
+
+The assessment assumed 0.0854 from 7 arrays. Every experiment here sits below it.
+
+THE SIBLING RULE MUST SCALE, and at the assumed drop-in a fixed rule crossed the wall. Expected
+false-het fraction by panel size, at the measured 0.0435:
+
+    siblings   agree>=   phi        a fixed >=2 rule would give
+    2          2         0.0019     0.0019
+    4          2         0.0107     0.0107
+    5          3         0.0008     0.0173
+    8          4         0.0002     0.0445
+    10         5         0.0000     0.0675
+
+Under a fixed rule phi RISES with panel size, because more cells give a spurious call more chances
+to appear, so adding arrays would worsen the bias while appearing to improve reliability. Under the
+majority rule it falls. At the measured drop-in no panel size approaches the 0.15 wall.
+
+WHAT IS NOT DONE. The module is not wired into Syngamy, which streams one sample at a time and
+would need a two-pass restructure to hold a sibling panel. The science route is the audit harness,
+which already reads many arrays at once. Stated rather than left to be discovered.

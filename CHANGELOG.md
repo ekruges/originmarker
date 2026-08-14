@@ -9,6 +9,57 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.6.0 "Synapsis"
+
+Parental origin without a parental array. The blocker was never the method.
+
+### Added
+
+- **`siblingOrigin.ts` calls which parental copy is missing using the embryo's OWN event-free
+  cells as the reference.** Multiple blastomeres of one embryo share both parents exactly, so where
+  an event is present in some cells and absent in others, the unaffected siblings establish that
+  embryo's heterozygous sites and the affected cell is read against them. No parental array is
+  involved at any point.
+
+  Three hypotheses per region: the reference-side copy lost, the other copy lost, and no deletion.
+  Posterior over the three, called only above 0.95, refused otherwise.
+
+- **There is no centre in it, deliberately.** Each marker contributes a likelihood and the region's
+  evidence is their product. The quantity that was previously mis-centred does not exist here.
+
+- **Drop-in measured on this platform**, on 113 same-genome array pairs across four experiments:
+  medians 0.0390 to 0.0525. False heterozygosity is the only one-directional term in this
+  construction, because a falsely heterozygous marker always retains the reference allele, so it is
+  reported with every call and bounds it. Above 0.15 the call is refused rather than downgraded.
+
+- **The sibling agreement rule scales with the panel**, `>=ceil(k/2)` with a floor of 2. Under a
+  fixed rule of two the false-het fraction RISES with panel size, 0.0019 at two siblings to 0.0675
+  at ten, because more cells give a spurious call more chances to appear. Adding arrays would have
+  made the bias worse while appearing to make the call more reliable. Under the majority rule it
+  falls to 0.0000 at ten.
+
+### Fixed
+
+- **`recentre` is documented as unusable for a one-parent marker set, and why.** The one-parent
+  asymmetry recorded in earlier audits was not a geometric limit. The two loss hypotheses are
+  symmetric about the disomic expectation; the asymmetry came from centring on a median that IS the
+  boundary of that distribution's support, since for every q below 0.5 the majority of markers sit
+  exactly at 1.0. A statistic whose centre is a boundary point can only move one way, which is what
+  produced this project's one-directional results. Dropout was never the cause: expected share is
+  invariant in it, 0.8754 to 0.8748 across ADO 0.000 to 0.600.
+
+- **`paternalShareOneParent` is marked do-not-use.** It selects on the scored cell's own
+  heterozygosity, which selects the markers where both alleles survived and forces the share to 0.5
+  at every one of them. No information survives the conditioning. Retained rather than deleted so
+  that callers fail loudly.
+
+### Not done
+
+The module is not wired into Syngamy, which streams one sample at a time and would need a two-pass
+restructure to hold a sibling panel. The audit harness is the route that reads many arrays at once.
+
+---
+
 ## 4.5.0 "Chiasma"
 
 4.0 said where a chromosomal change is and which parent an extra copy came from. This release
