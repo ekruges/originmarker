@@ -9,6 +9,66 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.10.0 "Diplotene"
+
+Parental origin from allele dosage, for the events genotypes structurally cannot answer.
+
+### Added
+
+- **`dosageOrigin.ts` calls which parent's copy is missing from the B-allele frequency** rather
+  than from genotype calls. 4.8.5 recorded why this is needed: a whole-chromosome loss is DETECTED
+  by the collapse of its genotype call rate and ASSIGNED from genotypes, so the signal that finds
+  the event destroys the evidence that would name its parent. All four segmental losses in
+  GSE148488 scored and all three whole-chromosome losses refused, which is not a coincidence of
+  three. Dosage is read whether or not a genotype is emitted, so it survives the collapse.
+
+  The Mendelian fact is the same one the genotype channel rests on. At a marker where the loaded
+  parent is homozygous, oriented so its own allele is low: a HIGH dosage requires that parent's
+  copy to be absent, since a present copy would contribute its allele and hold the dosage at or
+  below the middle. A MIDDLE dosage requires both copies, since one copy cannot be heterozygous.
+  Each is impossible under the alternatives, which is where the power is.
+
+  **It is not a share and it is not centred.** Two earlier attempts formed a paternal allele share
+  and centred it on the sample's own median, and for a one-parent informative set the median IS the
+  ceiling, so upward headroom was zero by construction and six one-directional results followed.
+  What is counted here is the rate of an event impossible under the alternative, in each direction
+  separately, by the same code with the orientation flipped. The check asserts the two loss
+  directions are equally reachable from the same weight of evidence, which is the property those
+  six results violated.
+
+- **`om origin --channel auto|genotype|dosage|both`**, defaulting to dosage for whole chromosomes
+  and genotypes elsewhere, and naming which channel produced each answer.
+
+### Fixed
+
+- **The dosage channel returned both-copies-present at posterior 1.0000 from unusable intensity**,
+  which is the same failure as 4.8.5 in the other channel and was caught before shipping only by
+  comparing a chromosome against the rest of its own genome. A middle-band reading is impossible
+  with one copy, so it is enormously informative for two copies being present, and a region whose
+  intensity is noise scatters readings into that band. On a real blastomere:
+
+      chr1              call 30.7%   own  7.7%   middle 49.7%   excluded 5.4%   between 37.2%
+      its other chroms  call 83.7%   own 88.1%   middle  4.0%   excluded 0.9%   between  7.1%
+
+  The tell is the BETWEEN band, which no hypothesis predicts: a genome resolves its alleles into
+  clusters and a region that does not is not being measured. The region is now compared against the
+  sample's own genome, because amplification sets that baseline per array.
+
+  **The guard cannot separate unmeasurable from mosaic.** In a single cell an unresolved dosage is
+  noise, since one genome cannot be partly anything. In a multi-cell biopsy a mosaic loss genuinely
+  puts the average between the bands. Both are refused, which is right for a blastomere and
+  conservative for a biopsy. Two trophectoderm biopsies of one embryo showed 29.9% and 23.7%
+  unresolved over a chr16 loss and were refused here while the genotype channel called them.
+
+### Not yet demonstrated
+
+The channel is validated on synthetic regions and guarded against the failure that reached
+posterior 1.000, but every real region tested so far has been refused by the unresolved-dosage
+guard. It has not yet produced a positive call on laboratory material, and should not be quoted as
+though it has.
+
+---
+
 ## 4.9.0 "Bivalent"
 
 Everything the browser tool does, available on the command line, with the thresholds exposed.

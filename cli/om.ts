@@ -38,6 +38,7 @@ const obligate = await import(`${W}obligateHet.ts`)
 const segments = await import(`${W}segments.ts`)
 const inferredRef = await import(`${W}inferredReference.ts`)
 const features = await import(`${W}features.ts`)
+const dosage = await import(`${W}dosageOrigin.ts`)
 
 type AB = 'AA' | 'AB' | 'BB' | 'NC'
 
@@ -107,6 +108,9 @@ interface Loaded {
   id: string
   gt: Map<string, AB>
   pos: Map<string, { chrom: string, pos: number }>
+  /** B-allele frequency per marker. Read whether or not a genotype was emitted, which is the
+   *  whole reason the dosage channel survives a collapsed call rate. */
+  baf: Map<string, number>
   cnByChrom: Map<string, { chrom: string, pos: number, called: boolean, log2R: number | null }[]>
   probeAt: Map<string, string>
   rows: number
@@ -133,10 +137,11 @@ function load(path: string, stride = 1, full = true): Loaded {
 
   const gt = new Map<string, AB>()
   const pos = new Map<string, { chrom: string, pos: number }>()
+  const baf = new Map<string, number>()
   const cnByChrom = new Map<string, Loaded['cnByChrom'] extends Map<string, infer V> ? V : never>()
   const probeAt = new Map<string, string>()
   const byChrom = new Map()
-  const baf = ingest.emptyBafSums()
+  const bafSums = ingest.emptyBafSums()
   let first = ''
   let rows = 0
 
@@ -146,13 +151,14 @@ function load(path: string, stride = 1, full = true): Loaded {
     rows += 1
     if (!first) first = r.probesetId
     ingest.accumulate(r as never, byChrom as never)
-    ingest.accumulateBaf(r as never, baf as never)
+    ingest.accumulateBaf(r as never, bafSums as never)
     if (!parentage.isAutosome(r.chrom)) continue
-    if (r.genotype !== 'NC') {
-      gt.set(r.probesetId, r.genotype as AB)
-      if (full) pos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
-    }
+    if (r.genotype !== 'NC') gt.set(r.probesetId, r.genotype as AB)
     if (!full) continue
+    // Position and dosage are kept for EVERY marker, called or not. A no-call still has an
+    // intensity reading, and on a collapsed chromosome those are the only readings left.
+    pos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
+    if (r.baf !== null && Number.isFinite(r.baf)) baf.set(r.probesetId, r.baf)
     const cn = cnByChrom.get(r.chrom) ?? []
     cn.push({ chrom: r.chrom, pos: r.pos, called: r.genotype !== 'NC', log2R: r.log2R })
     cnByChrom.set(r.chrom, cn as never)
@@ -162,8 +168,8 @@ function load(path: string, stride = 1, full = true): Loaded {
     .replace(/\.(probes|CEL\.txt\.gz|CEL\.txt|csv\.gz|txt\.gz)$/, '')
     .replace(/^(GSM\d+)_.*$/, '$1')
   return {
-    id, gt, pos, cnByChrom, probeAt, rows,
-    profile: ingest.finishProfile(id, byChrom as never, baf as never, first),
+    id, gt, pos, baf, cnByChrom, probeAt, rows,
+    profile: ingest.finishProfile(id, byChrom as never, bafSums as never, first),
   }
 }
 
@@ -292,6 +298,47 @@ const originOpts = () => ({
   callPosterior: num('call-posterior', oneParent.CALL_POSTERIOR),
 })
 
+/**
+ * Call origin over one interval from ALLELE DOSAGE.
+ *
+ * Uses every marker where the loaded parent is homozygous and a dosage was read, including the
+ * ones the genotype caller failed on. That is the point: a whole-chromosome loss is detected by
+ * its genotypes collapsing, so on exactly those events the genotype channel has no evidence left.
+ */
+function dosageOver(ref: Loaded, c: Loaded, chrom: string, start: number, end: number) {
+  const pairs: [AB, number | null][] = []
+  // The background is the same band profile over everything OUTSIDE the region, which is the
+  // external-null discipline the rest of this project uses: a region cannot set its own baseline,
+  // and amplification sets the unresolved rate per array rather than per platform.
+  let bgN = 0
+  let bgBetween = 0
+  for (const [probe, p] of c.pos) {
+    const pg = ref.gt.get(probe)
+    if (!pg) continue
+    const b = c.baf.get(probe) ?? null
+    const inside = p.chrom === chrom && p.pos >= start && p.pos <= end
+    if (inside) { pairs.push([pg, b]); continue }
+    if (b === null) continue
+    bgN += 1
+    if (dosage.band(pg as never, b) === 'between') bgBetween += 1
+  }
+  const background = bgN >= 10_000 ? { between: bgBetween / bgN } : undefined
+  return dosage.callDosageOrigin(
+    pairs as never,
+    num('q', oneParent.DEFAULT_Q),
+    num('dosage-noise', dosage.DOSAGE_NOISE),
+    {
+      minMarkers: num('min-markers-dosage', dosage.MIN_MARKERS_DOSAGE),
+      posterior: num('dosage-posterior', dosage.DOSAGE_POSTERIOR),
+      background: args.bools.has('no-dosage-background') ? undefined : background,
+      maxBetweenRatio: num('max-between-ratio', dosage.MAX_BETWEEN_RATIO),
+    },
+  ) as {
+    verdict: string, posterior: number, markers: number, excluded: number, middle: number,
+    own: number, between: number, why: string
+  }
+}
+
 /** The dropout every likelihood is parameterised by, from the stage unless overridden. */
 function dropoutFor(c: Loaded): { ado: number, source: string } {
   const forced = args.flags.get('ado')
@@ -394,11 +441,36 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       })()]
       : eventsOf(ref, c, role).events
 
+    // WHICH CHANNEL. Genotypes are the better instrument where they exist. They cannot answer a
+    // whole-chromosome loss, because that event is detected by its genotypes collapsing, so the
+    // default routes whole chromosomes to dosage and everything else to genotypes and says which
+    // it used. `--channel` forces one for comparison.
+    const channel = args.flags.get('channel') ?? 'auto'
+    if (!['auto', 'genotype', 'dosage', 'both'].includes(channel)) {
+      die('--channel must be auto, genotype, dosage or both')
+    }
+    const name = (v: string) => (v === 'known-parent-lost' ? role
+      : v === 'other-parent-lost' ? other : null)
     const rows = evs.map((e) => {
-      const call = callOver(ref, c, e.chrom, e.start, e.end, ado)
-      const named = call.verdict === 'known-parent-lost' ? role
-        : call.verdict === 'other-parent-lost' ? other : null
-      return { ...e, locus: stageMod.locus(e.chrom, e.start, e.end), origin: named, ...call }
+      const isWhole = e.kind.startsWith('whole-chromosome')
+      const useDosage = channel === 'dosage' || channel === 'both'
+        || (channel === 'auto' && isWhole)
+      const useGeno = channel === 'genotype' || channel === 'both'
+        || (channel === 'auto' && !isWhole)
+      const g = useGeno ? callOver(ref, c, e.chrom, e.start, e.end, ado) : null
+      const d = useDosage ? dosageOver(ref, c, e.chrom, e.start, e.end) : null
+      const chosen = channel === 'both' ? (g?.verdict !== 'refused' ? g : d) : (g ?? d)
+      return {
+        ...e,
+        locus: stageMod.locus(e.chrom, e.start, e.end),
+        channel: channel === 'both' ? 'both' : (useGeno ? 'genotype' : 'dosage'),
+        origin: chosen ? name(chosen.verdict) : null,
+        genotype: g, dosage: d,
+        verdict: chosen?.verdict ?? 'refused',
+        posterior: chosen?.posterior ?? NaN,
+        markers: chosen?.markers ?? 0,
+        why: chosen?.why ?? '',
+      }
     })
     out({
       reference: ref.id, sample: c.id, role, stage: st.stage, dropout: ado, dropoutSource: source,
@@ -410,9 +482,18 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       for (const r of rows) {
         process.stdout.write(`${r.locus}  ${r.kind}\n`)
         process.stdout.write(`   ${r.origin ? `${r.origin.toUpperCase()} copy lost` : r.verdict}`
-          + `, posterior ${Number.isFinite(r.posterior) ? r.posterior.toFixed(4) : 'n/a'}\n`)
-        process.stdout.write(`   ${r.markers} informative, ${r.exclusive} carrying the allele the `
-          + `loaded parent lacks, ${r.heterozygous} heterozygous\n`)
+          + `, posterior ${Number.isFinite(r.posterior) ? r.posterior.toFixed(4) : 'n/a'}`
+          + `  [${r.channel}]\n`)
+        if (r.genotype) {
+          process.stdout.write(`   genotype: ${r.genotype.verdict}, ${r.genotype.markers} `
+            + `informative, ${r.genotype.exclusive} exclusive, `
+            + `${r.genotype.heterozygous} heterozygous\n`)
+        }
+        if (r.dosage) {
+          process.stdout.write(`   dosage:   ${r.dosage.verdict}, ${r.dosage.markers} with a `
+            + `reading, ${r.dosage.excluded} at the dosage that parent cannot produce, `
+            + `${r.dosage.middle} needing two copies, ${r.dosage.between} in no band\n`)
+        }
         process.stdout.write(`   ${r.why}\n\n`)
       }
     })
