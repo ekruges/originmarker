@@ -166,3 +166,38 @@ is 69% no-call and the surviving calls read 59.7% heterozygous where the father 
   scored normally.
 
   n IS 3 AND 4. This is a hypothesis with a mechanism, not a measured law.
+
+
+HAPLOID CENSUS: WHERE A PARENT COULD BE RECONSTRUCTED INSTEAD OF ARRAYED
+------------------------------------------------------------------------
+Reconstruction from HAPLOID PRODUCTS is not the reconstruction PLAN.txt disqualifies. That one is
+sibling and cross-donor sharing, which fails for the mother because siblings cannot reveal where
+she is heterozygous: those markers are admitted as homozygous and read as maternal absence,
+turning a true log2(maternal/paternal) ratio of -0.40 into +2.18. Haploid products do not have
+that failure. One product reading A and another reading B PROVES the parent heterozygous, which
+is why PLAN.txt names polar bodies as the correct substitute and why Progenitor scored 35 correct,
+6 refused and 0 incorrect against a father it was never shown.
+
+74 of the 884 arrays are haploid. MIN_PRODUCTS is 5, below which the method inverts.
+
+  group    arrays   haploid   heterozygosity
+  13605        42         5    0.083-0.104
+  22531        99        19    0.034-0.102
+  22537        48         9    0.030-0.091
+  32477        16         6    0.049-0.101
+  50402        23        12    0.053-0.094
+  52461        19        13    0.040-0.090
+
+  Six groups clear the floor, covering 247 arrays. No group sits at three or four, so the corpus
+  splits cleanly into groups with enough and groups with none.
+
+THE COUNT ABOVE IS AN UPPER BOUND, AND THE ONE GROUP ALREADY SORTED SHOWS WHY. Progenitor needs
+five products OF THE SAME PARENT, and a group holds products of both: polar bodies and oocytes on
+the maternal side, sperm and paternal pronuclei on the other. This census cannot tell them apart.
+In 32477 the sorting has been done, against the EYS donor: the census counts 6 haploid arrays and
+exactly 4 of them are his. That group is one short on the paternal side, not one over.
+
+  SO THE NEXT STEP IS THE SORT, NOT THE RECONSTRUCTION. Products of one parent share half their
+  haplotypes with each other and are unrelated to the other parent's, so they separate on mutual
+  relatedness without any reference. Only after that is the per-parent count known, and only then
+  is it clear how many of the six groups actually support a reconstruction.
