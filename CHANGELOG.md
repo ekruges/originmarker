@@ -9,6 +9,29 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.8.4 "Holliday"
+
+### Fixed
+
+- **An array reading 52% heterozygous was classified as bulk genomic DNA.** The stage ladder was
+  closed at the bottom, where a failed amplification drives heterozygosity toward zero, and open at
+  the top, where `BOUNDS.find` matched bulk for any value at or above 0.158. So a mixture of two
+  individuals, or a contaminated reaction, was called bulk DNA and handed a dropout of 0.008, the
+  most confident parameter set in the module, and every downstream likelihood then treated it as
+  pristine material. This is the same failure the review found at the haploid end, at the other end
+  and with worse consequences.
+
+  Found on real arrays rather than by inspection: four in one experiment read 0.53-0.56 heterozygous
+  at 0.45-0.59 call rate, which is over twice what any single genome can reach.
+
+  The ceiling is `MAX_DIPLOID_HET = 0.25`. A diploid on this panel reads 0.168, the European anchor
+  is already the highest of the ancestries measured against it, and drop-in at the top of the range
+  measured here adds (1 - 0.168) x 0.0525, giving 0.212 as the most a real diploid can show. Above
+  the ceiling the array is reported as failed, and the caveat says what it cannot distinguish:
+  mixture, contamination and outright failure look alike there, and only differ from a genome.
+
+---
+
 ## 4.8.3 "Holliday"
 
 Everything the detail box could say, and a run that starts from either parent.

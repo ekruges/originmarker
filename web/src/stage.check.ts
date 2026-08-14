@@ -16,7 +16,7 @@
 import assert from 'node:assert/strict'
 import {
   inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, QC_CALL_FLOOR,
-  BAND_DIPLOID_CERTAIN,
+  BAND_DIPLOID_CERTAIN, MAX_DIPLOID_HET,
 } from './stage.ts'
 
 const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
@@ -73,6 +73,30 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   assert.notEqual(inferStage(p(0.004, 0.95)).stage, 'failed')
   assert.equal(inferStage(p(NaN)).stage, 'unknown')
   assert.ok(QC_CALL_FLOOR > 0.2 && QC_CALL_FLOOR < 0.7)
+}
+
+// --- 4a. THE LADDER IS CLOSED AT THE TOP AS WELL AS THE BOTTOM ----------------------------------
+//
+// Found on real laboratory arrays. The ladder was open above: any value at or over the bulk
+// boundary matched bulk, so an array reading 52% heterozygous at a 55% call rate was classified as
+// bulk genomic DNA and given a dropout of 0.008, the most confident parameter set here. That is
+// the same failure as calling a dead array haploid, at the other end and with worse consequences,
+// since every downstream likelihood then treats a mixture as pristine material.
+{
+  for (const h of [0.30, 0.52, 0.56, 0.90]) {
+    const s = inferStage(p(h, 0.55))
+    assert.equal(s.stage, 'failed', `${h} heterozygous is not a genome, got ${s.stage}`)
+    assert.ok(!Number.isFinite(s.dropout))
+    assert.ok(s.why.includes('ceiling'))
+  }
+  // The ceiling must clear what a real diploid can reach: its own rate plus drop-in at the
+  // highest rate measured here, 0.168 + (1 - 0.168) * 0.0525 = 0.212.
+  const maxReal = BULK_HETEROZYGOSITY + (1 - BULK_HETEROZYGOSITY) * 0.0525
+  assert.ok(MAX_DIPLOID_HET > maxReal,
+    `a diploid with maximal drop-in reaches ${maxReal.toFixed(3)} and must not be rejected`)
+  assert.equal(inferStage(p(maxReal, 0.95)).stage, 'bulk')
+  // And a call rate above the floor does not rescue an impossible heterozygosity.
+  assert.equal(inferStage(p(0.52, 0.99)).stage, 'failed')
 }
 
 // --- 4b. FIRST polar bodies are not homozygous, and are not treated as error ----------------------

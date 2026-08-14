@@ -99,6 +99,23 @@ export const BULK_HETEROZYGOSITY = 0.168
 export const QC_CALL_FLOOR = 0.40
 
 /**
+ * Heterozygosity above which the array is not one genome at all.
+ *
+ * The ladder is open at the bottom by design, since dropout drives heterozygosity down. It was
+ * open at the TOP by oversight, and that is worse: `BOUNDS.find` matched bulk for any value at or
+ * above 0.158, so an array reading 52% heterozygous at a 55% call rate was classified as bulk
+ * genomic DNA and handed a dropout of 0.008, the most confident parameter set in this module.
+ *
+ * THE CEILING A SINGLE DIPLOID CAN REACH. This panel's diploid rate is 0.168 and the European
+ * anchor is already the highest of the ancestries measured against it, so the rate itself cannot
+ * rise much. Drop-in can: at the top of the range measured here, 0.0525 across 113 same-genome
+ * pairs, a diploid reads 0.168 + (1 - 0.168) x 0.0525 = 0.212. This sits above that with margin.
+ * Beyond it the array is two individuals mixed, a contaminated reaction, or a failure, and the
+ * four arrays that prompted this read 0.53-0.56, which is over twice the maximum.
+ */
+export const MAX_DIPLOID_HET = 0.25
+
+/**
  * Below this the sample carries one genome rather than a heavily dropped-out two.
  *
  * NOT SAFE IN BOTH DIRECTIONS, and the audit quantified which way it fails. A blastomere at 0.308
@@ -162,6 +179,17 @@ export function inferStage(
       stage: 'unknown', dropout: 0.308, basis: 'none', templates: 'unknown', markerFloor: 200,
       caveat: 'no usable profile',
       why: 'the array does not report a heterozygous rate and a call rate, so no stage is inferred',
+    }
+  }
+  if (h > MAX_DIPLOID_HET) {
+    return {
+      stage: 'failed', dropout: NaN, basis: 'none', templates: 'not applicable', markerFloor: 200,
+      caveat: 'two individuals mixed, a contaminated reaction and a failed array are not '
+        + 'distinguishable from each other here, only from a genome',
+      why: `${(h * 100).toFixed(1)}% heterozygous exceeds the `
+        + `${(MAX_DIPLOID_HET * 100).toFixed(0)}% ceiling a single diploid can reach on this `
+        + 'platform, which is its 16.8% rate plus drop-in at the highest rate measured here. No '
+        + 'genome reads this way, so this is not a stage',
     }
   }
   if (call < QC_CALL_FLOOR) {
