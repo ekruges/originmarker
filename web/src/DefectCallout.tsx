@@ -8,6 +8,12 @@
  *
  * Every chip is evidence someone could check. Nothing here is decorative, and a chip is omitted
  * rather than shown empty, because a chip reading "—" invites the reader to supply a value.
+ *
+ * The `exclusive` chip is the load-bearing one on a single-parent run. It counts markers where the
+ * sample carries an allele the loaded parent does not have, which is Mendelian exclusion rather
+ * than a statistic: dropout removes alleles and cannot invent one, so the count is evidence a
+ * reader can act on directly. Measured 5,130-5,172 when the loaded parent's copy was removed on a
+ * real trio and exactly 0 when the other parent's was.
  */
 import { Text } from '@mantine/core'
 import type { Defect } from './defects.ts'
@@ -71,9 +77,12 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
                 ? <Chip label="markers" value={String(d.informative)} mono /> : null}
               {d.posterior !== undefined && Number.isFinite(d.posterior)
                 ? <Chip label="posterior" value={d.posterior.toFixed(3)} mono /> : null}
-              {d.phi !== undefined && Number.isFinite(d.phi)
-                ? <Chip label="false-het" value={d.phi.toFixed(3)} mono /> : null}
+              {d.exclusive !== undefined
+                ? <Chip label="exclusive" value={String(d.exclusive)} mono /> : null}
               {d.basis ? <Chip label="basis" value={d.basis.replace('-', ' ')} /> : null}
+              {d.stage ? <Chip label="material" value={d.stage} /> : null}
+              {d.dropout !== undefined
+                ? <Chip label="dropout" value={d.dropout.toFixed(3)} mono /> : null}
             </div>
 
             <Text size="sm" mt={5} style={{ maxWidth: 780, lineHeight: 1.5 }}>

@@ -10,6 +10,7 @@ import type { Segment } from './segments.ts'
 import type { GainAnnotation } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
+import type { StageCall } from './stage.ts'
 
 /** What is known about one defect, gathered from whichever channels produced it. */
 export interface Defect {
@@ -28,7 +29,15 @@ export interface Defect {
   basis?: 'two-parent' | 'one-parent' | 'sibling' | 'homologue'
   informative?: number
   posterior?: number
-  phi?: number
+  /** Markers carrying an allele the loaded parent does not have. This is the Mendelian evidence
+   *  itself rather than a summary of it: a parent who is AA has no B to give, and dropout removes
+   *  alleles without inventing one, so a non-zero count cannot come from amplification loss. */
+  exclusive?: number
+  /** The material this was read from, carried so a chip can state it without a second lookup. */
+  stage?: string
+  /** Dropout the call was parameterised with, and how that figure was arrived at. */
+  dropout?: number
+  dropoutBasis?: string
 }
 
 /** Build the display list from a run's segments and whatever origin annotations exist for them. */
@@ -43,6 +52,7 @@ export function defectsFrom(
     why: string,
   }[] = [],
   loadedParent: 'paternal' | 'maternal' = 'paternal',
+  stage?: StageCall,
 ): Defect[] {
   const byOne = new Map(oneParent.map((o) => [o.where, o]))
   const other = loadedParent === 'paternal' ? 'maternal' : 'paternal'
@@ -76,6 +86,10 @@ export function defectsFrom(
       basis: ann ? 'two-parent' : (one && origin !== 'unclear') ? 'one-parent' : undefined,
       informative: one?.markers,
       posterior: one && Number.isFinite(one.posterior) ? one.posterior : undefined,
+      exclusive: one?.exclusive,
+      stage: stage?.stage,
+      dropout: stage && Number.isFinite(stage.dropout) ? stage.dropout : undefined,
+      dropoutBasis: stage?.basis === 'none' ? undefined : stage?.basis,
     } as Defect
   })
 }

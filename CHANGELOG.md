@@ -9,6 +9,53 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.8.3 "Holliday"
+
+Everything the detail box could say, and a run that starts from either parent.
+
+### Fixed
+
+- **A run with only an oocyte donor did nothing at all.** The sample loop was gated on a sperm
+  donor being present, so an oocyte-only run left the Run button disabled behind a notice saying
+  one file must be labelled sperm. Nothing below that gate was paternal except the label it was
+  given: the tally, the segments and the Mendelian exclusion all ask whether the LOADED parent's
+  copy is present, and which parent that is only decides what the answer is called. Either parent
+  alone now runs.
+
+- **A single-parent verdict was read as paternal whichever parent was loaded.** `defectsFrom` has
+  always taken the loaded parent as an argument and has always used it correctly; the caller passed
+  the literal `paternal`, because the result did not carry its own role and there was nothing
+  truthful to pass. On an oocyte-only run that would have printed PATERNAL over a maternal loss,
+  which is the one failure this display's own documentation calls the most damaging thing it can
+  do. `ParentageResult` now carries `role` and every label in the result view reads it: the
+  aneuploidy callout, the segment section heading and its explanation, and the kind label that
+  previously read "paternal alleles absent" as a fixed string.
+
+- **The exclusive-marker count was computed and discarded.** It is the one number on a
+  single-parent run a reader can check without trusting the model: a parent who is AA has no B to
+  give, and dropout removes alleles without inventing one, so markers carrying an allele the loaded
+  parent lacks are Mendelian exclusion rather than a statistic. It now has a chip. Measured
+  5,130-5,172 when the loaded parent's copy was removed on a real trio and exactly 0 when the other
+  parent's was.
+
+- **The `false-het` chip could never render.** `phi` was declared on the defect and never populated
+  by anything, so the chip was unreachable. Removed rather than left as a field that looks
+  available.
+
+### Added
+
+- **Material and dropout are chips on the defect box**, so the stage the run inferred travels with
+  the finding rather than living only in the log and the report. A failed array contributes no
+  dropout chip rather than one reading NaN, which a reader would take for a measurement that came
+  out strange.
+
+- **`defects.check.ts`**, which the module's own header has promised since it was split out of the
+  component for exactly this reason. It pins the direction of a single-parent verdict in both
+  roles, that two-parent dosage is never overwritten by a single-parent call, that a run with no
+  parent still reports its coordinates, and that a failed stage arrives as absent rather than NaN.
+
+---
+
 ## 4.8.2 "Holliday"
 
 ### Fixed

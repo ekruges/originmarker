@@ -419,6 +419,9 @@ export interface GainAnnotation {
 }
 
 export interface ParentageResult {
+  /** Which parent this result is ABOUT. Carried rather than assumed: a run with one parent
+   *  loaded can be either, and a display that assumes paternal names the wrong parent. */
+  role: 'paternal' | 'maternal'
   verdict: Verdict
   originClass: OriginClass
   zygosity: Zygosity
@@ -796,6 +799,7 @@ export function classify(
   }
 
   return {
+    role,
     verdict, originClass, zygosity, spermType, genomeRate, explainable, informative: nTot,
     segments: [],
     gains: [],

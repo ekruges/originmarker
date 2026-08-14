@@ -403,9 +403,15 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         + 'is one person in two files rather than two people')
     }
 
-    if (index) {
-      const pat = index
-      const mat = maternalIndex
+    // EITHER parent alone is enough. Nothing below this line is paternal except the label it is
+    // given: the tally, the segments and the Mendelian exclusion all ask whether the LOADED
+    // parent's copy is present, and which parent that is only decides what the answer is called.
+    // Gating the whole run on a sperm donor meant an oocyte-only run silently did nothing at all.
+    const solo = index ?? maternalIndex
+    const soloRole: 'paternal' | 'maternal' = index ? 'paternal' : 'maternal'
+    if (solo) {
+      const pat = solo
+      const mat = index ? maternalIndex : undefined
       // Genotypes retained per sample so that a sample's SIBLINGS in the same run can establish
       // which markers the embryo is heterozygous at. This is what removes the parental-array
       // requirement: unaffected cells of one embryo share both parents exactly. Kept as a plain
@@ -486,7 +492,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             }
           }, bar(s.id, s.file.size), log)
           sampleGt.set(s.id, myGt)
-          const result = classify(t, pat.heterozygosity)
+          const result = classify(t, pat.heterozygosity, { role: soloRole })
           // Stage from the array itself, since the dropout each stage carries is what every
           // downstream likelihood is parameterised by. Bundled into the result so every output
           // carries it, with the basis and the confounds attached to the number.
@@ -701,7 +707,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           }
 
           if (result.segments.length) {
-            log('WARN', `${s.file.name}: ${result.segments.length} segment(s) where the paternal `
+            log('WARN', `${s.file.name}: ${result.segments.length} segment(s) where the `
+              + `${soloRole} `
               + `genome is missing: ${result.segments.map((x) => `chr${x.chrom} `
                 + `${(segmentCoords(x).spanBp / 1e6).toFixed(1)}Mb `
                 + `${segmentCoords(x).localised ? segmentCoords(x).interval : '(not localised)'} `
@@ -710,7 +717,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           const maternal = tm && mat
             ? classify(tm, mat.heterozygosity, { role: 'maternal' }) : undefined
           const paired = maternal ? pair(result, maternal, agree) : undefined
-          log('DONE', `${s.file.name}: ${paired?.originClass ?? result.originClass}, paternal `
+          log('DONE', `${s.file.name}: ${paired?.originClass ?? result.originClass}, ${soloRole} `
             + `absent ${pct(result.genomeRate)} vs ceiling ${pct(result.explainable)}`
             + (maternal ? `, maternal absent ${pct(maternal.genomeRate)} vs ceiling `
               + `${pct(maternal.explainable)}` : ''))
@@ -727,7 +734,11 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   }
 
   const pending = entries.some((e) => e.state === 'waiting')
+  // Either parent alone is enough to run. The analysis asks whether the LOADED parent's copy is
+  // present, which is the same question whichever parent that is, so requiring a sperm donor
+  // turned an oocyte-only run into a disabled button with no explanation.
   const hasDonor = entries.some((e) => e.role === 'donor')
+  const hasParent = hasDonor || entries.some((e) => e.role === 'oocyte')
 
   return (
     <>
@@ -779,7 +790,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 Examples
               </Button>
             )}
-            <Button size="xs" disabled={busy || !pending || !hasDonor} onClick={() => { void run() }}>
+            <Button size="xs" disabled={busy || !pending || !hasParent} onClick={() => { void run() }}>
               Run
             </Button>
             {entries.some((e) => e.result) && (
@@ -830,11 +841,13 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             <Text size="xs">Only one file can be the oocyte donor.</Text>
           </Alert>
         )}
-        {entries.length > 0 && !hasDonor && (
+        {entries.length > 0 && !hasParent && (
           <Alert color="orange" mt={8} p="xs">
             <Text size="xs">
-              One file must be labelled sperm. An oocyte donor is optional and measures the
-              maternal side directly instead of inferring it.
+              One file must be labelled as a parent, sperm or oocyte. Either alone is enough: the
+              run asks whether that parent&rsquo;s copy is present, and names the other parent by
+              exclusion where the alleles allow it. Loading both measures each side directly
+              rather than inferring one.
             </Text>
           </Alert>
         )}
@@ -1050,7 +1063,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
       </div>
       {open && (
         <div style={{ padding: '2px 16px 14px' }}>
-          <AneuploidyCallout chroms={r.chroms} role="paternal" />
+          <AneuploidyCallout chroms={r.chroms} role={r.role} />
           {r.gains.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <Text size="xs" fw={700} mb={4}>Extra copies, and where they came from</Text>
@@ -1066,9 +1079,11 @@ function ResultCard({ entry, donorName, oocyteName }: {
               ))}
             </div>
           )}
-          <SegmentCallout segments={r.segments} />
+          <SegmentCallout segments={r.segments} role={r.role} />
           <PlacementCallout placement={r.placement} />
-          <DefectCallout defects={defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], 'paternal')} />
+          <DefectCallout
+            defects={defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role, r.stage)}
+          />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">
@@ -1369,11 +1384,10 @@ function AneuploidyCallout({ chroms, role }: { chroms: ChromResult[]; role: stri
 
 /** What each segment kind is, in one line, because they are different events and a reader must
  *  not read a copy loss as a parental one or the reverse. */
-const KIND: Record<SegmentKind, string> = {
-  'copy-loss': 'DNA absent',
-  'copy-gain': 'extra copies',
-  'parental-absence': 'paternal alleles absent',
-}
+const kindLabel = (k: SegmentKind, role: 'paternal' | 'maternal'): string => (
+  k === 'copy-loss' ? 'DNA absent'
+    : k === 'copy-gain' ? 'extra copies'
+      : `${role} alleles absent`)
 
 /**
  * Where each extra copy came from, or why that cannot be said.
@@ -1473,7 +1487,9 @@ function PlacementCallout({ placement }: { placement?: Enrichment[] }) {
   )
 }
 
-function SegmentCallout({ segments }: { segments: Segment[] }) {
+function SegmentCallout({ segments, role }: {
+  segments: Segment[], role: 'paternal' | 'maternal'
+}) {
   if (!segments.length) return null
   const mb = (x: number): string => `${(x / 1e6).toFixed(1)} Mb`
   const total = segments.reduce((a, sg) => a + sg.spanBp, 0)
@@ -1493,7 +1509,7 @@ function SegmentCallout({ segments }: { segments: Segment[] }) {
         cannot show this: a chromosome that is partly changed reads as neither present nor absent.
         Two different things are listed and the difference matters: <b>DNA absent</b> means the
         region is not there at all, read from the array no longer calling it with the intensity
-        agreeing, while <b>paternal alleles absent</b> means the DNA is present but came from the
+        agreeing, while <b>{role} alleles absent</b> means the DNA is present but came from the
         other parent.
       </Text>
       <div style={{ marginTop: 7, display: 'grid', gap: 3 }}>
@@ -1501,7 +1517,7 @@ function SegmentCallout({ segments }: { segments: Segment[] }) {
           <Text key={`${sg.chrom}:${sg.startBp}`} size="xs" ff="monospace">
             chr{sg.chrom}&nbsp;{int(sg.startBp)}&ndash;{int(sg.endBp)}
             {'  '}&middot;{'  '}{mb(sg.spanBp)}
-            {'  '}&middot;{'  '}{KIND[sg.kind]}
+            {'  '}&middot;{'  '}{kindLabel(sg.kind, role)}
             {'  '}&middot;{'  '}{pct(sg.rate, 1)} against {pct(sg.nullRate, 1)}
           </Text>
         ))}
@@ -1588,11 +1604,11 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
       </Section>
 
       {r.segments.length > 0 && (
-        <Section title="Segments where the paternal genome is missing">
+        <Section title={`Segments where the ${r.role} genome is missing`}>
           <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
             A chromosome that is partly lost reads as neither present nor absent, so the whole
             chromosome comes back unclear and the missing part goes unreported. These are the
-            regions inside a chromosome where the paternal allele is absent at a rate the rest of
+            regions inside a chromosome where the {r.role} allele is absent at a rate the rest of
             this genome does not reach. Each is scored against the median rate of the sample&rsquo;s
             OTHER chromosomes, which one event cannot move.
           </Text>
