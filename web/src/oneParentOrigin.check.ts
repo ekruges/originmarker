@@ -11,7 +11,7 @@
 //               is the one observation that no amount of dropout can manufacture.
 import assert from 'node:assert/strict'
 import {
-  callOneParentOrigin, informative, CALL_POSTERIOR, MIN_MARKERS, DEFAULT_Q,
+  callOneParentOrigin, informative, inferDropout, CALL_POSTERIOR, MIN_MARKERS, DEFAULT_Q,
 } from './oneParentOrigin.ts'
 import type { AB } from './informativity.ts'
 
@@ -120,3 +120,31 @@ const draw = (n: number, f: (u: number, i: number) => AB): AB[] => {
 
 console.log('oneParentOrigin.check.ts: all assertions passed, including symmetry, '
   + 'not-a-constant, and the Mendelian evidence surviving dropout')
+
+// --- 9. dropout is inferred from the sample, not declared ----------------------------------------
+//
+// The drag-and-drop contract: a trophectoderm biopsy and a blastomere differ six-fold in dropout
+// and the user is never asked which they dropped. Heterozygosity is the readout, since dropout
+// removes one allele of a heterozygote and so depresses the observed rate below the bulk figure.
+{
+  const cases: [number, number, number, string][] = [
+    // sample het, expected dropout floor, ceiling, label
+    [0.168, 0.00, 0.05, 'bulk-quality reads near zero dropout'],
+    [0.160, 0.01, 0.10, 'trophectoderm, mild'],
+    [0.135, 0.15, 0.25, 'single ESC'],
+    [0.116, 0.26, 0.38, 'blastomere'],
+  ]
+  for (const [het, lo, hi, label] of cases) {
+    const d = inferDropout(het)
+    assert.ok(d >= lo && d <= hi, `${label}: het ${het} gave dropout ${d.toFixed(3)}, want ${lo}-${hi}`)
+  }
+  // Monotone: worse heterozygosity must never imply less dropout.
+  assert.ok(inferDropout(0.116) > inferDropout(0.160), 'more dropout must read as more dropout')
+  // Degenerate input falls back to the worst stage rather than to zero, which would be optimistic.
+  assert.equal(inferDropout(NaN), 0.308)
+  assert.equal(inferDropout(0), 0.308)
+  // Bounded, so a pathological array cannot drive the likelihood to a degenerate value.
+  assert.ok(inferDropout(0.0001) <= 0.6 && inferDropout(0.5) >= 0.01)
+}
+
+console.log('oneParentOrigin.check.ts: dropout inference pinned across four stages')

@@ -54,6 +54,29 @@ export const CALL_POSTERIOR = 0.95
 /** Fewest informative markers before a region is scored. */
 export const MIN_MARKERS = 50
 
+/**
+ * Allele dropout for a sample, inferred from the sample itself rather than declared.
+ *
+ * The drag-and-drop contract means nothing may be asked of the user that the data can answer, and
+ * developmental stage is one of those things: a trophectoderm biopsy and a blastomere differ by
+ * six-fold in dropout (0.050 against 0.308) and the difference is visible in the arrays.
+ *
+ * Heterozygosity is the readout. Dropout removes one allele of a heterozygote, so a stage that
+ * drops heavily reads fewer heterozygotes than its genome contains. Against the bulk figure for
+ * this platform, the shortfall IS the dropout rate. Measured medians by stage: bulk 0.013,
+ * trophectoderm 0.050, single ESC 0.199, blastomere 0.308.
+ *
+ * Bounded at both ends: a sample cannot have negative dropout, and above the blastomere rate the
+ * estimate stops being informative and the caller should be refusing on marker count anyway.
+ */
+export const BULK_HETEROZYGOSITY = 0.168
+
+export function inferDropout(sampleHeterozygosity: number): number {
+  if (!Number.isFinite(sampleHeterozygosity) || sampleHeterozygosity <= 0) return 0.308
+  const shortfall = 1 - sampleHeterozygosity / BULK_HETEROZYGOSITY
+  return Math.min(0.6, Math.max(0.01, shortfall))
+}
+
 export type OneParentVerdict = 'known-parent-lost' | 'other-parent-lost' | 'both-present' | 'refused'
 
 export interface OneParentCall {

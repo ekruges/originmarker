@@ -162,13 +162,23 @@ export function segmentCoords(sg: Segment): {
     }
   }
   const r = sg.refined
-  const w = (lo: number, hi: number): string => `${((hi - lo) / 1e6).toFixed(2)} Mb`
+  // Read in the unit the number actually lives in. A refined edge is a median 151 markers, which
+  // is tens of kilobases, and printing that as "0.06 Mb" costs the reader the precision the
+  // refinement bought. Kilobases below a megabase, megabases above it.
+  const w = (lo: number, hi: number): string => {
+    const bp = hi - lo
+    return bp < 1e6 ? `${Math.round(bp / 1e3)} kb` : `${(bp / 1e6).toFixed(2)} Mb`
+  }
+  const a = w(r.startLoBp, r.startHiBp)
+  const b = w(r.endLoBp, r.endHiBp)
   return {
     start: r.startBp,
     end: r.endBp,
     spanBp: r.spanBp,
     localised: true,
-    interval: `+/-${w(r.startLoBp, r.startHiBp)} / +/-${w(r.endLoBp, r.endHiBp)}`,
+    // Both edges when they differ, one figure when they agree, since two identical numbers
+    // separated by a slash reads as more precision than is being claimed.
+    interval: a === b ? `+/-${a}` : `+/-${a} / +/-${b}`,
   }
 }
 

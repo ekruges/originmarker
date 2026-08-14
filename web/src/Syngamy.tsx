@@ -39,7 +39,7 @@ import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
 import { defectsFrom } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
-import { callOneParentOrigin } from './oneParentOrigin'
+import { callOneParentOrigin, inferDropout } from './oneParentOrigin'
 
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
@@ -637,7 +637,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 const pg = pat.gt.get(probe)
                 if (pg) pairs.push([pg, gt])
               }
-              const c = callOneParentOrigin(pairs as never, profile.nocallRate)
+              // Dropout inferred from this sample's own heterozygosity, so a trophectoderm biopsy and
+              // a blastomere are handled differently without the user declaring either.
+              const c = callOneParentOrigin(pairs as never, inferDropout(profile.hetRate))
               return {
                 where: `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`,
                 verdict: c.verdict,

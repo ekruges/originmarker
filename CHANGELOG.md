@@ -9,6 +9,35 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.7.1 "Pachytene"
+
+Stage handled without asking, and breakpoint intervals readable in the unit they live in.
+
+### Fixed
+
+- **Refined intervals print in kilobases below a megabase.** A refined edge is a median 151
+  markers, which is tens of kilobases, and rendering that as `+/-0.06 Mb` threw away the precision
+  the refinement bought. Now `+/-60 kb`, and where the two edges agree it prints one figure rather
+  than the same number twice separated by a slash, which read as more precision than was claimed.
+
+- **Allele dropout is inferred from the sample instead of proxied by its no-call rate.** Those are
+  different quantities: a no-call is a marker with no genotype, dropout is a heterozygote read as a
+  homozygote. Heterozygosity is the correct readout, since dropout removes one allele of a
+  heterozygote and depresses the observed rate below the bulk figure for the platform.
+
+  This is what makes stage handling automatic. A trophectoderm biopsy and a blastomere differ
+  six-fold in dropout, 0.050 against 0.308, and the difference is visible in the arrays, so the
+  user is never asked which they dropped. The check pins the inference across four stages, that it
+  is monotone, that degenerate input falls back to the worst stage rather than the most optimistic,
+  and that it stays bounded.
+
+### Known
+
+`MIN_INFORMATIVE_TROPHECTODERM` and `MIN_INFORMATIVE_BULK` are exported and unused; the marker
+floor is still the strictest value at every stage. Dropout now adapts, the floor does not.
+
+---
+
 ## 4.7.0 "Pachytene"
 
 **Parental origin from one parent.** A run with only the sperm donor now names which parent's copy
