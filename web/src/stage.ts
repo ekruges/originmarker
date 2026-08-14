@@ -169,10 +169,27 @@ const BOUNDS: { stage: Stage, minHet: number, dropout: number, templates: string
  */
 export function inferStage(
   profile: Pick<SampleProfile, 'hetRate' | 'callRate'> & { hetBand?: number },
+  /**
+   * The boundaries, so a caller that knows what it is doing can move them.
+   *
+   * The web tool never passes this and offers no knob for it: the whole point there is that the
+   * stage is inferred rather than declared. The command line passes it, because the question
+   * asked there is often what happens at a different threshold. Defaults are the measured
+   * values, so omitting this argument is exactly the shipped configuration.
+   */
+  opts: {
+    callFloor?: number, maxDiploidHet?: number, haploidMaxHet?: number,
+    bulkHeterozygosity?: number, bandDiploidCertain?: number,
+  } = {},
 ): StageCall {
   const h = profile.hetRate
   const call = profile.callRate
   const band = profile.hetBand
+  const callFloor = opts.callFloor ?? QC_CALL_FLOOR
+  const maxDiploid = opts.maxDiploidHet ?? MAX_DIPLOID_HET
+  const haploidMax = opts.haploidMaxHet ?? HAPLOID_MAX_HET
+  const bulkHet = opts.bulkHeterozygosity ?? BULK_HETEROZYGOSITY
+  const bandCertain = opts.bandDiploidCertain ?? BAND_DIPLOID_CERTAIN
 
   if (!Number.isFinite(h) || !Number.isFinite(call)) {
     return {
@@ -181,22 +198,22 @@ export function inferStage(
       why: 'the array does not report a heterozygous rate and a call rate, so no stage is inferred',
     }
   }
-  if (h > MAX_DIPLOID_HET) {
+  if (h > maxDiploid) {
     return {
       stage: 'failed', dropout: NaN, basis: 'none', templates: 'not applicable', markerFloor: 200,
       caveat: 'two individuals mixed, a contaminated reaction and a failed array are not '
         + 'distinguishable from each other here, only from a genome',
       why: `${(h * 100).toFixed(1)}% heterozygous exceeds the `
-        + `${(MAX_DIPLOID_HET * 100).toFixed(0)}% ceiling a single diploid can reach on this `
+        + `${(maxDiploid * 100).toFixed(0)}% ceiling a single diploid can reach on this `
         + 'platform, which is its 16.8% rate plus drop-in at the highest rate measured here. No '
         + 'genome reads this way, so this is not a stage',
     }
   }
-  if (call < QC_CALL_FLOOR) {
+  if (call < callFloor) {
     return {
       stage: 'failed', dropout: NaN, basis: 'none', templates: 'not applicable', markerFloor: 200,
       caveat: 'amplification failure and haploid material are indistinguishable by heterozygosity',
-      why: `call rate ${(call * 100).toFixed(1)}% is below the ${(QC_CALL_FLOOR * 100).toFixed(0)}% `
+      why: `call rate ${(call * 100).toFixed(1)}% is below the ${(callFloor * 100).toFixed(0)}% `
         + 'floor. This is an amplification failure rather than a stage: near-total dropout drives '
         + 'heterozygosity toward zero and would otherwise be read as one genome',
     }
@@ -206,9 +223,9 @@ export function inferStage(
   // the diploid line has intermediate signal at a large fraction of its markers, which one
   // template cannot produce, so it is diploid however few heterozygotes the caller kept. Without
   // this a blastomere at 0.40 dropout crosses the heterozygosity boundary and is called haploid.
-  const bandSaysDiploid = Number.isFinite(band as number) && (band as number) >= BAND_DIPLOID_CERTAIN
+  const bandSaysDiploid = Number.isFinite(band as number) && (band as number) >= bandCertain
 
-  if (h <= HAPLOID_MAX_HET && !bandSaysDiploid) {
+  if (h <= haploidMax && !bandSaysDiploid) {
     // PB2, pronuclei and sperm carry one chromatid and are homozygous throughout. A FIRST polar
     // body carries a dyad and is genuinely heterozygous distal to each crossover, expected h about
     // 0.074, so the two are distinguished by where in the band the sample sits rather than lumped.
@@ -226,19 +243,20 @@ export function inferStage(
           + 'crossover, so roughly 44% of its genome is genuinely heterozygous and those calls are '
           + 'not error'
         : 'a heavily dropped-out or consanguineous diploid can also fall below this boundary',
-      why: `${(h * 100).toFixed(1)}% heterozygous is below the ${(HAPLOID_MAX_HET * 100).toFixed(1)}% `
+      why: `${(h * 100).toFixed(1)}% heterozygous is below the ${(haploidMax * 100).toFixed(1)}% `
         + `a diploid reaches at any stage, so this carries one genome`
         + (looksPB1 ? ', and sits where a first polar body sits rather than at the drop-in floor' : ''),
     }
   }
 
-  const hit = BOUNDS.find((b) => h >= b.minHet) ?? BOUNDS[BOUNDS.length - 1]
-  if (bandSaysDiploid && h <= HAPLOID_MAX_HET) {
+  const hit = BOUNDS.find((b) => h >= (b.stage === 'blastomere' ? haploidMax : b.minHet))
+    ?? BOUNDS[BOUNDS.length - 1]
+  if (bandSaysDiploid && h <= haploidMax) {
     return {
       stage: hit.stage,
       // The shortfall formula is calibrated against a diploid's heterozygosity, and this sample
       // is diploid, so it applies. It saturates at the 0.6 ceiling here, which is the point.
-      dropout: Math.min(0.6, Math.max(0.005, 1 - h / BULK_HETEROZYGOSITY)),
+      dropout: Math.min(0.6, Math.max(0.005, 1 - h / bulkHet)),
       basis: 'heterozygosity-shortfall',
       templates: hit.templates,
       markerFloor: hit.floor,
@@ -246,12 +264,12 @@ export function inferStage(
         + 'overrode that. Dropout is at or near its ceiling, so every downstream call on this '
         + 'sample is weakly powered even where it is admitted',
       why: `${(h * 100).toFixed(1)}% heterozygous is in the haploid range, but a BAF band of `
-        + `${((band as number) * 100).toFixed(1)}% is at or above the ${(BAND_DIPLOID_CERTAIN * 100)
+        + `${((band as number) * 100).toFixed(1)}% is at or above the ${(bandCertain * 100)
           .toFixed(0)}% diploid line. Intermediate intensity at that many markers cannot come from `
         + 'one template, so this is a heavily dropped-out diploid rather than one genome',
     }
   }
-  const implied = Math.min(0.6, Math.max(0.005, 1 - h / BULK_HETEROZYGOSITY))
+  const implied = Math.min(0.6, Math.max(0.005, 1 - h / bulkHet))
   return {
     stage: hit.stage,
     dropout: Math.max(implied, hit.dropout * 0.6),
@@ -262,7 +280,7 @@ export function inferStage(
       + 'depress heterozygosity and are absorbed into this estimate; an East Asian sample against '
       + 'this European-derived anchor is biased by about +0.155, enough to shift the stage by one '
       + 'rung. Where a same-genome replicate exists, prefer dropoutFromReplicates',
-    why: `${(h * 100).toFixed(1)}% heterozygous against ${(BULK_HETEROZYGOSITY * 100).toFixed(1)}% `
+    why: `${(h * 100).toFixed(1)}% heterozygous against ${(bulkHet * 100).toFixed(1)}% `
       + `for bulk DNA on this panel implies ${(implied * 100).toFixed(1)}% dropout, which is where `
       + `${hit.stage} material sits. Template count is reported for context and does not predict `
       + 'this figure',

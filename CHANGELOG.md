@@ -9,6 +9,41 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.9.0 "Bivalent"
+
+Everything the browser tool does, available on the command line, with the thresholds exposed.
+
+### Added
+
+- **`cli/om.ts`.** The web tool is a mindless drag and drop by design: it infers what it can,
+  refuses what it cannot, and offers no knob whose correct setting the user would have to know.
+  This is the opposite end. Eight commands covering stage inference, linkage, one-parent origin,
+  whole-directory cohort runs, the haploid census, parental reconstruction, positional enrichment,
+  and a listing of every tunable with its provenance. `--json` on any of them.
+
+  It imports the modules the app runs, so it cannot drift from the app or skip a guard it applies.
+
+- **The thresholds are now parameters rather than constants read from module scope.** `inferStage`
+  takes an optional boundary set, `callOneParentOrigin` takes an optional threshold set, and both
+  default to the measured values, so the web tool passing nothing is exactly the shipped
+  configuration. `cli/om.check.ts` asserts that equivalence on every branch of both functions,
+  which is what stops the two front ends from quietly disagreeing.
+
+  It also asserts that each dial actually moves the answer. The first version of the CLI
+  advertised `--max-region-het` and silently ignored it, because that threshold lived inside the
+  module and was not a parameter: the flag parsed, the run completed, and the number came out
+  unchanged. A dial that does nothing is worse than no dial.
+
+  Loosening a threshold can admit a region the defaults refuse. It cannot manufacture a call from
+  nothing, and that is asserted too: with no informative markers the refusal survives every dial
+  being opened at once.
+
+- **Any command run off its defaults says so**, in the text output and as a `tuning` key in the
+  JSON, naming each constant and both values. A number produced under a changed constant is not
+  comparable with one produced under the defaults, and the validation figures do not apply to it.
+
+---
+
 ## 4.8.5 "Holliday"
 
 ### Fixed

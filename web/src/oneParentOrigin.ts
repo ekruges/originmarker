@@ -155,7 +155,21 @@ export function callOneParentOrigin(
   q = DEFAULT_Q,
   eps = GENOTYPE_ERROR,
   dropIn = DROP_IN,
+  /**
+   * Thresholds, so a caller that knows what it is doing can move them.
+   *
+   * The web tool never passes this: it offers no knob whose correct setting the user would have
+   * to know. The command line does, because the person there is usually asking what happens at a
+   * different threshold, and the honest way to answer is to let them move it and say that they
+   * did. Defaults are the measured values, so omitting this is the shipped configuration.
+   */
+  opts: {
+    minMarkers?: number, maxRegionHet?: number, callPosterior?: number,
+  } = {},
 ): OneParentCall {
+  const minMarkers = opts.minMarkers ?? MIN_MARKERS
+  const maxRegionHet = opts.maxRegionHet ?? MAX_REGION_HET
+  const callPosterior = opts.callPosterior ?? CALL_POSTERIOR
   let n = 0
   let exclusive = 0
   let het = 0
@@ -175,10 +189,10 @@ export function callOneParentOrigin(
   }
 
   const base = { markers: n, exclusive, heterozygous: het, q }
-  if (n < MIN_MARKERS) {
+  if (n < minMarkers) {
     return {
       ...base, verdict: 'refused', posterior: NaN,
-      why: `${n} informative markers is under the ${MIN_MARKERS} this needs; a marker only counts `
+      why: `${n} informative markers is under the ${minMarkers} this needs; a marker only counts `
         + 'where the loaded parent is homozygous',
     }
   }
@@ -186,11 +200,11 @@ export function callOneParentOrigin(
   // The genotypes must be measuring the region before their likelihood means anything. This is
   // the region-level form of the array-level ceiling in stage.ts, and it exists for the same
   // reason: an impossible rate is evidence about the reaction, not about the genome.
-  if (het / n > MAX_REGION_HET) {
+  if (het / n > maxRegionHet) {
     return {
       ...base, verdict: 'refused', posterior: NaN,
       why: `${(100 * het / n).toFixed(1)}% of the informative markers read heterozygous, over the `
-        + `${(100 * MAX_REGION_HET).toFixed(0)}% ceiling. Where the loaded parent is homozygous a `
+        + `${(100 * maxRegionHet).toFixed(0)}% ceiling. Where the loaded parent is homozygous a `
         + 'biparental sample can only be heterozygous when the other parent transmitted the allele '
         + 'this one lacks, so a rate this high means the genotypes are not measuring the region. '
         + 'No origin is called from them',
@@ -205,10 +219,10 @@ export function callOneParentOrigin(
   let best = 0
   for (let i = 1; i < 3; i += 1) if (post[i] > post[best]) best = i
 
-  if (post[best] < CALL_POSTERIOR) {
+  if (post[best] < callPosterior) {
     return {
       ...base, verdict: 'refused', posterior: post[best],
-      why: `best hypothesis reaches ${post[best].toFixed(3)}, under the ${CALL_POSTERIOR} needed`,
+      why: `best hypothesis reaches ${post[best].toFixed(3)}, under the ${callPosterior} needed`,
     }
   }
   const rate = n ? exclusive / n : 0
