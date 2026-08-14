@@ -9,6 +9,27 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.10.1 "Diplotene"
+
+### Added
+
+- **The dosage channel is wired into the app, not only the command line.** 4.10.0 shipped the
+  module and exposed it through `om origin --channel`, which left the browser tool unable to answer
+  the events the channel exists for. Syngamy now retains allele dosage for every marker rather than
+  every called marker, since a no-call still has an intensity reading and on a collapsed chromosome
+  those are the only readings left, and calls whole-chromosome origin from it against a background
+  taken from the rest of the genome.
+
+- **The defect callout gains `channel` and `excluded dosage` chips.** The two channels answer the
+  same question from different measurements and are not interchangeable, so a reader deciding how
+  much to trust a call needs to know which one produced it.
+
+- **Dosage fills what genotypes cannot reach and never overrides them.** Where the genotype channel
+  answered, its answer stands; dosage only speaks where a whole chromosome left it with no
+  evidence. `defects.check.ts` asserts both directions, and that a refused dosage call names nobody.
+
+---
+
 ## 4.10.0 "Diplotene"
 
 Parental origin from allele dosage, for the events genotypes structurally cannot answer.

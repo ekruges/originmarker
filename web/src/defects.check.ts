@@ -104,6 +104,42 @@ const one = (where: string, verdict: string) => ({
   assert.equal(d.basis, 'one-parent')
 }
 
+// --- 4b. dosage fills what genotypes cannot reach, and never overrides them ----------------------
+//
+// The two channels answer the same question from different measurements and are not
+// interchangeable. A whole chromosome is detected by its genotype call rate collapsing, so on
+// those events the genotype channel has no evidence left and dosage is the only one that can
+// speak. Where genotypes DID answer, dosage must not change it.
+{
+  const s = seg('21', 10_873_592, 48_088_571)
+  const w = whereOf(s, 10_873_592, 48_088_571)
+  const dose = [{ where: 'chr21', verdict: 'known-parent-lost', posterior: 0.99, markers: 22_000,
+    excluded: 3_400, why: 'from dosage' }]
+
+  // Genotypes silent: dosage answers, and says so.
+  const filled = defectsFrom([s], [], [], [], 'paternal', undefined, dose)[0]
+  assert.equal(filled.origin, 'paternal')
+  assert.equal(filled.basis, 'dosage')
+  assert.equal(filled.channel, 'dosage')
+  assert.equal(filled.excludedDosage, 3_400)
+
+  // Genotypes answered: dosage must not touch it.
+  const geno = defectsFrom([s], [], [], [one(w, 'other-parent-lost')], 'paternal', undefined, dose)[0]
+  assert.equal(geno.origin, 'maternal', 'the genotype answer stands')
+  assert.equal(geno.basis, 'one-parent')
+  assert.equal(geno.channel, 'genotype')
+
+  // The loaded parent decides the direction here too.
+  assert.equal(defectsFrom([s], [], [], [], 'maternal', undefined, dose)[0].origin, 'maternal')
+
+  // A refused dosage call names nobody.
+  const refused = [{ ...dose[0], verdict: 'refused', posterior: NaN }]
+  const r = defectsFrom([s], [], [], [], 'paternal', undefined, refused)[0]
+  assert.equal(r.origin, 'unclear')
+  assert.equal(r.basis, undefined)
+  assert.equal(r.excludedDosage, undefined)
+}
+
 // --- 5. the material is carried with the call, including when it is not usable ------------------
 {
   const s = seg('21', 14_300_000, 46_700_000)

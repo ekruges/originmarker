@@ -477,6 +477,25 @@ export interface ParentageResult {
     exclusive: number
     why: string
   }[]
+  /**
+   * Whole-chromosome origin, read from ALLELE DOSAGE rather than genotypes.
+   *
+   * Separate from `oneParent` because the two answer the same question from different channels and
+   * are not interchangeable. A whole chromosome is detected by the collapse of its genotype call
+   * rate, so the genotype channel has no evidence left on exactly those events; dosage is read
+   * whether or not a genotype is emitted. Keyed by `chrN` rather than by an interval, since the
+   * unit here is the whole chromosome.
+   */
+  dosageCalls?: {
+    where: string
+    verdict: string
+    posterior: number
+    markers: number
+    excluded: number
+    middle: number
+    between: number
+    why: string
+  }[]
   siblingCalls?: {
     where: string
     hypothesis: string

@@ -26,7 +26,12 @@ export interface Defect {
   origin: 'paternal' | 'maternal' | 'unclear'
   why: string
   /** How the origin was reached, which decides how much weight it carries. */
-  basis?: 'two-parent' | 'one-parent' | 'sibling' | 'homologue'
+  basis?: 'two-parent' | 'one-parent' | 'sibling' | 'homologue' | 'dosage'
+  /** Which channel produced it. Genotypes where they exist, dosage where they have collapsed. */
+  channel?: 'genotype' | 'dosage'
+  /** Dosages at the extreme the loaded parent cannot produce. The dosage channel's own evidence,
+   *  the counterpart of `exclusive` in the genotype channel. */
+  excludedDosage?: number
   informative?: number
   posterior?: number
   /** Markers carrying an allele the loaded parent does not have. This is the Mendelian evidence
@@ -53,8 +58,15 @@ export function defectsFrom(
   }[] = [],
   loadedParent: 'paternal' | 'maternal' = 'paternal',
   stage?: StageCall,
+  /** Whole-chromosome calls from allele dosage, keyed `chrN`. Fill a gap the genotype channel
+   *  cannot fill rather than competing with it: they never cover the same event. */
+  dosageCalls: readonly {
+    where: string, verdict: string, posterior: number, markers: number, excluded: number,
+    why: string,
+  }[] = [],
 ): Defect[] {
   const byOne = new Map(oneParent.map((o) => [o.where, o]))
+  const byDosage = new Map(dosageCalls.map((d) => [d.where, d]))
   const other = loadedParent === 'paternal' ? 'maternal' : 'paternal'
   const byWhere = new Map<string, GainAnnotation>()
   for (const a of [...gains, ...losses]) byWhere.set(a.where, a)
@@ -71,6 +83,15 @@ export function defectsFrom(
       if (one.verdict === 'known-parent-lost') origin = loadedParent
       else if (one.verdict === 'other-parent-lost') origin = other
     }
+    // Dosage fills what genotypes could not reach. A whole chromosome is detected by its genotype
+    // call rate collapsing, so on those events the genotype channel has no evidence left and this
+    // is the only channel that can speak. It never overrides a genotype answer.
+    const dose = byDosage.get(`chr${sg.chrom}`)
+    const usedDosage = origin === 'unclear' && !!dose
+      && (dose.verdict === 'known-parent-lost' || dose.verdict === 'other-parent-lost')
+    if (usedDosage && dose) {
+      origin = dose.verdict === 'known-parent-lost' ? loadedParent : other
+    }
     return {
       chrom: sg.chrom,
       startBp: co.start,
@@ -80,10 +101,14 @@ export function defectsFrom(
         : sg.kind === 'copy-loss' ? 'copy-loss' : 'parental-absence',
       interval: sg.refined ? co.interval : undefined,
       origin,
-      why: ann?.why ?? one?.why
+      why: ann?.why ?? (usedDosage ? dose?.why : undefined) ?? one?.why
         ?? 'No parental genotype was loaded for this run, so allele dosage cannot be oriented and '
           + 'the parent is not determined. The position and its interval are unaffected.',
-      basis: ann ? 'two-parent' : (one && origin !== 'unclear') ? 'one-parent' : undefined,
+      basis: ann ? 'two-parent'
+        : usedDosage ? 'dosage'
+          : (one && origin !== 'unclear') ? 'one-parent' : undefined,
+      channel: usedDosage ? 'dosage' : (one ? 'genotype' : undefined),
+      excludedDosage: usedDosage && dose ? dose.excluded : undefined,
       informative: one?.markers,
       posterior: one && Number.isFinite(one.posterior) ? one.posterior : undefined,
       exclusive: one?.exclusive,

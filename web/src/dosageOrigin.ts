@@ -118,6 +118,14 @@ export const DOSAGE_POSTERIOR = 0.95
  * them both-present. Separating the two needs the per-cell dosage distribution rather than the
  * biopsy mean, which this function does not have.
  */
+/**
+ * Frequency of the allele the loaded parent lacks, among alleles the other parent transmits.
+ *
+ * Shared with the genotype channel so the two cannot disagree about the same population quantity
+ * while claiming to answer the same question.
+ */
+export const DEFAULT_DOSAGE_Q = 0.30
+
 export const MAX_BETWEEN_RATIO = 3
 export const MAX_BETWEEN_FLOOR = 0.15
 
@@ -203,7 +211,7 @@ function likelihood(b: Band, q: number, noise: number): [number, number, number]
  */
 export function callDosageOrigin(
   pairs: readonly (readonly [AB, number | null])[],
-  q: number,
+  q: number = DEFAULT_DOSAGE_Q,
   noise = DOSAGE_NOISE,
   opts: {
     minMarkers?: number

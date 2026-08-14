@@ -40,6 +40,7 @@ import { DefectCallout } from './DefectCallout'
 import { defectsFrom } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
+import { callDosageOrigin, band as dosageBand } from './dosageOrigin'
 import { inferStage, locus } from './stage'
 
 /**
@@ -450,6 +451,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           const cnByChrom = new Map<string,
             { chrom: string; pos: number; called: boolean; log2R: number | null }[]>()
           const myGt = new Map<string, string>()
+          // Allele dosage per marker, kept for EVERY marker rather than every CALLED marker. A
+          // no-call still has an intensity reading, and on a chromosome whose call rate has
+          // collapsed those are the only readings left. This is what the dosage channel runs on.
+          const myBaf = new Map<string, number>()
           // Position per marker, so a segment's markers can be gathered without a second read.
           const markerPos = new Map<string, { chrom: string, pos: number }>()
           const { profile, gates: g } = await profileFile(s.file, (r) => {
@@ -463,6 +468,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             // Only a marker where the parent is homozygous and the sample is called can say
             // anything about presence, which is the same informative set the rates use.
             if (isAutosome(r.chrom)) {
+              markerPos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
+              if (r.baf !== null && Number.isFinite(r.baf)) myBaf.set(r.probesetId, r.baf)
               const cn = cnByChrom.get(r.chrom) ?? []
               cn.push({ chrom: r.chrom, pos: r.pos, called: r.genotype !== 'NC', log2R: r.log2R })
               cnByChrom.set(r.chrom, cn)
@@ -639,6 +646,44 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // Validated on a real CEPH trio with the mother hidden, 12 of 12 correct across dropout
           // rates from 0.05 to 0.45, with 5,130-5,172 exclusive markers when the loaded parent's
           // copy was removed and exactly 0 when the other parent's was.
+          // WHOLE-CHROMOSOME ORIGIN, FROM DOSAGE. The genotype channel below cannot answer these
+          // and the reason is structural: a whole chromosome is DETECTED by the collapse of its
+          // genotype call rate, so on exactly those events its evidence is already gone. Dosage is
+          // read whether or not a genotype is emitted. Measured on a public series, all four
+          // segmental losses scored from genotypes and all three whole-chromosome losses refused.
+          if (!mat && whole.size) {
+            // Background from everything OUTSIDE the chromosome under test, which is the same
+            // external-null rule the region scan uses: a chromosome cannot set its own baseline.
+            result.dosageCalls = [...whole].map((chrom) => {
+              const pairs: [string, number | null][] = []
+              let bgN = 0
+              let bgBetween = 0
+              for (const [probe, p] of markerPos) {
+                const pg = pat.gt.get(probe)
+                if (!pg) continue
+                const b = myBaf.get(probe) ?? null
+                if (p.chrom === chrom) { pairs.push([pg, b]); continue }
+                if (b === null) continue
+                bgN += 1
+                if (dosageBand(pg as never, b) === 'between') bgBetween += 1
+              }
+              const c = callDosageOrigin(pairs as never, undefined as never, undefined,
+                { background: bgN >= 10_000 ? { between: bgBetween / bgN } : undefined })
+              return {
+                where: `chr${chrom}`,
+                verdict: c.verdict,
+                posterior: c.posterior,
+                markers: c.markers,
+                excluded: c.excluded,
+                middle: c.middle,
+                between: c.between,
+                why: c.why,
+              }
+            })
+            for (const c of result.dosageCalls) {
+              log(c.verdict === 'refused' ? 'WARN' : 'DONE', `dosage origin ${c.where}: ${c.why}`)
+            }
+          }
           if (!mat && result.segments.length) {
             result.oneParent = result.segments.map((sg) => {
               const co = segmentCoords(sg)
@@ -1082,7 +1127,8 @@ function ResultCard({ entry, donorName, oocyteName }: {
           <SegmentCallout segments={r.segments} role={r.role} />
           <PlacementCallout placement={r.placement} />
           <DefectCallout
-            defects={defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role, r.stage)}
+            defects={defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
+              r.stage, r.dosageCalls ?? [])}
           />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
