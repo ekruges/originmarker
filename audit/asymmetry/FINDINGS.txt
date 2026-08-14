@@ -1,0 +1,62 @@
+PARENT OF ORIGIN ON REAL LABORATORY ARRAYS: FIRST RUNS
+======================================================
+The one-parent caller had only ever been exercised on a constructed CEPH trio, where the answer
+was known because the losses were constructed from the family's own alleles. These are its first
+runs against the laboratory material, through the shipped modules via one_parent_cohort.ts.
+
+
+EXPERIMENT 14801, MATERNAL REFERENCE
+------------------------------------
+38 arrays. Reference 14801-05, the one cumulus sample in the whole set, named by the laboratory
+rather than chosen by the harness.
+
+  FOUR ARRAYS EXCLUDED AS NOT-A-GENOME, and they are the four PLAN.txt names:
+
+    14801-20   call 57.9%   het 56.2%
+    14801-23   call 45.2%   het 52.7%
+    14801-27   call 58.0%   het 55.5%
+    14801-38   call 59.0%   het 54.7%
+
+  THE EXCLUSION IS THE CEILING, NOT THE CALL-RATE FLOOR, and this is why the ceiling was added.
+  Every one of those call rates is above the 40% quality floor, so before it existed all four were
+  classified as BULK GENOMIC DNA and handed a dropout of 0.008, the most confident parameter set
+  in the module. The agreement with an independently written list of four is the check that the
+  ceiling is measuring the right thing.
+
+  SIX ARRAYS ARE BULK-LIKE by call rate and heterozygosity:
+
+    14801-02   call 0.961   het 0.160   ->  bulk
+    14801-05   call 0.951   het 0.145   ->  single-cell
+    14801-11   call 0.934   het 0.153   ->  trophectoderm
+    14801-15   call 0.914   het 0.154   ->  trophectoderm
+    14801-35   call 0.904   het 0.137   ->  single-cell
+    14801-10   call 0.904   het 0.155   ->  trophectoderm
+
+  THE CUMULUS SAMPLE STAGES AS SINGLE-CELL, WHICH IT IS NOT. 14801-05 is maternal somatic DNA and
+  reads 0.951 called, within a thousandth of the bulk sperm gDNA on this platform at 0.954. Its
+  heterozygosity is 0.145 against 0.168, and the shortfall estimator reads that gap as dropout.
+  It is not dropout: it is a different individual. This is the confound the stage audit quantified
+  at +0.155 for an East Asian sample against this European-derived anchor, appearing on a real
+  sample, and it is why the reference here is named rather than inferred.
+
+  ONE CHILD CONFIRMED, of 37 candidates. 14801-07, at opposite-homozygote 0.0154 with a second
+  parental contribution at 9.1% of 597,714 informative markers. It carries no copy-number regions,
+  so it produces no origin call.
+
+  FIVE ARRAYS SIT IN THE PROVISIONAL BAND: 14801-01 at 8.2%, 14801-06 at 7.8%, 14801-12 at 7.2%,
+  and others between the 6.5% and 8.5% one-parent boundaries, which is neither haploid nor
+  confidently biparental. Those boundaries are wide on purpose, because one parent carries less
+  information than two, and the module refuses rather than guessing.
+
+  THE REST ARE NOT RELATED TO THIS REFERENCE at all: 26 arrays at opposite-homozygote 0.05 to 0.11,
+  where unrelated adults on this platform sit near 0.07.
+
+  RESULT: ZERO ORIGIN CALLS, and the reason is structural rather than a failure of the method.
+  The one array confirmed as this mother's child has no events to assign, and the arrays that do
+  have events cannot be confirmed as her children from one parent at this dropout. PLAN.txt
+  predicted exactly this for the 2PN-thawed group: one egg donor and one sperm per group, so
+  nothing distinguishes a shared paternal haplotype from a shared maternal one, and the group
+  needs a real parental array on the OTHER side.
+
+  WHAT WOULD CHANGE IT. A paternal array for this group. The maternal side is anchored and the
+  paternal side is not, and the events sit on arrays that cannot be tied to either.

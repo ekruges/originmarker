@@ -1,0 +1,40 @@
+{
+ "dir": "/Volumes/SANDISK USB/SNP array data/ROBLES/Dieter_04072022 expt. 8 HBB segmental/14801 possible HBB",
+ "refs": [
+  {
+   "id": "14801-05",
+   "callRate": 0.9507736878312517,
+   "hetRate": 0.1449366379112676
+  }
+ ],
+ "excluded": [
+  {
+   "id": "14801-20",
+   "callRate": 0.5785726743341052,
+   "hetRate": 0.5621286911086828
+  },
+  {
+   "id": "14801-23",
+   "callRate": 0.4522949024775451,
+   "hetRate": 0.5265156383890317
+  },
+  {
+   "id": "14801-27",
+   "callRate": 0.5802695069132907,
+   "hetRate": 0.5545362896913607
+  },
+  {
+   "id": "14801-38",
+   "callRate": 0.5903039522513008,
+   "hetRate": 0.5467184255664891
+  }
+ ],
+ "results": [
+  {
+   "ref": "14801-05",
+   "sample": "14801-07",
+   "stage": "bulk",
+   "regions": 0
+  }
+ ]
+}

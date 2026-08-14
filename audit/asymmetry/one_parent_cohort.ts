@@ -45,8 +45,8 @@
  * run produces per-region calls on ONE experiment. It is the unit that lets the method be checked
  * against real material; it is not the cohort a claim would rest on.
  */
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
-import { join } from 'node:path'
+import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
+import { join, basename } from 'node:path'
 
 const W = new URL('../../web/src/', import.meta.url).pathname
 const { headerMap, parseRow, emptyBafSums, accumulateBaf, accumulate, finishProfile } =
@@ -76,7 +76,11 @@ const OUT = process.argv[3] ?? 'audit/asymmetry/one-parent-cohort.json'
  * proposes candidates rather than settling it silently.
  */
 const REF = process.argv[4]
-if (!DIR) throw new Error('usage: one_parent_cohort.ts <array-dir> [out.json] [reference-id]')
+if (!DIR) throw new Error('usage: one_parent_cohort.ts <dir> [out.json] [ref-id-or-path]')
+
+/** A reference given as a PATH comes from outside the directory, which is the usual case: the
+ *  genotyped father is a public bulk array and the embryos are laboratory files. */
+const REF_IS_PATH = !!REF && (REF.includes('/') || REF.endsWith('.probes'))
 
 /** A reference must be bulk. These are the platform's own figures, not a general array's. */
 const BULK_CALL_MIN = 0.90
@@ -106,7 +110,20 @@ interface Loaded {
  * correctly, would mean the stage gate downstream is parameterised by a number the app never
  * produced, and the whole point of routing through the modules is that it cannot be.
  */
-function load(path: string, id: string, full: boolean): Loaded | null {
+/**
+ * Stride for the LINKAGE SCREEN, not for anything reported.
+ *
+ * Most arrays in a corpus are not children of a given reference, and a full read to discover that
+ * costs the same as a full read to analyse one that is. The screen is an opposite-homozygote rate
+ * and a heterozygous fraction, both of which are proportions: over 103,207 markers their standard
+ * error is under 0.001, which is two orders below the 0.02 and 0.065-0.085 boundaries they are
+ * compared against. Every array that passes the screen is then re-read in full, so nothing that
+ * reaches a result was measured on a subsample. This is the same stride the shipped example data
+ * uses, for the same reason.
+ */
+const SCREEN_STRIDE = 8
+
+function load(path: string, id: string, full: boolean, stride = 1): Loaded | null {
   const lines = readFileSync(path, 'utf8').split('\n')
   let h = -1
   for (let i = 0; i < Math.min(60, lines.length); i += 1) {
@@ -123,7 +140,7 @@ function load(path: string, id: string, full: boolean): Loaded | null {
   const baf = emptyBafSums()
   let firstId = ''
 
-  for (let i = h + 1; i < lines.length; i += 1) {
+  for (let i = h + 1; i < lines.length; i += stride) {
     const row = parseRow(lines[i], map)
     if (!row) continue
     if (!firstId) firstId = row.probesetId
@@ -155,166 +172,209 @@ function oppositeHomRate(a: Map<string, AB>, b: Map<string, AB>): { rate: number
   return { rate: n ? opp / n : NaN, n }
 }
 
-const files = readdirSync(DIR).filter((f: string) => f.endsWith('.probes')).sort()
+/** Recursive, because the corpus keeps each experiment in its own subdirectory and flattening it
+ *  on disk once cost 148 basename collisions. Paths are kept relative to DIR so ids stay short. */
+function probesUnder(dir: string, rel = ''): string[] {
+  const out: string[] = []
+  for (const e of readdirSync(join(dir, rel)).sort()) {
+    const r = rel ? join(rel, e) : e
+    if (statSync(join(dir, r)).isDirectory()) out.push(...probesUnder(dir, r))
+    else if (e.endsWith('.probes')) out.push(r)
+  }
+  return out
+}
+const files = probesUnder(DIR)
 if (!files.length) throw new Error(`no .probes files in ${DIR}`)
-const idOf = (f: string) => f.replace(/_\d+\.CEL\.probes$/, '').replace(/\.probes$/, '')
+const idOf = (f: string) => basename(f).replace(/_\d+\.CEL\.probes$/, '').replace(/\.probes$/, '')
 process.stderr.write(`${files.length} arrays in ${DIR}\n\n`)
 
-// --- pass 1: profile and stage every array, keeping only the profile ---------------------------
-const staged: { file: string, id: string, profile: Profile, stage: Stage }[] = []
-for (const f of files) {
-  const L = load(join(DIR, f), idOf(f), false)
-  if (!L) { process.stderr.write(`  ${idOf(f)}: unreadable\n`); continue }
-  staged.push({ file: f, id: L.id, profile: L.profile, stage: inferStage(L.profile) })
-}
+/**
+ * Everything downstream of "these two arrays are a parent and a child", for one candidate.
+ *
+ * Kept as one function because the two reference modes differ only in how the reference was
+ * found. Splitting the pipeline across them is how a guard gets applied on one path and not the
+ * other, which is the failure this whole harness exists to avoid.
+ */
+function scoreCandidate(ref: Loaded, c: Loaded, stage: Stage): Record<string, unknown>[] {
+  const opp = oppositeHomRate(ref.gt, c.gt)
+  if (!(opp.rate <= OPP_HOM_MAX) || opp.n < 10_000) {
+    process.stderr.write(`  ${c.id}: opposite-hom ${opp.rate.toFixed(4)} over ${opp.n}, `
+      + 'not a child of this reference\n')
+    return []
+  }
+  // Opposite-homozygote rate alone cannot separate a child from the SAME GENOME twice: both sit
+  // near zero on this platform, which is how a screen without this second step came back 77%
+  // wrong in earlier work here. At markers where the reference is HOMOZYGOUS, a child reads
+  // heterozygous at the rate the OTHER parent supplies the alternative allele, while a second
+  // array of the reference's own genome cannot read heterozygous at all. 'biparental' is
+  // therefore the duplicate discriminator; 'uncalled' is the provisional band, wide on purpose
+  // because one parent carries less information than two.
+  const h = emptyHet()
+  for (const [probe, pg] of ref.gt) {
+    const cg = c.gt.get(probe)
+    if (cg) addOneParent(pg as never, cg as never, h as never)
+  }
+  const link = hetCall(h as never, 1) as {
+    ploidy: string, fraction: number, informative: number, why: string
+  }
+  if (link.ploidy !== 'biparental') {
+    process.stderr.write(`  ${c.id}: SET ASIDE, opp ${opp.rate.toFixed(4)} but ${link.why}\n`)
+    return []
+  }
 
-const failed = staged.filter((s) => s.stage.stage === 'failed')
-for (const s of failed) {
-  process.stderr.write(`EXCLUDED ${s.id}: call ${(s.profile.callRate * 100).toFixed(1)}% `
-    + `het ${(s.profile.hetRate * 100).toFixed(1)}%, amplification failure\n`)
-}
-const usable = staged.filter((s) => s.stage.stage !== 'failed')
+  // Regions from the INTENSITY channel, per chromosome, against a null that EXCLUDES the
+  // chromosome under test. A self-derived null lets one large event set its own baseline.
+  const noCall = new Map<string, [number, number]>()
+  for (const [ch, ms] of c.cnByChrom) {
+    noCall.set(ch, [ms.length, ms.filter((m) => !m.called).length])
+  }
+  const lrrAll = [...c.cnByChrom.values()].flat()
+    .map((m) => m.log2R).filter((x): x is number => x !== null).sort((a, b) => a - b)
+  const genomeLrr = lrrAll.length ? lrrAll[lrrAll.length >> 1] : 0
+  const segs = [...c.cnByChrom]
+    .flatMap(([ch, ms]) => scanCopyNumber(ms as never, externalNull(noCall, ch), genomeLrr))
 
-// --- pass 2: the reference, found by measurement rather than by name ---------------------------
-const bulkLike = usable.filter((s) => (
-  s.profile.callRate >= BULK_CALL_MIN
-  && s.profile.hetRate >= BULK_HET_MIN
-  && s.profile.hetRate <= BULK_HET_MAX
-)).sort((a, b) => b.profile.callRate - a.profile.callRate)
-const named = REF ? bulkLike.filter((s) => s.id === REF) : []
-if (REF && !named.length) {
-  const any = usable.find((s) => s.id === REF)
-  throw new Error(any
-    ? `reference ${REF} is not bulk-like: call ${any.profile.callRate.toFixed(3)} `
-      + `het ${any.profile.hetRate.toFixed(3)}. Measured against a single-cell reference the `
-      + 'obligate-het statistic does not separate ploidy at all, so this is refused rather than run'
-    : `reference ${REF} is not in ${DIR}`)
-}
-const refCandidates = named.length ? named : bulkLike.slice(0, 1)
-process.stderr.write(`\nbulk-like candidates: ${bulkLike.length
-  ? bulkLike.map((r) => r.id).join(', ') : 'NONE'}\n`)
-for (const r of bulkLike) {
-  process.stderr.write(`  ${r.id}: call ${r.profile.callRate.toFixed(3)} `
-    + `het ${r.profile.hetRate.toFixed(3)} -> ${r.stage.stage}\n`)
-}
-process.stderr.write(REF ? `\nreference given: ${REF}\n`
-  : `\nno reference named; using the highest call rate, ${refCandidates[0]?.id ?? 'none'}\n`)
-if (!refCandidates.length) {
-  writeFileSync(OUT, JSON.stringify({ dir: DIR, refs: [], excluded: failed.map((f) => f.id),
-    note: 'no bulk-like array in this directory; nothing can be anchored', results: [] }, null, 1))
-  process.stderr.write('\nno bulk reference here. Nothing is anchored, and nothing is guessed.\n')
-  process.exit(0)
+  process.stderr.write(`  ${c.id}: CHILD of ${ref.id} (opp ${opp.rate.toFixed(4)}, second `
+    + `contribution ${(link.fraction * 100).toFixed(1)}% of ${link.informative}), `
+    + `${stage.stage}, ${segs.length} region(s)\n`)
+  if (!segs.length) {
+    return [{ ref: ref.id, sample: c.id, stage: stage.stage, regions: 0 }]
+  }
+
+  const out: Record<string, unknown>[] = []
+  for (const sg of segs as { chrom: string, kind: string }[]) {
+    const co = segmentCoords(sg as never) as { start: number, end: number }
+    const pairs: [string, string][] = []
+    for (const [probe, p] of c.pos) {
+      if (p.chrom !== sg.chrom || p.pos < co.start || p.pos > co.end) continue
+      const pg = ref.gt.get(probe)
+      const cg = c.gt.get(probe)
+      if (pg && cg) pairs.push([pg, cg])
+    }
+    const ado = Number.isFinite(stage.dropout) ? stage.dropout : 0.308
+    const call = callOneParentOrigin(pairs as never, ado) as {
+      verdict: string, posterior: number, markers: number, exclusive: number, why: string
+    }
+    const row = {
+      ref: ref.id,
+      sample: c.id,
+      stage: stage.stage,
+      dropout: Number.isFinite(stage.dropout) ? stage.dropout : null,
+      kind: sg.kind,
+      locus: locus(sg.chrom, co.start, co.end),
+      verdict: call.verdict,
+      posterior: call.posterior,
+      markers: call.markers,
+      exclusive: call.exclusive,
+      why: call.why,
+    }
+    out.push(row)
+    process.stderr.write(`      ${row.locus} ${sg.kind}: ${call.verdict} `
+      + `(posterior ${call.posterior.toFixed(3)}, ${call.markers} informative, `
+      + `${call.exclusive} exclusive)\n`)
+  }
+  return out
 }
 
 const results: Record<string, unknown>[] = []
-for (const refMeta of refCandidates) {
-  const ref = load(join(DIR, refMeta.file), refMeta.id, true)
-  if (!ref) continue
-  process.stderr.write(`\n=== reference ${ref.id} (${ref.gt.size} autosomal calls) ===\n`)
+const excluded: Record<string, unknown>[] = []
+const bulkLike: { id: string, callRate: number, hetRate: number, stage: string }[] = []
+let refUsed = ''
 
-  // --- pass 3: one candidate at a time, all the way through -----------------------------------
-  for (const cand of usable) {
-    if (cand.id === refMeta.id) continue
-    const c = load(join(DIR, cand.file), cand.id, true)
+if (REF_IS_PATH) {
+  // ONE PASS PER ARRAY. The reference is external and loaded once, so profiling, staging,
+  // linkage, segmentation and the origin call all come from a single read of each candidate and
+  // nothing but the reference stays resident.
+  const ref = load(REF, basename(REF).replace(/\.(probes|CEL\.txt)$/, ''), true)
+  if (!ref) throw new Error(`reference ${REF} could not be read`)
+  const rs = inferStage(ref.profile)
+  refUsed = ref.id
+  process.stderr.write(`reference ${ref.id}: call ${ref.profile.callRate.toFixed(4)} `
+    + `het ${ref.profile.hetRate.toFixed(4)} -> ${rs.stage}, ${ref.gt.size} autosomal calls\n\n`)
+  if (rs.stage !== 'bulk') {
+    throw new Error(`reference ${ref.id} stages as ${rs.stage}, not bulk. Measured against a `
+      + 'single-cell reference the obligate-het statistic does not separate ploidy at all, so '
+      + 'this is refused rather than run')
+  }
+  let screened = 0
+  for (const f of files) {
+    const id = idOf(f)
+    const scr = load(join(DIR, f), id, true, SCREEN_STRIDE)
+    screened += 1
+    if (!scr) { process.stderr.write(`  ${id}: unreadable\n`); continue }
+    const sst = inferStage(scr.profile)
+    if (sst.stage === 'failed') {
+      process.stderr.write(`  EXCLUDED ${id}: call ${(scr.profile.callRate * 100).toFixed(1)}% `
+        + `het ${(scr.profile.hetRate * 100).toFixed(1)}%, ${sst.why}\n`)
+      excluded.push({ id, callRate: scr.profile.callRate, hetRate: scr.profile.hetRate })
+      continue
+    }
+    const opp = oppositeHomRate(ref.gt, scr.gt)
+    if (!(opp.rate <= OPP_HOM_MAX) || opp.n < 10_000) continue
+    // Passed the screen, so re-read in full. Nothing that reaches a result is measured on a
+    // subsample: the screen only decides which arrays are worth reading properly.
+    process.stderr.write(`  ${id}: screen opp ${opp.rate.toFixed(4)}, re-reading in full\n`)
+    const c = load(join(DIR, f), id, true)
     if (!c) continue
+    results.push(...scoreCandidate(ref, c, inferStage(c.profile)))
+  }
+  process.stderr.write(`\nscreened ${screened} arrays at stride ${SCREEN_STRIDE}\n`)
+} else {
+  // --- pass 1: profile and stage every array, keeping only the profile -------------------------
+  const staged: { file: string, id: string, profile: Profile, stage: Stage }[] = []
+  for (const f of files) {
+    const L = load(join(DIR, f), idOf(f), false)
+    if (!L) { process.stderr.write(`  ${idOf(f)}: unreadable\n`); continue }
+    staged.push({ file: f, id: L.id, profile: L.profile, stage: inferStage(L.profile) })
+  }
+  for (const s of staged.filter((x) => x.stage.stage === 'failed')) {
+    process.stderr.write(`EXCLUDED ${s.id}: call ${(s.profile.callRate * 100).toFixed(1)}% `
+      + `het ${(s.profile.hetRate * 100).toFixed(1)}%, ${s.stage.why}\n`)
+    excluded.push({ id: s.id, callRate: s.profile.callRate, hetRate: s.profile.hetRate })
+  }
+  const usable = staged.filter((s) => s.stage.stage !== 'failed')
 
-    const opp = oppositeHomRate(ref.gt, c.gt)
-    if (!(opp.rate <= OPP_HOM_MAX) || opp.n < 10_000) {
-      process.stderr.write(`  ${c.id}: opposite-hom ${opp.rate.toFixed(4)} over ${opp.n}, `
-        + 'not a child of this reference\n')
-      continue
-    }
-    // Opposite-homozygote rate alone cannot separate a child from the SAME GENOME twice: both sit
-    // near zero on this platform, which is how a screen without this second step came back 77%
-    // wrong in earlier work here. At markers where the reference is HOMOZYGOUS, a child reads
-    // heterozygous at the rate the OTHER parent supplies the alternative allele, while a second
-    // array of the reference's own genome cannot read heterozygous at all. So the one-parent
-    // ploidy call is the duplicate discriminator: 'diploid' means a second contribution exists.
-    const h = emptyHet()
-    for (const [probe, pg] of ref.gt) {
-      const cg = c.gt.get(probe)
-      if (cg) addOneParent(pg as never, cg as never, h as never)
-    }
-    const link = hetCall(h as never, 1) as {
-      ploidy: string, fraction: number, informative: number, why: string
-    }
-    // 'biparental' means a second parental contribution is present, which a second array of the
-    // reference's own genome cannot show. 'uniparental' is a duplicate or a haploid product of
-    // this same parent, and 'uncalled' is the provisional band between them, which with one
-    // parent is wide on purpose. Only the first is a child.
-    if (link.ploidy !== 'biparental') {
-      process.stderr.write(`  ${c.id}: SET ASIDE, opp ${opp.rate.toFixed(4)} but ${link.why}\n`)
-      continue
-    }
-
-    // Regions from the INTENSITY channel, per chromosome, against a null that EXCLUDES the
-    // chromosome under test. A self-derived null lets one large event set its own baseline.
-    const noCall = new Map<string, [number, number]>()
-    for (const [ch, ms] of c.cnByChrom) {
-      noCall.set(ch, [ms.length, ms.filter((m) => !m.called).length])
-    }
-    const lrrAll = [...c.cnByChrom.values()].flat()
-      .map((m) => m.log2R).filter((x): x is number => x !== null).sort((a, b) => a - b)
-    const genomeLrr = lrrAll.length ? lrrAll[lrrAll.length >> 1] : 0
-    const segs = [...c.cnByChrom]
-      .flatMap(([ch, ms]) => scanCopyNumber(ms as never, externalNull(noCall, ch), genomeLrr))
-
-    process.stderr.write(`  ${c.id}: child of ${ref.id} (opp ${opp.rate.toFixed(4)}, `
-      + `second contribution at ${(link.fraction * 100).toFixed(1)}% of `
-      + `${link.informative} informative), ${cand.stage.stage}, ${segs.length} region(s)\n`)
-    if (!segs.length) {
-      results.push({ ref: ref.id, sample: c.id, stage: cand.stage.stage, regions: 0 })
-      continue
-    }
-
-    for (const sg of segs as { chrom: string, kind: string }[]) {
-      const co = segmentCoords(sg as never) as { start: number, end: number }
-      const pairs: [string, string][] = []
-      for (const [probe, p] of c.pos) {
-        if (p.chrom !== sg.chrom || p.pos < co.start || p.pos > co.end) continue
-        const pg = ref.gt.get(probe)
-        const cg = c.gt.get(probe)
-        if (pg && cg) pairs.push([pg, cg])
+  // --- pass 2: the reference. WHICH SAMPLE IS THE PARENT IS METADATA, NOT A MEASUREMENT. Call
+  // rate separates a bulk somatic sample from an amplified one but not from a trophectoderm
+  // biopsy, which also amplifies well, and heterozygosity cannot be used for it: one cumulus
+  // sample here reads 0.145 against 0.168 for bulk gDNA on this platform, which the shipped
+  // classifier therefore calls single-cell. That gap is ancestry rather than material. So a
+  // named reference is accepted, and auto-detection only proposes.
+  const cands = usable.filter((s) => (
+    s.profile.callRate >= BULK_CALL_MIN
+    && s.profile.hetRate >= BULK_HET_MIN
+    && s.profile.hetRate <= BULK_HET_MAX
+  )).sort((a, b) => b.profile.callRate - a.profile.callRate)
+  for (const r of cands) {
+    bulkLike.push({ id: r.id, callRate: r.profile.callRate, hetRate: r.profile.hetRate, stage: r.stage.stage })
+    process.stderr.write(`  bulk-like: ${r.id} call ${r.profile.callRate.toFixed(3)} `
+      + `het ${r.profile.hetRate.toFixed(3)} -> ${r.stage.stage}\n`)
+  }
+  const named = REF ? cands.filter((s) => s.id === REF) : []
+  if (REF && !named.length) throw new Error(`${REF} is not a bulk-like array in ${DIR}`)
+  const chosen = named.length ? named[0] : cands[0]
+  if (!chosen) {
+    process.stderr.write('\nno bulk reference here. Nothing is anchored, and nothing is guessed.\n')
+  } else {
+    const ref = load(join(DIR, chosen.file), chosen.id, true)
+    if (ref) {
+      refUsed = ref.id
+      process.stderr.write(`\n=== reference ${ref.id} (${ref.gt.size} autosomal calls) ===\n`)
+      for (const cand of usable) {
+        if (cand.id === chosen.id) continue
+        const c = load(join(DIR, cand.file), cand.id, true)
+        if (c) results.push(...scoreCandidate(ref, c, cand.stage))
       }
-      const ado = Number.isFinite(cand.stage.dropout) ? cand.stage.dropout : 0.308
-      const call = callOneParentOrigin(pairs as never, ado) as {
-        verdict: string, posterior: number, markers: number, exclusive: number, why: string
-      }
-      const row = {
-        ref: ref.id,
-        sample: c.id,
-        stage: cand.stage.stage,
-        dropout: Number.isFinite(cand.stage.dropout) ? cand.stage.dropout : null,
-        kind: sg.kind,
-        locus: locus(sg.chrom, co.start, co.end),
-        verdict: call.verdict,
-        posterior: call.posterior,
-        markers: call.markers,
-        exclusive: call.exclusive,
-        why: call.why,
-      }
-      results.push(row)
-      process.stderr.write(`      ${row.locus} ${sg.kind}: ${call.verdict} `
-        + `(posterior ${call.posterior.toFixed(3)}, ${call.markers} informative, `
-        + `${call.exclusive} exclusive)\n`)
     }
   }
 }
 
-writeFileSync(OUT, JSON.stringify({
-  dir: DIR,
-  refs: refCandidates.map((r) => ({ id: r.id, callRate: r.profile.callRate, hetRate: r.profile.hetRate })),
-  excluded: failed.map((f) => ({ id: f.id, callRate: f.profile.callRate, hetRate: f.profile.hetRate })),
-  results,
-}, null, 1))
-
-const verdicts = results.filter((r) => r.verdict && r.verdict !== 'refused')
-process.stderr.write(`\n${results.length} region row(s), ${verdicts.length} with a verdict -> ${OUT}\n`)
+writeFileSync(OUT, JSON.stringify({ dir: DIR, reference: refUsed, bulkLike, excluded, results }, null, 1))
 const tally = new Map<string, number>()
 for (const r of results) {
-  if (!r.verdict) continue
-  tally.set(r.verdict as string, (tally.get(r.verdict as string) ?? 0) + 1)
+  if (r.verdict) tally.set(r.verdict as string, (tally.get(r.verdict as string) ?? 0) + 1)
 }
+process.stderr.write(`\n${results.length} region row(s) -> ${OUT}\n`)
 for (const [v, n] of [...tally].sort((a, b) => b[1] - a[1])) {
   process.stderr.write(`  ${v}: ${n}\n`)
 }
