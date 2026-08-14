@@ -454,6 +454,19 @@ export interface ParentageResult {
    * only: it needs no parental genotype, and says nothing about parent of origin.
    */
   placement?: Enrichment[]
+  /**
+   * Per-segment call from the embryo's own event-free cells, where the run holds siblings.
+   * Says whether a copy is genuinely missing rather than which parent's: naming a side needs
+   * phase, and naming the parent needs an anchor. See siblingOrigin.ts.
+   */
+  siblingCalls?: {
+    where: string
+    hypothesis: string
+    posterior: number
+    markers: number
+    phi: number
+    why: string
+  }[]
   notes: string[]
   limits: string[]
 }

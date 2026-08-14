@@ -17,6 +17,9 @@ import {
 } from './siblingOrigin.ts'
 
 const rep = (g: AB, n: number): AB[] => Array.from({ length: n }, () => g)
+/** Phased call, which is the only mode where a SIDE can be named. */
+const phased = (obs: AB[], sibs: number, ado = 0.308) =>
+  callSiblingOrigin(obs, sibs, ado, undefined, undefined, true)
 
 // --- 1. SYMMETRY. The two loss directions must be equally callable ------------------------------
 //
@@ -24,8 +27,8 @@ const rep = (g: AB, n: number): AB[] => Array.from({ length: n }, () => g)
 // allele and a region carrying only the reference allele are the same evidence pointing opposite
 // ways, and must reach the same posterior.
 {
-  const lostRef = callSiblingOrigin(rep('BB', 200), 4, 0.308)
-  const lostOther = callSiblingOrigin(rep('AA', 200), 4, 0.308)
+  const lostRef = phased(rep('BB', 200), 4)
+  const lostOther = phased(rep('AA', 200), 4)
   assert.equal(lostRef.hypothesis, 'reference-copy-lost')
   assert.equal(lostOther.hypothesis, 'other-copy-lost')
   // Not exactly equal: false heterozygosity genuinely favours one side, which is the point of
@@ -38,7 +41,7 @@ const rep = (g: AB, n: number): AB[] => Array.from({ length: n }, () => g)
 
 // --- 2. a region with both alleles present is NOT a deletion -------------------------------------
 {
-  const het = callSiblingOrigin(rep('AB', 200), 4, 0.308)
+  const het = phased(rep('AB', 200), 4)
   assert.equal(het.hypothesis, 'no-deletion',
     'markers that stay heterozygous are a dropout cluster, not a lost copy')
 }
@@ -71,16 +74,16 @@ const rep = (g: AB, n: number): AB[] => Array.from({ length: n }, () => g)
 
 // --- 4. it refuses, in each of the four ways it should -------------------------------------------
 {
-  assert.equal(callSiblingOrigin(rep('BB', 200), 1, 0.308).hypothesis, 'refused',
+  assert.equal(phased(rep('BB', 200), 1).hypothesis, 'refused',
     'one sibling cannot establish heterozygosity')
-  assert.ok(callSiblingOrigin(rep('BB', 200), 1, 0.308).why.includes(String(MIN_SIBLINGS)))
+  assert.ok(phased(rep('BB', 200), 1).why.includes(String(MIN_SIBLINGS)))
 
-  assert.equal(callSiblingOrigin(rep('BB', 5), 4, 0.308).hypothesis, 'refused',
+  assert.equal(phased(rep('BB', 5), 4).hypothesis, 'refused',
     'too few markers is a refusal')
-  assert.ok(callSiblingOrigin(rep('BB', 5), 4, 0.308).why.includes(String(MIN_MARKERS)))
+  assert.ok(phased(rep('BB', 5), 4).why.includes(String(MIN_MARKERS)))
 
   // Past the wall, no marker count rescues the reference-copy-lost arm.
-  const past = callSiblingOrigin(rep('BB', 5000), 3, 0.308, 0.45)
+  const past = callSiblingOrigin(rep('BB', 5000), 3, 0.308, 0.45, undefined, true)
   assert.equal(past.hypothesis, 'refused', 'over the phi wall must refuse whatever the evidence')
   assert.ok(past.phi > PHI_WALL && past.why.includes('wall'))
 
@@ -93,7 +96,7 @@ const rep = (g: AB, n: number): AB[] => Array.from({ length: n }, () => g)
   // input rather than on real regions, and is checked as a threshold rather than a scenario.
   assert.ok(CALL_POSTERIOR > 0.9 && CALL_POSTERIOR < 1,
     'the posterior bar must be a real bar, not a formality')
-  const empty = callSiblingOrigin([], 4, 0.308)
+  const empty = phased([], 4)
   assert.equal(empty.hypothesis, 'refused', 'no markers at all must refuse')
 }
 
@@ -102,10 +105,10 @@ const rep = (g: AB, n: number): AB[] => Array.from({ length: n }, () => g)
 // If phi is not reported the result is not interpretable, so it must survive every branch.
 {
   for (const c of [
+    phased(rep('BB', 200), 4),
+    phased(rep('BB', 5), 4),
+    phased(rep('BB', 200), 1),
     callSiblingOrigin(rep('BB', 200), 4, 0.308),
-    callSiblingOrigin(rep('BB', 5), 4, 0.308),
-    callSiblingOrigin(rep('BB', 200), 1, 0.308),
-    callSiblingOrigin([...rep('AA', 60), ...rep('BB', 60)], 4, 0.308),
   ]) {
     assert.ok(Number.isFinite(c.phi), 'phi must be reported on every path')
     assert.ok(c.siblings >= 0 && c.agreement >= 0)
@@ -122,21 +125,41 @@ const rep = (g: AB, n: number): AB[] => Array.from({ length: n }, () => g)
 {
   const balanced: AB[] = []
   for (let i = 0; i < 100; i += 1) balanced.push(i % 2 ? 'AA' : 'BB')
-  const c = callSiblingOrigin(balanced, 4, 0.308)
+  const c = phased(balanced, 4)
   assert.equal(c.hypothesis, 'no-deletion',
     'symmetric dropout on an intact region must read as no deletion')
   // And critically it must not lean toward either parent.
-  const flipped = callSiblingOrigin(balanced.map((g) => (g === 'AA' ? 'BB' : 'AA')), 4, 0.308)
+  const flipped = phased(balanced.map((g) => (g === 'AA' ? 'BB' : 'AA')), 4)
   assert.equal(flipped.hypothesis, c.hypothesis,
     'and the same pattern with the alleles swapped must give the same answer')
 }
 
 // --- 7. more markers sharpen a real call, and never flip it ---------------------------------------
 {
-  const small = callSiblingOrigin(rep('BB', 30), 4, 0.308)
-  const large = callSiblingOrigin(rep('BB', 600), 4, 0.308)
+  const small = phased(rep('BB', 30), 4)
+  const large = phased(rep('BB', 600), 4)
   assert.equal(small.hypothesis, large.hypothesis, 'more evidence must not change the direction')
   assert.ok(large.posterior >= small.posterior, 'more evidence must not weaken the call')
 }
 
-console.log('siblingOrigin.check.ts: all assertions passed, including symmetry and the phi wall')
+// --- 8. UNPHASED input must not name a side ------------------------------------------------------
+//
+// The failure this guards against is the worst available: reporting a parental side from unphased
+// markers, where the reference allele is defined per marker so a real one-sided loss retains A at
+// some markers and B at others and the count cancels. Unphased input may still separate a deletion
+// from an intact region, and must say so without naming.
+{
+  const unphased = callSiblingOrigin(rep('BB', 200), 4, 0.308)
+  assert.equal(unphased.phased, false)
+  assert.equal(unphased.hypothesis, 'refused', 'unphased input must never name a side')
+  assert.ok(unphased.why.includes('not phased'), 'and must say that is why')
+  assert.ok(unphased.posterior > 0.95, 'while still reporting that a copy IS missing')
+
+  // The intact case needs no orientation, so it is callable either way.
+  const intact = callSiblingOrigin(rep('AB', 200), 4, 0.308)
+  assert.equal(intact.hypothesis, 'no-deletion', 'an intact region needs no phase to recognise')
+  assert.equal(phased(rep('AB', 200), 4).hypothesis, intact.hypothesis)
+}
+
+console.log('siblingOrigin.check.ts: all assertions passed, including symmetry, the phi wall '
+  + 'and the refusal to name a side without phase')

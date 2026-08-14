@@ -36,6 +36,7 @@ import { receiveHandoff, wantsHandoff } from './handoff'
 import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
+import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
@@ -401,6 +402,11 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     if (index) {
       const pat = index
       const mat = maternalIndex
+      // Genotypes retained per sample so that a sample's SIBLINGS in the same run can establish
+      // which markers the embryo is heterozygous at. This is what removes the parental-array
+      // requirement: unaffected cells of one embryo share both parents exactly. Kept as a plain
+      // map per sample rather than streamed twice, since the run already holds every file.
+      const sampleGt = new Map<string, Map<string, string>>()
       for (const s of entries.filter((e) => e.role === 'sample' && e.state !== 'done')) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
@@ -433,7 +439,14 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // above cannot see, because a no-call is excluded from it as uninformative.
           const cnByChrom = new Map<string,
             { chrom: string; pos: number; called: boolean; log2R: number | null }[]>()
+          const myGt = new Map<string, string>()
+          // Position per marker, so a segment's markers can be gathered without a second read.
+          const markerPos = new Map<string, { chrom: string, pos: number }>()
           const { profile, gates: g } = await profileFile(s.file, (r) => {
+            if (isAutosome(r.chrom) && r.genotype !== 'NC') {
+              myGt.set(r.probesetId, r.genotype)
+              markerPos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
+            }
             const fa = pat.gt.get(r.probesetId) ?? 'NC'
             tallyRow(fa, r, t)
             if (tm && mat) tallyRow(mat.gt.get(r.probesetId) ?? 'NC', r, tm)
@@ -468,6 +481,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               absenceByChrom.set(r.chrom, arr)
             }
           }, bar(s.id, s.file.size), log)
+          sampleGt.set(s.id, myGt)
           const result = classify(t, pat.heterozygosity)
           // One contribution or two, per chromosome. Reported, never used to admit or reject a
           // sample: the boundaries are measured for a BULK reference parent, and against a
@@ -602,6 +616,38 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             for (const e of result.placement) {
               log(Number.isNaN(e.p) ? 'WARN' : 'DONE', `placement: ${e.why}`
                 + (e.hits.length ? `. Touching ${e.hits.slice(0, 6).join(', ')}` : ''))
+            }
+          }
+          // Sibling-referenced call, where the run holds other cells of the same embryo. Reports
+          // whether a copy is genuinely missing rather than which parent's: the observations here
+          // are UNPHASED, so a side call would be counting a per-marker reference allele across
+          // markers where it denotes different parental sides, which cancels. Naming needs phase
+          // and then one anchor per donor group; the module refuses rather than guessing.
+          const sibs = [...sampleGt.entries()].filter(([id]) => id !== s.id).map(([, m]) => m)
+          if (sibs.length >= 2 && result.segments.length) {
+            const need = hetRule(sibs.length)
+            result.siblingCalls = result.segments.map((sg) => {
+              const co = segmentCoords(sg)
+              const obs: SibAB[] = []
+              for (const [probe, gt] of myGt) {
+                const pos = markerPos.get(probe)
+                if (!pos || pos.chrom !== sg.chrom || pos.pos < co.start || pos.pos > co.end) continue
+                let het = 0
+                for (const sib of sibs) if (sib.get(probe) === 'AB') het += 1
+                if (het >= need) obs.push(gt as SibAB)
+              }
+              const call = callSiblingOrigin(obs, sibs.length, profile.nocallRate)
+              return {
+                where: `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`,
+                hypothesis: call.hypothesis,
+                posterior: call.posterior,
+                markers: call.markers,
+                phi: call.phi,
+                why: call.why,
+              }
+            })
+            for (const c of result.siblingCalls) {
+              log(c.hypothesis === 'refused' ? 'WARN' : 'DONE', `sibling call ${c.where}: ${c.why}`)
             }
           }
           for (const g of result.gains) {

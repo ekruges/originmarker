@@ -21,7 +21,19 @@
  *    three hypotheses and the region's evidence is their product. A quantity that is never centred
  *    cannot be mis-centred.
  *
- * 3. FALSE HETEROZYGOSITY IS THE ONLY ONE-DIRECTIONAL TERM. A marker that is truly homozygous but
+ * 3. THIS MODULE DOES NOT PHASE, AND CANNOT NAME A PARENT ON ITS OWN. `observations` must already
+ *    be oriented to a CONSISTENT HAPLOTYPE, meaning 'AA' denotes the same parental side at every
+ *    marker in the region. That orientation is not free: the reference allele is defined per
+ *    marker, so a region that lost one parent's copy retains the A allele at some markers and the
+ *    B allele at others, and counting AA against BB over unphased markers cancels to noise. Given
+ *    phased input the two hypotheses below are the two parental sides; given unphased input they
+ *    are not, and the result is meaningless rather than merely weak.
+ *
+ *    So the honest decomposition is: this module answers DELETION versus DROPOUT, which needs no
+ *    orientation, and answers WHICH SIDE only when the caller has supplied phase. Naming that side
+ *    maternal or paternal needs one anchor per donor group on top of that.
+ *
+ * 4. FALSE HETEROZYGOSITY IS THE ONLY ONE-DIRECTIONAL TERM. A marker that is truly homozygous but
  *    called heterozygous by the siblings always retains the reference allele, so it always reads as
  *    loss of the OTHER copy. Its rate, phi, is therefore reported with every call and bounds it.
  *    Above PHI_WALL the call is refused outright rather than downgraded, because past that point the
@@ -97,9 +109,15 @@ export function expectedPhi(siblings: number, dropIn = DROP_IN): number {
   return tail
 }
 
+/**
+ * The two loss hypotheses are HAPLOTYPE SIDES, not parents, and are only distinguishable when the
+ * caller has phased the region. `no-deletion` is meaningful either way.
+ */
 export type Hypothesis = 'reference-copy-lost' | 'other-copy-lost' | 'no-deletion'
 
 export interface SiblingCall {
+  /** True when the caller supplied phased observations, so a side call means a parental side. */
+  phased: boolean
   /** The parental copy missing, expressed relative to the reference allele, or a refusal. */
   hypothesis: Hypothesis | 'refused'
   posterior: number
@@ -149,11 +167,14 @@ export function callSiblingOrigin(
   ado: number,
   dropIn = DROP_IN,
   eps = GENOTYPE_ERROR,
+  /** Whether `observations` are oriented to a consistent haplotype. Unphased input can still
+   *  separate a deletion from a dropout cluster; it cannot say which side was lost. */
+  phased = false,
 ): SiblingCall {
   const used = observations.filter((g) => g !== 'NC')
   const phi = expectedPhi(siblings, dropIn)
   const agreement = hetRule(siblings)
-  const base = { markers: used.length, siblings, agreement, phi }
+  const base = { markers: used.length, siblings, agreement, phi, phased }
 
   if (siblings < MIN_SIBLINGS) {
     return {
@@ -189,6 +210,30 @@ export function callSiblingOrigin(
   const total = w[0] + w[1] + w[2]
   const post = w.map((x) => x / total)
   const names: Hypothesis[] = ['reference-copy-lost', 'other-copy-lost', 'no-deletion']
+  // Without phase the two side hypotheses are not distinguishable in principle, so they are pooled
+  // and only the deletion/no-deletion contrast is reported.
+  if (!phased) {
+    const deletion = post[0] + post[1]
+    if (Math.max(deletion, post[2]) < CALL_POSTERIOR) {
+      return {
+        ...base, hypothesis: 'refused', posterior: Math.max(deletion, post[2]),
+        why: 'evidence separates neither deletion nor an intact region',
+      }
+    }
+    if (deletion > post[2]) {
+      return {
+        ...base, hypothesis: 'refused', posterior: deletion,
+        why: `a copy is missing here at posterior ${deletion.toFixed(4)}, but the observations are `
+          + 'not phased, so WHICH side was lost is not determinable from this region alone. '
+          + 'Naming it needs phase, and naming the parent needs one anchor per donor group',
+      }
+    }
+    return {
+      ...base, hypothesis: 'no-deletion', posterior: post[2],
+      why: `both copies present at posterior ${post[2].toFixed(4)}; the region is a dropout `
+        + 'cluster rather than a lost copy',
+    }
+  }
   let best = 0
   for (let i = 1; i < 3; i += 1) if (post[i] > post[best]) best = i
 
