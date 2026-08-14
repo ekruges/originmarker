@@ -9,7 +9,7 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
-## 4.8.1
+## 4.8.1 "Holliday"
 
 The stage mechanism asserted in 4.8.0 was put to an external review. Three of its six claims did not
 survive, and one of them was a failure mode rather than a wording problem: an array whose
