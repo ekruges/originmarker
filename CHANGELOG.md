@@ -9,6 +9,34 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.10.2 "Diplotene"
+
+### Fixed
+
+- **Variant resolution was spending its whole wall time waiting on Ensembl, one call at a time.**
+  Measured from the deployed container: NCBI E-utilities answers in 0.09s and gnomAD moves 928 KB
+  in 0.14s, while rest.ensembl.org takes 12.8s for a 2 KB variation record and 18.9s for a
+  426-byte gene lookup. Its own `/info/ping` answers in 0.30s from that same container, so the
+  route is fine and the payloads are tiny: this is per-IP throttling, which charges for round
+  trips rather than bytes. Those Ensembl calls depend only on the record just resolved and not on
+  each other, so they were costing the sum of their latencies for no reason.
+
+  `prefetch_for` now issues them together as soon as the record exists, so the sequential code
+  below finds the cache warm and pays the slowest instead of the sum.
+
+  **Nothing about any result changes.** The prefetch computes nothing, decides nothing and returns
+  nothing. It issues the same GETs the existing call sites are about to issue, and every one of
+  those keeps its own retry count, its own error handling and its own wording, including the
+  distinction between "Ensembl says no such variant" and "Ensembl did not answer". A prefetch
+  failure is discarded and the real call then behaves exactly as it did before, same outcome and
+  same error text. The only observable difference is latency.
+
+  Not the diagnosis that was tried first. An NCBI API key was added on the theory that the 3
+  requests per second cap was the constraint; NCBI was never the bottleneck and the key changes
+  nothing here, though it is harmless and remains set.
+
+---
+
 ## 4.10.1 "Diplotene"
 
 ### Added

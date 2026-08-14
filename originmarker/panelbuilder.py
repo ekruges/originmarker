@@ -638,6 +638,68 @@ def _assert_supported_locus(chrom: str, query: str) -> None:
             f"failed lookup.")
 
 
+def _prefetch(urls: list) -> None:
+    """Warm the response cache for URLs that are already known to be needed.
+
+    WHY THIS EXISTS RATHER THAN A RESTRUCTURED CALL GRAPH. Measured from the deployed
+    container: NCBI answers in 0.09s and gnomAD moves 928 KB in 0.14s, while
+    rest.ensembl.org takes 12.8s for a 2 KB variation record and 18.9s for a 426-byte
+    gene lookup. Its /info/ping answers in 0.30s from the same container, so the route is
+    fine and the payloads are tiny; it is per-IP throttling, which charges for round
+    trips rather than bytes. Those Ensembl calls are sequential and independent of each
+    other once ClinVar has answered, so they cost the sum of their latencies for no
+    reason.
+
+    NOTHING ABOUT THE RESULT CHANGES. This does not compute anything, decide anything or
+    return anything. It issues the same GETs the code below is about to issue anyway, so
+    that `_http`'s existing cache is warm when they run. Every call site keeps its own
+    error handling, its own retry count and its own reporting, and a failure here is
+    discarded: the sequential call then happens exactly as it did before and produces the
+    same outcome, including the same error text. The only observable difference is
+    latency.
+
+    Threads rather than async because `_http` is blocking urllib and the rest of this
+    module is synchronous; making it async would be a rewrite, and this is not one.
+    """
+    if len(urls) < 2:
+        return
+
+    def warm(base: str, path: str, params: dict) -> None:
+        try:
+            _get(base, path, params, tries=1, label="prefetch")
+        except Exception:  # noqa: BLE001 - a warm miss must never affect the real call
+            pass
+
+    threads = [threading.Thread(target=warm, args=u, daemon=True) for u in urls]
+    for t in threads:
+        t.start()
+    # Bounded: the real calls follow immediately and will simply miss a cache that is not
+    # ready yet, which is the pre-existing behaviour rather than a new failure mode.
+    for t in threads:
+        t.join(timeout=30)
+
+
+def prefetch_for(v: "VariantRecord") -> None:
+    """Warm every Ensembl call that a resolved record makes downstream, concurrently.
+
+    Called by the API between resolving and assessing. Purely a latency change: it issues
+    the same requests the sequential code issues, so that they find `_http`'s cache warm.
+    Everything about correctness, error text and retry behaviour stays with the real call
+    sites, which are untouched.
+    """
+    urls = []
+    if v.rsid:
+        urls.append((ENSEMBL, f"/variation/homo_sapiens/{v.rsid}",
+                     {"pops": "1", "content-type": "application/json"}))
+    if v.chrom:
+        urls.append((ENSEMBL, f"/info/assembly/homo_sapiens/{v.chrom}",
+                     {"content-type": "application/json"}))
+    if v.gene:
+        urls.append((ENSEMBL, f"/lookup/symbol/homo_sapiens/{v.gene}",
+                     {"content-type": "application/json"}))
+    _prefetch(urls)
+
+
 def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     """Resolve an HGVS/rsID to a canonical GRCh38 record via live API only (R1).
 
