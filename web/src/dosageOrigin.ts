@@ -125,6 +125,96 @@ export const F80_SEGMENT: Record<Material, number> = {
 }
 
 /**
+ * Detection floors by material, STATE and how many parents are loaded.
+ *
+ * The loss-only tables above were what this module shipped with, and they made it refuse work its
+ * own evidence supports. Three things the fuller measurement changes:
+ *
+ *   COPY-NEUTRAL LOH IS THE EASIEST STATE, not the hardest. Copy number stays at 2 so the genotype
+ *   caller never degrades: median call rate 0.867 at copy-neutral log2R against 0.287 below -1.5.
+ *   Its deviation is f/2, the largest of the three. On a trophectoderm biopsy with ONE parent its
+ *   origin floor is 0.186, comfortably callable, where a loss on the same material is 0.625.
+ *
+ *   A SECOND PARENT IS WORTH MORE THAN MORE CELLS. On the same single file it moves a TE whole
+ *   chromosome from 0.625 to 0.186, a factor of 3.36, where going from one cell to five moves
+ *   0.186 to 0.135, a factor of 1.38.
+ *
+ *   ONE COMBINATION IS A MATERIAL LIMIT AND NO INPUT MOVES IT. A single blastomere, one parent, a
+ *   loss: no floor at any fraction to 0.70 on any channel, and still none at eight cells.
+ *
+ * NaN means no floor was reached, which is not-evaluable rather than a refusal of this array.
+ */
+export interface Floors { chromosome: number; segment: number }
+const F: (c: number, sg: number) => Floors = (chromosome, segment) => ({ chromosome, segment })
+
+const FLOOR_ONE_PARENT: Record<DosageState, Record<Material, Floors>> = {
+  loss: {
+    bulk: F(0.050, 0.056),
+    'esc-single': F(0.348, NaN),
+    trophectoderm: F(0.625, NaN),
+    blastomere: F(NaN, NaN),
+  },
+  'cnn-loh': {
+    bulk: F(0.040, 0.040),
+    'esc-single': F(0.399, NaN),
+    trophectoderm: F(0.186, 0.186),
+    blastomere: F(0.399, NaN),
+  },
+  gain: {
+    bulk: F(0.044, 0.044),
+    'esc-single': F(NaN, NaN),
+    trophectoderm: F(0.511, NaN),
+    blastomere: F(0.620, NaN),
+  },
+}
+
+const FLOOR_TWO_PARENTS: Record<DosageState, Record<Material, Floors>> = {
+  loss: {
+    bulk: F(0.040, 0.044),
+    'esc-single': F(0.232, NaN),
+    trophectoderm: F(0.186, 0.327),
+    blastomere: F(0.628, NaN),
+  },
+  'cnn-loh': {
+    bulk: F(0.040, 0.040),
+    'esc-single': F(0.232, NaN),
+    trophectoderm: F(0.135, 0.186),
+    blastomere: F(0.399, NaN),
+  },
+  gain: {
+    bulk: F(0.044, 0.044),
+    'esc-single': F(0.443, NaN),
+    trophectoderm: F(0.511, NaN),
+    blastomere: F(0.620, NaN),
+  },
+}
+
+/** The floor for one combination. `parents` is how many parental arrays are loaded. */
+export function floorFor(
+  material: Material, state: DosageState, wholeChromosome: boolean, parents: 1 | 2,
+): number {
+  const t = (parents === 2 ? FLOOR_TWO_PARENTS : FLOOR_ONE_PARENT)[state][material]
+  return wholeChromosome ? t.chromosome : t.segment
+}
+
+/**
+ * Fraction of detected events whose ORIGIN resolves while the CLASS does not, by material.
+ *
+ * The measurement that most changes what this module should emit. Power to detect an allelic
+ * imbalance exceeds power to resolve which state produced it, by a lot on exactly the material
+ * this tool targets: at 400 informative markers it is 0.296 on bulk but 1.000 on trophectoderm and
+ * blastomere. Lifting it needs a 3 to 5x reduction in window log2R spread, measured at 0.17-0.22
+ * against the 0.029-0.081 required, and four times the markers buys only 1.2-1.4x. It is not
+ * reachable by collecting more of the same.
+ *
+ * So a caller that must emit a class refuses most of its own detections. Emitting origin and class
+ * as separate fields with separate confidence is what turns those into answers.
+ */
+export const ORIGIN_WITHOUT_CLASS: Record<Material, number> = {
+  bulk: 0.296, 'esc-single': 0.759, trophectoderm: 1.000, blastomere: 1.000,
+}
+
+/**
  * Implied mosaic fraction below which the SIGN is not secure, so no parent is named.
  *
  * Measured proportion of detections naming the wrong parent, with loss of the loaded parent's copy
@@ -183,8 +273,20 @@ export type DosageVerdict =
   | 'not-evaluable'
   | 'array-excluded'
 
+/** Whether the copy-number STATE could be separated from its nearest feasible alternative. */
+export type ClassVerdict = 'loss' | 'gain' | 'cnn-loh' | 'unresolved'
+
 export interface DosageCall {
   verdict: DosageVerdict
+  /**
+   * The copy-number class, resolved SEPARATELY from the origin and usually not resolved at all.
+   *
+   * Kept apart because the two have different power: on trophectoderm and blastomere material
+   * every detected event resolves its origin and none resolves its class at 400 markers. A caller
+   * that emitted one verdict had to refuse those, discarding an origin it could actually support.
+   */
+  classVerdict: ClassVerdict
+  classWhy: string
   /** Signed, self-referenced centroid shift. Positive means the loaded parent's copy is short. */
   shift: number
   z: number
@@ -285,8 +387,17 @@ export function callDosageOrigin(
     wholeChromosome?: boolean
     /** Median SD of BAF at the sample's heterozygous sites, for the array-level gate. */
     hetBafSd?: number
-    /** Which state the deviation is being read as. Decides the inversion; see fractionFromShift. */
+    /** Which state the deviation is being read as. Decides the inversion AND the floor. */
     state?: DosageState
+    /** How many parental arrays are loaded. Two is worth 3.36x on a TE chromosome. */
+    parents?: 1 | 2
+    /**
+     * Spread of the window log2R, which decides whether the CLASS can be separated from its
+     * nearest feasible alternative. Two states are separable when they differ by more than
+     * 2 x 2.576 of it. Measured 0.17-0.22 on every amplified class against the 0.029-0.081 needed,
+     * so on that material the class is almost never resolvable and the origin usually is.
+     */
+    windowLogRSd?: number
     signSecureF?: number
     zDetect?: number
     /**
@@ -305,12 +416,17 @@ export function callDosageOrigin(
   const whole = opts.wholeChromosome ?? false
   const signSecure = opts.signSecureF ?? SIGN_SECURE_F
   const zNeed = opts.zDetect ?? Z_DETECT
-  const floor = (whole ? F80_CHROMOSOME : F80_SEGMENT)[material]
+  // The floor is state-aware and parent-count aware. Reading a copy-neutral event against a loss
+  // floor is what made this module refuse the easiest class it has.
+  const state = opts.state ?? 'loss'
+  const parents = opts.parents ?? 1
+  const floor = floorFor(material, state, whole, parents)
 
   const r = centroid(region)
   const b = centroid(background)
   const base = {
     shift: NaN, z: NaN, impliedF: NaN, window: r.n, markers: r.seen, material, floor,
+    classVerdict: 'unresolved' as ClassVerdict, classWhy: '',
   }
 
   // 1. COULD ANY ARRAY OF THIS KIND ANSWER AT THIS WIDTH. Asked FIRST, and before looking at the
@@ -397,9 +513,28 @@ export function callDosageOrigin(
         + 'parent is not',
     }
   }
+  // THE CLASS IS A SEPARATE QUESTION with its own power, asked after the origin and allowed to
+  // fail without taking the origin down with it.
+  const sd = opts.windowLogRSd
+  const separable = sd !== undefined && Number.isFinite(sd) && 2 * 2.576 * sd < 0.29
+  const cls: ClassVerdict = separable ? state : 'unresolved'
+  const share = `${(100 * ORIGIN_WITHOUT_CLASS[material]).toFixed(0)}%`
+  const why = sd === undefined
+    ? 'no window log2R spread was supplied'
+    : `window log2R spread ${sd.toFixed(3)} is too wide to separate the two closest feasible states`
+  const classWhy = separable
+    ? `window log2R spread ${(sd as number).toFixed(3)} separates ${state} from its nearest `
+      + 'feasible alternative'
+    : `the class is not resolved: ${why}. On this material that is the usual outcome, since at 400 `
+      + `informative markers ${share} of detected events resolve an origin without a class. `
+      + 'Lifting it needs a three to fivefold narrower spread, which more markers do not deliver: '
+      + 'four times as many buys 1.2 to 1.4x'
+
   const lost = shift > 0
   return {
     ...out,
+    classVerdict: cls,
+    classWhy,
     verdict: lost ? 'known-parent-lost' : 'other-parent-lost',
     why: `${lost ? "the loaded parent's" : "the other parent's"} copy is short over this interval: `
       + `centroid shift ${shift.toFixed(4)} against this array's own genome at z ${z.toFixed(2)}, `

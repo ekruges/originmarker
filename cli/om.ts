@@ -356,9 +356,20 @@ function dosageOver(
   const intensityZ = args.bools.has('no-intensity') || !(lrrSe > 0) || !Number.isFinite(lrrShift)
     ? undefined : lrrShift / lrrSe
 
+  // Spread of the window log2R, which decides whether the CLASS separates. Robust estimate, since
+  // a few extreme markers on a damaged chromosome would otherwise widen it and withhold a class
+  // that was in fact resolvable.
+  const sorted = [...inL].sort((a, b) => a - b)
+  const q1 = sorted[Math.floor(sorted.length * 0.25)] ?? NaN
+  const q3 = sorted[Math.floor(sorted.length * 0.75)] ?? NaN
+  const windowLogRSd = Number.isFinite(q3 - q1) ? (q3 - q1) / 1.349 : undefined
+
   return dosage.callDosageOrigin(region as never, background as never, material, {
     wholeChromosome: whole,
     intensityZ,
+    windowLogRSd,
+    state: (args.flags.get('state') ?? 'loss') as never,
+    parents: (args.flags.get('parents') === '2' ? 2 : 1) as never,
     hetBafSd: args.bools.has('no-array-gate') ? undefined : hetBafSd,
     signSecureF: num('sign-secure-f', dosage.SIGN_SECURE_F),
     zDetect: num('z-detect', dosage.Z_DETECT),
@@ -520,7 +531,8 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
         }
         if (r.dosage) {
           const d2 = r.dosage
-          process.stdout.write(`   dosage:   ${d2.verdict} (${d2.material})`
+          process.stdout.write(`   dosage:   ${d2.verdict} (${d2.material}, class `
+            + `${d2.classVerdict})`
             + (Number.isFinite(d2.z)
               ? `, shift ${d2.shift.toFixed(4)} z ${d2.z.toFixed(2)}`
                 + `, implied fraction ${Number.isFinite(d2.impliedF) ? d2.impliedF.toFixed(3) : 'n/a'}`
@@ -820,6 +832,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       ['origin', 'MIN_MARKERS', oneParent.MIN_MARKERS, 'informative markers a region needs before any verdict'],
       ['origin', 'MAX_REGION_HET', oneParent.MAX_REGION_HET, 'above this the region\'s genotypes are not measuring it and no origin is called'],
       ['origin', 'CALL_POSTERIOR', oneParent.CALL_POSTERIOR, 'posterior a hypothesis must reach to be named'],
+      ['dosage', 'ORIGIN_WITHOUT_CLASS.trophectoderm', dosage.ORIGIN_WITHOUT_CLASS.trophectoderm, 'fraction of detected TE events that resolve an ORIGIN but not a CLASS: emitting one verdict would refuse all of them'],
       ['dosage', 'SIGN_SECURE_F', dosage.SIGN_SECURE_F, 'implied fraction under which no parent is named: below it, half to all detections name the WRONG parent'],
       ['dosage', 'Z_DETECT', dosage.Z_DETECT, 'self-referenced |z| an imbalance must reach, two-sided at 1%'],
       ['dosage', 'MAX_HET_BAF_SD', dosage.MAX_HET_BAF_SD, 'array-level gate adopted from MoChA: BAF spread at het sites above this and the array is not analysed'],

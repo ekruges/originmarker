@@ -9,6 +9,43 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.14.0 "Kinetochore"
+
+Fewer refusals, by asking the right questions separately instead of one question that fails as a
+whole. Twelve of twenty-four material-state-parent combinations are now callable where the module
+previously recognised four.
+
+### Changed
+
+- **Origin and class are separate verdicts.** This is the largest single source of refusals removed.
+  Power to detect an allelic imbalance exceeds power to resolve which state produced it, and on the
+  material this tool targets the gap is total: at 400 informative markers 100% of detected events on
+  trophectoderm and blastomere resolve an ORIGIN and none resolves a CLASS. A caller emitting one
+  verdict had to refuse every one of them, discarding an origin it could support. `classVerdict` and
+  `classWhy` are now their own fields, and an unresolvable class no longer takes the origin with it.
+  Lifting the class needs a three to fivefold narrower window log2R spread, measured at 0.17-0.22
+  against the 0.029-0.081 required, and four times the markers buys 1.2-1.4x. It is not reachable by
+  collecting more of the same, so it is reported rather than chased.
+
+- **Floors are state-aware and parent-count aware.** The module shipped with loss-only floors and so
+  refused the class it handles BEST. Copy-neutral LOH is the largest-signal state at every material,
+  because copy number stays at 2 and the genotype caller never degrades: median call rate 0.867 at
+  copy-neutral log2R against 0.287 below -1.5. On a trophectoderm biopsy with ONE parent its origin
+  floor is 0.186, comfortably callable, where a loss on the same array is 0.625.
+
+- **A second parent is now modelled as an input, not an aspiration.** On the same single file it
+  moves a TE whole chromosome from 0.625 to 0.186, a factor of 3.36, where one cell to five moves
+  0.186 to 0.135, a factor of 1.38. The app passes the count automatically; the CLI takes
+  `--parents 2`.
+
+- **A trophectoderm loss reports an unassigned imbalance rather than nothing.** It has a floor of
+  0.625, too high for the sign to be secure but not absent, so the event is reported without a
+  parent instead of being refused as unevaluable. Only one combination has no floor at all and it
+  stays refused: a single blastomere loss against one parent, at any fraction to 0.70 and still none
+  at eight cells. That is a material limit and no file the user can load moves it.
+
+---
+
 ## 4.13.3 "Cohesin"
 
 ### Fixed

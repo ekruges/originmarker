@@ -18,7 +18,7 @@ import assert from 'node:assert/strict'
 import {
   callDosageOrigin, centroid, oriented, fractionFromShift, logitShift, materialOf,
   WINDOW_LO, WINDOW_HI, SIGN_SECURE_F, MAX_HET_BAF_SD, F80_CHROMOSOME, F80_SEGMENT,
-  DRIFT_TAU, VIF_CHROMOSOME, RESIDUAL_R,
+  DRIFT_TAU, VIF_CHROMOSOME, RESIDUAL_R, floorFor, ORIGIN_WITHOUT_CLASS,
 } from './dosageOrigin.ts'
 import type { DosageState } from './dosageOrigin.ts'
 import type { AB } from './informativity.ts'
@@ -139,21 +139,84 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
   assert.ok(excluded.why.includes('independently of this interval'))
 
   // Not-evaluable is decided before the data is looked at, so a huge shift cannot override it.
-  for (const m of ['trophectoderm', 'blastomere'] as const) {
-    const c = callDosageOrigin(big, bg, m, { wholeChromosome: true })
-    assert.equal(c.verdict, 'not-evaluable', `${m} has no whole-chromosome floor with one parent`)
+  // Only where NO floor exists: a blastomere loss against one parent, at any fraction to 0.70.
+  {
+    const c = callDosageOrigin(big, bg, 'blastomere', { wholeChromosome: true, state: 'loss' })
+    assert.equal(c.verdict, 'not-evaluable', 'a blastomere loss with one parent has no floor')
     assert.ok(Number.isNaN(c.z), 'and no statistic is computed for it')
     assert.ok(c.why.includes('no array of this kind'))
   }
-  // 12 Mb intervals are out of reach on every amplified material.
-  for (const m of ['trophectoderm', 'blastomere', 'esc-single'] as const) {
-    assert.equal(callDosageOrigin(big, bg, m, { wholeChromosome: false }).verdict, 'not-evaluable')
+  // Trophectoderm loss DOES have a floor, 0.625. Too high to be sign-secure, so it reports an
+  // unassigned imbalance rather than refusing: strictly more informative than not-evaluable, and
+  // the distinction is the point of separating the two questions.
+  {
+    const c = callDosageOrigin(big, bg, 'trophectoderm', { wholeChromosome: true, state: 'loss' })
+    assert.notEqual(c.verdict, 'not-evaluable', 'a TE loss is evaluable, just not sign-secure')
+    assert.ok(Number.isFinite(c.floor))
   }
+
   // Bulk is evaluable at both widths, which is what makes the above a measurement not a refusal.
   assert.notEqual(callDosageOrigin(big, bg, 'bulk', { wholeChromosome: false }).verdict,
     'not-evaluable')
   assert.ok(Number.isFinite(F80_CHROMOSOME.bulk) && Number.isFinite(F80_SEGMENT.bulk))
   assert.ok(Number.isNaN(F80_CHROMOSOME.blastomere) && Number.isNaN(F80_SEGMENT.trophectoderm))
+}
+
+// --- 4b. THE FLOOR IS STATE-AWARE, AND COPY-NEUTRAL LOH IS THE EASIEST STATE ----------------------
+//
+// The module shipped with loss-only floors and therefore refused the class it handles BEST. On a
+// trophectoderm biopsy with one parent a loss floor is 0.625 and a copy-neutral one is 0.186,
+// because copy number stays at 2 and the genotype caller never degrades.
+{
+  assert.ok(floorFor('trophectoderm', 'cnn-loh', true, 1) < 0.35,
+    'a copy-neutral event on TE with ONE parent is callable, and was being refused')
+  assert.ok(floorFor('trophectoderm', 'loss', true, 1) > 0.35,
+    'while a loss on the same material is not')
+  assert.ok(floorFor('trophectoderm', 'cnn-loh', true, 1)
+    < floorFor('trophectoderm', 'loss', true, 1),
+  'copy-neutral is the LARGER-signal state at every material')
+
+  // A second parent is worth more than any file of the same kind: 0.625 -> 0.186 on TE.
+  const one = floorFor('trophectoderm', 'loss', true, 1)
+  const two = floorFor('trophectoderm', 'loss', true, 2)
+  assert.ok(one / two > 3, `the second parent must buy over 3x, got ${(one / two).toFixed(2)}`)
+
+  // And the one combination no input moves stays unreachable in both.
+  assert.ok(Number.isNaN(floorFor('blastomere', 'loss', true, 1)))
+  assert.ok(Number.isNaN(floorFor('blastomere', 'loss', false, 2)),
+    'a blastomere segmental loss is a material limit, not an input one')
+}
+
+// --- 4c. THE CLASS IS A SEPARATE QUESTION AND MAY FAIL WITHOUT TAKING THE ORIGIN DOWN -------------
+//
+// The largest single source of refusals before this. On TE and blastomere material every detected
+// event resolves an origin and none resolves a class at 400 markers, so a caller emitting one
+// verdict had to refuse them all, discarding an origin it could support.
+{
+  const bg2 = region(N, 0.50)
+  const strong = region(N, 0.5 + 0.20)
+
+  // Wide log2R, which is every amplified material: origin named, class withheld.
+  const wide = callDosageOrigin(strong, bg2, 'bulk',
+    { wholeChromosome: true, state: 'loss', windowLogRSd: 0.20 })
+  assert.equal(wide.verdict, 'known-parent-lost', 'the origin still resolves')
+  assert.equal(wide.classVerdict, 'unresolved', 'and the class does not')
+  assert.ok(wide.classWhy.includes('too wide'))
+
+  // Narrow log2R, which only bulk reaches: both resolve.
+  const narrow = callDosageOrigin(strong, bg2, 'bulk',
+    { wholeChromosome: true, state: 'loss', windowLogRSd: 0.02 })
+  assert.equal(narrow.verdict, 'known-parent-lost')
+  assert.equal(narrow.classVerdict, 'loss')
+
+  // Omitting it withholds the class rather than guessing one.
+  const none = callDosageOrigin(strong, bg2, 'bulk', { wholeChromosome: true, state: 'loss' })
+  assert.equal(none.classVerdict, 'unresolved')
+  assert.ok(none.classWhy.includes('no window log2R spread'))
+
+  // The measured share is carried in the message, so a reader sees it is the norm, not a defect.
+  assert.equal(ORIGIN_WITHOUT_CLASS.trophectoderm, 1)
+  assert.ok(ORIGIN_WITHOUT_CLASS.bulk < 0.5)
 }
 
 // --- 5. AN IMBALANCE IS REPORTED WITHOUT A PARENT WHEN THE SIGN IS NOT SECURE ----------------------

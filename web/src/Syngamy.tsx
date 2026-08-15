@@ -702,11 +702,25 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               const intensityZ = Number.isFinite(lrrShift) && lrrSe > 0
                 ? lrrShift / lrrSe : undefined
 
-              const c = callDosageOrigin(region as never, background as never, material,
-                { wholeChromosome: true, hetBafSd: hetSd, intensityZ })
+              // Spread of the per-window log2R on this chromosome, which decides whether the
+              // CLASS can be separated. Almost never on amplified material, which is why the
+              // origin is emitted without it rather than withheld along with it.
+              const inSorted = [...inL].sort((a, b) => a - b)
+              const q1 = inSorted[Math.floor(inSorted.length * 0.25)] ?? NaN
+              const q3 = inSorted[Math.floor(inSorted.length * 0.75)] ?? NaN
+              const windowLogRSd = Number.isFinite(q3 - q1) ? (q3 - q1) / 1.349 : undefined
+              const c = callDosageOrigin(region as never, background as never, material, {
+                wholeChromosome: true,
+                hetBafSd: hetSd,
+                intensityZ,
+                parents: mat ? 2 : 1,
+                windowLogRSd,
+              })
               return {
                 where: `chr${chrom}`,
                 verdict: c.verdict,
+                classVerdict: c.classVerdict,
+                classWhy: c.classWhy,
                 shift: c.shift,
                 z: c.z,
                 impliedF: c.impliedF,

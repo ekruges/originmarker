@@ -489,6 +489,9 @@ export interface ParentageResult {
   dosageCalls?: {
     where: string
     verdict: string
+    /** The copy-number class, resolved separately from the origin and usually not resolved. */
+    classVerdict?: string
+    classWhy?: string
     /** Self-referenced centroid shift. Positive means the loaded parent's copy is short. */
     shift: number
     z: number
