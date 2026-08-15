@@ -33,7 +33,7 @@ function probesUnder(dir: string, rel = ''): string[] {
   for (const e of readdirSync(join(dir, rel)).sort()) {
     const r = rel ? join(rel, e) : e
     if (statSync(join(dir, r)).isDirectory()) out.push(...probesUnder(dir, r))
-    else if (e.endsWith('.probes')) out.push(r)
+    else if (e.endsWith('.probes') || e.endsWith('.probes.gz')) out.push(r)
   }
   return out
 }
