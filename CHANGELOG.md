@@ -9,6 +9,43 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.13.3 "Cohesin"
+
+### Fixed
+
+- **The mosaic-fraction inversion was the loss formula applied to every state.** A methods review
+  derived the full algebra and verified it by brute-force copy counting to 1.1e-16. The three
+  inversions differ: f = 4d/(1+2d) for a loss, 4d/(1-2d) for a gain, 2d for copy-neutral LOH. At
+  d = 0.04 those are 0.148, 0.174 and 0.080. Sharing the loss form was correct on losses and wrong
+  in the OPPOSITE direction on gains, which is the worse way to be wrong: the error inflates the
+  fraction rather than shrinking it. `fractionFromShift` now takes the state.
+
+### Corrected
+
+- **Copy-neutral LOH is the easiest class to assign a parent to, not the hardest.** Rank order by
+  deviation is CNN-LOH > loss > gain at every mosaic fraction, because copy number stays at 2 so
+  the genotype caller does not degrade: median call rate 0.867 at copy-neutral log2R against 0.287
+  below -1.5. The intuition that a class with no copy-number signal must be hardest is backwards.
+  Detection is the hard half there, 1.75 to 17.1x harder than assignment.
+
+- **"A gain shifts about a third as much as a loss" is the f = 1 endpoint.** The pooled ratio is
+  (2-f)/(2+f), which is 0.905 at f = 0.1 and 0.818 at f = 0.2, so the mosaic-range penalty is 1.1
+  to 1.7x rather than 3x.
+
+- **"The signal that finds the event destroys the evidence that assigns it" is half wrong.** At a
+  vendor no-call the discrete genotype carries 0.0000 bits about origin but the continuous BAF
+  carries 0.0471, and BAF is present at 88-91% of them; the cause is low intensity, not an
+  off-cluster reading. Discretisation throws the information away, not the event. The refusal on
+  whole-chromosome losses survives for a different reason: in this dataset a loss large enough to
+  see in one cell co-occurs with an array too damaged to self-reference, and the two are perfectly
+  confounded. All 70 whole-chromosome losses sit on arrays with 40-100% of autosomes deviant.
+
+- The review is committed at `audit/ORIGIN-CONSULT.md` with `boundary_of_certainty.csv` and
+  `refusal_taxonomy.csv`, so the 22 verdicts and 14 refusal conditions can be read rather than
+  paraphrased.
+
+---
+
 ## 4.13.2 "Cohesin"
 
 ### Added

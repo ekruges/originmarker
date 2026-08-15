@@ -1,0 +1,23 @@
+input,material,event_class,verdict,floor_f80,basis,source_csv
+1 parent,bulk gDNA / ESC line,segmental loss >=12 Mb,callable,0.050,f80 0.050 father-hom channel; GOF gate powered (rejects misspecified extent 0.793 at 1% FPR),"multifile_honest_floors.csv, phased_gof_thresholds.csv"
+1 parent,bulk gDNA / ESC line,whole-chromosome loss,callable,0.050,f80 0.050; density still on sqrt slope at 825k (exponent -0.46),"multifile_honest_floors.csv, platform_scaling_fits.csv"
+1 parent,bulk gDNA / ESC line,"CNN-LOH / UPD, origin",callable,0.040,UPD f80 0.040 at k=800; origin accuracy 1.0000 given detection,floor_f80_by_channel_state.csv
+1 parent,bulk gDNA / ESC line,"CNN-LOH / UPD, detection",withheld,0.678,"het-depletion floor f80 0.678 at k=800, 17.10x above the assignment floor",detection_vs_assignment_floors.csv
+1 parent,bulk gDNA / ESC line,"single-copy gain, origin",callable,0.044,"f80 0.044 at k=400 (>=400 informative markers, 47.5 Mb median)",floor_f80_by_channel_state.csv
+1 parent,"single ESC, WGA",whole-chromosome loss,withheld,0.348,"f80 0.348 above the 0.35 line only marginally; 4 arrays / 2 lines, GOF threshold miscalibrated (rejects correct model 47.7%)","multifile_honest_floors.csv, phased_gof_thresholds.csv"
+1 parent,"single ESC, WGA",segmental loss >=12 Mb,withheld,none,f80 not reached at any f to 0.70,multifile_segment_floors.csv
+1 parent,TE biopsy 5-10 cells,whole-chromosome loss,withheld,0.625,f80 0.625 under the honest injection; 68% of the father-hom window is truly homozygous and carries no dosage signal,"multifile_honest_floors.csv, multifile_window_composition.csv"
+1 parent,TE biopsy 5-10 cells,"CNN-LOH / UPD, origin",callable,0.186,UPD f80 0.186 at k=800; wrong-parent 0.000 from f=0.06 upward,"floor_f80_by_channel_state.csv, phased_wrong_parent_rate.csv"
+1 parent,TE biopsy 5-10 cells,"single-copy gain, origin",withheld,0.511,f80 0.511 at k=800; gain deviation f/(4+2f) is 2.1-3.0x smaller than CNN-LOH,floor_f80_by_channel_state.csv
+1 parent,single blastomere,whole-chromosome loss,never on this data,none,f80 not reached at any f to 0.70 on any one-parent channel; drift floor tau 0.0202,"multifile_honest_floors.csv, phased_variance_floor.csv"
+1 parent,single blastomere,segmental loss >=12 Mb,never on this data,none,f80 not reached; chemistry floor already dominant at 8.8e4 markers,"multifile_segment_floors.csv, platform_scaling_fits.csv"
+1 parent,single blastomere,"CNN-LOH / UPD, origin",withheld,0.399,"UPD f80 0.399 at k=800, just above the line; wrong-parent 0.042 at f=0.30","floor_f80_by_channel_state.csv, phased_wrong_parent_rate.csv"
+1 parent,"haploid product (PB, PN, sperm)",which parent contributed,callable,nan,0.9911 on 112 chromosomes; gated per-marker likelihood 1.0000 on 251/330,"final_chromosome_calls.csv, haploid_validation.csv"
+2 parents,"single ESC, WGA",whole-chromosome loss,callable,0.232,untransmitted-haplotype channel f80 0.232,multifile_honest_floors.csv
+2 parents,TE biopsy 5-10 cells,whole-chromosome loss,callable,0.186,untransmitted channel f80 0.186; floor ratio 3.36x over one parent,"multifile_honest_floors.csv, multifile_floor_ratio_two_parents.csv"
+2 parents,TE biopsy 5-10 cells,segmental loss >=12 Mb,withheld,0.327,f80 0.327 at one cell; drops below 0.20 at >=4 independent cells,"multifile_segment_floors.csv, multifile_k_needed.csv"
+2 parents,single blastomere,whole-chromosome loss,withheld,0.628,"f80 0.628, the only channel giving a blastomere a defined floor at all; never callable at k=1-8 (k=8 limit 0.501)","multifile_honest_floors.csv, multifile_k_needed.csv"
+2 parents,any,"BPH vs SPH mechanism, given CN3",callable,nan,"AUC 1.000 from k=400 father-het markers, 0.0000 SPH contamination; BPH positive, SPH by exclusion only","bph_sph_euploid_auc.csv, bph_sph_operating_points.csv"
+0 parents,any,any origin call,NEVER,nan,origin is defined by reference to a parent; with no parent the nuisance parameter is confounded with the estimand (FPR 0.0790 (n=937) with second parent -> 1.0000 (n=475) from a population median),false_positive_rate.csv
+any,any array with >30% deviant autosomes or call rate <0.70,any,NEVER,nan,no self-reference exists; all 70 whole-chromosome losses in this series sit here,"array_qc.csv, forced_loss_scoring.csv"
+any,"TE or blastomere, k<=800",copy-number CLASS (loss vs CNN-LOH vs gain),NEVER,nan,89-100% of detected events cannot separate the two closest feasible states at 99%; window log2R sd 0.17-0.22 against a needed 0.029-0.081,"origin_without_class_fraction.csv, log2R_window_precision.csv"

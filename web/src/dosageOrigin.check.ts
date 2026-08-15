@@ -20,6 +20,7 @@ import {
   WINDOW_LO, WINDOW_HI, SIGN_SECURE_F, MAX_HET_BAF_SD, F80_CHROMOSOME, F80_SEGMENT,
   DRIFT_TAU, VIF_CHROMOSOME, RESIDUAL_R,
 } from './dosageOrigin.ts'
+import type { DosageState } from './dosageOrigin.ts'
 import type { AB } from './informativity.ts'
 
 const N = 4_000
@@ -60,6 +61,37 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
   assert.ok(Math.abs(logitShift(0.5) - Math.log(2)) < 1e-12)
   assert.ok(logitShift(0) === 0, 'no fraction is no shift (negative zero is still zero)')
   assert.ok(Number.isNaN(fractionFromShift(0)), 'a non-positive shift implies no fraction')
+}
+
+// --- 1b. THE INVERSION IS STATE-SPECIFIC AND THE THREE MUST NOT BE SHARED -------------------------
+//
+// Measured by brute-force copy counting to 1.1e-16. An earlier version applied the LOSS inversion
+// to every state: right for a loss, and wrong in the OPPOSITE direction for a gain, which is the
+// worse way to be wrong because the error inflates the statistic rather than shrinking it.
+{
+  const at = (state: DosageState) => fractionFromShift(0.04, state)
+  assert.ok(Math.abs(at('loss') - 0.148) < 0.001, 'a loss inverts as 4d/(1+2d)')
+  assert.ok(Math.abs(at('gain') - 0.174) < 0.001, 'a gain as 4d/(1-2d), which is LARGER not smaller')
+  assert.ok(Math.abs(at('cnn-loh') - 0.080) < 0.001, 'and copy-neutral LOH as 2d')
+  assert.ok(at('gain') > at('loss'), 'the two loss-like inversions diverge, so sharing one is an error')
+
+  // Rank order by DEVIATION at fixed f is CNN-LOH > loss > gain, which is the opposite of the
+  // intuition that a state with no copy-number signal must be hardest. Read through the
+  // inversions: at the same deviation, CNN-LOH implies the SMALLEST fraction, i.e. the largest
+  // signal per unit of f.
+  assert.ok(at('cnn-loh') < at('loss') && at('loss') < at('gain'),
+    'copy-neutral LOH is the largest-signal state, not the hardest')
+
+  // "A gain shifts about a third as much as a loss" is the f = 1 endpoint only. The pooled ratio
+  // is (2-f)/(2+f), so in the mosaic range the penalty is 1.1 to 1.7x.
+  const ratio = (f: number) => (2 - f) / (2 + f)
+  assert.ok(Math.abs(ratio(0.1) - 0.905) < 0.001)
+  assert.ok(Math.abs(ratio(0.2) - 0.818) < 0.001)
+  assert.ok(Math.abs(ratio(1.0) - 0.333) < 0.001, 'a third is where that claim comes from')
+
+  // A gain's inversion has its own ceiling: no gain fraction reaches a deviation of 0.5.
+  assert.ok(Number.isNaN(fractionFromShift(0.5, 'gain')))
+  assert.ok(Number.isFinite(fractionFromShift(0.5, 'loss')))
 }
 
 // --- 2. orientation and the central window --------------------------------------------------------

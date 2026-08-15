@@ -3,9 +3,19 @@
  *
  * WHY A DOSAGE CHANNEL AT ALL. A whole chromosome is DETECTED by the collapse of its genotype call
  * rate, and `oneParentOrigin.ts` assigns from genotypes, so on exactly those events the genotype
- * channel has no evidence left. Dosage is read whether or not a genotype is emitted. Measured on
+ * channel has less to work with. Dosage is read whether or not a genotype is emitted. Measured on
  * GSE148488: all four segmental losses scored from genotypes and all three whole-chromosome losses
  * refused.
+ *
+ * THAT MECHANISM IS HALF WRONG AND THE CORRECTION MATTERS. A later review measured what is
+ * actually left at a vendor no-call: the discrete genotype carries 0.0000 bits about origin, but
+ * the continuous BAF carries 0.0471, and BAF is present at 88-91% of no-call markers. The cause is
+ * low intensity rather than an off-cluster reading. So it is DISCRETISATION that throws the
+ * information away, half of it at called markers and all of it at no-called ones, and the evidence
+ * is not destroyed by the event. The refusal on whole-chromosome losses still stands, but for a
+ * different reason: in this dataset a loss large enough to see in a single cell co-occurs with an
+ * array too damaged to self-reference, and those two conditions are perfectly confounded. All 70
+ * whole-chromosome losses in the series sit on arrays with 40 to 100% of autosomes deviant.
  *
  * THIS IS A REWRITE. The first version was a band-occupancy likelihood, and an external methods
  * review (audit/MOSAIC-AUDIT.txt) measured its null on real material. Four things it had wrong,
@@ -195,13 +205,45 @@ export const oriented = (parent: AB, baf: number): number =>
   (parent === 'BB' ? 1 - baf : baf)
 
 /**
- * Mosaic fraction implied by a pooled-dosage shift.
+ * The copy-number states a deviation can come from, which decide how it inverts.
  *
- * From E[BAF] = 1/(2-f), so d = 1/(2-f) - 1/2 and f = 4d/(1+2d). NOT f = 2d, which inverts the
- * per-cell formula and understates the fraction about 1.8x.
+ * A methods review measured the full algebra by brute-force copy counting at 200,000 cells, max
+ * |analytic - counted| 1.1e-16. Deviation from 0.5 at a truly heterozygous marker, oriented:
+ *
+ *     state                              E[parent-allele share]     deviation
+ *     loss of the loaded parent's copy   (1-f)/(2-f)                -f/(4-2f)
+ *     loss of the other parent's copy    1/(2-f)                    +f/(4-2f)
+ *     CNN-LOH, loaded parent's lost      (1-f)/2                    -f/2
+ *     CNN-LOH, other parent's lost       (1+f)/2                    +f/2
+ *     gain of the loaded parent's copy   (1+f)/(2+f)                +f/(4+2f)
+ *     gain of the other parent's copy    1/(2+f)                    -f/(4+2f)
+ *
+ * TWO THINGS THIS INVERTS ABOUT THE FRAMING THIS MODULE WAS BUILT ON. Rank order by deviation is
+ * CNN-LOH > loss > gain at every f, so copy-neutral loss of heterozygosity is the LARGEST-signal
+ * state, not the hardest: a class with no copy-number signal at all is the easiest one to assign a
+ * parent to. And "a gain shifts about a third as much as a loss" is the f = 1 endpoint only; the
+ * pooled ratio is (2-f)/(2+f), which is 0.905 at f = 0.1 and 0.818 at f = 0.2, so in the mosaic
+ * range the gain penalty is 1.1 to 1.7x rather than 3x.
  */
-export const fractionFromShift = (d: number): number =>
-  (d <= 0 ? NaN : (4 * d) / (1 + 2 * d))
+export type DosageState = 'loss' | 'gain' | 'cnn-loh'
+
+/**
+ * Mosaic fraction implied by a pooled-dosage shift, FOR A GIVEN STATE.
+ *
+ * The three inversions are different and must not be shared. At d = 0.04 they give 0.148 for a
+ * loss, 0.174 for a gain and 0.080 for copy-neutral LOH, against 0.240 for the per-cell 6d form.
+ * An earlier version applied the loss inversion to everything: correct where the event was a loss
+ * and wrong in the OPPOSITE direction on a gain, which is the worst way to be wrong, since the
+ * error grows the statistic rather than shrinking it.
+ */
+export const fractionFromShift = (d: number, state: DosageState = 'loss'): number => {
+  if (!(d > 0)) return NaN
+  if (state === 'cnn-loh') return 2 * d
+  // A gain's inversion diverges as d approaches 0.5, which is its own ceiling: no gain fraction
+  // produces a deviation at or above it, so a larger one is not a gain.
+  if (state === 'gain') return d >= 0.5 ? NaN : (4 * d) / (1 - 2 * d)
+  return (4 * d) / (1 + 2 * d)
+}
 
 /** The additive logit-space displacement a fraction f produces. Independent of baseline. */
 export const logitShift = (f: number): number => -Math.log(1 - f)
@@ -243,6 +285,8 @@ export function callDosageOrigin(
     wholeChromosome?: boolean
     /** Median SD of BAF at the sample's heterozygous sites, for the array-level gate. */
     hetBafSd?: number
+    /** Which state the deviation is being read as. Decides the inversion; see fractionFromShift. */
+    state?: DosageState
     signSecureF?: number
     zDetect?: number
     /**
@@ -310,7 +354,10 @@ export function callDosageOrigin(
   const tau = DRIFT_TAU[material]
   const se = Math.sqrt((vif * r.sd * r.sd) / r.n + tau * tau)
   const z = shift / se
-  const impliedF = fractionFromShift(Math.abs(shift))
+  // Inverted as a LOSS unless the caller establishes otherwise, because that is the state this
+  // module's floors were measured on. A gain inverts through a different formula and a
+  // copy-neutral event through a third; passing the wrong one is an error in the wrong direction.
+  const impliedF = fractionFromShift(Math.abs(shift), opts.state ?? 'loss')
   const out = { ...base, shift, z, impliedF }
 
   // The joint detection statistic. Both terms point the same way by construction: |z| for the
