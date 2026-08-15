@@ -41,6 +41,7 @@ import { defectsFrom } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
 import { callDosageOrigin, materialOf } from './dosageOrigin'
+import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted'
 import { inferStage, locus } from './stage'
 
 /**
@@ -709,6 +710,30 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               const q1 = inSorted[Math.floor(inSorted.length * 0.25)] ?? NaN
               const q3 = inSorted[Math.floor(inSorted.length * 0.75)] ?? NaN
               const windowLogRSd = Number.isFinite(q3 - q1) ? (q3 - q1) / 1.349 : undefined
+              // THE UNTRANSMITTED CHANNEL, on the disjoint marker set the obligate-het path
+              // discards: markers where the loaded parent is HETEROZYGOUS and this sample reads
+              // homozygous, so the transmission is determined. Every marker here is informative by
+              // construction, against 32-90% in the parent-homozygous window, which is where its
+              // 1.40-1.98x advantage comes from. It is also the only channel that gives a single
+              // blastomere a defined floor at all.
+              const untRows: [string, string, number | null][] = []
+              for (const [probe, p] of markerPos) {
+                if (p.chrom !== chrom) continue
+                const pg = pat.gt.get(probe)
+                if (pg !== 'AB') continue
+                untRows.push([pg, myGt.get(probe) ?? 'NC', myBaf.get(probe) ?? null])
+              }
+              const unt = untransmittedPairs(untRows as never)
+              const untOriented = unt.pairs.map(orientUntransmitted)
+              const untMean = untOriented.length
+                ? untOriented.reduce((a, x) => a + x, 0) / untOriented.length : NaN
+              // Only once a gain is established: on a euploid chromosome this answers SPH by
+              // exclusion every time, which is confidently wrong.
+              const mech = callMechanism(unt.pairs as never,
+                { copyNumberThree: result.chroms.find(
+                  (x: { chrom: string, aneuploidy?: string }) => x.chrom === chrom,
+                )?.aneuploidy === 'gain' })
+
               const c = callDosageOrigin(region as never, background as never, material, {
                 wholeChromosome: true,
                 hetBafSd: hetSd,
@@ -721,6 +746,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 verdict: c.verdict,
                 classVerdict: c.classVerdict,
                 classWhy: c.classWhy,
+                untransmittedMarkers: unt.pairs.length,
+                untransmittedAmbiguous: unt.ambiguous,
+                untransmittedShare: untMean,
+                untransmittedImpossible: impossibleRate(unt.pairs as never),
+                mechanism: mech.mechanism,
+                mechanismWhy: mech.why,
                 shift: c.shift,
                 z: c.z,
                 impliedF: c.impliedF,

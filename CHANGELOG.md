@@ -9,6 +9,53 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.15.0 "Recombinase"
+
+Two channels built on markers the tool has always discarded.
+
+### Added
+
+- **The untransmitted-haplotype channel.** Every origin call this project has made used markers
+  where the loaded parent is HOMOZYGOUS. `untransmitted.ts` uses the complement, a disjoint set of
+  comparable size that was simply unused: 27,302 to 58,571 markers per array. Where that parent is
+  heterozygous and the sample reads homozygous, the transmission is determined, so the parent gave
+  the allele shown and withheld the other.
+
+  The advantage is not a cleverer statistic. The marker set is CLEAN BY CONSTRUCTION: in the
+  parent-homozygous window only 32 to 90% of markers are truly heterozygous in the child, because
+  the other parent often transmits the same allele, and those carry no information while still
+  counting toward the denominator. Here every marker carries information. Measured 1.40 to 1.98x
+  signal-to-noise above the obligate-het channel, on every amplified material at every fraction.
+
+  **It is the only channel that gives a single blastomere a floor at all.** Against one parent that
+  case has none at any fraction to 0.70, and still none at eight cells. Through this one it has
+  0.628. That is above the callable bound, so this converts a material impossibility into a
+  measurable quantity rather than into an answer, which is a different sentence to a reader.
+
+  It also yields a per-array error rate needing no external truth: readings whose dosage sits at
+  the extreme opposite to their own genotype call, measured 1.7 to 13.8% on this platform.
+
+- **Trisomy mechanism from band occupancy.** Both parental homologues puts the other parent's share
+  at 1/3 in one band; a duplicated single homologue puts it at 1/3 or 1.0 in two, neither at 2/3.
+  The diagnostic is OCCUPANCY rather than a mean, which is what makes it work here: a per-marker
+  three-band assignment needs BAF spread under 0.053 and misassigns 13 to 22% on every amplified
+  class, while a fractional occupancy over hundreds of markers is insensitive to per-marker
+  dispersion. AUC 1.000 from 400 markers.
+
+  Reported positively for both-homologues only. The single-homologue bands are also populated by an
+  ordinary euploid genome, so occupancy there has power 0.134 against euploid and means nothing
+  alone.
+
+### Fixed
+
+- **The mechanism call is gated on copy number three being established**, and the gate was added
+  because the ungated version got it wrong on real data: a euploid chromosome of a confirmed
+  parent-child pair came back "SPH", confidently, by exclusion. It answers that for every normal
+  chromosome, because a euploid genome populates both of the bands it reasons from. Asking the
+  question at all requires the copy number first.
+
+---
+
 ## 4.14.0 "Kinetochore"
 
 Fewer refusals, by asking the right questions separately instead of one question that fails as a

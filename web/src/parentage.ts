@@ -492,6 +492,16 @@ export interface ParentageResult {
     /** The copy-number class, resolved separately from the origin and usually not resolved. */
     classVerdict?: string
     classWhy?: string
+    /** The untransmitted-haplotype channel: a DISJOINT marker set, every member informative by
+     *  construction, and the only channel giving a single blastomere a defined floor. */
+    untransmittedMarkers?: number
+    untransmittedAmbiguous?: number
+    untransmittedShare?: number
+    /** Readings contradicting their own genotype call, a per-array error rate needing no truth. */
+    untransmittedImpossible?: number
+    /** Trisomy mechanism from band occupancy. BPH positively, SPH only by exclusion. */
+    mechanism?: string
+    mechanismWhy?: string
     /** Self-referenced centroid shift. Positive means the loaded parent's copy is short. */
     shift: number
     z: number

@@ -39,6 +39,7 @@ const segments = await import(`${W}segments.ts`)
 const inferredRef = await import(`${W}inferredReference.ts`)
 const features = await import(`${W}features.ts`)
 const dosage = await import(`${W}dosageOrigin.ts`)
+const unt = await import(`${W}untransmitted.ts`)
 
 type AB = 'AA' | 'AB' | 'BB' | 'NC'
 
@@ -356,6 +357,22 @@ function dosageOver(
   const intensityZ = args.bools.has('no-intensity') || !(lrrSe > 0) || !Number.isFinite(lrrShift)
     ? undefined : lrrShift / lrrSe
 
+  // THE UNTRANSMITTED CHANNEL, on the marker set the obligate-het path discards. Disjoint, every
+  // member informative by construction, and the only channel that gives a blastomere a floor.
+  const untRows: [string, string, number | null][] = []
+  for (const [probe, p] of c.pos) {
+    const inside = p.chrom === chrom && p.pos >= start && p.pos <= end
+    if (!inside) continue
+    const pg = ref.gt.get(probe)
+    if (pg !== 'AB') continue
+    untRows.push([pg, c.gt.get(probe) ?? 'NC', c.baf.get(probe) ?? null])
+  }
+  const u = unt.untransmittedPairs(untRows as never)
+  const mech = unt.callMechanism(u.pairs as never)
+  const oriented = u.pairs.map(unt.orientUntransmitted as never) as number[]
+  const untShare = oriented.length
+    ? oriented.reduce((a, x) => a + x, 0) / oriented.length : NaN
+
   // Spread of the window log2R, which decides whether the CLASS separates. Robust estimate, since
   // a few extreme markers on a damaged chromosome would otherwise widen it and withhold a class
   // that was in fact resolvable.
@@ -380,6 +397,38 @@ function dosageOver(
 }
 
 /** The dropout every likelihood is parameterised by, from the stage unless overridden. */
+/**
+ * The untransmitted-haplotype channel over one interval, plus the trisomy mechanism.
+ *
+ * Runs on markers the obligate-het path discards: the loaded parent HETEROZYGOUS and the sample
+ * homozygous, so the transmission is determined and every marker is informative by construction.
+ * Disjoint from the other channel, which is what makes it additional evidence rather than a
+ * re-reading, and the only channel that gives a single blastomere a defined floor.
+ */
+function untransmittedOver(
+  ref: Loaded, c: Loaded, chrom: string, start: number, end: number, state: string,
+) {
+  const rows: [string, string, number | null][] = []
+  for (const [probe, p] of c.pos) {
+    if (p.chrom !== chrom || p.pos < start || p.pos > end) continue
+    if (ref.gt.get(probe) !== 'AB') continue
+    rows.push(['AB', c.gt.get(probe) ?? 'NC', c.baf.get(probe) ?? null])
+  }
+  const u = unt.untransmittedPairs(rows as never) as {
+    pairs: never[], considered: number, ambiguous: number
+  }
+  const oriented = u.pairs.map((x) => (unt.orientUntransmitted as never as (y: never) => number)(x))
+  return {
+    markers: u.pairs.length,
+    considered: u.considered,
+    ambiguous: u.ambiguous,
+    share: oriented.length ? oriented.reduce((a, x) => a + x, 0) / oriented.length : NaN,
+    impossible: unt.impossibleRate(u.pairs as never) as number,
+    mechanism: unt.callMechanism(u.pairs as never,
+      { copyNumberThree: state === 'gain' }) as { mechanism: string, why: string },
+  }
+}
+
 function dropoutFor(c: Loaded): { ado: number, source: string } {
   const forced = args.flags.get('ado')
   if (forced !== undefined) {
@@ -499,6 +548,9 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
         || (channel === 'auto' && !isWhole)
       const g = useGeno ? callOver(ref, c, e.chrom, e.start, e.end, ado) : null
       const d = useDosage ? dosageOver(ref, c, e.chrom, e.start, e.end, isWhole) : null
+      const untransmitted = useDosage
+        ? untransmittedOver(ref, c, e.chrom, e.start, e.end,
+          args.flags.get('state') ?? 'loss') : null
       // Genotypes answer where they can. Dosage only fills what they cannot reach, and it names
       // a parent only when the implied fraction clears the sign-security bound.
       const gNamed = g && name(g.verdict)
@@ -508,7 +560,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
         locus: stageMod.locus(e.chrom, e.start, e.end),
         channel: gNamed ? 'genotype' : dNamed ? 'dosage' : (useGeno ? 'genotype' : 'dosage'),
         origin: gNamed ?? dNamed ?? null,
-        genotype: g, dosage: d,
+        genotype: g, dosage: d, untransmitted,
         verdict: (gNamed ? g?.verdict : dNamed ? d?.verdict : g?.verdict ?? d?.verdict) ?? 'refused',
         why: (gNamed ? g?.why : dNamed ? d?.why : d?.why ?? g?.why) ?? '',
       }
@@ -528,6 +580,14 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
           process.stdout.write(`   genotype: ${r.genotype.verdict}, ${r.genotype.markers} `
             + `informative, ${r.genotype.exclusive} exclusive, `
             + `${r.genotype.heterozygous} heterozygous\n`)
+        }
+        if (r.untransmitted && r.untransmitted.markers) {
+          const un = r.untransmitted
+          process.stdout.write(`   untransmitted: ${un.markers} determined of ${un.considered} `
+            + `parent-het markers (${un.ambiguous} ambiguous), share `
+            + `${Number.isFinite(un.share) ? un.share.toFixed(4) : '-'}, `
+            + `${(100 * un.impossible).toFixed(1)}% contradict their own call\n`)
+          process.stdout.write(`   mechanism: ${un.mechanism.mechanism}\n`)
         }
         if (r.dosage) {
           const d2 = r.dosage
