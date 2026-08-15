@@ -1956,15 +1956,25 @@ function LocusTest({ entries, donor, oocyte, log, onResult }: {
       <Text fw={600} size="xs" tt="uppercase" c="dimmed" mb={4} style={{ letterSpacing: '0.04em' }}>
         Per-locus deletion test
       </Text>
-      {!oocyte ? (
+      {/*
+        * BOTH parents, and the gate has to say so. This test needs a marker where one parent
+        * could not have supplied the allele, so it needs two people, and the run below returns
+        * immediately without both. The form used to be gated on the oocyte alone, which was
+        * correct until oocyte-only runs became possible: after that a run with only an oocyte
+        * rendered the form, enabled the button, and did nothing when it was pressed. A control
+        * that is live in a state where it cannot act is worse than one that is absent.
+        */}
+      {!oocyte || !donor ? (
         <Alert color="orange" p="xs">
           <Text size="xs">
-            This test needs the oocyte donor and is not run without her. Paternal presence cannot
-            be established at any single marker without someone who could not have supplied the
-            allele: the informative set would hold absences only, nothing could break a run, and
-            the run-length statistic would have no null to be significant against. Label one file
-            oocyte and run again. Parent of origin, sperm type and segmental loss above need no
-            oocyte donor and are unaffected.
+            This test needs <b>both</b> parents and is not run without them
+            {!donor && !oocyte ? ', and neither is loaded'
+              : !donor ? ', and the sperm donor is missing' : ', and the oocyte donor is missing'}.
+            Presence cannot be established at any single marker without someone who could not have
+            supplied the allele: the informative set would hold absences only, nothing could break
+            a run, and the run-length statistic would have no null to be significant against. Label
+            one file {!donor ? 'sperm' : 'oocyte'} and run again. Parent of origin, sperm type and
+            segmental loss above need one parent only and are unaffected.
           </Text>
         </Alert>
       ) : (
