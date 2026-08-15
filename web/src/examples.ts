@@ -55,6 +55,16 @@ export const EXAMPLES: Example[] = [
     expect: 'no paternal contribution. 5.22% absence against a 1.07% ceiling, 4.9x over',
   },
   {
+    gsm: 'GSM4472424',
+    file: 'GSM4472424_embryo4_TE.subset.csv.gz',
+    role: 'sample',
+    what: 'embryo 4, a trophectoderm biopsy, this donor\'s own child',
+    expect: 'a clean pass, and the only example here that is one. Confirmed as his child at a '
+      + '0.66% opposite-homozygote rate with a second parental contribution at 14.7% of 74,399 '
+      + 'informative markers, and no chromosomal change anywhere. Every other sample below is a '
+      + 'refusal or a negative, which made the set read as though the tool only ever says no',
+  },
+  {
     gsm: 'GSM4472398',
     file: 'GSM4472398_sperm_DNA_79.subset.csv.gz',
     role: 'sample',
