@@ -1,0 +1,51 @@
+# What has to be true before a change lands.
+#
+# Dependabot has been opening grouped pull requests against nothing, so the "merge if green"
+# design in dependabot.yml was unavailable and every bump was verified by hand. This supplies the
+# green. Three jobs rather than one, so a failure names itself: a broken build, a broken answer,
+# and inconsistent release metadata are different problems with different fixes.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+        working-directory: web
+      # `tsc -b && vite build`, not `tsc --noEmit`: the looser form once passed while two type
+      # errors reached a deployed build.
+      - run: npm run build
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+
+  checks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: '22', cache: npm, cache-dependency-path: web/package-lock.json }
+      - run: npm ci
+        working-directory: web
+      - name: self-checks
+        run: ./scripts/checks.sh
+      # The one check that guards an ANSWER rather than a build: the bundled examples must still
+      # produce the rates their own text claims, using the files a user actually downloads.
+      - name: bundled examples still say what they claim
+        run: node --experimental-strip-types cli/examples.check.ts
+
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: version, changelog and citations agree
+        run: ./scripts/release-check.sh

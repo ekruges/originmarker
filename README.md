@@ -42,6 +42,18 @@ The Syngamy analysis also runs standalone, with more than the page exposes:
 python -m originmarker.origin --father sperm.txt --samples embryo1.txt embryo2.txt
 ```
 
+## Automation
+
+| | |
+|---|---|
+| `scripts/checks.sh` | every self-check, each from the directory it needs. A root-level loop reports two of them as failing for no reason |
+| `scripts/release-check.sh` | the version the build reports, the newest changelog entry and the citation table must agree. Add `--tag` to require the tag too |
+| `scripts/deploy.sh` | copy, rebuild and verify, with the health check as a gate rather than a printout |
+| `cli/examples.check.ts` | the bundled examples still produce the rates their own text claims |
+
+CI runs the first, second and fourth on every push and pull request, which is what makes
+Dependabot's grouped minor and patch updates mergeable on a green check.
+
 ## Tests
 
 ```sh

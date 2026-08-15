@@ -9,6 +9,135 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.13.2 "Cohesin"
+
+### Added
+
+- **Continuous integration.** Dependabot has been opening grouped pull requests against nothing, so
+  the merge-if-green design in its config was unavailable and every bump was checked by hand. Three
+  jobs, so a failure names itself: build and lint, the self-checks plus the bundled examples, and
+  release metadata.
+
+- **`scripts/checks.sh`**, which runs all 31 self-checks each from the directory it needs. A
+  `for f in src/*.check.ts` from the repo root reports PanelTable and PrimerOptions as failing,
+  because they resolve their component through Vite at `/src/...` against the working directory.
+  The failure is a false alarm that costs a re-run to establish, and a runner that cries wolf
+  teaches you to skim its output.
+
+- **`scripts/release-check.sh`**, asserting the version the build reports, the newest changelog
+  entry, the codename and the citation table all agree. It found five releases with no changelog
+  entry at all on its first run: 4.12.1 through 4.13.1 were committed and deployed while the
+  edits meant to document them silently matched nothing. Those entries are now written.
+
+- **`scripts/deploy.sh`**, replacing six steps run by hand every release, with the health check as
+  a gate that exits non-zero rather than output someone has to read. A release once shipped
+  reporting the previous version and was caught only because the output happened to be read.
+
+- **`cli/examples.check.ts`**, the only check here that guards an answer rather than a build. Each
+  bundled example carries an `expect` string making specific numeric claims, and nothing verified
+  them, so any threshold moved in this project could falsify one silently. It runs the shipped
+  modules over the files a user actually downloads and asserts the opposite-homozygote rates,
+  second parental contributions and inferred dropouts still match the prose.
+
+---
+
+## 4.13.1 "Cohesin"
+
+### Fixed
+
+- **The per-locus deletion test did nothing when only an oocyte donor was loaded.** Its form was
+  gated on the oocyte alone, which was correct until 4.8.3 made oocyte-only runs possible. After
+  that a run with only an oocyte rendered the form and enabled the Run button while the handler
+  returned immediately for want of the sperm donor: no result, no error, no spinner. The gate asks
+  for both parents now and names whichever is missing. A control that is live in a state where it
+  cannot act is worse than one that is absent. The test itself was never broken; it needs a marker
+  where one parent could not have supplied the allele, so it needs two people.
+
+---
+
+## 4.13.0 "Cohesin"
+
+### Added
+
+- **A second family in the bundled examples**, found by searching the public deposits rather than
+  reusing the series already in hand. A donor and two of its children from GSE290961, on the same
+  Axiom platform. The pair is the point: the same relationship read from bulk DNA and from a single
+  amplified cell. One links at 1.11% opposite-homozygote with a 9.0% second parental contribution
+  and reads dropout 0.008; the other at 1.82% with 8.7% and reads 0.193. Nothing is declared for
+  either. No example showed that contrast before.
+
+- **The subset's cost is stated where the examples are defined.** Linkage, stage inference and
+  whole-chromosome events survive every-eighth-marker sampling because each uses a whole genome or
+  a whole chromosome. A segmental change does not: the resolution floor is 2,400 informative
+  markers and a 12 Mb region holds about 390 at that density.
+
+### Searched and not found
+
+No sample carrying a chromosomal change attributable to a parent. GSE186407 is 166 arrays with no
+parental DNA. GSE290961 has 158 arrays, nine bulk-quality candidates, six with confirmed children,
+and 22 arrays carrying a whole-chromosome event. The two sets do not intersect, and not by
+accident: every array with an event has a call rate between 0.587 and 0.868 and a BAF spread
+between 0.219 and 0.300, against 0.061 to 0.085 for the bulk arrays. In this material a detected
+whole-chromosome loss travels with a collapsed call rate.
+
+Provenance corrected: the examples header claimed every file came from one series, which three no
+longer do. The second is cited by accession, no publication having been confirmed for it.
+
+---
+
+## 4.12.3 "Tetrad"
+
+### Added
+
+- **A Syngamy example that passes.** Every example was a refusal or a negative, so the set read as
+  though the tool only ever says no. GSM4472424 is a trophectoderm biopsy of the donor's own child,
+  confirmed at a 0.66% opposite-homozygote rate with a second contribution at 14.7% of 74,399
+  markers and no chromosomal change. It also carries the intensity column, which none of the
+  others do: without it the copy-number channel is dead on every bundled example.
+
+---
+
+## 4.12.2 "Tetrad"
+
+### Added
+
+- **Both origin channels in the report.** A genotype table carrying the exclusive-marker count,
+  which is the one number checkable without trusting the model, and a dosage table for whole
+  chromosomes with the shift, its z, the implied fraction and the central window. Separate tables,
+  because the two answer the same question from different measurements and a reader needs to know
+  which one answered.
+
+- **A documentation section on the dosage channel**: why self-referencing is the method rather than
+  a refinement, why drift and not marker count sets the uncertainty, the order the four questions
+  are asked in, and why no parent is named below a mosaic fraction of 0.30.
+
+### Fixed
+
+- **The documentation nav scrolls inside itself.** At 35 sections the list outgrew the viewport,
+  and a sticky element taller than the screen hides its own tail, so the last sections could not be
+  reached without scrolling the article. Mobile opts out, being a full-width header there.
+
+---
+
+## 4.12.1 "Tetrad"
+
+### Added
+
+- **The measured correlation between the dosage and intensity channels, and a joint term using it.**
+  The review fitted this on technical-replicate differences (-0.055 to +0.036) and means (up to
+  -0.46); neither applies to the shipped statistic, which is self-referenced, and that subtraction
+  removes exactly the artefact separating those two figures. Measured on the shipped quantity over
+  81 arrays: bulk -0.058, blastomere +0.486, esc-single +0.508, trophectoderm +0.633. Bulk is
+  independent and every amplified material is strongly correlated, the opposite of what quadrature
+  assumes, which would overstate the joint z by 1.27x on trophectoderm.
+
+  Intensity enters DETECTION and never DIRECTION. On haploid products of a known parent log2R
+  cannot distinguish maternal from paternal (p = 0.54) while oriented dosage separates them at
+  1.3e-15, so the joint term decides whether an event is present and the dosage sign alone decides
+  whose it is.
+
+---
+
 ## 4.12.0 "Tetrad"
 
 The dosage channel rebuilt to the methods review's specification. 4.11.0 stopped it naming a
