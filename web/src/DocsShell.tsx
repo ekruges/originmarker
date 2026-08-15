@@ -149,7 +149,22 @@ export function DocsShell({ prefix, sections, title, subtitle, health, siblings,
       <nav
         className="om-docs-nav"
         aria-label={`${title} sections`}
-        style={{ position: 'sticky', top: 12, flex: '0 0 200px', alignSelf: 'flex-start' }}
+        /*
+         * SCROLLS WITH ITS OWN OVERFLOW, not the page's. The section list outgrew the viewport as
+         * the documentation grew, and a sticky element taller than the screen simply hides its own
+         * tail: the last sections became unreachable without scrolling the article, which is the
+         * one thing a section nav exists to avoid. Capped at the viewport minus the top offset and
+         * a little breathing room, so the list scrolls internally while the whole nav still sticks.
+         */
+        style={{
+          position: 'sticky',
+          top: 12,
+          flex: '0 0 200px',
+          alignSelf: 'flex-start',
+          maxHeight: 'calc(100vh - 24px)',
+          overflowY: 'auto',
+          overscrollBehavior: 'contain',
+        }}
       >
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {sections.map((s, i) => (

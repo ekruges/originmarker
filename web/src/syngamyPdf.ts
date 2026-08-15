@@ -730,6 +730,65 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         ]),
       )
     }
+    // PARENT OF ORIGIN, GENOTYPE CHANNEL. Present only on a single-parent run: with both parents
+    // loaded, dosage already names the side and these rows would restate it more weakly.
+    if (r.oneParent?.length) {
+      heading('Parent of origin, from genotypes', 8.6)
+      text('A marker where the loaded parent is homozygous and the sample carries the allele that '
+        + "parent does not have is Mendelian evidence that the parent's copy is absent: "
+        + 'amplification removes alleles and cannot invent one. The exclusive count is that '
+        + 'evidence directly, and is checkable without trusting the model. Validated on a public '
+        + 'family trio with one parent hidden, 12 of 12 correct across dropout from 0.05 to 0.45.',
+      7.4, 'Helvetica', 2.4, GREY)
+      table(
+        [{ head: 'Region', w: 150 }, { head: 'Verdict', w: 112 },
+          { head: 'Informative', w: 62, right: true },
+          { head: 'Exclusive', w: 58, right: true },
+          { head: 'Posterior', w: 56, right: true }],
+        r.oneParent.map((o) => [
+          o.where,
+          { v: o.verdict.replace(/-/g, ' '),
+            colour: o.verdict === 'refused' ? GREY : INK },
+          int(o.markers), int(o.exclusive),
+          Number.isFinite(o.posterior) ? o.posterior.toFixed(4) : 'not assigned',
+        ]),
+      )
+    }
+
+    // PARENT OF ORIGIN, DOSAGE CHANNEL. A separate table on purpose: it answers the same question
+    // from a different measurement, on the events the genotype channel structurally cannot reach.
+    if (r.dosageCalls?.length) {
+      heading('Whole chromosomes, from allele dosage', 8.6)
+      text('A whole chromosome is DETECTED by the collapse of its genotype call rate, so on exactly '
+        + 'those events the genotype channel above has no evidence left. Allele dosage is read '
+        + 'whether or not a genotype is emitted. Each chromosome is measured against the rest of '
+        + "THIS array's own genome, which is what removes a directional bias that otherwise points "
+        + 'at the parent that was not genotyped. The fraction column is the mosaic fraction the '
+        + 'shift implies; under 0.30 the sign is not secure, between half and all such detections '
+        + 'name the wrong parent, and the event is reported with no parent attached. Where a '
+        + 'material and interval width have no detection floor at all, the row reads not evaluable '
+        + 'rather than refused: no array of that kind could have answered, whatever its quality.',
+      7.4, 'Helvetica', 2.4, GREY)
+      table(
+        [{ head: 'Chromosome', w: 74 }, { head: 'Verdict', w: 122 },
+          { head: 'Material', w: 74 },
+          { head: 'Shift', w: 48, right: true }, { head: 'z', w: 40, right: true },
+          { head: 'Fraction', w: 44, right: true },
+          { head: 'Window', w: 46, right: true }],
+        r.dosageCalls.map((d) => [
+          d.where,
+          { v: d.verdict.replace(/-/g, ' '),
+            colour: (d.verdict === 'known-parent-lost' || d.verdict === 'other-parent-lost')
+              ? INK : GREY },
+          d.material,
+          Number.isFinite(d.shift) ? d.shift.toFixed(4) : '-',
+          Number.isFinite(d.z) ? d.z.toFixed(2) : '-',
+          Number.isFinite(d.impliedF) ? d.impliedF.toFixed(3) : '-',
+          int(d.window),
+        ]),
+      )
+    }
+
     heading(m ? 'Chromosomes, sperm donor' : 'Chromosomes', 8.6)
     chromTable(r.chroms, r.explainable)
     if (m) {

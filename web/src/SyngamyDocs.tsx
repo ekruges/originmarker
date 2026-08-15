@@ -60,6 +60,7 @@ const SECTIONS: DocSection[] = [
   { id: 'segments', label: 'Chromosomal change: segments' },
   { id: 'contribution', label: 'One parent or two, per chromosome' },
   { id: 'oneparent', label: 'Parental origin from one parent' },
+  { id: 'dosage', label: 'Whole chromosomes, from allele dosage' },
   { id: 'stage', label: 'Material, amplification and stage' },
   { id: 'report', label: 'The report, and how to cite it' },
   { id: 'examples', label: 'The bundled example data' },
@@ -1672,6 +1673,83 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             makes the truth exact rather than assumed. Markers carrying the allele the loaded parent
             lacks numbered 5,130 to 5,172 when his copy was removed, and exactly zero when the other
             parent&rsquo;s was.
+          </Text>
+        </Section>
+
+        <Section id="dosage" title="Whole chromosomes, from allele dosage">
+          <Text size="sm" mb={10}>
+            The section above answers from genotypes, and there is one class of event it
+            structurally cannot reach. <b>A whole chromosome is detected by the collapse of its
+            genotype call rate</b>, and the parent is named from genotypes, so on exactly those
+            events the evidence has already gone by the time the event is noticed. Measured on a
+            public series: all four segmental losses were scored from genotypes and all three
+            whole-chromosome losses were refused.
+          </Text>
+          <Text size="sm" mb={10}>
+            Allele dosage is read whether or not a genotype is emitted, so it survives the collapse.
+            Orient so the loaded parent&rsquo;s own allele reads low, keep the markers where that
+            parent is homozygous, and take the centre of the distribution. A dosage at the high end
+            requires that parent&rsquo;s copy to be absent, because a copy that is present
+            contributes its own allele and holds the value down.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Every measurement is made against the rest of that same array&rsquo;s genome.</b> This
+            is not a refinement, it is the whole method. Measured with no event present at all, the
+            raw one-parent statistic sits at &minus;0.031 on a trophectoderm biopsy and &minus;0.023
+            on a blastomere, and it points at the parent that was <i>not</i> genotyped. On a
+            trophectoderm biopsy that offset is the shift a real mosaic fraction of 0.117 would
+            produce, so an uncorrected reading carries a standing bias toward blaming the parent you
+            do not have. The cause is the orientation itself: the loaded parent&rsquo;s allele is
+            the one always identifiable, so dropout of the other parent&rsquo;s allele moves
+            readings toward it more often than the reverse. Subtracting the array&rsquo;s own genome
+            removes it.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>The uncertainty is set by how much the array wanders, not by how many markers it
+            carries.</b> Systematic drift within an array does not average down: against a sampling
+            term of 0.002 to 0.010 it runs about twice as large on amplified material, and readings
+            are spatially correlated over one to two megabases, so a twelve-megabase interval holds
+            five to twelve independent blocks whatever its marker density. Effective independent
+            markers saturate near 250 per chromosome out of nine hundred or more. Adding markers
+            past that point buys nothing, and treating them as independent is how a decisive-looking
+            score arrives on a chromosome that is verified normal.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Four questions, in this order, and the first two are asked before the data.</b> Could
+            any array of this kind, at this interval width, answer at all? Then: is this particular
+            array usable? Then: is there an imbalance? And only last: is the sign secure enough to
+            name a parent. The order matters because nearly every amplified array fails a strict
+            quality gate, so asking quality first would report a QC failure for what is really a
+            limit of the study design, and send you to re-run a sample when what you need is a
+            second genotyped parent or a wider interval.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Not evaluable is a different answer from refused</b>, and the tool distinguishes them.
+            Refused says this array was too poor. Not evaluable says no array of this kind at this
+            width could have answered, whatever its quality. A twelve-megabase interval is out of
+            reach on every amplified material, and a single blastomere against one parent has no
+            detection floor at any mosaic fraction up to 0.70. Genotyping the second parent is worth
+            about threefold in the smallest detectable fraction and is the largest single
+            improvement available.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Below a mosaic fraction of 0.30 the event is reported and the parent is not.</b>
+            Between half and all detections below that bound name the WRONG parent, so naming one
+            would be worse than saying nothing: a wrong call is indistinguishable from a right one
+            to a reader. The verdict reads as an unassigned imbalance instead, which follows the
+            largest published study of this kind, where 29% of events were left unclassified because
+            the power to detect an imbalance exceeded the power to resolve which one it was.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>The intensity channel joins the detection and never the direction.</b> Total signal
+            strength says whether dosage is reduced, but it cannot say whose copy went: on haploid
+            products of a known parent, intensity cannot distinguish maternal from paternal at all,
+            while oriented dosage separates the same arrays decisively. The two channels are
+            combined with a correlation measured on this statistic over 81 arrays, which is
+            &minus;0.058 on bulk DNA but +0.49 to +0.63 on every amplified material, because a
+            chromosome that amplified poorly reads low in both. Treating them as independent, which
+            is the usual assumption, would overstate the combined evidence by about a quarter on a
+            trophectoderm biopsy.
           </Text>
         </Section>
 

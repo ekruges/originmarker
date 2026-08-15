@@ -331,6 +331,11 @@ body {
     border-bottom: 1px solid var(--om-border);
     padding-bottom: 8px;
     margin-bottom: 8px;
+    /* The desktop cap and internal scroll are wrong once the nav is a full-width header: it is
+       no longer sticky, so it has no tail to hide, and capping it here would put a scrollbar
+       inside a block that already flows with the page. */
+    max-height: none !important;
+    overflow-y: visible !important;
   }
 
   .om-docs-nav ol {
@@ -478,4 +483,27 @@ body {
   .om-footer-meta {
     flex-wrap: wrap !important;
   }
+}
+
+/* The section nav scrolls inside itself once the list outgrows the viewport. Thin and only on
+   hover, since a permanent bar next to a short list reads as broken furniture. */
+.om-docs-nav {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.om-docs-nav:hover {
+  scrollbar-color: var(--om-border) transparent;
+}
+
+.om-docs-nav::-webkit-scrollbar {
+  width: 6px;
+}
+
+.om-docs-nav::-webkit-scrollbar-thumb {
+  background: transparent;
+}
+
+.om-docs-nav:hover::-webkit-scrollbar-thumb {
+  background: var(--om-border);
 }
