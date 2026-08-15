@@ -1,7 +1,7 @@
 # Handover: answer the Egli question with OriginMarker, and map the events onto genomic factors
 
-Everything below runs on this machine. The tool, the arrays and the harnesses are already here.
-Nothing needs downloading except the factor tracks in part 3.
+The tool and the harnesses are on this Mac. **The 884-array corpus is on `tesla`**, and the corpus
+work runs there. Nothing needs downloading except the factor tracks in part 3.
 
 ## The question
 
@@ -15,49 +15,65 @@ is not the deliverable.
 
 ## Where everything is
 
-**Run the corpus work on the NAS, not on this Mac.** The 884 arrays used to live on a USB stick,
-which is why they were unreachable: absent whenever the stick is unplugged and invisible to any
-process that cannot see that volume. They now live on the NAS, which is always up.
+**The corpus lives on `tesla` and the work runs there.** It used to be on a USB stick, which is why
+it was unreachable: absent whenever the stick is unplugged, and invisible to any process without
+that mount.
 
-    wrapper         scripts/om-nas.sh <om subcommand and flags...>
+    wrapper         scripts/om-tesla.sh <om subcommand and flags...>
     repo (Mac)      /Users/ezrakruger/claudecodegeneralworkspace/originmarker
-    repo (NAS)      /volume1/docker/originmarker         updated by every deploy, same code
-    lab arrays      /volume1/docker/originmarker-data/"SNP array data"
-                    884 .probes, 4 groups: DIETER 93, JENNA 178, ROBLES 264, TREFF 349
+    repo (tesla)    /root/originmarker
+    lab arrays      /root/originmarker-data/{DIETER,JENNA,ROBLES,TREFF}/...
+                    884 arrays, stored GZIPPED as *.probes.gz
+                    DIETER 93, JENNA 178, ROBLES 264, TREFF 349
     public series   GSE148488 (135 arrays, 1 sperm donor + 4 egg donors + embryos)
                     GSE290961 (158 arrays, 9 bulk-quality candidates, 6 with confirmed children)
     called regions  audit/features/regions-*.tsv   1,189 regions, 318 gains, 871 losses,
                     on 175 of 884 arrays. Columns: cell, chr, start_bp, end_bp, log2R_dev, kind.
                     NO parental label on any of them. That is the gap.
 
-If the GEO series are not still in the session scratchpad, re-fetch: the accession list is in
-`audit/asymmetry/`, and the fetch pattern is in the git history of `scripts/`.
+**Check the corpus is complete before trusting a sweep.** The transfer was still running when this
+was written:
+
+    ssh tesla 'find /root/originmarker-data -name "*.probes.gz" | wc -l'      # target 884
+
+If it is short, re-run the transfer loop from the git history of this commit; it overwrites rather
+than duplicating, so restarting is safe.
+
+**Two things about tesla that will otherwise waste your time.**
+
+It is wifi-only behind a NAT guest bridge, so this Mac cannot route to 192.168.1.40 directly even
+when tesla is up, and it is not on Tailscale. The failure presents as a connection timeout, which
+is indistinguishable from the machine being off. `newton` sits on both networks and reaches it in
+1.5 ms, so `~/.ssh/config` sends tesla through it as a ProxyJump. Plain `ssh tesla` works. If it
+times out, check newton first rather than concluding tesla is down.
+
+The arrays are stored **gzipped**, because 36 GB of text into 37 GB of free disk leaves nothing.
+The loader reads `.gz` directly and the file scanners know the `.probes.gz` extension, so this is
+invisible in use. Do not decompress them in place; there is no room.
+
+`scripts/om-nas.sh` runs the same CLI on the NAS and holds a partial copy of the corpus. It is a
+fallback only: 4 cores and roughly 1 GB free against tesla's 12 and 20, on a box that also serves
+the live site.
 
 ## 1. How to run the tool
 
 Node 22+. No install step for the CLI; it imports the same modules the web app runs, so it cannot
 drift from what ships.
 
-    # On the NAS, against the corpus. This is the one to use for anything touching the arrays.
-    ./scripts/om-nas.sh help
-    ./scripts/om-nas.sh census /data
-    ./scripts/om-nas.sh stage "/data/SNP array data/DIETER/<file>.probes"
+    # On tesla, against the corpus. Use this for anything touching the 884 arrays.
+    ./scripts/om-tesla.sh help
+    ./scripts/om-tesla.sh census /root/originmarker-data
+    ./scripts/om-tesla.sh stage "/root/originmarker-data/DIETER/<file>.probes.gz"
 
     # Locally, for the public series or for development.
     cd /Users/ezrakruger/claudecodegeneralworkspace/originmarker
     node --experimental-strip-types cli/om.ts help
     node --experimental-strip-types cli/om.ts constants     # every tunable + its provenance
 
-Inside the container `/w` is the repo and `/data` is the corpus, so corpus paths start `/data/`.
-The NAS host runs node v18 and this needs 22, so the wrapper uses a `node:22-slim` container: the
-right runtime, no change to a host that also serves the live site.
-
-**Memory is the one real constraint.** The NAS has roughly 1 GB free of 7 GB. Use `--stride 8` for
-anything sweeping the whole corpus, which is what the census and screening paths already do and
-costs nothing statistically for a proportion measured over 100,000 markers. `OM_NAS_HEAP=6144
-scripts/om-nas.sh ...` raises the heap if a single full-density array needs it, but do not run two
-at once. If it is not enough, the alternative host is `tesla` (12 cores, 31 GB, node 22 already in
-/opt/node22), which was down when this was written and needs a physical poke.
+tesla has 12 cores, 20 GB free of 31, and node v22.14.0 at /opt/node22. Memory is not a constraint
+there, so full-density runs are fine; `OM_HEAP=20000 scripts/om-tesla.sh ...` if a sweep needs more
+than the 12 GB default. Use `--stride 8` for screening passes anyway, since a proportion measured
+over 100,000 markers has a standard error under 0.001 and a full read buys nothing.
 
     om stage       <array>                     material, dropout, marker floor
     om link        <parent> <sample>...        child / duplicate / unrelated / refused
@@ -120,9 +136,10 @@ products, but a group holds products of BOTH parents and a reconstruction needs 
 the single group already sorted, six became four. So the real count of anchorable groups is unknown
 and everything downstream depends on it.
 
-    om census "/Volumes/SANDISK USB/SNP array data"
-    om reconstruct <the haploid products of one group>... --group-only --pairs
-    om reconstruct <the products of the largest single-parent group>... --out parent.probes
+    ./scripts/om-tesla.sh census /root/originmarker-data
+    ./scripts/om-tesla.sh reconstruct <haploid products of one group>... --group-only --pairs
+    ./scripts/om-tesla.sh reconstruct <products of the largest single-parent group>... \
+      --out /root/parent.probes
 
 Products of one parent share half their haplotypes and are unrelated to the other parent's, so they
 separate on mutual relatedness with no reference. Report: per group, how many products, how many
@@ -132,7 +149,8 @@ parents they resolve into, how many products per parent, and which groups clear 
 
 For every group with an anchor, run the cohort and attribute what is attributable.
 
-    om cohort "<group dir>" --ref parent.probes --role maternal --json --out group.json
+    ./scripts/om-tesla.sh cohort "/root/originmarker-data/<group>" \
+      --ref /root/parent.probes --role maternal --json --out /root/group.json
 
 Then filter the 1,189 regions to those on arrays that (a) have an anchor, (b) sit on a callable
 material/state/parent combination, (c) pass the array gate. Report the count that survives each
@@ -151,7 +169,8 @@ as a consequence.
 marker-matched permutation null. Result was negative everywhere, every ratio between 0.77 and 1.04,
 including no fragile-site enrichment at n=1,189.
 
-    om enrich audit/features/regions-ROBLES.tsv --track <features.json> --markers <an array>
+    ./scripts/om-tesla.sh enrich audit/features/regions-ROBLES.tsv \
+      --track <features.json> --markers <an array>
 
 **The null is the entire difficulty and it is already solved: do not change it.** A region can only
 be called where the array carries markers AND where amplification produced calls, so a uniform null
