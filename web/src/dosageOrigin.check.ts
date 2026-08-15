@@ -14,7 +14,7 @@
 //   every input is symmetric, consistent, and useless.
 import assert from 'node:assert/strict'
 import {
-  callDosageOrigin, band, BAND_EXTREME, MIN_MARKERS_DOSAGE, DOSAGE_NOISE,
+  callDosageOrigin, band, BAND_EXTREME, MIN_MARKERS_DOSAGE, DOSAGE_NOISE, NAMES_A_PARENT,
 } from './dosageOrigin.ts'
 import type { AB } from './informativity.ts'
 
@@ -30,11 +30,40 @@ const bothPresent = (i: number) => (i % 10 < Q * 10 ? 0.50 : 0.02)
 const knownLost = (i: number) => (i % 10 < Q * 10 ? 0.98 : 0.02)
 const otherLost = () => 0.02
 
-// --- 1. each truth is recovered ------------------------------------------------------------------
+// --- 0. THE CLASS IS WITHHELD WHILE THE NULL IS NOT SELF-REFERENCED -----------------------------
+//
+// A methods review measured this statistic's null on real material: the one-parent centroid null
+// median is -0.031 on trophectoderm and -0.023 on blastomeres, i.e. off-centre under NO event, in
+// the direction of the parent that was not genotyped, and on TE that offset equals the shift a
+// mosaic fraction of 0.117 would produce. Below f = 0.3, half to all detections name the wrong
+// parent, and the wrong-sign null tail reaches z = -15.9. So the event is reported and the class
+// is not, which is the MoChA precedent: 29% of its events were left unassigned because power to
+// detect an imbalance exceeded power to resolve which imbalance it was.
 {
+  assert.equal(NAMES_A_PARENT, false,
+    'flipping this back on requires a self-referenced null, not just an edit here')
+  for (const f of [knownLost, otherLost]) {
+    const c = callDosageOrigin(region('AA', N, f), Q)
+    assert.equal(c.verdict, 'refused', 'an imbalance must not be given a parent')
+    assert.ok(c.why.includes('does not name a parent'))
+    assert.ok(c.posterior > 0.5, 'and the evidence for the imbalance is still reported')
+  }
+  // Two copies present is not a parental claim, so it is still stated.
   assert.equal(callDosageOrigin(region('AA', N, bothPresent), Q).verdict, 'both-present')
-  assert.equal(callDosageOrigin(region('AA', N, knownLost), Q).verdict, 'known-parent-lost')
-  assert.equal(callDosageOrigin(region('AA', N, otherLost), Q).verdict, 'other-parent-lost')
+}
+
+// --- 1. the underlying discrimination still works, which is what makes the refusal a CHOICE ------
+//
+// Asserted on the posterior rather than the verdict: the likelihood must still separate the three
+// states, so that turning naming back on after self-referencing is a threshold change and not a
+// rebuild. A statistic that had stopped discriminating would pass the section above for the wrong
+// reason.
+{
+  const known = callDosageOrigin(region('AA', N, knownLost), Q)
+  const other = callDosageOrigin(region('AA', N, otherLost), Q)
+  assert.ok(known.excluded > N / 4, 'loss of the loaded copy still shows the impossible extreme')
+  assert.equal(other.excluded, 0, 'loss of the other copy still shows none of it')
+  assert.ok(known.posterior > 0.95 && other.posterior > 0.95)
 }
 
 // --- 2. SYMMETRY, which is the whole point -------------------------------------------------------
@@ -48,6 +77,8 @@ const otherLost = () => 0.02
     const aa = callDosageOrigin(region('AA', N, f as (i: number) => number), Q)
     const bb = callDosageOrigin(region('BB', N, (i) => 1 - (f as (i: number) => number)(i)), Q)
     assert.equal(aa.verdict, bb.verdict, `${name}: the mirrored region must give the same verdict`)
+    // Symmetry between the two DIRECTIONS holds and is asserted below, but note it does not
+    // protect against a null that is off-centre to begin with, which is why naming is withheld.
     assert.ok(Math.abs(aa.posterior - bb.posterior) < 1e-9,
       `${name}: and the same confidence, got ${aa.posterior} against ${bb.posterior}`)
     assert.equal(aa.excluded, bb.excluded, `${name}: the excluded count must mirror exactly`)
@@ -69,8 +100,8 @@ const otherLost = () => 0.02
   const towardBoth = callDosageOrigin(
     region('AA', N, (i) => (i < decisive ? 0.50 : 0.02)), Q,
   )
-  assert.equal(towardKnown.verdict, 'known-parent-lost')
   assert.equal(towardBoth.verdict, 'both-present')
+  assert.equal(towardKnown.verdict, 'refused', 'named class withheld, evidence still reported')
   assert.ok(Math.abs(towardKnown.posterior - towardBoth.posterior) < 1e-6,
     'the same weight of evidence must buy the same confidence in either direction, got '
     + `${towardKnown.posterior} against ${towardBoth.posterior}`)
@@ -78,13 +109,13 @@ const otherLost = () => 0.02
 
 // --- 4. not a constant ---------------------------------------------------------------------------
 {
-  const seen = new Set([
-    callDosageOrigin(region('AA', N, bothPresent), Q).verdict,
-    callDosageOrigin(region('AA', N, knownLost), Q).verdict,
-    callDosageOrigin(region('AA', N, otherLost), Q).verdict,
-    callDosageOrigin(region('AA', 100, bothPresent), Q).verdict,
-  ])
-  assert.ok(seen.size >= 3, `a caller that says one thing is useless, saw ${[...seen].join(',')}`)
+  // The two decisive bands together, since neither separates all three states alone: both-present
+  // and other-parent-lost share an excluded count of zero and differ only in the middle band.
+  const sig = [bothPresent, knownLost, otherLost].map((f) => {
+    const c = callDosageOrigin(region('AA', N, f), Q)
+    return `${c.excluded}/${c.middle}`
+  })
+  assert.ok(new Set(sig).size === 3, `the evidence must vary with the truth, saw ${sig.join(' ')}`)
 }
 
 // --- 5. THE POINT OF THE CHANNEL: it survives a collapsed call rate -------------------------------
@@ -95,8 +126,8 @@ const otherLost = () => 0.02
 // genotype in this function's input at all, which is the design.
 {
   const collapsed = callDosageOrigin(region('AA', N, knownLost), Q)
-  assert.equal(collapsed.verdict, 'known-parent-lost')
-  assert.ok(collapsed.why.includes('collapsed call rate'))
+  assert.ok(collapsed.markers === N, 'every dosage is used, genotype or not')
+  assert.ok(collapsed.excluded > 0, 'and the evidence survives a collapsed call rate')
 }
 
 // --- 6. the impossible bands are what carry the call ----------------------------------------------
@@ -109,8 +140,8 @@ const otherLost = () => 0.02
 
   // An excluded-extreme dosage cannot occur while the loaded parent's copy is present.
   const gone = callDosageOrigin(region('AA', N, () => 0.98), Q)
-  assert.equal(gone.verdict, 'known-parent-lost')
   assert.equal(gone.excluded, N)
+  assert.ok(gone.posterior > 0.99, 'the imbalance is certain even though the class is withheld')
 }
 
 // --- 6b. UNRESOLVED DOSAGE IS REFUSED, NOT SCORED -------------------------------------------------
@@ -131,7 +162,7 @@ const otherLost = () => 0.02
   // A clean region is unaffected by the guard.
   const clean = callDosageOrigin(region('AA', N, knownLost), Q, DOSAGE_NOISE,
     { background: { between: 0.07 } })
-  assert.equal(clean.verdict, 'known-parent-lost')
+  assert.ok(clean.excluded > 0 && clean.between < N / 4, 'a clean region is not caught by the guard')
 
   // And a sample whose whole genome is noisy is not punished for it: the comparison is relative.
   const tolerant = callDosageOrigin(noisy, Q, DOSAGE_NOISE, { background: { between: 0.30 } })
@@ -153,7 +184,7 @@ const otherLost = () => 0.02
     Array.from({ length: N }, (_, i) => ['AA', i % 2 ? null : 0.98] as [AB, number | null]), Q,
   )
   assert.equal(half.markers, N / 2)
-  assert.equal(half.verdict, 'known-parent-lost')
+  assert.ok(half.excluded > 0)
 }
 
 // --- 8. noise costs power rather than buying a wrong answer ---------------------------------------
@@ -167,9 +198,7 @@ const otherLost = () => 0.02
   const smeared = callDosageOrigin(
     region('AA', N, (i) => (i % 10 < Q * 10 ? (i % 3 === 0 ? 0.72 : 0.98) : 0.02)), Q,
   )
-  assert.equal(smeared.verdict, 'known-parent-lost', 'smearing must not change the answer')
-  assert.ok(smeared.posterior <= clean.posterior + 1e-12,
-    'and it must not increase confidence')
+  assert.ok(smeared.posterior <= clean.posterior + 1e-12, 'smearing must not increase confidence')
   assert.ok(smeared.excluded < clean.excluded, 'the decisive count falls, which is the mechanism')
 }
 

@@ -1,0 +1,462 @@
+
+MOSAIC LOSS vs UNRESOLVED READING, FROM BAF ALONE
+Methods consult, 2026-08-14. Egli lab / Berrie, parental-origin calling from Axiom UK Biobank arrays.
+
+Everything below is measured on GSE148488 (135 arrays x 825,656 markers, GRCh37) already ingested in
+this project: 26 blastomere d4, 40-41 TE biopsy d6, 16 ESC line bulk, 4 ESC single-cell WGA, 15
+pronuclei, 12 parental bulk gDNA. Both parents are genotyped there, which gives an obligate-het
+oracle your production case does not have; that oracle is used to bound what the one-parent method
+can possibly achieve. Your own chr16 arrays are not in hand, so verdicts on your two biopsies are
+consistency checks against matched material, not measurements of your samples.
+
+Headline: three of the four premises in the write-up are wrong, and correcting them changes what the
+method should do. The expectation formula is wrong by the factor (2-f). The claim that mosaicism
+lives in the unresolved readings is false at every f. The dispersion/modality statistic is the
+weakest of the candidates, not the right one. The guard is miscalibrated in both directions. And the
+error mode you most fear is worse than you think: below f=0.3 the dominant failure is not a false
+positive, it is a confidently wrong parent, and the null is biased toward one parent.
+
+-------------------------------------------------------------------------------
+Q1. THE SHAPE ARGUMENT AND THE EXPECTED DISTRIBUTION
+-------------------------------------------------------------------------------
+
+1a. E[BAF] = 0.5 + 0.5f is wrong. Correct: 1/(2-f).
+
+An array reads POOLED allele dosage over all DNA in the well, not the average of per-cell BAF. The
+loss removes template, so it changes the denominator too. At a loaded-parent-hom marker, oriented
+with the loaded parent's own allele low, other parent transmitting the alternative allele:
+
+  loaded-parent copy lost in fraction f:  own-allele dose (1-f), other dose 1, total (2-f)
+                                          E[BAF] = 1/(2-f),  displacement +f/(4-2f)
+  other-parent copy lost in fraction f:   E[BAF] = (1-f)/(2-f), displacement -f/(4-2f)
+
+0.5+0.5f is the mean of per-cell BAFs, which implicitly assumes a monosomic cell contributes as much
+DNA as a disomic one. It overstates the displacement by exactly (2-f):
+
+  f          0.05    0.10    0.20    0.30    0.50    0.70    1.00
+  1/(2-f)   0.5128  0.5263  0.5556  0.5882  0.6667  0.7692  1.0000
+  0.5+0.5f  0.5250  0.5500  0.6000  0.6500  0.7500  0.8500  1.0000
+  overstate  1.95x   1.90x   1.80x   1.70x   1.50x   1.30x   1.00x
+
+Max absolute error 0.0858 BAF units at f = 2-sqrt(2) = 0.586. Consequences that bite:
+- your 0.65 band edge is crossed at f=0.46, not 0.30; your 0.85 edge at f=0.82, not 0.70
+- inverting an observed shift d gives f = 4d/(1+2d), not f = 2d, so the stated inversion
+  UNDERSTATES mosaic fraction ~1.8x (d=0.05 -> f=0.182, not 0.100)
+- the shift is exactly additive in logit BAF: -log(1-f), independent of baseline. That is the form
+  to build the likelihood in.
+
+Note the formula is not wrong in general, it is wrong for the mechanism it was written for. For loss
+WITH reduplication of the remaining homologue (copy-neutral LOH, present in this dataset - eysES5
+chr9, obligate-het median BAF 0.836 at log2R 0.034 vs genome -0.001) total DNA is unchanged and
+E[BAF] = (1+f)/2, algebraically identical to 0.5+0.5f. So simple loss and loss-plus-reduplication
+differ ~2x in implied f, and which one chr16 is must be settled from log2R before any f is quoted.
+
+Validation on real data: f=1 endpoint confirmed on haploid pronuclei (maternal PN median oriented
+BAF 0.9694, 90.2% above 0.85, 7 arrays; paternal PN 0.0748, 75.1% below 0.15, 8 arrays) and on real
+whole-chromosome losses in blastomeres (7 chrom-arrays median 0.9662; 6 at 0.0303). Real trisomies
+sit at 0.9993-1.0007 of the pooled-dosage prediction across six stage x direction cells. The
+CURVATURE could not be validated - no region of known intermediate f exists in this dataset - so the
+mid-range rests on the algebra plus the independent agreement of this project's own
+mosaic_titration.csv, whose expected_BAF_CN column already equals 1/(2-f) to 4.9e-5. The correct
+values were already in the project; the spec contradicts an artifact you already have.
+
+1b. Mosaicism does NOT show up in the unresolved readings. The premise is false.
+
+Built empirical logit-BAF noise kernels from 109,726-692,417 real obligate-het readings per stage,
+then applied the corrected shift. The unresolved zone's share of the total band redistribution never
+reaches a majority at any f, at any stage: max 0.478 (TE, call rate>0.90), 0.355 (blastomere,
+cr>0.90), 0.499 (ESC bulk), 0.489 (parent bulk gDNA).
+
+Below f=0.3 in a blastomere the unresolved share is 0.021-0.197 while the extremes take 0.570-0.920.
+At low f the mosaic shift is expressed as a change in the allele-dropout BALANCE - readings tipping
+from one extreme to the other - not as accumulating intermediate readings. The population you are
+characterising is the one the signal mostly is not in.
+
+Worse, the low band is nearly invariant: injecting a real loss at f=0.2 changes the low band by
+-0.02% to -0.5% and the unresolved fraction by a factor of only 1.005-1.05, because the loss moves
+only the ~10-16% of markers that are truly het, and moves them middle -> high, not into the gaps.
+
+1c. "Displaced but still narrow, and noise is wide" - the qualitative half is right, the statistical
+conclusion is wrong.
+
+A pooled dosage change is multiplicative in the allele ratio, hence a rigid TRANSLATION in logit BAF
+with shape unchanged. Measured: logit SD is invariant to f to machine precision (TE 0.9674 at every
+f from 0 to 0.7; blastomere 2.1087 at every f). On the raw BAF scale it moves the wrong way for your
+argument - a mosaic shift makes the distribution slightly NARROWER (blastomere BAF SD 0.3172 at f=0
+-> 0.2942 at f=0.7). Band-width invariance is independently visible in your own
+baf_dosage_bands_measured.csv (per-marker SD euploid/mat_gain/pat_gain 0.3079/0.3005/0.3010
+blastomere; 0.1410/0.1334/0.1337 TE).
+
+So there is no dispersion or modality contrast to exploit: a displaced unimodal band is not a
+resolvable mixture. What IS informative in the unresolved population is its upper/lower ASYMMETRY -
+TE cr>0.90 upper-side fraction 0.530 (f=0), 0.637 (0.1), 0.836 (0.3), 0.940 (0.5).
+
+1d. Discreteness and allelic bias.
+
+f is quantised at 1/n. For n=5 the smallest non-zero step is f=0.2 -> BAF 0.5556 (+0.0556 in one
+jump); n=10 gives 0.5263. Under binomial sampling from an F=0.10 embryo with n=5, P(f=0) = 0.5905 -
+most biopsies of a genuinely mosaic embryo contain no mosaic cell at all. Because 1/(2-f) is convex,
+E[BAF] under the binomial prior slightly exceeds the value at f=F (gap 0.0014-0.0191).
+
+Allelic bias, measured at markers GENETICALLY REQUIRED to be het (both parents informative):
+middle-band depletion 1.3% ESC bulk, 3.2% parent bulk, 51.8% ESC single WGA, 58.5% TE, 68.3%
+blastomere. On blastomeres 61% of known hets fail to read as het and 36% read as a confident
+HOMOZYGOTE. Critically, dropout is near-SYMMETRIC between alleles (median asymmetry -0.008
+blastomere, +0.016 TE; median logit bias -0.015 and +0.036 against a 0.357 shift at f=0.3), so it
+inflates variance without moving the band centre. Exception: the single 2PN zygote array (+0.115).
+
+Your 4.0% middle-band observation reproduces (87.9% own vs your 88.1; middle 4.19% vs your 4.0) but
+your mechanism for it is wrong, and the comparator is wrong. Panel allele frequency should not be
+used: both parents are genotyped, so expected child-het among loaded-parent-hom markers is computed
+directly and is donor-specific (11.1% to 19.9%) - a ~3-fold mismatch, not an order of magnitude. The
+depletion is then fully accounted for by dropout with ~1pp left over (array 4: expected het 11.14% x
+measured het recovery 25.78% = 2.87% predicted vs 4.04% observed, residual +1.17pp; blastomere
+median residual +1.06pp). True hets are not being "pushed out of the middle" by something acting on
+hets; only 25-32% of them are recovered as intermediate readings because the rest dropped an allele.
+This matters for the fix: dropout is a per-marker Bernoulli rate measurable on obligate-het markers
+of the SAME array, hence correctable, whereas "hets pushed out" would imply recalibrating band edges.
+
+Also: the direction of the middle-band artifact REVERSES with quality. Low-quality arrays INFLATE
+the middle band (blastomere rows 109/110/113, call rate 0.565-0.753: observed middle 42.5-44.7%
+against 4.9-5.0% predicted). The same statistic moves both ways depending on call rate. And at
+markers where both parents are hom for the same allele, so the middle band is genetically
+impossible, the false-middle rate runs 0.21% in the highest-intensity bin, 0.83% at normal
+intensity, and 29.6% below log2R -1.5 - a 140-fold range driven purely by template amount.
+
+-------------------------------------------------------------------------------
+Q2. THE RIGHT STATISTIC
+-------------------------------------------------------------------------------
+
+Answer: the signed mean shift of the central mass, self-referenced against the same array's own
+clean genome. Not dispersion, not modality, not a count.
+
+Head-to-head at 1% FPR with the null taken from REAL drifting-diploid segments (not simulated
+noise), TE whole chromosome:
+
+  statistic                        f=0.10  f=0.20  f=0.30  f=0.50
+  mean shift (centroid z)            0.03    0.08    0.17    0.51
+  unresolved count (current guard)    0.01    0.01    0.02    0.17
+  dispersion of unresolved           <=0.06 everywhere except bulk ESC
+  multimodality (dip)                 powerless on the unresolved subset
+
+The dip test is the one candidate carrying information the mean-shift statistics do not - it reaches
+0.30 at f=0.50 on blastomere chromosomes when applied to the FULL analysis set rather than the
+unresolved subset. Keep it as a secondary flag, not the primary.
+
+Recommended primary, concretely: orient loaded parent's allele low; keep loaded-parent-hom markers;
+take the central window 0.20 <= BAF <= 0.80 (median 273 markers per 12 Mb on TE; 1,760-3,187 per
+chromosome); compute window centroid MINUS the same quantity on that array's own clean chromosomes;
+z = shift / sqrt(VIF*sd_window^2/n_window + tau^2) with stage-specific VIF and drift floor tau.
+
+The self-referencing is not optional. Raw one-parent centroid null medians are -0.0014 (ESC bulk),
+-0.0127 (ESC single WGA), -0.0311 (TE), -0.0230 (blastomere), with only 10.7-18.5% of null units
+positive at 12 Mb (Wilcoxon p<1e-6). Subtracting the array's own genome-wide centroid brings the
+null median to -0.001..+0.006 and centres z (mean -0.06..+0.11, sd 0.41-1.01).
+
+Note your specified "z of the segment mean over markers passing a band threshold" fails outright
+(power 0.00 on blastomere and TE at all f): selecting BAF>=0.15 retains only 27-39% true hets, so
+the mean is dominated by wherever the contaminating homozygous low tail sits. The central window
+plus self-referencing is the fix.
+
+Null width, measured, because it sets everything: VIF 1.04/2.14/1.74/2.31 at 12 Mb and
+0.94/3.83/3.34/3.63 per chromosome (ESC bulk / ESC single WGA / TE / blastomere). Bulk ESC is
+essentially white; every amplified stage is not. The floor is systematic within-array DRIFT, not
+sampling: drift floor tau 0.0011/0.0153/0.0123/0.0193 BAF per chromosome, against a sampling term of
+0.0019-0.0102, so drift/sampling is 1.44-1.90 on amplified material. Effective independent markers
+saturate at 247-268 per chromosome from a nominal 896-1101 obligate-het markers - adding markers
+does not help past that point. BAF autocorrelation integral length is 1.00-2.18 Mb, so a 12 Mb
+segment holds only 5.5-12 independent blocks whatever the marker density.
+
+Marker dilution is the other half of the intuition gap. Per 12 Mb: 3,146 markers with a reading ->
+2,223 loaded-parent-hom -> 223-365 expected truly het -> 78-115 obligate het with both parents.
+"3,345 markers with a reading" is the wrong denominator for any power statement; only the last
+number carries the loss signal.
+
+Detection floor at 1% FPR (f50 / f80):
+
+  stage             12 Mb segment        whole chromosome
+  ESC line bulk     0.056 / -           0.025 / 0.040
+  ESC single WGA    0.560 / -           0.213 / 0.443
+  TE biopsy d6      not reached         0.448 / -
+  blastomere d4     not reached         not reached (to f=0.70)
+
+12 Mb segments are out of reach on every amplified stage. A one-parent, one-array blastomere has no
+floor at 1% FPR at any f up to 0.70. Genotyping the second parent is worth ~3x in detectable f and
+is the single largest available improvement without changing statistic: the both-parents oracle
+reaches f50 = 0.135 (TE chromosome) and 0.296 (blastomere chromosome) where the one-parent statistic
+reaches 0.448 and never, respectively.
+
+-------------------------------------------------------------------------------
+Q3. DOES INTENSITY ADD INDEPENDENT INFORMATION
+-------------------------------------------------------------------------------
+
+Yes, the channels are genuinely independent at the measurement level, so a joint term is sound and
+not double counting - but it does not rescue the single blastomere.
+
+Your log2(1-f/2) is CORRECT (total template (1-f)*2 + f*1 = 2-f), so log2R = -0.152 at f=0.20,
+-0.322 at f=0.40. Note log2r_mdd_by_stage.csv sets min_mosaic_f_CN1 = mdd directly, which is ~1.37x
+optimistic on its own terms; the correct inversion is f = 2(1-2^-mdd).
+
+Independence, measured on technical-replicate DIFFERENCES (52 array pairs from 20 replicate groups,
+53 arrays): r = -0.055 (ESC bulk, 24 pairs), -0.007 (TE, 15 pairs), +0.036 (blastomere, 13 pairs).
+At |r|<=0.06
+quadrature addition is safe. But replicate MEANS correlate up to -0.259 (TE) and -0.33..-0.46 for
+unresolved fraction at W=10000, sign indicating a common amplification artefact (poor amplification
+lowers intensity and raises unresolved BAF) rather than a common copy-number signal. If TE biopsies
+are the main application, fit a residual correlation parameter rather than assuming orthogonality.
+
+Single-array f80 at W=3300 (BAF / intensity / joint):
+  ESC line bulk    0.100 / 0.436 / 0.098   (+2.0%)
+  TE biopsy d6     0.525 / 0.505 / 0.387   (+26.3%)
+  ESC single WGA   0.553 / 0.327 / 0.295   (+46.7%)
+  blastomere d4    0.988 / 0.660 / 0.603   (+38.9%)
+
+Two things worth internalising. First, intensity is the STRONGER channel on WGA material -
+z(log2R)/z(BAF) at f=0.20 is 0.20 on bulk ESC but 1.16 (TE), 2.03 (ESC single WGA), 2.31
+(blastomere) - because WGA destroys allelic balance more than total dosage. Second, intensity is
+PARENT-BLIND: on haploid pronuclei (a natural f=1 experiment with known origin) autosomal median
+log2R is 0.0837 maternal vs 0.0750 paternal, t=0.64 p=0.536, indistinguishable, while the oriented
+high-band fraction at father-hom markers is 0.1113 vs 0.0050, t=85.0 p=1.3e-15. So intensity can
+inform the copy-number STATE and never the ORIGIN.
+
+That makes them complementary on the state axis, which is the real argument for combining. At f=0.20
+(log2R / oriented BAF shift): loss of loaded copy -0.152/+0.056; loss of other copy -0.152/-0.056;
+CN-neutral mosaic UPD 0.000/+0.100; mosaic trisomy +0.138/-0.045; contamination 0.000/0.000.
+Intensity separates loss from UPD, which BAF cannot; BAF separates the two losses, which intensity
+cannot.
+
+Caveat on the intensity floor: drift dominates there too. Blastomere W=2400 technical same-DNA log2R
+SD is 0.0077 against single-array window-to-window SD 0.2209, a factor of 29, of which 0.1848 is
+between-chromosome offsets - i.e. whole-chromosome-scale drift indistinguishable from a
+whole-chromosome copy change. And it does not average down: 0.2083 -> 0.1400 from W=600 to W=10000
+(17x more markers), a factor of 1.49 against the 4.1 white noise predicts.
+
+-------------------------------------------------------------------------------
+Q4. CAN THIS EVER BE DONE ON A SINGLE CELL
+-------------------------------------------------------------------------------
+
+Your assumption is right in spirit but the guard is right for the wrong reason, and there are real
+exceptions.
+
+A single cell cannot be fractionally mosaic, so an intermediate POOLED dosage in one cell is not a
+mosaic fraction. But intermediate readings in one cell are not always measurement failure either:
+- S-phase replication. A locus that has replicated on one homologue only sits at 2:1 dosage. Cleavage
+  stage blastomeres are cycling and biopsied without cell-cycle synchronisation.
+- Subchromosomal duplication or unbalanced rearrangement, which genuinely gives 2:1 at CN3.
+- Copy-neutral LOH plus a duplication elsewhere in the same interval.
+- Two nuclei in one "cell", or a binucleate blastomere - a real pooled mixture in one sample.
+The measured signature that distinguishes these from noise is that they are SEGMENTAL and coherent
+in position, while dropout noise is per-marker independent. That is where the spatial argument you
+wanted actually applies - along the chromosome, not within the reading distribution.
+
+Empirically the single blastomere is hopeless for f-estimation regardless: no detection floor at 1%
+FPR at any f to 0.70 for one parent and one array, per-marker BAF SD 0.312, and 61% of obligate hets
+failing to read as het. Refusing is correct there. But refuse on measured call rate and dropout rate
+directly, not on the unresolved-fraction proxy, which is what the current guard actually keys on.
+
+-------------------------------------------------------------------------------
+Q5. WHAT THE LITERATURE ALREADY DOES
+-------------------------------------------------------------------------------
+
+Verdict: no published statistic solves your problem. Adopt definitions, re-derive floors.
+
+The split is clean. Methods built for EMBRYOS that stratify BAF by parental genotype publish no
+mosaic-fraction floor, no error model and no noise-vs-mosaicism test, and all need both parents.
+Methods that are statistically mature and publish floors down to 1-4% were validated on bulk
+multi-cell gDNA and need either a huge phasing cohort or a complete trio.
+
+- Haplarithmisis (Zamani Esteki 2015). Its stated purpose is to make haplotyping SURVIVE WGA
+  distortion of BAF - WGA artefact is absorbed as noise by the parental-category structure, never
+  tested against a mosaic hypothesis. Where the current implementation reports a mosaic level
+  (Nat Commun 2024) it extracts segmented phased BAF at the logR breakpoint and looks it up against
+  the Conlin reference dataset: a lookup, with no null distribution, no CI, no FPR. Resolution
+  stated only as ">10%".
+- APCAD (Verdyck 2021, 2023). Maternal-contribution BAF at markers where parents are hom for
+  different alleles, decision boundary <36.4% or >63.6%. 57/59 meiotic trisomies and 57/57 monosomies
+  detected - but 32/7,436 chromosomes called normal by karyomapping showed the same skew and could
+  not be adjudicated. Needs BOTH parents by construction.
+- GENType (Verdyck 2024), the closest material match - 1,523 TE biopsies, ~102,000 SNPs, mean ADO
+  18.6%, drop-in 1.57%. Uses BAF as a BINARY only, and states verbatim that differentiating
+  mosaicism degrees through BAF analysis could not be conducted due to technical limitations. Its
+  cell-mixing ladder was 10 cells in 30% steps, logR only.
+- MoChA (Loh 2018/2020), same Axiom platform family, 607,525 variants, bulk blood from 151,202
+  people: cell fractions to 1%, 5,901/8,342 events below 5%. Requires a ~150k-sample phasing
+  reference. Two directly reusable items: the sample QC gate "exclude if median SD(BAF) at het sites
+  > 0.11", and the precedent that 29% of its events were left UNASSIGNED to loss/CNN-LOH/gain
+  because power to detect imbalance exceeded power to resolve copy state - the published response to
+  your exact dilemma was to report the event without a class rather than force a call.
+- triPOD (trios, ~600k SNPs): BAF deviation <0.04 maps to <8.5% mosaicism for UPD/deletion but <24%
+  for amplification. Authors state validating false positives below 5% mosaic is largely infeasible.
+- MAD b-deviation (Illumina 1M): near-perfect ROC only when quality good AND f>=20%; simulated het
+  BAF SD 0.03 good / 0.10 noisy - against ~19% ADO on WGA few-cell material.
+- Jacobs 2012 (bulk): CNN-LOH and loss detectable at f 7-95%, single-copy GAIN only 22-88%.
+
+Two corrections to premises in the write-up. PGT-A labs do not call mosaicism in a validated
+analytical sense: ESHRE's 239-centre survey found 58.7% (54/92) of centres quoting a mosaicism range
+had NOT validated their technology for detecting mosaicism, rebiopsy concordance for mosaic calls is
+42.6% (123/289) vs 93.7% euploid, and the 20/80 and 30/70 figures are REPORTING bands, not detection
+limits. And the widely cited "20% detection limit in cell-line mixtures" is not supported by its
+source: the mixtures were made at 0/30/50/70/100%, so 20% was never tested.
+
+Also split your floor by event class: gains are ~3x worse than losses in two independent bulk studies,
+because a single-copy gain shifts BAF one third as much.
+
+-------------------------------------------------------------------------------
+Q6. FAILURE MODE AND ITS DIRECTION
+-------------------------------------------------------------------------------
+
+This is the answer that should change your practice most.
+
+The dominant error below f=0.3 is not a false positive for mosaicism. It is a confidently WRONG
+PARENT. Scored two-sided at total FPR 1%, with loss of the loaded parent's copy as the true event so
+the correct sign is positive, fraction of DETECTIONS naming the wrong parent:
+
+  f                        0.05   0.10   0.15   0.20   0.30   0.50
+  TE, 12 Mb segment        1.00   0.86   0.71   0.50   0.15   0.03
+  blastomere, chromosome   1.00   1.00   1.00   0.33   0.17   0.00
+
+It does not become tolerable until f >= 0.30. And a wrong call can be arbitrarily confident: on the
+honest null with NO event present, the wrong-sign tail of the both-parents oracle median z reaches
+-15.86 at the 0.1st percentile and -19.98 at the extreme on TE 12 Mb segments, with 0.6% of null
+units beyond |z|=10. The single worst null unit has a signed median BAF shift of -0.464 on a
+chromosome independently verified diploid. Posterior 1.0000 on noise is not a bug you fixed; it is
+reachable whenever the statistic is not self-referenced.
+
+The failure is DIRECTIONAL, not symmetric, and it points at the wrong parent. The raw one-parent
+null median is negative at every amplified stage (TE -0.031, blastomere -0.023), meaning the loaded
+parent's own allele appears in excess, which the method reads as the OTHER parent having lost its
+copy. The -0.031 on TE is the shift a true event of f=0.117 would produce. So an uncorrected
+one-parent method has a standing bias toward calling loss of the parent you did NOT genotype.
+
+Mechanism: dropout at hom markers is symmetric, but the ORIENTATION step is not - the loaded
+parent's own allele is the one you can always identify, and dropout of the other parent's allele
+therefore moves readings toward the loaded parent's allele more often than the reverse.
+
+Which way my recommendation trades off: it refuses more than you currently do at 12 Mb on amplified
+material, and it detects less at low f than the current guard appears to. That is the honest
+direction, since the current guard's apparent sensitivity is not sensitivity - its power at f<=0.3 is
+0.01-0.02.
+
+-------------------------------------------------------------------------------
+YOUR THREE CASES
+-------------------------------------------------------------------------------
+
+The blastomere chr1. It is a call-rate artefact end to end, and it is not a blastomere. All ten
+quoted figures match array 128 (GSM4774681), a paternal PRONUCLEUS: chr1 27.8/7.2/50.4/5.2/37.3
+against your 30.7/7.7/49.7/5.4/37.2, rest-of-genome 83.0/89.1/3.7/0.55/6.7 against your
+83.7/88.1/4.0/0.9/7.1. Against real verified-euploid chromosomes matched on call rate 0.25-0.37
+(n=25) the chr1 profile is unremarkable (own 0.077 vs 0.053, middle 0.497 vs 0.551, unresolved 0.372
+vs 0.357; max discrepancy 0.054). The 3x guard refuses it (ratio 5.24) - right verdict, wrong reason,
+since it is refusing on a proxy for call rate. And the underlying biology is the opposite of "pure
+noise": the paternal chr1 is genuinely ABSENT, only 10.0% of chr1 markers reach log2R>-0.5 vs 77.2%
+elsewhere, so BAF there carries no dosage information and collapses toward 0.5, reading apparently
+foreign maternal alleles in 74.7-77.5% of readings - impossible in a paternal-only nucleus. A region
+can be a genuine COMPLETE loss and still produce a middle-band-rich profile that a band-occupancy
+likelihood reads as "both copies present". That is the failure your v1 hit.
+
+The two chr16 TE biopsies. Ratios 4.27 and 3.39, both refused, but only 1.13x and 1.42x over the
+guard's threshold and both inside the ordinary range of clean TE material, whose null 99th percentile
+ratio is 6.74 and where 3x already fires on 5.5% of genuinely clean 12 Mb segments. On a correctly
+calibrated 1% threshold neither would be refused. Their unresolved counts are quantitatively
+consistent with a real mosaic loss (f=0.325 and f=0.292 against a high-quality-TE background of
+9.18%, close to your ~7%) - but note the estimate is two-valued because the unresolved count is
+non-monotone, and the high branch (f=0.87/0.89) is excluded only by your genotype channel's
+"both copies present".
+
+Do NOT treat the agreement between the two biopsies as evidence. Under the null with no event
+present, this statistic already correlates 0.726-0.739 between replicate arrays of one biopsy, and
+per-12Mb unresolved fraction correlates 0.91. The drift is a reproducible property of the DNA and
+its amplification, so two biopsies of one embryo are EXPECTED to agree under the null.
+
+Correct output for these two: "not evaluable at this interval width and stage" - a 12 Mb TE interval
+carries ~273 central-window markers and has no floor at any f - not a refusal framed as QC failure,
+and not a call.
+
+-------------------------------------------------------------------------------
+WHAT TO CHANGE
+-------------------------------------------------------------------------------
+
+1. Replace 0.5+0.5f with 1/(2-f) and (1-f)/(2-f); build the likelihood in logit space where the
+   shift is additive, -log(1-f). Decide simple loss vs loss-with-reduplication from log2R first,
+   since they differ ~2x in implied f.
+2. Replace the unresolved-fraction guard. It is non-monotone in f, unreachable in blastomeres
+   (max attainable ratio 2.03x vs a 3x threshold), and refuses 2.1-10.7% of genuinely clean
+   segments. Split its two jobs: QC on measured call rate and dropout rate at obligate-het markers;
+   evidence on the signed centroid shift.
+3. Self-reference every statistic against the same array's own clean genome. Without it the null
+   carries a -0.031 (TE) directional bias pointing at the wrong parent.
+4. Report a copy-number event without a parental class when |z| clears detection but the sign is not
+   secure - the MoChA precedent, 29% of events left unassigned. This is the direct answer to "a
+   wrong answer looks exactly like a right one".
+5. Do not attempt parental calls on 12 Mb intervals in amplified material, and do not attempt them
+   at all on single blastomeres with one parent. Report not-evaluable.
+6. Genotype the second parent wherever possible: ~3x in detectable f, the largest single gain
+   available.
+7. Add the intensity channel as a joint term with a residual correlation parameter on TE material.
+   It buys 26-47% on WGA/TE, 2% on bulk, and it is the only channel that separates loss from UPD.
+8. Adopt the MoChA sample gate: exclude arrays with median SD(BAF) at het sites > 0.11.
+
+-------------------------------------------------------------------------------
+LIMITS OF THIS ANALYSIS
+-------------------------------------------------------------------------------
+
+- No f-titrated ground truth exists in GSE148488. The aberrant classes available are constitutive
+  single copy (male chrX, haploid pronuclei) and real whole-chromosome losses/trisomies, so the
+  f=1 endpoint and the noise kernels are MEASURED while every f-dependent power number is the
+  corrected shift imposed on real per-marker noise. The curvature of 1/(2-f) is not empirically
+  validated here.
+- Your chr16 arrays are not in hand. Those verdicts are consistency checks against matched TE
+  material, not measurements of your samples.
+- Band-redistribution and power tables assume the mosaic region has the same noise kernel as the
+  euploid region. A real mosaic region has less template and hence a wider kernel, so those numbers
+  are optimistic.
+- The blastomere clean set is ~52% of prior-diploid chromosomes and 42/108 progeny arrays were
+  excluded, so blastomere figures come from the cleaner tail of that material and if anything
+  understate its noise. ESC single WGA rests on 4 arrays from 2 lines, the 2PN zygote on 1 array -
+  indicative only.
+- Leave-one-array-out calibration holds 1% FPR on average (0.012-0.045) but individual arrays reach
+  0.125-0.136, i.e. 12-14x nominal. Thresholds must be per-array adaptive or the FPR is an average
+  over arrays, not a guarantee for one.
+- Two inter-track disagreements left standing rather than reconciled. Effective markers per
+  blastomere chromosome: ~17 from the intensity autocorrelation route vs 247 from BAF segment-mean
+  scatter - different channels, and consistent with BAF being much less spatially structured than
+  log2R, but confirm which applies before using either. Within-array log2R SD at W=10000: 0.186 here
+  vs 0.069 in log2r_noise_decomposition.csv, likely because fixed consecutive-marker windows retain
+  between-chromosome offsets that the earlier artifact removed; the drift-inclusive value is the
+  right one for a single-array no-reference call.
+- I disagree with mosaic_titration.csv on power (it reports 0.875 at f=0.20 whole-chromosome and
+  0.583 at seg1200; I measure 0.06-0.88 whole-chromosome depending on stage and 0.02-0.06 at 12 Mb).
+  The difference is the null: its is the clean euploid set, mine is the real drifting-diploid set
+  with the threshold calibrated on it, and it pools stages where I stratify. Its own footnote
+  (perchrom_z_fails_on_A8_genomewide_deviation = True) is the same failure measured directly.
+- Four primary full texts were not accessible and are recorded from abstracts only: Zamani Esteki
+  2015, Conlin 2010, GENType 2022 Hum Reprod, APCAD part 1 2021. The Conlin gap matters most - it is
+  the empirical BAF-to-mosaic-percentage table that WGS-haplarithmisis uses, its material is
+  constitutional DNA with no WGA, and transferring that calibration to MDA-amplified 5-cell biopsies
+  is an unvalidated step. Get it through the library before quoting any haplarithmisis-derived level.
+  PGDIS 2019/2021 position statements were not retrieved; do not quote their bands from here.
+- 31 literature records were checked for retractions and corrections: none retracted, two
+  corrections recorded. No source was found applying a phase-based mosaic caller to embryo material,
+  or reporting a mosaic detection floor for BAF on WGA few-cell material of any kind. That absence is
+  why the measurement tracks above are load-bearing rather than confirmatory.
+- All analysis autosomal (803,906 of 825,656 markers), GRCh37 as deposited. probe_class.npy is
+  per-array, not a static annotation, and was not used as a marker mask. vendor_cn.npy is unusable
+  as a cleanliness gate on amplified material (median frac CN=2 is 0.97 bulk ESC but 0.10-0.22 TE
+  and blastomere).
+
+References
+Zamani Esteki 2015, haplarithmisis - https://doi.org/10.1016/j.ajhg.2015.04.011
+Haplarithmisis WGS implementation 2024 - https://doi.org/10.1038/s41467-024-51508-1
+Verdyck 2021, APCAD - https://doi.org/10.1016/j.rbmo.2021.10.023
+Verdyck 2023, APCAD part 2 - https://doi.org/10.3390/genes16020115
+Verdyck 2024, GENType - https://doi.org/10.1093/hropen/hoae056
+Loh 2018, MoChA - https://doi.org/10.1038/s41586-018-0321-x
+Loh 2020, MoChA full cohort - https://doi.org/10.1038/s41586-020-2430-6
+Rodriguez-Santiago / Jacobs 2012 - https://doi.org/10.1038/ng.2270
+triPOD - https://doi.org/10.1186/1471-2164-14-367
+MAD b-deviation - https://doi.org/10.1186/1471-2105-12-166
+hapLOH - https://doi.org/10.1371/journal.pcbi.1003765
+ESHRE mosaicism survey - https://doi.org/10.1093/hropen/hoac044
+Capalbo 2021 - https://doi.org/10.1016/j.ajhg.2021.11.002
+Garcia-Pascual 2020 - https://doi.org/10.3390/genes11070724
+Machiela 2015 - https://doi.org/10.1016/j.ajhg.2015.01.011

@@ -18,6 +18,17 @@
  * the loaded parent is HOMOZYGOUS, and orient so that parent's own allele is A and the allele it
  * lacks is B. The parent can transmit only A. So:
  *
+ * NOTE ON THE PARTIAL CASE, corrected. An earlier version of this reasoning assumed a mosaic
+ * fraction f displaces the expected dosage to 0.5 + 0.5f. That is the mean of PER-CELL frequencies
+ * and assumes a monosomic cell contributes as much DNA as a disomic one. An array reads POOLED
+ * dosage, and the loss removes template from the denominator too, so the correct expectation is
+ * 1/(2-f), which is smaller by a factor of (2-f) and overstates displacement up to 1.95x at low f.
+ * The 0.65 band edge is crossed at f = 0.46 rather than 0.30. In logit space the shift is additive,
+ * -log(1-f), which is the form a likelihood should be built in. Loss WITH reduplication of the
+ * remaining homologue is the exception: total DNA is unchanged and the expectation really is
+ * (1+f)/2, so the two mechanisms differ about twofold in implied f and must be separated by log2R
+ * before any fraction is quoted.
+ *
  *     both copies present     the other parent gave B (rate q) -> AB, dosage in the MIDDLE band
  *                             the other parent gave A          -> AA, dosage LOW
  *     the loaded parent's     only the other parent's allele is there, one copy:
@@ -128,6 +139,31 @@ export const DEFAULT_DOSAGE_Q = 0.30
 
 export const MAX_BETWEEN_RATIO = 3
 export const MAX_BETWEEN_FLOOR = 0.15
+
+/**
+ * WITHDRAWN FROM NAMING A PARENT, pending a rebuild. An external methods review measured what this
+ * statistic does on real material and the result is disqualifying as written.
+ *
+ * THE NULL POINTS AT THE WRONG PARENT. Raw one-parent centroid null medians are -0.031 on
+ * trophectoderm and -0.023 on blastomeres, meaning the loaded parent's own allele appears in excess
+ * under no event at all, which this reads as the OTHER parent having lost its copy. On TE that
+ * -0.031 is the shift a genuine mosaic fraction of 0.117 would produce. The mechanism is the
+ * orientation step itself: the loaded parent's allele is the one always identifiable, so dropout of
+ * the other parent's allele moves readings toward it more often than the reverse. Symmetry between
+ * the two DIRECTIONS of the statistic, which this module's check asserts and which holds, does not
+ * protect against a null that is off-centre to begin with.
+ *
+ * AND THE ERROR IS CONFIDENT. On the honest null with no event present, the wrong-sign tail reaches
+ * z = -15.9 at the 0.1st percentile, with 0.6% of null units beyond |z| = 10. Posterior 1.0000 on
+ * noise is reachable whenever the statistic is not self-referenced against the same array's own
+ * clean genome, which this one is not. Below f = 0.3 the fraction of detections naming the WRONG
+ * parent is 0.50 to 1.00.
+ *
+ * So this channel now reports the EVENT and withholds the CLASS, which is the published response to
+ * exactly this dilemma: MoChA left 29% of its events unassigned because power to detect an
+ * imbalance exceeded power to resolve which imbalance it was.
+ */
+export const NAMES_A_PARENT = false
 
 export type DosageVerdict =
   | 'known-parent-lost'
@@ -284,6 +320,19 @@ export function callDosageOrigin(
   const post = w.map((x) => x / sum)
   const best = post.indexOf(Math.max(...post))
   const names: DosageVerdict[] = ['both-present', 'known-parent-lost', 'other-parent-lost']
+
+  // The class is withheld until the statistic is self-referenced. See NAMES_A_PARENT.
+  if (!NAMES_A_PARENT && best !== 0) {
+    return {
+      ...base, verdict: 'refused', posterior: post[best],
+      why: `an imbalance is present at posterior ${post[best].toFixed(4)} over ${n} markers, but `
+        + 'this channel does not name a parent for it. Its null is not self-referenced against the '
+        + 'array\'s own genome and is measured off-centre by -0.031 on trophectoderm, which is the '
+        + 'shift a mosaic fraction of 0.117 would produce, in the direction of the parent that was '
+        + 'NOT genotyped. Below a fraction of 0.3, half to all of such detections name the wrong '
+        + 'parent. The event is reported; the class is withheld',
+    }
+  }
   const pctOf = (x: number) => `${((100 * x) / n).toFixed(1)}%`
 
   if (post[best] < need) {

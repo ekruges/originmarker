@@ -9,6 +9,66 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.11.0 "Diakinesis"
+
+The dosage channel stops naming a parent. A methods review measured its null and the result is
+disqualifying as written.
+
+### Fixed
+
+- **The one-parent null is off-centre, and it points at the parent that was NOT genotyped.** Raw
+  centroid null medians are -0.031 on trophectoderm and -0.023 on blastomeres under NO event at
+  all. On TE that offset is the shift a genuine mosaic fraction of 0.117 would produce. The
+  mechanism is the orientation step itself: the loaded parent's allele is the one always
+  identifiable, so dropout of the other parent's allele moves readings toward it more often than
+  the reverse. This module's check asserts symmetry between the two DIRECTIONS of the statistic and
+  that assertion holds; it does not protect against a null that is off-centre to begin with, which
+  is a distinction worth keeping in mind about symmetry tests generally.
+
+- **And the error is confident.** On the honest null the wrong-sign tail reaches z = -15.9 at the
+  0.1st percentile, with 0.6% of null units beyond |z| = 10. Below a mosaic fraction of 0.3, the
+  proportion of detections naming the WRONG parent runs 0.50 to 1.00. Posterior 1.0000 on noise is
+  not a bug that was fixed in 4.10.0; it is reachable whenever the statistic is not self-referenced
+  against the array's own clean genome, which this one is not.
+
+  The channel now reports the EVENT and withholds the CLASS. That is the published response to this
+  exact dilemma: MoChA left 29% of its events unassigned because power to detect an imbalance
+  exceeded power to resolve which imbalance it was.
+
+### Corrected
+
+- **The mosaic expectation was wrong by a factor of (2-f).** An earlier note reasoned that a mosaic
+  fraction f displaces the expected dosage to 0.5 + 0.5f. That is the mean of PER-CELL frequencies
+  and assumes a monosomic cell contributes as much DNA as a disomic one. An array reads POOLED
+  dosage and the loss removes template from the denominator too, so the correct expectation is
+  1/(2-f). The old form overstates displacement up to 1.95x at low f, puts the 0.65 band edge at
+  f = 0.30 where it truly sits at 0.46, and understates an inverted fraction about 1.8x. In logit
+  space the shift is additive, -log(1-f), which is the form to build a likelihood in. Loss WITH
+  reduplication is the exception, where total DNA is unchanged and (1+f)/2 is right, so the two
+  mechanisms differ about twofold in implied f and must be separated by log2R before any fraction
+  is quoted.
+
+- **Mosaicism does not live in the unresolved readings**, which was the premise the guard added in
+  4.10.0 rests on. Measured across stages, the unresolved zone's share of band redistribution never
+  reaches a majority at any f. Below f = 0.3 in a blastomere it is 0.02 to 0.20 while the extremes
+  take 0.57 to 0.92: at low f the shift is a change in the allele-dropout BALANCE, readings tipping
+  from one extreme to the other, not intermediate readings accumulating.
+
+- **Two biopsies of one embryo agreeing is not evidence.** Under the null with no event, this
+  statistic correlates 0.73 between replicate arrays and the unresolved fraction correlates 0.91,
+  because the drift is a reproducible property of the DNA and its amplification. The agreement
+  between the two chr16 biopsies was quoted here as an internal consistency check; it is not one.
+
+- **The blastomere in the 4.10.0 note is a paternal pronucleus** (GSM4774681), not a blastomere,
+  and its chr1 is genuinely absent rather than noise: only 10.0% of its chr1 markers reach
+  log2R > -0.5 against 77.2% elsewhere. A region can be a complete loss and still produce a
+  middle-band-rich profile that a band-occupancy likelihood reads as "both copies present". The 3x
+  guard refused it for the wrong reason, keying on a proxy for call rate.
+
+The review is committed at `audit/MOSAIC-AUDIT.txt` with its own limits section.
+
+---
+
 ## 4.10.3 "Diplotene"
 
 ### Reverted
