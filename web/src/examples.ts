@@ -1,10 +1,16 @@
 /**
  * Public arrays that load with one click, so the tool can be tried without a family's data.
  *
- * Every one is a GEO release file from Zuccaro et al. 2020 (GSE148488), an Egli lab study of
- * human zygotes. They are subsets: every eighth marker, and the two columns this tool never
- * reads are dropped. No value is rounded or altered, and the calls below are the ones the full
- * 825,657-marker files produce, so the demonstration is the real one at a tenth of the download.
+ * Every one is a GEO release file, from two series on the same Affymetrix Axiom platform:
+ * GSE148488, an Egli lab study of human zygotes, and GSE290961, a later deposit from the same
+ * laboratory that carries a second family. They are subsets at every eighth marker. No value is
+ * rounded or altered.
+ *
+ * WHAT THE SUBSET COSTS, since it is not nothing. Linkage, stage inference and whole-chromosome
+ * events all survive it, because each uses either the whole genome or a whole chromosome. A
+ * SEGMENTAL change does not: the caller's resolution floor is 2,400 informative markers, and a
+ * 12 Mb region holds about 390 at this density. So no example here shows a segmental call, and
+ * that is a property of the download size rather than of the samples.
  */
 export interface Example {
   /** GEO sample accession, which is also the filename stem. */
@@ -16,9 +22,13 @@ export interface Example {
 }
 
 export const EXAMPLE_SERIES = 'GSE148488'
+/** The second series, which supplies the donor-and-two-children family. */
+export const EXAMPLE_SERIES_2 = 'GSE290961'
 export const EXAMPLE_CITATION =
   'Zuccaro MV et al. Allele-specific chromosome removal after Cas9 cleavage in human embryos. '
-  + 'Cell 2020;183(6):1650-1664. GEO GSE148488, Affymetrix Axiom, GRCh37.'
+  + 'Cell 2020;183(6):1650-1664. GEO GSE148488, Affymetrix Axiom, GRCh37. '
+  + 'Second family from GEO GSE290961, same platform and laboratory, cited by accession because '
+  + 'no associated publication was confirmed for it.'
 export const EXAMPLE_STRIDE = 8
 export const EXAMPLE_MARKERS = 103_207
 
@@ -63,6 +73,35 @@ export const EXAMPLES: Example[] = [
       + '0.66% opposite-homozygote rate with a second parental contribution at 14.7% of 74,399 '
       + 'informative markers, and no chromosomal change anywhere. Every other sample below is a '
       + 'refusal or a negative, which made the set read as though the tool only ever says no',
+  },
+  {
+    gsm: 'GSM8826446',
+    file: 'GSM8826446_donor_bulk.subset.csv.gz',
+    role: 'sample',
+    what: 'a second family: bulk DNA of a different donor, from GSE290961',
+    expect: 'unrelated to the sperm donor above, as it should be. Load it as the donor instead and '
+      + 'the two samples below become its children. It is here so the set contains a second '
+      + 'family rather than one donor and a row of negatives',
+  },
+  {
+    gsm: 'GSM8826445',
+    file: 'GSM8826445_child_bulk.subset.csv.gz',
+    role: 'sample',
+    what: 'that donor\'s child, as bulk DNA',
+    expect: 'against GSE290961\'s donor: a child at a 1.11% opposite-homozygote rate with a second '
+      + 'parental contribution at 9.0% of 81,217 informative markers. Read as bulk material, '
+      + '98.5% called and 17.5% heterozygous, so the dropout inferred from it is 0.008',
+  },
+  {
+    gsm: 'GSM8826436',
+    file: 'GSM8826436_child_singlecell.subset.csv.gz',
+    role: 'sample',
+    what: 'the same donor\'s child, as a single amplified cell',
+    expect: 'the same relationship read from far worse material, which is the comparison worth '
+      + 'making. A child at 1.82% opposite-homozygote with a 8.7% second contribution, but 91.4% '
+      + 'called and 13.6% heterozygous, so the inferred dropout is 0.193 rather than 0.008. '
+      + 'Nothing was declared: the tool reads the amplification off the array itself, and every '
+      + 'threshold downstream moves with it',
   },
   {
     gsm: 'GSM4472398',

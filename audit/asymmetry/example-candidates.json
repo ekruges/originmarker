@@ -1,0 +1,94 @@
+{
+ "dir": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/3c118711-4d48-4e68-8965-a274aeadc9c7/scratchpad/gse290961",
+ "stride": 8,
+ "parents": [
+  "GSM8826455",
+  "GSM8826481",
+  "GSM8826446",
+  "GSM8826452",
+  "GSM8826351",
+  "GSM8826349",
+  "GSM8826445",
+  "GSM8826454",
+  "GSM8826453"
+ ],
+ "found": [
+  {
+   "parent": "GSM8826455",
+   "child": "GSM8826348",
+   "opp": 0.01214763828328934,
+   "second": 0.11001946787800129,
+   "stage": "bulk",
+   "bafSd": 0.13312148581708427,
+   "callRate": 0.9623862722489753,
+   "events": [],
+   "dosageUsable": false
+  },
+  {
+   "parent": "GSM8826446",
+   "child": "GSM8826436",
+   "opp": 0.01816998191681736,
+   "second": 0.08733826247689463,
+   "stage": "single-cell",
+   "bafSd": 0.24750857665221604,
+   "callRate": 0.9134845504665381,
+   "events": [],
+   "dosageUsable": false
+  },
+  {
+   "parent": "GSM8826446",
+   "child": "GSM8826445",
+   "opp": 0.011095925630235044,
+   "second": 0.09007966312471527,
+   "stage": "bulk",
+   "bafSd": 0.07898090084183043,
+   "callRate": 0.9844971755791758,
+   "events": [],
+   "dosageUsable": true
+  },
+  {
+   "parent": "GSM8826452",
+   "child": "GSM8826436",
+   "opp": 0.018220265338045303,
+   "second": 0.08634492979925631,
+   "stage": "single-cell",
+   "bafSd": 0.24750857665221604,
+   "callRate": 0.9134845504665381,
+   "events": [],
+   "dosageUsable": false
+  },
+  {
+   "parent": "GSM8826452",
+   "child": "GSM8826445",
+   "opp": 0.012028869286287089,
+   "second": 0.09092818662580932,
+   "stage": "bulk",
+   "bafSd": 0.07898090084183043,
+   "callRate": 0.9844971755791758,
+   "events": [],
+   "dosageUsable": true
+  },
+  {
+   "parent": "GSM8826351",
+   "child": "GSM8826348",
+   "opp": 0.011965376782077392,
+   "second": 0.10110988214653495,
+   "stage": "bulk",
+   "bafSd": 0.13312148581708427,
+   "callRate": 0.9623862722489753,
+   "events": [],
+   "dosageUsable": false
+  },
+  {
+   "parent": "GSM8826349",
+   "child": "GSM8826348",
+   "opp": 0.011794644516562541,
+   "second": 0.09989705314631321,
+   "stage": "bulk",
+   "bafSd": 0.13312148581708427,
+   "callRate": 0.9623862722489753,
+   "events": [],
+   "dosageUsable": false
+  }
+ ]
+}
