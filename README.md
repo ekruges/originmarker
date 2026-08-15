@@ -77,37 +77,30 @@ Version history and the bugs each release fixed: [CHANGELOG.md](CHANGELOG.md).
 
 Accuracy audit, 27 public arrays with bench-established answers: [audit/](audit/).
 
-## License
-
-[Apache 2.0](LICENSE).
-
 ## Command line
 
-The browser tool infers everything and offers no knobs, on purpose. `om` is the other end of that:
-every constant is a flag, the intermediate quantities print, and the batch commands take a
-directory. It imports the same modules the web app runs, so it cannot drift from it or skip a
-guard, and any command run off its shipped defaults says so in its own output.
+`om` exposes the same modules the browser runs, with every constant as a flag. The web tool infers
+them all and offers no knobs on purpose; this does the opposite.
 
 ```bash
 node --experimental-strip-types cli/om.ts constants
 ```
 
-| command | what it does |
+| | |
 |---|---|
-| `om stage <array>` | what material an array is, the dropout it implies, and the confounds in that estimate |
-| `om link <parent> <sample>...` | child, duplicate, haploid product of that parent, or unrelated |
-| `om origin <parent> <sample>` | which parent's copy is missing, per detected region |
+| `om stage <array>` | material, dropout, marker floor |
+| `om link <parent> <sample>...` | child, duplicate, haploid product, or unrelated |
+| `om origin <parent> <sample>` | which parent's copy is missing, per region |
 | `om cohort <dir> --ref <array>` | the same for every confirmed child under a directory |
-| `om census <dir>` | haploid products per donor group, which decides where a parent can be reconstructed |
-| `om reconstruct <product>...` | a parent's genotypes from that parent's own haploid cells |
-| `om enrich <regions.tsv> --track T --markers A` | positional enrichment against a marker-matched null |
+| `om census <dir>` | haploid products per donor group |
+| `om reconstruct <product>...` | a parent's genotypes from that parent's haploid cells |
+| `om enrich <regions.tsv>` | positional enrichment against a marker-matched null |
 | `om constants` | every tunable, its value, and why it is that value |
 
-Useful flags: `--json` for machine-readable output, `--stride N` to subsample while screening,
-`--ado N` to force the dropout instead of inferring it, `--region chr6:39302-294904` to score one
-interval, `--out FILE` to write results or a reconstructed array.
+Omitting every flag is exactly the configuration the web tool runs and the audits measured. Moving
+one is printed in the output, since a number produced under a changed constant is not comparable
+with the validation figures.
 
-Every constant in `om constants` is a flag on the command that uses it, lower-cased with dashes:
-`--max-region-het`, `--min-products`, `--qc-call-floor`. Omitting all of them is exactly the
-configuration the web tool runs and the audits measured. Moving one is printed in the output,
-because a number produced under a changed constant is not comparable with the validation figures.
+## License
+
+[Apache 2.0](LICENSE).
