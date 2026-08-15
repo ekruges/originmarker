@@ -337,8 +337,28 @@ function dosageOver(
   const material = (forced ?? dosage.materialOf(
     stageMod.inferStage(c.profile, stageOpts()).stage,
   )) as never
+  // Self-referenced intensity for the same interval. State only, never origin.
+  const inL: number[] = []
+  const outL: number[] = []
+  for (const [ch, ms] of c.cnByChrom) {
+    for (const m of ms) {
+      if (m.log2R === null || !Number.isFinite(m.log2R)) continue
+      const inside = ch === chrom && m.pos >= start && m.pos <= end
+      ;(inside ? inL : outL).push(m.log2R)
+    }
+  }
+  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, x) => a + x, 0) / xs.length : NaN)
+  const muOut = mean(outL)
+  const sdOut = outL.length > 1
+    ? Math.sqrt(outL.reduce((a, x) => a + (x - muOut) ** 2, 0) / (outL.length - 1)) : NaN
+  const lrrSe = sdOut / Math.sqrt(Math.max(1, inL.length))
+  const lrrShift = mean(inL) - muOut
+  const intensityZ = args.bools.has('no-intensity') || !(lrrSe > 0) || !Number.isFinite(lrrShift)
+    ? undefined : lrrShift / lrrSe
+
   return dosage.callDosageOrigin(region as never, background as never, material, {
     wholeChromosome: whole,
+    intensityZ,
     hetBafSd: args.bools.has('no-array-gate') ? undefined : hetBafSd,
     signSecureF: num('sign-secure-f', dosage.SIGN_SECURE_F),
     zDetect: num('z-detect', dosage.Z_DETECT),
@@ -806,6 +826,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       ['dosage', 'WINDOW_LO', dosage.WINDOW_LO, 'central window, deliberately wider than the old middle band'],
       ['dosage', 'DRIFT_TAU.blastomere', dosage.DRIFT_TAU.blastomere, 'within-array drift, the FLOOR on the standard error; it does not average down with markers'],
       ['dosage', 'VIF_CHROMOSOME.blastomere', dosage.VIF_CHROMOSOME.blastomere, 'variance inflation from spatial correlation; bulk is 0.94, amplified material is not white'],
+      ['dosage', 'RESIDUAL_R.trophectoderm', dosage.RESIDUAL_R.trophectoderm, 'measured correlation between the dosage and intensity channels on THIS statistic, over 81 arrays; bulk is -0.058 and quadrature would overstate the joint z by a quarter on TE'],
       ['linkage', 'ONE_PARENT_HAPLOID_MAX', obligate.ONE_PARENT_HAPLOID_MAX, 'under this, one parent\'s genome and nothing else'],
       ['linkage', 'ONE_PARENT_DIPLOID_MIN', obligate.ONE_PARENT_DIPLOID_MIN, 'over this, a second parental contribution is present'],
       ['reconstruct', 'MIN_PRODUCTS', inferredRef.MIN_PRODUCTS, 'below this the method INVERTS and true offspring read as decisively absent'],

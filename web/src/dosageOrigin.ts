@@ -134,6 +134,37 @@ export const Z_DETECT = 2.576
  */
 export const MAX_HET_BAF_SD = 0.11
 
+/**
+ * Residual correlation between the dosage and intensity channels, MEASURED ON THIS STATISTIC.
+ *
+ * A joint term has to know how much the two channels are already saying the same thing. The
+ * methods review measured this two ways and they disagreed: technical-replicate DIFFERENCES gave
+ * -0.055 to +0.036, replicate MEANS gave up to -0.46, the gap being a common amplification
+ * artefact the differences cancel and the means do not.
+ *
+ * Neither is the number this code needs, because the shipped statistic is SELF-REFERENCED and that
+ * subtraction removes exactly the artefact the means carry. So it was measured directly here, on
+ * the shipped quantity: per array, the leave-one-out per-chromosome BAF centroid shift against the
+ * leave-one-out per-chromosome mean log2R shift, over 81 arrays of GSE148488
+ * (audit/asymmetry/residual_corr.ts, residual-corr.json).
+ *
+ *     material         arrays   median r
+ *     bulk                 41     -0.058
+ *     blastomere           10     +0.486
+ *     esc-single           22     +0.508
+ *     trophectoderm         8     +0.633
+ *
+ * Bulk is independent and quadrature addition would be fine there. Every amplified material is
+ * strongly POSITIVELY correlated, which is the opposite of what quadrature assumes: ignoring it
+ * inflates the joint z by sqrt(2+2r)/sqrt(2), which is 1.27x on trophectoderm. The mechanism is the
+ * one behind the null bias: a chromosome that amplified poorly reads both lower in intensity and
+ * lower in oriented dosage, because dropout moves readings toward the allele that can always be
+ * identified.
+ */
+export const RESIDUAL_R: Record<Material, number> = {
+  bulk: -0.058, 'esc-single': 0.508, trophectoderm: 0.633, blastomere: 0.486,
+}
+
 export type DosageVerdict =
   | 'known-parent-lost'
   | 'other-parent-lost'
@@ -214,6 +245,17 @@ export function callDosageOrigin(
     hetBafSd?: number
     signSecureF?: number
     zDetect?: number
+    /**
+     * Self-referenced intensity evidence for this interval, as a signed z where NEGATIVE means
+     * total dosage is reduced. Optional: omitted, the call rests on dosage alone.
+     *
+     * IT INFORMS THE STATE AND NEVER THE ORIGIN. On haploid pronuclei, a natural complete-loss
+     * experiment with known parent, autosomal median log2R is 0.0837 maternal against 0.0750
+     * paternal, p = 0.54, indistinguishable, while the oriented dosage at father-homozygous
+     * markers separates them at p = 1.3e-15. So this is combined into the DETECTION step and the
+     * direction still comes from the dosage sign alone.
+     */
+    intensityZ?: number
   } = {},
 ): DosageCall {
   const whole = opts.wholeChromosome ?? false
@@ -271,11 +313,27 @@ export function callDosageOrigin(
   const impliedF = fractionFromShift(Math.abs(shift))
   const out = { ...base, shift, z, impliedF }
 
-  if (Math.abs(z) < zNeed) {
+  // The joint detection statistic. Both terms point the same way by construction: |z| for the
+  // dosage channel, which is two-sided because either parent's copy may be the one short, and the
+  // reduction in intensity for the other, which is one-sided because a loss lowers total dosage
+  // whichever parent it came from. Stouffer with the MEASURED correlation, not quadrature: on
+  // amplified material the two channels correlate around +0.5 to +0.6 and treating them as
+  // independent would overstate the combined evidence by about a quarter.
+  const rho = RESIDUAL_R[material]
+  const iz = opts.intensityZ
+  const zEvent = iz !== undefined && Number.isFinite(iz)
+    ? (Math.abs(z) + Math.max(0, -iz)) / Math.sqrt(2 + 2 * rho)
+    : Math.abs(z)
+
+  if (zEvent < zNeed) {
     return {
       ...out, verdict: 'no-imbalance',
-      why: `centroid shift ${shift.toFixed(4)} against this array's own genome, z ${z.toFixed(2)}, `
-        + `under the ${zNeed.toFixed(2)} needed. Standard error ${se.toFixed(4)} is floored by `
+      why: `centroid shift ${shift.toFixed(4)} against this array's own genome, z ${z.toFixed(2)}`
+        + (iz !== undefined && Number.isFinite(iz)
+          ? `, jointly with intensity ${zEvent.toFixed(2)} at a measured channel correlation of `
+            + `${rho}`
+          : '')
+        + `, under the ${zNeed.toFixed(2)} needed. Standard error ${se.toFixed(4)} is floored by `
         + `within-array drift at ${tau}, which does not average down with more markers`,
     }
   }

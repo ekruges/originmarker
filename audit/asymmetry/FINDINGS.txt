@@ -201,3 +201,40 @@ exactly 4 of them are his. That group is one short on the paternal side, not one
   haplotypes with each other and are unrelated to the other parent's, so they separate on mutual
   relatedness without any reference. Only after that is the per-parent count known, and only then
   is it clear how many of the six groups actually support a reconstruction.
+
+
+RESIDUAL CORRELATION BETWEEN THE TWO CHANNELS, MEASURED
+--------------------------------------------------------
+The methods review recommended a joint dosage-plus-intensity term with a residual correlation
+parameter fitted rather than assumed. It measured that correlation two ways and they disagreed:
+technical-replicate DIFFERENCES gave -0.055 to +0.036, replicate MEANS gave up to -0.46, the gap
+being a common amplification artefact the differences cancel and the means do not.
+
+NEITHER IS THE NUMBER THIS CODE NEEDS. The shipped statistic is SELF-REFERENCED, and that
+subtraction removes exactly the artefact the means carry. So it was measured on the shipped
+quantity: per array, the leave-one-out per-chromosome BAF centroid shift against the leave-one-out
+per-chromosome mean log2R shift, over 81 arrays of GSE148488.
+
+  material         arrays   median r   mean r
+  bulk                 41     -0.058    0.025
+  blastomere           10     +0.486    0.205
+  esc-single           22     +0.508    0.376
+  trophectoderm         8     +0.633    0.401
+
+BULK IS INDEPENDENT AND EVERY AMPLIFIED MATERIAL IS NOT, which is the opposite of what quadrature
+addition assumes. Combining the two channels as independent overstates the joint z by
+sqrt(2+2r)/sqrt(2), which is 1.27x on trophectoderm. The mechanism is the one behind the null bias
+the review found: a chromosome that amplified poorly reads both lower in intensity and lower in
+oriented dosage, because dropout moves readings toward the allele that can always be identified.
+
+  INTENSITY ENTERS DETECTION AND NEVER DIRECTION. On haploid pronuclei, a natural complete-loss
+  experiment with a known parent, autosomal median log2R is 0.0837 maternal against 0.0750
+  paternal, p = 0.54, while oriented dosage at father-homozygous markers separates the same arrays
+  at p = 1.3e-15. So the joint term decides whether an event is present; the sign of the dosage
+  shift alone decides whose it is, and the check asserts that the same intensity evidence cannot
+  push both directions to the same parent.
+
+  Two limits on these numbers. Trophectoderm rests on 8 arrays and blastomere on 10, so those two
+  medians are indicative rather than settled, and the mean and median diverge on every amplified
+  material (0.49 against 0.21 on blastomere), meaning the per-array spread is wide and a per-array
+  estimate would be better than a per-material constant where enough chromosomes exist to fit one.

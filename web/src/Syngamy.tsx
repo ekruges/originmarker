@@ -681,8 +681,29 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 const b = myBaf.get(probe) ?? null
                 ;(p.chrom === chrom ? region : background).push([pg, b])
               }
+              // Self-referenced intensity for the same chromosome, from the copy-number channel
+              // already collected. Informs the STATE and never the ORIGIN: on haploid pronuclei
+              // log2R cannot tell maternal from paternal at all, so it enters detection only.
+              const inL: number[] = []
+              const outL: number[] = []
+              for (const [ch, ms] of cnByChrom) {
+                for (const m of ms) {
+                  if (m.log2R === null || !Number.isFinite(m.log2R)) continue
+                  ;(ch === chrom ? inL : outL).push(m.log2R)
+                }
+              }
+              const mean = (xs: number[]) => (xs.length
+                ? xs.reduce((a, x) => a + x, 0) / xs.length : NaN)
+              const sdOf = (xs: number[], mu: number) => (xs.length > 1
+                ? Math.sqrt(xs.reduce((a, x) => a + (x - mu) ** 2, 0) / (xs.length - 1)) : NaN)
+              const muOut = mean(outL)
+              const lrrShift = mean(inL) - muOut
+              const lrrSe = sdOf(outL, muOut) / Math.sqrt(Math.max(1, inL.length))
+              const intensityZ = Number.isFinite(lrrShift) && lrrSe > 0
+                ? lrrShift / lrrSe : undefined
+
               const c = callDosageOrigin(region as never, background as never, material,
-                { wholeChromosome: true, hetBafSd: hetSd })
+                { wholeChromosome: true, hetBafSd: hetSd, intensityZ })
               return {
                 where: `chr${chrom}`,
                 verdict: c.verdict,

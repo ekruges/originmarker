@@ -18,7 +18,7 @@ import assert from 'node:assert/strict'
 import {
   callDosageOrigin, centroid, oriented, fractionFromShift, logitShift, materialOf,
   WINDOW_LO, WINDOW_HI, SIGN_SECURE_F, MAX_HET_BAF_SD, F80_CHROMOSOME, F80_SEGMENT,
-  DRIFT_TAU, VIF_CHROMOSOME,
+  DRIFT_TAU, VIF_CHROMOSOME, RESIDUAL_R,
 } from './dosageOrigin.ts'
 import type { AB } from './informativity.ts'
 
@@ -148,6 +148,47 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
   // sufficient on its own: section 3 is what covers the null being off-centre.
   assert.ok(Math.abs(Math.abs(up.z) - Math.abs(down.z)) < 0.5)
   assert.ok(Math.abs(up.impliedF - down.impliedF) < 1e-9)
+}
+
+// --- 5b. THE JOINT TERM USES THE MEASURED CHANNEL CORRELATION ------------------------------------
+//
+// Intensity informs the STATE and never the ORIGIN: on haploid pronuclei, a complete-loss
+// experiment with known parent, log2R cannot tell maternal from paternal (p = 0.54) while oriented
+// dosage separates them at p = 1.3e-15. So intensity enters the detection step only, and the
+// direction still comes from the dosage sign.
+//
+// The correlation is measured on THIS statistic, over 81 arrays: -0.058 on bulk but +0.49 to +0.63
+// on amplified material, because a poorly amplified chromosome reads low in both channels.
+// Treating them as independent would overstate the joint evidence by sqrt(2+2r)/sqrt(2).
+{
+  const bg = region(N, 0.50)
+  // Just under the bar on dosage alone; supporting intensity carries it over.
+  const sub = region(N, 0.5 + 0.0030)
+  const alone = callDosageOrigin(sub, bg, 'bulk', { wholeChromosome: true })
+  assert.equal(alone.verdict, 'no-imbalance')
+  const joint = callDosageOrigin(sub, bg, 'bulk', { wholeChromosome: true, intensityZ: -6 })
+  assert.notEqual(joint.verdict, 'no-imbalance', 'intensity must be able to carry a detection')
+
+  // Intensity pointing the WRONG way (a gain) adds nothing: the term is one-sided on reduction.
+  const wrongWay = callDosageOrigin(sub, bg, 'bulk', { wholeChromosome: true, intensityZ: +6 })
+  assert.equal(wrongWay.verdict, 'no-imbalance')
+
+  // Intensity NEVER changes the direction, only whether an event is declared.
+  const up = callDosageOrigin(region(N, 0.5 + 0.20), bg, 'bulk',
+    { wholeChromosome: true, intensityZ: -8 })
+  assert.equal(up.verdict, 'known-parent-lost')
+  const down = callDosageOrigin(region(N, 0.5 - 0.20), bg, 'bulk',
+    { wholeChromosome: true, intensityZ: -8 })
+  assert.equal(down.verdict, 'other-parent-lost',
+    'the same intensity evidence must not push both directions to the same parent')
+
+  // The correlation is applied, and it is material-specific. A correlated material must need MORE
+  // joint evidence than an uncorrelated one for the same pair of channel z values.
+  assert.ok(RESIDUAL_R.trophectoderm > 0.5 && Math.abs(RESIDUAL_R.bulk) < 0.1,
+    'measured: amplified material is strongly correlated, bulk is not')
+  const denom = (m: keyof typeof RESIDUAL_R) => Math.sqrt(2 + 2 * RESIDUAL_R[m])
+  assert.ok(denom('trophectoderm') / denom('bulk') > 1.2,
+    'ignoring the correlation would overstate the joint z by about a quarter on TE')
 }
 
 // --- 6. no event is no call ------------------------------------------------------------------------

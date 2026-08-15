@@ -1,0 +1,514 @@
+{
+ "reference": "EYS-sperm.probes",
+ "dir": "/private/tmp/claude-501/-Users-ezrakruger-claudecodegeneralworkspace/3c118711-4d48-4e68-8965-a274aeadc9c7/scratchpad/gse_embryos",
+ "summary": {
+  "esc-single": {
+   "arrays": 22,
+   "medianR": 0.5081328720444892,
+   "meanR": 0.3757254416437178
+  },
+  "bulk": {
+   "arrays": 41,
+   "medianR": -0.058435797323500155,
+   "meanR": 0.025102916890056854
+  },
+  "blastomere": {
+   "arrays": 10,
+   "medianR": 0.48618647072816545,
+   "meanR": 0.20522684756593207
+  },
+  "trophectoderm": {
+   "arrays": 8,
+   "medianR": 0.6328312154093745,
+   "meanR": 0.4011798747415578
+  }
+ },
+ "rows": [
+  {
+   "id": "GSM4472401",
+   "material": "esc-single",
+   "chroms": 14,
+   "r": 0.5081328720444892
+  },
+  {
+   "id": "GSM4472402",
+   "material": "esc-single",
+   "chroms": 14,
+   "r": 0.6587712483502932
+  },
+  {
+   "id": "GSM4472403",
+   "material": "esc-single",
+   "chroms": 12,
+   "r": 0.5206886441376298
+  },
+  {
+   "id": "GSM4472404",
+   "material": "esc-single",
+   "chroms": 13,
+   "r": 0.5624981210319209
+  },
+  {
+   "id": "GSM4472410",
+   "material": "bulk",
+   "chroms": 21,
+   "r": 0.8572283844783407
+  },
+  {
+   "id": "GSM4472411",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.17891313510289772
+  },
+  {
+   "id": "GSM4472412",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.3125839690023629
+  },
+  {
+   "id": "GSM4472413",
+   "material": "bulk",
+   "chroms": 22,
+   "r": -0.3107127286576064
+  },
+  {
+   "id": "GSM4472414",
+   "material": "bulk",
+   "chroms": 22,
+   "r": 0.24935348663685647
+  },
+  {
+   "id": "GSM4472423",
+   "material": "blastomere",
+   "chroms": 16,
+   "r": 0.6924882386106364
+  },
+  {
+   "id": "GSM4472424",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.5840152919702291
+  },
+  {
+   "id": "GSM4472425",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.6807328932971799
+  },
+  {
+   "id": "GSM4472426",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.603864625398134
+  },
+  {
+   "id": "GSM4472427",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.6062211739978088
+  },
+  {
+   "id": "GSM4472428",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.27864018703076315
+  },
+  {
+   "id": "GSM4472429",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.05861752143483661
+  },
+  {
+   "id": "GSM4472430",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.058435797323500155
+  },
+  {
+   "id": "GSM4472431",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.0029402952484771606
+  },
+  {
+   "id": "GSM4472432",
+   "material": "trophectoderm",
+   "chroms": 19,
+   "r": -0.23072837982477892
+  },
+  {
+   "id": "GSM4472433",
+   "material": "esc-single",
+   "chroms": 16,
+   "r": 0.2794920727061873
+  },
+  {
+   "id": "GSM4472434",
+   "material": "bulk",
+   "chroms": 19,
+   "r": -0.5187425781450794
+  },
+  {
+   "id": "GSM4472435",
+   "material": "bulk",
+   "chroms": 19,
+   "r": -0.53890346805402
+  },
+  {
+   "id": "GSM4472436",
+   "material": "bulk",
+   "chroms": 18,
+   "r": -0.2872545746235803
+  },
+  {
+   "id": "GSM4472437",
+   "material": "bulk",
+   "chroms": 18,
+   "r": -0.3519494191411894
+  },
+  {
+   "id": "GSM4472438",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.12054033670932399
+  },
+  {
+   "id": "GSM4472439",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.38688341111940994
+  },
+  {
+   "id": "GSM4472440",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.16931104485963985
+  },
+  {
+   "id": "GSM4472441",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.43706673668680146
+  },
+  {
+   "id": "GSM4472442",
+   "material": "blastomere",
+   "chroms": 12,
+   "r": 0.48618647072816545
+  },
+  {
+   "id": "GSM4472443",
+   "material": "blastomere",
+   "chroms": 14,
+   "r": 0.15291663772277622
+  },
+  {
+   "id": "GSM4472444",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.19135732108953574
+  },
+  {
+   "id": "GSM4472445",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.347861226899413
+  },
+  {
+   "id": "GSM4472446",
+   "material": "bulk",
+   "chroms": 20,
+   "r": -0.22321231802534686
+  },
+  {
+   "id": "GSM4472447",
+   "material": "bulk",
+   "chroms": 19,
+   "r": -0.2667670397445004
+  },
+  {
+   "id": "GSM4472448",
+   "material": "bulk",
+   "chroms": 21,
+   "r": 0.4119621153229441
+  },
+  {
+   "id": "GSM4472449",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.4747422288952086
+  },
+  {
+   "id": "GSM4472450",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.3770285471981203
+  },
+  {
+   "id": "GSM4472451",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.553945422878915
+  },
+  {
+   "id": "GSM4552364",
+   "material": "esc-single",
+   "chroms": 12,
+   "r": 0.9230929333979029
+  },
+  {
+   "id": "GSM4552365",
+   "material": "trophectoderm",
+   "chroms": 19,
+   "r": 0.705944772765256
+  },
+  {
+   "id": "GSM4552366",
+   "material": "trophectoderm",
+   "chroms": 19,
+   "r": 0.6808188116757551
+  },
+  {
+   "id": "GSM4552367",
+   "material": "blastomere",
+   "chroms": 12,
+   "r": 0.5624260973670803
+  },
+  {
+   "id": "GSM4552368",
+   "material": "blastomere",
+   "chroms": 11,
+   "r": 0.7789173432723557
+  },
+  {
+   "id": "GSM4552369",
+   "material": "trophectoderm",
+   "chroms": 17,
+   "r": 0.24996330395006966
+  },
+  {
+   "id": "GSM4552370",
+   "material": "trophectoderm",
+   "chroms": 17,
+   "r": 0.27278026611584844
+  },
+  {
+   "id": "GSM4552371",
+   "material": "blastomere",
+   "chroms": 15,
+   "r": 0.5938413233889039
+  },
+  {
+   "id": "GSM4552372",
+   "material": "esc-single",
+   "chroms": 17,
+   "r": 0.21345966320070223
+  },
+  {
+   "id": "GSM4552373",
+   "material": "trophectoderm",
+   "chroms": 19,
+   "r": 0.19046310175700545
+  },
+  {
+   "id": "GSM4552374",
+   "material": "esc-single",
+   "chroms": 16,
+   "r": 0.3564802614709059
+  },
+  {
+   "id": "GSM4552375",
+   "material": "bulk",
+   "chroms": 20,
+   "r": 0.4684850162037686
+  },
+  {
+   "id": "GSM4552376",
+   "material": "esc-single",
+   "chroms": 17,
+   "r": 0.4146436481804509
+  },
+  {
+   "id": "GSM4552377",
+   "material": "esc-single",
+   "chroms": 17,
+   "r": 0.6943146433433293
+  },
+  {
+   "id": "GSM4552378",
+   "material": "bulk",
+   "chroms": 15,
+   "r": -0.3443468473678886
+  },
+  {
+   "id": "GSM4552379",
+   "material": "bulk",
+   "chroms": 17,
+   "r": -0.38357917667323105
+  },
+  {
+   "id": "GSM4552380",
+   "material": "bulk",
+   "chroms": 12,
+   "r": -0.34639053220109384
+  },
+  {
+   "id": "GSM4552381",
+   "material": "bulk",
+   "chroms": 14,
+   "r": -0.3658843494658252
+  },
+  {
+   "id": "GSM4552382",
+   "material": "esc-single",
+   "chroms": 14,
+   "r": -0.04193596870107628
+  },
+  {
+   "id": "GSM4552383",
+   "material": "blastomere",
+   "chroms": 13,
+   "r": 0.05210808222631712
+  },
+  {
+   "id": "GSM4552384",
+   "material": "esc-single",
+   "chroms": 18,
+   "r": 0.8167465782395592
+  },
+  {
+   "id": "GSM4552385",
+   "material": "blastomere",
+   "chroms": 16,
+   "r": -0.23630737249041522
+  },
+  {
+   "id": "GSM4552386",
+   "material": "blastomere",
+   "chroms": 14,
+   "r": -0.32375736073600114
+  },
+  {
+   "id": "GSM4552390",
+   "material": "bulk",
+   "chroms": 22,
+   "r": 0.5120633107411934
+  },
+  {
+   "id": "GSM4552391",
+   "material": "bulk",
+   "chroms": 22,
+   "r": 0.47691808240799266
+  },
+  {
+   "id": "GSM4552392",
+   "material": "bulk",
+   "chroms": 21,
+   "r": 0.2592097736950173
+  },
+  {
+   "id": "GSM4552393",
+   "material": "bulk",
+   "chroms": 22,
+   "r": 0.13362773849706422
+  },
+  {
+   "id": "GSM4552420",
+   "material": "bulk",
+   "chroms": 18,
+   "r": -0.8485435449087722
+  },
+  {
+   "id": "GSM4552421",
+   "material": "bulk",
+   "chroms": 18,
+   "r": -0.857285273485455
+  },
+  {
+   "id": "GSM4552423",
+   "material": "bulk",
+   "chroms": 21,
+   "r": 0.736588861747985
+  },
+  {
+   "id": "GSM4552425",
+   "material": "trophectoderm",
+   "chroms": 15,
+   "r": 0.6328312154093745
+  },
+  {
+   "id": "GSM4552426",
+   "material": "trophectoderm",
+   "chroms": 15,
+   "r": 0.7073659060839319
+  },
+  {
+   "id": "GSM4774673",
+   "material": "esc-single",
+   "chroms": 13,
+   "r": 0.7269033072354503
+  },
+  {
+   "id": "GSM4774674",
+   "material": "esc-single",
+   "chroms": 6,
+   "r": 0.8430319295832421
+  },
+  {
+   "id": "GSM4774675",
+   "material": "esc-single",
+   "chroms": 11,
+   "r": -0.7276138949195641
+  },
+  {
+   "id": "GSM4774676",
+   "material": "esc-single",
+   "chroms": 12,
+   "r": 0.3137724122473798
+  },
+  {
+   "id": "GSM4774677",
+   "material": "esc-single",
+   "chroms": 13,
+   "r": 0.5717102580109028
+  },
+  {
+   "id": "GSM4774679",
+   "material": "esc-single",
+   "chroms": 12,
+   "r": -0.7386178506003935
+  },
+  {
+   "id": "GSM4774680",
+   "material": "esc-single",
+   "chroms": 8,
+   "r": 0.42267972019404154
+  },
+  {
+   "id": "GSM4774681",
+   "material": "blastomere",
+   "chroms": 13,
+   "r": -0.7065509844304986
+  },
+  {
+   "id": "GSM4774682",
+   "material": "esc-single",
+   "chroms": 15,
+   "r": 0.05454817121690741
+  },
+  {
+   "id": "GSM4774683",
+   "material": "esc-single",
+   "chroms": 7,
+   "r": 0.11791180132274953
+  },
+  {
+   "id": "GSM4774685",
+   "material": "esc-single",
+   "chroms": 9,
+   "r": 0.7752491444687803
+  }
+ ]
+}
