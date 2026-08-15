@@ -113,15 +113,17 @@ const one = (where: string, verdict: string) => ({
 {
   const s = seg('21', 10_873_592, 48_088_571)
   const w = whereOf(s, 10_873_592, 48_088_571)
-  const dose = [{ where: 'chr21', verdict: 'known-parent-lost', posterior: 0.99, markers: 22_000,
-    excluded: 3_400, why: 'from dosage' }]
+  const dose = [{ where: 'chr21', verdict: 'known-parent-lost', shift: 0.118, z: 6.4,
+    impliedF: 0.382, window: 9_100, why: 'from dosage' }]
 
   // Genotypes silent: dosage answers, and says so.
   const filled = defectsFrom([s], [], [], [], 'paternal', undefined, dose)[0]
   assert.equal(filled.origin, 'paternal')
   assert.equal(filled.basis, 'dosage')
   assert.equal(filled.channel, 'dosage')
-  assert.equal(filled.excludedDosage, 3_400)
+  assert.equal(filled.z, 6.4)
+  assert.equal(filled.impliedF, 0.382)
+  assert.equal(filled.shift, 0.118)
 
   // Genotypes answered: dosage must not touch it.
   const geno = defectsFrom([s], [], [], [one(w, 'other-parent-lost')], 'paternal', undefined, dose)[0]
@@ -132,12 +134,14 @@ const one = (where: string, verdict: string) => ({
   // The loaded parent decides the direction here too.
   assert.equal(defectsFrom([s], [], [], [], 'maternal', undefined, dose)[0].origin, 'maternal')
 
-  // A refused dosage call names nobody.
-  const refused = [{ ...dose[0], verdict: 'refused', posterior: NaN }]
-  const r = defectsFrom([s], [], [], [], 'paternal', undefined, refused)[0]
-  assert.equal(r.origin, 'unclear')
-  assert.equal(r.basis, undefined)
-  assert.equal(r.excludedDosage, undefined)
+  // Every verdict short of naming a parent names nobody. 'imbalance-unassigned' is the important
+  // one: an event IS present and the class is deliberately withheld, so it must not leak a parent.
+  for (const v of ['imbalance-unassigned', 'no-imbalance', 'not-evaluable', 'array-excluded']) {
+    const r = defectsFrom([s], [], [], [], 'paternal', undefined,
+      [{ ...dose[0], verdict: v }])[0]
+    assert.equal(r.origin, 'unclear', `${v} must not name a parent`)
+    assert.equal(r.basis, undefined)
+  }
 }
 
 // --- 5. the material is carried with the call, including when it is not usable ------------------

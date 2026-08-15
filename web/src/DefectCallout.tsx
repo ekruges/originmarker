@@ -79,8 +79,9 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
                 ? <Chip label="posterior" value={d.posterior.toFixed(3)} mono /> : null}
               {d.exclusive !== undefined
                 ? <Chip label="exclusive" value={String(d.exclusive)} mono /> : null}
-              {d.excludedDosage !== undefined
-                ? <Chip label="excluded dosage" value={String(d.excludedDosage)} mono /> : null}
+              {d.z !== undefined ? <Chip label="z" value={d.z.toFixed(2)} mono /> : null}
+              {d.impliedF !== undefined
+                ? <Chip label="fraction" value={d.impliedF.toFixed(2)} mono /> : null}
               {d.basis ? <Chip label="basis" value={d.basis.replace('-', ' ')} /> : null}
               {d.channel ? <Chip label="channel" value={d.channel} /> : null}
               {d.stage ? <Chip label="material" value={d.stage} /> : null}

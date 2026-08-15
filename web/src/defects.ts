@@ -29,9 +29,11 @@ export interface Defect {
   basis?: 'two-parent' | 'one-parent' | 'sibling' | 'homologue' | 'dosage'
   /** Which channel produced it. Genotypes where they exist, dosage where they have collapsed. */
   channel?: 'genotype' | 'dosage'
-  /** Dosages at the extreme the loaded parent cannot produce. The dosage channel's own evidence,
-   *  the counterpart of `exclusive` in the genotype channel. */
-  excludedDosage?: number
+  /** Self-referenced centroid shift and its z, the dosage channel's own evidence. */
+  shift?: number
+  z?: number
+  /** Mosaic fraction the shift implies. Below 0.30 the sign is not secure and no parent is named. */
+  impliedF?: number
   informative?: number
   posterior?: number
   /** Markers carrying an allele the loaded parent does not have. This is the Mendelian evidence
@@ -61,8 +63,8 @@ export function defectsFrom(
   /** Whole-chromosome calls from allele dosage, keyed `chrN`. Fill a gap the genotype channel
    *  cannot fill rather than competing with it: they never cover the same event. */
   dosageCalls: readonly {
-    where: string, verdict: string, posterior: number, markers: number, excluded: number,
-    why: string,
+    where: string, verdict: string, shift: number, z: number, impliedF: number,
+    window: number, why: string,
   }[] = [],
 ): Defect[] {
   const byOne = new Map(oneParent.map((o) => [o.where, o]))
@@ -108,7 +110,9 @@ export function defectsFrom(
         : usedDosage ? 'dosage'
           : (one && origin !== 'unclear') ? 'one-parent' : undefined,
       channel: usedDosage ? 'dosage' : (one ? 'genotype' : undefined),
-      excludedDosage: usedDosage && dose ? dose.excluded : undefined,
+      shift: dose && Number.isFinite(dose.shift) ? dose.shift : undefined,
+      z: dose && Number.isFinite(dose.z) ? dose.z : undefined,
+      impliedF: dose && Number.isFinite(dose.impliedF) ? dose.impliedF : undefined,
       informative: one?.markers,
       posterior: one && Number.isFinite(one.posterior) ? one.posterior : undefined,
       exclusive: one?.exclusive,

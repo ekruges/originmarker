@@ -9,6 +9,57 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 4.12.0 "Tetrad"
+
+The dosage channel rebuilt to the methods review's specification. 4.11.0 stopped it naming a
+parent; this is the statistic that earns the right back, and mostly declines to use it.
+
+### Changed
+
+- **The statistic is a self-referenced centroid shift, not a band-occupancy likelihood.** Orient so
+  the loaded parent's own allele is low, keep markers where that parent is homozygous, take the
+  central window 0.20 to 0.80, and subtract the same quantity computed on the array's OWN other
+  chromosomes. Self-referencing is what removes the directional null: the raw one-parent null sits
+  at -0.031 on trophectoderm and -0.023 on blastomeres under no event, pointing at the parent that
+  was not genotyped, and on TE that offset is the shift a real mosaic fraction of 0.117 would
+  produce. Subtracting the array's own genome brings the null median to -0.001..+0.006.
+
+- **The standard error is floored by within-array drift, not by sampling.** Drift does not average
+  down with more markers: against a sampling term of 0.0019-0.0102 it runs 1.44-1.90x larger on
+  amplified material. Omitting it is how a z of 15 arrives on a chromosome independently verified
+  diploid. Variance inflation from spatial correlation is applied per material (bulk 0.94,
+  blastomere 3.63 per chromosome), because effective independent markers saturate near 250 per
+  chromosome out of a nominal 900-1,100 and adding markers past that buys nothing.
+
+- **The mosaic fraction is inverted correctly**, f = 4d/(1+2d) from E[BAF] = 1/(2-f), not f = 2d
+  from the per-cell form, which understates it about 1.8x.
+
+- **The guard's two jobs are split.** Array quality is a property of the array, asked once, using
+  MoChA's gate of BAF spread above 0.11 at heterozygous sites. Evidence is the centroid shift. The
+  old single guard conflated them and keyed on a proxy for call rate.
+
+- **Evaluability is decided before the data is read**, from measured detection floors: a 12 Mb
+  interval is out of reach on every amplified material, and a blastomere against one parent has no
+  floor at any fraction to 0.70. Those return `not-evaluable` rather than a refusal, and the
+  distinction is the point. A refusal says this array was bad; not-evaluable says no array of this
+  kind at this width could have answered, which sends a reader to change the design rather than
+  re-run a sample. That question is asked FIRST for the same reason: nearly every amplified array
+  fails the MoChA gate, so asking quality first would report a QC failure for a study-design limit.
+
+- **A parent is named only above an implied fraction of 0.30.** Below it, between half and all
+  detections name the wrong parent. Between detection and that bound the verdict is
+  `imbalance-unassigned`: the event is reported, the class is withheld.
+
+### Verified against the arrays that produced the wrong answers
+
+- The pronucleus chr1 that once returned both-copies-present at posterior 1.0000 is now
+  `array-excluded`, on BAF spread of 0.256 at heterozygous sites against the 0.11 gate, which is a
+  property of the array rather than a proxy for it.
+- The two chr16 trophectoderm biopsies now read `not-evaluable`, naming the interval width and the
+  material, which is the output the review specified for them.
+
+---
+
 ## 4.11.0 "Diakinesis"
 
 The dosage channel stops naming a parent. A methods review measured its null and the result is

@@ -305,37 +305,46 @@ const originOpts = () => ({
  * ones the genotype caller failed on. That is the point: a whole-chromosome loss is detected by
  * its genotypes collapsing, so on exactly those events the genotype channel has no evidence left.
  */
-function dosageOver(ref: Loaded, c: Loaded, chrom: string, start: number, end: number) {
-  const pairs: [AB, number | null][] = []
-  // The background is the same band profile over everything OUTSIDE the region, which is the
-  // external-null discipline the rest of this project uses: a region cannot set its own baseline,
-  // and amplification sets the unresolved rate per array rather than per platform.
-  let bgN = 0
-  let bgBetween = 0
+function dosageOver(
+  ref: Loaded, c: Loaded, chrom: string, start: number, end: number, whole: boolean,
+) {
+  // Region and BACKGROUND, the latter from everything outside the interval on this same array.
+  // Self-referencing is the point: the raw one-parent null sits at -0.031 on trophectoderm under
+  // no event at all, pointing at the parent that was NOT genotyped, which is the shift a real
+  // mosaic fraction of 0.117 would produce.
+  const region: [AB, number | null][] = []
+  const background: [AB, number | null][] = []
   for (const [probe, p] of c.pos) {
     const pg = ref.gt.get(probe)
     if (!pg) continue
     const b = c.baf.get(probe) ?? null
     const inside = p.chrom === chrom && p.pos >= start && p.pos <= end
-    if (inside) { pairs.push([pg, b]); continue }
-    if (b === null) continue
-    bgN += 1
-    if (dosage.band(pg as never, b) === 'between') bgBetween += 1
+    ;(inside ? region : background).push([pg, b])
   }
-  const background = bgN >= 10_000 ? { between: bgBetween / bgN } : undefined
-  return dosage.callDosageOrigin(
-    pairs as never,
-    num('q', oneParent.DEFAULT_Q),
-    num('dosage-noise', dosage.DOSAGE_NOISE),
-    {
-      minMarkers: num('min-markers-dosage', dosage.MIN_MARKERS_DOSAGE),
-      posterior: num('dosage-posterior', dosage.DOSAGE_POSTERIOR),
-      background: args.bools.has('no-dosage-background') ? undefined : background,
-      maxBetweenRatio: num('max-between-ratio', dosage.MAX_BETWEEN_RATIO),
-    },
-  ) as {
-    verdict: string, posterior: number, markers: number, excluded: number, middle: number,
-    own: number, between: number, why: string
+  // The array-level gate, which is a property of the array and asked independently of the interval.
+  const hetB: number[] = []
+  for (const [probe, g] of c.gt) {
+    if (g !== 'AB') continue
+    const b = c.baf.get(probe)
+    if (b !== undefined) hetB.push(b)
+  }
+  const mu = hetB.length ? hetB.reduce((a, x) => a + x, 0) / hetB.length : NaN
+  const hetBafSd = hetB.length > 1
+    ? Math.sqrt(hetB.reduce((a, x) => a + (x - mu) ** 2, 0) / (hetB.length - 1))
+    : undefined
+
+  const forced = args.flags.get('material')
+  const material = (forced ?? dosage.materialOf(
+    stageMod.inferStage(c.profile, stageOpts()).stage,
+  )) as never
+  return dosage.callDosageOrigin(region as never, background as never, material, {
+    wholeChromosome: whole,
+    hetBafSd: args.bools.has('no-array-gate') ? undefined : hetBafSd,
+    signSecureF: num('sign-secure-f', dosage.SIGN_SECURE_F),
+    zDetect: num('z-detect', dosage.Z_DETECT),
+  }) as {
+    verdict: string, shift: number, z: number, impliedF: number, window: number,
+    markers: number, material: string, floor: number, why: string
   }
 }
 
@@ -458,18 +467,19 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       const useGeno = channel === 'genotype' || channel === 'both'
         || (channel === 'auto' && !isWhole)
       const g = useGeno ? callOver(ref, c, e.chrom, e.start, e.end, ado) : null
-      const d = useDosage ? dosageOver(ref, c, e.chrom, e.start, e.end) : null
-      const chosen = channel === 'both' ? (g?.verdict !== 'refused' ? g : d) : (g ?? d)
+      const d = useDosage ? dosageOver(ref, c, e.chrom, e.start, e.end, isWhole) : null
+      // Genotypes answer where they can. Dosage only fills what they cannot reach, and it names
+      // a parent only when the implied fraction clears the sign-security bound.
+      const gNamed = g && name(g.verdict)
+      const dNamed = d && name(d.verdict)
       return {
         ...e,
         locus: stageMod.locus(e.chrom, e.start, e.end),
-        channel: channel === 'both' ? 'both' : (useGeno ? 'genotype' : 'dosage'),
-        origin: chosen ? name(chosen.verdict) : null,
+        channel: gNamed ? 'genotype' : dNamed ? 'dosage' : (useGeno ? 'genotype' : 'dosage'),
+        origin: gNamed ?? dNamed ?? null,
         genotype: g, dosage: d,
-        verdict: chosen?.verdict ?? 'refused',
-        posterior: chosen?.posterior ?? NaN,
-        markers: chosen?.markers ?? 0,
-        why: chosen?.why ?? '',
+        verdict: (gNamed ? g?.verdict : dNamed ? d?.verdict : g?.verdict ?? d?.verdict) ?? 'refused',
+        why: (gNamed ? g?.why : dNamed ? d?.why : d?.why ?? g?.why) ?? '',
       }
     })
     out({
@@ -482,7 +492,6 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       for (const r of rows) {
         process.stdout.write(`${r.locus}  ${r.kind}\n`)
         process.stdout.write(`   ${r.origin ? `${r.origin.toUpperCase()} copy lost` : r.verdict}`
-          + `, posterior ${Number.isFinite(r.posterior) ? r.posterior.toFixed(4) : 'n/a'}`
           + `  [${r.channel}]\n`)
         if (r.genotype) {
           process.stdout.write(`   genotype: ${r.genotype.verdict}, ${r.genotype.markers} `
@@ -490,9 +499,14 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
             + `${r.genotype.heterozygous} heterozygous\n`)
         }
         if (r.dosage) {
-          process.stdout.write(`   dosage:   ${r.dosage.verdict}, ${r.dosage.markers} with a `
-            + `reading, ${r.dosage.excluded} at the dosage that parent cannot produce, `
-            + `${r.dosage.middle} needing two copies, ${r.dosage.between} in no band\n`)
+          const d2 = r.dosage
+          process.stdout.write(`   dosage:   ${d2.verdict} (${d2.material})`
+            + (Number.isFinite(d2.z)
+              ? `, shift ${d2.shift.toFixed(4)} z ${d2.z.toFixed(2)}`
+                + `, implied fraction ${Number.isFinite(d2.impliedF) ? d2.impliedF.toFixed(3) : 'n/a'}`
+                + `, ${d2.window} in the central window`
+              : `, floor ${Number.isFinite(d2.floor) ? d2.floor : 'none at any fraction'}`)
+            + '\n')
         }
         process.stdout.write(`   ${r.why}\n\n`)
       }
@@ -786,6 +800,12 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       ['origin', 'MIN_MARKERS', oneParent.MIN_MARKERS, 'informative markers a region needs before any verdict'],
       ['origin', 'MAX_REGION_HET', oneParent.MAX_REGION_HET, 'above this the region\'s genotypes are not measuring it and no origin is called'],
       ['origin', 'CALL_POSTERIOR', oneParent.CALL_POSTERIOR, 'posterior a hypothesis must reach to be named'],
+      ['dosage', 'SIGN_SECURE_F', dosage.SIGN_SECURE_F, 'implied fraction under which no parent is named: below it, half to all detections name the WRONG parent'],
+      ['dosage', 'Z_DETECT', dosage.Z_DETECT, 'self-referenced |z| an imbalance must reach, two-sided at 1%'],
+      ['dosage', 'MAX_HET_BAF_SD', dosage.MAX_HET_BAF_SD, 'array-level gate adopted from MoChA: BAF spread at het sites above this and the array is not analysed'],
+      ['dosage', 'WINDOW_LO', dosage.WINDOW_LO, 'central window, deliberately wider than the old middle band'],
+      ['dosage', 'DRIFT_TAU.blastomere', dosage.DRIFT_TAU.blastomere, 'within-array drift, the FLOOR on the standard error; it does not average down with markers'],
+      ['dosage', 'VIF_CHROMOSOME.blastomere', dosage.VIF_CHROMOSOME.blastomere, 'variance inflation from spatial correlation; bulk is 0.94, amplified material is not white'],
       ['linkage', 'ONE_PARENT_HAPLOID_MAX', obligate.ONE_PARENT_HAPLOID_MAX, 'under this, one parent\'s genome and nothing else'],
       ['linkage', 'ONE_PARENT_DIPLOID_MIN', obligate.ONE_PARENT_DIPLOID_MIN, 'over this, a second parental contribution is present'],
       ['reconstruct', 'MIN_PRODUCTS', inferredRef.MIN_PRODUCTS, 'below this the method INVERTS and true offspring read as decisively absent'],

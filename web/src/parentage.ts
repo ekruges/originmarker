@@ -489,11 +489,17 @@ export interface ParentageResult {
   dosageCalls?: {
     where: string
     verdict: string
-    posterior: number
+    /** Self-referenced centroid shift. Positive means the loaded parent's copy is short. */
+    shift: number
+    z: number
+    /** Mosaic fraction the shift implies, via f = 4d/(1+2d). */
+    impliedF: number
+    /** Markers in the central window, the only denominator that carries the signal. */
+    window: number
     markers: number
-    excluded: number
-    middle: number
-    between: number
+    material: string
+    /** Smallest fraction this material and width could detect. NaN where none could. */
+    floor: number
     why: string
   }[]
   siblingCalls?: {

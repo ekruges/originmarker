@@ -40,7 +40,7 @@ import { DefectCallout } from './DefectCallout'
 import { defectsFrom } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
-import { callDosageOrigin, band as dosageBand } from './dosageOrigin'
+import { callDosageOrigin, materialOf } from './dosageOrigin'
 import { inferStage, locus } from './stage'
 
 /**
@@ -654,29 +654,45 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           if (!mat && whole.size) {
             // Background from everything OUTSIDE the chromosome under test, which is the same
             // external-null rule the region scan uses: a chromosome cannot set its own baseline.
+            // The sample's own BAF spread at heterozygous calls, for the array-level gate.
+            // A property of the array, asked once, independently of any interval.
+            const hetB: number[] = []
+            for (const [probe, g] of myGt) {
+              if (g !== 'AB') continue
+              const b = myBaf.get(probe)
+              if (b !== undefined) hetB.push(b)
+            }
+            const hetMean = hetB.length ? hetB.reduce((a, x) => a + x, 0) / hetB.length : NaN
+            const hetSd = hetB.length > 1
+              ? Math.sqrt(hetB.reduce((a, x) => a + (x - hetMean) ** 2, 0) / (hetB.length - 1))
+              : undefined
+            const material = materialOf(result.stage?.stage ?? 'unknown')
+
             result.dosageCalls = [...whole].map((chrom) => {
-              const pairs: [string, number | null][] = []
-              let bgN = 0
-              let bgBetween = 0
+              // Background is every OTHER chromosome of this same array. Self-referencing is not
+              // optional: the raw one-parent null sits at -0.031 on trophectoderm under no event,
+              // pointing at the parent that was NOT genotyped, which is the shift a real mosaic
+              // fraction of 0.117 would produce.
+              const region: [string, number | null][] = []
+              const background: [string, number | null][] = []
               for (const [probe, p] of markerPos) {
                 const pg = pat.gt.get(probe)
                 if (!pg) continue
                 const b = myBaf.get(probe) ?? null
-                if (p.chrom === chrom) { pairs.push([pg, b]); continue }
-                if (b === null) continue
-                bgN += 1
-                if (dosageBand(pg as never, b) === 'between') bgBetween += 1
+                ;(p.chrom === chrom ? region : background).push([pg, b])
               }
-              const c = callDosageOrigin(pairs as never, undefined as never, undefined,
-                { background: bgN >= 10_000 ? { between: bgBetween / bgN } : undefined })
+              const c = callDosageOrigin(region as never, background as never, material,
+                { wholeChromosome: true, hetBafSd: hetSd })
               return {
                 where: `chr${chrom}`,
                 verdict: c.verdict,
-                posterior: c.posterior,
+                shift: c.shift,
+                z: c.z,
+                impliedF: c.impliedF,
+                window: c.window,
                 markers: c.markers,
-                excluded: c.excluded,
-                middle: c.middle,
-                between: c.between,
+                material: c.material,
+                floor: c.floor,
                 why: c.why,
               }
             })

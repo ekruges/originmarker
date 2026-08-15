@@ -1,356 +1,321 @@
 /**
- * Which parent's copy is missing, read from ALLELE DOSAGE rather than from genotype calls.
+ * Copy-number imbalance and, where the evidence supports it, its parent, from ALLELE DOSAGE.
  *
- * WHY THIS EXISTS. `oneParentOrigin.ts` answers the same question from genotypes and is the better
- * instrument where genotypes exist. It cannot answer it for a whole-chromosome loss, and the
- * reason is structural rather than a limitation of the code: a whole chromosome is DETECTED by the
- * collapse of its genotype call rate, and the origin is CALLED from genotypes, so the signal that
- * identifies the event is the destruction of the evidence that would assign it. Measured on
- * GSE148488: all four segmental losses scored, all three whole-chromosome losses refused, and on
- * one of them chromosome 1 was 69% no-call with the survivors reading 59.7% heterozygous where the
- * father is homozygous, which is not a genome.
+ * WHY A DOSAGE CHANNEL AT ALL. A whole chromosome is DETECTED by the collapse of its genotype call
+ * rate, and `oneParentOrigin.ts` assigns from genotypes, so on exactly those events the genotype
+ * channel has no evidence left. Dosage is read whether or not a genotype is emitted. Measured on
+ * GSE148488: all four segmental losses scored from genotypes and all three whole-chromosome losses
+ * refused.
  *
- * The B-allele frequency is measured at every marker whether or not the caller emits a genotype.
- * It survives the collapse. So this reads the same Mendelian fact out of the channel that is
- * still there.
+ * THIS IS A REWRITE. The first version was a band-occupancy likelihood, and an external methods
+ * review (audit/MOSAIC-AUDIT.txt) measured its null on real material. Four things it had wrong,
+ * kept here because each is a trap worth naming rather than quietly deleting:
  *
- * THE MENDELIAN FACT, and it is the same one the genotype version rests on. Take a marker where
- * the loaded parent is HOMOZYGOUS, and orient so that parent's own allele is A and the allele it
- * lacks is B. The parent can transmit only A. So:
+ *   THE NULL WAS OFF-CENTRE AND POINTED AT THE WRONG PARENT. Raw one-parent centroid null medians
+ *   are -0.031 on trophectoderm and -0.023 on blastomeres under NO event, and on TE that offset is
+ *   the shift a mosaic fraction of 0.117 would produce. The orientation step causes it: the loaded
+ *   parent's allele is the one always identifiable, so dropout of the other parent's allele moves
+ *   readings toward it more often than the reverse. Symmetry between the two DIRECTIONS of a
+ *   statistic, which the old check asserted and which was true, says nothing about where its null
+ *   sits. Self-referencing against the array's own clean genome is therefore not optional; it
+ *   brings the null median to -0.001..+0.006.
  *
- * NOTE ON THE PARTIAL CASE, corrected. An earlier version of this reasoning assumed a mosaic
- * fraction f displaces the expected dosage to 0.5 + 0.5f. That is the mean of PER-CELL frequencies
- * and assumes a monosomic cell contributes as much DNA as a disomic one. An array reads POOLED
- * dosage, and the loss removes template from the denominator too, so the correct expectation is
- * 1/(2-f), which is smaller by a factor of (2-f) and overstates displacement up to 1.95x at low f.
- * The 0.65 band edge is crossed at f = 0.46 rather than 0.30. In logit space the shift is additive,
- * -log(1-f), which is the form a likelihood should be built in. Loss WITH reduplication of the
- * remaining homologue is the exception: total DNA is unchanged and the expectation really is
- * (1+f)/2, so the two mechanisms differ about twofold in implied f and must be separated by log2R
- * before any fraction is quoted.
+ *   THE PARTIAL EXPECTATION WAS WRONG BY (2-f). An array reads POOLED dosage over all DNA in the
+ *   well, and a loss removes template from the denominator too, so the mean of per-cell
+ *   frequencies, 0.5 + 0.5f, is not it. Correct is 1/(2-f) for loss of the loaded parent's copy and
+ *   (1-f)/(2-f) for loss of the other's, smaller by up to 1.95x at low f. In logit space the shift
+ *   is exactly additive, -log(1-f), independent of baseline. Loss WITH reduplication of the
+ *   remaining homologue is the exception: total DNA is unchanged and (1+f)/2 is right, so the two
+ *   mechanisms differ about twofold in implied f and must be separated by log2R before a fraction
+ *   is quoted.
  *
- *     both copies present     the other parent gave B (rate q) -> AB, dosage in the MIDDLE band
- *                             the other parent gave A          -> AA, dosage LOW
- *     the loaded parent's     only the other parent's allele is there, one copy:
- *     copy is absent            it gave B (rate q)             -> B alone, dosage HIGH
- *                               it gave A                      -> A alone, dosage LOW
- *     the other parent's      only this parent's allele is there, which is A:
- *     copy is absent                                           -> dosage LOW, always
+ *   MOSAICISM DOES NOT LIVE IN THE UNRESOLVED READINGS. That was the premise of the old guard. The
+ *   unresolved zone's share of band redistribution never reaches a majority at any f at any stage,
+ *   and below f = 0.3 in a blastomere it is 0.02 to 0.20 while the extremes take 0.57 to 0.92: the
+ *   low-f signal is a change in the dropout BALANCE, readings tipping extreme to extreme, not
+ *   intermediate readings accumulating. Counting them had power 0.01 to 0.02 at f <= 0.3.
  *
- * Two of those cells are impossible under the others, which is where all the power is. A HIGH
- * dosage at a marker where the loaded parent is homozygous requires that parent's copy to be
- * ABSENT, because if it were present it would contribute an A and hold the dosage at or below the
- * middle. A MIDDLE dosage requires BOTH copies, because one copy cannot be heterozygous.
+ *   BAND-THRESHOLD SELECTION DESTROYS THE MEAN. Taking a segment mean over markers passing a 0.15
+ *   band threshold has power 0.00 at every f on blastomere and TE, because that selection keeps
+ *   only 27-39% of true heterozygotes and the mean is then set by wherever the contaminating
+ *   homozygous tail happens to sit. The central window is the fix.
  *
- * THIS IS NOT AN ALLELE SHARE AND IT IS NOT CENTRED. Two earlier attempts in this project formed
- * a paternal share and centred it on the sample's own median, and both produced one-directional
- * results. For a one-parent informative set the expectation is 1 - q/2 under two copies and 1
- * under loss-of-unknown, so for every q below one half the majority of markers sit at the ceiling:
- * the median IS the ceiling, upward headroom is zero by construction, and every call came back the
- * same way. What is counted here is the RATE OF AN EVENT THAT IS IMPOSSIBLE UNDER THE ALTERNATIVE,
- * in each direction separately. A quantity that is never centred cannot be mis-centred, and the
- * two directions are counted by the same code with the orientation flipped, so neither can be
- * given a headroom the other lacks.
+ * WHAT THIS DOES INSTEAD. Orient so the loaded parent's own allele is low; keep markers where that
+ * parent is homozygous; take the central window; compute the window centroid MINUS the same
+ * quantity on the array's own clean chromosomes; divide by a standard error whose floor is
+ * systematic within-array drift rather than sampling. Then decide, in this order: could any array
+ * of this kind at this width answer, is THIS array usable, is there an imbalance, and only last,
+ * is the sign secure enough to name a parent.
  *
- * WHERE IT IS WEAKER THAN THE GENOTYPE VERSION, and it is weaker. Dosage is a continuous
- * measurement and amplification distorts it: preferential amplification of one allele drags a
- * true middle toward an extreme, and a poorly amplified locus drags an extreme toward the middle.
- * The second direction is the safe one, since it moves evidence from the decisive bands into the
- * band every hypothesis allows, so noise costs power rather than buying a wrong answer. The first
- * is not safe, which is why the extreme bands here are narrow and why `MIN_MARKERS_DOSAGE` is far
- * above the genotype caller's floor: this is intended for whole chromosomes and large segments,
- * where there are thousands of markers, not for the small regions the genotype channel handles.
+ * THAT ORDER IS DELIBERATE. Nearly every amplified array fails the MoChA quality gate, so asking
+ * quality first would report a QC failure for what is really a study-design limit, and send a
+ * reader to re-run a sample when what they need is a second genotyped parent or a wider interval.
+ *
+ * NAMING IS THE LAST QUESTION AND USUALLY THE ANSWER IS NO. Below f = 0.3 the proportion of
+ * detections naming the WRONG parent runs 0.50 to 1.00, so an imbalance is reported without a
+ * class unless the implied fraction clears that. This follows MoChA, which left 29% of its events
+ * unassigned because power to detect an imbalance exceeded power to resolve which one it was.
  */
 import type { AB } from './informativity.ts'
 
-/**
- * Dosage bands, taken from the ones this project already uses on the same channel.
- *
- * `tallyRow` counts a BAF as extreme below 0.15 or above 0.85, and as in-band between 0.35 and
- * 0.65. Reusing those means a marker is classified the same way here as everywhere else, rather
- * than by a second set of thresholds that would drift from the first.
- */
-export const BAND_EXTREME = 0.15
-export const BAND_MID_LO = 0.35
-export const BAND_MID_HI = 0.65
+/** Material class, which sets every noise constant below. Amplification, not developmental age. */
+export type Material = 'bulk' | 'esc-single' | 'trophectoderm' | 'blastomere'
 
 /**
- * Probability a marker lands outside the band its true state predicts.
+ * The central window, on the oriented scale.
  *
- * Covers everything that moves a dosage: amplification bias, probe cross-hybridisation, and the
- * clustering that produced the reading. Set at the drop-in rate measured on this platform, since
- * a false heterozygote and a dosage that has wandered into the middle band are the same physical
- * event seen through two channels.
+ * Wide on purpose. A narrow band around 0.5 would select for markers whose allelic balance
+ * survived amplification intact, which is the subset a mosaic shift has already moved out of.
  */
-export const DOSAGE_NOISE = 0.0435
+export const WINDOW_LO = 0.20
+export const WINDOW_HI = 0.80
 
 /**
- * Informative markers a region needs before a dosage verdict.
+ * Variance inflation over independent sampling, measured per material.
  *
- * Far above the genotype caller's 50. A dosage band is a noisier observation than a genotype call
- * and the decisive bands are entered at rate q rather than at rate 1, so the evidence per marker
- * is lower. This channel exists for whole chromosomes and multi-megabase segments, which carry
- * thousands of informative markers; a region that cannot reach this floor is a region the genotype
- * channel should be answering.
+ * Bulk is essentially white. Every amplified stage is not: readings are spatially correlated with
+ * an autocorrelation integral length of 1.0 to 2.2 Mb, so a 12 Mb interval holds only 5.5 to 12
+ * independent blocks whatever its marker density, and effective independent markers saturate near
+ * 250 per chromosome out of a nominal 900 to 1,100. Adding markers past that buys nothing.
  */
-export const MIN_MARKERS_DOSAGE = 400
-
-/** Posterior a hypothesis must reach before it is named. Same bar as the genotype channel. */
-export const DOSAGE_POSTERIOR = 0.95
-
-/**
- * How far the region's unresolved fraction may exceed the sample's own genome before it is refused.
- *
- * THIS IS THE GUARD THAT ALMOST DID NOT GET WRITTEN, and the reason it exists is worth keeping.
- * The middle band is impossible with one copy, so middle-band markers are enormously informative
- * for two copies being present. That makes this channel vulnerable in exactly the way the genotype
- * channel was: a region whose intensity is noise scatters its dosages across the range, a large
- * share land in the middle band, and the likelihood reads that as overwhelming evidence of two
- * copies. Measured on a real blastomere, chromosome 1 against the rest of its own genome:
- *
- *     chr1              call 30.7%   own  7.7%   middle 49.7%   excluded 5.4%   between 37.2%
- *     its other chroms  call 83.7%   own 88.1%   middle  4.0%   excluded 0.9%   between  7.1%
- *
- * Twelve times the middle band and five times the between band. It returned both-copies-present at
- * posterior 1.0000. The tell is the BETWEEN band, the one no hypothesis puts mass in: a genome
- * resolves its alleles into clusters, and a region that does not is not being measured. Compared
- * against the sample's OWN genome rather than an absolute, because amplification sets that
- * baseline per array and it varies enormously between a blastomere and bulk DNA.
- *
- * WHAT THIS GUARD CANNOT SEPARATE, and it matters for which samples it should be trusted on. An
- * unresolved dosage has two causes. In a SINGLE cell it is noise: one genome cannot be partly
- * anything, so a reading between the bands is the measurement failing. In a MULTI-CELL biopsy it
- * can be real. A mosaic loss carried by some cells and not others puts the biopsy's average dosage
- * genuinely between the clean bands, which is the signal a mosaicism caller would want. This guard
- * treats both as unmeasurable and refuses. That is right for a blastomere and conservative for a
- * trophectoderm biopsy, where it will refuse regions that are mosaic rather than broken. Measured:
- * two trophectoderm biopsies of one embryo showed 29.9% and 23.7% unresolved over a chr16 loss
- * against a 7% genome background, and both were refused here while the genotype channel called
- * them both-present. Separating the two needs the per-cell dosage distribution rather than the
- * biopsy mean, which this function does not have.
- */
-/**
- * Frequency of the allele the loaded parent lacks, among alleles the other parent transmits.
- *
- * Shared with the genotype channel so the two cannot disagree about the same population quantity
- * while claiming to answer the same question.
- */
-export const DEFAULT_DOSAGE_Q = 0.30
-
-export const MAX_BETWEEN_RATIO = 3
-export const MAX_BETWEEN_FLOOR = 0.15
+export const VIF_CHROMOSOME: Record<Material, number> = {
+  bulk: 0.94, 'esc-single': 3.83, trophectoderm: 3.34, blastomere: 3.63,
+}
+export const VIF_SEGMENT: Record<Material, number> = {
+  bulk: 1.04, 'esc-single': 2.14, trophectoderm: 1.74, blastomere: 2.31,
+}
 
 /**
- * WITHDRAWN FROM NAMING A PARENT, pending a rebuild. An external methods review measured what this
- * statistic does on real material and the result is disqualifying as written.
+ * Systematic within-array drift, in BAF units, which is the FLOOR on the standard error.
  *
- * THE NULL POINTS AT THE WRONG PARENT. Raw one-parent centroid null medians are -0.031 on
- * trophectoderm and -0.023 on blastomeres, meaning the loaded parent's own allele appears in excess
- * under no event at all, which this reads as the OTHER parent having lost its copy. On TE that
- * -0.031 is the shift a genuine mosaic fraction of 0.117 would produce. The mechanism is the
- * orientation step itself: the loaded parent's allele is the one always identifiable, so dropout of
- * the other parent's allele moves readings toward it more often than the reverse. Symmetry between
- * the two DIRECTIONS of the statistic, which this module's check asserts and which holds, does not
- * protect against a null that is off-centre to begin with.
- *
- * AND THE ERROR IS CONFIDENT. On the honest null with no event present, the wrong-sign tail reaches
- * z = -15.9 at the 0.1st percentile, with 0.6% of null units beyond |z| = 10. Posterior 1.0000 on
- * noise is reachable whenever the statistic is not self-referenced against the same array's own
- * clean genome, which this one is not. Below f = 0.3 the fraction of detections naming the WRONG
- * parent is 0.50 to 1.00.
- *
- * So this channel now reports the EVENT and withholds the CLASS, which is the published response to
- * exactly this dilemma: MoChA left 29% of its events unassigned because power to detect an
- * imbalance exceeded power to resolve which imbalance it was.
+ * Not sampling noise: it does not average down with more markers. Against a sampling term of
+ * 0.0019 to 0.0102 it runs 1.44 to 1.90 times larger on amplified material, so an interval's
+ * uncertainty is set by how much the array wanders rather than by how many markers it carries.
+ * Omitting it is how a z of 15 arrives on a chromosome that is independently verified diploid.
  */
-export const NAMES_A_PARENT = false
+export const DRIFT_TAU: Record<Material, number> = {
+  bulk: 0.0011, 'esc-single': 0.0153, trophectoderm: 0.0123, blastomere: 0.0193,
+}
+
+/**
+ * Smallest mosaic fraction detectable at 80% power and a 1% false-positive rate, by material and
+ * interval width. NaN means no floor was reached at any fraction up to 0.70: NOT EVALUABLE.
+ *
+ * These decide what this module will attempt. A 12 Mb interval is out of reach on every amplified
+ * material, and a single blastomere against one parent has no floor at all, which is why both
+ * return not-evaluable rather than a refusal dressed as a QC failure. The distinction matters to a
+ * reader: a refusal says this array was bad, not-evaluable says no array of this kind at this
+ * width could have answered.
+ */
+export const F80_CHROMOSOME: Record<Material, number> = {
+  bulk: 0.040, 'esc-single': 0.443, trophectoderm: NaN, blastomere: NaN,
+}
+export const F80_SEGMENT: Record<Material, number> = {
+  bulk: 0.056, 'esc-single': NaN, trophectoderm: NaN, blastomere: NaN,
+}
+
+/**
+ * Implied mosaic fraction below which the SIGN is not secure, so no parent is named.
+ *
+ * Measured proportion of detections naming the wrong parent, with loss of the loaded parent's copy
+ * as the truth: at f 0.05 it is 1.00; at 0.10, 0.86 on a TE 12 Mb segment and 1.00 on a blastomere
+ * chromosome; at 0.20, 0.50 and 0.33; at 0.30, 0.15 and 0.17. It does not become tolerable until
+ * 0.30, and that is what this constant is.
+ */
+export const SIGN_SECURE_F = 0.30
+
+/** |z| a shift must reach before an imbalance is reported at all. Two-sided, 1% FPR. */
+export const Z_DETECT = 2.576
+
+/**
+ * Array-level exclusion, adopted from MoChA rather than invented here: median SD of BAF at
+ * heterozygous sites above this and the array is not analysed. It is the one directly reusable
+ * gate in a literature that otherwise publishes no floor for this material.
+ */
+export const MAX_HET_BAF_SD = 0.11
 
 export type DosageVerdict =
   | 'known-parent-lost'
   | 'other-parent-lost'
-  | 'both-present'
-  | 'refused'
+  | 'imbalance-unassigned'
+  | 'no-imbalance'
+  | 'not-evaluable'
+  | 'array-excluded'
 
 export interface DosageCall {
   verdict: DosageVerdict
-  posterior: number
-  /** Markers where the loaded parent is homozygous AND a dosage was read. */
+  /** Signed, self-referenced centroid shift. Positive means the loaded parent's copy is short. */
+  shift: number
+  z: number
+  /** Mosaic fraction implied by the shift, via f = 4d/(1+2d). NaN where the shift is not positive. */
+  impliedF: number
+  /** Markers in the central window, which is the only denominator that carries the signal. */
+  window: number
+  /** Markers where the loaded parent is homozygous and a dosage was read. */
   markers: number
-  /** Dosage at the extreme the loaded parent CANNOT produce. Only its absence explains these. */
-  excluded: number
-  /** Dosage in the middle band. Only two copies explain these. */
-  middle: number
-  /** Dosage at the loaded parent's own extreme. Every hypothesis allows these. */
-  own: number
-  /** Dosage in no band at all. No hypothesis predicts these, so a high rate means the intensity
-   *  is not resolving alleles in this region rather than that the region is unusual. */
-  between: number
-  q: number
+  material: Material
+  /** Smallest fraction this material and width could detect. NaN where none could. */
+  floor: number
   why: string
 }
 
-/** LOW is the loaded parent's own allele, MID is two copies, HIGH is the allele it cannot give. */
-type Band = 'own' | 'middle' | 'excluded' | 'between'
+/** Orient so the loaded parent's own allele reads low, whichever homozygote it is. */
+export const oriented = (parent: AB, baf: number): number =>
+  (parent === 'BB' ? 1 - baf : baf)
 
 /**
- * Which band a dosage falls in, ORIENTED so the loaded parent's own allele is always low.
+ * Mosaic fraction implied by a pooled-dosage shift.
  *
- * The flip is the whole reason the two directions cannot be given different sensitivity: a
- * BB parent is handled by the identical code path as an AA parent with the axis reversed, so any
- * asymmetry would have to be written twice to survive.
+ * From E[BAF] = 1/(2-f), so d = 1/(2-f) - 1/2 and f = 4d/(1+2d). NOT f = 2d, which inverts the
+ * per-cell formula and understates the fraction about 1.8x.
  */
-export function band(parent: AB, baf: number): Band {
-  if (!Number.isFinite(baf)) return 'between'
-  const b = parent === 'BB' ? 1 - baf : baf
-  if (b < BAND_EXTREME) return 'own'
-  if (b > 1 - BAND_EXTREME) return 'excluded'
-  if (b >= BAND_MID_LO && b <= BAND_MID_HI) return 'middle'
-  return 'between'
-}
+export const fractionFromShift = (d: number): number =>
+  (d <= 0 ? NaN : (4 * d) / (1 + 2 * d))
 
-/**
- * Per-marker likelihood under the three hypotheses, in the order
- * [both copies present, the loaded parent's copy lost, the other parent's copy lost].
- *
- * The zeros are the point. A middle dosage is impossible with one copy, and an excluded-extreme
- * dosage is impossible while the loaded parent's copy is there. Noise keeps them from being
- * literally zero, so a single stray marker cannot veto a hypothesis outright, but the ratio is
- * what carries the call.
- */
-function likelihood(b: Band, q: number, noise: number): [number, number, number] {
-  const raw: Record<Band, [number, number, number]> = {
-    // Two copies: middle at rate q, own-extreme otherwise. Never the excluded extreme.
-    // One copy from the other parent: excluded extreme at rate q, own otherwise. Never middle.
-    // One copy from this parent: its own allele, always.
-    own: [1 - q, 1 - q, 1],
-    middle: [q, 0, 0],
-    excluded: [0, q, 0],
-    // Between the bands. Every hypothesis produces these at the noise rate and none is favoured.
-    between: [0, 0, 0],
-  }
-  const p = raw[b]
-  // Spread `noise` of the mass uniformly over the four bands so nothing is impossible and a
-  // single distorted marker cannot decide anything.
-  return [
-    p[0] * (1 - noise) + noise / 4,
-    p[1] * (1 - noise) + noise / 4,
-    p[2] * (1 - noise) + noise / 4,
-  ]
-}
+/** The additive logit-space displacement a fraction f produces. Independent of baseline. */
+export const logitShift = (f: number): number => -Math.log(1 - f)
 
-/**
- * Call which copy is missing across a region, from one genotyped parent and the sample's dosage.
- *
- * `pairs` are (parent genotype, sample B-allele frequency) at each marker. Markers where the
- * parent is heterozygous carry nothing and are dropped: every hypothesis predicts the same dosage
- * distribution there, so including them would dilute the evidence with noise.
- */
-export function callDosageOrigin(
+/** Mean and SD of the central window, over markers where the loaded parent is homozygous. */
+export function centroid(
   pairs: readonly (readonly [AB, number | null])[],
-  q: number = DEFAULT_DOSAGE_Q,
-  noise = DOSAGE_NOISE,
-  opts: {
-    minMarkers?: number
-    posterior?: number
-    /**
-     * The same band profile computed over the REST of this sample's genome, excluding the region
-     * under test. Without it the unresolved-dosage guard cannot run, because there is nothing to
-     * compare against, and the call is made without it. Supply it wherever it can be computed.
-     */
-    background?: { between: number }
-    maxBetweenRatio?: number
-  } = {},
-): DosageCall {
-  const minMarkers = opts.minMarkers ?? MIN_MARKERS_DOSAGE
-  const need = opts.posterior ?? DOSAGE_POSTERIOR
-  const betweenRatio = opts.maxBetweenRatio ?? MAX_BETWEEN_RATIO
-
-  const logs: [number, number, number] = [0, 0, 0]
-  let n = 0
-  let excluded = 0
-  let middle = 0
-  let own = 0
-  let between = 0
+): { mean: number; sd: number; n: number; seen: number } {
+  const xs: number[] = []
+  let seen = 0
   for (const [parent, baf] of pairs) {
     if (parent !== 'AA' && parent !== 'BB') continue
     if (baf === null || !Number.isFinite(baf)) continue
-    n += 1
-    const b = band(parent, baf)
-    if (b === 'excluded') excluded += 1
-    else if (b === 'middle') middle += 1
-    else if (b === 'own') own += 1
-    else between += 1
-    const l = likelihood(b, q, noise)
-    logs[0] += Math.log(l[0])
-    logs[1] += Math.log(l[1])
-    logs[2] += Math.log(l[2])
+    seen += 1
+    const b = oriented(parent, baf)
+    if (b >= WINDOW_LO && b <= WINDOW_HI) xs.push(b)
+  }
+  if (!xs.length) return { mean: NaN, sd: NaN, n: 0, seen }
+  const mean = xs.reduce((a, b) => a + b, 0) / xs.length
+  const sd = xs.length > 1
+    ? Math.sqrt(xs.reduce((a, b) => a + (b - mean) ** 2, 0) / (xs.length - 1))
+    : NaN
+  return { mean, sd, n: xs.length, seen }
+}
+
+/**
+ * Call an interval from allele dosage.
+ *
+ * `region` and `background` are (parent genotype, sample dosage) pairs. The background must come
+ * from the SAME array and EXCLUDE the interval under test: it is what removes the directional null
+ * bias, and a background including the region would subtract the signal along with the bias.
+ */
+export function callDosageOrigin(
+  region: readonly (readonly [AB, number | null])[],
+  background: readonly (readonly [AB, number | null])[],
+  material: Material,
+  opts: {
+    /** True for a whole chromosome, which has its own noise scale and its own floor. */
+    wholeChromosome?: boolean
+    /** Median SD of BAF at the sample's heterozygous sites, for the array-level gate. */
+    hetBafSd?: number
+    signSecureF?: number
+    zDetect?: number
+  } = {},
+): DosageCall {
+  const whole = opts.wholeChromosome ?? false
+  const signSecure = opts.signSecureF ?? SIGN_SECURE_F
+  const zNeed = opts.zDetect ?? Z_DETECT
+  const floor = (whole ? F80_CHROMOSOME : F80_SEGMENT)[material]
+
+  const r = centroid(region)
+  const b = centroid(background)
+  const base = {
+    shift: NaN, z: NaN, impliedF: NaN, window: r.n, markers: r.seen, material, floor,
   }
 
-  const base = { markers: n, excluded, middle, own, between, q }
-  if (n < minMarkers) {
+  // 1. COULD ANY ARRAY OF THIS KIND ANSWER AT THIS WIDTH. Asked FIRST, and before looking at the
+  // data, for two reasons. A favourable draw cannot then talk the answer into existence. And it is
+  // the more informative reply: telling someone their array failed quality control, when the truth
+  // is that no array of its kind at this width could have answered, sends them to re-run a sample
+  // instead of to change the design. Nearly every amplified array fails the MoChA gate below, so
+  // asking that first would report a QC failure for what is really a study-design limit.
+  if (!Number.isFinite(floor)) {
     return {
-      ...base, verdict: 'refused', posterior: NaN,
-      why: `${n} markers carry a dosage where the loaded parent is homozygous, under the `
-        + `${minMarkers} this channel needs. Dosage is a noisier observation than a genotype call, `
-        + 'so its floor is higher; a region this small should be read from genotypes',
+      ...base, verdict: 'not-evaluable',
+      why: `a ${whole ? 'whole chromosome' : '12 Mb-scale interval'} on ${material} material has `
+        + 'no detection floor at 1% false positives for any mosaic fraction up to 0.70 with one '
+        + 'genotyped parent. This is not a refusal of this array: no array of this kind at this '
+        + 'width could answer. Genotyping the second parent is worth about threefold in detectable '
+        + 'fraction and is the largest single improvement available',
+    }
+  }
+  // 2. IS THIS ARRAY USABLE. Kept separate from the interval question on purpose: this is a
+  // property of the array, and conflating the two was exactly the old guard's fault.
+  if (opts.hetBafSd !== undefined && opts.hetBafSd > MAX_HET_BAF_SD) {
+    return {
+      ...base, verdict: 'array-excluded',
+      why: `BAF spread at heterozygous sites is ${opts.hetBafSd.toFixed(3)}, over the `
+        + `${MAX_HET_BAF_SD} gate. The array is too noisy to analyse, independently of this `
+        + 'interval',
     }
   }
 
-  // The intensity must be resolving alleles before its likelihood means anything. Compared
-  // against this sample's own genome, since amplification sets that baseline per array.
-  const betweenRate = between / n
-  const bg = opts.background?.between
-  const ceiling = bg === undefined ? Infinity
-    : Math.max(MAX_BETWEEN_FLOOR, bg * betweenRatio)
-  if (betweenRate > ceiling) {
+  if (!r.n || !b.n || !Number.isFinite(r.sd)) {
     return {
-      ...base, verdict: 'refused', posterior: NaN,
-      why: `${(100 * betweenRate).toFixed(1)}% of the dosages sit in no band at all, against `
-        + `${(100 * (bg as number)).toFixed(1)}% over the rest of this sample's genome. No `
-        + 'hypothesis predicts an unresolved dosage, so a rate this far above the sample\'s own '
-        + 'background means the intensity is not resolving alleles here rather than that the '
-        + 'region is unusual. A middle-band reading is impossible with one copy, so scattered '
-        + 'noise would otherwise read as strong evidence of two',
+      ...base, verdict: 'not-evaluable',
+      why: `${r.n} markers in the central window and ${b.n} in the array's own background, which `
+        + 'is not enough to form a self-referenced shift',
     }
   }
 
-  const top = Math.max(...logs)
-  const w = logs.map((l) => Math.exp(l - top))
-  const sum = w[0] + w[1] + w[2]
-  const post = w.map((x) => x / sum)
-  const best = post.indexOf(Math.max(...post))
-  const names: DosageVerdict[] = ['both-present', 'known-parent-lost', 'other-parent-lost']
+  // 3. IS THERE AN IMBALANCE. Self-referenced, with drift as the floor on the standard error.
+  const shift = r.mean - b.mean
+  const vif = (whole ? VIF_CHROMOSOME : VIF_SEGMENT)[material]
+  const tau = DRIFT_TAU[material]
+  const se = Math.sqrt((vif * r.sd * r.sd) / r.n + tau * tau)
+  const z = shift / se
+  const impliedF = fractionFromShift(Math.abs(shift))
+  const out = { ...base, shift, z, impliedF }
 
-  // The class is withheld until the statistic is self-referenced. See NAMES_A_PARENT.
-  if (!NAMES_A_PARENT && best !== 0) {
+  if (Math.abs(z) < zNeed) {
     return {
-      ...base, verdict: 'refused', posterior: post[best],
-      why: `an imbalance is present at posterior ${post[best].toFixed(4)} over ${n} markers, but `
-        + 'this channel does not name a parent for it. Its null is not self-referenced against the '
-        + 'array\'s own genome and is measured off-centre by -0.031 on trophectoderm, which is the '
-        + 'shift a mosaic fraction of 0.117 would produce, in the direction of the parent that was '
-        + 'NOT genotyped. Below a fraction of 0.3, half to all of such detections name the wrong '
-        + 'parent. The event is reported; the class is withheld',
+      ...out, verdict: 'no-imbalance',
+      why: `centroid shift ${shift.toFixed(4)} against this array's own genome, z ${z.toFixed(2)}, `
+        + `under the ${zNeed.toFixed(2)} needed. Standard error ${se.toFixed(4)} is floored by `
+        + `within-array drift at ${tau}, which does not average down with more markers`,
     }
   }
-  const pctOf = (x: number) => `${((100 * x) / n).toFixed(1)}%`
 
-  if (post[best] < need) {
+  // 4. IS THE SIGN SECURE. Only now, and usually it is not.
+  const secure = Number.isFinite(impliedF) && impliedF >= signSecure && impliedF >= floor
+  if (!secure) {
     return {
-      ...base, verdict: 'refused', posterior: post[best],
-      why: `best hypothesis reaches ${post[best].toFixed(3)}, under the ${need} needed. `
-        + `${excluded} markers (${pctOf(excluded)}) sit at the dosage the loaded parent cannot `
-        + `produce and ${middle} (${pctOf(middle)}) sit in the two-copy band`,
+      ...out, verdict: 'imbalance-unassigned',
+      why: `an imbalance is present, shift ${shift.toFixed(4)} at z ${z.toFixed(2)}, but the `
+        + `implied fraction ${Number.isFinite(impliedF) ? impliedF.toFixed(3) : 'n/a'} is under `
+        + `the ${signSecure} at which the sign becomes secure, and below a fraction of 0.3 between `
+        + 'half and all such detections name the WRONG parent. The event is reported and the '
+        + 'parent is not',
     }
   }
+  const lost = shift > 0
   return {
-    ...base,
-    verdict: names[best],
-    posterior: post[best],
-    why: `${names[best]} at posterior ${post[best].toFixed(4)} from allele dosage over ${n} `
-      + `markers where the loaded parent is homozygous. ${excluded} (${pctOf(excluded)}) sit at `
-      + 'the dosage that parent cannot produce, which only its absence explains, and '
-      + `${middle} (${pctOf(middle)}) sit in the band that needs two copies. Read from intensity `
-      + 'rather than genotype calls, so a collapsed call rate does not remove the evidence',
+    ...out,
+    verdict: lost ? 'known-parent-lost' : 'other-parent-lost',
+    why: `${lost ? "the loaded parent's" : "the other parent's"} copy is short over this interval: `
+      + `centroid shift ${shift.toFixed(4)} against this array's own genome at z ${z.toFixed(2)}, `
+      + `implying a fraction of ${impliedF.toFixed(3)}, over both the ${signSecure} sign-security `
+      + `bound and this material's ${floor} detection floor. Read from dosage, so a collapsed call `
+      + 'rate does not remove the evidence',
   }
+}
+
+/**
+ * The material class this module's constants are indexed by, from the stage the array was given.
+ *
+ * Deliberately coarse: what sets the noise is how much amplification happened, not how old the
+ * embryo was. A trophectoderm biopsy and a single ES cell differ by more than a blastomere and a
+ * single ES cell do.
+ */
+export function materialOf(stage: string): Material {
+  if (stage === 'bulk') return 'bulk'
+  if (stage === 'trophectoderm') return 'trophectoderm'
+  if (stage === 'blastomere') return 'blastomere'
+  // single-cell, haploid and anything unrecognised take the amplified single-cell constants,
+  // which are the more conservative of the two remaining sets on every parameter.
+  return 'esc-single'
 }
