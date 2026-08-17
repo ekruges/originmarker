@@ -1,0 +1,110 @@
+IS THE RAW ORIGIN POSTERIOR SAFE TO SHIP WITHOUT A RECALIBRATION MAP?
+=====================================================================
+
+Measured here rather than inherited. The methods review that specified the posterior
+(audit/CONSULT-calibrated-origin.txt) fitted isotonic recalibration maps per material class and
+reported expected calibration error of 0.0027 to 0.0072 after them. Those maps were not delivered
+with the review, and the corpus available here carries no material labels: filenames are accession
+identifiers, and the tool's own staging separates PLOIDY rather than amplification, assigning 176
+arrays to "bulk" whose BAF spread at heterozygous sites is 0.232 against bulk gDNA's known 0.088.
+
+Fitting per-material maps on labels that cannot be established would be inventing the warranty the
+maps are supposed to carry. So none were fitted. Instead the question that actually decides whether
+the posterior can ship without them was measured: does the raw posterior err UNDER-confident, which
+is conservative, or OVER-confident, which is the failure this whole rework removes.
+
+
+METHOD
+------
+Real noise, synthetic event. Per-chromosome null shifts were measured on 35 real arrays of this
+corpus spanning the full noise range (BAF spread at het sites 0.0612 to 0.6469), using the marker
+set the shipped statistic runs on: sample-heterozygous markers with BAF inside the central window.
+769 chromosome-level null shifts in null_shifts.csv, array identifiers replaced with array01..35.
+
+The scripts beside this file carry the absolute paths of the machine they were run on, and the
+corpus they read is not in this repository and will not be: it is lab material. null_shifts.csv IS
+here, with identifiers stripped, and it is the input the two calibration scripts actually consume,
+so the calibration result is reproducible from this directory even though the census that produced
+it is not.
+
+An injection takes a true class, a true mosaic fraction drawn on [0.02, 0.70], and a true affected
+parent; computes the displacement from the pooled-dosage algebra; and ADDS AN ACTUAL NULL SHIFT
+DRAWN FROM A REAL ARRAY. So the dispersion, the drift and the amplification artefacts are the
+arrays' own, and only the event is synthetic. 140,000 injections. Reproduce with calib.ts,
+calib2.ts, calib3.ts.
+
+The construction shares the review's honest limitation and adds one of its own: the informative
+marker set is a proxy (sample-heterozygous rather than parent-homozygous-with-heterozygous-child),
+because most arrays here have no genotyped parent. It measures the noise the statistic faces, not
+the marker-selection dilution.
+
+
+RESULT 1: THE RAW POSTERIOR IS WELL CALIBRATED ON REAL NOISE
+------------------------------------------------------------
+Pooled over 140,000 injections, expected calibration error 0.0039, signed +0.0019.
+
+  stated band      n        stated    actual    gap
+  0.500-0.600    89154      0.5432    0.5387   +0.0045
+  0.600-0.700     2455      0.6422    0.6513   -0.0091
+  0.700-0.800     1425      0.7497    0.7719   -0.0222
+  0.800-0.900     1458      0.8518    0.8800   -0.0282
+  0.900-0.970     1686      0.9400    0.9614   -0.0214
+  0.970-0.999     3066      0.9904    0.9945   -0.0040
+  0.999-1.000    40756      1.0000    0.9999   +0.0001
+
+The middle bins run UNDER-confident by 2 to 3 points, which is the conservative direction and
+matches the review's finding that every reliability curve sits above the diagonal. Shipping without
+a map therefore understates rather than overstates, and the band a row lands in is a lower bound.
+
+
+RESULT 2: THE INVERTED TAIL IS REAL, TINY, AND UNGATEABLE
+----------------------------------------------------------
+Split by TRUE class, with no intensity channel supplied, band A and B combined:
+
+  true class = gain, rows reaching the top bands:   60 of 23,143
+  of those, correct:                                 0
+
+Zero. Not weakly wrong, reliably inverted, which is the same signature the review measured on
+different data by a different construction (0 of 34 on trophectoderm, 0 of 18 on blastomere). Two
+independent measurements of the same defect is the strongest evidence in this file.
+
+Band A alone, blind, over 64,522 rows: 29 wrong, accuracy 0.99955. So the tail is 0.045% of top-band
+rows and band A comfortably meets the 0.9952 to 0.9980 the review measured for it.
+
+THE ALGEBRAIC GATE DOES NOT WORK, and this was tested rather than assumed. A gain's displacement
+cannot exceed f/(4+2f), which is 0.1296 at the f=0.70 ceiling, so |shift| above that excludes a gain
+outright. Applying that as a gate demotes ZERO band-A rows and catches ZERO wrong ones, because
+NOISE CARRIES TRUE GAINS ACROSS THE BOUNDARY: the observed shift of a high-fraction gain lands above
+a ceiling its true displacement could not reach. No function of the observables separates them,
+which is what the review meant by an identifiability limit rather than a tuning failure.
+
+
+RESULT 3: THE INTENSITY CHANNEL IS WORTH FAR MORE THAN ASSUMED
+---------------------------------------------------------------
+This is the finding the review did not report, because its pipeline always had intensity. Splitting
+the same injections by whether an intensity channel was supplied:
+
+  intensity present, true class = gain, top band:  21,379 rows, accuracy 0.9992
+  intensity absent,  true class = gain, top band:      60 rows, accuracy 0.0000
+
+The entire inverted tail lives in the blind case. Intensity does not name a parent, and cannot: its
+term is identical under both parental hypotheses at a fixed class and fraction. What it does is
+resolve the CLASS, and once the class is resolved the sign stops being ambiguous. So supplying
+window log2R is not a refinement on this material, it is the difference between a gain origin being
+answerable and being inverted.
+
+PRODUCT CONSEQUENCE: the tool should treat a missing intensity channel as a stated limitation on any
+amplified event where a gain is feasible, and the second parental array remains the categorical fix
+rather than an incremental one.
+
+
+WHAT THIS DOES NOT ESTABLISH
+-----------------------------
+Calibration against real biological events. The events here are injected, as they were in the
+review. No confirmed UPD and no mosaic of known fraction exists in this corpus. It also does not
+establish per-class calibration: the review measured a pooled map running 2.7 to 6.8 points
+over-confident on copy-neutral LOH and about the same under-confident on loss, and nothing here
+contradicts or reproduces that, because no map was fitted.
+
+The isotonic maps remain the outstanding item. Until they arrive, every posterior this tool emits
+carries uncalibrated: true and says so in its own reason text.

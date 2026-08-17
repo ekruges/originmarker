@@ -1717,8 +1717,8 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           <Text size="sm" mb={10}>
             <b>Four questions, in this order, and the first two are asked before the data.</b> Could
             any array of this kind, at this interval width, answer at all? Then: is this particular
-            array usable? Then: is there an imbalance? And only last: is the sign secure enough to
-            name a parent. The order matters because nearly every amplified array fails a strict
+            array usable? Then: is there an imbalance? And only last: which parent. The order
+            matters because nearly every amplified array fails a strict
             quality gate, so asking quality first would report a QC failure for what is really a
             limit of the study design, and send you to re-run a sample when what you need is a
             second genotyped parent or a wider interval.
@@ -1733,12 +1733,35 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             improvement available.
           </Text>
           <Text size="sm" mb={10}>
-            <b>Below a mosaic fraction of 0.30 the event is reported and the parent is not.</b>
-            Between half and all detections below that bound name the WRONG parent, so naming one
-            would be worse than saying nothing: a wrong call is indistinguishable from a right one
-            to a reader. The verdict reads as an unassigned imbalance instead, which follows the
-            largest published study of this kind, where 29% of events were left unclassified because
-            the power to detect an imbalance exceeded the power to resolve which one it was.
+            <b>The parent is a probability with a band, not a yes or no.</b> Which parent a shift
+            names depends on the copy-number class, because a gain inverts the direction that a loss
+            and a copy-neutral event share: at a mosaic fraction of 0.10 the loaded parent&apos;s copy
+            reads +0.0263 under a loss and -0.0238 under a gain. On amplified material the class is
+            usually not resolved, so the class is not assumed. It is marginalised into the answer
+            along with the fraction, and what comes back is a calibrated probability. Four bands: very
+            confident, confident, weak and direction only, and weak and not for reporting. Every band
+            shows its number, including the weakest, whose measured accuracy is 0.60 to 0.64 and
+            whose intervals all exclude a coin flip. What changes between bands is the words beside
+            the number.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>One situation still withholds the parent.</b> On amplified material, where the implied
+            gain fraction is under 0.15 and total signal strength cannot resolve the direction, a
+            small loss and a small gain both fit and they name opposite parents. Measured accuracy of
+            a stated parent there is zero out of 34 on trophectoderm and zero out of 18 on
+            blastomere: not weakly wrong, reliably inverted. No threshold on the observations
+            separates those rows, because they are inverted precisely because the observations cannot
+            tell a small gain from a small loss. The event, its interval and its evidence are all
+            still reported, and a second parental array removes the situation entirely by resolving
+            the class outright rather than by threshold.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Supplying total signal strength matters more than it looks.</b> It never names a
+            parent and cannot: at a fixed class and fraction its contribution is identical for both
+            parents and cancels. What it does is settle the class, and once the class is settled the
+            direction stops being ambiguous. Measured over 140,000 injections carrying the real noise
+            of 35 arrays: with it, gains in the top band are right 0.9992 of the time; without it,
+            the handful of gains that reach the top band are right none of the time.
           </Text>
           <Text size="sm" mb={10}>
             <b>The intensity channel joins the detection and never the direction.</b> Total signal

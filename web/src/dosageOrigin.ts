@@ -55,18 +55,40 @@
  * quantity on the array's own clean chromosomes; divide by a standard error whose floor is
  * systematic within-array drift rather than sampling. Then decide, in this order: could any array
  * of this kind at this width answer, is THIS array usable, is there an imbalance, and only last,
- * is the sign secure enough to name a parent.
+ * which parent.
  *
  * THAT ORDER IS DELIBERATE. Nearly every amplified array fails the MoChA quality gate, so asking
  * quality first would report a QC failure for what is really a study-design limit, and send a
  * reader to re-run a sample when what they need is a second genotyped parent or a wider interval.
  *
- * NAMING IS THE LAST QUESTION AND USUALLY THE ANSWER IS NO. Below f = 0.3 the proportion of
- * detections naming the WRONG parent runs 0.50 to 1.00, so an imbalance is reported without a
- * class unless the implied fraction clears that. This follows MoChA, which left 29% of its events
- * unassigned because power to detect an imbalance exceeded power to resolve which one it was.
+ * NAMING NO LONGER READS THE SIGN, AND THAT IS THE CORRECTION THIS MODULE MOST NEEDED. It used to
+ * ask whether the implied fraction cleared 0.30 and then take the sign of the shift, inverting
+ * through the loss formula whenever nobody had resolved the class. Both halves of that were wrong.
+ *
+ *   THE SIGN DOES NOT NAME A PARENT ON ITS OWN. Gain inverts the map that loss and copy-neutral LOH
+ *   share: at f = 0.10 the loaded parent's copy reads +0.0263 under a loss and -0.0238 under a
+ *   gain. Defaulting to loss is not conservative, it is an assertion, and this project's own audit
+ *   puts the class as unresolved on 89 to 100% of amplified detections. Measured wrong-parent rate
+ *   for a true low-fraction gain scored that way: 0.551 to 0.580 at f = 0.05, across four material
+ *   classes. Worse than chance and systematic, because a sign inversion is not noise.
+ *
+ *   THE 0.30 THRESHOLD WAS GUARDING THE WRONG FAILURE. The posterior is measurably UNDER-confident
+ *   before recalibration, not over-confident, so the blanket withhold was discarding honest calls:
+ *   on blastomeres it refused 24.1% of events that sit in a band measured at 0.9971 accuracy. A
+ *   single threshold on fraction cannot express this in any case, since fraction explains only
+ *   51.7% of the variance in achievable confidence and material, array identity, marker count and
+ *   class carry the rest.
+ *
+ * So the class is marginalised into a posterior, the intensity channel supplies what direction
+ * information exists, and the result is a calibrated probability placed in one of four bands. Every
+ * band carries its number, including the weakest, because each is calibrated within itself. The one
+ * cell where a number is still withheld is narrow and named: see classInvertedRisk.
  */
 import type { AB } from './informativity.ts'
+import {
+  originPosterior, classInvertedRisk, BAND_LABEL, VETO_MAX_F,
+  type OriginPosterior, type CalibrationMap, type EventClass,
+} from './originPosterior.ts'
 
 /** Material class, which sets every noise constant below. Amplification, not developmental age. */
 export type Material = 'bulk' | 'esc-single' | 'trophectoderm' | 'blastomere'
@@ -214,16 +236,6 @@ export const ORIGIN_WITHOUT_CLASS: Record<Material, number> = {
   bulk: 0.296, 'esc-single': 0.759, trophectoderm: 1.000, blastomere: 1.000,
 }
 
-/**
- * Implied mosaic fraction below which the SIGN is not secure, so no parent is named.
- *
- * Measured proportion of detections naming the wrong parent, with loss of the loaded parent's copy
- * as the truth: at f 0.05 it is 1.00; at 0.10, 0.86 on a TE 12 Mb segment and 1.00 on a blastomere
- * chromosome; at 0.20, 0.50 and 0.33; at 0.30, 0.15 and 0.17. It does not become tolerable until
- * 0.30, and that is what this constant is.
- */
-export const SIGN_SECURE_F = 0.30
-
 /** |z| a shift must reach before an imbalance is reported at all. Two-sided, 1% FPR. */
 export const Z_DETECT = 2.576
 
@@ -266,8 +278,12 @@ export const RESIDUAL_R: Record<Material, number> = {
 }
 
 export type DosageVerdict =
-  | 'known-parent-lost'
-  | 'other-parent-lost'
+  /** The loaded parent's copy is the affected one. Named from the posterior, not from the sign. */
+  | 'loaded-parent'
+  /** The un-genotyped parent's copy is the affected one. */
+  | 'other-parent'
+  /** Amplified material where a small gain and a small loss name opposite parents. See the veto. */
+  | 'class-inverted-risk'
   | 'imbalance-unassigned'
   | 'no-imbalance'
   | 'not-evaluable'
@@ -299,6 +315,11 @@ export interface DosageCall {
   material: Material
   /** Smallest fraction this material and width could detect. NaN where none could. */
   floor: number
+  /**
+   * The calibrated posterior, which is what names the parent. Absent where the call never got far
+   * enough to compute one (array excluded, no imbalance, nothing to reference against).
+   */
+  posterior?: OriginPosterior
   why: string
 }
 
@@ -398,7 +419,6 @@ export function callDosageOrigin(
      * so on that material the class is almost never resolvable and the origin usually is.
      */
     windowLogRSd?: number
-    signSecureF?: number
     zDetect?: number
     /**
      * Self-referenced intensity evidence for this interval, as a signed z where NEGATIVE means
@@ -411,10 +431,17 @@ export function callDosageOrigin(
      * direction still comes from the dosage sign alone.
      */
     intensityZ?: number
+    /** Window log2R displacement in its natural units, if the caller has it directly. */
+    logRShift?: number
+    /** Standard error of that displacement. Derived from windowLogRSd and the window when absent. */
+    logRShiftSe?: number
+    /** Per-material, per-class isotonic maps. Without them the posterior is flagged uncalibrated. */
+    calibration?: Partial<Record<Material, Partial<Record<EventClass | 'marginal', CalibrationMap>>>>
+    /** Set where the origin evidence rests on the obligate-het channel alone, which caps at band B. */
+    obligateHetOnly?: boolean
   } = {},
 ): DosageCall {
   const whole = opts.wholeChromosome ?? false
-  const signSecure = opts.signSecureF ?? SIGN_SECURE_F
   const zNeed = opts.zDetect ?? Z_DETECT
   // The floor is state-aware and parent-count aware. Reading a copy-neutral event against a loss
   // floor is what made this module refuse the easiest class it has.
@@ -501,18 +528,22 @@ export function callDosageOrigin(
     }
   }
 
-  // 4. IS THE SIGN SECURE. Only now, and usually it is not.
-  const secure = Number.isFinite(impliedF) && impliedF >= signSecure && impliedF >= floor
-  if (!secure) {
-    return {
-      ...out, verdict: 'imbalance-unassigned',
-      why: `an imbalance is present, shift ${shift.toFixed(4)} at z ${z.toFixed(2)}, but the `
-        + `implied fraction ${Number.isFinite(impliedF) ? impliedF.toFixed(3) : 'n/a'} is under `
-        + `the ${signSecure} at which the sign becomes secure, and below a fraction of 0.3 between `
-        + 'half and all such detections name the WRONG parent. The event is reported and the '
-        + 'parent is not',
-    }
-  }
+  // THE DETECTION FLOOR DOES NOT GATE THE ASSIGNMENT, and putting it here was a mistake worth
+  // recording because it looked obviously right. The f80 floor is the smallest fraction detectable
+  // at 80% power; by this line a detection has ALREADY been made, at z >= 2.576 against a standard
+  // error floored by drift. Conditioning on that, re-applying a power threshold refuses events the
+  // array did in fact see, and it is the same single-threshold-on-fraction the rest of this rework
+  // removes: fraction explains only 51.7% of the variance in achievable confidence.
+  //
+  // It also made the class-inversion veto below UNREACHABLE. Measured against our own constants:
+  // the veto needs an implied gain fraction under 0.15, which is a shift under 0.0349, which is an
+  // implied loss fraction under 0.1304, and the lowest amplified floor we carry is 0.135. So every
+  // inverted cell was being caught by a gate that gave a less informative reason for it.
+  //
+  // The floor stays where it belongs: question 1, whether ANY array of this kind at this width
+  // could answer, and as reported information on the call. Selection effects on a below-floor
+  // detection are real, and they are handled where they belong, by marginalising the fraction
+  // rather than by refusing the row.
   // THE CLASS IS A SEPARATE QUESTION with its own power, asked after the origin and allowed to
   // fail without taking the origin down with it.
   const sd = opts.windowLogRSd
@@ -530,17 +561,64 @@ export function callDosageOrigin(
       + 'Lifting it needs a three to fivefold narrower spread, which more markers do not deliver: '
       + 'four times as many buys 1.2 to 1.4x'
 
-  const lost = shift > 0
+  // 4. WHICH PARENT. Marginalising the class rather than assuming one, which is the whole change.
+  //
+  // This used to be `const lost = shift > 0`, a naked sign read, with the class defaulted to loss
+  // wherever nobody had resolved it. That default is not conservative: gain inverts the map that
+  // loss and copy-neutral LOH share, so on a true gain the naked sign named the WRONG parent, at a
+  // measured 0.551 to 0.580 across four material classes at f = 0.05. Since this project's own
+  // audit puts the class as unresolved on 89 to 100% of amplified detections, the old line was
+  // wrong in the majority regime rather than at the edges.
+  //
+  // The intensity channel is handed over in its natural units so it can inform the class. It still
+  // names no parent of its own: within a class and a fraction its term is identical under both
+  // parental hypotheses and cancels exactly.
+  const seL = opts.windowLogRSd !== undefined && Number.isFinite(opts.windowLogRSd) && r.n > 0
+    ? (opts.windowLogRSd as number) / Math.sqrt(r.n)
+    : undefined
+  const logRShift = opts.logRShift ?? (
+    iz !== undefined && Number.isFinite(iz) && seL !== undefined ? iz * seL : undefined)
+  const logRSe = opts.logRShiftSe ?? seL
+
+  const post = originPosterior(
+    { shift, shiftSd: se, logR: logRShift, logRSd: logRSe, material, markers: r.n },
+    { calibration: opts.calibration, obligateHetOnly: opts.obligateHetOnly },
+  )
+
+  // THE ONE VETO. Amplified material, a possible small gain, intensity unable to resolve a
+  // direction: measured 0 of 34 correct on trophectoderm and 0 of 18 on blastomere among rows that
+  // still reached the top two bands. Reliably inverted rather than weakly wrong, and no gate on
+  // observables separates them, because the rows are inverted precisely because the observables
+  // cannot tell a small gain from a small loss. The event is still reported; only the parent is
+  // withheld.
+  const gainF = fractionFromShift(Math.abs(shift), 'gain')
+  if (classInvertedRisk(material, gainF, iz)) {
+    return {
+      ...out, classVerdict: cls, classWhy, posterior: post,
+      verdict: 'class-inverted-risk',
+      why: `an imbalance is present, shift ${shift.toFixed(4)} at z ${z.toFixed(2)}, but on `
+        + `${material} material a shift this size is equally consistent with a small loss and a `
+        + `small gain (implied gain fraction ${Number.isFinite(gainF) ? gainF.toFixed(3) : 'n/a'}, `
+        + `under ${VETO_MAX_F}), and the intensity channel does not resolve the direction at 99%. `
+        + 'Those two readings name OPPOSITE parents. In this exact cell the measured accuracy of a '
+        + 'stated parent is 0 of 34 on trophectoderm and 0 of 18 on blastomere, so a number here '
+        + 'would not be weak, it would be inverted. A second parental array resolves the class '
+        + 'categorically rather than by threshold and removes this cell entirely',
+    }
+  }
+
+  const named = post.parent === 'other' ? 'other-parent' : 'loaded-parent'
   return {
     ...out,
     classVerdict: cls,
     classWhy,
-    verdict: lost ? 'known-parent-lost' : 'other-parent-lost',
-    why: `${lost ? "the loaded parent's" : "the other parent's"} copy is short over this interval: `
-      + `centroid shift ${shift.toFixed(4)} against this array's own genome at z ${z.toFixed(2)}, `
-      + `implying a fraction of ${impliedF.toFixed(3)}, over both the ${signSecure} sign-security `
-      + `bound and this material's ${floor} detection floor. Read from dosage, so a collapsed call `
-      + 'rate does not remove the evidence',
+    posterior: post,
+    verdict: named,
+    why: `${post.parent === 'loaded' ? "the loaded parent's" : "the un-genotyped parent's"} copy is `
+      + `the affected one, at a calibrated confidence of ${post.confidence.toFixed(4)} `
+      + `(band ${post.band}, ${BAND_LABEL[post.band]}). Centroid shift ${shift.toFixed(4)} against `
+      + `this array's own genome at z ${z.toFixed(2)}, over this material's ${floor} detection `
+      + `floor. ${post.why}. Read from dosage, so a collapsed call rate does not remove the evidence`,
   }
 }
 

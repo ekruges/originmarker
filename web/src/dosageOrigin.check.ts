@@ -17,7 +17,7 @@
 import assert from 'node:assert/strict'
 import {
   callDosageOrigin, centroid, oriented, fractionFromShift, logitShift, materialOf,
-  WINDOW_LO, WINDOW_HI, SIGN_SECURE_F, MAX_HET_BAF_SD, F80_CHROMOSOME, F80_SEGMENT,
+  WINDOW_LO, WINDOW_HI, MAX_HET_BAF_SD, F80_CHROMOSOME, F80_SEGMENT,
   DRIFT_TAU, VIF_CHROMOSOME, RESIDUAL_R, floorFor, ORIGIN_WITHOUT_CLASS,
 } from './dosageOrigin.ts'
 import type { DosageState } from './dosageOrigin.ts'
@@ -199,14 +199,14 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
   // Wide log2R, which is every amplified material: origin named, class withheld.
   const wide = callDosageOrigin(strong, bg2, 'bulk',
     { wholeChromosome: true, state: 'loss', windowLogRSd: 0.20 })
-  assert.equal(wide.verdict, 'known-parent-lost', 'the origin still resolves')
+  assert.equal(wide.verdict, 'loaded-parent', 'the origin still resolves')
   assert.equal(wide.classVerdict, 'unresolved', 'and the class does not')
   assert.ok(wide.classWhy.includes('too wide'))
 
   // Narrow log2R, which only bulk reaches: both resolve.
   const narrow = callDosageOrigin(strong, bg2, 'bulk',
     { wholeChromosome: true, state: 'loss', windowLogRSd: 0.02 })
-  assert.equal(narrow.verdict, 'known-parent-lost')
+  assert.equal(narrow.verdict, 'loaded-parent')
   assert.equal(narrow.classVerdict, 'loss')
 
   // Omitting it withholds the class rather than guessing one.
@@ -219,30 +219,69 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
   assert.ok(ORIGIN_WITHOUT_CLASS.bulk < 0.5)
 }
 
-// --- 5. AN IMBALANCE IS REPORTED WITHOUT A PARENT WHEN THE SIGN IS NOT SECURE ----------------------
+// --- 5. A WEAK EVENT NOW GETS A WEAK NUMBER, NOT A REFUSAL ----------------------------------------
 //
-// Below f = 0.3 between half and all detections name the wrong parent, so the class is withheld.
-// The MoChA precedent: report the event, leave it unassigned.
+// This block used to assert the opposite. The old rule withheld the parent whenever the implied
+// fraction fell under 0.30, on the reasoning that between half and all such detections named the
+// wrong parent. The measurement behind that was made with the class ASSUMED, which is what
+// generated the wrong parents in the first place; with the class marginalised the posterior is
+// under-confident rather than over-confident, and the blanket withhold was discarding honest calls
+// (24.1% of blastomere events refused by it sit in a band measured at 0.9971).
+//
+// So a small shift must now come back with a parent and a LOW band, and a large shift with a HIGH
+// band. What must never happen is the two arriving at the same confidence.
 {
   const bg = region(N, 0.50)
   const small = callDosageOrigin(region(N, 0.5 + 0.024), bg, 'bulk', { wholeChromosome: true })
-  assert.equal(small.verdict, 'imbalance-unassigned')
-  assert.ok(small.impliedF < SIGN_SECURE_F)
   assert.ok(Math.abs(small.z) >= 2.576, 'the imbalance itself is still detected and reported')
-  assert.ok(small.why.includes('WRONG parent'))
+  assert.ok(small.posterior, 'a posterior must exist even for a weak event')
 
   // Above the bound the parent is named, and the direction follows the sign of the shift.
   const up = callDosageOrigin(region(N, 0.5 + 0.20), bg, 'bulk', { wholeChromosome: true })
-  assert.equal(up.verdict, 'known-parent-lost', 'a positive shift is the loaded parent falling short')
-  assert.ok(up.impliedF >= SIGN_SECURE_F)
+  assert.equal(up.verdict, 'loaded-parent', 'a positive shift is the loaded parent falling short')
 
   const down = callDosageOrigin(region(N, 0.5 - 0.20), bg, 'bulk', { wholeChromosome: true })
-  assert.equal(down.verdict, 'other-parent-lost')
+  assert.equal(down.verdict, 'other-parent')
+
+  // The strong event must not be less confident than the weak one. This is the property the band
+  // structure exists to express, and a single fraction threshold could not.
+  assert.ok((up.posterior as NonNullable<typeof up.posterior>).confidence
+    >= (small.posterior as NonNullable<typeof small.posterior>).confidence,
+    'a larger shift must never come back less confident than a smaller one')
+  // And with no calibration map loaded, the number must announce itself as raw rather than pass
+  // for final. Shipping an under-confident number as if it were calibrated is the failure this
+  // whole rework exists to remove.
+  assert.equal((up.posterior as NonNullable<typeof up.posterior>).uncalibrated, true)
 
   // The two directions are reached on equal evidence. Necessary but, as the review showed, not
   // sufficient on its own: section 3 is what covers the null being off-centre.
   assert.ok(Math.abs(Math.abs(up.z) - Math.abs(down.z)) < 0.5)
   assert.ok(Math.abs(up.impliedF - down.impliedF) < 1e-9)
+}
+
+// --- 5a. THE CLASS-INVERSION VETO IS REACHED THROUGH THE REAL CALL PATH ---------------------------
+//
+// Amplified material, a shift small enough that a loss and a gain both explain it, and no intensity
+// to separate them. Those two readings name OPPOSITE parents, and in this exact cell the measured
+// accuracy of a stated parent is 0 of 34 on trophectoderm and 0 of 18 on blastomere. So the event
+// is reported and the parent is withheld. This is the ONLY cell where a number is suppressed.
+{
+  const bg = region(N, 0.50)
+  // The window is narrow and that is the point: on trophectoderm the shift must clear z = 2.576
+  // against a drift-floored standard error (about 0.032) while staying under the implied gain
+  // fraction of 0.15 (about 0.035). Between those two lies the cell where a loss and a gain are
+  // both plausible and name opposite parents.
+  const risky = callDosageOrigin(region(N, 0.5 + 0.033), bg, 'trophectoderm',
+    { wholeChromosome: true })
+  assert.equal(risky.verdict, 'class-inverted-risk')
+  assert.ok(risky.why.includes('OPPOSITE parents'))
+  assert.ok(risky.why.includes('0 of 34'), 'the measured accuracy must travel with the refusal')
+  assert.ok(risky.why.includes('second parental array'), 'and the remedy must be stated')
+  assert.ok(Number.isFinite(risky.z), 'the event itself is still reported')
+
+  // Bulk was never in this cell: it resolves its own class.
+  const bulk = callDosageOrigin(region(N, 0.5 + 0.033), bg, 'bulk', { wholeChromosome: true })
+  assert.notEqual(bulk.verdict, 'class-inverted-risk')
 }
 
 // --- 5b. THE JOINT TERM USES THE MEASURED CHANNEL CORRELATION ------------------------------------
@@ -268,13 +307,17 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
   const wrongWay = callDosageOrigin(sub, bg, 'bulk', { wholeChromosome: true, intensityZ: +6 })
   assert.equal(wrongWay.verdict, 'no-imbalance')
 
-  // Intensity NEVER changes the direction, only whether an event is declared.
+  // Intensity names no parent OF ITS OWN: the same intensity evidence must not push two opposite
+  // shifts to the same parent. The old comment here said intensity never changes the direction at
+  // all, and that is no longer true and was the bug: intensity informs the CLASS, and because a
+  // gain inverts the sign that loss and copy-neutral LOH share, resolving the class can and should
+  // flip which parent a given sign implies. What it must never do is name a parent by itself.
   const up = callDosageOrigin(region(N, 0.5 + 0.20), bg, 'bulk',
     { wholeChromosome: true, intensityZ: -8 })
-  assert.equal(up.verdict, 'known-parent-lost')
+  assert.equal(up.verdict, 'loaded-parent')
   const down = callDosageOrigin(region(N, 0.5 - 0.20), bg, 'bulk',
     { wholeChromosome: true, intensityZ: -8 })
-  assert.equal(down.verdict, 'other-parent-lost',
+  assert.equal(down.verdict, 'other-parent',
     'the same intensity evidence must not push both directions to the same parent')
 
   // The correlation is applied, and it is material-specific. A correlated material must need MORE
@@ -335,5 +378,5 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
 }
 
 console.log('dosageOrigin.check.ts: all assertions passed, including a uniformly biased array '
-  + 'producing no call, not-evaluable decided before the data, and the class withheld under the '
-  + 'sign-security bound')
+  + 'producing no call, not-evaluable decided before the data, and the class-inversion veto '
+  + 'withholding the one parent it cannot name')

@@ -40,6 +40,7 @@ const inferredRef = await import(`${W}inferredReference.ts`)
 const features = await import(`${W}features.ts`)
 const dosage = await import(`${W}dosageOrigin.ts`)
 const unt = await import(`${W}untransmitted.ts`)
+const post = await import(`${W}originPosterior.ts`)
 
 type AB = 'AA' | 'AB' | 'BB' | 'NC'
 
@@ -388,11 +389,11 @@ function dosageOver(
     state: (args.flags.get('state') ?? 'loss') as never,
     parents: (args.flags.get('parents') === '2' ? 2 : 1) as never,
     hetBafSd: args.bools.has('no-array-gate') ? undefined : hetBafSd,
-    signSecureF: num('sign-secure-f', dosage.SIGN_SECURE_F),
     zDetect: num('z-detect', dosage.Z_DETECT),
   }) as {
     verdict: string, shift: number, z: number, impliedF: number, window: number,
-    markers: number, material: string, floor: number, why: string
+    markers: number, material: string, floor: number, why: string,
+    posterior?: { confidence: number, band: string, limitedBy: string, uncalibrated: boolean },
   }
 }
 
@@ -538,8 +539,11 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     if (!['auto', 'genotype', 'dosage', 'both'].includes(channel)) {
       die('--channel must be auto, genotype, dosage or both')
     }
-    const name = (v: string) => (v === 'known-parent-lost' ? role
-      : v === 'other-parent-lost' ? other : null)
+    const name = (v: string) => (
+      // obligate-het channel
+      v === 'known-parent-lost' ? role : v === 'other-parent-lost' ? other
+        // dosage channel, which no longer says "lost" because it cannot know the class
+        : v === 'loaded-parent' ? role : v === 'other-parent' ? other : null)
     const rows = evs.map((e) => {
       const isWhole = e.kind.startsWith('whole-chromosome')
       const useDosage = channel === 'dosage' || channel === 'both'
@@ -551,8 +555,10 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       const untransmitted = useDosage
         ? untransmittedOver(ref, c, e.chrom, e.start, e.end,
           args.flags.get('state') ?? 'loss') : null
-      // Genotypes answer where they can. Dosage only fills what they cannot reach, and it names
-      // a parent only when the implied fraction clears the sign-security bound.
+      // Genotypes answer where they can. Dosage only fills what they cannot reach, and it now
+      // names a parent with a calibrated confidence rather than only above a fraction threshold.
+      // The one cell it still withholds is the class-inverted risk: amplified material where a
+      // small gain and a small loss both fit and name OPPOSITE parents.
       const gNamed = g && name(g.verdict)
       const dNamed = d && name(d.verdict)
       return {
@@ -869,9 +875,13 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     const scored = features.scoreAll(track, regions as never, markers, perms)
     out({ regions: regions.length, permutations: perms, results: scored }, () => {
       process.stdout.write(`${regions.length} regions, ${perms} permutations\n\n`)
-      for (const e of scored as { feature: string, observed: number, expected: number, ratio: number, p: number }[]) {
-        process.stdout.write(`${e.feature.padEnd(38)} obs ${e.observed.toFixed(3)} `
-          + `null ${e.expected.toFixed(3)}  ratio ${e.ratio.toFixed(2)}  p ${e.p.toFixed(4)}\n`)
+      // The field is nullMean, not expected. It was read as `expected` here, which is undefined,
+      // so this printer threw on every run and only --json ever worked.
+      for (const e of scored as { feature: string, observed: number, nullMean: number, ratio: number, p: number }[]) {
+        const n = (v: number) => (Number.isFinite(v) ? v.toFixed(3) : '   n/a')
+        process.stdout.write(`${e.feature.padEnd(38)} obs ${n(e.observed)} `
+          + `null ${n(e.nullMean)}  ratio ${Number.isFinite(e.ratio) ? e.ratio.toFixed(2) : ' n/a'}`
+          + `  p ${Number.isFinite(e.p) ? e.p.toFixed(4) : '   n/a'}\n`)
       }
       process.stdout.write('\nRead the effect sizes rather than the p values. At large region '
         + 'counts the permutation null is narrow enough that a four percent difference reaches '
@@ -893,7 +903,11 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       ['origin', 'MAX_REGION_HET', oneParent.MAX_REGION_HET, 'above this the region\'s genotypes are not measuring it and no origin is called'],
       ['origin', 'CALL_POSTERIOR', oneParent.CALL_POSTERIOR, 'posterior a hypothesis must reach to be named'],
       ['dosage', 'ORIGIN_WITHOUT_CLASS.trophectoderm', dosage.ORIGIN_WITHOUT_CLASS.trophectoderm, 'fraction of detected TE events that resolve an ORIGIN but not a CLASS: emitting one verdict would refuse all of them'],
-      ['dosage', 'SIGN_SECURE_F', dosage.SIGN_SECURE_F, 'implied fraction under which no parent is named: below it, half to all detections name the WRONG parent'],
+      ['posterior', 'BAND_A_MIN', post.BAND_A_MIN, 'calibrated confidence for the top band, measured accuracy 0.9952-0.9980 across the four material classes'],
+      ['posterior', 'BAND_B_MIN', post.BAND_B_MIN, 'confident band floor, measured 0.9448-0.9599'],
+      ['posterior', 'BAND_C_MIN', post.BAND_C_MIN, 'weak band floor, measured 0.8128-0.8375; below it band D at 0.604-0.636, which still excludes chance'],
+      ['posterior', 'VETO_MAX_F', post.VETO_MAX_F, 'implied GAIN fraction under which an amplified event is class-inverted: a small gain and a small loss name OPPOSITE parents, measured 0 of 34 correct on TE and 0 of 18 on blastomere'],
+      ['posterior', 'BAND_ACCURACY.blastomere.A', post.BAND_ACCURACY.blastomere.A, 'why the old 0.30 fraction withhold was retired: 24.1% of blastomere events it refused sit in this band'],
       ['dosage', 'Z_DETECT', dosage.Z_DETECT, 'self-referenced |z| an imbalance must reach, two-sided at 1%'],
       ['dosage', 'MAX_HET_BAF_SD', dosage.MAX_HET_BAF_SD, 'array-level gate adopted from MoChA: BAF spread at het sites above this and the array is not analysed'],
       ['dosage', 'WINDOW_LO', dosage.WINDOW_LO, 'central window, deliberately wider than the old middle band'],

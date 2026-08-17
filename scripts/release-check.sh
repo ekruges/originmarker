@@ -19,6 +19,16 @@ changelog=$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | sed 's/^## 
 say "build_info.py  $build \"$codename\""
 say "CHANGELOG.md   $changelog"
 
+# A CODENAME MUST NEVER BE REUSED. It was, twice: 4.14.0 took "Kinetochore" back from 2.0.0 and
+# 4.15.0 took "Recombinase" back from 3.0.0, because the ladder in build_info.py had been spent and
+# nothing checked. A codename that names two releases cannot identify either of them.
+prior=$(grep -oE '^## [0-9]+\.[0-9]+\.[0-9]+ "[^"]+"' CHANGELOG.md | sed 's/.*"\(.*\)"/\1/' | tail -n +2)
+if printf '%s\n' "$prior" | grep -qxF "$codename"; then
+  say "REUSED CODENAME: \"$codename\" already names an earlier release. Take the next unused name"
+  say "from RELEASES in originmarker/build_info.py."
+  fail=1
+fi
+
 if [ "$build" != "$changelog" ]; then
   say "MISMATCH: the build reports $build and the newest changelog entry is $changelog"
   fails=$((fails + 1))

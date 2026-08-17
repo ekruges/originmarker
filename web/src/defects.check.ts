@@ -113,8 +113,9 @@ const one = (where: string, verdict: string) => ({
 {
   const s = seg('21', 10_873_592, 48_088_571)
   const w = whereOf(s, 10_873_592, 48_088_571)
-  const dose = [{ where: 'chr21', verdict: 'known-parent-lost', shift: 0.118, z: 6.4,
-    impliedF: 0.382, window: 9_100, why: 'from dosage' }]
+  const dose = [{ where: 'chr21', verdict: 'loaded-parent', shift: 0.118, z: 6.4,
+    impliedF: 0.382, window: 9_100, why: 'from dosage',
+    confidence: 0.9961, band: 'A', limitedBy: 'none' }]
 
   // Genotypes silent: dosage answers, and says so.
   const filled = defectsFrom([s], [], [], [], 'paternal', undefined, dose)[0]
@@ -124,6 +125,19 @@ const one = (where: string, verdict: string) => ({
   assert.equal(filled.z, 6.4)
   assert.equal(filled.impliedF, 0.382)
   assert.equal(filled.shift, 0.118)
+  // The calibrated number and its band travel with the call, because a parent without a
+  // confidence is the thing this tool must never show.
+  assert.equal(filled.confidence, 0.9961)
+  assert.equal(filled.band, 'A')
+
+  // The two channels do NOT share a vocabulary, and that is deliberate rather than an oversight.
+  // 'loaded-parent' is the dosage channel's; the obligate-het channel keeps 'known-parent-lost'
+  // because a missing haplotype really is missing there, whereas a dosage sign inverts under a
+  // gain. A dosage call still carrying the old word must not be read as an answer.
+  const stale = defectsFrom([s], [], [], [], 'paternal', undefined,
+    [{ ...dose[0], verdict: 'known-parent-lost' }])[0]
+  assert.equal(stale.origin, 'unclear',
+    'a dosage verdict in the retired vocabulary must not be silently honoured')
 
   // Genotypes answered: dosage must not touch it.
   const geno = defectsFrom([s], [], [], [one(w, 'other-parent-lost')], 'paternal', undefined, dose)[0]

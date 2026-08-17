@@ -1,0 +1,694 @@
+EVERY CHROMOSOMAL ABNORMALITY, LOCATED PRECISELY, WITH A CONFIDENCE-SCORED PARENTAL ORIGIN
+==========================================================================================
+A research consult. Substrate: your own corpus. 885 staged arrays (Affymetrix Axiom UK
+Biobank, 825,657 markers, GRCh37), 14 arrays across 4 material classes used for the
+injection experiment below, plus the 39 audit CSVs already in the project and 35 primary
+sources verified for this consult.
+
+New measurement done for this consult, not carried over: 276,480 real-noise injections
+(calib_core.py, calib_run.py), leave-one-array-out recalibration, per-band accuracy with
+array-clustered intervals, pericentromeric marker density against UCSC hg19 gap, and
+sex-specific recombination against UCSC hg19 recombRate.
+
+
+0. HEADLINE
+===========
+Your instinct is right and your current behaviour is wrong, but not for the reason you
+think. "Always call with a calibrated confidence" IS achievable on this material, and I can
+show the reliability diagram. The thing that has to be replaced is not the refusal policy
+and not the estimator. It is the assumption, currently built into the tool, that ORIGIN is a
+question you can answer while CLASS is unresolved.
+
+Five results, in order of how much they change the build.
+
+1. A calibrated parental-origin posterior is reachable, measured, on all four material
+   classes including single blastomeres. Expected calibration error after leave-one-array-out
+   recalibration: 0.0027 bulk, 0.0039 single ESC WGA, 0.0072 TE, 0.0030 blastomere. The
+   recalibration map never sees the array it is tested on. This is the deliverable you asked
+   for and it exists.
+
+2. THE CORRECTION THAT CHANGES THE SCIENCE. The sign of the parent-allele shift names a
+   parent only GIVEN the copy-number class, because gain inverts the map that loss and
+   CNN-LOH share. Your own audit already says 89-100% of detected events on TE and
+   blastomere resolve an origin but NOT a class. Those two facts together mean the current
+   tool reports an origin in exactly the regime where the sign does not identify a parent.
+   Measured consequence: a true low-fraction GAIN, scored the way the tool scores it now,
+   names the WRONG parent 55.1-58.0% of the time at f=0.05 - worse than a coin flip, and
+   systematically so, because the error is a sign inversion rather than noise. Of all wrong
+   calls that land in the top two confidence bands, 55.7% are gains.
+   The fix is not a better estimator. It is to marginalise the class into the posterior and
+   let the intensity channel supply what direction information exists. Origin and class are
+   currently separate fields in your report; they are not separable quantities.
+
+3. Your posterior, before recalibration, is UNDER-confident, not over-confident. Every
+   reliability curve sits above the diagonal (ECE 0.033-0.059). This is the opposite of the
+   failure you built the refusal policy to prevent, and it means the withholding threshold
+   at f=0.30 is throwing away calls that would have been honest.
+
+4. The f=0.30 blanket threshold should go, and be replaced by the band the posterior lands
+   in. This also settles your "always call" question in your favour: because every band
+   including the weakest is calibrated within itself, a number can be attached everywhere
+   except one specific cell (item 2 above) and the structural refusals. Measured on blastomeres - your worst material, the one with no floor at any fraction
+   on the shipped statistic - 24.1% of events land in a band whose measured accuracy is
+   0.9971, and 43.0% land in the weakest band, which is itself calibrated at 0.618. A single
+   fraction threshold cannot express that, because f explains only 51.7% of the variance in
+   achievable confidence; material, array identity, marker count and class carry the rest.
+
+5. Two things you were told, and one thing in your own notes, are wrong. The MII-to-SPH rule
+   is not general (MII WITH a crossover gives BPH tracts distal to the centromere, so BPH
+   does not cleanly separate meiotic from mitotic). PH-trace is low-pass WGS, not a SNP
+   array, so its AUC 0.999 and its 30-SNP informativity floor do not transfer to your marker
+   budget. And the pericentromeric region is not as hopeless as "2.5 to 121 markers" implies
+   - it carries 578 markers and 63 informative het markers at +/-2 Mb on a real high-call-rate
+   array here - but it is hopeless for a different and firmer reason, given in section 2.
+
+
+1. WHAT THE CONFIDENCE SCORE SHOULD BE
+======================================
+
+1.1 The score
+-------------
+A posterior probability that the affected copy came from the parent you did NOT load,
+marginalised over BOTH nuisance quantities: the mosaic fraction f AND the copy-number class.
+
+  P(other parent | S, L) = sum_class sum_f  p(class) p(f) N(S; -sg(class) d(class,f), sd_S)
+                                                          x N(L; dl(class,f), sd_L)
+                           / [same, both sides]
+
+  S     = self-referenced displacement of the parent-allele share over the event window
+  L     = self-referenced displacement of window log2R
+  d     = the audit's pooled displacement, f/(4-2f) loss, f/2 CNN-LOH, f/(4+2f) gain
+  dl    = log2((2-f)/2) loss, 0 CNN-LOH, log2((2+f)/2) gain
+  sg    = -1 for loss and CNN-LOH, +1 for gain           <- THE INVERSION
+  sd_S  = self-referenced scale from the array's own genome at the same window size and the
+          same window composition
+  sd_L  = the same for the intensity channel
+
+Why a posterior and not a likelihood ratio or a bare band: you said a user will compare two
+rows in a table. Only a probability is comparable across material, class and marker count
+without carrying its own reference. An LR of 12 means different things at k=100 and k=800; a
+posterior of 0.92 does not.
+
+Why marginalise f rather than plug in f-hat: the plug-in form is measurably worse calibrated
+in exactly the region you care about (ECE 0.0320 vs 0.0126 on TE, 0.0219 vs 0.0055 on
+blastomere), because at low f the magnitude is estimated with error comparable to itself and
+the plug-in treats it as known. Marginalising is not a refinement, it is the difference
+between a calibrated and an uncalibrated score.
+
+1.2 The recalibration step, and why it is not cheating
+-----------------------------------------------------
+The raw posterior above is under-confident. Fix it with an isotonic (monotone) map from raw
+posterior to calibrated posterior, fitted per material class. Monotone means it cannot change
+any call - it changes only the number attached to the call. Measured: accuracy identical to
+4 decimal places (0.9116 -> 0.9113 bulk, 0.8515 -> 0.8515 single ESC, 0.8085 -> 0.8094 TE,
+0.7878 -> 0.7884 blastomere), ECE down by a factor of 8-20.
+
+Fit it leave-one-array-out. Every number I quote is from a map that never saw the array it
+was scored on. This is the difference between demonstrating calibration and asserting it, and
+it is the thing you should require of any threshold that ships.
+
+1.3 Where the score is still NOT calibrated, and what to do
+-----------------------------------------------------------
+A single pooled map is calibrated on the pooled input space but NOT within class. Stated
+minus measured confidence, pooled map, positive = over-confident:
+
+  material          CNN-LOH    gain     loss
+  bulk               +0.027   +0.025   -0.049
+  single ESC WGA     +0.053   +0.005   -0.063
+  TE                 +0.064   -0.010   -0.059
+  blastomere         +0.068   +0.001   -0.068
+
+CNN-LOH rows are over-confident by 2.7-6.8 points and loss rows under-confident by about
+the same. That is a real defect: a reader comparing a CNN-LOH row against a loss row at the
+same stated confidence is being misled in opposite directions.
+
+Two candidate fixes, one works and one does not.
+  - Stratify the map on OBSERVABLES only (|z| of the intensity channel, three strata). Does
+    NOT fix it: CNN-LOH gap stays +0.029 to +0.075. Measured, do not bother.
+  - Fit the map PER CLASS, on rows where the class is resolved. Fixes it completely: ECE
+    0.0002-0.0050 and every gap within +/-0.0015 across all 12 material-by-class cells.
+So: per-class calibration is required, which means the class must be resolved to state a
+per-class-calibrated confidence. This is the same conclusion as section 0 item 2 arriving
+from the calibration side rather than the algebra side.
+
+1.4 Bands
+---------
+Four bands. Three would merge B and C, and the measured accuracy gap between them is 13-14
+points, which is worth keeping. Boundaries on the CALIBRATED confidence, and what each is
+measured to mean (share of rows / measured accuracy / array-clustered 95% interval):
+
+  band                     bulk               single ESC WGA      TE 5-10 cells       blastomere
+  A very confident        34.5% 0.9972       27.6% 0.9980        17.3% 0.9952        24.1% 0.9971
+   (conf >= 0.985)        [0.9964,0.9981]    [0.9958,0.9997]     [0.9922,0.9987]     [0.9967,0.9975]
+  B confident             38.6% 0.9599       26.1% 0.9481        19.8% 0.9491        11.2% 0.9448
+   (0.90 - 0.985)
+  C weak                  14.7% 0.8375       18.5% 0.8219        28.0% 0.8138        21.6% 0.8128
+   (0.75 - 0.90)
+  D weak, not for report  12.2% 0.604        27.8% 0.636         34.9% 0.635         43.0% 0.618
+   (< 0.75)                [0.5986,0.6083]    [0.5969,0.6549]     [0.5871,0.6581]     [0.5998,0.6385]
+
+All intervals in this table are ARRAY-CLUSTERED (per-array accuracy, 95% on the between-array
+SE), matching bands_measured.csv. Do not substitute a naive Wilson interval on pooled rows: on
+the D band it is 3.5-5.8x too narrow on amplified material (TE clustered width 0.0710 vs Wilson
+0.0122), which is the design-effect error of section 7.1 in miniature. On bulk it runs the other
+way (clustered 0.0097 vs Wilson 0.0209) because the four bulk arrays agree more closely with
+each other than binomial sampling alone would predict.
+
+Read the D row carefully, because it does not say what I first thought and the distinction
+matters for your "never a bare refusal" requirement.
+
+D accuracy is 0.604-0.636, array-clustered intervals [0.599,0.608] bulk, [0.597,0.655] single
+ESC, [0.587,0.658] TE, [0.600,0.638] blastomere. Every interval excludes 0.50 by a wide margin
+even on the amplified material where clustering costs the most. That is NOT a coin flip: it is 10-14 points of
+real predictive signal above chance, it is consistent across arrays (per-array range
+0.593-0.659), and - the part that decides the design - it is CALIBRATED WITHIN ITSELF. Mean
+stated confidence against measured accuracy inside band D: +0.005 bulk, -0.009 single ESC,
+-0.012 TE, -0.001 blastomere. So a D-band number is not a lie; it is a weak number that is
+honestly weak.
+
+That means your original framing wins over my first instinct here. Because D is calibrated,
+it CAN carry its number without laundering anything, and that satisfies "always a call, never
+a bare refusal" for the whole input space. What it must not carry is the same visual treatment
+as A. Recommended presentation:
+
+  A, B    numeric confidence, prominent
+  C       numeric confidence, plus "direction only"
+  D       the number, plus the words "weak - not suitable for a clinical or reporting
+          decision", plus the decomposition in 1.5
+
+The one place a number must still be withheld is narrower and is NOT the D band: it is the
+inverted-gain cell in 4.5, where the failure is systematic rather than weak. That is a veto on
+a specific cell, not a band-wide refusal.
+
+Your instinct to refuse on f was nonetheless wrong for a second reason: it mislabels 24% of
+blastomere events that are actually in band A at 0.9971.
+
+Band names, since the user wants a glance to work: A "very confident", B "confident",
+C "weak - direction only", D "weak, not for reporting". Every band displays its number - all
+four are calibrated (A and B to within 0.5 points, D to within 1.2). What changes across bands
+is the WORDS beside the number, not whether a number appears. The band label is what stops a
+reader treating a 0.62 as if it were a 0.99; suppressing the number in C and D would only hide
+the calibration you can now demonstrate.
+
+1.5 The score must decompose, and here is the measured decomposition
+-------------------------------------------------------------------
+Share of confidence variance explained, one-way:
+
+  mosaic fraction f      0.517
+  array identity        0.089    <- amplification quality, and it is NOT small
+  material class        0.086
+  marker count k        0.024
+  event class           0.021
+
+So f dominates but array identity and material together match it at 0.175. Report four
+reasons, because they have different remedies:
+  low f                  -> more independent cells of the same embryo
+  poor amplification     -> re-amplify; this is array identity, worth 8.9%
+  few informative markers-> nothing, at fixed platform; or a larger event
+  class unresolved       -> load the second parent (section 4)
+
+Composition of band D tells you which remedy applies most often: 69-94% of D rows are f<=0.15
+and 34-43% are class-driven (gain or CNN-LOH at low f). On bulk material D is almost purely
+low-f (94.0%); on TE and blastomere it is a mix.
+
+
+2. TIMING AND MECHANISM: WHAT IS REACHABLE AND WHAT IS NOT
+==========================================================
+
+2.1 Your three-way question
+---------------------------
+You asked whether these separate: post-fertilisation mitotic duplication, a chromosome that
+arrived duplicated from the father, and a de novo segmental change in the gamete.
+
+Partly. Your expectation is right in one leg and wrong in another, and the wrong leg is
+one you were told.
+
+  BPH (both parental homologues)  -> meiosis I non-disjunction. CONFIRMED.
+  SPH (single parental homologue) -> post-zygotic duplication. CONFIRMED.
+  SPH                            <- meiosis II. NOT SUPPORTED AS A GENERAL RULE.
+
+MII non-disjunction with a crossover produces BPH tracts DISTAL to the centromere; only MII
+WITHOUT recombination gives chromosome-wide SPH. The MII/mitotic collapse is acknowledged
+explicitly in the primary literature and nobody separates the two on genotype alone. So
+BPH-vs-SPH is not "meiotic vs mitotic"; it is "MI (and recombinant MII, distally) vs
+(non-recombinant MII or mitotic)".
+
+  APCAD2 2025: "SPH trisomies are expected to be predominantly mitotic in origin ... even
+  though a meiotic segregation error in meiosis II without recombination cannot be excluded."
+
+2.2 Why the pericentromeric route is closed here, and it is not the marker count
+-------------------------------------------------------------------------------
+You were told 2.5-121 markers and therefore hopeless. The marker count is not the binding
+constraint; I measured it. On a real high-call-rate array in your corpus, against UCSC hg19
+centromere gaps (n=22 autosomes):
+
+  window        markers (median)   informative het markers (median, min-max)
+  +/-0.5 Mb            74                 6.5   (0-22)
+  +/-1 Mb             212                19     (0-58)
+  +/-2 Mb             578                63     (0-103)
+  +/-5 Mb           1,812               209     (6-327)
+
+63 informative markers at +/-2 Mb is thin but not hopeless. Three harder constraints close
+it anyway:
+
+  (i) Recombination suppression is sex-specific and asymmetric, which is the useful part and
+      also the trap. deCODE 1-Mb map (UCSC hg19 recombRate): genome-wide 1.598 cM/Mb female,
+      0.982 male. Pericentromeric +/-2 Mb: 0.660 female, 0.138 male - that is 0.413x the
+      female genome average but 0.140x the male. Female/male ratio rises from 1.63
+      genome-wide to 4.79 at the centromere. So the "retained heterozygosity = MI" rule is
+      much safer for paternal events than maternal ones, and the informative window is
+      wider on the male side. Nobody in your notes has used this; it is a real asymmetry
+      you could exploit for paternal-origin trisomy staging specifically.
+  (ii) Reverse segregation. Both homologues separate sister chromatids at MI and non-sisters
+      at MII. Measured across 23 complete female meioses, it was the most frequent
+      non-canonical pattern (26 cases), and in 20 of 26 the copy number was NORMAL, so it is
+      invisible to any copy-number method. A reverse-segregated chromosome carries
+      pericentromeric heterozygosity that the classical rule reads as MI when the physical
+      MI event was equational. This is not a power problem. It is the rule being wrong on a
+      non-trivial fraction of chromosomes, and no amount of marker density fixes it.
+  (iii) Inconclusive rate on real few-cell material with BOTH parents available: 22.9% (8 of
+      35 meiotic-origin triploids). You should expect 20-25% abstention on this axis even in
+      the two-parent case.
+
+RECOMMENDATION: do not ship MI/MII staging. Ship BPH-positive vs "CN3, not BPH", which is
+what your own audit already supports (AUC 1.000 from k=400, SPH contamination 0.0000), and
+state that the not-BPH class pools non-recombinant MII with mitotic. Report the
+recombination-suppression asymmetry as a reason the call is better for paternal events.
+
+2.3 The gamete-de-novo leg
+--------------------------
+A de novo segmental change introduced by the sperm is detectable as a segmental event whose
+origin resolves to the father, and it is distinguishable from a post-zygotic segmental change
+ONLY by uniformity across cells, not by genotype. Re-biopsy uniformity is the only channel
+measured to break this tie (meiotic 64/64 uniform, mitotic 6/7 non-uniform, n=71). Your tool
+cannot ask for a second biopsy, but it CAN ask for a file the user already has: if two units
+of the same embryo were arrayed, the uniformity test is free. This is the single highest-value
+addition to the mechanism side and it costs nothing at runtime.
+
+2.4 Deletions, meiotic vs mitotic
+---------------------------------
+Weaker than for gains, and one specific confound is fatal. Monosomy is called by complete
+absence of a parental haplotype, so a chromosome absent only from the SAMPLED CELLS reads as
+monosomy: the meiotic/mitotic call for LOSSES is confounded by biopsy sampling, independent
+of any statistic. The untransmitted-haplotype channel does help with a different question -
+it identifies WHICH of the loaded parent's two homologues went missing rather than only which
+parent - and that is exactly what distinguishes a meiotic loss of a specific homologue from a
+mitotic loss. But it does not resolve the sampling confound. Report loss mechanism as
+unresolved unless a second unit of the same embryo is loaded.
+
+
+3. THE TAXONOMY, CLASS BY CLASS
+===============================
+Detection floor and origin floor are DIFFERENT numbers and the gap is the single most
+misread thing in this project. Origin floors below are f80 from your audit at k=800
+(floor_f80_by_channel_state.csv); wrong-parent rates are measured in this consult's
+injection experiment at k=400 with the class-marginal posterior.
+
+  class                         detectable?      origin floor f80 (1 parent, k=800)
+  a. whole-chr monosomy         yes, intensity   bulk 0.040 / 1ESC 0.27 / TE 0.31 / blast 0.45
+  b. whole-chr trisomy          yes, intensity   bulk 0.040 / 1ESC 0.36 / TE 0.44 / blast 0.77
+     BPH vs SPH mechanism       yes, k>=400      AUC 1.000; BPH positive, SPH by exclusion only
+  c. segmental deletion         yes >=12 Mb      bulk 0.050; 1ESC/TE/blast not reached to f=0.70
+  d. segmental duplication      yes >=12 Mb      as (b), gain deviation 2.1-3.0x smaller than UPD
+     tandem vs inserted         NO               no positional information in intensity or allele
+  e. segmental CNN-LOH          detection 0.65-0.90 (het depletion)   origin 0.040-0.295
+  f. whole-chr UPD              SPLIT, see below
+     isodisomy                  yes, embryo-only (long homozygous stretch)
+     heterodisomy               NO on embryo alone. Needs a trio. Hard limit, not a floor.
+  g. segmental UPD              yes, threshold-bound; 32% of known UPD has NO significant
+                                homozygous stretch, and normal-population stretches overlap
+  h. mosaic versions            yes; fraction inversion f=4d/(1+2d) loss, 4d/(1-2d) gain, 2d UPD
+  i. triploidy, digynic/diandric ploidy call parent-free; PARENT assignment needs parental DNA
+  j. haploidy, androgenetic/gynogenetic  yes; which parent contributed 0.9911 on 112 chromosomes
+  k. complex/chaotic genomes    detected, but SELF-REFERENCE FAILS: >30% deviant autosomes
+                                means no origin call at any confidence. All 70 whole-chromosome
+                                losses in your series sit here.
+  l. gamete de novo segmental   yes as a segmental event; meiotic vs post-zygotic needs a
+                                second unit of the same embryo (section 2.3)
+  m. NOT ON YOUR LIST, and it should be:
+     - reverse segregation, copy-number-NORMAL (section 2.2 ii). Invisible to you and to
+       everyone else. Worth naming in the docs as a known blind spot.
+     - long homozygous stretches from consanguinity, which mimic segmental UPD. Your
+       staged-array table already estimates dropout from heterozygosity shortfall, so
+       consanguinity is currently ABSORBED into the dropout estimate and will bias the
+       material-class assignment. Named in your own caveat text; it deserves a flag.
+     - clustered dropout: 1% of clean windows already read 40% het-depleted. This is the
+       false-positive generator for any LOH-based detection.
+
+3.1 The wrong-parent rate, which is what the confidence has to encode
+--------------------------------------------------------------------
+Measured, k=400, class-marginal posterior, all rows including those the tool would refuse:
+
+  material          class      f=0.05  f=0.10  f=0.15  f=0.20
+  bulk              loss        0.041   0.033   0.007   0.001
+                    CNN-LOH     0.327   0.347   0.141   0.032
+                    gain        0.580   0.152   0.075   0.081
+  single ESC WGA    loss        0.236   0.076   0.031   0.009
+                    CNN-LOH     0.292   0.403   0.443   0.349
+                    gain        0.561   0.354   0.193   0.120
+  TE 5-10 cells     loss        0.325   0.184   0.082   0.045
+                    CNN-LOH     0.320   0.283   0.331   0.366
+                    gain        0.565   0.435   0.298   0.203
+  blastomere        loss        0.354   0.193   0.122   0.065
+                    CNN-LOH     0.350   0.356   0.389   0.425
+                    gain        0.551   0.480   0.398   0.265
+
+Three things to read off this table.
+  - Gains at f=0.05 are WORSE THAN CHANCE in every material (0.551-0.580). That is the sign
+    inversion of section 0 item 2, not sampling noise. Chance would be 0.500 and would not
+    be systematic across four independent material classes.
+  - CNN-LOH does NOT improve monotonically with f on amplified material (blastomere 0.350 ->
+    0.425 from f=0.05 to f=0.20). Because CNN-LOH is copy-neutral, a rising f gives the
+    allelic channel more signal but gives the INTENSITY channel nothing, so the class stays
+    unresolved and the posterior keeps hedging across an inverting map. This is why per-class
+    calibration (1.3) is mandatory rather than cosmetic.
+  - Loss is the only class that behaves the way your audit's floors imply.
+
+These rates are what the bands in 1.4 already absorb: the D band exists precisely to catch
+these rows, and it does - 83-90% of low-f gain rows land in D or C.
+
+
+4. CALLING MATERNAL BY THE ABSENCE OF PATERNAL
+=============================================
+You asked for this to be treated rigorously rather than as a convenience. It cannot be, in
+the form stated, and here is the precise reason.
+
+4.1 There is no negative inference in the dosage channel
+--------------------------------------------------------
+"His contribution is intact while a change is present, so the change is hers" is not what the
+allelic statistic measures. The statistic is a SIGNED displacement of the parent-allele share:
+a deficit of his allele and an excess of his allele are both positive evidence, in opposite
+directions, from the same markers. There is no "absent" reading in the sense of a missing
+signal - the maternal case is the negative-going arm of the same measurement.
+
+But your expectation of asymmetry is CORRECT, and I under-stated it in an earlier draft of
+this section. Measured accuracy at k=400, f=0.10, calibrated posterior, split by which
+parent's copy was actually affected ("other" = the un-genotyped parent, i.e. the
+maternal-by-absence case):
+
+  material        class     change is HERS   change is HIS   asymmetry
+  TE              loss           0.777           0.854         +0.077
+                  CNN-LOH        0.688           0.746         +0.058
+                  gain           0.402           0.727         +0.325
+  blastomere      loss           0.769           0.846         +0.077
+                  CNN-LOH        0.602           0.685         +0.083
+                  gain           0.438           0.602         +0.165
+  bulk            loss           0.969           0.965         -0.004
+                  CNN-LOH        0.629           0.677         +0.048
+                  gain           0.835           0.860         +0.025
+  single ESC WGA  loss           0.908           0.940         +0.031
+                  CNN-LOH        0.615           0.579         -0.035
+                  gain           0.615           0.677         +0.062
+
+So: on BULK material the asymmetry is negligible (-0.004 to +0.048) and maternal-by-absence
+is as good as paternal-by-presence. On amplified few-cell material it is real and it is
+worst exactly where the sign inversion lives: a maternal-origin GAIN on TE material is called
+correctly 40.2% of the time - below chance - against 72.7% for the paternal-origin gain, a
+32.5-point gap. The mechanism is that the loaded parent's markers anchor the frame, so the
+arm that requires displacement AWAY from the anchor is the one that loses when the class is
+also uncertain.
+
+CONSEQUENCE FOR THE PRODUCT: maternal-by-absence and paternal-by-presence must be calibrated
+SEPARATELY on amplified material. One pooled map over both arms will be over-confident on the
+maternal arm and under-confident on the paternal arm, on TE and blastomere, for gains
+especially. This is the same structural point as 1.3: the calibration has to be stratified on
+anything that shifts the error rate, and the direction of the inference is one such thing.
+
+4.2 Where a genuine negative inference does live, and there it IS asymmetric
+---------------------------------------------------------------------------
+The obligate-het channel is different. It asks whether a B allele appeared where the
+homozygous-AA parent had no B to give. That IS a one-sided test and it has the ceiling you
+suspected: failing to see the forbidden allele is consistent with (i) she did not transmit it,
+(ii) dropout removed it, (iii) the window had too few informative markers. I measured the
+boundary that governs (ii): on a real high-call-rate array the AA/AB genotype decision
+boundary sits at BAF ~0.19, and the pooled het BAF (1-f)/(2-f) does not cross it until
+f = 0.762. So the genotype channel is structurally blind below roughly f=0.76, which is
+consistent with your audit's het-depletion detection floor of 0.65-0.90 arriving from a
+different direction.
+
+CEILING, AND IT SHOULD BE STRUCTURAL: a call resting on the obligate-het channel alone must
+never reach band A. Cap it at B. The reason is not power, it is that the failure mode
+(dropout) is the same event as the observation, so no amount of data separates them.
+
+4.3 The untransmitted-haplotype channel does change this
+-------------------------------------------------------
+Yes, and it is the strongest thing you are not using. At markers where the loaded parent is
+HETEROZYGOUS and the sample homozygous, the transmission is determined, so it reports WHICH of
+his two homologues was transmitted. That makes his involvement positively excludable rather
+than merely undetected, which is a different inferential object from 4.2. Your audit already
+measures it as the only channel giving a single blastomere a defined floor at all (f80 0.628)
+and 1.40-1.98x SNR. It should be the primary channel on blastomere material, not an addition.
+
+4.4 What confounds a false "intact" reading
+-------------------------------------------
+  - clustered dropout: 1% of clean windows read 40% het-depleted with no event present
+  - too few informative markers: at k=100 the gain power is 0.526, at k=25 it is 0.110
+  - unseen WGA chemistry: the in-sample estimator errs OPTIMISTICALLY on amplified material,
+    by 2.3x on an unseen chemistry. Multiply and state the widened floor.
+  - self-phasing above f=0.5: a large loss removes the het calls that define the phase set,
+    so the sample can no longer phase itself and the wrong-parent rate rises to 0.681
+  - array with no self-reference: >30% deviant autosomes or call rate <0.70. Never call.
+
+4.5 The one place the band structure is NOT honest, and I could not fix it with a gate
+-------------------------------------------------------------------------------------
+Report this as a known defect rather than shipping over it.
+
+Amplified material, true GAIN at f<=0.15, un-genotyped parent's copy affected, rows that
+nonetheless reach band A or B: measured accuracy 0/34 on TE and 0/18 on blastomere. Zero.
+Wilson 95% intervals [0.000, 0.102] and [0.000, 0.176]; one-sided zero-event bounds put
+accuracy at <=0.084 and <=0.153. These rows are not weakly wrong, they are reliably inverted,
+and the pooled band statistics hide them because the cell is small (430 rows of 207,360).
+
+I tried to gate them out on observables alone and could not do it cleanly. The best
+narrow gate (amplified, intensity direction unresolved at 99%, implied-gain f<0.20) catches
+48% of the cell, touches 9.7% of amplified band A/B rows, and moves band A/B accuracy only
+0.9747 -> 0.9779. Pushing to catch 63% costs a third of top-band coverage (42.0% -> 29.8% of
+amplified rows). Search over 9 threshold combinations, all shown in direction_decidability.csv
+and reproducible from calib_run.py.
+
+Why no gate works: the rows are inverted precisely BECAUSE the observables cannot tell a small
+gain from a small loss, so no function of those observables separates them. This is a real
+identifiability limit, not a tuning failure.
+
+THE REMEDY IS THE SECOND PARENT, and it is decisive rather than incremental. With both parents
+the class is categorical rather than a threshold call: a gain shows a third parental
+haplotype, a loss shows one missing, CNN-LOH shows two copies of one. Giving the posterior the
+resolved class removes the below-chance behaviour everywhere. Measured wrong-parent rate,
+k=400, class marginal -> class resolved:
+
+  material        class     f=0.05         f=0.10         f=0.15         f=0.20
+  TE              gain      0.565 -> 0.296  0.435 -> 0.148  0.298 -> 0.079  0.203 -> 0.041
+                  CNN-LOH   0.320 -> 0.133  0.283 -> 0.025  0.331 -> 0.011  0.366 -> 0.008
+  blastomere      gain      0.551 -> 0.288  0.480 -> 0.151  0.398 -> 0.068  0.265 -> 0.030
+                  CNN-LOH   0.350 -> 0.166  0.356 -> 0.035  0.389 -> 0.011  0.425 -> 0.006
+  single ESC WGA  gain      0.561 -> 0.188  0.354 -> 0.057  0.193 -> 0.014  0.120 -> 0.000
+                  CNN-LOH   0.292 -> 0.053  0.403 -> 0.004  0.443 -> 0.000  0.349 -> 0.000
+
+Not one cell remains at or above chance. Your audit's framing of the second parent as a 3.36x
+floor improvement understates it: the floor ratio is the marker-count effect, and this is a
+separate, larger, structural effect on the class-inversion failure. Design the product around
+asking for the second parent, and say in the UI that a one-parent run cannot state a gain
+origin at top confidence on amplified material.
+
+
+5. THE LOCATION SIDE
+====================
+
+5.1 Honest breakpoint resolution
+--------------------------------
+Measured on a real high-call-rate array in your corpus, inter-marker spacing:
+
+  all markers        median 1,737 bp    p90 8,380 bp     p99 21,166 bp
+  informative (het)  median 8,683 bp    p90 46,553 bp    p99 159,948 bp
+
+So a breakpoint localises to roughly 1.7 kb where all markers can be used (an intensity-based
+edge) and to roughly 8.7 kb where only informative markers count (an allelic edge), with a
+long tail: 1 in 100 informative gaps exceeds 160 kb. Report the flanking informative marker
+positions as the interval, not a point.
+
+5.2 The 50-100x claim, restated properly
+----------------------------------------
+"Origin uncertainty dominates breakpoint uncertainty by 50-100x" is not a comparison of like
+things - one is a probability, the other a distance. The defensible version: at k=400 the
+median event span is 47.6 Mb and the breakpoint interval is ~8.7 kb, so the breakpoint is
+0.018% of the event extent. Meanwhile the origin call at that same k carries a wrong-parent
+rate of 4.5-20% on amplified material. Both statements are in comparable terms now:
+positional error is negligible relative to the event; assignment error is not.
+
+5.3 Does breakpoint error propagate into the origin call
+-------------------------------------------------------
+Only through marker count, and weakly. A misplaced boundary adds or removes markers at the
+edge; k explains 2.4% of confidence variance against f's 51.7%. A boundary error would have to
+move enough markers to change k by a factor of about 2 before it moved the band. At 8.7 kb
+resolution on a 47.6 Mb event, it cannot. The exception your notes already identify is
+heterodisomic UPD, where the segment structure IS the finding and the boundary is the result
+rather than a nuisance.
+
+5.4 What interval to report for a whole-chromosome event
+-------------------------------------------------------
+Report the assayed extent, explicitly labelled as such: first to last passing marker on the
+chromosome, with the chromosome length alongside. "chr7:193,847-159,119,486 (assayed extent;
+chr7 is 159,138,663 bp in GRCh37)". This neither overstates precision (you did not measure the
+telomeres) nor understates it (the marker span is what you actually interrogated). Do not
+report the centromere gap as covered - it is not; median 74 markers within +/-0.5 Mb and the
+UCSC hg19 gap itself is 3.0 Mb of unassayable sequence on chr1, 10, 11, 12 and others.
+
+
+6. WHAT YOU CANNOT DO, NAMED SO YOU DO NOT CHASE IT
+===================================================
+
+Not separable on WGA few-cell material at any confidence, with one parent:
+  - tandem vs inserted duplication. No positional information exists in either channel.
+  - MII-without-recombination vs post-zygotic mitotic. Not separable by anyone, on genotype
+    alone, at any material quality. Three independent sources acknowledge the collapse.
+  - whole-chromosome heterodisomic UPD from the embryo alone. Needs a trio. 32% of known UPD
+    cases show no significant homozygous stretch at all.
+  - copy-number CLASS on TE and blastomere at k<=800. Your own audit: 89-100% unresolved,
+    window log2R sd 0.17-0.22 against a needed 0.029-0.081. This consult adds why it matters:
+    the unresolved class is what inverts the origin call.
+  - gain origin at top confidence, amplified material, f<0.15, maternal arm (section 4.5).
+  - any origin call on an array with >30% deviant autosomes or call rate <0.70. No
+    self-reference exists. All 70 whole-chromosome losses in your series sit here.
+  - any origin call with zero parents loaded. Your measured false-origin rate goes from 0.0790
+    with a real second parent to 1.0000 from a population median.
+
+Where "always call" must become "always report, sometimes without a parent":
+  narrower than I expected, and narrower than the current tool assumes. It is NOT the whole
+  D band - D is calibrated within itself (section 1.4) and can carry its weak number
+  honestly. It is exactly two situations:
+    - the inverted-gain cell of 4.5 (amplified material, implied-gain f<0.15, direction
+      unresolved). Here the error is systematic, not weak, so a number would be a lie.
+      Withhold the parent, state "class-inverted risk: gain origin not stated without a
+      second parental array".
+    - the structural refusals: no parent loaded, or an array with no self-reference
+      (>30% deviant autosomes or call rate <0.70). No statistic exists to calibrate.
+  Everywhere else, report the event, its interval, its class if resolved, and the calibrated
+  number with its band, plus the decomposition from 1.5.
+
+Two parents versus one, since you will make this decision deliberately:
+  the gap is large and it is larger than your notes say. Floor ratio 3.36x on TE, plus the
+  class-inversion fix in 4.5 which is a categorical improvement rather than a ratio, plus
+  heterodisomic UPD becoming visible at all, plus MI/MII staging becoming possible in
+  principle (though still 20-25% inconclusive). If one product decision follows from this
+  consult, it is to treat the second parental array as the primary ask.
+
+
+7. HOW TO DEMONSTRATE CALIBRATION, GIVEN THE TRUTH SET YOU HAVE
+===============================================================
+
+7.1 Your truth set is smaller than it looks
+-------------------------------------------
+The haploid pronuclei are 330 chromosome-level tests but only 15 independent units, and the
+clustering is severe: per-unit accuracy ranges 0.682-1.000, between-unit variance 0.0095,
+design effect approximately 3.9 in variance. Consequences:
+
+  naive Wilson on 330 chromosomes      0.9455 [0.9154, 0.9652]
+  cluster-robust on 15 units           0.9455 [0.8961, 0.9948]
+
+and the gated result that reads best is the one to be most careful with:
+
+  gated accuracy 1.0000 on 251/330 chromosomes, but those 251 come from 13 units. The
+  honest zero-event bound is therefore error <= 0.206, NOT error <= 0.012. Quoting
+  "1.0000 on 251" as evidence of >=99% accuracy overstates by a factor of 17.
+
+Also note the truth set is not balanced across the thing being tested: maternal units are
+154/154 correct and paternal 158/176 (0.8977). Any calibration built on it inherits that.
+
+7.2 What a reliability bin actually needs
+-----------------------------------------
+Two-sided 95% Wilson half-width no wider than half the gap to the adjacent band:
+
+  band centred 0.99, gap 0.04  ->  134 independent events per bin
+  band centred 0.95, gap 0.10  ->   82
+  band centred 0.85, gap 0.15  ->   87
+  band centred 0.70, gap 0.20  ->   78
+
+Multiply by the design effect (~3.9) for clustered rows: roughly 300-520 clustered events per
+bin, or 4 bins x ~100 independent units. You do not have that in real events and will not
+soon. This is the honest reason the injection experiment is not optional.
+
+7.3 The minimum publishable calibration claim
+---------------------------------------------
+Three legs, and you can do all three now:
+
+  1. Real-noise injection with leave-one-array-out recalibration, which is what this consult
+     did: 276,480 injections, 14 arrays, 4 material classes, ECE 0.0027-0.0072. The claim this
+     supports is "calibrated with respect to real array noise, dropout and within-array drift,
+     with the event injected". State that limitation explicitly - it does not establish
+     calibration against real biological events.
+  2. Real-event anchor on the 15 haploid pronuclei with CLUSTER-ROBUST intervals, reported as
+     15 units not 330 chromosomes. This is the leg that connects to biology, and it is weak;
+     say so.
+  3. Replicate-array concordance as a consistency check: the same DNA arrayed twice should
+     land in the same band. You have replicate arrays; this costs nothing and it tests the
+     one thing injections cannot, namely whether array identity (8.9% of confidence variance)
+     is being absorbed correctly.
+
+Do NOT claim calibration against real UPD or real mosaics of known fraction. You have neither,
+and the literature check found no published reliability diagram in PGT at all - so there is no
+external benchmark to borrow either. That absence is itself worth stating in a paper: it makes
+the calibration the contribution rather than a methods detail.
+
+7.4 The honest limitation on the whole exercise
+-----------------------------------------------
+The injections carry real noise but the event is synthetic and, critically, the informative
+set was defined from parental genotypes with the measured truly-homozygous dilution imported
+(0.099 bulk, 0.202 single ESC, 0.683 TE, 0.468 blastomere from your own window-composition
+table). That is the honest deployment frame and it is why these floors are worse than a
+naive construction would give. What it still does not capture: correlated dropout structure
+specific to a real event, chemistry not in your calibration set (expect a 2.3x optimistic
+error there), and biological states like consanguinity that mimic the signal.
+
+
+8. WHAT I WOULD BUILD, IN ORDER
+===============================
+1. Marginalise the class into the origin posterior. This is the correctness fix, not an
+   improvement: it removes a systematic below-chance failure. Everything else is secondary.
+2. Per-class isotonic recalibration, fitted leave-one-array-out, one map per material class
+   and per resolved class. Ship the maps as data, not as thresholds in code.
+3. Four bands. D keeps its number (it is calibrated to within 1.2 points inside itself) but
+   carries "not suitable for a reporting decision" and the four-way decomposition. The
+   number is withheld only in the 4.5 inverted-gain cell and the structural refusals.
+4. Retire the f=0.30 blanket withhold. It mislabels 24% of blastomere events that are in
+   band A and it lets through the low-f gain inversions that are the actual danger.
+5. Make the second parental array the primary ask in the UI, with the specific reason:
+   without it, a gain origin cannot be stated at top confidence on amplified material.
+6. Add the same-embryo-second-unit test, which is free at runtime and is the only channel
+   measured to separate meiotic from mitotic.
+7. Ship BPH-positive / "CN3, not BPH" and drop MI/MII staging.
+8. Report the assayed marker extent for whole-chromosome events, and flanking informative
+   marker positions for segmental breakpoints.
+
+
+REFERENCES
+==========
+Verified for this consult; 35 primary sources, every DOI resolved, every paper checked for
+retractions and corrections two independent ways (PubMed PublicationType + CommentsCorrections,
+and OpenAlex is_retracted). Full detail with per-paper numbers in LIT-verification.txt.
+
+PH-trace, and the platform correction - https://doi.org/10.1093/hropen/hoaf075
+Rana 2023, SNP-array parental origin on 2,277 blastocysts - https://doi.org/10.1016/j.ajhg.2023.03.003
+Antonarakis 1992, the pericentromeric MI/MII rule - https://pubmed.ncbi.nlm.nih.gov/1347192/
+Antonarakis 1993, the mitotic residual class - https://doi.org/10.1038/ng0293-146
+Ottolini 2015, reverse segregation - https://doi.org/10.1038/ng.3306
+McCoy 2015, BPH/SPH and the MII crossover case - https://doi.org/10.1371/journal.pgen.1005601
+Ariad 2021, LD-PGTA, centromere bins and abstention - https://doi.org/10.1073/pnas.2109307118
+APCAD2 2025, the MII-without-recombination caveat - https://doi.org/10.3390/genes16020115
+Handyside 2025, SNP-array meiotic/mitotic decision table - https://doi.org/10.1038/s41598-025-21029-y
+Kratka 2023, 22.9% inconclusive with both parents - https://doi.org/10.1016/j.xfss.2023.02.003
+Hoppman 2018, heterodisomy undetectable, 32% miss rate - https://doi.org/10.1038/gim.2018.24
+Papenhausen 2011, LCSH reporting threshold 13.5 Mb - https://doi.org/10.1002/ajmg.a.33939
+Bruce 2005, segmental UPD needs the trio - https://doi.org/10.1136/jmg.2005.032367
+Van Calster 2016, calibration hierarchy, target moderate - https://doi.org/10.1016/j.jclinepi.2015.12.005
+Van Calster 2019, calibration as the Achilles heel - https://doi.org/10.1186/s12916-019-1466-7
+Huang 2020, reliability diagrams, practical - https://doi.org/10.1093/jamia/ocz228
+Riley 2021, minimum sample size, slope-driven - https://doi.org/10.1002/sim.9025
+Brown 2001, binomial interval estimation - https://doi.org/10.1214/ss/1009213286
+Saha 2020, clustered-binomial CI at small n - https://doi.org/10.1177/0962280218823231
+UCSC hg19 gap (centromeres) - https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/gap.txt.gz
+UCSC hg19 recombRate (deCODE sex-specific) - https://hgdownload.soe.ucsc.edu/goldenPath/hg19/database/recombRate.txt.gz
+
+CAUTION carried forward from the literature check: Newcombe 1998 (Stat Med 17:873-890) has an
+erratum at Stat Med 1999;18(10):1293 which was NOT read. If a Newcombe interval is implemented,
+pull the erratum first. No retractions or expressions of concern were found for any cited paper;
+the 2025-2026 papers are recent enough that absence of a notice carries little weight.

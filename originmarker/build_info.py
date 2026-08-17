@@ -54,10 +54,26 @@ RELEASES: tuple[Release, ...] = (
     Release("Crossover",
             "The reciprocal exchange itself - the reason a marker on one side of a locus "
             "can stop predicting the other."),
+    Release("Anaphase",
+            "The moment the two copies are pulled to opposite poles - the physical event "
+            "behind the question of which parent a copy came from."),
+    Release("Disjunction",
+            "The clean separation of homologues, whose failure is most of what this tool "
+            "is looking for."),
+    Release("Interference",
+            "The rule that one crossover suppresses another nearby, which is why markers "
+            "cannot be treated as independent."),
+    Release("Centromere",
+            "The constriction the spindle grips, and the region whose retained "
+            "heterozygosity was long read as evidence of a meiosis I error."),
+    Release("Chromatid",
+            "One of the two copies a replicated chromosome is made of."),
+    Release("Telomere",
+            "The chromosome end, and the boundary a terminal event runs to."),
 )
 
-VERSION = "4.15.0"
-CODENAME = "Recombinase"
+VERSION = "5.0.0"
+CODENAME = "Anaphase"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

@@ -744,6 +744,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               return {
                 where: `chr${chrom}`,
                 verdict: c.verdict,
+                confidence: c.posterior?.confidence,
+                band: c.posterior?.band,
+                limitedBy: c.posterior?.limitedBy,
+                uncalibrated: c.posterior?.uncalibrated,
                 classVerdict: c.classVerdict,
                 classWhy: c.classWhy,
                 untransmittedMarkers: unt.pairs.length,

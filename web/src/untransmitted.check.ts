@@ -75,7 +75,7 @@ type Row = [AB, AB, number | null]
   assert.ok(Number.isNaN(impossibleRate([])))
 }
 
-// --- 4. BPH IS CALLED POSITIVELY, SPH ONLY BY EXCLUSION -------------------------------------------
+// --- 4. BPH IS CALLED POSITIVELY, not-BPH ONLY BY EXCLUSION -------------------------------------------
 {
   const at = (share: number, n: number) => Array.from({ length: n }, () => ({
     // orientUntransmitted returns baf when the untransmitted allele is B, so this places mass
@@ -89,11 +89,16 @@ type Row = [AB, AB, number | null]
   assert.ok(bph.why.includes('euploid genome does not populate'))
 
   const sph = callMechanism([...at(BAND_SPH_LOW, 300), ...at(1.0, 300)])
-  assert.equal(sph.mechanism, 'SPH')
+  assert.equal(sph.mechanism, 'not-BPH')
   assert.ok(sph.atBph < 0.25, 'the both-homologues band is empty under a duplicated homologue')
   assert.ok(sph.why.includes('EXCLUSION'),
     'SPH must be reported by exclusion, since its bands are also populated by a euploid genome')
   assert.ok(sph.why.includes('0.134'), 'and the measured power against euploid must travel with it')
+  // The class must state what it POOLS. Calling it "SPH" invited a reader to hear "mitotic", and
+  // meiosis II without recombination is indistinguishable from mitotic on genotype alone.
+  assert.ok(sph.why.includes('POOLS'), 'not-BPH must say it pools MII-without-recombination with mitotic')
+  assert.ok(sph.why.includes('distal to the centromere'),
+    'and must say why: a recombinant MII would have shown both-homologue tracts distally')
 
   // A euploid genome puts mass at the same two bands SPH uses, which is exactly why SPH cannot be
   // positive evidence. The caller must not mistake one for the other.
@@ -114,8 +119,8 @@ type Row = [AB, AB, number | null]
     untransmitted: 'B' as const, baf: share,
   }))
   const euploidLike = [...at(BAND_SPH_LOW, 300), ...at(1.0, 300)]
-  assert.equal(callMechanism(euploidLike).mechanism, 'SPH',
-    'ungated it answers SPH, which is the trap')
+  assert.equal(callMechanism(euploidLike).mechanism, 'not-BPH',
+    'ungated it answers not-BPH, which is the trap')
   const gated = callMechanism(euploidLike, { copyNumberThree: false })
   assert.equal(gated.mechanism, 'unresolved', 'gated on a euploid chromosome it must not answer')
   assert.ok(gated.why.includes('only exists once'))
@@ -156,4 +161,5 @@ type Row = [AB, AB, number | null]
 }
 
 console.log('untransmitted.check.ts: all assertions passed, including only determined '
-  + 'transmissions entering the channel, and SPH reported by exclusion rather than positively')
+  + 'transmissions entering the channel, and not-BPH reported by exclusion while stating what it '
+  + 'pools')

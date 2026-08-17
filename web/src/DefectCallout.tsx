@@ -17,6 +17,7 @@
  */
 import { Text } from '@mantine/core'
 import type { Defect } from './defects.ts'
+import { headline, bandColour } from './defects.ts'
 
 const mb = (n: number): string => (n / 1e6).toFixed(2)
 
@@ -36,12 +37,6 @@ const Chip = ({ label, value, mono = false }: {
   </span>
 )
 
-/** The headline: whose copy, or that it could not be said. */
-const headline = (d: Defect): string => {
-  const what = d.kind === 'copy-gain' ? 'extra copy' : 'copy lost'
-  if (d.origin === 'unclear') return `chr${d.chrom} ${what} — origin not determined`
-  return `${d.origin.toUpperCase()} ${what} · chr${d.chrom}`
-}
 
 export function DefectCallout({ defects }: { defects: Defect[] }) {
   if (!defects.length) return null
@@ -62,7 +57,7 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
           <div key={`${d.chrom}:${d.startBp}:${d.kind}`}>
             <Text style={{
               fontSize: 14, fontWeight: 700, lineHeight: 1.3,
-              color: d.origin === 'unclear' ? 'var(--om-text-dim)' : 'var(--om-defect)',
+              color: bandColour(d),
             }}
             >
               {headline(d)}
@@ -82,6 +77,8 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
               {d.z !== undefined ? <Chip label="z" value={d.z.toFixed(2)} mono /> : null}
               {d.impliedF !== undefined
                 ? <Chip label="fraction" value={d.impliedF.toFixed(2)} mono /> : null}
+              {d.limitedBy && d.limitedBy !== 'none'
+                ? <Chip label="limited by" value={d.limitedBy.replace(/-/g, ' ')} /> : null}
               {d.basis ? <Chip label="basis" value={d.basis.replace('-', ' ')} /> : null}
               {d.channel ? <Chip label="channel" value={d.channel} /> : null}
               {d.stage ? <Chip label="material" value={d.stage} /> : null}

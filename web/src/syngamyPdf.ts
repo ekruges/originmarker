@@ -764,8 +764,10 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'whether or not a genotype is emitted. Each chromosome is measured against the rest of '
         + "THIS array's own genome, which is what removes a directional bias that otherwise points "
         + 'at the parent that was not genotyped. The fraction column is the mosaic fraction the '
-        + 'shift implies; under 0.30 the sign is not secure, between half and all such detections '
-        + 'name the wrong parent, and the event is reported with no parent attached. Where a '
+        + 'shift implies. Which parent that shift names depends on the copy-number class, because '
+        + 'a gain inverts the direction a loss and a copy-neutral event share, so the class is '
+        + 'marginalised into a calibrated probability rather than assumed, and the confidence '
+        + 'column carries its band. Where a '
         + 'material and interval width have no detection floor at all, the row reads not evaluable '
         + 'rather than refused: no array of that kind could have answered, whatever its quality.',
       7.4, 'Helvetica', 2.4, GREY)
@@ -778,7 +780,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         r.dosageCalls.map((d) => [
           d.where,
           { v: d.verdict.replace(/-/g, ' '),
-            colour: (d.verdict === 'known-parent-lost' || d.verdict === 'other-parent-lost')
+            colour: (d.verdict === 'loaded-parent' || d.verdict === 'other-parent')
               ? INK : GREY },
           d.material,
           Number.isFinite(d.shift) ? d.shift.toFixed(4) : '-',

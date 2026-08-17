@@ -9,6 +9,89 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.0.0 "Anaphase"
+
+Parental origin is no longer read from the sign of the allele-dosage shift. It is a calibrated
+posterior that marginalises the copy-number class, and it comes with a confidence number and a
+band on every call.
+
+**The bug this fixes, stated plainly.** The dosage channel named a parent by taking the sign of the
+self-referenced centroid shift, inverting it through the loss formula whenever the copy-number
+class was unresolved. That default was not conservative. Gain inverts the map that loss and
+copy-neutral LOH share: at a mosaic fraction of 0.10 the loaded parent's copy reads +0.0263 under a
+loss and -0.0238 under a gain, so the same positive shift names opposite parents depending on a
+class the tool usually could not resolve. On trophectoderm and blastomere material 89 to 100% of
+detected events resolve an origin without a class, so the assumption was untested in the majority
+regime rather than at the edges. Measured wrong-parent rate for a true low-fraction gain scored
+that way: 0.551 to 0.580 at f = 0.05, across four material classes. Worse than chance, and
+systematically so, because a sign inversion is not noise. Anyone who read a parental origin for a
+gain or a possible gain from build 4.x should re-run it.
+
+**What replaces it.** The class and the mosaic fraction are both marginalised into a posterior
+probability that the affected copy came from the un-genotyped parent. The intensity channel feeds
+the class and never the origin: at a fixed class and fraction its term is identical under both
+parental hypotheses and cancels exactly. Where intensity resolves the class the posterior sharpens;
+where it does not, it hedges across the inverting map and lands near 0.5, which is the honest
+answer instead of a confident wrong one.
+
+**Four bands, and every one of them carries its number.** A very confident, B confident, C weak and
+direction only, D weak and not for reporting. Band D is not a coin flip: measured 0.604 to 0.636
+with array-clustered intervals that all exclude 0.50, and calibrated within itself to within 1.2
+points, so suppressing its number would hide a calibration that can be demonstrated. What changes
+across bands is the words beside the number, not whether a number appears. Bands C and D render
+dimmed so a weak number cannot be mistaken for a strong one at a glance.
+
+**Two thresholds retired.** The 0.30 sign-security bound is gone: it was calibrated against
+wrong-parent rates that were themselves produced by assuming the class, and on blastomere material
+it refused 24.1% of events that sit in a band measured at 0.9971. A single threshold on fraction
+cannot express this in any case, since fraction explains only 51.7% of the variance in achievable
+confidence. The detection floor also no longer gates assignment. By the time a parent is named a
+detection has already been made at z >= 2.576, and re-applying a power threshold refused events the
+array did in fact see. The floor stays where it belongs, on the question of whether any array of
+this kind at this width could answer, and as reported information on the call.
+
+**One cell still withholds a parent.** Amplified material, an implied gain fraction under 0.15, and
+an intensity channel that does not resolve the direction at 99%. There a small loss and a small
+gain both explain the observation and name opposite parents, and the measured accuracy of a stated
+parent is 0 of 34 on trophectoderm and 0 of 18 on blastomere. The event, its interval and its
+evidence are all still reported. Only the parent is withheld, with the remedy stated: a second
+parental array resolves the class categorically rather than by threshold.
+
+**Calibration, measured here rather than asserted.** The recalibration maps this design calls for
+were not available, and could not be honestly refitted, because the corpus carries no material
+labels and the staging function separates ploidy rather than amplification. So the question that
+decides whether the posterior is safe without them was measured directly: 140,000 injections
+carrying the real per-chromosome noise of 35 arrays. Expected calibration error 0.0039, erring
+under-confident in the middle bands by 2 to 3 points, which is the conservative direction. Band A
+reads 0.99955 over 64,522 rows with no intensity channel at all. Every posterior the tool emits
+until the maps arrive says in its own reason text that it is not recalibrated. Method, numbers and
+limits in `audit/calibration/FINDINGS.txt`.
+
+That measurement also reproduced the one defect independently. With no intensity supplied, true
+gains reaching the top bands are correct 0 of 60. The algebraic gate was then tested and does not
+work: a gain cannot displace more than 0.1296 at the fraction ceiling, but noise carries true gains
+above it, so gating there demotes zero rows and catches zero errors. It is an identifiability limit
+rather than a tuning failure, and it is now confirmed rather than assumed.
+
+**Breaking.** The dosage channel's verdicts are `loaded-parent` and `other-parent`, replacing
+`known-parent-lost` and `other-parent-lost`. The old names presumed a loss, which is exactly what
+that channel cannot presume. The obligate-het channel keeps its own vocabulary, where a missing
+haplotype really is missing and no gain can invert it. A dosage verdict in the retired vocabulary
+is no longer honoured rather than being silently read as an answer. The `--sign-secure-f` dial is
+removed with the threshold it controlled.
+
+**Trisomy mechanism.** `SPH` is renamed `not-BPH`. Meiosis II non-disjunction with a crossover
+produces both-homologue tracts distal to the centromere, so the both-versus-single homologue
+distinction is not meiotic versus mitotic, and the second category pools non-recombinant meiosis II
+with post-zygotic duplication. The call now states what it pools instead of inviting a reader to
+hear a mechanism the data does not choose.
+
+**Release names.** The ladder in `build_info.py` had been spent, and 4.14.0 and 4.15.0 took
+"Kinetochore" and "Recombinase" back from 2.0.0 and 3.0.0. Six new names are added and
+`release-check.sh` now fails a build that reuses one.
+
+---
+
 ## 4.15.0 "Recombinase"
 
 Two channels built on markers the tool has always discarded.

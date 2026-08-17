@@ -32,10 +32,27 @@ export interface Defect {
   /** Self-referenced centroid shift and its z, the dosage channel's own evidence. */
   shift?: number
   z?: number
-  /** Mosaic fraction the shift implies. Below 0.30 the sign is not secure and no parent is named. */
+  /** Mosaic fraction the shift implies, under the class the posterior found most probable. */
   impliedF?: number
   informative?: number
   posterior?: number
+  /**
+   * Calibrated probability that the named parent is the right one, and the band it lands in.
+   *
+   * A probability rather than a likelihood ratio or a bare label, because a reader compares rows:
+   * an LR of 12 means different things at 100 markers and at 800, a confidence of 0.92 does not.
+   * Every band carries its number including the weakest, since each is calibrated within itself.
+   * What changes across bands is the words beside the number.
+   */
+  confidence?: number
+  /** 'A' very confident, 'B' confident, 'C' weak direction only, 'D' weak not for reporting. */
+  band?: string
+  /**
+   * Why the confidence is what it is, because the causes have different remedies: a low fraction
+   * wants more cells of the same embryo, poor amplification wants a re-amplification, few markers
+   * cannot be helped at a fixed platform, and an unresolved class wants the second parent.
+   */
+  limitedBy?: string
   /** Markers carrying an allele the loaded parent does not have. This is the Mendelian evidence
    *  itself rather than a summary of it: a parent who is AA has no B to give, and dropout removes
    *  alleles without inventing one, so a non-zero count cannot come from amplification loss. */
@@ -65,6 +82,8 @@ export function defectsFrom(
   dosageCalls: readonly {
     where: string, verdict: string, shift: number, z: number, impliedF: number,
     window: number, why: string,
+    /** Calibrated confidence in the named parent, and the band it lands in. */
+    confidence?: number, band?: string, limitedBy?: string,
   }[] = [],
 ): Defect[] {
   const byOne = new Map(oneParent.map((o) => [o.where, o]))
@@ -89,10 +108,14 @@ export function defectsFrom(
     // call rate collapsing, so on those events the genotype channel has no evidence left and this
     // is the only channel that can speak. It never overrides a genotype answer.
     const dose = byDosage.get(`chr${sg.chrom}`)
+    // 'loaded-parent' and 'other-parent' replace the old 'known-parent-lost' / 'other-parent-lost'
+    // on THIS channel. The old names presumed a loss, and a loss is exactly what the dosage channel
+    // cannot presume: a gain inverts the sign, so the same shift names the opposite parent. The
+    // verdict now comes from a posterior that marginalises the class rather than assuming it.
     const usedDosage = origin === 'unclear' && !!dose
-      && (dose.verdict === 'known-parent-lost' || dose.verdict === 'other-parent-lost')
+      && (dose.verdict === 'loaded-parent' || dose.verdict === 'other-parent')
     if (usedDosage && dose) {
-      origin = dose.verdict === 'known-parent-lost' ? loadedParent : other
+      origin = dose.verdict === 'loaded-parent' ? loadedParent : other
     }
     return {
       chrom: sg.chrom,
@@ -110,6 +133,9 @@ export function defectsFrom(
         : usedDosage ? 'dosage'
           : (one && origin !== 'unclear') ? 'one-parent' : undefined,
       channel: usedDosage ? 'dosage' : (one ? 'genotype' : undefined),
+      confidence: usedDosage ? dose?.confidence : undefined,
+      band: usedDosage ? dose?.band : undefined,
+      limitedBy: usedDosage ? dose?.limitedBy : undefined,
       shift: dose && Number.isFinite(dose.shift) ? dose.shift : undefined,
       z: dose && Number.isFinite(dose.z) ? dose.z : undefined,
       impliedF: dose && Number.isFinite(dose.impliedF) ? dose.impliedF : undefined,
@@ -121,4 +147,35 @@ export function defectsFrom(
       dropoutBasis: stage?.basis === 'none' ? undefined : stage?.basis,
     } as Defect
   })
+}
+
+// ---------------------------------------------------------------------------------------------
+// Display helpers. Here rather than in the .tsx because node cannot strip JSX, and this is the
+// layer where getting it wrong matters: a parent shown without its confidence reads as certain.
+
+/**
+ * The headline: whose copy, how sure, or that it could not be said.
+ *
+ * THE CONFIDENCE TRAVELS WITH THE PARENT AND IS NOT A SEPARATE CHIP. A parent named without a
+ * number reads as certain, and on amplified material most of them are not: the measured accuracy
+ * of a top-band call is 0.995 while the weakest band is 0.62. Those two must not look alike at a
+ * glance, so the band label sits in the headline where the parent is, and the chips below carry
+ * the evidence rather than the verdict.
+ */
+export const BAND_WORD: Record<string, string> = {
+  A: 'very confident', B: 'confident', C: 'weak, direction only', D: 'weak, not for reporting',
+}
+export const headline = (d: Defect): string => {
+  const what = d.kind === 'copy-gain' ? 'extra copy' : 'copy lost'
+  if (d.origin === 'unclear') return `chr${d.chrom} ${what}, origin not determined`
+  const conf = d.confidence !== undefined && Number.isFinite(d.confidence)
+    ? ` · ${d.confidence.toFixed(3)}${d.band ? ` ${BAND_WORD[d.band] ?? d.band}` : ''}`
+    : ''
+  return `${d.origin.toUpperCase()} ${what} · chr${d.chrom}${conf}`
+}
+
+/** Bands C and D are dimmed, so a weak number cannot be mistaken for a strong one at a glance. */
+export const bandColour = (d: Defect): string => {
+  if (d.origin === 'unclear') return 'var(--om-text-dim)'
+  return d.band === 'C' || d.band === 'D' ? 'var(--om-text-dim)' : 'var(--om-defect)'
 }

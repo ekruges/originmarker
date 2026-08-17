@@ -113,7 +113,40 @@ export const orientUntransmitted = (p: UntransmittedPair): number =>
 // ---------------------------------------------------------------------------------------------
 // Trisomy mechanism: both parental homologues, or one duplicated.
 
-export type Mechanism = 'BPH' | 'SPH' | 'unresolved'
+/**
+ * What the occupancy statistic can actually name, which is less than the usual vocabulary implies.
+ *
+ * THIS TYPE USED TO SAY 'SPH' AND THAT WAS A CLAIM IT COULD NOT SUPPORT. "Single parental
+ * homologue" is read by every embryologist as "post-zygotic mitotic", and the rule behind that
+ * reading is wrong. Meiosis II non-disjunction WITH a crossover produces both-homologue tracts
+ * distal to the centromere, so BPH does not separate meiotic from mitotic; only MII WITHOUT
+ * recombination gives a chromosome-wide single-homologue pattern. The primary literature
+ * acknowledges the collapse rather than resolving it, and nobody separates the two on genotype
+ * alone at any material quality.
+ *
+ *   APCAD2 2025: "SPH trisomies are expected to be predominantly mitotic in origin ... even
+ *   though a meiotic segregation error in meiosis II without recombination cannot be excluded."
+ *
+ * So the honest second category is NOT-BPH, and what it pools is stated wherever it is reported:
+ * non-recombinant MII together with post-zygotic mitotic duplication. Naming it 'SPH' invited a
+ * reader to collapse that pooling into a mechanism the data does not choose.
+ */
+export type Mechanism = 'BPH' | 'not-BPH' | 'unresolved'
+
+/**
+ * Sex-specific recombination rate, cM/Mb, from the deCODE 1-Mb map (UCSC hg19 recombRate).
+ *
+ * Carried because it says WHERE this class of reasoning is safest, and the asymmetry is large
+ * enough to change how a result should be read. Suppression near the centromere is far stronger in
+ * male meiosis: the female-to-male ratio rises from 1.63 genome-wide to 4.79 pericentromerically.
+ * Any argument resting on retained pericentromeric heterozygosity is therefore substantially safer
+ * for a paternal-origin event than a maternal one, and the informative window is wider on the male
+ * side. Reported alongside the call rather than used to compute it.
+ */
+export const RECOMB_CM_PER_MB = {
+  genomeWide: { female: 1.598, male: 0.982 },
+  pericentromeric2Mb: { female: 0.660, male: 0.138 },
+} as const
 
 /**
  * Band centres for a trisomy at markers where the loaded parent is heterozygous.
@@ -211,11 +244,14 @@ export function callMechanism(
     }
   }
   return {
-    ...base, mechanism: 'SPH',
+    ...base, mechanism: 'not-BPH',
     why: `${(100 * atBph).toFixed(1)}% of markers sit at the both-homologues band, too few for `
       + `both homologues, and ${(100 * atSph).toFixed(1)}% sit at the two single-homologue bands. `
       + 'Reported by EXCLUSION rather than positively: those two bands are also populated by an '
       + 'ordinary euploid genome, so their occupancy has power 0.134 against euploid on its own '
-      + 'and is only meaningful once copy number three is already established',
+      + 'and is only meaningful once copy number three is already established. This class POOLS '
+      + 'non-recombinant meiosis II with post-zygotic mitotic duplication and does not choose '
+      + 'between them: a meiosis II error with a crossover would have shown both-homologue tracts '
+      + 'distal to the centromere, so the absence of them excludes only the recombinant case',
   }
 }
