@@ -42,8 +42,11 @@ echo "== verify"
 fails=0
 for host in "${HOSTS[@]}"; do
   got=""
-  # Up to ten tries: the container is recreated, so the first request can beat it to the port.
-  for _ in $(seq 1 10); do
+  # Up to thirty tries at 4s. The container is recreated, so the first request can beat it to the
+  # port, and the tunnel-routed host takes materially longer to answer than the direct one: 5.0.0
+  # verified green on originmarker.app and FAILED on ezrakruger.cc inside a 40s window, then
+  # answered correctly by hand moments later. A gate that cries wolf is a gate people stop reading.
+  for _ in $(seq 1 30); do
     got=$(curl -s --max-time 20 "$host/api/health" \
       | python3 -c 'import json,sys; print(json.load(sys.stdin).get("version",""))' 2>/dev/null || true)
     [ -n "$got" ] && break
