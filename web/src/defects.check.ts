@@ -179,5 +179,46 @@ const one = (where: string, verdict: string) => ({
   assert.equal(f.dropoutBasis, undefined)
 }
 
+// --- EVERY NAMED PARENT CARRIES A NUMBER, WHICHEVER CHANNEL NAMED IT ------------------------------
+//
+// This is the invariant the whole confidence rework exists for, and it was violated for a release:
+// the DOSAGE channel emitted a band while the two genotype channels emitted a bare parent name. A
+// reader comparing rows saw the weakest evidence carrying the only number, which reads as the
+// opposite of the truth. If a channel can name a parent, it must be able to say how sure it is.
+{
+  const s = seg('7', 1_000_000, 9_000_000)
+  const w = whereOf(s, 1_000_000, 9_000_000)
+
+  // two-parent channel
+  const ann = [{ where: w, kind: 'segment' as const, origin: 'maternal', why: 'two-parent',
+    called: true, confidence: 0.9993, band: 'A' }]
+  const twoParent = defectsFrom([s], ann, [], [], 'paternal')[0]
+  assert.equal(twoParent.origin, 'maternal')
+  assert.equal(twoParent.confidence, 0.9993, 'the two-parent channel must supply its own number')
+  assert.equal(twoParent.band, 'A', 'and it is the only channel allowed to reach the top band')
+
+  // obligate-het one-parent channel, which is capped at B by construction
+  const onep = defectsFrom([s], [], [], [{ where: w, verdict: 'known-parent-lost',
+    posterior: 0.9992, markers: 4200, exclusive: 610, why: 'genotype', band: 'B' }], 'paternal')[0]
+  assert.equal(onep.origin, 'paternal')
+  assert.equal(onep.confidence, 0.9992)
+  assert.equal(onep.band, 'B',
+    'the obligate-het channel must never present as band A: its failure mode is dropout, which is '
+    + 'the same event as the observation')
+
+  // AND THE INVARIANT ITSELF: a named parent with no number must not be constructible from any
+  // channel that supplies one.
+  for (const d of [twoParent, onep]) {
+    assert.ok(d.origin === 'unclear' || Number.isFinite(d.confidence),
+      `${d.basis} named ${d.origin} with no confidence attached`)
+    assert.ok(d.origin === 'unclear' || d.band, `${d.basis} named a parent with no band`)
+  }
+
+  // An unnamed origin carries no number either, rather than a fabricated 0.5.
+  const none = defectsFrom([s], [], [], [], 'paternal')[0]
+  assert.equal(none.origin, 'unclear')
+  assert.equal(none.confidence, undefined, 'no origin means no confidence, not a coin flip')
+}
+
 console.log('defects.check.ts: all assertions passed, including a single-parent verdict read '
   + 'against the parent actually loaded rather than assumed paternal')

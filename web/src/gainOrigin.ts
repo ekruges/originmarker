@@ -44,6 +44,7 @@
  * rather than checked because a sample past that point is not one this tool can reason about.
  */
 import type { AB } from './informativity.ts'
+import { twoPointPosterior, bandOf, type Band } from './originPosterior.ts'
 
 /**
  * Informative markers a window needs before a direction is reported.
@@ -215,7 +216,40 @@ export interface OriginCall {
   /** share - centre. Positive is paternal, negative is maternal. */
   deviation: number
   informative: number
+  /**
+   * Calibrated probability that the named parent is right, and the band it lands in.
+   *
+   * This channel used to emit a bare direction at a hard 0.056 margin, so the strongest evidence
+   * the tool has printed no number while a weak dosage call printed one. A reader comparing the
+   * two rows was misled by the formatting alone. NaN where no direction was called.
+   */
+  confidence: number
+  band: Band
+  /**
+   * Always true on this channel, and it is not a placeholder.
+   *
+   * The number below rests on a model of the share's noise, not on a measurement of how often the
+   * model is right. The dosage channel's bands were earned from 140,000 injections carrying real
+   * array noise; this channel has no equivalent, because no clean parent-child pair was available
+   * to build one from. Until one is, the band is capped at B and this flag travels with every call
+   * so a reader is never shown a modelled number dressed as a measured one.
+   */
+  uncalibrated?: boolean
   why: string
+}
+
+/**
+ * Spread of the per-marker paternal share, which is what turns a deviation into a confidence.
+ *
+ * Median absolute deviation rather than a standard deviation, scaled to be comparable, because the
+ * share distribution carries a contaminating homozygous tail that a plain SD would chase. That tail
+ * is the same one that destroyed the old band-threshold estimator in the dosage channel.
+ */
+export const shareSpread = (region: readonly DosageMarker[]): number => {
+  const xs = region.map((m) => m.patShare).filter((x): x is number => Number.isFinite(x))
+  if (xs.length < 3) return NaN
+  const med = median(xs)
+  return 1.4826 * median(xs.map((x) => Math.abs(x - med)))
 }
 
 /**
@@ -237,12 +271,15 @@ export function callGainOrigin(
   const base = { share, centre, deviation, informative }
 
   if (!Number.isFinite(centre)) {
-    return { ...base, origin: 'unclear', why: 'the sample has no informative markers to centre on' }
+    return {
+      ...base, origin: 'unclear', confidence: NaN, band: 'D',
+      why: 'the sample has no informative markers to centre on',
+    }
   }
   if (informative < minInformative) {
     return {
       ...base,
-      origin: 'unclear',
+      origin: 'unclear', confidence: NaN, band: 'D',
       why: `${informative} informative markers is under the ${minInformative} needed for a `
         + 'direction at this stage',
     }
@@ -250,17 +287,49 @@ export function callGainOrigin(
   if (Math.abs(deviation) < margin) {
     return {
       ...base,
-      origin: 'unclear',
+      origin: 'unclear', confidence: NaN, band: 'D',
       why: `the share sits ${deviation >= 0 ? '+' : ''}${deviation.toFixed(3)} from this `
         + `sample's own centre, inside the ${margin} band that is not called either way`,
     }
   }
+  // The confidence is in the DIRECTION, so a loss reading inherits it unchanged: the same
+  // deviation supports "paternal gained" exactly as strongly as it supports "maternal lost".
+  //
+  // THE STANDARD ERROR IS FLOORED, AND THE FLOOR IS THE WHOLE STORY. Sampling error alone,
+  // spread/sqrt(n), is around 0.002 over the marker counts this channel sees, which would make any
+  // deviation clearing the 0.056 margin read as a certainty. The dosage channel has been here
+  // before: within-array drift does not average down with more markers, and omitting it is how a z
+  // of 15 arrives on a chromosome independently verified normal. So the floor is SHARE_MARGIN, the
+  // project's own long-standing estimate of the scale at which this statistic stops being
+  // trustworthy, and the sampling term is added in quadrature beneath it.
+  //
+  // AND THE RESULT IS CAPPED AT BAND B, because it is a MODEL rather than a measurement. The
+  // dosage posterior earned its bands from 140,000 injections carrying real array noise
+  // (audit/calibration/FINDINGS.txt). This one has had no equivalent test: the corpus to hand
+  // holds no clean parent-child pair to build one from, and the candidates in it are not what
+  // their filenames suggest, one nominal parent reading 55% heterozygous against a diploid's
+  // 16.8%. An unvalidated model must not be allowed to print "very confident", so it cannot,
+  // and every call it makes reports itself as uncalibrated.
+  const spread = shareSpread(region)
+  const sampling = Number.isFinite(spread) ? spread / Math.sqrt(informative) : NaN
+  const se = Number.isFinite(sampling)
+    ? Math.sqrt(sampling * sampling + margin * margin) : NaN
+  const pPaternal = twoPointPosterior(deviation, se, EXPECTED_SEPARATION)
+  const confidence = Number.isFinite(pPaternal) ? Math.max(pPaternal, 1 - pPaternal) : NaN
+  const raw = bandOf(confidence)
   return {
     ...base,
     origin: deviation > 0 ? 'paternal' : 'maternal',
+    confidence,
+    band: raw === 'A' ? 'B' : raw,
+    uncalibrated: true,
     why: `${deviation > 0 ? 'paternal' : 'maternal'} alleles are over-represented by `
       + `${Math.abs(deviation).toFixed(3)} against this sample's own centre of `
-      + `${centre.toFixed(3)}, over the ${margin} margin`,
+      + `${centre.toFixed(3)}, over the ${margin} margin`
+      + (Number.isFinite(confidence)
+        ? `, at a confidence of ${confidence.toFixed(4)} against a per-marker spread of `
+          + `${spread.toFixed(3)} over ${informative} markers`
+        : ''),
   }
 }
 

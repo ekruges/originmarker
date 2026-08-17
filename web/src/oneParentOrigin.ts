@@ -34,6 +34,7 @@
  * heterozygous, and those are simply excluded.
  */
 import type { AB } from './informativity.ts'
+import { bandObligateHet, type Band } from './originPosterior.ts'
 
 /** Frequency of the allele the known parent lacks, when it cannot be estimated per marker. */
 export const DEFAULT_Q = 0.30
@@ -100,6 +101,15 @@ export type OneParentVerdict = 'known-parent-lost' | 'other-parent-lost' | 'both
 export interface OneParentCall {
   verdict: OneParentVerdict
   posterior: number
+  /**
+   * The band this posterior lands in, CAPPED AT B because the channel can never reach A.
+   *
+   * Structural rather than a power argument. This channel asks whether a forbidden allele appeared
+   * where the homozygous parent had none to give, so its failure mode is dropout, and dropout is
+   * the same event as the observation: "she did not transmit it" and "amplification lost it" look
+   * identical. No quantity of markers separates them, so no amount of evidence earns the top band.
+   */
+  band: Band
   /** Markers where the known parent is homozygous and the sample is called. */
   markers: number
   /** Of those, how many carry the allele the known parent does not have. Mendelian evidence. */
@@ -191,7 +201,7 @@ export function callOneParentOrigin(
   const base = { markers: n, exclusive, heterozygous: het, q }
   if (n < minMarkers) {
     return {
-      ...base, verdict: 'refused', posterior: NaN,
+      ...base, verdict: 'refused', posterior: NaN, band: 'D' as Band,
       why: `${n} informative markers is under the ${minMarkers} this needs; a marker only counts `
         + 'where the loaded parent is homozygous',
     }
@@ -202,7 +212,7 @@ export function callOneParentOrigin(
   // reason: an impossible rate is evidence about the reaction, not about the genome.
   if (het / n > maxRegionHet) {
     return {
-      ...base, verdict: 'refused', posterior: NaN,
+      ...base, verdict: 'refused', posterior: NaN, band: 'D' as Band,
       why: `${(100 * het / n).toFixed(1)}% of the informative markers read heterozygous, over the `
         + `${(100 * maxRegionHet).toFixed(0)}% ceiling. Where the loaded parent is homozygous a `
         + 'biparental sample can only be heterozygous when the other parent transmitted the allele '
@@ -221,7 +231,7 @@ export function callOneParentOrigin(
 
   if (post[best] < callPosterior) {
     return {
-      ...base, verdict: 'refused', posterior: post[best],
+      ...base, verdict: 'refused', posterior: post[best], band: 'D' as Band,
       why: `best hypothesis reaches ${post[best].toFixed(3)}, under the ${callPosterior} needed`,
     }
   }
@@ -230,6 +240,7 @@ export function callOneParentOrigin(
     ...base,
     verdict: names[best],
     posterior: post[best],
+    band: bandObligateHet(post[best]),
     why: `${names[best]} at posterior ${post[best].toFixed(4)} over ${n} markers where the loaded `
       + `parent is homozygous. ${exclusive} carry the allele that parent does not have `
       + `(${(rate * 100).toFixed(1)}%), which only its absence explains, and ${het} are `

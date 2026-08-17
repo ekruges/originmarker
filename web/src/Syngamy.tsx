@@ -578,6 +578,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 origin: c.origin,
                 why: c.why,
                 called: c.origin !== 'unclear',
+                confidence: c.confidence,
+                band: c.band,
               }
             }
             const h = hetByChrom.get(chrom) ?? { informative: 0, het: 0 }
@@ -789,6 +791,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 where: `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`,
                 verdict: c.verdict,
                 posterior: c.posterior,
+                band: c.band,
                 markers: c.markers,
                 exclusive: c.exclusive,
                 why: c.why,

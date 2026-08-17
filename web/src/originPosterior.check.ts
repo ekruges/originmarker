@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import {
   originPosterior, shiftMean, shiftMagnitude, logRMean, fractionAt, applyCalibration,
   bandOf, classInvertedRisk, CLASS_SIGN, CLASSES, BAND_ACCURACY, BAND_A_MIN,
-  VETO_MAX_F, type CalibrationMap,
+  VETO_MAX_F, bandObligateHet, SATURATING_CHANNEL_NOTE, type CalibrationMap,
 } from './originPosterior.ts'
 
 // --- 1. THE INVERSION IS REAL AND IT IS IN THE ALGEBRA, NOT IN A CONSTANT ------------------------
@@ -228,6 +228,29 @@ import {
   assert.ok(Number.isNaN(noScale.confidence))
   assert.equal(bandOf(noScale.confidence), 'D')
   assert.ok(CLASSES.length === 3)
+}
+
+// --- 11. THE SATURATING CHANNELS ARE CAPPED, AND THE CAP IS NOT COSMETIC -------------------------
+//
+// Measured on the shipped genotype channels: the obligate-het posterior returns 1.0000 at 0, 2, 8,
+// 40, 120 and 300 exclusive markers out of 400, flipping its verdict while never moving its number.
+// A number that does not vary is not a confidence. Both genotype channels are therefore capped
+// below the top band, and the note below is what the display uses to say so in words.
+{
+  assert.equal(bandObligateHet(1.0), 'B', 'a saturated posterior must not reach band A')
+  assert.equal(bandObligateHet(0.999), 'B')
+  assert.equal(bandObligateHet(0.95), 'B', 'below the cap it is unchanged')
+  assert.equal(bandObligateHet(0.80), 'C')
+  assert.equal(bandObligateHet(0.60), 'D')
+  assert.ok(SATURATING_CHANNEL_NOTE.includes('band is the meaningful output'))
+  assert.ok(SATURATING_CHANNEL_NOTE.includes('uncalibrated'))
+
+  // The dosage posterior must NOT be capped: it is the one channel whose bands were measured.
+  const strong = originPosterior({ shift: 0.14, shiftSd: 0.002, logR: logRMean('loss', 0.6),
+    logRSd: 0.005, material: 'bulk', markers: 900 })
+  assert.equal(strong.band, 'A',
+    'the measured channel keeps its top band; capping it would discard the one calibration that '
+    + 'was actually earned')
 }
 
 console.log('originPosterior.check.ts: all assertions passed, including the regression that a true '

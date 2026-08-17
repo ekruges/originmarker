@@ -9,6 +9,48 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.1.0 "Disjunction"
+
+Every origin channel now emits a confidence and a band, not just the dosage one. Measuring what
+those numbers are worth turned up a defect in the two channels that were already shipping.
+
+**The gap this closes.** 5.0.0 gave the dosage channel a calibrated posterior and left the other
+two alone, so a two-parent genotype call, which is the strongest evidence this tool has, printed a
+bare parent name while a weak dosage call printed 0.62 beside it. The formatting told a reader the
+opposite of the truth. All three channels now carry a number, a band and a reason, through the
+defect list, the callout and all three PDF tables.
+
+**The defect that found.** Both genotype channels return a posterior that does not vary. Measured
+on the shipped obligate-het channel: 1.0000 at 0, 2, 8, 40, 120 and 300 exclusive markers out of
+400. It flips its verdict between 8 and 40 and never moves its number. The two-parent share model
+behaves the same way once given a realistic error, reading 0.9974 at the calling margin and 1.0000
+everywhere above it. A number that does not vary is not a confidence.
+
+This is not a fault in either likelihood. It is what a ratio over hundreds of near-independent
+Mendelian markers does when taken at face value. The real error rate on those channels is set by
+things no likelihood here represents: contamination, a mis-specified dropout rate, a sample that is
+not the one on the label. So on those two channels the BAND is the output and the digits are not,
+both are capped below the top band, and both report themselves uncalibrated. Only the dosage
+posterior, which marginalises its nuisance parameters rather than plugging them in and floors its
+error with drift that does not average down, earned its bands from measurement.
+
+**The standard error on the two-parent channel is floored.** Sampling error alone is about 0.002
+over the marker counts this channel sees, which would make any deviation clearing the 0.056 margin
+read as certainty. The floor is the margin itself, the project's own long-standing estimate of
+where this statistic stops being trustworthy, with sampling added in quadrature beneath it. This is
+the same lesson the dosage channel learned from drift.
+
+**What is still outstanding.** Giving the genotype channels a confidence that discriminates needs
+the treatment the dosage channel got: marginalise the nuisance parameters, and validate against a
+parent-child truth set. No such truth set exists in the corpus to hand. The families its filenames
+suggest are not families under test, one nominal parent reading 55% heterozygous against a
+diploid's 16.8%, so no pair from it can serve.
+
+Detection is unchanged in this release. Nothing new is found; what is found is now reported with a
+confidence on every channel.
+
+---
+
 ## 5.0.1 "Anaphase"
 
 The PDF said the dosage table carried a confidence column and it did not. The column is now there,

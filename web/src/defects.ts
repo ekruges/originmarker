@@ -74,6 +74,9 @@ export function defectsFrom(
   oneParent: readonly {
     where: string, verdict: string, posterior: number, markers: number, exclusive: number,
     why: string,
+    /** Capped at B: this channel's failure mode is dropout, which is the same event as the
+     *  observation, so no amount of evidence earns the top band. */
+    band?: string,
   }[] = [],
   loadedParent: 'paternal' | 'maternal' = 'paternal',
   stage?: StageCall,
@@ -133,8 +136,16 @@ export function defectsFrom(
         : usedDosage ? 'dosage'
           : (one && origin !== 'unclear') ? 'one-parent' : undefined,
       channel: usedDosage ? 'dosage' : (one ? 'genotype' : undefined),
-      confidence: usedDosage ? dose?.confidence : undefined,
-      band: usedDosage ? dose?.band : undefined,
+      // EVERY CHANNEL SUPPLIES ITS OWN CONFIDENCE, taken from whichever one actually produced the
+      // origin above. Before this, only dosage did, so a two-parent genotype call, the strongest
+      // evidence here, printed a bare parent name while a weak dosage call printed 0.62 beside it.
+      // The formatting told a reader the opposite of the truth.
+      confidence: usedDosage ? dose?.confidence
+        : (ann && origin !== 'unclear') ? ann.confidence
+          : (one && origin !== 'unclear') ? one.posterior : undefined,
+      band: usedDosage ? dose?.band
+        : (ann && origin !== 'unclear') ? ann.band
+          : (one && origin !== 'unclear') ? one.band : undefined,
       limitedBy: usedDosage ? dose?.limitedBy : undefined,
       shift: dose && Number.isFinite(dose.shift) ? dose.shift : undefined,
       z: dose && Number.isFinite(dose.z) ? dose.z : undefined,

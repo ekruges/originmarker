@@ -416,6 +416,14 @@ export interface GainAnnotation {
   why: string
   /** True when a direction was established. */
   called: boolean
+  /**
+   * Calibrated probability the named parent is right, and its band.
+   *
+   * Present on the two-parent channel, which is the strongest evidence this tool has and which
+   * until now printed no number at all while weaker dosage calls printed one.
+   */
+  confidence?: number
+  band?: string
 }
 
 export interface ParentageResult {
@@ -473,6 +481,9 @@ export interface ParentageResult {
     where: string
     verdict: string
     posterior: number
+    /** Capped at B: the channel's failure mode is dropout, which is the same event as the
+     *  observation, so no quantity of markers earns the top band. */
+    band?: string
     markers: number
     exclusive: number
     why: string

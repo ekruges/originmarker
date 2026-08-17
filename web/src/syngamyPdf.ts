@@ -686,12 +686,17 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     if (r.gains.length) {
       heading('Extra copies, and where they came from', 8.6)
       table(
-        [{ head: 'Where', w: 132 }, { head: 'Kind', w: 84 }, { head: 'Origin', w: 104 },
-          { head: 'Evidence', w: 212 }],
+        [{ head: 'Where', w: 116 }, { head: 'Kind', w: 72 }, { head: 'Origin', w: 84 },
+          { head: 'Confidence', w: 108 },
+          { head: 'Evidence', w: 152 }],
         r.gains.map((g) => [
           g.where,
           g.kind,
           { v: g.origin, colour: g.called ? INK : WARN },
+          { v: g.confidence !== undefined && Number.isFinite(g.confidence)
+            ? `${g.confidence.toFixed(4)}  ${BAND_WORD[g.band ?? ''] ?? ''}`.trim()
+            : 'not stated',
+          colour: g.band === 'A' || g.band === 'B' ? INK : GREY },
           { v: g.why, colour: GREY },
         ]),
       )
@@ -745,13 +750,17 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         [{ head: 'Region', w: 150 }, { head: 'Verdict', w: 112 },
           { head: 'Informative', w: 62, right: true },
           { head: 'Exclusive', w: 58, right: true },
-          { head: 'Posterior', w: 56, right: true }],
+          { head: 'Confidence', w: 108 }],
         r.oneParent.map((o) => [
           o.where,
           { v: o.verdict.replace(/-/g, ' '),
             colour: o.verdict === 'refused' ? GREY : INK },
           int(o.markers), int(o.exclusive),
-          Number.isFinite(o.posterior) ? o.posterior.toFixed(4) : 'not assigned',
+          // This channel is capped at band B by construction, so it never prints "very confident".
+          { v: Number.isFinite(o.posterior)
+            ? `${o.posterior.toFixed(4)}  ${BAND_WORD[o.band ?? ''] ?? ''}`.trim()
+            : 'not assigned',
+          colour: o.band === 'B' ? INK : GREY },
         ]),
       )
     }

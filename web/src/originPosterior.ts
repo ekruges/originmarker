@@ -431,3 +431,75 @@ export const fractionAt = (cls: EventClass, d: number): number => {
   if (cls === 'gain') return d >= 0.5 ? NaN : (4 * d) / (1 - 2 * d)
   return (4 * d) / (1 + 2 * d)
 }
+
+// ---------------------------------------------------------------------------------------------
+// The other two origin channels.
+//
+// EVERY CHANNEL MUST EMIT A CONFIDENCE, not just the dosage one. Until this existed, a two-parent
+// genotype call, which is the STRONGEST evidence this tool has, printed a bare parent name with no
+// number, while a weak dosage call printed 0.62 beside it. A reader comparing those two rows was
+// being told the opposite of the truth by the formatting alone.
+
+/**
+ * Posterior for a signed statistic whose two hypotheses sit symmetrically either side of zero.
+ *
+ * This is the shape both remaining channels have: a self-referenced deviation that should read
+ * +separation under one parent and -separation under the other. With Gaussian noise the posterior
+ * reduces to a logistic in the observed deviation, which is written out here rather than in each
+ * caller so the two channels cannot drift apart.
+ *
+ * Returns the probability of the POSITIVE hypothesis.
+ */
+export function twoPointPosterior(
+  deviation: number, se: number, separation: number,
+): number {
+  if (!Number.isFinite(deviation) || !(se > 0) || !(separation > 0)) return NaN
+  // log LR = 2 * deviation * separation / se^2, clamped so a huge ratio does not overflow to NaN.
+  const l = Math.max(-700, Math.min(700, (2 * deviation * separation) / (se * se)))
+  return 1 / (1 + Math.exp(-l))
+}
+
+/**
+ * Band for a call resting on the obligate-het channel ALONE, which can never be band A.
+ *
+ * The cap is structural rather than a power argument, and that distinction is the whole reason it
+ * is enforced here rather than left to a threshold. The channel asks whether a forbidden allele
+ * appeared where the homozygous parent had none to give, so its failure mode is DROPOUT, and
+ * dropout is the same event as the observation: not seeing the allele is what both "she did not
+ * transmit it" and "amplification lost it" look like. No quantity of markers separates them.
+ *
+ * Measured boundary for the same conclusion arriving from a different direction: the pooled
+ * heterozygote share (1-f)/(2-f) does not cross the AA/AB genotype boundary at BAF 0.19 until
+ * f = 0.765, so the channel is structurally blind below roughly three quarters.
+ */
+export const bandObligateHet = (posterior: number): Band => {
+  const b = bandOf(posterior)
+  return b === 'A' ? 'B' : b
+}
+
+/**
+ * THE GENOTYPE CHANNELS' POSTERIORS SATURATE, so their BAND is the output and their digits are not.
+ *
+ * Measured on the shipped code rather than suspected. The obligate-het posterior returns 1.0000 at
+ * 0, 2, 8, 40, 120 and 300 exclusive markers out of 400: it flips its VERDICT between 8 and 40 and
+ * never moves its NUMBER. The two-parent share model behaves the same way, reading 0.9974 at the
+ * margin and 1.0000 everywhere above it.
+ *
+ * That is not a bug in either model, it is what a likelihood ratio over hundreds of near-independent
+ * Mendelian markers does when the model is taken at face value. The real error rate on those
+ * channels is set by things no likelihood here represents: contamination, a mis-specified dropout
+ * rate, a sample that is not the sample it is labelled. So the digits carry no information a reader
+ * can use, and presenting them as a varying confidence would be the same laundering this rework
+ * exists to stop.
+ *
+ * WHAT IS DONE ABOUT IT. Both channels are capped below the top band, both report themselves
+ * uncalibrated, and this constant is what the display uses to say so in words. Only the dosage
+ * posterior earned its bands from measurement, by marginalising its nuisance parameters instead of
+ * plugging them in and by flooring its error with drift that does not average down. Applying that
+ * same treatment to the genotype channels is the outstanding work, and it needs a parent-child
+ * truth set that the corpus to hand does not contain.
+ */
+export const SATURATING_CHANNEL_NOTE =
+  'this channel\'s posterior saturates, so the band is the meaningful output and the digits are '
+  + 'not: the same number is returned across a wide range of evidence. It is capped below the top '
+  + 'band and reported as uncalibrated for that reason'
