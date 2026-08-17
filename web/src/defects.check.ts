@@ -240,6 +240,35 @@ const one = (where: string, verdict: string) => ({
   assert.equal(d.basis, undefined,
     'no channel has scored an origin yet, and an absent basis must not imply one declined')
 
+  // A SCORED FINDING GETS THE SAME TREATMENT AS ANY OTHER EVENT. Same channel, same band, same
+  // confidence, so a reader comparing a copy-neutral row against a deletion row is comparing like
+  // with like rather than two different kinds of number.
+  const scored = findingToDefect(f, undefined, {
+    verdict: 'other-parent', shift: 0.09, z: 5.1, impliedF: 0.31, why: 'from dosage',
+    confidence: 0.9964, band: 'A', limitedBy: 'none',
+  }, 'paternal')
+  assert.equal(scored.origin, 'maternal', "'other-parent' against a paternal load is maternal")
+  assert.equal(scored.basis, 'dosage')
+  assert.equal(scored.confidence, 0.9964)
+  assert.equal(scored.band, 'A')
+  assert.equal(scored.impliedF, 0.31)
+  assert.ok(scored.why.includes('from dosage'), 'the scorer\'s reasoning joins the evidence')
+
+  // And the same call against a maternal load names the father.
+  assert.equal(findingToDefect(f, undefined, {
+    verdict: 'other-parent', shift: 0.09, z: 5.1, impliedF: 0.31, why: 'x',
+  }, 'maternal').origin, 'paternal')
+
+  // A BLOCKED CLASS IGNORES A SCORED CALL rather than trusting it. Nothing should be scoring a
+  // triploidy, so a call arriving on one is a caller error and not evidence.
+  const blocked = findingToDefect({ cls: 'triploidy', chrom: 'genome', startBp: 0, endBp: 0,
+    wholeChromosome: true, evidence: 'thirds occupied', originBlocked: 'no parent from bands' },
+  undefined, { verdict: 'other-parent', shift: 0.2, z: 9, impliedF: 0.6, why: 'nonsense',
+    confidence: 0.999, band: 'A' })
+  assert.equal(blocked.origin, 'unclear',
+    'a class with no parental origin must not acquire one from a stray call')
+  assert.equal(blocked.confidence, undefined)
+
   // A class whose ORIGIN IS BLOCKED BY THE CLASS must not read like one that merely failed.
   const tri = findingToDefect({ cls: 'triploidy', chrom: 'genome', startBp: 0, endBp: 0,
     wholeChromosome: true, evidence: 'mass at the thirds, half band vacated',

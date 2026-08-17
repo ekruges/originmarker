@@ -37,7 +37,7 @@ import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
-import { defectsFrom, findingToDefect } from './defects'
+import { defectsFrom, findingToDefect, originBlockedByClass } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
 import { callDosageOrigin, materialOf } from './dosageOrigin'
@@ -734,7 +734,15 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               : undefined
             const material = materialOf(result.stage?.stage ?? 'unknown')
 
-            result.dosageCalls = [...whole].map((chrom) => {
+            // ONE SCORER, USED TWICE. The whole-chromosome calls here and the taxonomy findings
+            // below are the same measurement over different intervals, so the interval is a
+            // predicate rather than a chromosome name. Duplicating it for the new classes would
+            // have let the two drift apart, and a reader compares their confidences directly.
+            const scoreInterval = (
+              label: string,
+              inside: (chrom: string, pos: number) => boolean,
+              wholeChromosome: boolean,
+            ) => {
               // Background is every OTHER chromosome of this same array. Self-referencing is not
               // optional: the raw one-parent null sits at -0.031 on trophectoderm under no event,
               // pointing at the parent that was NOT genotyped, which is the shift a real mosaic
@@ -745,7 +753,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 const pg = pat.gt.get(probe)
                 if (!pg) continue
                 const b = myBaf.get(probe) ?? null
-                ;(p.chrom === chrom ? region : background).push([pg, b])
+                ;(inside(p.chrom, p.pos) ? region : background).push([pg, b])
               }
               // Self-referenced intensity for the same chromosome, from the copy-number channel
               // already collected. Informs the STATE and never the ORIGIN: on haploid pronuclei
@@ -755,7 +763,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               for (const [ch, ms] of cnByChrom) {
                 for (const m of ms) {
                   if (m.log2R === null || !Number.isFinite(m.log2R)) continue
-                  ;(ch === chrom ? inL : outL).push(m.log2R)
+                  ;(inside(ch, m.pos) ? inL : outL).push(m.log2R)
                 }
               }
               const mean = (xs: number[]) => (xs.length
@@ -783,7 +791,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               // blastomere a defined floor at all.
               const untRows: [string, string, number | null][] = []
               for (const [probe, p] of markerPos) {
-                if (p.chrom !== chrom) continue
+                if (!inside(p.chrom, p.pos)) continue
                 const pg = pat.gt.get(probe)
                 if (pg !== 'AB') continue
                 untRows.push([pg, myGt.get(probe) ?? 'NC', myBaf.get(probe) ?? null])
@@ -794,20 +802,25 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 ? untOriented.reduce((a, x) => a + x, 0) / untOriented.length : NaN
               // Only once a gain is established: on a euploid chromosome this answers SPH by
               // exclusion every time, which is confidently wrong.
+              // The mechanism question only exists once copy number three is established, and
+              // that is a whole-chromosome property. Asking it of a sub-chromosomal interval would
+              // return "not both homologues" by exclusion on every one of them, which is the trap
+              // this gate was added for in the first place.
               const mech = callMechanism(unt.pairs as never,
-                { copyNumberThree: result.chroms.find(
-                  (x: { chrom: string, aneuploidy?: string }) => x.chrom === chrom,
-                )?.aneuploidy === 'gain' })
+                { copyNumberThree: wholeChromosome && result.chroms.some(
+                  (x: { chrom: string, aneuploidy?: string }) =>
+                    inside(x.chrom, 0) && x.aneuploidy === 'gain',
+                ) })
 
               const c = callDosageOrigin(region as never, background as never, material, {
-                wholeChromosome: true,
+                wholeChromosome,
                 hetBafSd: hetSd,
                 intensityZ,
                 parents: mat ? 2 : 1,
                 windowLogRSd,
               })
               return {
-                where: `chr${chrom}`,
+                where: label,
                 verdict: c.verdict,
                 confidence: c.posterior?.confidence,
                 band: c.posterior?.band,
@@ -830,9 +843,35 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 floor: c.floor,
                 why: c.why,
               }
-            })
+            }
+
+            result.dosageCalls = [...whole].map((chrom) =>
+              scoreInterval(`chr${chrom}`, (c) => c === chrom, true))
+
+            // THE TAXONOMY'S FINDINGS GO THROUGH THE SAME SCORER. A copy-neutral event and an
+            // isodisomy carry a parental origin exactly as a deletion does, and it must be the
+            // same posterior, the same four bands and the same class-inversion veto, or a reader
+            // comparing two rows of one table is comparing two different kinds of number.
+            //
+            // Classes whose origin is blocked BY THE CLASS are skipped rather than scored and
+            // discarded: a triploidy has no parental origin at any quality, and running the
+            // statistic on it would produce a number that means nothing.
+            for (const f of result.findings ?? []) {
+              if (originBlockedByClass(f.cls) || f.chrom === 'genome') continue
+              const call = scoreInterval(
+                `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`,
+                (c, pos) => c === f.chrom && pos >= f.startBp && pos <= f.endBp,
+                f.wholeChromosome,
+              )
+              result.dosageCalls.push(call)
+              const named = call.verdict === 'loaded-parent' || call.verdict === 'other-parent'
+              log(named ? 'DONE' : 'WARN', `${f.cls} origin ${call.where}: ${call.why}`)
+            }
             for (const c of result.dosageCalls) {
-              log(c.verdict === 'refused' ? 'WARN' : 'DONE', `dosage origin ${c.where}: ${c.why}`)
+              // 'refused' is the GENOTYPE channel's vocabulary and never appears here, so this
+              // line logged DONE for every outcome including a withheld parent.
+              const named = c.verdict === 'loaded-parent' || c.verdict === 'other-parent'
+              log(named ? 'DONE' : 'WARN', `dosage origin ${c.where}: ${c.why}`)
             }
           }
           if (!mat && result.segments.length) {
@@ -1284,7 +1323,13 @@ function ResultCard({ entry, donorName, oocyteName }: {
                 r.stage, r.dosageCalls ?? []),
               // One list, not two. A copy-neutral event and a deletion are different measurements
               // of the same kind of thing and a reader compares them against each other.
-              ...(r.findings ?? []).map((f) => findingToDefect(f, r.stage)),
+              ...(r.findings ?? []).map((f) => findingToDefect(f, r.stage,
+                // The call scored over THIS finding's own interval, matched by the same label the
+                // scorer wrote, so a finding shows the origin that was actually measured for it
+                // rather than one borrowed from its chromosome.
+                (r.dosageCalls ?? []).find((d: { where: string }) => d.where
+                  === `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`),
+                r.role)),
             ]}
           />
           <GainCallout gains={r.gains} />

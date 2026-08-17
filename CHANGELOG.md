@@ -9,6 +9,29 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.2.1 "Interference"
+
+The taxonomy's findings are now scored for parental origin through the same path as everything
+else, which is what 5.2.0 claimed and did not do.
+
+A copy-neutral event and an isodisomy carry a parental origin exactly as a deletion does, but they
+arrived in the defect list with the origin unresolved because nothing had scored them. The dosage
+scorer was chromosome-scoped and inline; it now takes the interval as a predicate and is used
+twice, so a finding is measured over its OWN interval rather than borrowing its chromosome's
+answer, and gets the same posterior, the same four bands and the same class-inversion veto.
+
+Classes whose origin is blocked by the class itself are skipped rather than scored and discarded,
+and a stray call arriving on one is ignored rather than trusted: a triploidy must not acquire a
+parent from a number that means nothing for it.
+
+Two log lines compared a dosage verdict against 'refused', which belongs to the genotype channel
+and never appears there, so both reported success for every outcome including a withheld parent.
+The trisomy mechanism gate is now also conditioned on the interval being a whole chromosome, since
+copy number three is a whole-chromosome property and asking it of a sub-chromosomal interval
+returns the by-exclusion answer every time.
+
+---
+
 ## 5.2.0 "Interference"
 
 The full taxonomy of chromosomal abnormality, including the classes that cannot be answered, with

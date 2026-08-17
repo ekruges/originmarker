@@ -249,21 +249,41 @@ export const bandColour = (d: Defect): string => {
  * structure cannot say whose the extra set is; a complex genome has none because self-reference has
  * failed. Both arrive here with the reason attached rather than as an empty field.
  */
-export function findingToDefect(f: Finding, stage?: StageCall): Defect {
+export function findingToDefect(
+  f: Finding,
+  stage?: StageCall,
+  /** The dosage call scored over this finding's own interval, where the class allows one. */
+  scored?: {
+    verdict: string, shift: number, z: number, impliedF: number, why: string,
+    confidence?: number, band?: string, limitedBy?: string,
+  },
+  loadedParent: 'paternal' | 'maternal' = 'paternal',
+): Defect {
   const blocked = f.originBlocked ?? (ORIGIN_UNREACHABLE.has(f.cls)
     ? taxonomyFor(f.cls)?.origin : undefined)
+  const other = loadedParent === 'paternal' ? 'maternal' : 'paternal'
+  // A blocked class is never scored, so a scored call on one would be a caller error rather than
+  // evidence, and is ignored here rather than trusted.
+  const use = blocked ? undefined : scored
+  const named = use && (use.verdict === 'loaded-parent' || use.verdict === 'other-parent')
   return {
     chrom: f.chrom,
     startBp: f.startBp,
     endBp: f.endBp,
     locus: f.chrom === 'genome' ? 'whole genome' : locus(f.chrom, f.startBp, f.endBp),
     kind: f.cls as Defect['kind'],
-    origin: 'unclear',
-    why: [f.evidence, blocked, f.flag].filter(Boolean).join('. '),
-    // No basis and no channel: nothing has scored an origin for this finding yet. A caller that
-    // CAN score one replaces these, and one that cannot leaves them absent rather than implying a
-    // channel spoke and declined.
-    basis: undefined,
+    origin: named ? (use.verdict === 'loaded-parent' ? loadedParent : other) : 'unclear',
+    why: [f.evidence, blocked, use?.why, f.flag].filter(Boolean).join('. '),
+    // Absent where nothing scored an origin, so a missing basis never implies a channel spoke and
+    // declined. Where one did, this is the SAME dosage channel the older events use.
+    basis: named ? 'dosage' : undefined,
+    channel: use ? 'dosage' : undefined,
+    confidence: named ? use.confidence : undefined,
+    band: named ? use.band : undefined,
+    limitedBy: named ? use.limitedBy : undefined,
+    shift: use && Number.isFinite(use.shift) ? use.shift : undefined,
+    z: use && Number.isFinite(use.z) ? use.z : undefined,
+    impliedF: use && Number.isFinite(use.impliedF) ? use.impliedF : undefined,
     stage: stage?.stage,
   }
 }
