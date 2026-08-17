@@ -1,5 +1,11 @@
 <img src="docs/originmarker.svg" alt="OriginMarker" width="340">
 
+[![ci](https://img.shields.io/github/actions/workflow/status/ekruges/originmarker/ci.yml?branch=main&style=flat-square&label=ci)](https://github.com/ekruges/originmarker/actions/workflows/ci.yml)
+[![version](https://img.shields.io/github/v/tag/ekruges/originmarker?style=flat-square&label=version)](https://github.com/ekruges/originmarker/tags)
+[![license](https://img.shields.io/github/license/ekruges/originmarker?style=flat-square)](LICENSE)
+[![node](https://img.shields.io/badge/node-22-blue?style=flat-square)](.github/workflows/ci.yml)
+[![python](https://img.shields.io/badge/python-3.12-blue?style=flat-square)](.github/workflows/ci.yml)
+
 Builds a ranked, downloadable menu of candidate flanking SNP markers around a pathogenic variant,
 for PGT-M linkage and karyomapping. Syngamy then reads SNP arrays after an experiment and reports
 which parental genome is present, on which chromosomes, and across which regions within them.
