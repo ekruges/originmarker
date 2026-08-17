@@ -19,14 +19,25 @@ changelog=$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | sed 's/^## 
 say "build_info.py  $build \"$codename\""
 say "CHANGELOG.md   $changelog"
 
-# A CODENAME MUST NEVER BE REUSED. It was, twice: 4.14.0 took "Kinetochore" back from 2.0.0 and
-# 4.15.0 took "Recombinase" back from 3.0.0, because the ladder in build_info.py had been spent and
-# nothing checked. A codename that names two releases cannot identify either of them.
-prior=$(grep -oE '^## [0-9]+\.[0-9]+\.[0-9]+ "[^"]+"' CHANGELOG.md | sed 's/.*"\(.*\)"/\1/' | tail -n +2)
-if printf '%s\n' "$prior" | grep -qxF "$codename"; then
-  say "REUSED CODENAME: \"$codename\" already names an earlier release. Take the next unused name"
-  say "from RELEASES in originmarker/build_info.py."
-  fail=1
+# A CODENAME MUST NOT BE REUSED ACROSS RELEASE LINES. It was, twice: 4.14.0 took "Kinetochore" back
+# from 2.0.0 and 4.15.0 took "Recombinase" back from 3.0.0, because the ladder in build_info.py had
+# been spent and nothing checked. A codename that names two unrelated releases identifies neither.
+#
+# A PATCH SHARING ITS MINOR LINE'S NAME IS NOT REUSE. 5.0.1 is part of 5.0.0 "Anaphase", so the
+# comparison is against OTHER major.minor lines only. The first version of this guard failed a
+# legitimate patch, and set the wrong variable while doing it, so it printed a warning that could
+# never fail the build. Both are why this reads the way it does.
+line=$(printf '%s' "$build" | cut -d. -f1,2)
+clash=$(grep -oE '^## [0-9]+\.[0-9]+\.[0-9]+ "[^"]+"' CHANGELOG.md \
+  | awk -v n="$codename" -v l="$line" '{
+      v=$2; q=index($0,"\""); name=substr($0,q+1,length($0)-q-1)
+      split(v,a,"."); ml=a[1] "." a[2]
+      if (name == n && ml != l) print v
+    }')
+if [ -n "$clash" ]; then
+  say "REUSED CODENAME: \"$codename\" already names $(printf '%s' "$clash" | tr '\n' ' ')"
+  say "Take the next unused name from RELEASES in originmarker/build_info.py."
+  fails=$((fails + 1))
 fi
 
 if [ "$build" != "$changelog" ]; then

@@ -9,6 +9,15 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.0.1 "Anaphase"
+
+The PDF said the dosage table carried a confidence column and it did not. The column is now there,
+printing the calibrated number and its band, grey for bands C and D so a weak number cannot be read
+as a strong one. A parent printed without its confidence is the exact failure 5.0.0 set out to
+remove, and the report was still doing it.
+
+---
+
 ## 5.0.0 "Anaphase"
 
 Parental origin is no longer read from the sign of the allele-dosage shift. It is a calibrated

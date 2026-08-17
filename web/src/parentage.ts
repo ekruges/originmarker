@@ -489,6 +489,16 @@ export interface ParentageResult {
   dosageCalls?: {
     where: string
     verdict: string
+    /**
+     * Calibrated confidence in the named parent, and its band.
+     *
+     * Carried through to the report and the PDF because a parent printed WITHOUT a number reads as
+     * certain, and on amplified material most are not: band A measures 0.995 and band D 0.62.
+     */
+    confidence?: number
+    band?: string
+    limitedBy?: string
+    uncalibrated?: boolean
     /** The copy-number class, resolved separately from the origin and usually not resolved. */
     classVerdict?: string
     classWhy?: string

@@ -8,6 +8,7 @@
  * its SHA-256.
  */
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
+import { BAND_WORD } from './defects.ts'
 import {
   GLOSS, pct,
   type ChromResult, type PairClass, type PairResult, type ParentageResult,
@@ -772,16 +773,22 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'rather than refused: no array of that kind could have answered, whatever its quality.',
       7.4, 'Helvetica', 2.4, GREY)
       table(
-        [{ head: 'Chromosome', w: 74 }, { head: 'Verdict', w: 122 },
-          { head: 'Material', w: 74 },
-          { head: 'Shift', w: 48, right: true }, { head: 'z', w: 40, right: true },
-          { head: 'Fraction', w: 44, right: true },
-          { head: 'Window', w: 46, right: true }],
+        [{ head: 'Chromosome', w: 64 }, { head: 'Verdict', w: 104 },
+          { head: 'Confidence', w: 116 },
+          { head: 'Material', w: 66 },
+          { head: 'Shift', w: 44, right: true }, { head: 'z', w: 36, right: true },
+          { head: 'Fraction', w: 40, right: true },
+          { head: 'Window', w: 42, right: true }],
         r.dosageCalls.map((d) => [
           d.where,
           { v: d.verdict.replace(/-/g, ' '),
             colour: (d.verdict === 'loaded-parent' || d.verdict === 'other-parent')
               ? INK : GREY },
+          // Bands C and D print grey, so a weak number cannot be read as a strong one.
+          { v: d.confidence !== undefined && Number.isFinite(d.confidence)
+            ? `${d.confidence.toFixed(3)}  ${BAND_WORD[d.band ?? ''] ?? ''}`.trim()
+            : 'not stated',
+          colour: d.band === 'A' || d.band === 'B' ? INK : GREY },
           d.material,
           Number.isFinite(d.shift) ? d.shift.toFixed(4) : '-',
           Number.isFinite(d.z) ? d.z.toFixed(2) : '-',
