@@ -43,6 +43,18 @@ jobs:
       - name: bundled examples still say what they claim
         run: node --experimental-strip-types cli/examples.check.ts
 
+      # The deployment contract, which nothing else here covers. The app is served twice from one
+      # process: at the root on the LAN, and behind a tunnel that passes the path prefix through.
+      # If root_path stops stripping that prefix, /api/health keeps returning 200 while every
+      # public URL 404s, so a broken site looks like a green suite. Added for a uvicorn bump whose
+      # release notes were entirely HTTP request-parsing changes, which is the layer this sits on.
+      - uses: actions/setup-python@v5
+        with: { python-version: '3.12' }
+      - name: install the server stack
+        run: pip install --quiet -r requirements.txt pytest httpx
+      - name: both routes answer, bare and prefixed
+        run: python -m pytest tests/test_root_path.py -q
+
   release:
     runs-on: ubuntu-latest
     steps:
