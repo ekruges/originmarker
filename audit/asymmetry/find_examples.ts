@@ -89,7 +89,7 @@ function read(file: string): Arr | null {
   }
 }
 
-const files = readdirSync(DIR).filter((f) => /\.(probes|txt\.gz)$/.test(f)).sort()
+const files = readdirSync(DIR).filter((f) => /\.(probes|probes\.gz|txt\.gz)$/.test(f)).sort()
 process.stderr.write(`${files.length} arrays, stride ${STRIDE}\n`)
 const arrays: Arr[] = []
 for (const f of files) {

@@ -179,7 +179,7 @@ function arraysUnder(dir: string, rel = ''): string[] {
   for (const e of readdirSync(join(dir, rel)).sort()) {
     const r = rel ? join(rel, e) : e
     if (statSync(join(dir, r)).isDirectory()) outp.push(...arraysUnder(dir, r))
-    else if (/\.(probes|CEL\.txt\.gz|txt\.gz)$/.test(e)) outp.push(r)
+    else if (/\.(probes|probes\.gz|CEL\.txt\.gz|txt\.gz)$/.test(e)) outp.push(r)
   }
   return outp
 }
