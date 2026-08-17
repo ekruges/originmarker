@@ -9,6 +9,55 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.2.0 "Interference"
+
+The full taxonomy of chromosomal abnormality, including the classes that cannot be answered, with
+every new class wired into the same machinery the old ones use.
+
+**What was wrong before.** This tool found three things: a parental absence, a copy loss and a copy
+gain. Everything else an embryologist looks at was not looked for, and silence read as absence. A
+reader had no way to separate "this array has no uniparental disomy" from "this tool has never
+checked for uniparental disomy". Fourteen classes are now enumerated, each saying what it rests on
+and what a parental origin for it rests on.
+
+**Four classes are newly detected, and need no parental array at all.** Copy-neutral loss of
+heterozygosity, from heterozygosity depletion against the array's own background with copy number
+unchanged. Uniparental isodisomy and segmental uniparental disomy, from runs of homozygosity past
+the 13.5 Mb reporting length. Triploidy, from allele fractions occupying the one-third and
+two-thirds bands while vacating the half band, which a diploid genome cannot do. And a genome too
+disturbed to self-reference, which is reported as a finding in its own right rather than as a
+refusal: the array may be perfect and the genome is what is disturbed.
+
+**The copy-neutral detector will not fire on a deletion.** Depleted heterozygosity is equally the
+signature of a lost copy, and calling that copy-neutral would name the wrong event and then invert
+its origin, since loss and gain read opposite signs. A window whose intensity has moved belongs to
+the deletion detector and is left to it. Where no intensity is supplied the class is reported as
+loss-or-copy-neutral rather than assumed. The calling threshold also sits clear of the false-positive
+floor: dropout that clusters rather than scattering already puts 1% of event-free windows at 40%
+depletion.
+
+**No run found is not no disomy, and the negative says so.** Runs find isodisomy, where both copies
+are the same homologue. Heterodisomy leaves copy number at two and heterozygosity normal and is
+invisible from an embryo alone, and 32% of confirmed uniparental disomy carries no significant run
+at all. Both facts travel with every result rather than sitting in documentation. Runs across four
+or more chromosomes are the pattern of shared parental ancestry, and those calls are flagged rather
+than withdrawn: the runs are real, what they imply is what changes.
+
+**Three limits are named so nobody chases them.** Uniparental heterodisomy needs both parents
+alongside the embryo. Tandem versus inserted duplication carries no positional information in
+either channel. Reverse segregation is a blind spot rather than a power problem: in 20 of 26
+observed cases the copy number was normal, and it was the most frequent non-canonical pattern
+across 23 complete meioses, so no marker density fixes it. Two further walls are conditional and
+lift when the user supplies more, and the report lists which still stand for the run actually done.
+
+**Everything goes through one list, not a second panel.** The new classes enter the same defect
+display, the same headline with its confidence band, the same PDF, with a readable phrase for each
+so a clinician need not know the code's vocabulary. Where a class carries no parental origin at all,
+that is stated as a property of the class rather than left as an empty field, because a structural
+impossibility and a failed attempt must not look alike. `om taxonomy` prints the whole table.
+
+---
+
 ## 5.1.0 "Disjunction"
 
 Every origin channel now emits a confidence and a band, not just the dosage one. Measuring what

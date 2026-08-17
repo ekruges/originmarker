@@ -61,6 +61,7 @@ const SECTIONS: DocSection[] = [
   { id: 'contribution', label: 'One parent or two, per chromosome' },
   { id: 'oneparent', label: 'Parental origin from one parent' },
   { id: 'dosage', label: 'Whole chromosomes, from allele dosage' },
+  { id: 'taxonomy', label: 'Every class, and the ones that cannot be answered' },
   { id: 'stage', label: 'Material, amplification and stage' },
   { id: 'report', label: 'The report, and how to cite it' },
   { id: 'examples', label: 'The bundled example data' },
@@ -2160,6 +2161,60 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         </Section>
 
         {/* --- 23 ------------------------------------------------------------------------ */}
+        <Section id="taxonomy" title="Every class, and the ones that cannot be answered">
+          <Text size="sm" mb={10}>
+            <b>Silence used to read as absence.</b> This tool found three things: a parental
+            absence, a copy loss and a copy gain. Anything else was not looked for, and a report
+            listing what was found told you nothing about what was never checked. There was no way
+            to tell &quot;this array has no uniparental disomy&quot; from &quot;this tool has never
+            looked for uniparental disomy&quot;. Every class is now enumerated, including the ones
+            that cannot be answered, and each says what it rests on.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Four classes need no parental array at all.</b> Copy-neutral loss of heterozygosity,
+            where both copies came from one parent and the copy number never changed. Uniparental
+            isodisomy, from a run of homozygosity spanning a chromosome. Triploidy, from allele
+            fractions sitting at a third and two thirds with the half band vacated, which a diploid
+            genome cannot produce. And a genome too disturbed to reference against, which is not a
+            quality failure: the array may be perfect and the genome is what is disturbed.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Copy-neutral is the easiest class to assign a parent to, not the hardest.</b> It
+            displaces the parent-allele share by half the mosaic fraction, against a quarter for a
+            deletion, because copy number never changes and so the genotype caller never degrades.
+            The detector will not fire on a window whose intensity has moved: that is a deletion,
+            and calling it copy-neutral would name the wrong event and then invert its origin.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>No run found is not no disomy.</b> A run of homozygosity finds ISOdisomy, where the
+            two copies are the same homologue. Heterodisomy leaves copy number at two and
+            heterozygosity normal, so nothing in an embryo alone can see it, and 32% of confirmed
+            uniparental disomy carries no significant run at all. Both facts travel with every
+            negative result rather than sitting in a footnote. Runs on four or more chromosomes at
+            once are the pattern of shared parental ancestry rather than disomy, and the calls are
+            flagged rather than withdrawn: the runs are real, what they imply is what changes.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Three limits cannot be lifted by any array of this platform.</b> Uniparental
+            heterodisomy needs both parents alongside the embryo. A tandem duplication cannot be
+            told from an inserted one, because neither channel carries positional information about
+            where a duplicated segment landed. And reverse segregation is a named blind spot: both
+            homologues separate sister chromatids at the first division and non-sisters at the
+            second, and in 20 of 26 observed cases the copy number was normal, so it is invisible to
+            any copy-number method. It was the most frequent non-canonical pattern across 23
+            complete meioses. No marker density fixes that one, because the rule is wrong rather
+            than underpowered.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Two more become answerable when you supply more.</b> A second parental array lifts
+            heterodisomy. A second unit of the same embryo settles whether a segmental change came
+            from the gamete or arose after fertilisation, which genotype alone cannot do at any
+            material quality: uniformity across independently sampled units is the only channel
+            measured to break the tie, meiotic 64 of 64 uniform against post-zygotic 6 of 7
+            non-uniform. The report lists which walls still stand for the run you actually did.
+          </Text>
+        </Section>
+
         <Section id="limits" title="Scope and limits">
           <Text mb={8}>
             <b>This is research decision support, not a clinical diagnostic.</b> Nothing here is

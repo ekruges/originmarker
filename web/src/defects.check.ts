@@ -11,7 +11,9 @@
 //   TWO PARENTS OUTRANK ONE. Where dosage from both parents already named a side, a single-parent
 //   call must not overwrite it; it fills a gap rather than competing.
 import assert from 'node:assert/strict'
-import { defectsFrom } from './defects.ts'
+import {
+  defectsFrom, headline, findingToDefect, originBlockedByClass, KIND_WORD,
+} from './defects.ts'
 import type { Segment } from './segments.ts'
 import type { GainAnnotation } from './parentage.ts'
 import type { StageCall } from './stage.ts'
@@ -218,6 +220,42 @@ const one = (where: string, verdict: string) => ({
   const none = defectsFrom([s], [], [], [], 'paternal')[0]
   assert.equal(none.origin, 'unclear')
   assert.equal(none.confidence, undefined, 'no origin means no confidence, not a coin flip')
+}
+
+// --- THE TAXONOMY'S FINDINGS ENTER THE SAME LIST, WITH THE SAME SHAPE -----------------------------
+//
+// There must be no second display. A copy-neutral event, an isodisomy and a deletion are different
+// measurements of the same kind of thing, and a reader compares them against each other. Giving the
+// new classes their own panel would reproduce the defect this release exists to fix, where the
+// strongest evidence carried the least visible confidence because it lived somewhere else.
+{
+  const f = { cls: 'cnn-loh' as const, chrom: '7', startBp: 1_000_000, endBp: 14_000_000,
+    wholeChromosome: false, evidence: 'heterozygosity 2.1% against 17.0%', flag: 'dropout floor' }
+  const d = findingToDefect(f)
+  assert.equal(d.kind, 'cnn-loh')
+  assert.equal(d.chrom, '7')
+  assert.ok(d.locus.includes('chr7'), 'it must carry a genome-browser locus like any other defect')
+  assert.ok(d.why.includes('heterozygosity'))
+  assert.ok(d.why.includes('dropout floor'), 'the caveat travels with the finding')
+  assert.equal(d.basis, undefined,
+    'no channel has scored an origin yet, and an absent basis must not imply one declined')
+
+  // A class whose ORIGIN IS BLOCKED BY THE CLASS must not read like one that merely failed.
+  const tri = findingToDefect({ cls: 'triploidy', chrom: 'genome', startBp: 0, endBp: 0,
+    wholeChromosome: true, evidence: 'mass at the thirds, half band vacated',
+    originBlocked: 'band structure cannot say whose the extra set is' })
+  assert.ok(originBlockedByClass('triploidy'))
+  assert.ok(!originBlockedByClass('cnn-loh'),
+    'copy-neutral LOH CAN carry a parent, and is in fact the largest-signal class of the three')
+  assert.ok(headline(tri).includes('no parental origin exists for this class'),
+    `a structurally impossible origin must say so: ${headline(tri)}`)
+  assert.ok(!headline(tri).includes('chrgenome'), 'a genome-wide finding must not read as a chromosome')
+
+  // Every class must have a phrase a clinician can read without knowing the code's vocabulary.
+  for (const k of ['cnn-loh', 'isodisomy', 'segmental-upd', 'triploidy', 'haploidy', 'complex',
+    'monosomy', 'trisomy', 'segmental-deletion', 'segmental-duplication', 'gamete-de-novo']) {
+    assert.ok(KIND_WORD[k] && KIND_WORD[k].length > 4, `${k} has no readable phrase`)
+  }
 }
 
 console.log('defects.check.ts: all assertions passed, including a single-parent verdict read '

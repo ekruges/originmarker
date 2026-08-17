@@ -8,7 +8,8 @@
  * its SHA-256.
  */
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
-import { BAND_WORD } from './defects.ts'
+import { BAND_WORD, KIND_WORD } from './defects.ts'
+import { unanswerable } from './abnormalities.ts'
 import {
   GLOSS, pct,
   type ChromResult, type PairClass, type PairResult, type ParentageResult,
@@ -684,6 +685,43 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       )
     }
     if (r.gains.length) {
+      if (r.findings?.length) {
+        heading('Other chromosomal classes found', 8.6)
+        text('These need no parental array at all: copy-neutral loss of heterozygosity, runs of '
+          + 'homozygosity indicating uniparental isodisomy, ploidy, and a genome too disturbed to '
+          + 'reference against. They are listed with the events above rather than apart from them, '
+          + 'because a reader compares rows. Where a class carries no parental origin AT ALL, that '
+          + 'is stated as a property of the class rather than left as an empty field.',
+        7.4, 'Helvetica', 2.4, GREY)
+        table(
+          [{ head: 'Class', w: 132 }, { head: 'Where', w: 110 },
+            { head: 'Origin', w: 92 }, { head: 'Evidence', w: 198 }],
+          r.findings.map((f) => [
+            { v: KIND_WORD[f.cls] ?? f.cls, colour: INK },
+            f.chrom === 'genome' ? 'whole genome' : `chr${f.chrom}`,
+            { v: f.originBlocked ? 'none for this class' : 'scored below',
+              colour: f.originBlocked ? GREY : INK },
+            { v: [f.evidence, f.originBlocked, f.flag].filter(Boolean).join('. '), colour: GREY },
+          ]),
+        )
+      }
+
+      // WHAT WAS LOOKED FOR AND CANNOT BE ANSWERED. Without this table a report that lists what was
+      // found says nothing about what was never checked, and on this platform the difference
+      // between "no heterodisomy present" and "heterodisomy is unreachable from an embryo alone" is
+      // the difference between a result and a misunderstanding.
+      {
+        const walls = unanswerable(!!r.twoParents, r.units ?? 1)
+        if (walls.length) {
+          heading('Classes this array cannot answer', 8.6)
+          table(
+            [{ head: 'Class', w: 150 }, { head: 'Why not', w: 382 }],
+            walls.map((t) => [{ v: t.label, colour: INK },
+              { v: t.limit ?? t.by, colour: GREY }]),
+          )
+        }
+      }
+
       heading('Extra copies, and where they came from', 8.6)
       table(
         [{ head: 'Where', w: 116 }, { head: 'Kind', w: 72 }, { head: 'Origin', w: 84 },

@@ -27,6 +27,7 @@
  * is not. Do not restate the guarantee until there is a test behind it.
  */
 import { type ProbeRow } from './ingest.ts'
+import type { Finding } from './abnormalities.ts'
 import { type AB } from './informativity.ts'
 import type { Segment } from './segments.ts'
 import type { HetCall } from './obligateHet.ts'
@@ -477,6 +478,25 @@ export interface ParentageResult {
    */
   /** Developmental stage inferred from this array, and the dropout its template count implies. */
   stage?: StageCall
+  /**
+   * Everything the taxonomy found, from the classes that need no parent at all.
+   *
+   * Kept as its own field rather than folded into `segments` because these are not segments: a
+   * triploidy and a chaotic genome have no interval, and a run of homozygosity is a property of the
+   * sample rather than a deviation from a null. They enter the same DISPLAY as everything else,
+   * through findingToDefect, which is where a reader compares them.
+   */
+  findings?: Finding[]
+  /**
+   * Whether BOTH parents were loaded, and how many units of this embryo.
+   *
+   * Carried because they decide which classes are answerable at all, not merely how well. A second
+   * parental array lifts uniparental heterodisomy from impossible to reachable, and a second unit
+   * of the same embryo lifts the timing of a segmental change. A report that did not know these
+   * would tell a user who had already supplied what it takes that the wall was still there.
+   */
+  twoParents?: boolean
+  units?: number
   oneParent?: {
     where: string
     verdict: string

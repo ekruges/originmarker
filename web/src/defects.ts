@@ -11,13 +11,24 @@ import type { GainAnnotation } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
 import type { StageCall } from './stage.ts'
+import { ORIGIN_UNREACHABLE, taxonomyFor, type Finding } from './abnormalities.ts'
 
 /** What is known about one defect, gathered from whichever channels produced it. */
 export interface Defect {
   chrom: string
   startBp: number
   endBp: number
+  /**
+   * What the change IS.
+   *
+   * The first four are the original three plus the whole-chromosome case; everything after them
+   * comes from the taxonomy, and they are the same field on purpose. A reader compares rows, so a
+   * copy-neutral event and a deletion must arrive in one list with one shape rather than in two
+   * displays that cannot be read against each other.
+   */
   kind: 'copy-loss' | 'copy-gain' | 'parental-absence' | 'whole-chromosome'
+    | 'cnn-loh' | 'isodisomy' | 'segmental-upd' | 'triploidy' | 'haploidy' | 'complex'
+    | 'monosomy' | 'trisomy' | 'segmental-deletion' | 'segmental-duplication' | 'gamete-de-novo'
   /** The region in genome-browser form, chr6:39,302-294,904. */
   locus: string
   /** Refined interval text where the breakpoint was localised, e.g. '+/- 61 kb'. */
@@ -176,13 +187,43 @@ export function defectsFrom(
 export const BAND_WORD: Record<string, string> = {
   A: 'very confident', B: 'confident', C: 'weak, direction only', D: 'weak, not for reporting',
 }
+/**
+ * What each class is called in a headline, in words rather than in the code's vocabulary.
+ *
+ * A reader of a clinical report should not have to know that 'cnn-loh' means the chromosome is
+ * still there in two copies but both came from one parent. Every class gets a phrase.
+ */
+export const KIND_WORD: Record<string, string> = {
+  'copy-gain': 'extra copy',
+  'copy-loss': 'copy lost',
+  'parental-absence': "parent's alleles absent",
+  'whole-chromosome': 'whole chromosome affected',
+  monosomy: 'one copy only',
+  trisomy: 'three copies',
+  'segmental-deletion': 'segment deleted',
+  'segmental-duplication': 'segment duplicated',
+  'cnn-loh': 'both copies from one parent, copy number normal',
+  isodisomy: 'both copies are the same parental homologue',
+  'segmental-upd': 'segment from one parent only',
+  triploidy: 'a third chromosome set',
+  haploidy: 'one chromosome set only',
+  complex: 'genome too disturbed to reference against',
+  'gamete-de-novo': 'segment changed, gamete or post-fertilisation',
+}
+
 export const headline = (d: Defect): string => {
-  const what = d.kind === 'copy-gain' ? 'extra copy' : 'copy lost'
-  if (d.origin === 'unclear') return `chr${d.chrom} ${what}, origin not determined`
+  const what = KIND_WORD[d.kind] ?? (d.kind === 'copy-gain' ? 'extra copy' : 'copy lost')
+  const where = d.chrom === 'genome' ? 'genome' : `chr${d.chrom}`
+  if (d.origin === 'unclear') {
+    // A class that can never carry a parent must not read like one that merely failed to.
+    return `${where} ${what}, ${originBlockedByClass(d.kind)
+      ? 'no parental origin exists for this class'
+      : 'origin not determined'}`
+  }
   const conf = d.confidence !== undefined && Number.isFinite(d.confidence)
     ? ` · ${d.confidence.toFixed(3)}${d.band ? ` ${BAND_WORD[d.band] ?? d.band}` : ''}`
     : ''
-  return `${d.origin.toUpperCase()} ${what} · chr${d.chrom}${conf}`
+  return `${d.origin.toUpperCase()} ${what} · ${where}${conf}`
 }
 
 /** Bands C and D are dimmed, so a weak number cannot be mistaken for a strong one at a glance. */
@@ -190,3 +231,43 @@ export const bandColour = (d: Defect): string => {
   if (d.origin === 'unclear') return 'var(--om-text-dim)'
   return d.band === 'C' || d.band === 'D' ? 'var(--om-text-dim)' : 'var(--om-defect)'
 }
+
+// ---------------------------------------------------------------------------------------------
+// The taxonomy's findings, entering the same list as everything else.
+
+/**
+ * Turn a taxonomy finding into a defect, so it reaches every display the older events already do.
+ *
+ * THE POINT IS THAT THERE IS NO SECOND LIST. A copy-neutral event, an isodisomy and a deletion are
+ * different measurements of the same kind of thing, and a reader compares them against each other.
+ * Giving the new classes their own panel would have been easier and would have reproduced the
+ * defect this release exists to fix, where the strongest evidence carried the least visible
+ * confidence because it happened to be displayed somewhere else.
+ *
+ * ORIGIN IS BLOCKED FOR SOME CLASSES BY THE CLASS ITSELF, not by weak evidence, and the two must
+ * not look alike. A triploidy has no parental origin available at any quality because band
+ * structure cannot say whose the extra set is; a complex genome has none because self-reference has
+ * failed. Both arrive here with the reason attached rather than as an empty field.
+ */
+export function findingToDefect(f: Finding, stage?: StageCall): Defect {
+  const blocked = f.originBlocked ?? (ORIGIN_UNREACHABLE.has(f.cls)
+    ? taxonomyFor(f.cls)?.origin : undefined)
+  return {
+    chrom: f.chrom,
+    startBp: f.startBp,
+    endBp: f.endBp,
+    locus: f.chrom === 'genome' ? 'whole genome' : locus(f.chrom, f.startBp, f.endBp),
+    kind: f.cls as Defect['kind'],
+    origin: 'unclear',
+    why: [f.evidence, blocked, f.flag].filter(Boolean).join('. '),
+    // No basis and no channel: nothing has scored an origin for this finding yet. A caller that
+    // CAN score one replaces these, and one that cannot leaves them absent rather than implying a
+    // channel spoke and declined.
+    basis: undefined,
+    stage: stage?.stage,
+  }
+}
+
+/** True where the class itself, rather than the evidence, is what stops a parent being named. */
+export const originBlockedByClass = (kind: string): boolean =>
+  ORIGIN_UNREACHABLE.has(kind as never)

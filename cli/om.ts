@@ -41,6 +41,7 @@ const features = await import(`${W}features.ts`)
 const dosage = await import(`${W}dosageOrigin.ts`)
 const unt = await import(`${W}untransmitted.ts`)
 const post = await import(`${W}originPosterior.ts`)
+const tax = await import(`${W}abnormalities.ts`)
 
 type AB = 'AA' | 'AB' | 'BB' | 'NC'
 
@@ -889,6 +890,31 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     })
   },
 
+  // Every class this platform can and cannot see, so the limits are as inspectable as the dials.
+  // A user deciding whether this tool answers their question should not have to run it to find out
+  // that their question is unanswerable on this material.
+  taxonomy() {
+    const rows = tax.TAXONOMY.map((t: Record<string, string>) => ({
+      class: t.cls, label: t.label, detectable: t.detectable, by: t.by, origin: t.origin,
+      limit: t.limit ?? null,
+      originReachable: !tax.ORIGIN_UNREACHABLE.has(t.cls),
+    }))
+    out({ classes: rows }, () => {
+      for (const r of rows) {
+        const mark = r.detectable === 'yes' ? ' ' : r.detectable === 'partly' ? '~' : 'X'
+        process.stdout.write(`${mark} ${r.label}\n`)
+        process.stdout.write(`    by      ${r.by}\n`)
+        process.stdout.write(`    origin  ${r.origin}\n`)
+        if (r.limit) process.stdout.write(`    LIMIT   ${r.limit}\n`)
+        process.stdout.write('\n')
+      }
+      const hard = rows.filter((r) => r.detectable === 'no').length
+      process.stdout.write(`${rows.length} classes, ${hard} of them not answerable on this `
+        + 'platform at any quality. Those are listed rather than omitted so that silence is never '
+        + 'read as absence.\n')
+    })
+  },
+
   constants() {
     const rows = [
       ['stage', 'BULK_HETEROZYGOSITY', stageMod.BULK_HETEROZYGOSITY, 'diploid rate measured on bulk gDNA on this platform. A PANEL and ANCESTRY property, not a constant of nature'],
@@ -946,6 +972,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
   om census      <dir>                    haploid products per group
   om reconstruct <product>...             a parent's genotypes from that parent's haploid cells
   om enrich      <regions.tsv> --track T --markers A
+  om taxonomy                             every abnormality class, what it rests on and its limits
   om constants                            every tunable, its value and its provenance
 
 Common flags

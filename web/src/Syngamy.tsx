@@ -37,12 +37,15 @@ import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
-import { defectsFrom } from './defects'
+import { defectsFrom, findingToDefect } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
 import { callDosageOrigin, materialOf } from './dosageOrigin'
+import {
+  detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity,
+} from './abnormalities'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted'
-import { inferStage, locus } from './stage'
+import { inferStage } from './stage'
 
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
@@ -440,6 +443,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // In a haploid product every one of these is amplification error, and a region running
           // far above the array's own rate carries the parent's OTHER homologue.
           const hetByChrom = new Map<string, { informative: number; het: number }>()
+          /** Sample-only zygosity, for the classes that need no parent: LOH, runs, ploidy. */
+          const selfMarkers: { chrom: string; pos: number; het: boolean }[] = []
           // Parental contribution, per chromosome. With both parents this is the obligate set:
           // both homozygous and OPPOSITE, where a biparental cell must read heterozygous. With one
           // parent `hetByChrom` above is already the same tally in its one-parent form, so nothing
@@ -474,6 +479,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               const cn = cnByChrom.get(r.chrom) ?? []
               cn.push({ chrom: r.chrom, pos: r.pos, called: r.genotype !== 'NC', log2R: r.log2R })
               cnByChrom.set(r.chrom, cn)
+              // The SAMPLE's own zygosity, which is a different tally from hetByChrom above: that
+              // one counts markers where the PARENT is homozygous. Copy-neutral LOH and runs of
+              // homozygosity are properties of the sample alone and need no parent at all.
+              if (r.genotype !== 'NC') {
+                selfMarkers.push({ chrom: r.chrom, pos: r.pos, het: r.genotype === 'AB' })
+              }
             }
             if ((fa === 'AA' || fa === 'BB') && r.genotype !== 'NC' && isAutosome(r.chrom)) {
               // The homologue channel: every heterozygous call here is error in a haploid.
@@ -546,6 +557,58 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             ...[...absenceByChrom].filter(([c]) => measured.has(c))
               .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))),
           ].sort((a, b) => b.score - a.score)
+
+          // THE TAXONOMY'S CLASSES, run on the same pass and entering the same defect list.
+          //
+          // These need no parent at all, which is why they can run before any parental channel is
+          // consulted: copy-neutral loss of heterozygosity, runs of homozygosity, ploidy and a
+          // genome too disturbed to reference against are all properties of the sample alone.
+          // Their PARENTAL ORIGIN, where one exists, is then scored through exactly the same
+          // posterior and bands as every older event, because a reader compares rows.
+          {
+            const chromEnd = new Map<string, number>()
+            for (const [c, ms] of cnByChrom) {
+              chromEnd.set(c, ms.reduce((a, m) => Math.max(a, m.pos), 0))
+            }
+            // One window per chromosome. Copy-neutral LOH at finer resolution needs the segment
+            // scanner's windows, which is the next step rather than this one, and calling it at
+            // chromosome scale first is the conservative direction.
+            const windows = [...cnByChrom].map(([c, ms]) => {
+              const self = selfMarkers.filter((m) => m.chrom === c)
+              const lrr = ms.map((m) => m.log2R).filter((x): x is number => x !== null)
+                .sort((a, b) => a - b)
+              return {
+                chrom: c, startBp: 0, endBp: chromEnd.get(c) ?? 0,
+                called: self.length, het: self.filter((m) => m.het).length,
+                logR: lrr.length ? lrr[lrr.length >> 1] - genomeLrr : undefined,
+              }
+            })
+            const findings = [
+              ...detectLoh(windows),
+              ...detectUpd(runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd })),
+            ]
+            const tri = detectTriploidy([...myBaf.values()])
+            if (tri) findings.push(tri)
+            // A genome with too little undisturbed remainder cannot self-reference, which blocks
+            // every origin call on the array rather than only on the affected chromosomes.
+            const deviant = new Set([...whole, ...result.segments.map((sg) => sg.chrom)]).size
+            // Genome call rate from the markers themselves. StageCall does not carry one, and the
+            // stage's own inference took it as an input rather than storing it.
+            const allMarkers = [...cnByChrom.values()].flat()
+            const callRate = allMarkers.length
+              ? allMarkers.filter((m) => m.called).length / allMarkers.length : NaN
+            const cx = detectComplex(deviant, cnByChrom.size, callRate)
+            if (cx) findings.push(cx)
+            result.findings = findings
+            // Which walls stand depends on what the user actually supplied, so it is recorded here
+            // rather than guessed at display time. Reading these as undefined would tell a
+            // two-parent run that heterodisomy is unreachable when that run has already cleared it.
+            result.twoParents = !!mat
+            result.units = 1
+            for (const f of findings) {
+              log(f.originBlocked ? 'WARN' : 'DONE', `${f.cls} ${f.chrom}: ${f.evidence}`)
+            }
+          }
           // --- where each extra copy came from ---------------------------------------------
           //
           // Two different questions and the tool must not confuse them. With both parents loaded
@@ -1216,8 +1279,13 @@ function ResultCard({ entry, donorName, oocyteName }: {
           <SegmentCallout segments={r.segments} role={r.role} />
           <PlacementCallout placement={r.placement} />
           <DefectCallout
-            defects={defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
-              r.stage, r.dosageCalls ?? [])}
+            defects={[
+              ...defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
+                r.stage, r.dosageCalls ?? []),
+              // One list, not two. A copy-neutral event and a deletion are different measurements
+              // of the same kind of thing and a reader compares them against each other.
+              ...(r.findings ?? []).map((f) => findingToDefect(f, r.stage)),
+            ]}
           />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
