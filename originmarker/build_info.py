@@ -70,10 +70,28 @@ RELEASES: tuple[Release, ...] = (
             "One of the two copies a replicated chromosome is made of."),
     Release("Telomere",
             "The chromosome end, and the boundary a terminal event runs to."),
+    Release("Bouquet",
+            "The prophase I arrangement where telomeres gather at one pole of the nucleus - "
+            "position in the nucleus, rather than sequence, deciding what meets what."),
+    Release("Synizesis",
+            "The tight clustering of chromatin that accompanies the bouquet."),
+    Release("Dictyate",
+            "The arrested prophase an oocyte holds for decades before it finishes dividing."),
+    Release("Pronucleus",
+            "Either parental genome after fertilisation and before they combine, which is the "
+            "one moment the two are separable by looking."),
+    Release("Karyogamy",
+            "The fusion of the two pronuclei, after which parent of origin can only be inferred."),
+    Release("Metaphase",
+            "The alignment before separation, where a chromosome is most visible."),
+    Release("Spindle",
+            "The apparatus that pulls the homologues apart, and misattaches when it fails."),
+    Release("Univalent",
+            "A chromosome with no partner at metaphase I, which segregates at random."),
 )
 
-VERSION = "5.5.2"
-CODENAME = "Telomere"
+VERSION = "5.6.0"
+CODENAME = "Bouquet"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

@@ -28,6 +28,7 @@
  */
 import { type ProbeRow } from './ingest.ts'
 import type { Finding } from './abnormalities.ts'
+import type { ComparisonResult } from './comparison.ts'
 import { type AB } from './informativity.ts'
 import type { Segment } from './segments.ts'
 import type { HetCall } from './obligateHet.ts'
@@ -478,6 +479,17 @@ export interface ParentageResult {
    */
   /** Developmental stage inferred from this array, and the dropout its template count implies. */
   stage?: StageCall
+  /**
+   * Informative marker positions per chromosome, kept for the optional feature comparison.
+   *
+   * Held rather than recomputed because the addon runs after the array has been streamed and
+   * discarded, and re-deriving these would mean reading the file a second time. They ARE the null
+   * the comparison depends on: a region can only be called where markers are, so a comparison that
+   * did not know where they were would report an enrichment for almost any feature.
+   */
+  markerPositions?: Map<string, number[]>
+  /** The optional feature comparison, present only once someone has chosen to run it. */
+  comparison?: ComparisonResult
   /**
    * Everything the taxonomy found, from the classes that need no parent at all.
    *

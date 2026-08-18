@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StageCallout } from './StageCallout'
+import { ComparisonPanel } from './ComparisonPanel'
+import { comparisonRegions, normaliseTrack, type ComparisonResult } from './comparison'
 import {
   Alert, Badge, Button, Group, Paper, Progress, SegmentedControl, Table, Text,
 } from '@mantine/core'
@@ -29,7 +31,7 @@ import {
   callLossOrigin,
 } from './gainOrigin'
 import { addTwoParent, emptyHet, hetCall, type HetTally } from './obligateHet'
-import { scoreAll, type FeatureTrack, type Enrichment } from './features'
+import { type FeatureTrack } from './features'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { isInferredFile } from './inferredArray'
@@ -204,7 +206,10 @@ async function loadFeatureTrack(): Promise<FeatureTrack | null> {
   trackTried = true
   try {
     const r = await fetch(`${import.meta.env.BASE_URL}hg19_features.json`)
-    if (r.ok) featureTrack = (await r.json()) as FeatureTrack
+    // Normalised rather than cast. The shipped file stores intervals as tuples while every
+    // consumer reads object fields, so a cast produced a track that matched nothing and said so
+    // with a p value.
+    if (r.ok) featureTrack = normaliseTrack(await r.json())
   } catch { /* offline or blocked; the run is unaffected */ }
   return featureTrack
 }
@@ -691,28 +696,22 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 'segment', sg.chrom, sg.startBp, sg.endBp, 'loss',
               )),
           ]
-          // Where the regions landed, against fragile sites and long genes. Positional only, and
-          // scored against a null matched on THIS sample's informative markers per chromosome:
-          // a region can only be called where markers are, so a uniform null would report an
-          // enrichment for anything that tracks marker density.
-          const track = await loadFeatureTrack()
-          if (track && result.segments.length) {
+          // THE FEATURE COMPARISON NO LONGER RUNS HERE, and that is deliberate rather than a
+          // regression. It answers a different question from the rest of this run: everything else
+          // asks WHOSE a change is, while that asks whether the change sits where the genome breaks
+          // anyway. Those are not competing answers, but a reader who meets them in one
+          // undifferentiated report treats the second as evidence about the first, and it is not:
+          // the fragile compartment is established on BOTH parental genomes from the first cell
+          // cycle. It is now an addon, run on request, with its own report.
+          //
+          // The marker positions it needs are kept here so the addon costs nothing to run later:
+          // recomputing them would mean streaming every array a second time.
+          {
             const byChrom = new Map<string, number[]>()
             for (const [c, ms] of absenceByChrom) {
               byChrom.set(c, ms.map((m) => m.pos).sort((a, b) => a - b))
             }
-            result.placement = scoreAll(
-              track,
-              result.segments.map((sg) => {
-                const co = segmentCoords(sg)
-                return { chrom: sg.chrom, startBp: co.start, endBp: co.end }
-              }),
-              byChrom,
-            )
-            for (const e of result.placement) {
-              log(Number.isNaN(e.p) ? 'WARN' : 'DONE', `placement: ${e.why}`
-                + (e.hits.length ? `. Touching ${e.hits.slice(0, 6).join(', ')}` : ''))
-            }
+            result.markerPositions = byChrom
           }
           // ONE-PARENT ORIGIN. With a single parent loaded, a marker where that parent is
           // homozygous and the sample carries the allele it does NOT have is Mendelian evidence
@@ -1158,6 +1157,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           key={e.id} entry={e}
           donorName={entries.find((x) => x.role === 'donor')?.file.name ?? ''}
           oocyteName={entries.find((x) => x.role === 'oocyte')?.file.name ?? ''}
+          // The comparison is lifted to the page rather than held in the card, because the report
+          // is built up here and a result the PDF cannot see is a result that did not happen.
+          onComparison={(c) => patch(e.id, { result: { ...e.result!, comparison: c } })}
         />
       ))}
 
@@ -1290,8 +1292,9 @@ function Axis({ label, r }: { label: string; r: ParentageResult }) {
 }
 
 /** The verdict, at the size it deserves, with the detail folded underneath it. */
-function ResultCard({ entry, donorName, oocyteName }: {
+function ResultCard({ entry, donorName, oocyteName, onComparison }: {
   entry: Entry; donorName: string; oocyteName: string
+  onComparison: (c: ComparisonResult) => void
 }) {
   const [open, setOpen] = useState(false)
   const r = entry.result!
@@ -1383,7 +1386,21 @@ function ResultCard({ entry, donorName, oocyteName }: {
             </div>
           )}
           <SegmentCallout segments={r.segments} role={r.role} />
-          <PlacementCallout placement={r.placement} />
+          <ComparisonPanel
+            // SEGMENTS AND FINDINGS BOTH. A copy-neutral event and an isodisomy are chromosomal
+            // changes exactly as a deletion is, and the question this asks of them is identical:
+            // does it sit where the genome breaks anyway. Comparing only the segments left the
+            // panel reporting "0 regions" on runs whose changes were all taxonomy findings.
+            // Genome-wide findings are excluded: a triploidy has no interval to compare.
+            regions={comparisonRegions(r, (sg) => segmentCoords(sg as never)).map((x) => x.region)}
+            regionNames={comparisonRegions(r, (sg) => segmentCoords(sg as never)).map((x) => x.name)}
+            markerPositions={r.markerPositions}
+            loadTrack={loadFeatureTrack}
+            existing={r.comparison}
+            onDone={onComparison}
+            sampleName={entry.file.name}
+            build={entry.profile?.build.build ?? 'assembly undetermined'}
+          />
           <DefectCallout
             defects={withMechanism([
               ...defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
@@ -1750,62 +1767,6 @@ function GainCallout({ gains }: { gains: GainAnnotation[] }) {
  * to the reader, because the number means nothing without it: a region is only callable where
  * markers are, so the comparison is against intervals carrying the same number of markers.
  */
-function PlacementCallout({ placement }: { placement?: Enrichment[] }) {
-  const rows = (placement ?? []).filter((e) => Number.isFinite(e.p))
-  if (!rows.length) return null
-  const sig = rows.filter((e) => e.p < 0.05)
-  return (
-    <div style={{
-      border: '1px solid var(--om-line)', padding: '11px 14px', margin: '10px 0 4px',
-    }}
-    >
-      <Text style={{ fontSize: 15, fontWeight: 700, lineHeight: 1.25 }}>
-        Where these regions sit in the genome
-      </Text>
-      <Text size="sm" mt={3} style={{ maxWidth: 760, lineHeight: 1.5 }}>
-        Each is compared against {rows[0].regions} intervals drawn on the same chromosome carrying
-        the same number of informative markers, not against the genome at large. That matters:
-        regions can only be called where markers are, and marker density tracks gene density, so an
-        unmatched comparison reports an enrichment for almost any feature.
-      </Text>
-      <table style={{ borderCollapse: 'collapse', marginTop: 8, fontSize: 13 }}>
-        <thead>
-          <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--om-line)' }}>
-            <th style={{ padding: '3px 14px 3px 0' }}>feature</th>
-            <th style={{ padding: '3px 14px 3px 0' }}>observed</th>
-            <th style={{ padding: '3px 14px 3px 0' }}>matched null</th>
-            <th style={{ padding: '3px 14px 3px 0' }}>ratio</th>
-            <th style={{ padding: '3px 0' }}>p</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((e) => (
-            <tr key={e.feature} style={{ fontWeight: e.p < 0.05 ? 700 : 400 }}>
-              <td style={{ padding: '3px 14px 3px 0' }}>{e.feature}</td>
-              <td style={{ padding: '3px 14px 3px 0' }}>{pct(e.observed, 1)}</td>
-              <td style={{ padding: '3px 14px 3px 0' }}>{pct(e.nullMean, 1)}</td>
-              <td style={{ padding: '3px 14px 3px 0' }}>{e.ratio.toFixed(2)}x</td>
-              <td style={{ padding: '3px 0' }}>{e.p < 0.001 ? '< 0.001' : e.p.toFixed(3)}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      {sig.map((e) => (
-        e.hits.length ? (
-          <Text key={e.feature} size="sm" mt={6} style={{ maxWidth: 760, lineHeight: 1.5 }}>
-            <b>{e.feature}:</b> {e.hits.slice(0, 10).join(', ')}
-            {e.hits.length > 10 ? ` and ${e.hits.length - 10} more` : ''}
-          </Text>
-        ) : null
-      ))}
-      <Text size="sm" mt={6} c="dimmed" style={{ maxWidth: 760, lineHeight: 1.5 }}>
-        This says nothing about which parent a change came from. The late-replicating fragile
-        compartment is established on both parental genomes from the first cell cycle, so a
-        positional result here does not support a parental one.
-      </Text>
-    </div>
-  )
-}
 
 function SegmentCallout({ segments, role }: {
   segments: Segment[], role: 'paternal' | 'maternal'

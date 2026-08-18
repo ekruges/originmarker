@@ -9,6 +9,54 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.6.0 "Bouquet"
+
+The feature comparison becomes an optional addon with its own report, and the defect that made it
+meaningless is fixed.
+
+**The defect, which is the important half.** The shipped hg19_features.json stores each interval as
+["1", 61300000, 84900000, "FRA1B"], while FeatureInterval is an object and every consumer reads
+`f.chrom` and `f.startBp`. On a tuple those are undefined, so the overlap test compared undefined
+against a chromosome name and returned false for every marker of every region. The enrichment
+reported ZERO overlap with every feature on every real run, whatever the regions actually
+overlapped, and attached a p value to it. Nothing failed, because every test built intervals as
+objects: the suite exercised a shape the application never sees. Tracks are now normalised on load
+and both shapes are accepted, so the fix does not depend on regenerating a data file.
+
+Measured after the fix, on the shipped track: regions placed on real fragile sites read 100%
+overlap against a 12% null, fold 8.36, p=0.0012; the same regions moved 40 Mb away read 0% and the
+analysis flags long genes instead. Before it, both read zero. The check that was missing now loads
+the file the application actually loads and asserts both halves, since either alone passes with a
+broken track.
+
+**Why it is now optional.** It answers a different question from the rest of the run. Everything
+else asks whose a change is; this asks whether the change sits where the genome breaks anyway. Met
+side by side, the second reads as evidence about the first, and it is not: the late-replicating
+fragile compartment is established on both parental genomes from the first cell cycle. So it no
+longer runs automatically, no longer prints into the main report, and carries that sentence on
+every output.
+
+**What it produces.** A panel under each run, shut until opened, with three charts: the observation
+against its own null on one shared axis, the same thing as a fold so features can be ranked, and a
+grid of which region touched which feature, which is where an enrichment resting on two regions out
+of twenty becomes visible instead of hiding inside a p value. Plus what a coincidence with each
+feature would mean, and methods generated from the run that produced them rather than written once
+and left to drift. Significance is called at 0.05 divided by the number of feature sets tested.
+
+It has its own PDF, and folds into the main report once it has been run, drawn by the same function
+from the same numbers. Until then the main report omits it entirely rather than printing an empty
+section, because a heading with nothing under it reads as a negative and this analysis has a
+genuine negative that must not be confusable with absence. Under five regions it says there is no
+answer rather than reporting no coincidence.
+
+Segments and taxonomy findings are both compared: a copy-neutral event and an isodisomy are
+chromosomal changes exactly as a deletion is. Comparing only segments left the panel reporting zero
+regions on runs whose changes were all findings.
+
+The release-name ladder was spent again; eight names are added.
+
+---
+
 ## 5.5.2 "Telomere"
 
 The deploy gate was reporting a failure on a host that was serving correctly, and it did so three

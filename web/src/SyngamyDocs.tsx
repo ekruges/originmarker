@@ -62,6 +62,7 @@ const SECTIONS: DocSection[] = [
   { id: 'oneparent', label: 'Parental origin from one parent' },
   { id: 'dosage', label: 'Whole chromosomes, from allele dosage' },
   { id: 'taxonomy', label: 'Every class, and the ones that cannot be answered' },
+  { id: 'comparison', label: 'Feature comparison, and why it is optional' },
   { id: 'stage', label: 'Material, amplification and stage' },
   { id: 'report', label: 'The report, and how to cite it' },
   { id: 'examples', label: 'The bundled example data' },
@@ -1774,6 +1775,49 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             chromosome that amplified poorly reads low in both. Treating them as independent, which
             is the usual assumption, would overstate the combined evidence by about a quarter on a
             trophectoderm biopsy.
+          </Text>
+        </Section>
+
+        <Section id="comparison" title="Feature comparison, and why it is optional">
+          <Text size="sm" mb={10}>
+            <b>It answers a different question, so it is a different report.</b> Everything else
+            here asks whose a change is. This asks whether the change sits where the genome breaks
+            anyway: common fragile sites, long genes, centromeres and telomeres, and the latest
+            replicating points in an embryonic stem line. A segmental loss at one of those has a
+            mundane explanation available that a loss elsewhere does not. It is a prior on how to
+            read a result, not a verdict on it.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>It used to run automatically and print into the main report, and that was the
+            problem.</b> Met side by side with a parental call, a coincidence with the fragile
+            compartment reads as evidence about that call. It is not. The late-replicating fragile
+            compartment is established on both parental genomes from the first cell cycle, so a
+            region sitting in it is no more paternal than maternal. The analysis now runs on
+            request, carries that sentence on every output, and is folded into the main report only
+            once someone has chosen to run it.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>The null is the whole thing.</b> A region can only be called where informative
+            markers are, and marker density tracks gene density, so a comparison against the genome
+            at large reports an enrichment for almost any feature. Each region is compared instead
+            against intervals drawn on the same chromosome carrying the same number of informative
+            markers as the region itself. The charts draw that null rather than summarising it,
+            because a permutation p is uninterpretable without it: a ratio near one reaches a small
+            p when the null is tight, and a reader shown only the p would call that a finding.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Three charts, because there are three plain questions.</b> The observation against
+            its own null, on one shared axis so features can be compared. The same thing as a fold
+            so they can be ranked. And a grid of which region touched which feature, which is where
+            an enrichment resting on two regions out of twenty becomes visible instead of hiding
+            inside a p value. Significance is called at 0.05 divided by the number of feature sets
+            tested, since testing many features against one set of regions is otherwise a way of
+            finding whichever one fits.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Too few regions is not a negative result.</b> Under five regions the null has no
+            shape and the answer is that there is no answer, stated in those words rather than as
+            an absence of coincidence.
           </Text>
         </Section>
 

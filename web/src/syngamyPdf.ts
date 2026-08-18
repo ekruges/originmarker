@@ -17,6 +17,7 @@ import {
 import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
 import { DEFAULT_PERMUTATIONS, MIN_REGIONS } from './features.ts'
+import { drawComparison } from './comparisonPdf.ts'
 import type { Gate, SampleProfile } from './ingest.ts'
 import type { RunResult } from './runlength.ts'
 import { int, utc } from './fmt.ts'
@@ -496,96 +497,34 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       y -= 2
     }
 
-    // Where those regions sit. Printed with the segments rather than in a section of its own, so
-    // the enrichment and the regions that produced it are read together, and printed WITH ITS NULL
-    // because the figure is uninterpretable without it: regions are only callable where markers
-    // are, marker density tracks gene density, and an unmatched comparison would report an
-    // enrichment for almost any feature.
-    const place = (r.placement ?? []).filter((e) => Number.isFinite(e.p))
-    if (place.length) {
-      need(30 + place.length * 16)
-      pdf.setFont('Helvetica-Bold', 9)
-      pdf.drawString(L + 8, y - 10, 'Where these regions sit in the genome')
-      y -= 14
-      text('Each feature is compared against intervals drawn on the same chromosome carrying the '
-        + 'same number of informative markers as the region, not against the genome at large. The '
-        + 'bar is the middle 95% of that null and the dot is what was observed.',
-        7.4, 'Helvetica', 2.6, INK, L + 8)
-
-      // Observed against the null interval, drawn. A permutation p is only interpretable against
-      // the distribution it came from, and a table of p values hides that: on this material a
-      // ratio of 0.97 reached p 0.002 because the null was tight, which a reader shown only the
-      // p would take for a finding. Drawing the interval makes the effect size unmissable.
-      const PX = L + 150          // plot left
-      const PW = 190              // plot width
-      const top = place.reduce((a, e) => Math.max(a, e.observed, e.nullQuantiles[2]), 0) * 1.15
-      const at = (v: number): number => PX + (top > 0 ? (v / top) * PW : 0)
-      for (const e of place) {
-        need(16)
-        const mid = y - 7
-        pdf.setFont('Helvetica', 7.4)
-        pdf.drawString(L + 8, mid - 2, e.feature)
-        // null 95% interval
-        pdf.setFillColor(RULE)
-        pdf.rect(at(e.nullQuantiles[0]), mid - 2.5,
-                 Math.max(at(e.nullQuantiles[2]) - at(e.nullQuantiles[0]), 0.6), 5, true)
-        // null median tick
-        pdf.setStrokeColor(INK)
-        pdf.setLineWidth(0.4)
-        pdf.line(at(e.nullQuantiles[1]), mid - 3.5, at(e.nullQuantiles[1]), mid + 3.5)
-        // observed
-        pdf.setFillColor(e.p < 0.05 ? WARN : INK)
-        pdf.circle(at(e.observed), mid, e.p < 0.05 ? 2.6 : 1.9, true)
-        pdf.setFont(e.p < 0.05 ? 'Helvetica-Bold' : 'Helvetica', 7.2)
-        pdf.drawString(PX + PW + 8, mid - 2,
-          `${pct(e.observed, 1)} vs ${pct(e.nullQuantiles[1], 1)}   `
-          + `${e.ratio.toFixed(2)}x   p ${e.p < 0.001 ? '<0.001' : e.p.toFixed(3)}`)
-        y -= 13
-      }
-      y -= 2
-
-      // The null distribution itself, for anything that cleared 0.05. This is the figure a
-      // reviewer asks for: it shows whether the observation sits in a tail or merely beside a
-      // very narrow null.
-      for (const e of place.filter((x) => x.p < 0.05 && x.nullHist.counts.length)) {
-        need(52)
-        pdf.setFont('Helvetica-Bold', 7.6)
-        pdf.drawString(L + 8, y - 9, `Null distribution: ${e.feature}`)
-        y -= 12
-        const H = 32
-        const W = 250
-        const maxC = Math.max(...e.nullHist.counts, 1)
-        const bw = W / e.nullHist.counts.length
-        pdf.setFillColor(RULE)
-        e.nullHist.counts.forEach((c, i) => {
-          const h = (c / maxC) * H
-          if (h > 0) pdf.rect(L + 12 + i * bw, y - H, Math.max(bw - 0.7, 0.5), h, true)
-        })
-        const span = (e.nullHist.hi - e.nullHist.lo) || 1
-        const ox = L + 12 + ((e.observed - e.nullHist.lo) / span) * W
-        pdf.setStrokeColor(WARN)
-        pdf.setLineWidth(1.1)
-        pdf.line(ox, y - H - 3, ox, y + 3)
-        pdf.setFont('Helvetica', 6.6)
-        pdf.setFillColor(INK)
-        pdf.drawString(L + 12, y - H - 9, pct(e.nullHist.lo, 1))
-        pdf.drawRightString(L + 12 + W, y - H - 9, pct(e.nullHist.hi, 1))
-        pdf.drawString(Math.min(ox + 3, L + 12 + W - 40), y + 5, `observed ${pct(e.observed, 1)}`)
-        y -= H + 16
-      }
-
-      const named = place.filter((e) => e.p < 0.05 && e.hits.length)
-      for (const e of named) {
-        text(`${e.feature}: ${e.hits.slice(0, 12).join(', ')}`
-          + (e.hits.length > 12 ? ` and ${e.hits.length - 12} more` : ''),
-          7.2, 'Helvetica', 2.6, INK, L + 8)
-      }
-      text('Positional only. This says nothing about which parent a change came from: the '
-        + 'late-replicating fragile compartment is established on both parental genomes from the '
-        + 'first cell cycle, so a result here does not support a parental one.',
-        7.2, 'Helvetica-Oblique', 2.6, INK, L + 8)
-      y -= 2
+    // THE FEATURE COMPARISON IS FOLDED IN ONLY IF SOMEONE RAN IT, and it is the SAME drawing code
+    // as the standalone report, from the same numbers. A second implementation for the bundled
+    // version is how the two come to disagree, and a reader who spots that has to distrust both.
+    if (r.comparison) {
+      y -= 6
+      y = drawComparison(pdf, r.comparison, (r.segments ?? []).map((sg) => {
+        const co = segmentCoords(sg)
+        return `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`
+      }), {
+        y,
+        left: L + 8,
+        width: 504 - 8,
+        // The main report's newPage keeps its own y and draws a footer, so it is adapted rather
+        // than altered: the comparison asks for the new y, the report decides what a page is.
+        newPage: () => { newPage(); return y },
+      })
+      y -= 4
     }
+
+    // WHEN IT HAS NOT BEEN RUN, nothing is printed rather than an empty section: an addon that
+    // nobody chose to run has no result, and a heading with nothing under it reads as a negative.
+
+    // THE FEATURE COMPARISON IS NO LONGER PRINTED HERE. It answers a different question from the
+    // rest of this report: everything else asks whose a change is, that asks whether the change
+    // sits where the genome breaks anyway. Printed side by side, the second reads as evidence about
+    // the first, and it is not: the fragile compartment is established on BOTH parental genomes
+    // from the first cell cycle. It is now an addon with its own report, folded in below only once
+    // someone has chosen to run it.
 
     text(`${m ? 'paternal ' : ''}absent ${pct(r.genomeRate)}  |  ceiling `
       + `${pct(r.explainable)}  |  ${times(r.genomeRate, r.explainable)}  |  `
