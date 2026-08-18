@@ -2213,6 +2213,16 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             measured to break the tie, meiotic 64 of 64 uniform against post-zygotic 6 of 7
             non-uniform. The report lists which walls still stand for the run you actually did.
           </Text>
+          <Text size="sm" mb={10}>
+            <b>You do not have to tell it which arrays are the same embryo.</b> Load them and it
+            works that out, because two biopsies of one embryo are the same genome: they agree at
+            95.8% of shared called markers, against 54.9% for a parent and child. Asking you to
+            declare the grouping would have been easier and worse, since a mislabelled group
+            produces a confidently wrong answer about mechanism, and the separation here is
+            forty-one points wide. Where two or more units are found, every segmental change is
+            marked either from the gamete or after fertilisation, in the headline beside the parent
+            and in its own table in the report.
+          </Text>
         </Section>
 
         <Section id="limits" title="Scope and limits">

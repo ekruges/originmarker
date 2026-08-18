@@ -545,3 +545,62 @@ export const ORIGIN_UNREACHABLE: ReadonlySet<AbnormalityClass> = new Set<Abnorma
 export const CNN_LOH_IS_EASIEST = true
 
 export type { Material }
+
+// ---------------------------------------------------------------------------------------------
+// Units of one embryo, and what having more than one settles.
+
+/**
+ * Genotype concordance above which two arrays are the SAME individual rather than two.
+ *
+ * Not chosen here. It is the figure this project already measured for catching a parent labelling
+ * accident: replicate arrays of one person concord at 95.8% of shared called markers, and a
+ * parent-offspring pair at 54.9%. Two biopsies of one embryo are the same genome, so they sit with
+ * the replicates. Siblings from the same two parents sit far below, which is what makes this
+ * separable without asking the user to label anything.
+ */
+export const SAME_EMBRYO_AGREEMENT = 0.90
+
+/**
+ * Group arrays into embryos by genotype concordance, so nobody has to declare the grouping.
+ *
+ * ASKING THE USER WOULD HAVE BEEN EASIER AND WORSE. A mislabelled group produces a uniformity call
+ * that is confidently wrong about mechanism, and this is measurable rather than declarable: the
+ * separation between the same genome and a sibling is 41 points wide. `agree` is passed in so this
+ * module does not have to own a genotype representation.
+ */
+export function groupUnits<T>(
+  units: readonly T[],
+  agree: (a: T, b: T) => number,
+  threshold = SAME_EMBRYO_AGREEMENT,
+): T[][] {
+  const groups: T[][] = []
+  for (const u of units) {
+    // Join the first group whose members all read as the same genome. Requiring ALL rather than
+    // ANY keeps a chain of near-misses from merging two embryos through an intermediate.
+    const hit = groups.find((g) => g.every((m) => {
+      const a = agree(m, u)
+      return Number.isFinite(a) && a > threshold
+    }))
+    if (hit) hit.push(u)
+    else groups.push([u])
+  }
+  return groups
+}
+
+export interface EventLocation { chrom: string; startBp: number; endBp: number }
+
+/** Whether two intervals on the same chromosome overlap at all. */
+export const overlaps = (a: EventLocation, b: EventLocation): boolean =>
+  a.chrom === b.chrom && a.startBp <= b.endBp && b.startBp <= a.endBp
+
+/**
+ * How many units of one embryo carry an event overlapping this one.
+ *
+ * Overlap rather than an exact match, because two biopsies of one embryo do not place a breakpoint
+ * identically: the interval is measured to about 8.7 kb where only informative markers count, and
+ * the events being compared span tens of megabases. Requiring identical edges would report every
+ * genuinely uniform event as non-uniform, which inverts the answer.
+ */
+export const unitsCarrying = (
+  event: EventLocation, perUnit: readonly (readonly EventLocation[])[],
+): number => perUnit.filter((evs) => evs.some((e) => overlaps(e, event))).length

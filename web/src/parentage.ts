@@ -497,6 +497,21 @@ export interface ParentageResult {
    */
   twoParents?: boolean
   units?: number
+  /**
+   * Per-event timing, available only when two or more units of THIS embryo were arrayed.
+   *
+   * Whether a segmental change came from the gamete or arose after fertilisation is not separable
+   * on genotype at any material quality. Uniformity across independently sampled units is the only
+   * channel measured to break the tie: meiotic 64 of 64 uniform, post-zygotic 6 of 7 non-uniform.
+   * Absent on a single-unit run, and the report says the second array is what would supply it.
+   */
+  uniformity?: {
+    chrom: string
+    startBp: number
+    endBp: number
+    mechanism: 'meiotic' | 'post-zygotic' | 'unresolved'
+    why: string
+  }[]
   oneParent?: {
     where: string
     verdict: string

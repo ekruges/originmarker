@@ -9,6 +9,37 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.3.0 "Centromere"
+
+The timing question is answered: whether a segmental change was carried by the gamete or arose
+after fertilisation. It was shipped in 5.2.0 as dead code and is now live.
+
+**What was wrong.** `callUniformity` existed, was tested, was described in the documentation and
+printed by `om taxonomy` telling users that a second unit of the same embryo would answer this. It
+was never called, and the unit count was hardcoded to one, so a user who did exactly what the tool
+instructed got the identical unanswerable result. A promise that cannot be kept is worse than an
+absent feature, and the check that now covers this says so in those words.
+
+**How the grouping is decided.** Not by asking. Two biopsies of one embryo are the same genome and
+concord at 95.8% of shared called markers, against 54.9% for a parent-offspring pair, a figure this
+project had already measured for catching a parent labelling accident. Arrays are grouped by that
+concordance, so nothing has to be labelled and a labelling slip cannot produce a confidently wrong
+mechanism. Membership requires agreement with every member of a group rather than any one of them,
+which stops a chain of near-misses merging two embryos through an intermediate.
+
+**How the call is made.** An event present in every unit was carried by the gamete; one present in
+some is confined to a lineage. Measured: meiotic 64 of 64 uniform, post-zygotic 6 of 7 non-uniform.
+Events are matched between units by OVERLAP rather than identical edges, because two biopsies do
+not place a breakpoint the same way and the intervals span tens of megabases against a breakpoint
+resolution of about 8.7 kb. Requiring identical coordinates would have reported every genuinely
+uniform event as non-uniform, inverting the answer.
+
+The timing appears in the headline beside the parent, in its own report table, and lifts
+gamete-borne change off the list of classes the run cannot answer. On a single-unit run it is
+absent rather than blank, and the report says what would supply it.
+
+---
+
 ## 5.2.1 "Interference"
 
 The taxonomy's findings are now scored for parental origin through the same path as everything

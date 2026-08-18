@@ -706,6 +706,29 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         )
       }
 
+      // TIMING, WHICH ONLY EXISTS WHEN TWO UNITS OF ONE EMBRYO WERE ARRAYED.
+      if (r.uniformity?.length) {
+        heading('Gamete-borne or post-fertilisation', 8.6)
+        text('Whether a segmental change was carried by the gamete or arose after fertilisation '
+          + 'cannot be separated on genotype at any material quality. Uniformity across '
+          + 'independently sampled units of the same embryo is the only channel measured to break '
+          + 'the tie: meiotic 64 of 64 uniform, post-zygotic 6 of 7 non-uniform. The units were '
+          + 'grouped by genotype concordance rather than by their labels, since two biopsies of one '
+          + 'embryo are the same genome and concord at 95.8% of shared markers against 54.9% for a '
+          + 'parent-offspring pair.',
+        7.4, 'Helvetica', 2.4, GREY)
+        table(
+          [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
+          r.uniformity.map((u) => [
+            `chr${u.chrom} ${(u.startBp / 1e6).toFixed(1)}-${(u.endBp / 1e6).toFixed(1)}Mb`,
+            { v: u.mechanism === 'meiotic' ? 'from the gamete'
+              : u.mechanism === 'post-zygotic' ? 'after fertilisation' : 'not resolved',
+            colour: u.mechanism === 'unresolved' ? GREY : INK },
+            { v: u.why, colour: GREY },
+          ]),
+        )
+      }
+
       // WHAT WAS LOOKED FOR AND CANNOT BE ANSWERED. Without this table a report that lists what was
       // found says nothing about what was never checked, and on this platform the difference
       // between "no heterodisomy present" and "heterodisomy is unreachable from an embryo alone" is

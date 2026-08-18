@@ -37,12 +37,15 @@ import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
-import { defectsFrom, findingToDefect, originBlockedByClass } from './defects'
+import {
+  defectsFrom, findingToDefect, originBlockedByClass, withMechanism,
+} from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
 import { callDosageOrigin, materialOf } from './dosageOrigin'
 import {
   detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity,
+  groupUnits, unitsCarrying, callUniformity,
 } from './abnormalities'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted'
 import { inferStage } from './stage'
@@ -422,6 +425,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       // requirement: unaffected cells of one embryo share both parents exactly. Kept as a plain
       // map per sample rather than streamed twice, since the run already holds every file.
       const sampleGt = new Map<string, Map<string, string>>()
+      /** Finished samples, kept locally because patch() writes React state we cannot read back. */
+      const finished: { id: string; result: ParentageResult }[] = []
       for (const s of entries.filter((e) => e.role === 'sample' && e.state !== 'done')) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
@@ -957,11 +962,67 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             + `absent ${pct(result.genomeRate)} vs ceiling ${pct(result.explainable)}`
             + (maternal ? `, maternal absent ${pct(maternal.genomeRate)} vs ceiling `
               + `${pct(maternal.explainable)}` : ''))
+          finished.push({ id: s.id, result })
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired })
         } catch (e) {
           const m = e instanceof Error ? e.message : String(e)
           log('WARN', `${s.file.name}: ${m}`)
           patch(s.id, { state: 'failed', error: m })
+        }
+      }
+
+      // UNITS OF ONE EMBRYO, AND THE TIMING QUESTION THEY SETTLE.
+      //
+      // Whether a segmental change came from the gamete or arose after fertilisation is not
+      // separable on genotype at any material quality. Uniformity across independently sampled
+      // units of the same embryo is the only channel measured to break the tie: meiotic 64 of 64
+      // uniform, post-zygotic 6 of 7 non-uniform. The tool cannot ask for a second biopsy, but a
+      // user who already arrayed two units gets the answer for free.
+      //
+      // THE GROUPING IS MEASURED RATHER THAN DECLARED. Two biopsies of one embryo are the same
+      // genome and concord at 95.8% of shared called markers, against 54.9% for a parent-offspring
+      // pair, so nobody has to label anything and a labelling slip cannot produce a confidently
+      // wrong mechanism.
+      if (finished.length > 1) {
+        const groups = groupUnits(finished, (a, b) => {
+          const ga = sampleGt.get(a.id)
+          const gb = sampleGt.get(b.id)
+          return ga && gb ? agreement(ga as never, gb as never) : NaN
+        })
+        for (const group of groups) {
+          if (group.length < 2) continue
+          const perUnit = group.map((u) => [
+            ...(u.result.segments ?? []).map((sg: { chrom: string }) => {
+              const co = segmentCoords(sg as never)
+              return { chrom: sg.chrom, startBp: co.start, endBp: co.end }
+            }),
+            ...(u.result.findings ?? []).map((f) => ({
+              chrom: f.chrom, startBp: f.startBp, endBp: f.endBp,
+            })),
+          ])
+          log('DONE', `${group.length} arrays are units of one embryo, by genotype concordance. `
+            + 'Segmental changes can now be separated into gamete-borne and post-zygotic')
+          for (const u of group) {
+            u.result.units = group.length
+            u.result.uniformity = [
+              ...(u.result.segments ?? []).map((sg: { chrom: string }) => {
+                const co = segmentCoords(sg as never)
+                return { chrom: sg.chrom, startBp: co.start, endBp: co.end }
+              }),
+              ...(u.result.findings ?? []).map((f) => ({
+                chrom: f.chrom, startBp: f.startBp, endBp: f.endBp,
+              })),
+            ].filter((e) => e.chrom !== 'genome').map((e) => {
+              const carried = unitsCarrying(e, perUnit)
+              const call = callUniformity(carried, group.length)
+              return { ...e, mechanism: call.mechanism, why: call.why }
+            })
+            patch(u.id, { result: { ...u.result } })
+            for (const m of u.result.uniformity) {
+              log(m.mechanism === 'unresolved' ? 'WARN' : 'DONE',
+                `timing chr${m.chrom}: ${m.mechanism}. ${m.why}`)
+            }
+          }
         }
       }
     }
@@ -1318,7 +1379,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
           <SegmentCallout segments={r.segments} role={r.role} />
           <PlacementCallout placement={r.placement} />
           <DefectCallout
-            defects={[
+            defects={withMechanism([
               ...defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
                 r.stage, r.dosageCalls ?? []),
               // One list, not two. A copy-neutral event and a deletion are different measurements
@@ -1330,7 +1391,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
                 (r.dosageCalls ?? []).find((d: { where: string }) => d.where
                   === `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`),
                 r.role)),
-            ]}
+            ], r.uniformity)}
           />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (

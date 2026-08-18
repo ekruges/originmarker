@@ -64,6 +64,15 @@ export interface Defect {
    * cannot be helped at a fixed platform, and an unresolved class wants the second parent.
    */
   limitedBy?: string
+  /**
+   * Whether this change came from the gamete or arose after fertilisation.
+   *
+   * Present only when two or more units of the same embryo were arrayed. Genotype alone cannot
+   * separate the two at any material quality, so on a single-unit run this is absent and the
+   * report says what would supply it rather than leaving a blank.
+   */
+  mechanism?: 'meiotic' | 'post-zygotic' | 'unresolved'
+  mechanismWhy?: string
   /** Markers carrying an allele the loaded parent does not have. This is the Mendelian evidence
    *  itself rather than a summary of it: a parent who is AA has no B to give, and dropout removes
    *  alleles without inventing one, so a non-zero count cannot come from amplification loss. */
@@ -223,7 +232,11 @@ export const headline = (d: Defect): string => {
   const conf = d.confidence !== undefined && Number.isFinite(d.confidence)
     ? ` · ${d.confidence.toFixed(3)}${d.band ? ` ${BAND_WORD[d.band] ?? d.band}` : ''}`
     : ''
-  return `${d.origin.toUpperCase()} ${what} · ${where}${conf}`
+  // A gamete-borne change and one that arose after fertilisation are different findings for a
+  // patient, so the timing sits in the headline beside the parent rather than in a chip below.
+  const when = d.mechanism === 'meiotic' ? ' · from the gamete'
+    : d.mechanism === 'post-zygotic' ? ' · after fertilisation' : ''
+  return `${d.origin.toUpperCase()} ${what} · ${where}${conf}${when}`
 }
 
 /** Bands C and D are dimmed, so a weak number cannot be mistaken for a strong one at a glance. */
@@ -291,3 +304,29 @@ export function findingToDefect(
 /** True where the class itself, rather than the evidence, is what stops a parent being named. */
 export const originBlockedByClass = (kind: string): boolean =>
   ORIGIN_UNREACHABLE.has(kind as never)
+
+/**
+ * Attach per-event timing to defects, matched by overlap rather than by identical edges.
+ *
+ * MATCHED BY OVERLAP FOR THE SAME REASON THE UNIFORMITY TEST USES IT. Two biopsies of one embryo do
+ * not place a breakpoint identically, and the defect list and the uniformity list are built from
+ * different passes over the same events, so requiring identical coordinates would drop the match on
+ * exactly the events that have one.
+ *
+ * Absent uniformity leaves every defect untouched, which is the single-unit case: the report then
+ * says what a second array would supply rather than showing a blank field.
+ */
+export function withMechanism(
+  defects: Defect[],
+  uniformity?: readonly {
+    chrom: string, startBp: number, endBp: number,
+    mechanism: 'meiotic' | 'post-zygotic' | 'unresolved', why: string,
+  }[],
+): Defect[] {
+  if (!uniformity?.length) return defects
+  return defects.map((d) => {
+    const hit = uniformity.find((u) => u.chrom === d.chrom
+      && u.startBp <= d.endBp && d.startBp <= u.endBp)
+    return hit ? { ...d, mechanism: hit.mechanism, mechanismWhy: hit.why } : d
+  })
+}

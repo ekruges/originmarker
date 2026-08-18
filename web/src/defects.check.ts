@@ -12,7 +12,7 @@
 //   call must not overwrite it; it fills a gap rather than competing.
 import assert from 'node:assert/strict'
 import {
-  defectsFrom, headline, findingToDefect, originBlockedByClass, KIND_WORD,
+  defectsFrom, headline, findingToDefect, originBlockedByClass, KIND_WORD, withMechanism,
 } from './defects.ts'
 import type { Segment } from './segments.ts'
 import type { GainAnnotation } from './parentage.ts'
@@ -285,6 +285,48 @@ const one = (where: string, verdict: string) => ({
     'monosomy', 'trisomy', 'segmental-deletion', 'segmental-duplication', 'gamete-de-novo']) {
     assert.ok(KIND_WORD[k] && KIND_WORD[k].length > 4, `${k} has no readable phrase`)
   }
+}
+
+// --- TIMING REACHES THE DISPLAY, AND ITS ABSENCE IS NOT A BLANK -----------------------------------
+//
+// This was shipped once as dead code: callUniformity existed, was tested, and was described in the
+// docs and in `om taxonomy`, while nothing ever called it and the unit count was hardcoded to one.
+// A user who did exactly what the tool told them to do got the identical unanswerable answer. The
+// assertions here are what make that impossible to ship again.
+{
+  const s7 = seg('7', 5_000_000, 25_000_000)
+  const base = defectsFrom([s7], [], [], [], 'paternal')
+
+  // No uniformity: untouched, and no fabricated mechanism.
+  assert.equal(withMechanism(base, undefined)[0].mechanism, undefined)
+  assert.equal(withMechanism(base, [])[0].mechanism, undefined)
+
+  // Present in every unit: from the gamete.
+  const uniform = withMechanism(base, [{ chrom: '7', startBp: 4_800_000, endBp: 25_200_000,
+    mechanism: 'meiotic', why: 'present in all 3 units' }])[0]
+  assert.equal(uniform.mechanism, 'meiotic')
+  assert.ok(uniform.mechanismWhy!.includes('all 3 units'))
+
+  // MATCHED BY OVERLAP, NOT BY IDENTICAL EDGES. Two biopsies do not place a breakpoint the same
+  // way, and requiring exact coordinates would drop the match on exactly the events that have one.
+  assert.ok(Math.abs(uniform.startBp - 4_800_000) > 0, 'the edges genuinely differ')
+
+  // Confined to a lineage.
+  assert.equal(withMechanism(base, [{ chrom: '7', startBp: 5_000_000, endBp: 25_000_000,
+    mechanism: 'post-zygotic', why: 'present in 1 of 3' }])[0].mechanism, 'post-zygotic')
+
+  // A different chromosome must not borrow another event's timing.
+  assert.equal(withMechanism(base, [{ chrom: '9', startBp: 5_000_000, endBp: 25_000_000,
+    mechanism: 'meiotic', why: 'x' }])[0].mechanism, undefined)
+
+  // And the headline carries the timing, because when a change arose is a different finding for a
+  // patient from whose it was.
+  const withOrigin = { ...uniform, origin: 'paternal' as const }
+  assert.ok(headline(withOrigin).includes('from the gamete'), headline(withOrigin))
+  assert.ok(headline({ ...withOrigin, mechanism: 'post-zygotic' as const })
+    .includes('after fertilisation'))
+  assert.ok(!headline({ ...withOrigin, mechanism: undefined }).includes('gamete'),
+    'a single-unit run must not imply a timing it never measured')
 }
 
 console.log('defects.check.ts: all assertions passed, including a single-parent verdict read '

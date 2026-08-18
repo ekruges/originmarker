@@ -17,7 +17,7 @@ import {
   TAXONOMY, taxonomyFor, detectLoh, detectUpd, detectTriploidy, detectComplex, callUniformity,
   unanswerable, ORIGIN_UNREACHABLE, LCSH_REPORT_MB, UPD_NO_STRETCH_RATE, LOH_DEPLETION,
   CLUSTERED_DROPOUT_DEPLETION, COMPLEX_DEVIANT_FRACTION, TRIPLOID_BANDS, DIPLOID_BAND,
-  runsOfHomozygosity,
+  runsOfHomozygosity, groupUnits, overlaps, unitsCarrying,
   type WindowStat, type RunOfHomozygosity,
 } from './abnormalities.ts'
 
@@ -210,6 +210,63 @@ import {
   assert.equal(whole[0].wholeChromosome, true, '400 markers spanning 39.9 Mb of a 40 Mb chromosome')
   const part = runsOfHomozygosity(mk(400), { chromEndBp: new Map([['7', 159_000_000]]) })
   assert.equal(part[0].wholeChromosome, false, 'the same run on a full-length chromosome is segmental')
+}
+
+// --- 9. UNITS OF ONE EMBRYO ARE MEASURED, NOT DECLARED --------------------------------------------
+//
+// Two biopsies of one embryo are the same genome and concord like replicate arrays, 95.8% against
+// 54.9% for a parent-offspring pair. Asking the user to declare the grouping would have been
+// easier and worse: a mislabelled group yields a confidently wrong MECHANISM, and the separation
+// here is 41 points wide.
+{
+  // Concordance matrix: A and B are one embryo, C is a sibling, D is unrelated.
+  const conc: Record<string, Record<string, number>> = {
+    A: { A: 1, B: 0.958, C: 0.549, D: 0.31 },
+    B: { A: 0.958, B: 1, C: 0.551, D: 0.30 },
+    C: { A: 0.549, B: 0.551, C: 1, D: 0.29 },
+    D: { A: 0.31, B: 0.30, C: 0.29, D: 1 },
+  }
+  const g = groupUnits(['A', 'B', 'C', 'D'], (a, b) => conc[a][b])
+  assert.equal(g.length, 3, `three embryos, got ${g.length}`)
+  assert.deepEqual(g[0], ['A', 'B'], 'the two units of one embryo group together')
+  assert.deepEqual(g[1], ['C'])
+  assert.deepEqual(g[2], ['D'])
+
+  // A chain of near-misses must not merge two embryos through an intermediate, which is why
+  // membership requires agreement with EVERY member rather than any one of them.
+  const chain: Record<string, Record<string, number>> = {
+    X: { X: 1, Y: 0.95, Z: 0.60 },
+    Y: { X: 0.95, Y: 1, Z: 0.95 },
+    Z: { X: 0.60, Y: 0.95, Z: 1 },
+  }
+  const c = groupUnits(['X', 'Y', 'Z'], (a, b) => chain[a][b])
+  assert.ok(c.some((grp) => grp.includes('Z') && !grp.includes('X')),
+    'X and Z disagree, so they must not end up in one embryo via Y')
+
+  // An unmeasurable pair (too few shared markers) must not group.
+  assert.equal(groupUnits(['P', 'Q'], () => NaN).length, 2)
+}
+
+// --- 10. UNIFORMITY USES OVERLAP, NOT IDENTICAL EDGES ----------------------------------------------
+//
+// Two biopsies of one embryo do not place a breakpoint identically. Requiring identical edges would
+// report every genuinely uniform event as non-uniform, which inverts the mechanism call.
+{
+  const ev = (chrom: string, a: number, b: number) => ({ chrom, startBp: a, endBp: b })
+  assert.ok(overlaps(ev('7', 1e6, 20e6), ev('7', 19e6, 40e6)))
+  assert.ok(!overlaps(ev('7', 1e6, 10e6), ev('7', 11e6, 20e6)))
+  assert.ok(!overlaps(ev('7', 1e6, 20e6), ev('8', 1e6, 20e6)), 'different chromosomes never overlap')
+
+  const target = ev('7', 5e6, 25e6)
+  // Present in all three units, with edges that differ by megabases: uniform.
+  assert.equal(unitsCarrying(target, [
+    [ev('7', 4.8e6, 25.2e6)], [ev('7', 5.4e6, 24.1e6)], [ev('7', 6e6, 30e6)],
+  ]), 3)
+  assert.equal(callUniformity(3, 3).mechanism, 'meiotic')
+
+  // Present in one of three: confined to a lineage.
+  assert.equal(unitsCarrying(target, [[ev('7', 5e6, 25e6)], [], [ev('9', 1e6, 9e6)]]), 1)
+  assert.equal(callUniformity(1, 3).mechanism, 'post-zygotic')
 }
 
 console.log('abnormalities.check.ts: all assertions passed, including every class enumerated with '
