@@ -9,6 +9,23 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.5.2 "Telomere"
+
+The deploy gate was reporting a failure on a host that was serving correctly, and it did so three
+releases running.
+
+Outbound DNS is blocked in some environments this script runs from, so the tunnel-routed URL returns
+nothing while the site is perfectly healthy. The gate read an empty answer as a wrong answer and
+printed FAIL for 5.4.0, 5.5.0 and 5.5.1, all three of which were live and correct. A gate that cries
+wolf is a gate people stop reading, which is the reason its retry window was widened in 5.0.1 and
+the same lesson arriving a second time.
+
+An EMPTY answer now falls back to asking the host itself, over the connection the script already
+used to deploy, and says so in those words when it passes that way. A WRONG answer never falls back:
+that is a real failure and stays one, which is verified rather than assumed.
+
+---
+
 ## 5.5.1 "Telomere"
 
 Measured whether "call M by absence of P" is the weaker arm here, as an external review said it

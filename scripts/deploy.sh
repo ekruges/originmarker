@@ -10,6 +10,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 NAS_DIR=/volume1/docker/originmarker
+# The same host and port this script deploys to, reused by the verify step's fallback so an
+# environment that cannot resolve the public URL can still confirm what is actually being served.
+NAS_SSH=nas
+APP_PORT=8091
 HOSTS=(https://originmarker.app https://ezrakruger.cc/originmarker)
 
 want=$(grep -oE 'VERSION = "[^"]+"' originmarker/build_info.py | head -1 | sed 's/.*"\(.*\)"/\1/')
@@ -54,10 +58,30 @@ for host in "${HOSTS[@]}"; do
   done
   if [ "$got" = "$want" ]; then
     printf '  ok   %s reports %s\n' "$host" "$got"
-  else
-    printf '  FAIL %s reports "%s", expected %s\n' "$host" "$got" "$want"
-    fails=$((fails + 1))
+    continue
   fi
+  # AN UNREACHABLE HOST IS NOT A WRONG HOST, and conflating them made this gate lie. Outbound DNS
+  # is blocked from some environments this script runs in, so the tunnel-routed URL returns nothing
+  # while the site is serving perfectly. That produced a FAIL on 5.4.0, 5.5.0 and 5.5.1, all three
+  # of which were live and correct, which is how a gate teaches people to ignore it.
+  #
+  # So an EMPTY answer falls back to asking the host itself over the connection this script already
+  # used to deploy. A WRONG answer never falls back: that is a real failure and stays one.
+  if [ -z "$got" ]; then
+    onhost=$(timeout 30 ssh -o BatchMode=yes -o ConnectTimeout=10 "$NAS_SSH" \
+      "curl -s --max-time 8 http://127.0.0.1:${APP_PORT}/api/health" 2>/dev/null \
+      | python3 -c 'import json,sys; print(json.load(sys.stdin).get("version",""))' 2>/dev/null || true)
+    if [ "$onhost" = "$want" ]; then
+      printf '  ok   %s reports %s, verified ON THE HOST (the public URL was unreachable from here)\n' \
+        "$host" "$onhost"
+      continue
+    fi
+    printf '  FAIL %s unreachable from here, and the host itself reports "%s"\n' "$host" "$onhost"
+    fails=$((fails + 1))
+    continue
+  fi
+  printf '  FAIL %s reports "%s", expected %s\n' "$host" "$got" "$want"
+  fails=$((fails + 1))
 done
 
 echo
