@@ -129,6 +129,20 @@ const markers = new Map<string, number[]>([['1',
   assert.equal(grid.length, names.length * c.features.length)
   assert.ok(grid.every((g) => typeof g.touched === 'boolean'))
 
+  // THE GRID MUST AGREE WITH THE ENRICHMENT BESIDE IT. It read region names out of `hits`, which
+  // holds FEATURE names, so it matched nothing and drew an empty matrix while the enrichment on
+  // the same data reported coincidence. Two panels of one figure contradicting each other is worse
+  // than either panel alone.
+  const full = compare(track, regions, markers, { permutations: 300 })
+  for (const f of full.features) {
+    assert.equal(f.regionHits.length, regions.length,
+      'every region needs an entry, indexed as it was passed in')
+    const share = f.regionHits.filter(Boolean).length / regions.length
+    assert.ok(Math.abs(share - f.observed) < 1e-9,
+      `panel D says ${share} of regions touch ${f.feature} while panel A says ${f.observed}. `
+      + 'These are the same quantity and must be computed from the same overlap')
+  }
+
   const fold = foldChart(c)
   assert.ok(fold.every((f) => Number.isFinite(f.fold)), 'an undefined fold must be dropped, not drawn')
   for (let i = 1; i < fold.length; i += 1) assert.ok(fold[i - 1].fold >= fold[i].fold, 'sorted')

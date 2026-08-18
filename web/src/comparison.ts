@@ -91,8 +91,21 @@ export interface FeatureComparison {
   fold: number
   /** True where p clears the corrected bound. */
   significant: boolean
-  /** Named regions that touch this feature. */
+  /**
+   * FEATURE names touched, which is what the enrichment reports: FRA1B and the like.
+   *
+   * NOT REGION NAMES, and mistaking one for the other drew an empty matrix in panel D while panel A
+   * showed coincidence on the same data. The two are different vocabularies and the grid needs the
+   * other one, which is `regionHits` below.
+   */
   hits: string[]
+  /**
+   * Which of the compared regions overlap this feature, indexed as the regions were passed in.
+   *
+   * Computed here against the track rather than read off the enrichment, because the enrichment
+   * does not carry it: it reports which FEATURES were touched, not which regions did the touching.
+   */
+  regionHits: boolean[]
   /**
    * The permutation distribution itself, 20 bins, so a report can DRAW it.
    *
@@ -164,8 +177,22 @@ export function compare(
   // Corrected for the number of features actually tested, not the number the track could carry.
   const alpha = (opts.alpha ?? ALPHA) / Math.max(1, usable.length)
 
+  // Per-region overlap, against the same intervals the enrichment scored. Keyed on the names
+  // scoreAll emits so the two cannot address different tracks.
+  const intervalsFor: Record<string, readonly { chrom: string; startBp: number; endBp: number }[]> = {
+    'common fragile site': track.fragile ?? [],
+    'gene over 500 kb': track.longGenes ?? [],
+    'centromere or telomere': track.gaps ?? [],
+    'late-replication valley (ES)': track.lateReplicationValleysES ?? [],
+    'late-replication valley (constitutive)': track.lateReplicationValleysConstitutive ?? [],
+  }
+  const touches = (
+    f: { chrom: string; startBp: number; endBp: number }, r: Region,
+  ) => f.chrom === r.chrom && f.startBp < r.endBp && r.startBp < f.endBp
+
   const features: FeatureComparison[] = usable.map((e) => {
     const m = meaningFor(e.feature)
+    const ivs = intervalsFor[e.feature] ?? (track.extra?.[e.feature] ?? [])
     return {
       feature: e.feature,
       label: m.label,
@@ -181,6 +208,7 @@ export function compare(
       fold: e.nullMean > 0 ? e.observed / e.nullMean : NaN,
       significant: e.p < alpha,
       hits: e.hits ?? [],
+      regionHits: regions.map((r) => ivs.some((f) => touches(f, r))),
       nullHist: e.nullHist,
     }
   }).sort((a, b) => a.p - b.p)
@@ -285,9 +313,11 @@ export interface RegionCell { region: string; feature: string; touched: boolean 
  */
 export function regionGrid(c: ComparisonResult, regionNames: readonly string[]): RegionCell[] {
   const out: RegionCell[] = []
-  for (const r of regionNames) {
-    for (const f of c.features) out.push({ region: r, feature: f.label, touched: f.hits.includes(r) })
-  }
+  regionNames.forEach((r, i) => {
+    // BY INDEX, because `hits` holds FEATURE names and reading region names out of it matched
+    // nothing: the grid drew an empty matrix while the enrichment beside it showed coincidence.
+    for (const f of c.features) out.push({ region: r, feature: f.label, touched: !!f.regionHits[i] })
+  })
   return out
 }
 

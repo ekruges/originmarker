@@ -17,16 +17,50 @@
  * would call that a finding.
  */
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
-import {
-  enrichmentBars, foldChart, nullHistograms, type ComparisonResult,
-} from './comparison.ts'
+import type { Figure } from './figures.ts'
+import { FIG } from './figures.ts'
+import { comparisonFigures } from './comparisonFigures.ts'
+import type { ComparisonResult } from './comparison.ts'
 
 const INK = '#1a1a1a'
 const GREY = '#6b6b6b'
-const HIT = '#a4243b'
 const LINE = '#cfcfcf'
+const FIG_CAPTION = FIG.font.caption
 
 export interface Cursor { y: number }
+
+/**
+ * Render a Figure into a PDF page. Four primitives, exactly as the screen renderer draws them.
+ *
+ * The figure's own coordinates have y increasing DOWNWARD, as SVG does, because that is how the
+ * layout was written. PDF has y increasing upward, so the flip happens here, once, rather than
+ * being threaded through every layout calculation where it would eventually be got wrong.
+ */
+export function drawFigure(
+  pdf: Pdf, fig: Figure, left: number, topY: number,
+): number {
+  const Y = (y: number) => topY - y
+  for (const m of fig.marks) {
+    if (m.k === 'line') {
+      pdf.setStrokeColor(m.colour); pdf.setLineWidth(m.width)
+      pdf.line(left + m.x1, Y(m.y1), left + m.x2, Y(m.y2))
+    } else if (m.k === 'rect') {
+      pdf.setFillColor(m.colour)
+      pdf.rect(left + m.x, Y(m.y + m.h), m.w, m.h, true)
+    } else if (m.k === 'dot') {
+      pdf.setFillColor(m.colour)
+      pdf.circle(left + m.x, Y(m.y), m.r, true)
+    } else {
+      pdf.setFont(m.bold ? 'Helvetica-Bold' : m.italic ? 'Helvetica-Oblique' : 'Helvetica', m.size)
+      pdf.setFillColor(m.colour)
+      if (m.anchor === 'end') pdf.drawRightString(left + m.x, Y(m.y), m.s)
+      else if (m.anchor === 'middle') pdf.drawCentredString(left + m.x, Y(m.y), m.s)
+      else pdf.drawString(left + m.x, Y(m.y), m.s)
+    }
+  }
+  return topY - fig.h
+}
+
 
 /**
  * Draw the whole comparison into a page the caller owns.
@@ -66,133 +100,16 @@ export function drawComparison(
     + `feature set${c.features.length === 1 ? '' : 's'}, `
     + `${c.permutations.toLocaleString()} permutations.`, 8, 'Helvetica', 3, GREY)
 
-  // ---- chart 1: observed against its own null, one shared axis ----------------------------------
-  const bars = enrichmentBars(c)
-  if (bars.length) {
-    heading('Overlap against a matched null', 9.4)
-    need(bars.length * 18 + 26)
-    const labelW = 168
-    const plotW = 210
-    const x0 = L + labelW
-    const scale = (v: number) => x0 + (v / bars[0].axisMax) * plotW
-    for (const b of bars) {
-      need(18)
-      const mid = y - 6
-      pdf.setFont('Helvetica', 7.4); pdf.setFillColor(GREY)
-      pdf.drawString(L, mid - 2, b.label.slice(0, 40))
-      // the axis
-      pdf.setStrokeColor(LINE); pdf.setLineWidth(0.5)
-      pdf.line(x0, mid, x0 + plotW, mid)
-      // the middle 95% of the null
-      pdf.setStrokeColor(GREY); pdf.setLineWidth(3.4)
-      pdf.line(scale(b.lo), mid, scale(b.hi), mid)
-      // the observation
-      pdf.setFillColor(b.significant ? HIT : INK)
-      pdf.circle(scale(b.observed), mid, 2.6, true)
-      pdf.setFont('Helvetica', 7); pdf.setFillColor(b.significant ? HIT : GREY)
-      pdf.drawString(x0 + plotW + 6, mid - 2,
-        `${(100 * b.observed).toFixed(0)}% vs ${(100 * b.expected).toFixed(0)}%`
-        + (b.significant ? `  p=${b.p.toExponential(1)}` : ''))
-      y -= 18
-    }
-    text('Bar is the middle 95% of the matched null, dot is what was observed. One axis across '
-      + 'every row: a per-row axis would make each feature fill its own width and look equally '
-      + 'enriched.', 7, 'Helvetica-Oblique', 2.6, GREY)
-  }
-
-  // ---- chart 2: the permutation null itself, with the observation in it --------------------------
-  //
-  // The most defensible figure here and it costs nothing, because the enrichment already computed
-  // the distribution. A p value is a summary of this picture, and summaries of it mislead in both
-  // directions: a ratio near one reaches a small p when the null is tight, a large ratio reaches
-  // nothing when it is broad. Drawing it lets a reader judge instead of taking the p on trust.
-  const hists = nullHistograms(c)
-  if (hists.length) {
-    heading('The permutation null, with the observation marked', 9.4)
-    const cellW = 118
-    const cellH = 34
-    const perRow = Math.max(1, Math.floor(W / cellW))
-    for (let i = 0; i < hists.length; i += perRow) {
-      const row = hists.slice(i, i + perRow)
-      need(cellH + 22)
-      row.forEach((h, j) => {
-        const x0 = L + j * cellW
-        const top = y - 10
-        pdf.setFont('Helvetica', 6.4); pdf.setFillColor(GREY)
-        pdf.drawString(x0, y - 4, h.label.slice(0, 26))
-        const max = Math.max(1, ...h.bins)
-        const bw = (cellW - 14) / h.bins.length
-        h.bins.forEach((v, k) => {
-          pdf.setFillColor(k === h.observedBin ? HIT : LINE)
-          const bh = (v / max) * cellH
-          if (bh > 0.2) pdf.rect(x0 + k * bw, top - cellH + (cellH - bh), Math.max(0.6, bw - 0.4), bh, true)
-        })
-        pdf.setStrokeColor(h.significant ? HIT : INK); pdf.setLineWidth(0.9)
-        pdf.line(x0 + h.observedAt * (cellW - 14), top - cellH, x0 + h.observedAt * (cellW - 14), top)
-        pdf.setFont('Helvetica', 6); pdf.setFillColor(GREY)
-        pdf.drawString(x0, top - cellH - 7,
-          h.observedBin === -1 ? 'observed OUTSIDE the null' : `p=${h.p.toExponential(1)}`)
-      })
-      y -= cellH + 22
-    }
-    text('Bars are the matched null the permutation actually drew; the line is the observation. An '
-      + 'observation outside the null entirely is the strongest result this analysis produces and '
-      + 'is labelled as such.', 7, 'Helvetica-Oblique', 2.6, GREY)
-  }
-
-  // ---- chart 3: fold, so features can be ranked on one scale ------------------------------------
-  const folds = foldChart(c)
-  if (folds.length) {
-    heading('Fold enrichment', 9.4)
-    need(folds.length * 15 + 24)
-    const labelW = 168
-    const plotW = 210
-    const x0 = L + labelW
-    const max = Math.max(2, ...folds.map((f) => f.fold))
-    // the null, at 1.00x
-    const nullX = x0 + (1 / max) * plotW
-    for (const f of folds) {
-      need(15)
-      const mid = y - 5
-      pdf.setFont('Helvetica', 7.4); pdf.setFillColor(GREY)
-      pdf.drawString(L, mid - 2, f.label.slice(0, 40))
-      pdf.setFillColor(f.fold >= 1 ? INK : GREY)
-      pdf.rect(x0, mid - 3.4, Math.max(0.6, (f.fold / max) * plotW), 6.8, true)
-      pdf.setFont('Helvetica', 7); pdf.setFillColor(GREY)
-      pdf.drawString(x0 + plotW + 6, mid - 2, `${f.fold.toFixed(2)}x`)
-      y -= 15
-    }
-    pdf.setStrokeColor(LINE); pdf.setLineWidth(0.5)
-    pdf.line(nullX, y + folds.length * 15 - 2, nullX, y + 2)
-    text('The vertical line is the null at 1.00x. Left of it is LESS overlap than the matched null '
-      + 'expects.', 7, 'Helvetica-Oblique', 2.6, GREY)
-  }
-
-  // ---- chart 4: the grid, which is the plain answer ---------------------------------------------
-  if (regionNames.length && c.features.length) {
-    heading('Which region touches which feature', 9.4)
-    const colW = Math.min(64, (W - 150) / Math.max(1, c.features.length))
-    need(regionNames.length * 11 + 40)
-    // header
-    pdf.setFont('Helvetica', 6.2); pdf.setFillColor(GREY)
-    c.features.forEach((f, i) => {
-      pdf.drawString(L + 150 + i * colW, y - 6, f.label.slice(0, 11))
-    })
-    y -= 13
-    for (const n of regionNames) {
-      need(11)
-      pdf.setFont('Courier', 7); pdf.setFillColor(INK)
-      pdf.drawString(L, y - 6, n.slice(0, 26))
-      c.features.forEach((f, i) => {
-        const touched = f.hits.includes(n)
-        pdf.setFillColor(touched ? HIT : LINE)
-        pdf.circle(L + 150 + i * colW + 8, y - 4, touched ? 2.4 : 1, true)
-      })
-      y -= 11
-    }
-    y -= 3
-    text('A filled dot is an overlap. This is where an enrichment that rests on two regions out of '
-      + 'twenty becomes visible, which a p value hides.', 7, 'Helvetica-Oblique', 2.6, GREY)
+  // THE FIGURES, laid out once in comparisonFigures.ts and drawn here by the same four primitives
+  // the screen uses. Two implementations of one picture drift, and a reader who notices the drift
+  // has to distrust both, so there is only one layout.
+  for (const fig of comparisonFigures(c, regionNames)) {
+    need(fig.h + 30)
+    // A figure is never split across a page: half a chart is worse than a page break before it.
+    y = drawFigure(pdf, fig, L, y)
+    y -= 4
+    text(fig.caption, FIG_CAPTION, 'Helvetica-Oblique', 2.6, GREY)
+    y -= 6
   }
 
   // ---- what each feature would mean --------------------------------------------------------------

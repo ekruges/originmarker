@@ -9,6 +9,34 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.8.0 "Nondisjunction"
+
+The comparison figures are rebuilt to be readable and to be the same figure on screen and in print.
+
+**They had no axes.** No tick marks, no tick labels, no stated unit. A reader could see that one bar
+was longer than another and could not recover a number from it. Every figure now carries an axis
+with ticks at round values, chosen on the 1-2-5 progression a person would pick, and every axis
+states what it measures.
+
+**Screen and report were two implementations of one picture.** The same figure was 260 units wide
+in one and 210 in the other, with rows 26 high against 18, and they were maintained separately. Two
+drawings of one idea drift, and a reader who notices the drift has to distrust both. Layout now
+happens once and emits a list of marks; each renderer only knows how to draw a line, a rectangle, a
+dot and a string, so a divergence is not expressible.
+
+**One typographic scale**, one palette, one set of margins, shared by both. Panel letters A to D so
+a caption can refer to a part. Captions generated from the data that produced the figure, so one
+lifted off the page into a manuscript arrives with its method attached. Significance carried by a
+symbol as well as by colour, so a figure survives being printed in grey.
+
+**And panel D was drawing an empty matrix.** It read region names out of the enrichment's `hits`
+field, which holds FEATURE names, so nothing ever matched: the grid reported that no region touched
+any feature while the panel beside it reported coincidence on the same data. Per-region overlap is
+now computed against the track directly and indexed by position, and a check asserts the two panels
+agree, since two panels of one figure contradicting each other is worse than either alone.
+
+---
+
 ## 5.7.2 "Synizesis"
 
 Two of the three outstanding items are closed. The third could not be, and the attempt is recorded
