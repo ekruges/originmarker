@@ -9,6 +9,55 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.7.0 "Synizesis"
+
+Three defects were between a detected abnormality and its parental origin, so most classes were
+detected and then refused a call. And the feature comparison now runs over the whole run.
+
+**The array gate silenced every amplified sample.** A BAF-spread threshold at 0.11, adopted from
+MoChA, refused 9 of the 14 worked examples and 852 of 877 arrays in the reference corpus: every
+single cell, blastomere and trophectoderm biopsy. On exactly the material this tool exists for, no
+parent was ever named. It was redundant rather than protective, and that was measured before it
+was removed: over injections carrying the real per-chromosome noise of 35 arrays, band A accuracy
+on the noisiest third is 0.9993 against 0.9999 on the cleanest. Array noise already reaches the
+answer through the self-referenced standard error, so a noisy array earns a lower band rather than
+a silence. What replaces it is the refusal that has a reason: a genome with no undisturbed
+remainder has nothing to self-reference against, which is a property of the genome rather than a
+verdict on the array.
+
+**The taxonomy's findings were scored only when a whole-chromosome aneuploidy happened to be
+present.** The scorer was nested inside a guard that read the whole-chromosome set alone, so a run
+whose changes were all copy-neutral events or runs of homozygosity got no origin on any of them,
+which is most of what the taxonomy detects.
+
+**And those findings were labelled segments when they are whole chromosomes.** Copy-neutral
+detection runs one window per chromosome, so every one of them spans a chromosome, but each was
+reported as a segment and scored against the segment floor. On amplified material that floor does
+not exist at any mosaic fraction, so the class was detected and then refused for a reason that did
+not apply to it. Measured on single-cell material: the same event reads not-evaluable as a segment
+and band A as a whole chromosome. The finding's own class now picks its floor too, which matters
+because copy-neutral is the largest-signal class rather than the hardest.
+
+What remains refused is refused honestly: a 13.7 Mb segment on single-cell material with one parent
+has no detection floor at any fraction, and an array with a call rate of 0.530 has nothing left to
+reference against. Both say so, and both name the second parental array as the remedy.
+
+**The feature comparison runs over the whole run rather than per sample.** One chip contributes a
+handful of regions and the matched null has no shape under five, so a per-sample comparison
+answered "no conclusion" on almost every card. Pooled, the run is a dataset, and the question was a
+cohort question anyway. Marker positions are unioned rather than concatenated, since two arrays of
+one platform share almost every marker and counting each twice would inflate the density the null
+is matched on. Region names carry their sample so a coincidence can be traced back.
+
+**A fourth chart: the permutation null itself, with the observation marked in it.** The most
+defensible figure of the set, and it costs nothing because the enrichment already computed the
+distribution. A p value is a summary of that picture and summaries mislead both ways: a ratio near
+one reaches a small p when the null is tight, a large ratio reaches nothing when it is broad. An
+observation the permutation never reached is drawn at the edge and labelled as outside, which is
+the strongest result this analysis produces.
+
+---
+
 ## 5.6.0 "Bouquet"
 
 The feature comparison becomes an optional addon with its own report, and the defect that made it

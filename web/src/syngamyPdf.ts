@@ -18,6 +18,7 @@ import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
 import { DEFAULT_PERMUTATIONS, MIN_REGIONS } from './features.ts'
 import { drawComparison } from './comparisonPdf.ts'
+import type { ComparisonResult } from './comparison.ts'
 import type { Gate, SampleProfile } from './ingest.ts'
 import type { RunResult } from './runlength.ts'
 import { int, utc } from './fmt.ts'
@@ -59,6 +60,14 @@ export interface ReportInput {
   fromExamples: boolean
   /** favicon.svg's text. The browser fetches it; a CLI run passes it in. */
   markSvg?: string
+  /**
+   * The run-wide feature comparison, present only once someone chose to run it.
+   *
+   * ONE FOR THE RUN, not one per sample. A single chip contributes a handful of regions and the
+   * matched null has no shape under five, so a per-sample comparison answers "no conclusion" on
+   * almost every card. The question is a cohort question in any case.
+   */
+  comparison?: ComparisonResult
   /** A per-locus deletion test, if one was run after the genome-wide call. */
   locus?: {
     chrom: string
@@ -496,28 +505,6 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'The regions are listed in full below.', 7.6, 'Helvetica', 2.6, INK, L + 8)
       y -= 2
     }
-
-    // THE FEATURE COMPARISON IS FOLDED IN ONLY IF SOMEONE RAN IT, and it is the SAME drawing code
-    // as the standalone report, from the same numbers. A second implementation for the bundled
-    // version is how the two come to disagree, and a reader who spots that has to distrust both.
-    if (r.comparison) {
-      y -= 6
-      y = drawComparison(pdf, r.comparison, (r.segments ?? []).map((sg) => {
-        const co = segmentCoords(sg)
-        return `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`
-      }), {
-        y,
-        left: L + 8,
-        width: 504 - 8,
-        // The main report's newPage keeps its own y and draws a footer, so it is adapted rather
-        // than altered: the comparison asks for the new y, the report decides what a page is.
-        newPage: () => { newPage(); return y },
-      })
-      y -= 4
-    }
-
-    // WHEN IT HAS NOT BEEN RUN, nothing is printed rather than an empty section: an addon that
-    // nobody chose to run has no result, and a heading with nothing under it reads as a negative.
 
     // THE FEATURE COMPARISON IS NO LONGER PRINTED HERE. It answers a different question from the
     // rest of this report: everything else asks whose a change is, that asks whether the change
@@ -1141,6 +1128,17 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'call on that axis as provisional. A sample scoring in the uncalled band is not a weak '
     + 'positive, it is an absence of evidence: an array from the second parent measures dropout '
     + 'directly and settles it.', 8, 'Helvetica', 2.6)
+
+  // THE RUN-WIDE FEATURE COMPARISON, once, after every sample and before the constants. Printed
+  // only if someone ran it: an addon nobody chose has no result, and a heading with nothing under
+  // it reads as a negative, which this analysis has a genuine one of.
+  if (input.comparison) {
+    newPage()
+    y = drawComparison(pdf, input.comparison, input.comparison.regionNames, {
+      y, newPage: () => { newPage(); return y },
+    })
+    y -= 6
+  }
 
   heading('Constants and where they come from', 10)
   table([

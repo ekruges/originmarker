@@ -17,7 +17,9 @@
  * would call that a finding.
  */
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
-import { enrichmentBars, foldChart, type ComparisonResult } from './comparison.ts'
+import {
+  enrichmentBars, foldChart, nullHistograms, type ComparisonResult,
+} from './comparison.ts'
 
 const INK = '#1a1a1a'
 const GREY = '#6b6b6b'
@@ -98,7 +100,47 @@ export function drawComparison(
       + 'enriched.', 7, 'Helvetica-Oblique', 2.6, GREY)
   }
 
-  // ---- chart 2: fold, so features can be ranked on one scale ------------------------------------
+  // ---- chart 2: the permutation null itself, with the observation in it --------------------------
+  //
+  // The most defensible figure here and it costs nothing, because the enrichment already computed
+  // the distribution. A p value is a summary of this picture, and summaries of it mislead in both
+  // directions: a ratio near one reaches a small p when the null is tight, a large ratio reaches
+  // nothing when it is broad. Drawing it lets a reader judge instead of taking the p on trust.
+  const hists = nullHistograms(c)
+  if (hists.length) {
+    heading('The permutation null, with the observation marked', 9.4)
+    const cellW = 118
+    const cellH = 34
+    const perRow = Math.max(1, Math.floor(W / cellW))
+    for (let i = 0; i < hists.length; i += perRow) {
+      const row = hists.slice(i, i + perRow)
+      need(cellH + 22)
+      row.forEach((h, j) => {
+        const x0 = L + j * cellW
+        const top = y - 10
+        pdf.setFont('Helvetica', 6.4); pdf.setFillColor(GREY)
+        pdf.drawString(x0, y - 4, h.label.slice(0, 26))
+        const max = Math.max(1, ...h.bins)
+        const bw = (cellW - 14) / h.bins.length
+        h.bins.forEach((v, k) => {
+          pdf.setFillColor(k === h.observedBin ? HIT : LINE)
+          const bh = (v / max) * cellH
+          if (bh > 0.2) pdf.rect(x0 + k * bw, top - cellH + (cellH - bh), Math.max(0.6, bw - 0.4), bh, true)
+        })
+        pdf.setStrokeColor(h.significant ? HIT : INK); pdf.setLineWidth(0.9)
+        pdf.line(x0 + h.observedAt * (cellW - 14), top - cellH, x0 + h.observedAt * (cellW - 14), top)
+        pdf.setFont('Helvetica', 6); pdf.setFillColor(GREY)
+        pdf.drawString(x0, top - cellH - 7,
+          h.observedBin === -1 ? 'observed OUTSIDE the null' : `p=${h.p.toExponential(1)}`)
+      })
+      y -= cellH + 22
+    }
+    text('Bars are the matched null the permutation actually drew; the line is the observation. An '
+      + 'observation outside the null entirely is the strongest result this analysis produces and '
+      + 'is labelled as such.', 7, 'Helvetica-Oblique', 2.6, GREY)
+  }
+
+  // ---- chart 3: fold, so features can be ranked on one scale ------------------------------------
   const folds = foldChart(c)
   if (folds.length) {
     heading('Fold enrichment', 9.4)
@@ -126,7 +168,7 @@ export function drawComparison(
       + 'expects.', 7, 'Helvetica-Oblique', 2.6, GREY)
   }
 
-  // ---- chart 3: the grid, which is the plain answer ---------------------------------------------
+  // ---- chart 4: the grid, which is the plain answer ---------------------------------------------
   if (regionNames.length && c.features.length) {
     heading('Which region touches which feature', 9.4)
     const colW = Math.min(64, (W - 150) / Math.max(1, c.features.length))

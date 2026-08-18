@@ -93,6 +93,16 @@ export interface FeatureComparison {
   significant: boolean
   /** Named regions that touch this feature. */
   hits: string[]
+  /**
+   * The permutation distribution itself, 20 bins, so a report can DRAW it.
+   *
+   * The most honest single figure this analysis can produce, and it costs nothing because the
+   * enrichment already computed it. A permutation p is uninterpretable without the distribution it
+   * came from: a ratio near 1 reaches a small p when the null is tight, and a reader shown only the
+   * p would call that a finding. Drawing the null makes that judgement available rather than
+   * asking the reader to take the p on trust.
+   */
+  nullHist: { lo: number; hi: number; counts: number[] }
 }
 
 export type Verdict = 'feature-coincident' | 'independent' | 'underpowered'
@@ -102,6 +112,14 @@ export interface ComparisonResult {
   /** One sentence a reader can act on. */
   headline: string
   regions: number
+  /**
+   * The names of the regions compared, carried ON the result.
+   *
+   * So a report cannot draw a grid against a different set of regions from the one the enrichment
+   * was computed on. Passing them alongside invites exactly that, and the grid is the figure a
+   * reader checks the enrichment against, so a mismatch there is worse than no grid.
+   */
+  regionNames: string[]
   permutations: number
   features: FeatureComparison[]
   /** Generated, so the report's methods always describe the run that produced it. */
@@ -131,7 +149,11 @@ export function compare(
   track: FeatureTrack,
   regions: readonly Region[],
   markersByChrom: Map<string, number[]>,
-  opts: { permutations?: number; alpha?: number; minRegions?: number } = {},
+  opts: {
+    permutations?: number; alpha?: number; minRegions?: number
+    /** Names in the same order as `regions`, carried onto the result for the grid. */
+    regionNames?: readonly string[]
+  } = {},
 ): ComparisonResult {
   const permutations = opts.permutations ?? DEFAULT_PERMUTATIONS
   const minRegions = opts.minRegions ?? MIN_REGIONS
@@ -159,6 +181,7 @@ export function compare(
       fold: e.nullMean > 0 ? e.observed / e.nullMean : NaN,
       significant: e.p < alpha,
       hits: e.hits ?? [],
+      nullHist: e.nullHist,
     }
   }).sort((a, b) => a.p - b.p)
 
@@ -180,6 +203,8 @@ export function compare(
     verdict,
     headline,
     regions: regions.length,
+    regionNames: [...(opts.regionNames
+      ?? regions.map((r) => `chr${r.chrom} ${(r.startBp / 1e6).toFixed(1)}-${(r.endBp / 1e6).toFixed(1)}Mb`))],
     permutations,
     features,
     methods: methodsText(regions.length, permutations, usable.length, alpha),
@@ -352,4 +377,97 @@ export function normaliseTrack(raw: unknown): FeatureTrack | null {
     ) } : {}),
     ...(t.modes ? { modes: t.modes as never } : {}),
   } as FeatureTrack
+}
+
+/**
+ * The permutation null as a drawable histogram, with the observation placed in it.
+ *
+ * Returns the bins, the bar the observation falls in, and where it sits along the axis, so the
+ * screen and the report draw the same picture from the same numbers.
+ */
+export interface NullHistogram {
+  label: string
+  bins: number[]
+  lo: number
+  hi: number
+  /** Index of the bin the observation falls in, or -1 where it lands outside the null entirely. */
+  observedBin: number
+  /** Position of the observation on [0, 1] across the axis, clamped so it stays drawable. */
+  observedAt: number
+  observed: number
+  p: number
+  significant: boolean
+}
+
+export function nullHistograms(c: ComparisonResult): NullHistogram[] {
+  return c.features.filter((f) => f.nullHist?.counts?.length).map((f) => {
+    const { lo, hi, counts } = f.nullHist
+    const span = hi - lo
+    const at = span > 0 ? (f.observed - lo) / span : 0
+    // OUTSIDE THE NULL IS THE INTERESTING CASE, so it is reported rather than clamped away: an
+    // observation the permutation never reached is the strongest result this analysis produces.
+    const idx = span > 0 ? Math.floor(at * counts.length) : -1
+    return {
+      label: f.label,
+      bins: counts,
+      lo,
+      hi,
+      observedBin: idx >= 0 && idx < counts.length ? idx : -1,
+      observedAt: Math.max(0, Math.min(1, at)),
+      observed: f.observed,
+      p: f.p,
+      significant: f.significant,
+    }
+  })
+}
+
+/**
+ * Every region a whole run found, pooled, with its sample name attached.
+ *
+ * POOLED BECAUSE A SINGLE SAMPLE IS NOT A DATASET. The matched null needs at least five regions to
+ * have a shape, and one chip routinely contributes fewer, so a per-sample comparison answers "no
+ * conclusion" on almost every card while the run as a whole carries plenty. The question is a
+ * cohort question in any case: whether the changes THIS EXPERIMENT found sit where the genome
+ * breaks anyway is not a property of one embryo.
+ *
+ * Names carry the sample so a coincidence can be traced back to the array that produced it.
+ */
+export function pooledRegions<E extends {
+  result?: { segments?: readonly { chrom: string }[]
+    findings?: readonly { chrom: string; startBp: number; endBp: number }[] }
+  file?: { name: string }
+}>(entries: readonly E[], coordsOf: (sg: unknown) => { start: number; end: number }): {
+  region: Region; name: string
+}[] {
+  const out: { region: Region; name: string }[] = []
+  for (const e of entries) {
+    if (!e.result) continue
+    const tag = (e.file?.name ?? '').replace(/\.[^.]+$/, '').slice(0, 14)
+    for (const r of comparisonRegions(e.result, coordsOf)) {
+      out.push({ region: r.region, name: tag ? `${tag} ${r.name}` : r.name })
+    }
+  }
+  return out
+}
+
+/**
+ * One marker map for the pooled run.
+ *
+ * The null is drawn from where informative markers are, so pooling regions across samples means
+ * pooling the positions they could have been called at. Positions are unioned rather than
+ * concatenated: two samples of the same platform share almost every marker, and counting each twice
+ * would inflate the density the null is matched on.
+ */
+export function pooledMarkers<E extends { result?: { markerPositions?: Map<string, number[]> } }>(
+  entries: readonly E[],
+): Map<string, number[]> {
+  const byChrom = new Map<string, Set<number>>()
+  for (const e of entries) {
+    for (const [c, ps] of e.result?.markerPositions ?? []) {
+      if (!byChrom.has(c)) byChrom.set(c, new Set())
+      const set = byChrom.get(c)!
+      for (const p of ps) set.add(p)
+    }
+  }
+  return new Map([...byChrom].map(([c, set]) => [c, [...set].sort((a, b) => a - b)]))
 }

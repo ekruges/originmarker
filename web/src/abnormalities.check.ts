@@ -85,6 +85,20 @@ import {
     'a depleted window whose intensity has moved is a DELETION. Calling it copy-neutral would name '
     + 'the wrong event and then invert its origin, since loss and gain read opposite signs')
 
+  // A WHOLE-CHROMOSOME WINDOW MUST SAY SO, because it decides which detection floor applies and
+  // the two differ by everything. A 12 Mb-scale interval on amplified material has NO floor at any
+  // mosaic fraction with one parent, while a whole chromosome on the same material has 0.399.
+  // Every copy-neutral finding is produced from one window per chromosome, so reporting them as
+  // segments sent all of them to the segment floor and came back not-evaluable: the class was
+  // detected and then refused an origin for a reason that did not apply to it.
+  const whole = detectLoh([...normal.map((x) => ({ ...x, wholeChromosome: true })),
+    { ...w(20, 0.01), wholeChromosome: true }])
+  assert.equal(whole.length, 1)
+  assert.equal(whole[0].wholeChromosome, true,
+    'a window spanning the chromosome must be reported as a whole chromosome, or it is scored '
+    + 'against a floor that does not exist for it')
+  assert.equal(flat[0].wholeChromosome, false, 'and a sub-chromosomal one must not claim to be')
+
   // No intensity at all: reported, but explicitly not established as copy-neutral.
   const blind = detectLoh([...normal, w(20)])
   assert.equal(blind.length, 1)

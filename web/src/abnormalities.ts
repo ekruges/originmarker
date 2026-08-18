@@ -246,6 +246,16 @@ export interface WindowStat {
   chrom: string
   startBp: number
   endBp: number
+  /**
+   * Whether this window spans the whole chromosome, which decides which detection floor applies.
+   *
+   * NOT COSMETIC. A 12 Mb-scale interval on amplified material has NO floor at any mosaic fraction
+   * with one parent, while a whole chromosome on the same material has 0.399. Reporting a
+   * whole-chromosome copy-neutral event as a segment sent every one of them to the segment floor
+   * and came back not-evaluable, so the class was detected and then refused an origin for a reason
+   * that did not apply to it.
+   */
+  wholeChromosome?: boolean
   /** Markers called in the window, and how many of those are heterozygous. */
   called: number
   het: number
@@ -282,7 +292,8 @@ export function detectLoh(
     const copyMoved = w.logR !== undefined && Number.isFinite(w.logR) && Math.abs(w.logR) > tol
     if (copyMoved) continue     // a deletion, and the deletion detector owns it
     out.push({
-      cls: 'cnn-loh', chrom: w.chrom, startBp: w.startBp, endBp: w.endBp, wholeChromosome: false,
+      cls: 'cnn-loh', chrom: w.chrom, startBp: w.startBp, endBp: w.endBp,
+      wholeChromosome: w.wholeChromosome ?? false,
       evidence: `heterozygosity ${(100 * rate).toFixed(1)}% against this array's own `
         + `${(100 * background).toFixed(1)}%, a depletion of ${(100 * depletion).toFixed(0)}% over `
         + `${w.called} called markers`

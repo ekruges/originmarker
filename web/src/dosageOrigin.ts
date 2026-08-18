@@ -57,9 +57,20 @@
  * of this kind at this width answer, is THIS array usable, is there an imbalance, and only last,
  * which parent.
  *
- * THAT ORDER IS DELIBERATE. Nearly every amplified array fails the MoChA quality gate, so asking
- * quality first would report a QC failure for what is really a study-design limit, and send a
- * reader to re-run a sample when what they need is a second genotyped parent or a wider interval.
+ * THAT ORDER IS DELIBERATE. The width question is asked before the array question so that a limit
+ * of the study design is never reported as a fault of the sample, which would send a reader to
+ * re-run an array when what they need is a second genotyped parent or a wider interval.
+ *
+ * AND THE ARRAY QUESTION IS NOW ONLY THE STRUCTURAL ONE. A BAF-spread gate adopted from MoChA used
+ * to sit here at 0.11 and refused every amplified array: 9 of the 14 worked examples and 852 of 877
+ * in the reference corpus, which is every single cell, blastomere and trophectoderm biopsy. On
+ * exactly the material this tool exists for, no parent was ever named. It was redundant with the
+ * bands rather than protective of them, and that was measured: over 140,000 injections carrying the
+ * real per-chromosome noise of 35 arrays, band A accuracy on the noisiest third was 0.9993 against
+ * 0.9999 on the cleanest. Array noise already reaches the answer through the self-referenced
+ * standard error, so a noisy array earns a lower band rather than a refusal. What remains is the
+ * refusal with a reason: a genome with no undisturbed remainder has nothing to self-reference
+ * against, which is a property of the genome rather than a verdict on the array.
  *
  * NAMING NO LONGER READS THE SIGN, AND THAT IS THE CORRECTION THIS MODULE MOST NEEDED. It used to
  * ask whether the implied fraction cleared 0.30 and then take the sign of the shift, inverting
@@ -431,6 +442,12 @@ export function callDosageOrigin(
      * direction still comes from the dosage sign alone.
      */
     intensityZ?: number
+    /**
+     * Set where the array has no undisturbed genome to reference against, which is the one
+     * array-level condition that still refuses outright. See detectComplex: above 30% deviant
+     * autosomes, or a call rate under 0.70, the self-reference this all depends on does not exist.
+     */
+    noSelfReference?: boolean
     /** Window log2R displacement in its natural units, if the caller has it directly. */
     logRShift?: number
     /** Standard error of that displacement. Derived from windowLogRSd and the window when absent. */
@@ -474,14 +491,36 @@ export function callDosageOrigin(
   }
   // 2. IS THIS ARRAY USABLE. Kept separate from the interval question on purpose: this is a
   // property of the array, and conflating the two was exactly the old guard's fault.
-  if (opts.hetBafSd !== undefined && opts.hetBafSd > MAX_HET_BAF_SD) {
+  // 2. IS THERE ANYTHING LEFT TO REFERENCE AGAINST. This is the structural refusal and the only
+  // array-level one that survives: every statistic here is measured against the rest of this
+  // array's own genome, so a genome with no undisturbed remainder has nothing to measure against.
+  // A refusal here is a property of the GENOME rather than a verdict on the array's quality.
+  if (opts.noSelfReference) {
     return {
       ...base, verdict: 'array-excluded',
-      why: `BAF spread at heterozygous sites is ${opts.hetBafSd.toFixed(3)}, over the `
-        + `${MAX_HET_BAF_SD} gate. The array is too noisy to analyse, independently of this `
-        + 'interval',
+      why: 'this array has no undisturbed genome left to reference against, so the self-referenced '
+        + 'statistic every origin call here depends on would be measuring its own reference. No '
+        + 'parent is named on any interval of this array, at any confidence',
     }
   }
+
+  // THE BAF-SPREAD GATE NO LONGER BLOCKS A CALL, and removing it is the change that made this
+  // feature work on the material it exists for. Adopted from MoChA as an array-level exclusion at
+  // 0.11, it refused 9 of the 14 worked examples and 852 of 877 arrays in the reference corpus:
+  // every amplified sample, which is every single cell, blastomere and trophectoderm biopsy. On
+  // exactly the material this tool is for, no parent was ever named.
+  //
+  // It is redundant, which was measured rather than argued. Array noise already reaches the answer
+  // through the self-referenced standard error, so a noisy array gets a wider error, a lower
+  // posterior and a lower band, which is the banding the whole design rests on. Over 140,000
+  // injections carrying the real per-chromosome noise of 35 arrays, band A accuracy on the NOISIEST
+  // third was 0.9993 against 0.9999 on the cleanest, and overall accuracy 0.6875 against 0.7019.
+  // The gate was not protecting anything the bands were not already handling; it was a blanket
+  // threshold of exactly the kind the fraction threshold was, refusing wholesale where the design
+  // says to band.
+  //
+  // The measurement is still made and still reported: a reader should know the array is noisy. It
+  // informs the confidence rather than replacing it.
 
   if (!r.n || !b.n || !Number.isFinite(r.sd)) {
     return {

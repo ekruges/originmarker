@@ -14,7 +14,7 @@
 import { useState } from 'react'
 import { Text } from '@mantine/core'
 import {
-  compare, enrichmentBars, foldChart, regionGrid,
+  compare, enrichmentBars, foldChart, regionGrid, nullHistograms,
   type ComparisonResult,
 } from './comparison.ts'
 import type { FeatureTrack, Region } from './features.ts'
@@ -68,6 +68,52 @@ function EnrichmentChart({ c }: { c: ComparisonResult }) {
         bar = middle 95% of the matched null, dot = observed
       </text>
     </svg>
+  )
+}
+
+/**
+ * The permutation distribution itself, with the observation marked in it.
+ *
+ * THE MOST DEFENSIBLE FIGURE HERE, and it costs nothing because the enrichment already computed it.
+ * A p value is a summary of this picture, and summaries of it can mislead in both directions: a
+ * ratio near one reaches a small p when the null is tight, and a large ratio reaches nothing when
+ * the null is broad. Drawing the null lets a reader make that judgement instead of taking the p on
+ * trust. An observation the permutation never reached is drawn at the edge and said to be outside.
+ */
+function NullHistograms({ c }: { c: ComparisonResult }) {
+  const hs = nullHistograms(c)
+  if (!hs.length) return null
+  const W = 150
+  const H = 34
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 14 }}>
+      {hs.map((h) => {
+        const max = Math.max(1, ...h.bins)
+        const bw = W / h.bins.length
+        return (
+          <div key={h.label} style={{ width: W + 12 }}>
+            <div style={{ fontSize: 9, color: DIM, marginBottom: 2 }}>{h.label}</div>
+            <svg width={W} height={H + 12} role="img"
+              aria-label={`Permutation null for ${h.label}, with the observed value marked`}
+            >
+              {h.bins.map((v, i) => (
+                <rect
+                  key={i} x={i * bw} y={H - (v / max) * H}
+                  width={Math.max(0.7, bw - 0.6)} height={(v / max) * H}
+                  fill={i === h.observedBin ? HIT : 'var(--om-line)'}
+                />
+              ))}
+              <line x1={h.observedAt * W} x2={h.observedAt * W} y1={0} y2={H}
+                stroke={h.significant ? HIT : INK} strokeWidth={1.4}
+              />
+              <text x={0} y={H + 10} fontSize={7.5} fill={DIM}>
+                {h.observedBin === -1 ? 'observed OUTSIDE the null' : `p=${h.p.toExponential(1)}`}
+              </text>
+            </svg>
+          </div>
+        )
+      })}
+    </div>
   )
 }
 
@@ -179,7 +225,7 @@ export function ComparisonPanel({
         setError('this run kept no marker positions, so the matched null cannot be built')
         return
       }
-      onDone(compare(track, regions, markerPositions))
+      onDone(compare(track, regions, markerPositions, { regionNames }))
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally { setBusy(false) }
@@ -234,6 +280,11 @@ export function ComparisonPanel({
 
               <Text size="xs" fw={700} mt={10} mb={2}>Overlap against a matched null</Text>
               <EnrichmentChart c={c} />
+
+              <Text size="xs" fw={700} mt={12} mb={4}>
+                The permutation null, with the observation marked
+              </Text>
+              <NullHistograms c={c} />
 
               <Text size="xs" fw={700} mt={10} mb={2}>Fold enrichment</Text>
               <FoldChart c={c} />

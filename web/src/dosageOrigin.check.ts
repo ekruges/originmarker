@@ -131,12 +131,28 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
   const big = region(N, 0.62)
   const bg = region(N, 0.50)
 
-  // A bad array short-circuits everything, including an interval that would otherwise call.
+  // A GENOME WITH NOTHING LEFT TO REFERENCE AGAINST short-circuits everything, including an
+  // interval that would otherwise call. This is the one array-level refusal that survives, and its
+  // reason is structural: every statistic here is measured against the rest of this array's own
+  // genome, so a genome with no undisturbed remainder is measuring its own reference.
   const excluded = callDosageOrigin(big, bg, 'bulk', {
-    wholeChromosome: true, hetBafSd: MAX_HET_BAF_SD + 0.01,
+    wholeChromosome: true, noSelfReference: true,
   })
   assert.equal(excluded.verdict, 'array-excluded')
-  assert.ok(excluded.why.includes('independently of this interval'))
+  assert.ok(excluded.why.includes('no undisturbed genome left to reference against'))
+  assert.ok(excluded.why.includes('at any confidence'))
+
+  // AND A NOISY ARRAY IS NO LONGER REFUSED, which is the change that made this work on the material
+  // the tool exists for. The BAF-spread gate at 0.11 refused 9 of 14 worked examples and 852 of 877
+  // corpus arrays: every single cell, blastomere and trophectoderm biopsy. Noise reaches the answer
+  // through the standard error instead, so a noisy array earns a lower band rather than silence.
+  // Measured: band A accuracy 0.9993 on the noisiest third of arrays against 0.9999 on the cleanest.
+  const noisy = callDosageOrigin(big, bg, 'bulk', {
+    wholeChromosome: true, hetBafSd: MAX_HET_BAF_SD + 0.15,
+  })
+  assert.notEqual(noisy.verdict, 'array-excluded',
+    'a noisy array must be BANDED, not refused: refusing it is what silenced every amplified sample')
+  assert.ok(noisy.posterior, 'and it must produce a posterior to be banded on')
 
   // Not-evaluable is decided before the data is looked at, so a huge shift cannot override it.
   // Only where NO floor exists: a blastomere loss against one parent, at any fraction to 0.70.

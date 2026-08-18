@@ -90,8 +90,8 @@ RELEASES: tuple[Release, ...] = (
             "A chromosome with no partner at metaphase I, which segregates at random."),
 )
 
-VERSION = "5.6.0"
-CODENAME = "Bouquet"
+VERSION = "5.7.0"
+CODENAME = "Synizesis"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

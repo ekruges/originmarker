@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StageCallout } from './StageCallout'
 import { ComparisonPanel } from './ComparisonPanel'
-import { comparisonRegions, normaliseTrack, type ComparisonResult } from './comparison'
+import {
+  normaliseTrack, pooledRegions, pooledMarkers, type ComparisonResult,
+} from './comparison'
 import {
   Alert, Badge, Button, Group, Paper, Progress, SegmentedControl, Table, Text,
 } from '@mantine/core'
@@ -216,6 +218,8 @@ async function loadFeatureTrack(): Promise<FeatureTrack | null> {
 
 export function SyngamyPage({ health }: { health?: Health | null }) {
   const [entries, setEntries] = useState<Entry[]>([])
+  /** Run-wide, because the comparison is a cohort question rather than a per-sample one. */
+  const [comparison, setComparison] = useState<ComparisonResult | undefined>(undefined)
   const [donor, setDonor] = useState<DonorIndex | null>(null)
   const [oocyte, setOocyte] = useState<DonorIndex | null>(null)
   const [stage, setStage] = useState<Stage | null>(null)
@@ -594,6 +598,11 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 chrom: c, startBp: 0, endBp: chromEnd.get(c) ?? 0,
                 called: self.length, het: self.filter((m) => m.het).length,
                 logR: lrr.length ? lrr[lrr.length >> 1] - genomeLrr : undefined,
+                // One window per chromosome means every one of these IS a whole chromosome, and
+                // saying so is what lets it use the chromosome floor. Against the segment floor,
+                // amplified material has none at any fraction and every finding came back
+                // not-evaluable for a reason that did not apply to it.
+                wholeChromosome: true,
               }
             })
             const findings = [
@@ -724,21 +733,18 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // genotype call rate, so on exactly those events its evidence is already gone. Dosage is
           // read whether or not a genotype is emitted. Measured on a public series, all four
           // segmental losses scored from genotypes and all three whole-chromosome losses refused.
-          if (!mat && whole.size) {
+          // ANYTHING TO SCORE, not only whole chromosomes. This guard used to read `whole.size`
+          // alone, so the taxonomy findings nested inside it were scored only when the sample also
+          // happened to carry a whole-chromosome aneuploidy. A run whose changes were all
+          // copy-neutral events or runs of homozygosity got no origin on any of them, which is
+          // most of what the taxonomy detects.
+          if (!mat && (whole.size || (result.findings?.length ?? 0) > 0)) {
             // Background from everything OUTSIDE the chromosome under test, which is the same
             // external-null rule the region scan uses: a chromosome cannot set its own baseline.
-            // The sample's own BAF spread at heterozygous calls, for the array-level gate.
-            // A property of the array, asked once, independently of any interval.
-            const hetB: number[] = []
-            for (const [probe, g] of myGt) {
-              if (g !== 'AB') continue
-              const b = myBaf.get(probe)
-              if (b !== undefined) hetB.push(b)
-            }
-            const hetMean = hetB.length ? hetB.reduce((a, x) => a + x, 0) / hetB.length : NaN
-            const hetSd = hetB.length > 1
-              ? Math.sqrt(hetB.reduce((a, x) => a + (x - hetMean) ** 2, 0) / (hetB.length - 1))
-              : undefined
+            // The BAF spread this block used to compute for the array gate now lives on the
+            // profile, measured in the streaming pass, and is shown in the stage panel and the
+            // quality table. Recomputing it here served only the gate that no longer exists.
+
             const material = materialOf(result.stage?.stage ?? 'unknown')
 
             // ONE SCORER, USED TWICE. The whole-chromosome calls here and the taxonomy findings
@@ -749,6 +755,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               label: string,
               inside: (chrom: string, pos: number) => boolean,
               wholeChromosome: boolean,
+              state: 'loss' | 'gain' | 'cnn-loh' = 'loss',
             ) => {
               // Background is every OTHER chromosome of this same array. Self-referencing is not
               // optional: the raw one-parent null sits at -0.031 on trophectoderm under no event,
@@ -821,10 +828,18 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
 
               const c = callDosageOrigin(region as never, background as never, material, {
                 wholeChromosome,
-                hetBafSd: hetSd,
+                // The array-level refusal is now the structural one: a genome with no undisturbed
+                // remainder cannot self-reference. The BAF spread is still measured and reported,
+                // it just no longer refuses, because noise already reaches the answer through the
+                // standard error and earns a lower band rather than a silence.
+                noSelfReference: !!result.findings?.some((f) => f.cls === 'complex'),
                 intensityZ,
                 parents: mat ? 2 : 1,
                 windowLogRSd,
+                // The class decides which floor applies, and the floors differ enormously: a
+                // copy-neutral event on single-cell material has one at 0.399 where a loss has
+                // 0.348 and a segment has none at any fraction.
+                state,
               })
               return {
                 where: label,
@@ -865,10 +880,15 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             // statistic on it would produce a number that means nothing.
             for (const f of result.findings ?? []) {
               if (originBlockedByClass(f.cls) || f.chrom === 'genome') continue
+              // THE FINDING'S OWN CLASS DECIDES ITS FLOOR, and passing the default instead cost
+              // most of them an answer. A copy-neutral event is the LARGEST-signal class, floor
+              // 0.399 on single-cell material against a loss's 0.348 and a segment's none at all.
               const call = scoreInterval(
                 `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`,
                 (c, pos) => c === f.chrom && pos >= f.startBp && pos <= f.endBp,
                 f.wholeChromosome,
+                f.cls === 'cnn-loh' ? 'cnn-loh'
+                  : f.cls === 'segmental-duplication' ? 'gain' : 'loss',
               )
               result.dosageCalls.push(call)
               const named = call.verdict === 'loaded-parent' || call.verdict === 'other-parent'
@@ -1157,11 +1177,31 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           key={e.id} entry={e}
           donorName={entries.find((x) => x.role === 'donor')?.file.name ?? ''}
           oocyteName={entries.find((x) => x.role === 'oocyte')?.file.name ?? ''}
-          // The comparison is lifted to the page rather than held in the card, because the report
-          // is built up here and a result the PDF cannot see is a result that did not happen.
-          onComparison={(c) => patch(e.id, { result: { ...e.result!, comparison: c } })}
         />
       ))}
+
+      {/*
+        ONE COMPARISON OVER THE WHOLE RUN, NOT ONE PER SAMPLE. A single chip contributes a handful
+        of regions, and under five the matched null has no shape at all: the answer would be "no
+        conclusion" on almost every card. Pooled across every sample the run becomes a dataset, and
+        the question is a cohort question anyway. Do the changes THIS EXPERIMENT found sit where the
+        genome breaks anyway? That is not a property of one embryo.
+
+        The regions carry their sample name so the grid stays readable and a coincidence can be
+        traced back to the array it came from.
+      */}
+      {entries.some((e) => e.result) && (
+        <ComparisonPanel
+          regions={pooledRegions(entries, (sg) => segmentCoords(sg as never)).map((x) => x.region)}
+          regionNames={pooledRegions(entries, (sg) => segmentCoords(sg as never)).map((x) => x.name)}
+          markerPositions={pooledMarkers(entries)}
+          loadTrack={loadFeatureTrack}
+          existing={comparison}
+          onDone={setComparison}
+          sampleName={`${entries.filter((e) => e.result).length} samples in this run`}
+          build={entries.find((e) => e.profile)?.profile?.build.build ?? 'assembly undetermined'}
+        />
+      )}
 
       {entries.some((e) => e.result) && (
         <LocusTest
@@ -1292,9 +1332,8 @@ function Axis({ label, r }: { label: string; r: ParentageResult }) {
 }
 
 /** The verdict, at the size it deserves, with the detail folded underneath it. */
-function ResultCard({ entry, donorName, oocyteName, onComparison }: {
+function ResultCard({ entry, donorName, oocyteName }: {
   entry: Entry; donorName: string; oocyteName: string
-  onComparison: (c: ComparisonResult) => void
 }) {
   const [open, setOpen] = useState(false)
   const r = entry.result!
@@ -1386,21 +1425,6 @@ function ResultCard({ entry, donorName, oocyteName, onComparison }: {
             </div>
           )}
           <SegmentCallout segments={r.segments} role={r.role} />
-          <ComparisonPanel
-            // SEGMENTS AND FINDINGS BOTH. A copy-neutral event and an isodisomy are chromosomal
-            // changes exactly as a deletion is, and the question this asks of them is identical:
-            // does it sit where the genome breaks anyway. Comparing only the segments left the
-            // panel reporting "0 regions" on runs whose changes were all taxonomy findings.
-            // Genome-wide findings are excluded: a triploidy has no interval to compare.
-            regions={comparisonRegions(r, (sg) => segmentCoords(sg as never)).map((x) => x.region)}
-            regionNames={comparisonRegions(r, (sg) => segmentCoords(sg as never)).map((x) => x.name)}
-            markerPositions={r.markerPositions}
-            loadTrack={loadFeatureTrack}
-            existing={r.comparison}
-            onDone={onComparison}
-            sampleName={entry.file.name}
-            build={entry.profile?.build.build ?? 'assembly undetermined'}
-          />
           <DefectCallout
             defects={withMechanism([
               ...defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,

@@ -15,7 +15,7 @@
 import assert from 'node:assert/strict'
 import {
   compare, meaningFor, methodsText, enrichmentBars, regionGrid, foldChart, NOT_ABOUT_PARENTS,
-  comparisonRegions, listOf, normaliseTrack,
+  comparisonRegions, listOf, normaliseTrack, nullHistograms, pooledRegions, pooledMarkers,
   ALPHA,
 } from './comparison.ts'
 import type { FeatureTrack, Region } from './features.ts'
@@ -241,6 +241,59 @@ const markers = new Map<string, number[]>([['1',
   assert.equal(listOf(['a', 'b']), 'a and b')
   assert.equal(listOf(['a', 'b', 'c']), 'a, b and c')
   assert.equal(listOf(['a', 'b', 'c', 'd', 'e']), 'a, b, c, d and e')
+}
+
+// --- 10. THE PERMUTATION NULL IS DRAWABLE, AND SAYS WHEN THE OBSERVATION IS OUTSIDE IT -----------
+//
+// A p value is a summary of this distribution, and summaries of it mislead both ways: a ratio near
+// one reaches a small p when the null is tight, and a large ratio reaches nothing when it is broad.
+// Drawing the null is what lets a reader judge rather than take the p on trust.
+{
+  const c = compare(track, regions, markers, { permutations: 400 })
+  const hs = nullHistograms(c)
+  assert.ok(hs.length, 'the enrichment already computes the distribution, so it must be drawable')
+  for (const h of hs) {
+    assert.ok(h.bins.length > 1, 'a histogram needs bins')
+    assert.ok(h.observedAt >= 0 && h.observedAt <= 1, 'the marker must stay on the axis')
+    assert.ok(h.hi >= h.lo)
+    assert.ok(h.observedBin === -1 || (h.observedBin >= 0 && h.observedBin < h.bins.length))
+  }
+
+  // AN OBSERVATION THE PERMUTATION NEVER REACHED is the strongest result here, so it is reported
+  // as outside rather than clamped into the end bin and drawn as if it were merely extreme.
+  const outside = nullHistograms({
+    ...c,
+    features: [{ ...c.features[0], observed: 99, nullHist: { lo: 0, hi: 1, counts: [1, 2, 3] } }],
+  })[0]
+  assert.equal(outside.observedBin, -1, 'outside the null must be flagged, not clamped')
+  assert.equal(outside.observedAt, 1, 'and still drawable, pinned at the edge')
+}
+
+// --- 11. THE RUN IS POOLED, BECAUSE ONE CHIP IS NOT A DATASET -------------------------------------
+{
+  const coords = (sg: unknown) => {
+    const x = sg as { startBp: number; endBp: number }
+    return { start: x.startBp, end: x.endBp }
+  }
+  const entries = [
+    { file: { name: 'A_sample.csv.gz' },
+      result: { segments: [{ chrom: '1', startBp: 1e6, endBp: 9e6 }] as never,
+        markerPositions: new Map([['1', [1, 2, 3]]]) } },
+    { file: { name: 'B_sample.csv.gz' },
+      result: { findings: [{ chrom: '2', startBp: 5e6, endBp: 20e6 }],
+        markerPositions: new Map([['1', [2, 3, 4]], ['2', [9, 8]]]) } },
+    { file: { name: 'C_unrun.csv.gz' } },
+  ]
+  const pooled = pooledRegions(entries as never, coords)
+  assert.equal(pooled.length, 2, 'both samples contribute; the unrun one does not')
+  assert.ok(pooled[0].name.startsWith('A_sample'), `names must carry the sample: ${pooled[0].name}`)
+  assert.ok(pooled[1].name.startsWith('B_sample'))
+
+  // Marker positions are UNIONED, not concatenated: two arrays of one platform share almost every
+  // marker, and counting each twice would inflate the density the null is matched on.
+  const m = pooledMarkers(entries as never)
+  assert.deepEqual(m.get('1'), [1, 2, 3, 4], 'shared positions must appear once, sorted')
+  assert.deepEqual(m.get('2'), [8, 9])
 }
 
 console.log('comparison.check.ts: all assertions passed, including the parental caveat travelling '
