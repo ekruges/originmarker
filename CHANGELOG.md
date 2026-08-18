@@ -9,6 +9,40 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.4.0 "Chromatid"
+
+The stage ladder measured the wrong axis on its top rung. It now reads two.
+
+**The defect.** Developmental stage was assigned from heterozygosity alone, in bands about 0.02
+wide. Heterozygosity says how many heterozygous markers SURVIVED, which tracks template count. It
+says nothing about how far the survivors SCATTERED, which is what amplification does and what every
+constant keyed to stage actually encodes: drift alone spans 0.0011 to 0.0193 across these classes,
+a seventeen-fold range.
+
+**Measured across 877 arrays of this platform.** The four classes the ladder assigned had allele
+fraction spreads at heterozygous calls of 0.229, 0.232, 0.241 and 0.251 at the median. That is no
+separation against a within-class range of 0.10 to 0.13. And 176 arrays scattering at 0.232, which
+is amplified material, were classified as bulk genomic DNA because they had retained enough
+heterozygous markers to clear the top rung, then handed a drift constant seventeen times tighter
+than a blastomere's. Unamplified DNA scatters at about 0.088.
+
+**The correction.** Bulk requires enough heterozygosity AND unamplified scatter. The threshold is
+0.11, the figure this project already carried from MoChA for excluding an array outright, sitting
+between unamplified DNA at 0.088 and amplified material at 0.21 to 0.30. An array failing it is
+demoted rather than rejected, and its heterozygosity picks which amplified rung, since that is the
+right axis for how many cells contributed. Only the top rung is affected: a blastomere never
+claimed to be unamplified, so nothing below bulk moves.
+
+**Effect on the same corpus.** The bulk rung goes from 176 arrays at a median spread of 0.232 to 18
+at 0.0772. All 158 reclassified arrays move to trophectoderm, placed by their heterozygosity. Among
+the worked examples shipped with the tool, the four that keep the bulk rung read 0.0755 to 0.0885,
+and two that were previously bulk on heterozygosity alone, at 0.1133 and 0.1482, are demoted.
+
+The sample profile now carries the spread, computed in the same streaming pass that already summed
+allele fraction at heterozygous calls, so it costs nothing. `--bulk-max-baf-sd` is the dial.
+
+---
+
 ## 5.3.0 "Centromere"
 
 The timing question is answered: whether a segmental change was carried by the gamete or arose

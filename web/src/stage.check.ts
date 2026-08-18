@@ -17,6 +17,7 @@ import assert from 'node:assert/strict'
 import {
   inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, QC_CALL_FLOOR,
   BAND_DIPLOID_CERTAIN, MAX_DIPLOID_HET,
+  BULK_MAX_BAF_SD,
 } from './stage.ts'
 
 const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
@@ -212,6 +213,50 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   assert.equal(BULK_HETEROZYGOSITY, 0.168)
   const s = inferStage(p(BULK_HETEROZYGOSITY))
   assert.ok(s.dropout < 0.03, 'a sample at the bulk rate has essentially no dropout')
+}
+
+// --- THE STAGE LADDER NEEDS BOTH AXES, NOT JUST HETEROZYGOSITY -----------------------------------
+//
+// Heterozygosity says how many heterozygotes SURVIVED, which tracks template count. BAF spread at
+// heterozygous calls says how far the survivors SCATTERED, which tracks amplification. Every
+// constant keyed to stage encodes the second: drift alone spans 0.0011 to 0.0193 across these
+// classes. Measured over 877 arrays, the ladder on heterozygosity alone put 176 amplified arrays
+// on the BULK rung, median scatter 0.232 against unamplified DNA's 0.088, and handed them the
+// tightest drift constant in the module. Adding the second axis leaves 18 on that rung at 0.0772.
+{
+  // Bulk-level heterozygosity. Without the spread, this is bulk, as it always was.
+  const noSd = inferStage({ hetRate: 0.168, callRate: 0.97 })
+  assert.equal(noSd.stage, 'bulk', 'absent a spread the ladder behaves exactly as before')
+
+  // Same heterozygosity, unamplified scatter: still bulk.
+  const clean = inferStage({ hetRate: 0.168, callRate: 0.97, hetBafSd: 0.088 })
+  assert.equal(clean.stage, 'bulk', 'genuine genomic DNA keeps the rung it earned')
+
+  // Same heterozygosity, AMPLIFIED scatter: demoted, not rejected.
+  const amp = inferStage({ hetRate: 0.168, callRate: 0.97, hetBafSd: 0.232 })
+  assert.notEqual(amp.stage, 'bulk',
+    'an array scattering like amplified material must not be handed the bulk parameter set on the '
+    + 'strength of having retained its heterozygotes')
+  assert.equal(amp.stage, 'trophectoderm',
+    'and it is DEMOTED by heterozygosity rather than discarded: this one kept the most template, '
+    + 'so it lands on the highest amplified rung')
+
+  // The boundary itself, and that it is the one already carried for excluding an array outright.
+  assert.equal(BULK_MAX_BAF_SD, 0.11)
+  assert.equal(inferStage({ hetRate: 0.168, callRate: 0.97, hetBafSd: 0.109 }).stage, 'bulk')
+  assert.notEqual(inferStage({ hetRate: 0.168, callRate: 0.97, hetBafSd: 0.111 }).stage, 'bulk')
+
+  // It is a dial, and it moves the answer.
+  assert.equal(inferStage({ hetRate: 0.168, callRate: 0.97, hetBafSd: 0.232 },
+    { bulkMaxBafSd: 0.5 }).stage, 'bulk', 'a loosened dial restores the old behaviour')
+
+  // THE SECOND AXIS TOUCHES ONLY THE TOP RUNG. A blastomere is already placed by heterozygosity
+  // and amplified scatter is expected there, so nothing below bulk may move.
+  for (const h of [0.150, 0.130, 0.110]) {
+    const before = inferStage({ hetRate: h, callRate: 0.9 }).stage
+    const after = inferStage({ hetRate: h, callRate: 0.9, hetBafSd: 0.25 }).stage
+    assert.equal(before, after, `the ${before} rung must not move: it never claimed to be unamplified`)
+  }
 }
 
 console.log('stage.check.ts: all assertions passed, including quality gated before ploidy, '

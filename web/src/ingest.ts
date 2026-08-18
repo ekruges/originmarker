@@ -203,6 +203,17 @@ export interface SampleProfile {
   coding: CodingCheck
   /** Which assembly the positions belong to, from illegal-placement counting. */
   build: BuildCall
+  /**
+   * SPREAD of the B-allele frequency at heterozygous calls, which is the direct read on how much
+   * AMPLIFICATION this sample went through.
+   *
+   * A different quantity from `hetBand` and from `hetRate`, and the distinction is the whole point.
+   * Heterozygosity says how many heterozygotes SURVIVED, which tracks template count. This says how
+   * far the surviving ones scattered, which tracks amplification. Unamplified genomic DNA reads
+   * about 0.088; whole-genome amplified material reads 0.21 to 0.30. NaN where the file carries no
+   * B-allele frequencies.
+   */
+  hetBafSd: number
   /** Fraction of autosomal markers in the heterozygous BAF band. The ploidy read: 15-16% for a
    *  diploid genome, 1.0-7.8% across confirmed haploid meiotic products, above 30% for an array
    *  that has failed. NaN when the file carries no B-allele frequencies. */
@@ -893,10 +904,12 @@ export interface BafSums {
    *  than only the called ones, matching `parentage.tallyRow`, because a dropped heterozygote
    *  still has an intensity reading and is exactly what separates the two cases. */
   band: number; nBand: number
+  /** Sum of squared BAF at heterozygous calls, which is all a running SD needs beyond `het`. */
+  hetSq: number
 }
 
 export const emptyBafSums = (): BafSums =>
-  ({ hom0: 0, n0: 0, hom2: 0, n2: 0, het: 0, nHet: 0, band: 0, nBand: 0 })
+  ({ hom0: 0, n0: 0, hom2: 0, n2: 0, het: 0, nHet: 0, band: 0, nBand: 0, hetSq: 0 })
 
 export function accumulateBaf(row: ProbeRow, s: BafSums): void {
   if (row.baf === null) return
@@ -906,8 +919,13 @@ export function accumulateBaf(row: ProbeRow, s: BafSums): void {
   }
   if (row.genotype === 'AA') { s.hom0 += row.baf; s.n0++ }
   else if (row.genotype === 'BB') { s.hom2 += row.baf; s.n2++ }
-  else if (row.genotype === 'AB') { s.het += row.baf; s.nHet++ }
+  else if (row.genotype === 'AB') { s.het += row.baf; s.hetSq += row.baf * row.baf; s.nHet++ }
 }
+
+/** Running standard deviation of BAF at heterozygous calls, from the sums collected in one pass. */
+export const hetBafSd = (s: BafSums): number => (s.nHet > 1
+  ? Math.sqrt(Math.max(0, (s.hetSq - (s.het * s.het) / s.nHet) / (s.nHet - 1)))
+  : NaN)
 
 export function finishProfile(
   id: string,
@@ -937,6 +955,7 @@ export function finishProfile(
     coding: verifyCoding(bafSums),
     build: buildVerdict(buildSums),
     hetBand: bafSums.nBand ? bafSums.band / bafSums.nBand : NaN,
+    hetBafSd: hetBafSd(bafSums),
   }
 }
 

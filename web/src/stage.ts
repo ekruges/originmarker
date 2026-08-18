@@ -116,6 +116,31 @@ export const QC_CALL_FLOOR = 0.40
 export const MAX_DIPLOID_HET = 0.25
 
 /**
+ * BAF spread at heterozygous calls above which a sample is NOT unamplified genomic DNA.
+ *
+ * THE STAGE LADDER MEASURED THE WRONG AXIS ON ITS TOP RUNG, and this is the correction. Stage was
+ * assigned from heterozygosity alone, which tracks how many heterozygotes SURVIVED and therefore
+ * how much template there was. It says nothing about how far the survivors SCATTERED, which is what
+ * amplification does and what every constant keyed to stage actually encodes: drift, variance
+ * inflation and the detection floors span a seventeen-fold range across these classes.
+ *
+ * Those two axes come apart. Measured across 877 arrays of this platform, the four classes the
+ * ladder assigns have BAF spreads of 0.229, 0.232, 0.241 and 0.251 at the median, which is no
+ * separation at all against a within-class spread of 0.10 to 0.13. Worse, 176 arrays reading
+ * amplified-level scatter of 0.232 were called BULK on heterozygosity and handed a drift constant
+ * of 0.0011, seventeen times tighter than a blastomere's, because they had retained enough
+ * heterozygotes to clear the top rung.
+ *
+ * So bulk now requires BOTH: enough heterozygosity AND unamplified scatter. The threshold is the
+ * one this project already carries from MoChA for excluding an array outright, 0.11, sitting
+ * between unamplified genomic DNA at about 0.088 and amplified material at 0.21 to 0.30. An array
+ * failing it is not rejected here, it is DEMOTED to the amplified rungs, where its heterozygosity
+ * decides which one. Nothing is lost and the confident parameter set stops being handed out on the
+ * strength of the wrong measurement.
+ */
+export const BULK_MAX_BAF_SD = 0.11
+
+/**
  * Below this the sample carries one genome rather than a heavily dropped-out two.
  *
  * NOT SAFE IN BOTH DIRECTIONS, and the audit quantified which way it fails. A blastomere at 0.308
@@ -168,7 +193,7 @@ const BOUNDS: { stage: Stage, minHet: number, dropout: number, templates: string
  * heterozygosity alone, so call rate has to decide first.
  */
 export function inferStage(
-  profile: Pick<SampleProfile, 'hetRate' | 'callRate'> & { hetBand?: number },
+  profile: Pick<SampleProfile, 'hetRate' | 'callRate'> & { hetBand?: number, hetBafSd?: number },
   /**
    * The boundaries, so a caller that knows what it is doing can move them.
    *
@@ -180,6 +205,8 @@ export function inferStage(
   opts: {
     callFloor?: number, maxDiploidHet?: number, haploidMaxHet?: number,
     bulkHeterozygosity?: number, bandDiploidCertain?: number,
+    /** BAF spread above which the bulk rung is refused. See BULK_MAX_BAF_SD. */
+    bulkMaxBafSd?: number,
   } = {},
 ): StageCall {
   const h = profile.hetRate
@@ -249,8 +276,17 @@ export function inferStage(
     }
   }
 
-  const hit = BOUNDS.find((b) => h >= (b.stage === 'blastomere' ? haploidMax : b.minHet))
+  let hit = BOUNDS.find((b) => h >= (b.stage === 'blastomere' ? haploidMax : b.minHet))
     ?? BOUNDS[BOUNDS.length - 1]
+  // BULK NEEDS THE SECOND AXIS. Heterozygosity alone put 176 amplified arrays on this rung and gave
+  // them the tightest drift constant in the module. Where a BAF spread is available and says the
+  // sample was amplified, it is demoted to the rungs below and its heterozygosity picks which.
+  const sd = profile.hetBafSd
+  const amplified = sd !== undefined && Number.isFinite(sd) && sd > (opts.bulkMaxBafSd ?? BULK_MAX_BAF_SD)
+  if (amplified && hit.stage === 'bulk') {
+    hit = BOUNDS.find((b) => b.stage !== 'bulk'
+      && h >= (b.stage === 'blastomere' ? haploidMax : b.minHet)) ?? BOUNDS[BOUNDS.length - 1]
+  }
   if (bandSaysDiploid && h <= haploidMax) {
     return {
       stage: hit.stage,

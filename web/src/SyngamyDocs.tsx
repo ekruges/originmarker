@@ -1779,6 +1779,33 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
 
         <Section id="stage" title="Material, amplification and stage">
           <Text size="sm" mb={10}>
+            <b>The stage is read from two measurements, not one, and it used to be one.</b>
+            Heterozygosity says how many heterozygous markers SURVIVED, which tracks how much
+            template the sample had. The spread of allele fraction at those surviving markers says
+            how far they SCATTERED, which tracks how much amplification it went through. Those are
+            different things and they come apart. Every constant this tool keys to stage encodes the
+            second one: the drift floor alone spans 0.0011 to 0.0193 across the classes, a
+            seventeen-fold range.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Reading only heterozygosity put amplified samples on the bulk rung.</b> Measured
+            across 877 arrays of this platform, the four classes assigned that way had allele
+            fraction spreads of 0.229, 0.232, 0.241 and 0.251 at the median, which is no separation
+            at all against a within-class range of 0.10 to 0.13. Worse, 176 arrays scattering at
+            0.232, which is amplified material, were called bulk genomic DNA because they had
+            retained enough heterozygous markers, and were handed the most confident parameter set
+            in the tool. Unamplified DNA scatters at about 0.088.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Bulk now requires both.</b> Enough heterozygosity AND unamplified scatter, with the
+            line at 0.11, which is the same figure already used to exclude an array from the dosage
+            channel outright. An array failing it is not rejected, it is moved down to the amplified
+            rungs and its heterozygosity decides which one, since that is the right axis for how
+            many cells contributed. On the same 877 arrays this leaves 18 on the bulk rung with a
+            median spread of 0.0772. Among the worked examples shipped with this tool, the four that
+            keep the bulk rung read 0.0755 to 0.0885.
+          </Text>
+          <Text size="sm" mb={10}>
             The developmental stage of a sample is inferred from the array rather than declared, and
             it is bundled into every output. Nothing is asked of you that the data already answers.
           </Text>

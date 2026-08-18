@@ -292,6 +292,7 @@ const stageOpts = () => ({
   haploidMaxHet: num('haploid-max-het', stageMod.HAPLOID_MAX_HET),
   bulkHeterozygosity: num('bulk-heterozygosity', stageMod.BULK_HETEROZYGOSITY),
   bandDiploidCertain: num('band-diploid-certain', stageMod.BAND_DIPLOID_CERTAIN),
+  bulkMaxBafSd: num('bulk-max-baf-sd', stageMod.BULK_MAX_BAF_SD),
 })
 
 /** Origin thresholds as flags, same rule. */
@@ -454,9 +455,13 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       hetRate: a.profile.hetRate,
       callRate: a.profile.callRate,
       hetBand: args.bools.has('no-band') ? undefined : a.profile.hetBand,
+      // The amplification axis. Omitting it here would have left this one command on the old
+      // one-axis ladder while every other path used both, which is the kind of divergence a
+      // literal built field by field invites.
+      hetBafSd: args.bools.has('no-baf-sd') ? undefined : a.profile.hetBafSd,
     } as never, stageOpts())
     out({ id: a.id, callRate: a.profile.callRate, hetRate: a.profile.hetRate,
-      hetBand: a.profile.hetBand, ...s }, () => {
+      hetBand: a.profile.hetBand, hetBafSd: a.profile.hetBafSd, ...s }, () => {
       process.stdout.write(`${a.id}\n`)
       process.stdout.write(`  call rate        ${pct(a.profile.callRate, 2)}\n`)
       process.stdout.write(`  heterozygous     ${pct(a.profile.hetRate, 2)}\n`)
@@ -935,6 +940,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       ['posterior', 'VETO_MAX_F', post.VETO_MAX_F, 'implied GAIN fraction under which an amplified event is class-inverted: a small gain and a small loss name OPPOSITE parents, measured 0 of 34 correct on TE and 0 of 18 on blastomere'],
       ['posterior', 'BAND_ACCURACY.blastomere.A', post.BAND_ACCURACY.blastomere.A, 'why the old 0.30 fraction withhold was retired: 24.1% of blastomere events it refused sit in this band'],
       ['dosage', 'Z_DETECT', dosage.Z_DETECT, 'self-referenced |z| an imbalance must reach, two-sided at 1%'],
+      ['stage', 'BULK_MAX_BAF_SD', stageMod.BULK_MAX_BAF_SD, 'BAF spread at het calls above which the BULK rung is refused: heterozygosity says how many heterozygotes survived, this says how far they scattered, and 176 of 877 arrays were called bulk on the first while scattering like amplified material'],
       ['dosage', 'MAX_HET_BAF_SD', dosage.MAX_HET_BAF_SD, 'array-level gate adopted from MoChA: BAF spread at het sites above this and the array is not analysed'],
       ['dosage', 'WINDOW_LO', dosage.WINDOW_LO, 'central window, deliberately wider than the old middle band'],
       ['dosage', 'DRIFT_TAU.blastomere', dosage.DRIFT_TAU.blastomere, 'within-array drift, the FLOOR on the standard error; it does not average down with markers'],
