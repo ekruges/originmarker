@@ -9,6 +9,25 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.7.1 "Synizesis"
+
+The comparison was never bundled into the main report, because the caller did not pass it.
+
+The field was on the report input, the drawing code was in place, the standalone report worked and
+the panel offered it. Every part was present except the argument, so `input.comparison` was always
+undefined and the section silently never printed. The addon ran, produced a result, and contributed
+nothing to the report it was supposed to fold into.
+
+One line fixes it. What was missing was the check, which now builds the real report both ways and
+looks: with a comparison it must carry the charts and the caveat and be larger, and without one it
+must carry no trace at all, since an empty section reads as a negative and this analysis has a
+genuine negative that must not be confusable with absence.
+
+Measured on the shipped feature track: standalone report 22 kB, main report with the section 39 kB,
+main report without it 18 kB.
+
+---
+
 ## 5.7.0 "Synizesis"
 
 Three defects were between a detected abnormality and its parental origin, so most classes were

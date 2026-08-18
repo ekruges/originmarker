@@ -12,6 +12,7 @@
 import assert from 'node:assert/strict'
 import { compare } from './comparison.ts'
 import { comparisonPdf, drawComparison } from './comparisonPdf.ts'
+import { buildReportPdf } from './syngamyPdf.ts'
 import { LETTER, Pdf } from './pdf.ts'
 import type { FeatureTrack, Region } from './features.ts'
 
@@ -67,7 +68,37 @@ const latin = async (b: Blob) => Buffer.from(await b.arrayBuffer()).toString('la
   assert.ok(y < H - 54, 'and it must actually advance the cursor it was given')
 }
 
-// --- 3. AN UNRUN ADDON LEAVES NO TRACE -------------------------------------------------------------
+// --- 3. THE BUNDLING IS ACTUALLY WIRED, WHICH IT WAS NOT --------------------------------------------
+//
+// THE FIELD EXISTED, THE DRAWING CODE EXISTED, AND THE CALLER NEVER PASSED IT. So input.comparison
+// was always undefined and the section never printed: the addon ran, produced a result, offered its
+// own report, and silently contributed nothing to the main one. Every part was present except the
+// argument, which is why nothing failed.
+//
+// This asserts the end state rather than the parts: build the real report both ways and look.
+{
+  const base = {
+    files: [], donorHeterozygosity: NaN, startedAt: null,
+    generatedAt: '2026-01-01 00:00:00Z', tool: 'OriginMarker', reportId: 'CHECK',
+    fromExamples: true,
+  }
+  const withIt = await latin(await buildReportPdf({ ...base, comparison: c } as never))
+  const without = await latin(await buildReportPdf(base as never))
+
+  assert.ok(withIt.includes('permutation null'),
+    'a report built WITH a comparison must carry its charts. If this fails, the caller has stopped '
+    + 'passing it and the bundling is silently doing nothing again')
+  assert.ok(withIt.includes('never be read as support for a parental call'),
+    'and the caveat must survive into the bundled section, not only the standalone one')
+  assert.ok(withIt.length > without.length,
+    'the bundled report must be larger than the one without it')
+
+  assert.ok(!without.includes('permutation null'),
+    'and a report built without one must carry NO trace: an empty section reads as a negative, '
+    + 'and this analysis has a genuine negative that must not be confusable with absence')
+}
+
+// --- 4. AN UNRUN ADDON LEAVES NO TRACE -------------------------------------------------------------
 //
 // There is nothing to assert inside this file for the main report, so this pins the contract the
 // main report relies on: a result with no comparison has nothing to draw, and the caller checks

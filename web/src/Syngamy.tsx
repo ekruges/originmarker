@@ -355,6 +355,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         reportId: id,
         fromExamples: examples,
         locus,
+        // The run-wide feature comparison, if someone ran it. Without this line the field exists,
+        // the drawing code exists, and the section never prints: input.comparison is always
+        // undefined and the bundling silently does not happen.
+        comparison,
       })
       grab(blob, `syngamy-report-${id}.pdf`)
     } finally {
