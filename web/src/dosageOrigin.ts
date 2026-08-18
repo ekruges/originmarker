@@ -97,7 +97,7 @@
  */
 import type { AB } from './informativity.ts'
 import {
-  originPosterior, classInvertedRisk, BAND_LABEL, VETO_MAX_F,
+  originPosterior, classInvertedRisk, BAND_LABEL, VETO_MAX_F, SHIPPED_MAPS,
   type OriginPosterior, type CalibrationMap, type EventClass,
 } from './originPosterior.ts'
 
@@ -619,9 +619,15 @@ export function callDosageOrigin(
     iz !== undefined && Number.isFinite(iz) && seL !== undefined ? iz * seL : undefined)
   const logRSe = opts.logRShiftSe ?? seL
 
+  // The shipped maps are the default, so a caller gets a CALIBRATED number without having to know
+  // they exist. Passing `calibration` overrides them; passing an empty object opts out and gets the
+  // raw posterior, which announces itself as raw.
   const post = originPosterior(
     { shift, shiftSd: se, logR: logRShift, logRSd: logRSe, material, markers: r.n },
-    { calibration: opts.calibration, obligateHetOnly: opts.obligateHetOnly },
+    {
+      calibration: opts.calibration ?? (SHIPPED_MAPS as never),
+      obligateHetOnly: opts.obligateHetOnly,
+    },
   )
 
   // THE ONE VETO. Amplified material, a possible small gain, intensity unable to resolve a

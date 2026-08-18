@@ -264,10 +264,19 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
   assert.ok((up.posterior as NonNullable<typeof up.posterior>).confidence
     >= (small.posterior as NonNullable<typeof small.posterior>).confidence,
     'a larger shift must never come back less confident than a smaller one')
-  // And with no calibration map loaded, the number must announce itself as raw rather than pass
-  // for final. Shipping an under-confident number as if it were calibrated is the failure this
-  // whole rework exists to remove.
-  assert.equal((up.posterior as NonNullable<typeof up.posterior>).uncalibrated, true)
+  // THE SHIPPED MAPS ARE THE DEFAULT, so a caller gets a calibrated number without knowing they
+  // exist. They are fitted on this implementation's own injections, leave-one-array-out, and they
+  // measurably help: expected calibration error 0.0165 to 0.0065 on bulk, 0.0085 to 0.0014 on
+  // blastomere.
+  assert.equal((up.posterior as NonNullable<typeof up.posterior>).uncalibrated, false,
+    'the shipped maps must be applied by default')
+
+  // And opting out must still be possible AND must announce itself, because a raw number passed
+  // off as final is the failure this rework exists to remove.
+  const raw = callDosageOrigin(region(N, 0.5 + 0.20), bg, 'bulk',
+    { wholeChromosome: true, calibration: {} })
+  assert.equal((raw.posterior as NonNullable<typeof raw.posterior>).uncalibrated, true)
+  assert.ok((raw.posterior as NonNullable<typeof raw.posterior>).why.includes('RAW posterior'))
 
   // The two directions are reached on equal evidence. Necessary but, as the review showed, not
   // sufficient on its own: section 3 is what covers the null being off-centre.

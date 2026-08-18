@@ -49,7 +49,8 @@ import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
 import { callDosageOrigin, materialOf } from './dosageOrigin'
 import {
-  detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity,
+  detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh,
+  LOH_SEGMENT_MARKERS,
   groupUnits, unitsCarrying, callUniformity,
 } from './abnormalities'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted'
@@ -591,26 +592,52 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             for (const [c, ms] of cnByChrom) {
               chromEnd.set(c, ms.reduce((a, m) => Math.max(a, m.pos), 0))
             }
-            // One window per chromosome. Copy-neutral LOH at finer resolution needs the segment
-            // scanner's windows, which is the next step rather than this one, and calling it at
-            // chromosome scale first is the conservative direction.
-            const windows = [...cnByChrom].map(([c, ms]) => {
-              const self = selfMarkers.filter((m) => m.chrom === c)
+            // SLIDING WINDOWS AS WELL AS WHOLE CHROMOSOMES, so a copy-neutral event covering part
+            // of a chromosome is reported at its own extent rather than as the whole thing. The
+            // whole-chromosome pass is kept because it is the one with a detection floor on
+            // amplified material: a 12 Mb-scale interval has none at any fraction with one parent.
+            // So both are offered and the caller keeps whichever the evidence supports, with the
+            // segment only surviving where it is NOT simply the chromosome restated.
+            const selfByChrom = new Map<string, typeof selfMarkers>()
+            for (const m of selfMarkers) {
+              if (!selfByChrom.has(m.chrom)) selfByChrom.set(m.chrom, [])
+              selfByChrom.get(m.chrom)!.push(m)
+            }
+            const medianOf = (xs: number[]) => (xs.length
+              ? xs.slice().sort((a, b) => a - b)[xs.length >> 1] : undefined)
+            const windows = [...cnByChrom].flatMap(([c, ms]) => {
+              const self = (selfByChrom.get(c) ?? []).slice().sort((a, b) => a.pos - b.pos)
               const lrr = ms.map((m) => m.log2R).filter((x): x is number => x !== null)
-                .sort((a, b) => a - b)
-              return {
+              const whole = {
                 chrom: c, startBp: 0, endBp: chromEnd.get(c) ?? 0,
                 called: self.length, het: self.filter((m) => m.het).length,
-                logR: lrr.length ? lrr[lrr.length >> 1] - genomeLrr : undefined,
-                // One window per chromosome means every one of these IS a whole chromosome, and
-                // saying so is what lets it use the chromosome floor. Against the segment floor,
-                // amplified material has none at any fraction and every finding came back
-                // not-evaluable for a reason that did not apply to it.
+                logR: lrr.length ? (medianOf(lrr) as number) - genomeLrr : undefined,
                 wholeChromosome: true,
               }
+              // Half-overlapping windows of SEGMENT_MARKERS, so an event landing on a boundary is
+              // still seen whole by the neighbouring window.
+              const step = Math.floor(LOH_SEGMENT_MARKERS / 2)
+              const segs: typeof whole[] = []
+              for (let i = 0; i + LOH_SEGMENT_MARKERS <= self.length; i += step) {
+                const w = self.slice(i, i + LOH_SEGMENT_MARKERS)
+                const lo = w[0].pos
+                const hi = w[w.length - 1].pos
+                const inWin = ms.map((m) => (m.pos >= lo && m.pos <= hi ? m.log2R : null))
+                  .filter((x): x is number => x !== null)
+                segs.push({
+                  chrom: c, startBp: lo, endBp: hi,
+                  called: w.length, het: w.filter((m) => m.het).length,
+                  logR: inWin.length ? (medianOf(inWin) as number) - genomeLrr : undefined,
+                  wholeChromosome: false,
+                })
+              }
+              return [whole, ...segs]
             })
             const findings = [
-              ...detectLoh(windows),
+              // Overlapping windows report the same event several times, and a whole chromosome
+              // reports it again, so the redundancy is collapsed: the widest interval covering a
+              // position wins, and a segment that is merely its chromosome restated is dropped.
+              ...mergeLoh(detectLoh(windows)),
               ...detectUpd(runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd })),
             ]
             const tri = detectTriploidy([...myBaf.values()])

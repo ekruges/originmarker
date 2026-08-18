@@ -9,6 +9,51 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.7.2 "Synizesis"
+
+Two of the three outstanding items are closed. The third could not be, and the attempt is recorded
+rather than shipped.
+
+**The calibration maps are fitted and shipped.** Not the methods review's, which were specified,
+never delivered, and could not be reproduced because the corpus carries no material labels. These
+are fitted on THIS implementation's posterior over THIS corpus's noise, keyed on the material the
+tool assigns at runtime, which is self-consistent by construction: they calibrate the assignment
+actually made rather than one needing labels nobody has. Fitted leave-one-array-out, so every
+accuracy quoted comes from rows the map never saw.
+
+They were checked against the raw posterior before being shipped, because a map that does not help
+is complexity for nothing. Expected calibration error, raw to mapped: 0.0165 to 0.0065 on bulk,
+0.0129 to 0.0089 on trophectoderm, 0.0135 to 0.0081 on single ESC, 0.0085 to 0.0014 on blastomere.
+They are the default, so a caller gets a calibrated number without knowing they exist, and passing
+an empty calibration still yields the raw posterior with its own warning attached. The material
+keys are a stand-in and say so: with no labels, the arrays were split into four noise tiers and
+each named for the material it is characteristic of, so these calibrate the noise a material
+carries rather than the material.
+
+**Copy-neutral loss of heterozygosity is scanned at segment resolution.** Half-overlapping windows
+of 600 markers as well as the whole chromosome, so a partial event is reported at its own extent
+rather than as the entire chromosome. Both scales are kept on purpose: the chromosome pass is the
+one with a detection floor on amplified material, since a 12 Mb-scale interval has none at any
+mosaic fraction with one parent. The redundancy that leaves is collapsed by keeping the widest
+interval covering a position, because a precise extent that comes back not-evaluable is worth less
+to a reader than a coarse one carrying a parent and a confidence.
+
+**The genotype channel's saturation could not be fixed and the attempt is documented.** Its
+posterior returns 1.0000 across every evidence level, and the intended repair was the one that
+worked for the dosage channel: marginalise the nuisance parameter instead of plugging it in, since
+dropout is estimated from a heterozygosity shortfall whose own caveat lists four confounds absorbed
+into it. Implemented and measured, it moved the answer in the fifth decimal place, 0.999869 at its
+most favourable, and cost five times the compute. It was reverted.
+
+The reason it fails is worth stating: the saturation is not caused by treating dropout as known. A
+Mendelian likelihood over hundreds of near-independent markers really is that decisive under its own
+model, and the real error rate on this channel is set by contamination, a mislabelled sample and
+model mis-specification, none of which any nuisance parameter represents. So the honest handling
+remains the one already in place: the channel is capped below the top band, reports itself
+uncalibrated, and its band rather than its digits is the output.
+
+---
+
 ## 5.7.1 "Synizesis"
 
 The comparison was never bundled into the main report, because the caller did not pass it.

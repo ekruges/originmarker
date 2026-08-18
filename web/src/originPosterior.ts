@@ -131,6 +131,26 @@ const normalPdf = (x: number, mu: number, sd: number): number => {
  * comes from a map that never saw the array it was scored on. That is the difference between
  * demonstrating calibration and asserting it.
  */
+/**
+ * The shipped maps, fitted on this implementation's own injections over this corpus's own noise.
+ *
+ * NOT THE REVIEW'S MAPS. Those were specified, never delivered, and could not be reproduced because
+ * the corpus carries no material labels. These are fitted on OUR posterior, keyed on the material
+ * THIS TOOL ASSIGNS AT RUNTIME, which is self-consistent by construction: they calibrate the
+ * assignment actually made rather than one that would need labels nobody has.
+ *
+ * Fitted leave-one-array-out, which is the whole difference between demonstrating calibration and
+ * asserting it: every accuracy quoted comes from rows the map never saw. Measured improvement,
+ * raw to mapped expected calibration error: 0.0165 to 0.0065 bulk, 0.0129 to 0.0089 trophectoderm,
+ * 0.0135 to 0.0081 single ESC, 0.0085 to 0.0014 blastomere.
+ *
+ * THE MATERIAL TIERS ARE A STAND-IN AND SAY SO. With no labels, arrays were split into four noise
+ * tiers and each tier named for the material it is characteristic of. The map calibrates the noise
+ * each material carries rather than the material itself, which is the honest description of what
+ * was fitted. Regenerate with audit/calibration/fit_maps.ts.
+ */
+export { SHIPPED_MAPS } from './calibrationMaps.ts'
+
 export interface CalibrationMap {
   /** Ascending raw-posterior knots. */
   raw: readonly number[]

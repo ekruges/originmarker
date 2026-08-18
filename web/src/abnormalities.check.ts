@@ -17,7 +17,8 @@ import {
   TAXONOMY, taxonomyFor, detectLoh, detectUpd, detectTriploidy, detectComplex, callUniformity,
   unanswerable, ORIGIN_UNREACHABLE, LCSH_REPORT_MB, UPD_NO_STRETCH_RATE, LOH_DEPLETION,
   CLUSTERED_DROPOUT_DEPLETION, COMPLEX_DEVIANT_FRACTION, TRIPLOID_BANDS, DIPLOID_BAND,
-  runsOfHomozygosity, groupUnits, overlaps, unitsCarrying,
+  runsOfHomozygosity, groupUnits, overlaps, unitsCarrying, mergeLoh, LOH_SEGMENT_MARKERS,
+  type Finding,
   type WindowStat, type RunOfHomozygosity,
 } from './abnormalities.ts'
 
@@ -281,6 +282,40 @@ import {
   // Present in one of three: confined to a lineage.
   assert.equal(unitsCarrying(target, [[ev('7', 5e6, 25e6)], [], [ev('9', 1e6, 9e6)]]), 1)
   assert.equal(callUniformity(1, 3).mechanism, 'post-zygotic')
+}
+
+// --- 12. BOTH SCALES ARE SCANNED, AND THE REDUNDANCY IS COLLAPSED --------------------------------
+//
+// Copy-neutral LOH is scanned at whole-chromosome scale AND in sliding windows. The chromosome pass
+// is the one with a detection floor on amplified material, since a 12 Mb-scale interval has none at
+// any mosaic fraction with one parent; the windows are what give a partial event its own extent
+// instead of reporting the whole chromosome. Scanning both leaves duplicates, so the widest
+// interval covering a position wins and a segment that is only its chromosome restated is dropped.
+{
+  const f = (startBp: number, endBp: number, whole = false): Finding => ({
+    cls: 'cnn-loh', chrom: '7', startBp, endBp, wholeChromosome: whole, evidence: 'x',
+  })
+
+  // A whole chromosome plus the windows inside it collapses to the chromosome alone.
+  const nested = mergeLoh([f(0, 159e6, true), f(10e6, 30e6), f(20e6, 40e6)])
+  assert.equal(nested.length, 1, `nested windows must collapse, got ${nested.length}`)
+  assert.equal(nested[0].wholeChromosome, true,
+    'and the survivor is the WIDER one, because it is the one that can be scored: a precise extent '
+    + 'that comes back not-evaluable is worth less than a coarse one carrying a parent')
+
+  // Half-overlapping windows over one real event become one interval at its full extent.
+  const joined = mergeLoh([f(10e6, 30e6), f(20e6, 40e6), f(30e6, 50e6)])
+  assert.equal(joined.length, 1, 'overlapping windows are one event seen several times')
+  assert.equal(joined[0].startBp, 10e6)
+  assert.equal(joined[0].endBp, 50e6, 'joined to its full extent rather than truncated')
+
+  // Genuinely separate events on one chromosome stay separate.
+  const apart = mergeLoh([f(10e6, 20e6), f(90e6, 110e6)])
+  assert.equal(apart.length, 2, 'a gap between events must not be bridged')
+
+  // And chromosomes never merge into each other.
+  assert.equal(mergeLoh([f(10e6, 20e6), { ...f(10e6, 20e6), chrom: '8' }]).length, 2)
+  assert.ok(LOH_SEGMENT_MARKERS >= 200, 'a window needs enough markers for a rate to mean anything')
 }
 
 console.log('abnormalities.check.ts: all assertions passed, including every class enumerated with '

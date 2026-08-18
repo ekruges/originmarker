@@ -615,3 +615,48 @@ export const overlaps = (a: EventLocation, b: EventLocation): boolean =>
 export const unitsCarrying = (
   event: EventLocation, perUnit: readonly (readonly EventLocation[])[],
 ): number => perUnit.filter((evs) => evs.some((e) => overlaps(e, event))).length
+
+/** Markers per sliding window when copy-neutral LOH is scanned below chromosome scale. */
+export const LOH_SEGMENT_MARKERS = 600
+
+/**
+ * Collapse the redundancy that overlapping windows and a whole-chromosome pass produce.
+ *
+ * BOTH SCALES ARE SCANNED ON PURPOSE and that leaves duplicates to resolve. The whole-chromosome
+ * pass is the one with a detection floor on amplified material, since a 12 Mb-scale interval has
+ * none at any mosaic fraction with one parent; the sliding windows are what give a partial event
+ * its own extent instead of reporting the entire chromosome. So the rule is: keep the widest
+ * interval covering a position, and drop a segment that is only its chromosome restated.
+ *
+ * The wider interval is kept rather than the narrower because it is the one that can be scored: a
+ * precise extent that comes back not-evaluable is worth less to a reader than a coarse one that
+ * carries a parent and a confidence.
+ */
+export function mergeLoh(findings: readonly Finding[]): Finding[] {
+  const byChrom = new Map<string, Finding[]>()
+  for (const f of findings) {
+    if (!byChrom.has(f.chrom)) byChrom.set(f.chrom, [])
+    byChrom.get(f.chrom)!.push(f)
+  }
+  const out: Finding[] = []
+  for (const [, fs] of byChrom) {
+    // Widest first, so a narrower one is only kept where it reaches somewhere none of the wider
+    // ones did.
+    const sorted = fs.slice().sort((a, b) => (b.endBp - b.startBp) - (a.endBp - a.startBp))
+    const kept: Finding[] = []
+    for (const f of sorted) {
+      const covered = kept.some((k) => k.startBp <= f.startBp && f.endBp <= k.endBp)
+      if (!covered) kept.push(f)
+    }
+    // Adjacent survivors from half-overlapping windows are one event seen twice; join them.
+    kept.sort((a, b) => a.startBp - b.startBp)
+    for (const f of kept) {
+      const prev = out[out.length - 1]
+      if (prev && prev.chrom === f.chrom && !prev.wholeChromosome && !f.wholeChromosome
+        && f.startBp <= prev.endBp) {
+        out[out.length - 1] = { ...prev, endBp: Math.max(prev.endBp, f.endBp) }
+      } else out.push(f)
+    }
+  }
+  return out
+}
