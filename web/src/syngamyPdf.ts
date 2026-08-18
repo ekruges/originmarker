@@ -879,10 +879,20 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       if (r.stage) {
         heading('Material and amplification', 8.6)
         const d = Number.isFinite(r.stage.dropout) ? r.stage.dropout.toFixed(3) : 'not assigned'
+        const sd = Number.isFinite(f.profile.hetBafSd)
+          ? f.profile.hetBafSd.toFixed(4) : 'not measured'
         text(`Inferred stage: ${r.stage.stage}. ${r.stage.why}. Template copies per locus `
           + `${r.stage.templates}, reported for context and not used to predict dropout. Allele `
           + `dropout ${d} (basis: ${r.stage.basis}) parameterises every directional call, and `
           + `${r.stage.markerFloor} informative markers are required for one.`, 7.6)
+        text(`The stage rests on TWO measurements. Heterozygosity, `
+          + `${pct(f.profile.hetRate, 2)} of called markers, is how many heterozygous markers `
+          + `SURVIVED, which tracks how much template this sample had. Allele-fraction spread at `
+          + `those markers, ${sd}, is how far the survivors SCATTERED, which tracks how much `
+          + 'amplification it went through. Unamplified genomic DNA scatters at about 0.088 and '
+          + 'whole-genome amplified material at 0.21 to 0.30. Both are required for the bulk rung, '
+          + 'because heterozygosity alone placed amplified samples there and handed them a drift '
+          + 'constant seventeen times tighter than a single cell\'s.', 7.4)
         text(`Limits of this figure: ${r.stage.caveat}.`, 7.4)
         text('Stage is inferred from the array rather than declared. Dropout is a sampling failure '
           + 'during amplification: a heterozygous locus in a single cell is one molecule per '
@@ -901,6 +911,10 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         ['Markers:', `${int(p.markers)} read, ${int(p.called)} called (${pct(p.callRate, 1)})`],
         ['No-call:', pct(p.nocallRate, 2)],
         ['Heterozygous:', `${pct(p.hetRate, 2)} of called`],
+        ['Allele-fraction spread:', Number.isFinite(p.hetBafSd)
+          ? `${p.hetBafSd.toFixed(4)} at heterozygous calls `
+            + `(unamplified DNA ~0.088, amplified 0.21-0.30)`
+          : 'not measured'],
         ['chrX / autosomal het:', p.chrXHetRatio === null ? '-' : p.chrXHetRatio.toFixed(3)],
         ['Sex call:', p.sex],
         ['Product:', p.product],

@@ -9,6 +9,35 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.5.0 "Telomere"
+
+The stage the run inferred is now shown in the run, and both measurements behind it are exportable.
+
+**In the run.** A material panel opens each result, because the stage sets every number below it:
+the drift floor, the variance inflation, the detection floors and the dropout that parameterises
+every directional call, across a seventeen-fold range. A reader who cannot see which stage was
+inferred cannot judge anything underneath it.
+
+The panel shows the two axes side by side with what each one means, since they are easy to confuse
+and they measure different things. Heterozygosity is how many heterozygous markers SURVIVED, which
+tracks how much template there was. Allele-fraction spread at those markers is how far the
+survivors SCATTERED, which tracks amplification. Where heterozygosity alone would have read as bulk
+and the spread overruled it, the panel says so in its heading rather than presenting the demoted
+rung as though heterozygosity had chosen it.
+
+**The reason now matches the reasoning.** A demoted sample previously reported "17.2% heterozygous
+... which is where trophectoderm material sits", crediting heterozygosity for a rung heterozygosity
+had argued against. It now states what it would otherwise have been, the spread that demoted it,
+and how the new rung was chosen. A plausible wrong explanation is the failure this project treats
+as worse than an error.
+
+**Exportable.** The spread appears in the streaming log and therefore the downloaded log file, in
+the sample quality table, in the PDF's material section and quality card, and in `om stage --json`.
+
+Also removes an em dash from the stage log line.
+
+---
+
 ## 5.4.0 "Chromatid"
 
 The stage ladder measured the wrong axis on its top rung. It now reads two.

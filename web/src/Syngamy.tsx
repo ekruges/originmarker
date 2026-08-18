@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { StageCallout } from './StageCallout'
 import {
   Alert, Badge, Button, Group, Paper, Progress, SegmentedControl, Table, Text,
 } from '@mantine/core'
@@ -48,7 +49,7 @@ import {
   groupUnits, unitsCarrying, callUniformity,
 } from './abnormalities'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted'
-import { inferStage } from './stage'
+import { inferStage, stageFacts } from './stage'
 
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
@@ -181,6 +182,8 @@ async function profileFile(
   const g = gates(profile)
   log('PARSE', `${int(n)} markers, ${byChrom.size} chromosomes`)
   log('CALL', `call ${pct(profile.callRate, 1)}, het ${pct(profile.hetRate, 1)}, `
+    + `BAF spread at het calls ${Number.isFinite(profile.hetBafSd)
+      ? profile.hetBafSd.toFixed(4) : 'n/a'}, `
     + `sex ${profile.sex}, ${profile.build.build ?? 'assembly undetermined'}`)
   for (const x of g) {
     if (x.verdict === 'exclude' || x.verdict === 'marginal') {
@@ -521,7 +524,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // downstream likelihood is parameterised by. Bundled into the result so every output
           // carries it, with the basis and the confounds attached to the number.
           result.stage = inferStage(profile)
-          log('DONE', `stage: ${result.stage.stage} — ${result.stage.why}`)
+          log('DONE', `stage: ${result.stage.stage}. ${result.stage.why}`)
           // One contribution or two, per chromosome. Reported, never used to admit or reject a
           // sample: the boundaries are measured for a BULK reference parent, and against a
           // single-cell reference they do not separate at all (audit section E2).
@@ -1360,6 +1363,9 @@ function ResultCard({ entry, donorName, oocyteName }: {
       </div>
       {open && (
         <div style={{ padding: '2px 16px 14px' }}>
+          <StageCallout facts={r.stage && entry.profile
+            ? stageFacts(r.stage, entry.profile) : null}
+          />
           <AneuploidyCallout chroms={r.chroms} role={r.role} />
           {r.gains.length > 0 && (
             <div style={{ marginTop: 10 }}>
@@ -1587,6 +1593,11 @@ function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate
         ['Called', `${int(p.called)}   ${pct(p.callRate, 1)}`],
         ['No-call', pct(p.nocallRate, 2)],
         ['Heterozygous, of called', pct(p.hetRate, 2)],
+        // Two different measurements, so they sit together: how many heterozygotes SURVIVED, and
+        // how far the survivors SCATTERED. The second is what decides the amplification class.
+        ['Allele-fraction spread at het calls', Number.isFinite(p.hetBafSd)
+          ? `${p.hetBafSd.toFixed(4)}   ${p.hetBafSd <= 0.11 ? 'unamplified' : 'amplified'}`
+          : '-'],
         ['chrX / autosomal het', p.chrXHetRatio === null ? '-' : p.chrXHetRatio.toFixed(3)],
         ['Sex', p.sex],
         ['Product', p.product],

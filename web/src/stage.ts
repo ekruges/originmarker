@@ -283,7 +283,9 @@ export function inferStage(
   // sample was amplified, it is demoted to the rungs below and its heterozygosity picks which.
   const sd = profile.hetBafSd
   const amplified = sd !== undefined && Number.isFinite(sd) && sd > (opts.bulkMaxBafSd ?? BULK_MAX_BAF_SD)
+  let demotedFrom: string | null = null
   if (amplified && hit.stage === 'bulk') {
+    demotedFrom = 'bulk'
     hit = BOUNDS.find((b) => b.stage !== 'bulk'
       && h >= (b.stage === 'blastomere' ? haploidMax : b.minHet)) ?? BOUNDS[BOUNDS.length - 1]
   }
@@ -317,9 +319,15 @@ export function inferStage(
       + 'this European-derived anchor is biased by about +0.155, enough to shift the stage by one '
       + 'rung. Where a same-genome replicate exists, prefer dropoutFromReplicates',
     why: `${(h * 100).toFixed(1)}% heterozygous against ${(bulkHet * 100).toFixed(1)}% `
-      + `for bulk DNA on this panel implies ${(implied * 100).toFixed(1)}% dropout, which is where `
-      + `${hit.stage} material sits. Template count is reported for context and does not predict `
-      + 'this figure',
+      + `for bulk DNA on this panel implies ${(implied * 100).toFixed(1)}% dropout`
+      + (demotedFrom
+        ? `, which alone would have read as ${demotedFrom}. But the allele fraction at those `
+          + `heterozygous calls spreads by ${(sd as number).toFixed(4)}, over the `
+          + `${(opts.bulkMaxBafSd ?? BULK_MAX_BAF_SD)} that separates unamplified DNA from `
+          + 'amplified material, so this sample was amplified and cannot take the bulk parameter '
+          + `set. It is placed at ${hit.stage} by its heterozygosity instead`
+        : `, which is where ${hit.stage} material sits`)
+      + '. Template count is reported for context and does not predict this figure',
   }
 }
 
@@ -332,3 +340,65 @@ export function inferStage(
 export const locus = (chrom: string, startBp: number, endBp: number): string =>
   `chr${chrom}:${Math.round(startBp).toLocaleString('en-US')}`
   + `-${Math.round(endBp).toLocaleString('en-US')}`
+
+/**
+ * The stage call reduced to what a reader needs to see, without the component knowing the rules.
+ *
+ * SHOWN AT THE TOP OF A RUN BECAUSE IT SETS EVERYTHING BELOW IT. The stage picks the drift floor,
+ * the variance inflation, the detection floors and the dropout that parameterises every directional
+ * call, and those differ by up to seventeen-fold across the classes. A reader who does not know
+ * which stage was inferred cannot judge any number underneath it.
+ *
+ * BOTH AXES ARE RETURNED SEPARATELY, and that is the point rather than a formatting choice. They
+ * are easy to confuse and they measure different things: heterozygosity counts how many
+ * heterozygous markers SURVIVED, which tracks template count, while the allele-fraction spread at
+ * those markers says how far the survivors SCATTERED, which tracks amplification. Reading only the
+ * first is what put amplified samples on the bulk rung.
+ */
+export interface StageFacts {
+  stage: Stage
+  /** Survived: how many heterozygous markers are left, which tracks template count. */
+  hetRate: number
+  /** Scattered: how far they spread, which tracks amplification. NaN where no BAF was supplied. */
+  hetBafSd: number
+  amplified: boolean | null
+  /** Set when heterozygosity alone would have said bulk and the spread overruled it. */
+  demotedFromBulk: boolean
+  dropout: number
+  basis: string
+  templates: string
+  markerFloor: number
+  caveat: string
+  why: string
+}
+
+export function stageFacts(
+  call: StageCall,
+  profile: { hetRate: number; hetBafSd?: number },
+  bulkMaxBafSd = BULK_MAX_BAF_SD,
+): StageFacts {
+  const sd = profile.hetBafSd
+  const known = sd !== undefined && Number.isFinite(sd)
+  return {
+    stage: call.stage,
+    hetRate: profile.hetRate,
+    hetBafSd: known ? (sd as number) : NaN,
+    amplified: known ? (sd as number) > bulkMaxBafSd : null,
+    // Read from the reason rather than recomputed, so the panel can never disagree with the call.
+    demotedFromBulk: call.why.includes('would have read as bulk'),
+    dropout: call.dropout,
+    basis: call.basis,
+    templates: call.templates,
+    markerFloor: call.markerFloor,
+    caveat: call.caveat,
+    why: call.why,
+  }
+}
+
+/** Plain-language reading of the amplification axis, for a reader who does not know the scale. */
+export const amplificationWord = (f: StageFacts): string => {
+  if (f.amplified === null) return 'not measured, no allele fractions in this file'
+  return f.amplified
+    ? 'whole-genome amplified, which scatters at 0.21 to 0.30'
+    : 'unamplified, consistent with genomic DNA at about 0.088'
+}

@@ -17,7 +17,7 @@ import assert from 'node:assert/strict'
 import {
   inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, QC_CALL_FLOOR,
   BAND_DIPLOID_CERTAIN, MAX_DIPLOID_HET,
-  BULK_MAX_BAF_SD,
+  BULK_MAX_BAF_SD, stageFacts, amplificationWord,
 } from './stage.ts'
 
 const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
@@ -250,6 +250,18 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   assert.equal(inferStage({ hetRate: 0.168, callRate: 0.97, hetBafSd: 0.232 },
     { bulkMaxBafSd: 0.5 }).stage, 'bulk', 'a loosened dial restores the old behaviour')
 
+  // THE EXPLANATION MUST BE THE REASON THE RUNG WAS REACHED, not a reason that argued against it.
+  // Before this, a demoted sample was told "17.2% heterozygous ... which is where trophectoderm
+  // material sits", crediting heterozygosity for a rung heterozygosity had said bulk about. That is
+  // a plausible wrong answer, which is the thing this project treats as worse than an error.
+  assert.ok(amp.why.includes('would have read as bulk'),
+    `a demoted sample must say what it would otherwise have been: ${amp.why}`)
+  assert.ok(amp.why.includes('spreads by'), 'and the measurement that demoted it')
+  assert.ok(amp.why.includes('placed at trophectoderm by its heterozygosity instead'),
+    'and how the new rung was chosen')
+  assert.ok(!clean.why.includes('would have read as'),
+    'a sample that was never demoted must not carry demotion language')
+
   // THE SECOND AXIS TOUCHES ONLY THE TOP RUNG. A blastomere is already placed by heterozygosity
   // and amplified scatter is expected there, so nothing below bulk may move.
   for (const h of [0.150, 0.130, 0.110]) {
@@ -257,6 +269,41 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
     const after = inferStage({ hetRate: h, callRate: 0.9, hetBafSd: 0.25 }).stage
     assert.equal(before, after, `the ${before} rung must not move: it never claimed to be unamplified`)
   }
+}
+
+// --- THE RUN PANEL SHOWS BOTH AXES, AND CANNOT DISAGREE WITH THE CALL ----------------------------
+//
+// The stage sets the drift floor, the variance inflation, the detection floors and the dropout that
+// parameterises every directional call below it, across a seventeen-fold range. A reader who cannot
+// see which stage was inferred cannot judge any number underneath it, so it is the first thing in
+// a run rather than a line in a log.
+{
+  const amp = inferStage({ hetRate: 0.168, callRate: 0.97, hetBafSd: 0.232 })
+  const f = stageFacts(amp, { hetRate: 0.168, hetBafSd: 0.232 })
+  assert.equal(f.stage, 'trophectoderm')
+  assert.equal(f.hetRate, 0.168, 'the survived axis')
+  assert.equal(f.hetBafSd, 0.232, 'and the scattered axis, separately')
+  assert.equal(f.amplified, true)
+  assert.equal(f.demotedFromBulk, true, 'the panel must say when heterozygosity was overruled')
+
+  const clean = inferStage({ hetRate: 0.168, callRate: 0.97, hetBafSd: 0.088 })
+  const g = stageFacts(clean, { hetRate: 0.168, hetBafSd: 0.088 })
+  assert.equal(g.stage, 'bulk')
+  assert.equal(g.amplified, false)
+  assert.equal(g.demotedFromBulk, false)
+  assert.ok(amplificationWord(g).includes('unamplified'))
+  assert.ok(amplificationWord(f).includes('amplified'))
+
+  // DEMOTION IS READ FROM THE CALL'S OWN REASON, not recomputed, so the panel and the call cannot
+  // drift apart and tell a reader two different stories about the same sample.
+  assert.equal(f.demotedFromBulk, amp.why.includes('would have read as bulk'))
+
+  // A file with no allele fractions must say the axis is absent rather than imply unamplified,
+  // since an absent measurement and a low one lead to opposite conclusions.
+  const blind = stageFacts(inferStage({ hetRate: 0.168, callRate: 0.97 }), { hetRate: 0.168 })
+  assert.equal(blind.amplified, null)
+  assert.ok(Number.isNaN(blind.hetBafSd))
+  assert.ok(amplificationWord(blind).includes('not measured'))
 }
 
 console.log('stage.check.ts: all assertions passed, including quality gated before ploidy, '

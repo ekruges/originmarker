@@ -72,8 +72,8 @@ RELEASES: tuple[Release, ...] = (
             "The chromosome end, and the boundary a terminal event runs to."),
 )
 
-VERSION = "5.4.0"
-CODENAME = "Chromatid"
+VERSION = "5.5.0"
+CODENAME = "Telomere"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
