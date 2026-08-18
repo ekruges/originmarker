@@ -9,6 +9,22 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.9.1 "Karyotype"
+
+Restores the service. 5.8.0 and 5.9.0 shipped codenames that were not on the release ladder, and
+`build_info.current()` raises on an unknown name. `/api/health` calls it on every request, so both
+releases returned 500 for the whole service rather than failing cosmetically.
+
+`release-check.sh` passed both. It validated that a codename was not REUSED and that it matched the
+changelog heading, and never checked that it EXISTED, which is the half that the application
+enforces at runtime. It now fails a build whose codename is absent from RELEASES, verified by
+running it against a name that is not there.
+
+Both missing names are added to the ladder rather than the releases being renamed, since they are
+already tagged and published.
+
+---
+
 ## 5.9.0 "Karyotype"
 
 A genome viewer replaces the charts on screen, and the analytical panels move to the report.

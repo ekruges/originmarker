@@ -19,6 +19,23 @@ changelog=$(grep -m1 -oE '^## [0-9]+\.[0-9]+\.[0-9]+' CHANGELOG.md | sed 's/^## 
 say "build_info.py  $build \"$codename\""
 say "CHANGELOG.md   $changelog"
 
+# THE CODENAME MUST EXIST ON THE LADDER, which the app enforces at RUNTIME and this did not check.
+# build_info.current() raises when CODENAME is absent from RELEASES, and /api/health calls it on
+# every request, so an unknown name is not a cosmetic slip: it returns 500 for the whole service.
+# Two releases shipped that way, 5.8.0 and 5.9.0, and both passed this gate. A check that validates
+# how a name is SPELLED while ignoring whether it EXISTS is the wrong half of the problem.
+if ! python3 -c "
+import sys
+sys.path.insert(0, 'originmarker')
+import build_info as b
+sys.exit(0 if b.CODENAME in {r.name for r in b.RELEASES} else 1)
+" 2>/dev/null; then
+  say "CODENAME \"$codename\" is not in RELEASES in originmarker/build_info.py."
+  say "build_info.current() raises on it, and /api/health calls that on every request, so this"
+  say "would ship a service that returns 500. Add the name to the ladder or fix the typo."
+  fails=$((fails + 1))
+fi
+
 # A CODENAME MUST NOT BE REUSED ACROSS RELEASE LINES. It was, twice: 4.14.0 took "Kinetochore" back
 # from 2.0.0 and 4.15.0 took "Recombinase" back from 3.0.0, because the ladder in build_info.py had
 # been spent and nothing checked. A codename that names two unrelated releases identifies neither.

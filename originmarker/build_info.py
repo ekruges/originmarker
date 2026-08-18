@@ -86,11 +86,17 @@ RELEASES: tuple[Release, ...] = (
             "The alignment before separation, where a chromosome is most visible."),
     Release("Spindle",
             "The apparatus that pulls the homologues apart, and misattaches when it fails."),
+    Release("Nondisjunction",
+            "The failure of a pair to separate, which is the event most of what this tool "
+            "detects actually is."),
+    Release("Karyotype",
+            "The complete set of chromosomes taken together, which is what the genome map "
+            "draws rather than one chromosome at a time."),
     Release("Univalent",
             "A chromosome with no partner at metaphase I, which segregates at random."),
 )
 
-VERSION = "5.9.0"
+VERSION = "5.9.1"
 CODENAME = "Karyotype"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
