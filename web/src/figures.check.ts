@@ -115,11 +115,44 @@ import type { FeatureTrack, Region } from './features.ts'
   // THE SHARED AXIS, which is the property that makes panel A readable: per-row axes would make
   // every feature fill its own width and look equally enriched.
   const a = figureEnrichment(c)
-  const rows = a.marks.filter((m) => m.k === 'line' && m.width === 3.2)
+  // The null intervals: horizontal, so y1 === y2, and wider than a cap.
+  const rows = a.marks.filter((m) => m.k === 'line' && m.y1 === m.y2 && m.x2 - m.x1 > 1
+    && m.colour === FIG.grey)
   assert.ok(rows.length >= 2, 'several features to compare')
   const spans = rows.map((m) => (m.k === 'line' ? m.x2 - m.x1 : 0))
   assert.ok(new Set(spans.map((s) => Math.round(s))).size > 1,
-    'null bars must differ in width, which is only possible on one shared axis')
+    'null intervals must differ in width, which is only possible on one shared axis')
+
+  // EVERY INTERVAL CARRIES A SERIF AT EACH END, which is what makes it read as a range rather than
+  // as a bar. A figure that carries both vocabularies must not draw them the same way.
+  const caps = a.marks.filter((m) => m.k === 'line' && m.x1 === m.x2 && m.colour === FIG.grey)
+  for (const r of rows) {
+    if (r.k !== 'line') continue
+    for (const end of [r.x1, r.x2]) {
+      assert.ok(
+        caps.some((cp) => cp.k === 'line' && Math.abs(cp.x1 - end) < 1e-9
+          && cp.y1 < r.y1 && cp.y2 > r.y1),
+        `the interval at y=${r.y1} has no serif at x=${end}`,
+      )
+    }
+  }
+  assert.ok(caps.length >= rows.length * 2)
+
+  // A LEGEND, because a reader should not have to infer what a mark means from the caption.
+  assert.ok(a.marks.some((m) => m.k === 'text' && /null, middle 95%/.test(m.s)))
+  assert.ok(a.marks.some((m) => m.k === 'text' && m.s === 'observed'))
+  // And the sample size on the axis.
+  assert.ok(a.marks.some((m) => m.k === 'text' && /n = \d+/.test(m.s)), 'n must be stated')
+
+  // EVERY PANEL SHARES ONE WIDTH AND ONE LABEL COLUMN, so they stack as a composed figure and a
+  // reader tracks one feature straight down it.
+  assert.ok(figs.every((f) => f.w === figs[0].w), 'panels must share a width to stack')
+  for (const f of figs) {
+    const labels = f.marks.filter((m) => m.k === 'text' && m.anchor === 'end'
+      && m.size === FIG.font.label)
+    assert.ok(labels.every((m) => m.x === FIG.pad.left - 7),
+      'feature labels must sit in the same column in every panel')
+  }
 
   // Fold carries its reference line at 1.00x, in the accent colour so it reads over the bars.
   const fold = figureFold(c)

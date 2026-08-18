@@ -14,8 +14,7 @@
 import { useState } from 'react'
 import { Text } from '@mantine/core'
 import { compare, type ComparisonResult } from './comparison.ts'
-import { comparisonFigures } from './comparisonFigures.ts'
-import { FigureSvg } from './FigureSvg.tsx'
+import { GenomeViewer } from './GenomeViewer.tsx'
 import type { FeatureTrack, Region } from './features.ts'
 import { comparisonPdf } from './comparisonPdf.ts'
 
@@ -106,15 +105,19 @@ export function ComparisonPanel({
               </Text>
 
               {/*
-                THE SAME FIGURES THE REPORT PRINTS, from the same layout in comparisonFigures.ts.
-                Each carries a caption generated from the data, so a figure lifted off this page
-                into a manuscript arrives with its method attached.
+                THE MAP IS THE HEADLINE AND THE PANELS ARE NOT HERE. A reader meeting a result wants
+                to see the genome and what happened to it; a reader checking one wants the four
+                quantitative panels, and those are in the report where they can be read at length
+                beside their methods. Putting all five on screen buries the one that answers "where"
+                under four that answer "how much".
               */}
               <div style={{ marginTop: 12 }}>
-                {comparisonFigures(c, regionNames).map((f) => (
-                  <FigureSvg key={f.caption.slice(0, 14)} figure={f} />
-                ))}
+                <GenomeViewer c={c} />
               </div>
+              <Text size="xs" style={{ color: DIM, marginTop: 2 }}>
+                The enrichment, the permutation nulls, the fold and the region-by-feature matrix are
+                in the report, with the methods that produced them.
+              </Text>
 
               <Text size="xs" fw={700} mt={12} mb={2}>What each feature would mean</Text>
               {c.features.map((f) => (

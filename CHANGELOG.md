@@ -9,6 +9,44 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.9.0 "Karyotype"
+
+A genome viewer replaces the charts on screen, and the analytical panels move to the report.
+
+**The headline is a map now.** Every autosome to scale on one shared base-pair axis, detected
+regions drawn on the chromosome itself, and one lane beneath each for every site class the tool
+scans for. Chromosome extents and centromere positions come from the gap annotations already in the
+track, so the ideogram cannot drift out of step with the features drawn on it. One axis across all
+rows, for the same reason the enrichment panel shares one: per-row scaling would make chr21 and chr1
+look the same size.
+
+**It is a viewer rather than a picture.** A region is clickable and answers for itself: its span,
+every site class it overlaps, and whether any of them offers an alternative explanation. Lanes can
+be hidden from the key. The report keeps the static figure, which is the same geometry and colours
+without the interaction a printed page cannot carry.
+
+**A star marks a region with a mundane explanation available**, and getting that flag right took
+two attempts. Flagging on contact would have starred nearly everything, since late-replication
+valleys cover most of the genome. Flagging on significance alone starred 27 of 27 regions on a real
+run, because significance is a statement about the SET and can hold for a class the null already
+expects three regions in four to overlap. The flag now also requires the class to reach twice the
+chance rate, which makes it mean what a reader takes it to mean: this region sits somewhere it
+usually would not. On a test set with six of twelve regions planted on real fragile sites, exactly
+those six are starred.
+
+**The panels were silently dropping features they could not test.** A track with no computable p
+vanished from the figure, so a reader saw four features listed where five were scanned and had no
+way to know about the fifth. Untestable classes are now carried, named under panel A, and shown in
+the region matrix, which is about coverage rather than power.
+
+**And the figures are one composed set.** Every panel shares a width and a label column, so a
+feature reads straight down the whole figure. Capped intervals rather than bars, so a range does
+not look like a quantity. A legend. Frequency axes on the permutation nulls. The region matrix is
+transposed to keep features as rows, which also avoids rotated text the report's renderer cannot
+draw.
+
+---
+
 ## 5.8.0 "Nondisjunction"
 
 The comparison figures are rebuilt to be readable and to be the same figure on screen and in print.

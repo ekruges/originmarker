@@ -19,7 +19,7 @@
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
 import type { Figure } from './figures.ts'
 import { FIG } from './figures.ts'
-import { comparisonFigures } from './comparisonFigures.ts'
+import { comparisonFigures, figureGenomeMap } from './comparisonFigures.ts'
 import type { ComparisonResult } from './comparison.ts'
 
 const INK = '#1a1a1a'
@@ -103,7 +103,9 @@ export function drawComparison(
   // THE FIGURES, laid out once in comparisonFigures.ts and drawn here by the same four primitives
   // the screen uses. Two implementations of one picture drift, and a reader who notices the drift
   // has to distrust both, so there is only one layout.
-  for (const fig of comparisonFigures(c, regionNames)) {
+  // THE MAP FIRST, then the panels. The report carries both: the map alone is an illustration,
+  // and the panels alone make a reader reconstruct the genome in their head.
+  for (const fig of [figureGenomeMap(c), ...comparisonFigures(c, regionNames)]) {
     need(fig.h + 30)
     // A figure is never split across a page: half a chart is worse than a page break before it.
     y = drawFigure(pdf, fig, L, y)

@@ -61,6 +61,26 @@ export const meaningFor = (feature: string): { label: string; means: string } =>
   FEATURE_MEANING[feature] ?? { label: feature, means: 'a genomic feature supplied with the track' }
 
 /**
+ * Every site class this tool scans for, keyed by the name the enrichment reports.
+ *
+ * ONE SOURCE, so the enrichment, the per-region overlap and the map cannot end up addressing
+ * different tracks. Anything a future track file adds under `extra` is picked up here too, which is
+ * the point of having it in one place rather than three.
+ */
+export function scannedTracks(
+  track: FeatureTrack,
+): Record<string, readonly { chrom: string; startBp: number; endBp: number }[]> {
+  return {
+    'common fragile site': track.fragile ?? [],
+    'gene over 500 kb': track.longGenes ?? [],
+    'centromere or telomere': track.gaps ?? [],
+    'late-replication valley (ES)': track.lateReplicationValleysES ?? [],
+    'late-replication valley (constitutive)': track.lateReplicationValleysConstitutive ?? [],
+    ...(track.extra ?? {}),
+  }
+}
+
+/**
  * Significance at which a coincidence is called, and it is deliberately not 0.05.
  *
  * Every feature in the track is tested on the same regions, so the more features a track carries
@@ -91,6 +111,12 @@ export interface FeatureComparison {
   fold: number
   /** True where p clears the corrected bound. */
   significant: boolean
+  /**
+   * False where the feature was scanned but no p could be computed, usually because the track
+   * carries no intervals or too few regions were comparable. Carried rather than dropped: a figure
+   * listing four of five scanned features says nothing about the fifth.
+   */
+  testable: boolean
   /**
    * FEATURE names touched, which is what the enrichment reports: FRA1B and the like.
    *
@@ -133,6 +159,10 @@ export interface ComparisonResult {
    * reader checks the enrichment against, so a mismatch there is worse than no grid.
    */
   regionNames: string[]
+  /** Where each region is, in the same order, so a map can draw them. */
+  regionSpans: { chrom: string; startBp: number; endBp: number }[]
+  /** The track compared against, kept so a map can draw the features beside the regions. */
+  track: FeatureTrack
   permutations: number
   features: FeatureComparison[]
   /** Generated, so the report's methods always describe the run that produced it. */
@@ -173,19 +203,15 @@ export function compare(
   const raw: Enrichment[] = regions.length
     ? scoreAll(track, regions as Region[], markersByChrom, permutations)
     : []
+  // A FEATURE WITH NO COMPUTABLE p IS STILL A FEATURE THAT WAS SCANNED, and dropping it silently
+  // is the same defect the taxonomy exists to prevent: a figure that lists four features where five
+  // were scanned tells a reader nothing about the fifth. Untestable ones are carried and marked.
   const usable = raw.filter((e) => Number.isFinite(e.p))
+  const untestable = raw.filter((e) => !Number.isFinite(e.p))
   // Corrected for the number of features actually tested, not the number the track could carry.
   const alpha = (opts.alpha ?? ALPHA) / Math.max(1, usable.length)
 
-  // Per-region overlap, against the same intervals the enrichment scored. Keyed on the names
-  // scoreAll emits so the two cannot address different tracks.
-  const intervalsFor: Record<string, readonly { chrom: string; startBp: number; endBp: number }[]> = {
-    'common fragile site': track.fragile ?? [],
-    'gene over 500 kb': track.longGenes ?? [],
-    'centromere or telomere': track.gaps ?? [],
-    'late-replication valley (ES)': track.lateReplicationValleysES ?? [],
-    'late-replication valley (constitutive)': track.lateReplicationValleysConstitutive ?? [],
-  }
+  const intervalsFor = scannedTracks(track)
   const touches = (
     f: { chrom: string; startBp: number; endBp: number }, r: Region,
   ) => f.chrom === r.chrom && f.startBp < r.endBp && r.startBp < f.endBp
@@ -207,11 +233,24 @@ export function compare(
       p: e.p,
       fold: e.nullMean > 0 ? e.observed / e.nullMean : NaN,
       significant: e.p < alpha,
+      testable: true,
       hits: e.hits ?? [],
       regionHits: regions.map((r) => ivs.some((f) => touches(f, r))),
       nullHist: e.nullHist,
     }
   }).sort((a, b) => a.p - b.p)
+
+  // Appended after the tested ones, so the ordering by p still holds for everything comparable.
+  for (const e of untestable) {
+    const m = meaningFor(e.feature)
+    features.push({
+      feature: e.feature, label: m.label, means: m.means,
+      observed: NaN, observedCount: 0, expected: NaN, nullLo: NaN, nullHi: NaN, p: NaN,
+      fold: NaN, significant: false, testable: false,
+      hits: [], regionHits: regions.map(() => false),
+      nullHist: { lo: 0, hi: 0, counts: [] },
+    })
+  }
 
   const hit = features.filter((f) => f.significant)
   const verdict: Verdict = regions.length < minRegions ? 'underpowered'
@@ -233,6 +272,8 @@ export function compare(
     regions: regions.length,
     regionNames: [...(opts.regionNames
       ?? regions.map((r) => `chr${r.chrom} ${(r.startBp / 1e6).toFixed(1)}-${(r.endBp / 1e6).toFixed(1)}Mb`))],
+    regionSpans: regions.map((r) => ({ chrom: r.chrom, startBp: r.startBp, endBp: r.endBp })),
+    track,
     permutations,
     features,
     methods: methodsText(regions.length, permutations, usable.length, alpha),
@@ -287,10 +328,12 @@ export interface EnrichmentBar {
  * easiest way to draw a chart that says the opposite of its data.
  */
 export function enrichmentBars(c: ComparisonResult): EnrichmentBar[] {
-  const axisMax = Math.max(
-    1, ...c.features.map((f) => Math.max(f.observed, f.nullHi, f.expected)),
-  )
-  return c.features.map((f) => ({
+  // An untestable feature has no numbers to scale against, so it must not enter the axis
+  // calculation: one NaN there makes every bar in the figure NaN wide.
+  const nums = c.features.filter((f) => f.testable)
+    .flatMap((f) => [f.observed, f.nullHi, f.expected]).filter((x) => Number.isFinite(x))
+  const axisMax = Math.max(0.05, ...nums)
+  return c.features.filter((f) => f.testable).map((f) => ({
     label: f.label,
     observed: f.observed,
     expected: f.expected,
@@ -501,3 +544,61 @@ export function pooledMarkers<E extends { result?: { markerPositions?: Map<strin
   }
   return new Map([...byChrom].map(([c, set]) => [c, [...set].sort((a, b) => a - b)]))
 }
+
+/**
+ * Which regions have a mundane explanation available, and which site class supplies it.
+ *
+ * A REGION IS FLAGGED ONLY WHERE IT OVERLAPS A CLASS THAT CLEARED THE CORRECTED THRESHOLD. Touching
+ * a feature is not itself informative: late-replication valleys cover most of the genome, so nearly
+ * every region touches one and flagging on contact would star everything. The flag means the region
+ * sits in a class whose coincidence with THIS set of regions is more than the matched null produces,
+ * which is a different and much narrower statement.
+ *
+ * It is a prior on how to read a region, not a verdict on it. A flagged region is not a false
+ * positive; it is one for which an alternative explanation exists and should be weighed.
+ */
+export interface RegionFlag {
+  index: number
+  name: string
+  chrom: string
+  startBp: number
+  endBp: number
+  /** Significant classes this region overlaps. Empty means nothing offers an explanation. */
+  related: string[]
+  /** Every class it overlaps, significant or not, for the detail view. */
+  overlaps: string[]
+}
+
+/**
+ * Effect size a class must reach before overlapping it says anything about ONE region.
+ *
+ * SIGNIFICANCE ALONE IS NOT ENOUGH, and shipping it that way starred 27 of 27 regions on a real
+ * run. Significance is a statement about the SET: that these regions overlap the class more than
+ * matched intervals do. It can hold for a class so broad that the null already expects three
+ * regions in four to overlap it, and then a single region overlapping it is the default outcome
+ * rather than a finding. Late-replication valleys are exactly that: 4,843 of them, a null
+ * expectation of 0.74, and an observation of 0.85 which is both significant and uninformative
+ * per region.
+ *
+ * Requiring twice the chance rate makes the star mean what a reader will take it to mean: this
+ * region sits somewhere it would usually not.
+ */
+export const RELATED_MIN_FOLD = 2
+
+export function regionFlags(c: ComparisonResult, minFold = RELATED_MIN_FOLD): RegionFlag[] {
+  const informative = (f: FeatureComparison) =>
+    f.significant && Number.isFinite(f.fold) && f.fold >= minFold
+  return c.regionSpans.map((r, i) => ({
+    index: i,
+    name: c.regionNames[i] ?? `region ${i + 1}`,
+    chrom: r.chrom,
+    startBp: r.startBp,
+    endBp: r.endBp,
+    related: c.features.filter((f) => informative(f) && f.regionHits[i]).map((f) => f.label),
+    overlaps: c.features.filter((f) => f.regionHits[i]).map((f) => f.label),
+  }))
+}
+
+/** Regions with an alternative explanation available, which is what the star marks. */
+export const relatedCount = (c: ComparisonResult): number =>
+  regionFlags(c).filter((f) => f.related.length).length

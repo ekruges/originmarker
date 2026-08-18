@@ -16,6 +16,7 @@ import assert from 'node:assert/strict'
 import {
   compare, meaningFor, methodsText, enrichmentBars, regionGrid, foldChart, NOT_ABOUT_PARENTS,
   comparisonRegions, listOf, normaliseTrack, nullHistograms, pooledRegions, pooledMarkers,
+  regionFlags, relatedCount, RELATED_MIN_FOLD,
   ALPHA,
 } from './comparison.ts'
 import type { FeatureTrack, Region } from './features.ts'
@@ -308,6 +309,64 @@ const markers = new Map<string, number[]>([['1',
   const m = pooledMarkers(entries as never)
   assert.deepEqual(m.get('1'), [1, 2, 3, 4], 'shared positions must appear once, sorted')
   assert.deepEqual(m.get('2'), [8, 9])
+}
+
+// --- 12. THE STAR IS NARROW, AND THAT IS THE WHOLE POINT ------------------------------------------
+//
+// A region is flagged only where it overlaps a class that CLEARED THE CORRECTED THRESHOLD, not one
+// it merely touches. Late-replication valleys cover most of the genome, so flagging on contact
+// would star nearly every region and mean nothing. The flag says the region sits in a class whose
+// coincidence with this set of regions is more than the matched null produces.
+{
+  const c = compare(track, regions, markers, { permutations: 400 })
+  const flags = regionFlags(c)
+  assert.equal(flags.length, regions.length, 'one flag per region, in order')
+
+  for (const f of flags) {
+    // Everything in `related` must be significant AND overlapped. Neither alone is enough.
+    for (const r of f.related) {
+      const feat = c.features.find((x) => x.label === r)!
+      assert.ok(feat.significant, `${r} is starred but did not clear the threshold`)
+      assert.ok(feat.regionHits[f.index], `${r} is starred on a region it does not overlap`)
+    }
+    // `overlaps` is the wider set and must contain `related`.
+    for (const r of f.related) {
+      assert.ok(f.overlaps.includes(r), 'a related class must also be an overlapped one')
+    }
+    assert.ok(f.overlaps.length >= f.related.length)
+  }
+
+  // TOUCHING IS NOT ENOUGH. If any feature is overlapped but not significant, no region may be
+  // starred on its account, which is what stops the star meaning "touched something".
+  const insig = c.features.find((f) => f.testable && !f.significant && f.regionHits.some(Boolean))
+  if (insig) {
+    assert.ok(flags.every((f) => !f.related.includes(insig.label)),
+      `${insig.label} is overlapped but not significant, so it must never star a region`)
+  }
+
+  // AND SIGNIFICANCE IS NOT ENOUGH EITHER, which shipping it that way proved: 27 of 27 regions
+  // were starred on a real run. Significance is a statement about the SET, and it can hold for a
+  // class so broad that the null already expects three regions in four to overlap it. Then a single
+  // region overlapping it is the default outcome, not a finding. An effect-size floor is what makes
+  // the star mean what a reader takes it to mean.
+  for (const f of flags) {
+    for (const r of f.related) {
+      const feat = c.features.find((x) => x.label === r)!
+      assert.ok(feat.fold >= RELATED_MIN_FOLD,
+        `${r} stars a region at ${feat.fold.toFixed(2)}x, under the ${RELATED_MIN_FOLD}x floor. `
+        + 'A class the null already expects to be hit says nothing about one region')
+    }
+  }
+  const broad = c.features.find((f) => f.testable && f.significant && f.fold < RELATED_MIN_FOLD)
+  if (broad) {
+    assert.ok(flags.every((f) => !f.related.includes(broad.label)),
+      `${broad.label} is significant but only ${broad.fold.toFixed(2)}x, so it must not star`)
+  }
+  // The floor must be a real bar, not a formality.
+  assert.ok(RELATED_MIN_FOLD >= 2, 'at least twice the chance rate')
+
+  assert.equal(relatedCount(c), flags.filter((f) => f.related.length).length)
+  assert.ok(relatedCount(c) <= regions.length)
 }
 
 console.log('comparison.check.ts: all assertions passed, including the parental caveat travelling '
