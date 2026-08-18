@@ -108,3 +108,54 @@ contradicts or reproduces that, because no map was fitted.
 
 The isotonic maps remain the outstanding item. Until they arrive, every posterior this tool emits
 carries uncalibrated: true and says so in its own reason text.
+
+RESULT 4: THE MATERNAL-BY-ABSENCE ARM IS NOT WEAKER HERE, AND APPLYING THE REVIEW'S
+CORRECTION WOULD HAVE INTRODUCED A BIAS WE DO NOT HAVE
+====================================================================================
+"Call M by absence of P" is the workhorse of a one-parent cohort: the father is loaded, and a
+maternal-origin event is named because his contribution is intact while a change is present. The
+review measured that arm as materially weaker on amplified material and instructed that the two
+arms be calibrated SEPARATELY:
+
+  material   class      change is HERS   change is HIS   asymmetry
+  TE         gain            0.402           0.727          +0.325
+  TE         loss            0.777           0.854          +0.077
+  blastomere gain            0.438           0.602          +0.165
+
+Its stated mechanism: "the loaded parent's markers anchor the frame, so the arm that requires
+displacement AWAY from the anchor is the one that loses when the class is also uncertain."
+
+MEASURED ON THIS IMPLEMENTATION, 210,000 injections carrying the real noise of 35 arrays, split by
+which parent's copy was actually affected (arms.ts):
+
+  split                          loaded    other     gap
+  all                            0.8383    0.8421    -0.0038
+  class loss                     0.8457    0.8524    -0.0067
+  class gain                     0.7677    0.7804    -0.0127
+  class cnn-loh                  0.9032    0.8918    +0.0113
+  loss, fraction <= 0.15         0.9482    0.9230    +0.0253
+  gain, fraction <= 0.15         0.4796    0.4875    -0.0079
+  top band (conf >= 0.985)       0.9999    0.9995    +0.0004
+  band B (0.90 - 0.985)          0.9814    0.9701    +0.0113
+
+The 32.5-point gap on gains is not here. Ours is 1.3 points and runs the OTHER WAY. The largest gap
+anywhere is 2.5 points, an order of magnitude below the 13 to 14 points that separate adjacent
+bands, and it does not concentrate on the maternal arm.
+
+WHY, AND IT IS ARCHITECTURAL RATHER THAN LUCKY. The anchoring the review describes is exactly the
+directional null this project removed earlier: the raw one-parent centroid sat at -0.031 on
+trophectoderm under NO event, pointing at the un-genotyped parent, which is the shift a mosaic
+fraction of 0.117 would produce. Self-referencing each chromosome against the array's own genome
+brought that null to -0.001..+0.006 and is why the frame is no longer anchored on the loaded
+parent. The two arms are now exact mirrors: max |mean(loaded) + mean(other)| over every class and
+fraction is 0.00e+0, and mirrored observations produce posteriors summing to 1.000000000.
+
+SO NO ARM-SPECIFIC CORRECTION SHIPS, and that is the finding rather than an omission. Fitting the
+review's asymmetry onto a statistic that does not have it would have biased every maternal call by
+up to 32 points in the direction of a defect we had already engineered out. The check file pins the
+mirror symmetry so a future change cannot reintroduce the anchoring silently.
+
+LIMIT: as everywhere in this file, the events are injected and the informative-marker set is a
+proxy. What this establishes is that the ESTIMATOR is arm-symmetric, not that real maternal and
+paternal events occur at equal rates or are equally detectable in biology.
+

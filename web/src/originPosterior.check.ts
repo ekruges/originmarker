@@ -253,5 +253,35 @@ import {
     + 'was actually earned')
 }
 
+// --- 12. THE TWO ARMS ARE EXACT MIRRORS, WHICH IS WHAT KEEPS CALL-M-BY-ABSENCE HONEST ------------
+//
+// A one-parent run names a maternal event because the father's contribution is intact while a
+// change is present. An external review measured that arm as far weaker than the paternal one on
+// amplified material, a maternal gain on trophectoderm correct 0.402 of the time against 0.727,
+// and its mechanism was that the loaded parent's markers ANCHOR THE FRAME so the arm needing
+// displacement away from the anchor loses.
+//
+// This project removed that anchor before the review was written: self-referencing each chromosome
+// against the array's own genome brought a one-parent null of -0.031 to -0.001..+0.006. Measured on
+// 210,000 injections here the gap is 1.3 points and runs the other way, so no arm correction ships.
+// These assertions are what stop the anchoring returning unnoticed, which would reintroduce a bias
+// against exactly the calls a one-parent cohort depends on.
+{
+  for (const c of CLASSES) {
+    for (let f = 0.02; f <= 0.70; f += 0.02) {
+      assert.equal(shiftMean(c, f, 'loaded') + shiftMean(c, f, 'other'), 0,
+        `the arms must be exact mirrors: ${c} at f=${f.toFixed(2)} is anchored`)
+    }
+  }
+  // And a mirrored OBSERVATION must give a mirrored posterior, which is the property a reader of a
+  // one-parent run is relying on without knowing it.
+  for (const d of [0.004, 0.02, 0.08, 0.2]) {
+    const a = originPosterior({ shift: +d, shiftSd: 0.01, material: 'trophectoderm', markers: 800 })
+    const b = originPosterior({ shift: -d, shiftSd: 0.01, material: 'trophectoderm', markers: 800 })
+    assert.ok(Math.abs((a.pOther + b.pOther) - 1) < 1e-9,
+      `mirrored observations must give mirrored posteriors at d=${d}: got ${a.pOther + b.pOther}`)
+  }
+}
+
 console.log('originPosterior.check.ts: all assertions passed, including the regression that a true '
   + 'gain on the un-genotyped parent is no longer inverted into a confident call for the loaded one')

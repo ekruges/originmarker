@@ -9,6 +9,34 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.5.1 "Telomere"
+
+Measured whether "call M by absence of P" is the weaker arm here, as an external review said it
+would be. It is not, and no correction ships.
+
+The review measured a maternal-origin gain on trophectoderm as correct 0.402 of the time against
+0.727 for the paternal arm, a 32.5-point gap, and instructed that the two arms be calibrated
+separately. Its stated mechanism was that the loaded parent's markers anchor the frame, so the arm
+needing displacement away from the anchor loses.
+
+Measured on this implementation over 210,000 injections carrying the real noise of 35 arrays and
+split by which parent's copy was actually affected: the gain gap is 1.3 points and runs the OTHER
+way, the largest gap anywhere is 2.5 points, and the top band reads 0.9999 against 0.9995. The
+32.5-point asymmetry is absent.
+
+The reason is architectural rather than lucky. The anchoring the review describes is the directional
+null this project removed earlier: a raw one-parent centroid sitting at -0.031 on trophectoderm
+under no event, which self-referencing against the array's own genome brought to -0.001..+0.006. The
+two arms are now exact mirrors, with the maximum of |mean(loaded) + mean(other)| over every class
+and fraction at 0.00e+0 and mirrored observations giving posteriors that sum to 1.000000000.
+
+So fitting the review's asymmetry onto this statistic would have biased every maternal call by up to
+32 points toward a defect already engineered out. The check file now pins the mirror symmetry, so
+the anchoring cannot return unnoticed and quietly penalise exactly the calls a one-parent cohort
+depends on. Method and the full split in audit/calibration/FINDINGS.txt.
+
+---
+
 ## 5.5.0 "Telomere"
 
 The stage the run inferred is now shown in the run, and both measurements behind it are exportable.
