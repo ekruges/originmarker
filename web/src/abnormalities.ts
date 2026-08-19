@@ -112,8 +112,10 @@ export const TAXONOMY: readonly TaxonomyEntry[] = [
     cls: 'triploidy', label: 'Triploidy', detectable: 'yes',
     by: 'genome-wide allele-fraction band structure: mass at one third and two thirds with the '
       + 'half band vacated, which a diploid genome cannot produce',
-    origin: 'the PLOIDY is called with no parent at all. Saying whether the extra set is maternal '
-      + 'or paternal needs parental DNA',
+    origin: 'the PLOIDY is called with no parent at all. WHOSE the extra set is comes from allele '
+      + 'fraction at the loaded parent\'s homozygous markers: their allele sits at one third if '
+      + 'the extra set is the other parent\'s and at two thirds if it is theirs, which is a third '
+      + 'of the scale apart. Needs a genotyped parent, which every run this tool is built for has',
   },
   {
     cls: 'haploidy', label: 'Haploidy', detectable: 'yes',
@@ -123,9 +125,10 @@ export const TAXONOMY: readonly TaxonomyEntry[] = [
   {
     cls: 'complex', label: 'Complex or chaotic genome', detectable: 'yes',
     by: 'the share of autosomes deviating from the array\'s own centre',
-    origin: 'NONE AT ANY CONFIDENCE. Every origin statistic here is self-referenced against the '
-      + 'array\'s own genome, and a genome this disturbed has no undisturbed part to reference '
-      + 'against. The event is reported and no parent is named',
+    origin: 'the DOSAGE channel refuses: it is self-referenced against the array\'s own genome and '
+      + 'this genome has no undisturbed part left to reference against. The obligate-het channel '
+      + 'does not refuse, because it is Mendelian rather than self-referenced: a parent who is AA '
+      + 'has no B to give, and that holds however disturbed the rest of the genome is',
   },
   {
     cls: 'gamete-de-novo', label: 'Segmental change introduced by the gamete', detectable: 'partly',
@@ -542,7 +545,11 @@ export const unanswerable = (twoParents: boolean, units: number): TaxonomyEntry[
 
 /** Classes whose origin cannot be named even where the class itself is detected. */
 export const ORIGIN_UNREACHABLE: ReadonlySet<AbnormalityClass> = new Set<AbnormalityClass>([
-  'triploidy', 'complex', 'heterodisomy', 'reverse-segregation', 'tandem-vs-inserted',
+  // Triploidy and complex genomes were here and should not have been. A triploid's extra set is
+  // named from allele fraction at the loaded parent's homozygous markers, and a complex genome
+  // keeps the obligate-het channel, which is Mendelian rather than self-referenced. Both were
+  // declared unreachable on reasoning that was true of ONE channel and applied to all of them.
+  'heterodisomy', 'reverse-segregation', 'tandem-vs-inserted',
 ])
 
 /**
@@ -660,3 +667,96 @@ export function mergeLoh(findings: readonly Finding[]): Finding[] {
   }
   return out
 }
+
+// ---------------------------------------------------------------------------------------------
+// The two classes whose origin was declared unreachable, and was not.
+
+/**
+ * Which parent contributed the extra set of a triploid, from allele fraction at the loaded parent's
+ * HOMOZYGOUS markers.
+ *
+ * DECLARED UNREACHABLE AND IT IS NOT. The taxonomy said band structure cannot say whose the extra
+ * set is, and that is true of band structure ALONE: the thirds are there whichever parent
+ * contributed. But with a parent genotyped the ambiguity disappears, and this tool has a parent
+ * genotyped in every run it is built for.
+ *
+ * The algebra is one line. At a marker where the loaded parent is homozygous, a triploid carries
+ * three alleles: one from the loaded parent plus two from the other if the extra set is the other
+ * parent's, or two from the loaded parent plus one from the other if it is theirs. So the loaded
+ * parent's allele sits at one third in the first case and two thirds in the second, and the two are
+ * a third of the scale apart.
+ *
+ * SAME STATISTIC AS THE TRISOMY MECHANISM, deliberately: occupancy over many markers rather than a
+ * per-marker assignment, because per-marker band calling needs a BAF spread below 0.053 and fails on
+ * every amplified class. Occupancy asks where mass sits, which is insensitive to per-marker scatter.
+ */
+export type TriploidyOrigin = 'extra-set-loaded-parent' | 'extra-set-other-parent' | 'unresolved'
+
+/** Where the loaded parent's allele sits under each hypothesis. */
+export const TRIPLOID_LOADED_TWO_THIRDS = 2 / 3
+export const TRIPLOID_LOADED_ONE_THIRD = 1 / 3
+/** Markers below which the occupancy is not attempted, matching the trisomy mechanism's floor. */
+export const MIN_MARKERS_TRIPLOID_ORIGIN = 400
+
+export function callTriploidyOrigin(
+  /** [loaded parent genotype, sample B-allele frequency] at markers the parent is homozygous at. */
+  pairs: readonly (readonly [string, number])[],
+  opts: { minMarkers?: number; halfWidth?: number } = {},
+): { origin: TriploidyOrigin; atTwoThirds: number; atOneThird: number; markers: number; why: string } {
+  const need = opts.minMarkers ?? MIN_MARKERS_TRIPLOID_ORIGIN
+  const w = opts.halfWidth ?? BAND_HALF_WIDTH
+  let two = 0
+  let one = 0
+  let n = 0
+  for (const [g, baf] of pairs) {
+    if (g !== 'AA' && g !== 'BB') continue
+    if (!Number.isFinite(baf)) continue
+    // Oriented so the LOADED parent's own allele reads high, whichever homozygote it is.
+    const share = g === 'AA' ? 1 - baf : baf
+    n += 1
+    if (Math.abs(share - TRIPLOID_LOADED_TWO_THIRDS) <= w) two += 1
+    else if (Math.abs(share - TRIPLOID_LOADED_ONE_THIRD) <= w) one += 1
+  }
+  const atTwoThirds = n ? two / n : NaN
+  const atOneThird = n ? one / n : NaN
+  const base = { atTwoThirds, atOneThird, markers: n }
+  if (n < need) {
+    return {
+      ...base,
+      origin: 'unresolved',
+      why: `${n} markers where the loaded parent is homozygous, under the ${need} this needs. The `
+        + 'statistic is an occupancy over many markers rather than a per-marker call, so it needs '
+        + 'the count rather than the precision',
+    }
+  }
+  if (atTwoThirds > atOneThird) {
+    return {
+      ...base,
+      origin: 'extra-set-loaded-parent',
+      why: `${(100 * atTwoThirds).toFixed(1)}% of markers put the loaded parent's allele at two `
+        + `thirds against ${(100 * atOneThird).toFixed(1)}% at one third. Two of the three copies `
+        + 'are that parent\'s, so the extra set is theirs',
+    }
+  }
+  return {
+    ...base,
+    origin: 'extra-set-other-parent',
+    why: `${(100 * atOneThird).toFixed(1)}% of markers put the loaded parent's allele at one third `
+      + `against ${(100 * atTwoThirds).toFixed(1)}% at two thirds. Only one of the three copies is `
+      + 'that parent\'s, so the extra set is the other parent\'s',
+  }
+}
+
+/**
+ * The channel that still works on a genome with nothing left to self-reference against.
+ *
+ * ALSO DECLARED UNREACHABLE, AND ALSO NOT. The reasoning was sound for the channel it was about:
+ * every DOSAGE statistic here is measured against the rest of the array's own genome, and a genome
+ * this disturbed has no undisturbed remainder to measure against. But the obligate-het channel is
+ * not self-referenced at all. It is Mendelian: a parent who is AA has no B to give, so a B in the
+ * sample came from the other parent, and that holds however disturbed the rest of the genome is.
+ *
+ * So a complex genome refuses the dosage channel and keeps the genotype one, which is a narrower
+ * and truer statement than refusing everything.
+ */
+export const COMPLEX_KEEPS_GENOTYPE_CHANNEL = true

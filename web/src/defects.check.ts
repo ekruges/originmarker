@@ -270,10 +270,14 @@ const one = (where: string, verdict: string) => ({
   assert.equal(blocked.confidence, undefined)
 
   // A class whose ORIGIN IS BLOCKED BY THE CLASS must not read like one that merely failed.
-  const tri = findingToDefect({ cls: 'triploidy', chrom: 'genome', startBp: 0, endBp: 0,
-    wholeChromosome: true, evidence: 'mass at the thirds, half band vacated',
-    originBlocked: 'band structure cannot say whose the extra set is' })
-  assert.ok(originBlockedByClass('triploidy'))
+  const tri = findingToDefect({ cls: 'heterodisomy', chrom: '7', startBp: 0, endBp: 159e6,
+    wholeChromosome: true, evidence: 'copy number two and heterozygosity normal',
+    originBlocked: 'needs both parents alongside the embryo' })
+  // Triploidy came off this list: with a genotyped parent, allele fraction at the parent's
+  // homozygous markers puts their allele at one third or two thirds and names the extra set.
+  assert.ok(!originBlockedByClass('triploidy'))
+  // The three that remain are genuine platform limits rather than channel limits.
+  assert.ok(originBlockedByClass('heterodisomy'))
   assert.ok(!originBlockedByClass('cnn-loh'),
     'copy-neutral LOH CAN carry a parent, and is in fact the largest-signal class of the three')
   assert.ok(headline(tri).includes('no parental origin exists for this class'),

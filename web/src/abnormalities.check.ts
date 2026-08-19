@@ -18,6 +18,7 @@ import {
   unanswerable, ORIGIN_UNREACHABLE, LCSH_REPORT_MB, UPD_NO_STRETCH_RATE, LOH_DEPLETION,
   CLUSTERED_DROPOUT_DEPLETION, COMPLEX_DEVIANT_FRACTION, TRIPLOID_BANDS, DIPLOID_BAND,
   runsOfHomozygosity, groupUnits, overlaps, unitsCarrying, mergeLoh, LOH_SEGMENT_MARKERS,
+  callTriploidyOrigin,
   type Finding,
   type WindowStat, type RunOfHomozygosity,
 } from './abnormalities.ts'
@@ -156,7 +157,11 @@ import {
   assert.equal(tri!.cls, 'triploidy')
   // The ploidy needs no parent, but the PARENT of the extra set is a different question.
   assert.ok(tri!.originBlocked!.includes('Digynic and diandric'))
-  assert.ok(ORIGIN_UNREACHABLE.has('triploidy'))
+  // The PLOIDY needs no parent; WHOSE the extra set is does, and having one it is answerable. See
+  // section 13: this class was on the unreachable list on reasoning that was true of band
+  // structure alone.
+  assert.ok(!ORIGIN_UNREACHABLE.has('triploidy'),
+    'with a genotyped parent the extra set is nameable, so triploidy is not origin-unreachable')
 
   // A diploid genome occupies the half band, and that occupancy alone must veto the call even if
   // the thirds are also populated by noise. This is the discriminating half of the statistic.
@@ -175,7 +180,11 @@ import {
   assert.ok(chaotic!.originBlocked!.includes('no undisturbed part left'))
   assert.ok(chaotic!.originBlocked!.includes('rather than a fault of the array'),
     'the difference between a disturbed genome and a poor array is what a reader acts on')
-  assert.ok(ORIGIN_UNREACHABLE.has('complex'))
+  // The DOSAGE channel refuses here and must: it is self-referenced and there is nothing left to
+  // reference against. The obligate-het channel does not, because it is Mendelian. Refusing every
+  // channel on the strength of one channel's limit is what section 13 corrects.
+  assert.ok(!ORIGIN_UNREACHABLE.has('complex'),
+    'a complex genome keeps the Mendelian channel even though it loses the self-referenced one')
 
   // The same conclusion arrives from a collapsed call rate, for the same reason.
   assert.ok(detectComplex(1, 22, 0.5))
@@ -316,6 +325,50 @@ import {
   // And chromosomes never merge into each other.
   assert.equal(mergeLoh([f(10e6, 20e6), { ...f(10e6, 20e6), chrom: '8' }]).length, 2)
   assert.ok(LOH_SEGMENT_MARKERS >= 200, 'a window needs enough markers for a rate to mean anything')
+}
+
+// --- 13. THE TWO CLASSES DECLARED UNREACHABLE, AND WERE NOT ---------------------------------------
+//
+// Both were ruled out on reasoning that was true of ONE channel and applied to every channel. A
+// triploid's extra set is named from allele fraction at the loaded parent's homozygous markers; a
+// complex genome refuses the dosage channel and keeps the Mendelian one.
+{
+  const at = (share: number, n: number, g: 'AA' | 'BB' = 'AA') =>
+    Array.from({ length: n }, () => [g, g === 'AA' ? 1 - share : share] as const)
+
+  // Two of three copies are the loaded parent's: the extra set is theirs.
+  const theirs = callTriploidyOrigin(at(2 / 3, 600))
+  assert.equal(theirs.origin, 'extra-set-loaded-parent')
+  assert.ok(theirs.why.includes('two thirds'))
+
+  // One of three: the extra set is the other parent's.
+  const others = callTriploidyOrigin(at(1 / 3, 600))
+  assert.equal(others.origin, 'extra-set-other-parent')
+
+  // BOTH HOMOZYGOTES MUST ORIENT THE SAME WAY, or the statistic acquires a directional null of the
+  // kind this project has already had to remove once.
+  assert.equal(callTriploidyOrigin(at(2 / 3, 600, 'BB')).origin, 'extra-set-loaded-parent')
+  assert.equal(callTriploidyOrigin(at(1 / 3, 600, 'BB')).origin, 'extra-set-other-parent')
+
+  // Occupancy, not per-marker calling: wide scatter must not defeat it, because per-marker band
+  // assignment needs a BAF spread under 0.053 and fails on every amplified class.
+  const noisy = Array.from({ length: 600 }, (_, i) =>
+    ['AA', 1 - (2 / 3 + 0.09 * Math.sin(i * 2.399963))] as const)
+  assert.equal(callTriploidyOrigin(noisy).origin, 'extra-set-loaded-parent',
+    'per-marker dispersion must not defeat an occupancy statistic')
+
+  // And it declines rather than guessing when there is not enough to count.
+  assert.equal(callTriploidyOrigin(at(2 / 3, 50)).origin, 'unresolved')
+
+  // NEITHER CLASS IS ON THE UNREACHABLE LIST ANY MORE, and the three real limits still are.
+  assert.ok(!ORIGIN_UNREACHABLE.has('triploidy'))
+  assert.ok(!ORIGIN_UNREACHABLE.has('complex'))
+  for (const c of ['heterodisomy', 'reverse-segregation', 'tandem-vs-inserted'] as const) {
+    assert.ok(ORIGIN_UNREACHABLE.has(c), `${c} is a real limit and must stay`)
+  }
+  // The taxonomy text must say HOW, not merely that it is possible.
+  assert.ok(taxonomyFor('triploidy')!.origin.includes('two thirds'))
+  assert.ok(taxonomyFor('complex')!.origin.includes('Mendelian rather than self-referenced'))
 }
 
 console.log('abnormalities.check.ts: all assertions passed, including every class enumerated with '

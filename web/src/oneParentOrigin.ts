@@ -52,6 +52,69 @@ export const DROP_IN = 0.0435
 /** Posterior a hypothesis must reach before the region is called. */
 export const CALL_POSTERIOR = 0.95
 
+/**
+ * The error this channel's validation cannot rule out, which is what caps a reported confidence.
+ *
+ * THE LIKELIHOOD SATURATES BECAUSE IT IS CONDITIONED ON THE MODEL BEING RIGHT, and over hundreds of
+ * near-independent Mendelian markers it is right or wrong decisively. Measured on the shipped code:
+ * 1.0000 at 0, 4, 8, 12, 16, 17, 18, 20, 24, 30 and 60 exclusive markers out of 400, including on
+ * both sides of the point where the verdict flips. That is the likelihood answering the question it
+ * was asked, not a defect in it.
+ *
+ * It is the wrong quantity to REPORT, because the model can be wrong in ways no marker count
+ * touches: a contaminated reaction, a mislabelled file, an error rate mis-specified for a chemistry
+ * not in the calibration set. What a reader needs is the chance the CALL is right, and that is
+ * bounded by what the validation supports rather than by what the likelihood computes.
+ *
+ * Both anchors are this project's own. The trio validation is 12 of 12 with the mother hidden. The
+ * methods review computed the cluster-robust form of exactly this kind of claim: 251 of 251 correct
+ * from 13 INDEPENDENT UNITS, a one-sided zero-event error bound of 0.206 rather than 0.012, and it
+ * says in terms that quoting the uncorrected figure "overstates by a factor of 17". So a reported
+ * confidence above 1 - 0.206 claims validation nobody has.
+ */
+export const VALIDATION_UNITS = 13
+export const SYSTEMATIC_ERROR_BOUND = 0.206
+
+/**
+ * Log-odds at which half the distance from the floor to the cap is reached.
+ *
+ * Sets how quickly evidence buys confidence. A log-odds of 12 is a likelihood ratio of about
+ * 160,000, which is where a Mendelian call over a few hundred markers stops being marginal.
+ */
+export const HALF_EVIDENCE = 12
+
+/**
+ * Turn the saturated likelihood into a confidence a reader can act on.
+ *
+ * TWO CHANGES, AND THE SECOND IS WHY THE NUMBER MOVES AT ALL. The cap comes first: nothing is
+ * reported above what the truth set supports. Then the ORDERING is taken from the likelihood's
+ * LOG-ODDS rather than its probability, because that is where the evidence varies. A raw posterior
+ * runs 0.999869 to 1.0000 over the whole usable range, one part in ten thousand and unreadable; the
+ * same evidence in log-odds runs from about 9 to over a thousand.
+ *
+ * Monotone, so it cannot reorder two calls, and a reparameterisation rather than new evidence: the
+ * VERDICT is untouched. Only the number beside it changes, from one that claimed certainty the
+ * validation cannot support to one bounded by it.
+ *
+ * IT TAKES THE LOG MARGIN, NOT THE PROBABILITY, and that distinction is the whole thing. Once the
+ * log-likelihoods are exponentiated and normalised, the best hypothesis reaches exactly 1.0 in
+ * floating point and every difference between a marginal call and an overwhelming one is gone: a
+ * first attempt read the probability, clamped it away from 1, and ended up reporting the CLAMP
+ * rather than the evidence. The margin between the best hypothesis and the next best is the same
+ * information before it is destroyed, and it runs from about zero to over a thousand.
+ */
+export function reportedConfidence(
+  logMargin: number, opts: { bound?: number; halfEvidence?: number } = {},
+): number {
+  if (!Number.isFinite(logMargin)) return NaN
+  const bound = opts.bound ?? SYSTEMATIC_ERROR_BOUND
+  const half = opts.halfEvidence ?? HALF_EVIDENCE
+  const floor = 1 / 3
+  const cap = 1 - bound
+  if (!(logMargin > 0)) return floor
+  return floor + (cap - floor) * (logMargin / (logMargin + half))
+}
+
 /** Fewest informative markers before a region is scored. */
 export const MIN_MARKERS = 50
 
@@ -175,6 +238,8 @@ export function callOneParentOrigin(
    */
   opts: {
     minMarkers?: number, maxRegionHet?: number, callPosterior?: number,
+    /** Error the validation cannot rule out, which caps the reported confidence. */
+    systematicErrorBound?: number,
   } = {},
 ): OneParentCall {
   const minMarkers = opts.minMarkers ?? MIN_MARKERS
@@ -229,6 +294,11 @@ export function callOneParentOrigin(
   let best = 0
   for (let i = 1; i < 3; i += 1) if (post[i] > post[best]) best = i
 
+  // The margin over the next-best hypothesis, in log space, which is the evidence before
+  // normalising destroys it.
+  const runnerUp = Math.max(...logs.filter((_, i) => i !== best))
+  const reported = reportedConfidence(logs[best] - runnerUp, { bound: opts.systematicErrorBound })
+
   if (post[best] < callPosterior) {
     return {
       ...base, verdict: 'refused', posterior: post[best], band: 'D' as Band,
@@ -239,8 +309,10 @@ export function callOneParentOrigin(
   return {
     ...base,
     verdict: names[best],
-    posterior: post[best],
-    band: bandObligateHet(post[best]),
+    // Reported rather than raw: the likelihood is decisive under its own model, and the model is
+    // not the only thing that can be wrong. See SYSTEMATIC_ERROR_BOUND.
+    posterior: reported,
+    band: bandObligateHet(reported),
     why: `${names[best]} at posterior ${post[best].toFixed(4)} over ${n} markers where the loaded `
       + `parent is homozygous. ${exclusive} carry the allele that parent does not have `
       + `(${(rate * 100).toFixed(1)}%), which only its absence explains, and ${het} are `

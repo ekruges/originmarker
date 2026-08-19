@@ -9,6 +9,51 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.10.0 "Dictyate"
+
+Both partial requirements are closed, and neither was closed by lowering the bar.
+
+**Two classes were declared origin-unreachable on reasoning that was true of one channel.**
+
+A triploid's extra set: the taxonomy said band structure cannot say whose it is, which is true of
+band structure ALONE, since the thirds are there whichever parent contributed. With a genotyped
+parent the ambiguity disappears, and every run this tool is built for has one. At a marker where
+the loaded parent is homozygous, a triploid carries one of their alleles plus two of the other
+parent's, or two of theirs plus one of the other's, so their allele sits at one third or at two
+thirds and the two are a third of the scale apart. Called by occupancy over many markers rather
+than per-marker assignment, matching the trisomy mechanism, because per-marker band calling needs a
+BAF spread under 0.053 and fails on every amplified class.
+
+A complex genome: every DOSAGE statistic here is self-referenced against the array's own genome,
+and a genome this disturbed has no undisturbed remainder to reference against. That was applied to
+every channel, and the obligate-het channel is not self-referenced at all. It is Mendelian: a
+parent who is AA has no B to give, and that holds however disturbed the rest of the genome is. A
+complex genome now refuses the dosage channel and keeps the genotype one, which is narrower and
+truer than refusing everything.
+
+**And the genotype channel's confidence now varies with the evidence.** It reported the likelihood,
+which is conditioned on the model being right and is decisive over hundreds of near-independent
+Mendelian markers: 1.0000 at every evidence level tested, including both sides of the point where
+the verdict flips. Two things changed. The reported number is bounded by what the validation
+supports rather than by what the likelihood computes, using this project's own cluster-robust
+figure: 251 of 251 correct from 13 independent units gives a zero-event error bound of 0.206, and
+the review says in terms that quoting the uncorrected number overstates by a factor of 17. And the
+ordering comes from the LOG MARGIN over the next-best hypothesis rather than from the probability,
+because once the log-likelihoods are normalised the best hypothesis reaches exactly 1.0 in floating
+point and every difference between a marginal call and an overwhelming one is gone. A first attempt
+read the probability and clamped it, which reported the clamp rather than the evidence.
+
+The reported confidence now spans 0.53 to 0.79 across the usable range, dips at the point where the
+verdict flips, and cannot reach the top band. The CALLING GATE still runs on the raw likelihood,
+which is the question it asks: whether the model is sure enough to name a hypothesis. The two are
+different questions on different scales and the tests say so.
+
+Three classes remain unanswerable and are named rather than counted: heterodisomy needs both
+parents, tandem and inserted duplications carry no positional difference in either channel, and
+reverse segregation is normal in copy number in 20 of 26 observed cases.
+
+---
+
 ## 5.9.2 "Karyotype"
 
 A requirements audit that runs against the shipped code, and three fixes a review found.

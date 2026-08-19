@@ -169,7 +169,20 @@ head('6. EVERY ABNORMALITY: LOCATION AND A CONFIDENCE-SCORED ORIGIN',
     if (blocked) { structural += 1; ev(`${t.label.padEnd(46)} origin blocked BY THE CLASS`) }
     else withOrigin += 1
   }
-  ev(`${withOrigin} of ${classes.length} detectable classes can carry an origin; ${structural} cannot, by their nature`)
+  ev(`${withOrigin} of ${classes.length} detectable classes can carry an origin; ${structural} cannot`)
+
+  // The two that were on that list and should not have been, exercised rather than asserted.
+  const at = (share: number, k: number) =>
+    Array.from({ length: k }, () => ['AA', 1 - share] as const)
+  const triTheirs = tax.callTriploidyOrigin(at(2 / 3, 600))
+  const triOther = tax.callTriploidyOrigin(at(1 / 3, 600))
+  ev(`triploidy, loaded parent's allele at two thirds -> ${triTheirs.origin}`)
+  ev(`triploidy, loaded parent's allele at one third  -> ${triOther.origin}`)
+  const cxBlocked = dosage.callDosageOrigin(region(N, 0.5 + 0.14) as never, bg as never,
+    'trophectoderm', { wholeChromosome: true, noSelfReference: true })
+  const mendelian = oneP.callOneParentOrigin(
+    Array.from({ length: 400 }, (_, i) => ['AA', i < 120 ? 'BB' : 'AA']) as never, 0.20)
+  ev(`complex genome: dosage ${cxBlocked.verdict}, and the Mendelian channel still says ${mendelian.verdict}`)
 
   // Location on every finding.
   const f = { cls: 'cnn-loh' as const, chrom: '7', startBp: 1e6, endBp: 14e6, wholeChromosome: false,
@@ -184,9 +197,15 @@ head('6. EVERY ABNORMALITY: LOCATION AND A CONFIDENCE-SCORED ORIGIN',
   // And a named parent must never appear without a number.
   const namedNoNumber = withCall.origin !== 'unclear' && !Number.isFinite(withCall.confidence)
   ev(`a named parent without a confidence is constructible: ${namedNoNumber}`)
-  verdict(!namedNoNumber && withoutCall.locus ? 'PARTIAL' : 'NOT MET',
-    `location is always present; an origin is carried for ${withOrigin} of ${classes.length} `
-    + `detectable classes, and ${structural} are blocked by the class itself rather than by weak evidence`)
+  const bothReachable = triTheirs.origin === 'extra-set-loaded-parent'
+    && triOther.origin === 'extra-set-other-parent'
+    && mendelian.verdict !== 'refused'
+  verdict(!namedNoNumber && withoutCall.locus && structural === 0 && bothReachable
+    ? 'MET' : 'PARTIAL',
+    `location is always present, every named parent carries a number, and all ${withOrigin} `
+    + 'detectable classes can carry an origin: a triploid\'s extra set from allele fraction at the '
+    + 'loaded parent\'s homozygous markers, a complex genome from the Mendelian channel that needs '
+    + 'no self-reference')
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -263,18 +282,20 @@ head('10. THE GENOTYPE CHANNELS', 'implied by "as much as you can"')
     return o
   }
   const seen = new Set<string>()
-  for (const ex of [0, 2, 8, 40, 120, 300]) {
-    const c = oneP.callOneParentOrigin(rows(400, ex) as never, 0.20)
+  for (const [n2, ex] of [[60, 3], [100, 2], [200, 5], [400, 8], [400, 40], [400, 300]] as const) {
+    const c = oneP.callOneParentOrigin(rows(n2, ex) as never, 0.20)
     seen.add(c.posterior.toFixed(4))
-    ev(`${String(ex).padStart(3)} exclusive markers -> posterior ${c.posterior.toFixed(4)}  band ${c.band}  ${c.verdict}`)
+    ev(`${String(n2).padStart(3)} markers, ${String(ex).padStart(3)} exclusive -> confidence ${c.posterior.toFixed(4)}  band ${c.band}  ${c.verdict}`)
   }
-  ev(`distinct posteriors across that range: ${seen.size}`)
-  const capped = oneP.callOneParentOrigin(rows(400, 300) as never, 0.20).band !== 'A'
-  ev(`capped below the top band: ${capped}`)
-  verdict(seen.size === 1 && capped ? 'PARTIAL' : seen.size > 1 ? 'MET' : 'NOT MET',
-    seen.size === 1
-      ? 'the posterior does not discriminate; it is capped and flagged, and the band is the output'
-      : 'the posterior discriminates')
+  ev(`distinct confidences across that range: ${seen.size}`)
+  const cap = 1 - oneP.SYSTEMATIC_ERROR_BOUND
+  const top = oneP.callOneParentOrigin(rows(900, 400) as never, 0.20)
+  ev(`ceiling ${cap.toFixed(3)}, from ${oneP.VALIDATION_UNITS} independent validation units`)
+  ev(`strongest evidence reaches ${top.posterior.toFixed(4)}, under the ceiling: ${top.posterior <= cap + 1e-9}`)
+  ev(`and stays out of the top band: ${top.band !== 'A'}`)
+  verdict(seen.size > 3 && top.posterior <= cap + 1e-9 && top.band !== 'A' ? 'MET' : 'PARTIAL',
+    'the reported confidence varies with the evidence and is bounded by what the validation '
+    + 'supports, rather than reporting a likelihood that is decisive under its own model')
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -309,7 +330,8 @@ head('11. THE FEATURE COMPARISON', '"comparison to those other factors ... vs fr
 say(`\n${'='.repeat(92)}`)
 say(`  MET ${pass}   PARTIAL ${partial}   NOT MET ${fail}`)
 say('')
-say('  Partial is not a hedge. It marks a requirement met as far as the platform allows, with the')
-say('  remainder named: a class whose origin is blocked by its own nature, or a channel whose')
-say('  posterior does not discriminate and is capped and flagged for that reason.')
+say('  Three classes remain unanswerable and are named rather than counted as met: uniparental')
+say('  heterodisomy needs both parents alongside the embryo, tandem and inserted duplications')
+say('  carry no positional difference in either channel, and reverse segregation is normal in')
+say('  copy number in 20 of 26 observed cases. Those are platform limits, not gaps here.')
 process.exit(fail > 0 ? 1 : 0)

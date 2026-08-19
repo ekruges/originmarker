@@ -111,10 +111,21 @@ const pairs = (n: number, f: (i: number) => [AB, AB]): [AB, AB][] =>
   const clear = pairs(2_000, (i) => ['AA', i % 10 < 3 ? 'BB' : 'AA'])
   const got = callOneParentOrigin(clear, 0.20)
   assert.notEqual(got.verdict, 'refused')
-  const above = Math.min(1, got.posterior) + 1e-9
+  // THE GATE AND THE DISPLAYED NUMBER ARE ON DIFFERENT SCALES, DELIBERATELY, and this test has to
+  // use the gate's own. `callPosterior` asks whether the MODEL is sure enough to name a hypothesis,
+  // and the model is decisive over hundreds of Mendelian markers: it reaches 1.0 in floating point.
+  // The reported confidence asks something else, how likely the CALL is right once model risk is
+  // included, and is capped at 1 - 0.206 by what the validation supports. Testing the gate against
+  // the reported number would compare a raw likelihood against a bounded one and refuse everything.
   assert.equal(callOneParentOrigin(clear, 0.20, DEFAULT_Q, GENOTYPE_ERROR, DROP_IN,
-    { callPosterior: above }).verdict, 'refused',
-  'a bar above the posterior actually reached must refuse the call')
+    { callPosterior: 1 + 1e-9 }).verdict, 'refused',
+  'a bar above any reachable likelihood must refuse the call')
+  assert.notEqual(callOneParentOrigin(clear, 0.20, DEFAULT_Q, GENOTYPE_ERROR, DROP_IN,
+    { callPosterior: 0.99 }).verdict, 'refused',
+  'and a bar the likelihood clears must not')
+  assert.ok(got.posterior < 1 - 0.2,
+    `the DISPLAYED number is bounded by the validation, got ${got.posterior}. If this ever `
+    + 'approaches 1 the cap has been lost and the number is claiming certainty nobody validated')
 }
 
 // --- 3. the dials cannot be used to manufacture a call from nothing ------------------------------
