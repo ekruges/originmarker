@@ -1,3 +1,5 @@
+import { breathe, buildScanIndex, copyNeutralWindows, gatherInterval } from './scan'
+import type { Interval } from './scan'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StageCallout } from './StageCallout'
 import { ComparisonPanel } from './ComparisonPanel'
@@ -64,7 +66,7 @@ import { inferStage, stageFacts } from './stage'
  * held as one call per marker and each sample streams against it, so memory stays flat.
  */
 
-type Tag = 'READ' | 'PARSE' | 'CALL' | 'WARN' | 'DONE'
+type Tag = 'READ' | 'PARSE' | 'CALL' | 'WARN' | 'DONE' | 'SCAN'
 interface Line { tag: Tag; text: string }
 
 const TAG_COLOR: Record<Tag, string> = {
@@ -73,6 +75,7 @@ const TAG_COLOR: Record<Tag, string> = {
   CALL: 'var(--om-blue)',
   WARN: 'var(--om-higher)',
   DONE: 'var(--om-blue)',
+  SCAN: 'var(--om-text-dim)',
 }
 
 type Role = 'donor' | 'oocyte' | 'sample'
@@ -588,51 +591,20 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // Their PARENTAL ORIGIN, where one exists, is then scored through exactly the same
           // posterior and bands as every older event, because a reader compares rows.
           {
-            const chromEnd = new Map<string, number>()
-            for (const [c, ms] of cnByChrom) {
-              chromEnd.set(c, ms.reduce((a, m) => Math.max(a, m.pos), 0))
-            }
-            // SLIDING WINDOWS AS WELL AS WHOLE CHROMOSOMES, so a copy-neutral event covering part
-            // of a chromosome is reported at its own extent rather than as the whole thing. The
-            // whole-chromosome pass is kept because it is the one with a detection floor on
-            // amplified material: a 12 Mb-scale interval has none at any fraction with one parent.
-            // So both are offered and the caller keeps whichever the evidence supports, with the
-            // segment only surviving where it is NOT simply the chromosome restated.
-            const selfByChrom = new Map<string, typeof selfMarkers>()
-            for (const m of selfMarkers) {
-              if (!selfByChrom.has(m.chrom)) selfByChrom.set(m.chrom, [])
-              selfByChrom.get(m.chrom)!.push(m)
-            }
-            const medianOf = (xs: number[]) => (xs.length
-              ? xs.slice().sort((a, b) => a - b)[xs.length >> 1] : undefined)
-            const windows = [...cnByChrom].flatMap(([c, ms]) => {
-              const self = (selfByChrom.get(c) ?? []).slice().sort((a, b) => a.pos - b.pos)
-              const lrr = ms.map((m) => m.log2R).filter((x): x is number => x !== null)
-              const whole = {
-                chrom: c, startBp: 0, endBp: chromEnd.get(c) ?? 0,
-                called: self.length, het: self.filter((m) => m.het).length,
-                logR: lrr.length ? (medianOf(lrr) as number) - genomeLrr : undefined,
-                wholeChromosome: true,
-              }
-              // Half-overlapping windows of SEGMENT_MARKERS, so an event landing on a boundary is
-              // still seen whole by the neighbouring window.
-              const step = Math.floor(LOH_SEGMENT_MARKERS / 2)
-              const segs: typeof whole[] = []
-              for (let i = 0; i + LOH_SEGMENT_MARKERS <= self.length; i += step) {
-                const w = self.slice(i, i + LOH_SEGMENT_MARKERS)
-                const lo = w[0].pos
-                const hi = w[w.length - 1].pos
-                const inWin = ms.map((m) => (m.pos >= lo && m.pos <= hi ? m.log2R : null))
-                  .filter((x): x is number => x !== null)
-                segs.push({
-                  chrom: c, startBp: lo, endBp: hi,
-                  called: w.length, het: w.filter((m) => m.het).length,
-                  logR: inWin.length ? (medianOf(inWin) as number) - genomeLrr : undefined,
-                  wholeChromosome: false,
-                })
-              }
-              return [whole, ...segs]
-            })
+            // Both of the passes whose cost is the size of the array live in `scan.ts`, where a
+            // check can reach them and assert they stay linear. The version here rescanned every
+            // marker of a chromosome inside its own window loop, which locked the tab for the
+            // whole genome on every run. See the note at the top of that file.
+            const { windows, scanned, chromEnd } = await copyNeutralWindows(
+              cnByChrom, selfMarkers, genomeLrr, LOH_SEGMENT_MARKERS,
+              // Hand the page back between chromosomes.
+              async () => { await breathe() },
+            )
+            log('SCAN', `copy-neutral scan: ${windows.length} windows over ${cnByChrom.size} `
+              + `chromosomes (${scanned} sliding, ${cnByChrom.size} whole-chromosome)`)
+
+            log('SCAN', 'looking for copy-neutral loss of heterozygosity')
+            await breathe()
             const findings = [
               // Overlapping windows report the same event several times, and a whole chromosome
               // reports it again, so the redundancy is collapsed: the widest interval covering a
@@ -640,6 +612,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               ...mergeLoh(detectLoh(windows)),
               ...detectUpd(runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd })),
             ]
+            log('SCAN', `runs of homozygosity and ploidy over ${selfMarkers.length} called markers`)
+            await breathe()
             const tri = detectTriploidy([...myBaf.values()])
             if (tri) findings.push(tri)
             // A genome with too little undisturbed remainder cannot self-reference, which blocks
@@ -652,6 +626,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               ? allMarkers.filter((m) => m.called).length / allMarkers.length : NaN
             const cx = detectComplex(deviant, cnByChrom.size, callRate)
             if (cx) findings.push(cx)
+            log('SCAN', `taxonomy: ${findings.length} finding`
+              + `${findings.length === 1 ? '' : 's'} across `
+              + `${new Set(findings.map((f) => f.chrom)).size} chromosome(s)`)
+            await breathe()
             result.findings = findings
             // Which walls stand depends on what the user actually supplied, so it is recorded here
             // rather than guessed at display time. Reading these as undefined would tell a
@@ -782,9 +760,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             // below are the same measurement over different intervals, so the interval is a
             // predicate rather than a chromosome name. Duplicating it for the new classes would
             // have let the two drift apart, and a reader compares their confidences directly.
+            // ONE INDEX FOR THE SAMPLE, not one walk of the array per finding. See scan.ts.
+            const scanIndex = buildScanIndex(
+              { markerPos, parentGt: pat.gt, myBaf, myGt, cnByChrom })
             const scoreInterval = (
               label: string,
-              inside: (chrom: string, pos: number) => boolean,
+              iv: Interval,
               wholeChromosome: boolean,
               state: 'loss' | 'gain' | 'cnn-loh' = 'loss',
             ) => {
@@ -792,25 +773,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               // optional: the raw one-parent null sits at -0.031 on trophectoderm under no event,
               // pointing at the parent that was NOT genotyped, which is the shift a real mosaic
               // fraction of 0.117 would produce.
-              const region: [string, number | null][] = []
-              const background: [string, number | null][] = []
-              for (const [probe, p] of markerPos) {
-                const pg = pat.gt.get(probe)
-                if (!pg) continue
-                const b = myBaf.get(probe) ?? null
-                ;(inside(p.chrom, p.pos) ? region : background).push([pg, b])
-              }
-              // Self-referenced intensity for the same chromosome, from the copy-number channel
-              // already collected. Informs the STATE and never the ORIGIN: on haploid pronuclei
-              // log2R cannot tell maternal from paternal at all, so it enters detection only.
-              const inL: number[] = []
-              const outL: number[] = []
-              for (const [ch, ms] of cnByChrom) {
-                for (const m of ms) {
-                  if (m.log2R === null || !Number.isFinite(m.log2R)) continue
-                  ;(inside(ch, m.pos) ? inL : outL).push(m.log2R)
-                }
-              }
+              const { region, background, inL, outL, untRows } = gatherInterval(scanIndex, iv)
               const mean = (xs: number[]) => (xs.length
                 ? xs.reduce((a, x) => a + x, 0) / xs.length : NaN)
               const sdOf = (xs: number[], mu: number) => (xs.length > 1
@@ -822,25 +785,13 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 ? lrrShift / lrrSe : undefined
 
               // Spread of the per-window log2R on this chromosome, which decides whether the
-              // CLASS can be separated. Almost never on amplified material, which is why the
-              // origin is emitted without it rather than withheld along with it.
+              // CLASS can be separated from its nearest feasible alternative. Almost never on
+              // amplified material, which is why the origin is emitted without it rather than
+              // withheld along with it.
               const inSorted = [...inL].sort((a, b) => a - b)
               const q1 = inSorted[Math.floor(inSorted.length * 0.25)] ?? NaN
               const q3 = inSorted[Math.floor(inSorted.length * 0.75)] ?? NaN
               const windowLogRSd = Number.isFinite(q3 - q1) ? (q3 - q1) / 1.349 : undefined
-              // THE UNTRANSMITTED CHANNEL, on the disjoint marker set the obligate-het path
-              // discards: markers where the loaded parent is HETEROZYGOUS and this sample reads
-              // homozygous, so the transmission is determined. Every marker here is informative by
-              // construction, against 32-90% in the parent-homozygous window, which is where its
-              // 1.40-1.98x advantage comes from. It is also the only channel that gives a single
-              // blastomere a defined floor at all.
-              const untRows: [string, string, number | null][] = []
-              for (const [probe, p] of markerPos) {
-                if (!inside(p.chrom, p.pos)) continue
-                const pg = pat.gt.get(probe)
-                if (pg !== 'AB') continue
-                untRows.push([pg, myGt.get(probe) ?? 'NC', myBaf.get(probe) ?? null])
-              }
               const unt = untransmittedPairs(untRows as never)
               const untOriented = unt.pairs.map(orientUntransmitted)
               const untMean = untOriented.length
@@ -854,7 +805,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               const mech = callMechanism(unt.pairs as never,
                 { copyNumberThree: wholeChromosome && result.chroms.some(
                   (x: { chrom: string, aneuploidy?: string }) =>
-                    inside(x.chrom, 0) && x.aneuploidy === 'gain',
+                    x.chrom === iv.chrom && x.aneuploidy === 'gain',
                 ) })
 
               const c = callDosageOrigin(region as never, background as never, material, {
@@ -898,8 +849,15 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               }
             }
 
-            result.dosageCalls = [...whole].map((chrom) =>
-              scoreInterval(`chr${chrom}`, (c) => c === chrom, true))
+            if (whole.size) {
+              log('SCAN', `scoring ${whole.size} whole-chromosome event`
+                + `${whole.size === 1 ? '' : 's'} from allele dosage`)
+            }
+            result.dosageCalls = []
+            for (const chrom of whole) {
+              result.dosageCalls.push(scoreInterval(`chr${chrom}`, { chrom }, true))
+              await breathe()
+            }
 
             // THE TAXONOMY'S FINDINGS GO THROUGH THE SAME SCORER. A copy-neutral event and an
             // isodisomy carry a parental origin exactly as a deletion does, and it must be the
@@ -909,14 +867,20 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             // Classes whose origin is blocked BY THE CLASS are skipped rather than scored and
             // discarded: a triploidy has no parental origin at any quality, and running the
             // statistic on it would produce a number that means nothing.
-            for (const f of result.findings ?? []) {
-              if (originBlockedByClass(f.cls) || f.chrom === 'genome') continue
+            const scorable = (result.findings ?? [])
+              .filter((f) => !originBlockedByClass(f.cls) && f.chrom !== 'genome')
+            if (scorable.length) {
+              log('SCAN', `scoring parental origin on ${scorable.length} finding`
+                + `${scorable.length === 1 ? '' : 's'}`)
+            }
+            let scoredSoFar = 0
+            for (const f of scorable) {
               // THE FINDING'S OWN CLASS DECIDES ITS FLOOR, and passing the default instead cost
               // most of them an answer. A copy-neutral event is the LARGEST-signal class, floor
               // 0.399 on single-cell material against a loss's 0.348 and a segment's none at all.
               const call = scoreInterval(
                 `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`,
-                (c, pos) => c === f.chrom && pos >= f.startBp && pos <= f.endBp,
+                { chrom: f.chrom, startBp: f.startBp, endBp: f.endBp },
                 f.wholeChromosome,
                 f.cls === 'cnn-loh' ? 'cnn-loh'
                   : f.cls === 'segmental-duplication' ? 'gain' : 'loss',
@@ -924,6 +888,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               result.dosageCalls.push(call)
               const named = call.verdict === 'loaded-parent' || call.verdict === 'other-parent'
               log(named ? 'DONE' : 'WARN', `${f.cls} origin ${call.where}: ${call.why}`)
+              scoredSoFar += 1
+              // One yield every couple of findings, so the lines above appear as they are decided
+              // rather than all at once when the loop ends.
+              if (scoredSoFar % 2 === 0) await breathe()
             }
             for (const c of result.dosageCalls) {
               // 'refused' is the GENOTYPE channel's vocabulary and never appears here, so this
@@ -1016,6 +984,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             + (maternal ? `, maternal absent ${pct(maternal.genomeRate)} vs ceiling `
               + `${pct(maternal.explainable)}` : ''))
           finished.push({ id: s.id, result })
+          await breathe()
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired })
         } catch (e) {
           const m = e instanceof Error ? e.message : String(e)

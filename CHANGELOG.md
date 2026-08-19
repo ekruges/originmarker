@@ -9,6 +9,52 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.10.1 "Dictyate"
+
+A run locked the page. The copy-neutral scan rescanned every marker of a chromosome inside its own
+window loop: about 216 windows over chr1's 65,000 markers is 28 million operations and 216
+full-length allocations on that chromosome alone, and the whole genome ran as a single task. The
+tab was frozen for its duration and the run log appeared all at once at the end, if it appeared at
+all. Markers are now sorted once per chromosome, heterozygote counts come from a prefix sum, and
+each window reads a binary-searched slice.
+
+Scoring the parental origin of a finding walked the marker map three times over, once per finding,
+and built a fresh two-element row for every marker it passed. Twenty-five findings on an 825,000
+marker array is twenty million short-lived allocations holding the same values. The array is now
+flattened once per sample into rows grouped by chromosome, and each finding takes a slice; the rows
+are shared rather than rebuilt. Measured on a synthetic array at full size, that stage went from
+9.0 s to 0.5 s, and a whole run from 9.0 s to 1.7 s.
+
+The work is also broken into pieces that hand the page back between them, so the log paints as the
+run proceeds rather than after it. Each phase says what it is about to do and how much of it there
+is: how many windows over how many chromosomes, how many markers went into the runs-of-homozygosity
+pass, how many findings the taxonomy produced, and how many of those are being scored for parental
+origin.
+
+**A scoring path dropped part of its own background.** Reached only through the rewrite above and
+never released: for an event covering part of a chromosome, the rest of that same chromosome
+belongs in the background it is compared against, and those are the markers nearest the event. Not
+a rounding difference on a half-chromosome event. Caught before release by a check that compares
+the new path against the one it replaced, marker for marker.
+
+**The yield could stall a background tab.** Also never released. The first version handed the page
+back with requestAnimationFrame, which does not fire at all while a tab is hidden, so a run the
+user switched away from would wait indefinitely. That is a worse failure than the slow scan it was
+meant to fix, since the slow one at least finished. It now yields through a MessageChannel message,
+which is neither paused when hidden nor throttled to one a second the way a chained timer is.
+
+**Nothing in this repository could have caught any of it.** The scan was quadratic in the size of
+the array, so it only misbehaved at a size no fixture had, and it lived inside a React component
+body where no check could reach it. Both scaling passes now live in `web/src/scan.ts`, and
+`scan.check.ts` runs them at 825,000 markers, the size of a real array. It asserts on the shape of
+the growth curve rather than on a stopwatch: cost per marker at four times the array size, where a
+linear pass is flat and a quadratic one costs four times as much. Verified by putting the shipped
+quadratic scan back, which the check rejects at 2.53x against a 2.0x limit while healthy builds
+measure 0.84x to 1.30x. It also holds a whole-run budget, checks the yield fires once per
+chromosome, and checks that progress continues with no requestAnimationFrame available at all.
+
+---
+
 ## 5.10.0 "Dictyate"
 
 Both partial requirements are closed, and neither was closed by lowering the bar.
