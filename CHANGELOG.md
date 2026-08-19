@@ -44,6 +44,21 @@ same bounded slice.
 
 A sample of this shape now takes 1.28 s where it took 3.22 s.
 
+**And the run log stopped being most of the work.** Writing a line copied the whole 500-line buffer
+and re-rendered the log, so a run that wrote several hundred lines spent its time on the log rather
+than on the analysis it was describing. Lines are now buffered and flushed together, so a burst
+inside one chunk of work is one update and is on screen before the next chunk starts.
+
+The lines themselves were mostly repeats. Of 330 warnings in one run, 319 were the same sentence:
+no array of this kind at this width can answer, whatever the data says. It is worth reading once. A
+refusal is now printed once per distinct reason, with how many intervals it covered and which
+chromosomes they were on, and a named parent is always printed in full because it is an answer. The
+per-interval table is unchanged in the report and the export.
+
+Findings had the same problem from the other side: a hundred runs of homozygosity each repeated the
+same paragraph about what isodisomy is and what its absence does not rule out. Every finding is
+still printed with its own measurements, and the shared explanation appears once.
+
 ---
 
 ## 5.10.2 "Dictyate"

@@ -78,6 +78,27 @@ const TAG_COLOR: Record<Tag, string> = {
   SCAN: 'var(--om-text-dim)',
 }
 
+/** How many log lines are kept. The oldest are dropped, so a run cannot grow the page without end. */
+const LOG_LINES = 500
+
+/**
+ * The chromosomes a list of interval labels covers, collapsed.
+ *
+ * A refusal that applies to three hundred intervals is one fact, and a reader wants to know how
+ * far it reached rather than to scroll three hundred coordinates. The full list stays in the
+ * report and the export.
+ */
+export const listChroms = (wheres: readonly string[]): string => {
+  const seen: string[] = []
+  for (const w of wheres) {
+    const c = /^chr([\dXY]+)/.exec(w)?.[1]
+    if (c && !seen.includes(c)) seen.push(c)
+  }
+  if (!seen.length) return `${wheres.length} intervals`
+  const n = seen.length
+  return n <= 6 ? `chr${seen.join(', chr')}` : `${n} chromosomes, chr${seen[0]} to chr${seen[n - 1]}`
+}
+
 type Role = 'donor' | 'oocyte' | 'sample'
 type State = 'profiling' | 'waiting' | 'running' | 'done' | 'failed'
 
@@ -235,7 +256,22 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const [locus, setLocus] = useState<LocusRun | null>(null)
   const pick = useRef<HTMLInputElement>(null)
 
-  const log = (tag: Tag, text: string) => setLines((p) => [...p.slice(-499), { tag, text }])
+  // BUFFERED, because a line used to cost a React render and a 500-element array copy, and a run
+  // writes hundreds of them in a burst. Three hundred lines was three hundred renders and 150,000
+  // object copies, which is time spent on the log rather than on the analysis it describes.
+  // The buffer flushes on a microtask, so a burst inside one chunk of work lands as one update and
+  // is on screen before the next chunk starts.
+  const logBuffer = useRef<Line[]>([])
+  const flushLog = () => {
+    if (!logBuffer.current.length) return
+    const add = logBuffer.current
+    logBuffer.current = []
+    setLines((p) => [...p, ...add].slice(-LOG_LINES))
+  }
+  const log = (tag: Tag, text: string) => {
+    logBuffer.current.push({ tag, text })
+    if (logBuffer.current.length === 1) queueMicrotask(flushLog)
+  }
   const patch = (id: string, d: Partial<Entry>) =>
     setEntries((p) => p.map((e) => (e.id === id ? { ...e, ...d } : e)))
 
@@ -636,8 +672,20 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             // two-parent run that heterodisomy is unreachable when that run has already cleared it.
             result.twoParents = !!mat
             result.units = 1
+            // EVERY FINDING IS PRINTED, because each is a real result with its own numbers. What
+            // is printed ONCE is the paragraph they share. A hundred runs of homozygosity each
+            // carried the same explanation of what isodisomy is and what it does not rule out,
+            // which is worth reading the first time and is scroll thereafter.
+            const explained = new Set<string>()
             for (const f of findings) {
-              log(f.originBlocked ? 'WARN' : 'DONE', `${f.cls} ${f.chrom}: ${f.evidence}`)
+              // The shape with its numbers masked, so findings differing only in their
+              // measurements count as the same explanation.
+              const shape = `${f.cls}|${f.evidence.replace(/[\d.]+/g, '#')}`
+              const full = !explained.has(shape)
+              explained.add(shape)
+              const cut = f.evidence.indexOf('. ')
+              const short = !full && cut > 0 ? `${f.evidence.slice(0, cut)}.` : f.evidence
+              log(f.originBlocked ? 'WARN' : 'DONE', `${f.cls} ${f.chrom}: ${short}`)
             }
           }
           // --- where each extra copy came from ---------------------------------------------
@@ -902,11 +950,29 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               // rather than all at once when the loop ends.
               if (scoredSoFar % 2 === 0) await breathe()
             }
+            // A NAMED PARENT IS ALWAYS PRINTED IN FULL. It is the answer, and two of them that
+            // happen to read alike are still two answers.
+            //
+            // A REFUSAL IS PRINTED ONCE PER DISTINCT REASON. A run on single-cell material
+            // produced 319 of these and every one was the same sentence: no array of this kind at
+            // this width can answer, whatever the data says. Printing it once per interval told a
+            // reader nothing the first one had not, buried the handful of real answers, and cost a
+            // render each. The intervals are still listed, and the full table is still in the
+            // report and the export.
+            const refusals = new Map<string, string[]>()
             for (const c of result.dosageCalls) {
               // 'refused' is the GENOTYPE channel's vocabulary and never appears here, so this
               // line logged DONE for every outcome including a withheld parent.
               const named = c.verdict === 'loaded-parent' || c.verdict === 'other-parent'
-              log(named ? 'DONE' : 'WARN', `dosage origin ${c.where}: ${c.why}`)
+              if (named) { log('DONE', `dosage origin ${c.where}: ${c.why}`); continue }
+              const at = refusals.get(c.why)
+              if (at) at.push(c.where)
+              else refusals.set(c.why, [c.where])
+            }
+            for (const [why, at] of refusals) {
+              if (at.length === 1) { log('WARN', `dosage origin ${at[0]}: ${why}`); continue }
+              log('WARN', `${at.length} intervals not evaluable for the same reason, on `
+                + `${listChroms(at)}: ${why}`)
             }
           }
           if (!mat && result.segments.length) {
