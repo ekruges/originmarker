@@ -104,12 +104,22 @@ export const HALF_EVIDENCE = 12
  * information before it is destroyed, and it runs from about zero to over a thousand.
  */
 export function reportedConfidence(
-  logMargin: number, opts: { bound?: number; halfEvidence?: number } = {},
+  logMargin: number,
+  opts: { bound?: number; halfEvidence?: number; floor?: number } = {},
 ): number {
   if (!Number.isFinite(logMargin)) return NaN
   const bound = opts.bound ?? SYSTEMATIC_ERROR_BOUND
   const half = opts.halfEvidence ?? HALF_EVIDENCE
-  const floor = 1 / 3
+  /**
+   * CHANCE, WHICH DEPENDS ON HOW MANY HYPOTHESES ARE ON THE TABLE.
+   *
+   * One third is right for THIS channel, which chooses among three: both copies present, the
+   * loaded parent's copy absent, the other parent's absent. It is wrong for a channel asking a
+   * two-way question, where an uninformative answer is a coin flip at one half and starting the
+   * scale below that reports ignorance as worse than chance, dragging every number above it down
+   * with it. A caller with a different hypothesis count passes its own.
+   */
+  const floor = opts.floor ?? 1 / 3
   const cap = 1 - bound
   if (!(logMargin > 0)) return floor
   return floor + (cap - floor) * (logMargin / (logMargin + half))

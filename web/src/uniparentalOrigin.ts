@@ -21,6 +21,7 @@
  * report must say so rather than let a reader count 1,272 independent confirmations of one fact.
  */
 import { SYSTEMATIC_ERROR_BOUND, reportedConfidence } from './oneParentOrigin.ts'
+import { ABSENCE_MARGIN } from './parentage.ts'
 
 export type UniparentalInput = {
   /** The genome-level call. Only the two uniparental classes carry an answer. */
@@ -55,15 +56,12 @@ export type UniparentalCall = {
 /**
  * How fast confidence rises with the genome-level margin.
  *
- * CHOSEN, NOT FITTED, and it is the one number here that is. There is no injection series for this
- * channel, so nothing would justify claiming a calibration. What bounds it instead is the same
- * systematic error bound every other channel is bounded by, from 13 validation units: the cap is
- * 1 - 0.206, so a call from this channel cannot reach band B however decisive the zygosity is.
- * That ceiling is the honest statement. A margin of 2x is the least that gets called at all and a
- * margin of 13x is the most seen in practice, so a half-evidence of 1.0 on the log spreads that
- * range across the reportable interval rather than pinning it at either end.
+ * ANCHORED TO THE THRESHOLD THAT MAKES THE CALL AT ALL, rather than chosen. `ABSENCE_MARGIN` is
+ * the point at which a genome is declared uniparental, so a sample sitting exactly there is the
+ * one the evidence half convinces, and it lands halfway from chance to the cap. Below it there is
+ * no call to inherit from and this channel returns nothing.
  */
-export const MARGIN_HALF_EVIDENCE = 1.0
+export const MARGIN_HALF_EVIDENCE = Math.log(ABSENCE_MARGIN)
 
 /** Bands, shared with every other channel so a reader compares rows rather than scales. */
 const bandOf = (p: number): 'A' | 'B' | 'C' | 'D' =>
@@ -91,7 +89,12 @@ export function uniparentalOrigin(input: UniparentalInput): UniparentalCall | nu
   if (!(fold > 1)) return null
 
   const confidence = reportedConfidence(Math.log(fold), {
-    bound: SYSTEMATIC_ERROR_BOUND, halfEvidence: MARGIN_HALF_EVIDENCE,
+    bound: SYSTEMATIC_ERROR_BOUND,
+    halfEvidence: MARGIN_HALF_EVIDENCE,
+    // TWO HYPOTHESES, NOT THREE. This channel names one of two parents, so an uninformative
+    // answer is a coin flip. The default floor of one third belongs to a three-way channel and
+    // reported ignorance here as worse than chance, dragging every number above it down with it.
+    floor: 0.5,
   })
   const verdict = genomeIs === input.role ? 'loaded-parent' : 'other-parent'
   return {

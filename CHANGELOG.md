@@ -9,6 +9,38 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.11.2 "Pronucleus"
+
+**The confidence floor was chance for a three-way question, applied to a two-way one.**
+
+`reportedConfidence` was written for the one-parent Mendelian channel, which chooses among three
+hypotheses: both copies present, the loaded parent's copy absent, the other parent's absent. Chance
+there is one third, and that is the floor it starts from. The uniparental channel asks whether a
+change is maternal or paternal, where chance is one half. Starting its scale at one third reported
+an uninformative answer as WORSE than a coin flip and pulled every number above it down in
+proportion. The floor is now a parameter and the two-way channel passes its own. A genome called
+uniparental at 12.9x its ceiling moved from 0.665 to 0.706.
+
+The rate at which evidence buys confidence is also no longer a chosen number. It is anchored to
+`ABSENCE_MARGIN`, the threshold at which a genome is declared uniparental at all, so a sample
+sitting exactly at the threshold lands halfway from chance to the cap, and below it there is no
+call to inherit from.
+
+**Why every row still prints band D, which is a finding rather than a fix.** The bands were set for
+the dosage channel, which has an injection series behind it and a measured accuracy of 0.9972 in
+band A. Any channel capped at 1 - 0.206 = 0.794 by this project's 13-unit validation can only ever
+occupy band D, with the top 5.5% of its range reaching C and bands A and B unreachable at any
+evidence. Measured on the shipped code before this release: 1000x over the ceiling returned 0.736.
+
+That cap is a zero-event bound on the one-parent Mendelian ORIGIN call, 251 of 251 across 13
+independent units. The uniparental inference fails in different ways: the genome-level call being
+wrong, contamination, chimaerism. None of those is what those units measured, so the bound was
+reached for because it was the nearest available and not because it describes this claim. Raising
+it needs a basis this project does not yet have, so it is unchanged here and recorded in
+`audit/CONSULT-parental-balance-and-workflow.md` for the methods review.
+
+---
+
 ## 5.11.1 "Pronucleus"
 
 **Nothing leaves without a grade, and the panel that shows them is readable.**

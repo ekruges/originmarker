@@ -75,18 +75,47 @@ Guards: consulted only where dosage returned nothing, so a measured answer alway
 biparental samples, unclear ones, unresolved zygosity, and genome-level calls that did not clear
 their own ceiling.
 
-Confidence: `reportedConfidence(log(foldOverCeiling), bound = 0.206, halfEvidence = 1.0)`, floor
-1/3, cap 1 - 0.206 = 0.794. So 1.5x over ceiling gives 0.466 and 12.9x gives 0.665. The channel
-cannot reach band B by construction, because it has no injection series of its own.
+Confidence: `reportedConfidence(log(foldOverCeiling), bound = 0.206, halfEvidence = log(3.0))`,
+floor 0.5, cap 1 - 0.206 = 0.794. The half-evidence is anchored to `ABSENCE_MARGIN`, the threshold
+at which a genome is declared uniparental at all, so a sample sitting exactly there lands halfway
+from chance to the cap. 1.5x over ceiling gives 0.579, 3x gives 0.647, 12.9x gives 0.706. The
+channel cannot reach band B by construction, because it has no injection series of its own.
 
 **Q1a.** Is the inference sound as stated? Specifically: is there a mechanism by which a change
 detected in a confidently uniparental genome could belong to the absent parent? Residual paternal
 fragments below the absence ceiling, chimaerism, and contamination are the ones we thought of.
 
-**Q1b.** `halfEvidence = 1.0` is chosen, not fitted. Nothing here is calibrated. Is a bounded,
-monotone, explicitly-uncalibrated number the right thing to publish, or should this channel emit a
-verdict with no number at all? The lab's own requirement was that every abnormality carry a
-confidence-scored parental call, which pushed us toward a number.
+**Q1b. The band scale makes a differently-validated channel look uniformly weak, and we think this
+is the sharpest question here.** Bands are A >= 0.985, B >= 0.90, C >= 0.75, D >= 0.55. They were
+set for the DOSAGE channel, which has an injection series behind it and a measured accuracy of
+0.9972 in band A. Any channel capped at 1 - 0.206 = 0.794 by this project's 13-unit validation can
+therefore only ever occupy band D, with the top 5.5% of its range in C, and bands A and B
+mathematically unreachable however decisive its own evidence is.
+
+Concretely: a genome called gynogenetic with 9.04% absence against a 0.70% ceiling on 580,133
+informative markers, which is 12.9x and not a marginal call by any reading, reports 0.706 and prints
+as "weak, not for reporting". That is the number the lab sees on every row.
+
+So: is the cap the right instrument, applied to the right channel? The 0.206 bound is a zero-event
+bound on the ONE-PARENT MENDELIAN ORIGIN call, from 251 of 251 correct across 13 independent units.
+The uniparental inference's failure modes are different ones: the genome-level call being wrong,
+contamination, chimaerism. None of those is what those 13 units measured. We reached for the
+nearest available bound rather than a bound on this claim.
+
+Three ways out that we can see, and we do not know which is right. Bound this channel by something
+that actually describes it, if such a bound can be derived. Report it on its own scale rather than
+forcing it onto bands calibrated for a channel with thousands of validation points. Or accept that
+it belongs in band D and that the lab's answer really is "weak" until the channel has a validation
+series of its own.
+
+Related: is a bounded, monotone, explicitly-uncalibrated number the right thing to publish at all,
+or should this channel emit a verdict with no number? The lab's requirement was that every
+abnormality carry a confidence-scored parental call, which pushed us toward a number.
+
+We have already fixed one clear error found while asking this: the confidence floor was 1/3, the
+chance level for the three-hypothesis channel the helper was written for, applied to a two-way
+maternal-or-paternal question where chance is 0.5. It reported ignorance as worse than a coin flip
+and dragged every number above it down. Corrected, 12.9x moved from 0.665 to 0.706. Still band D.
 
 **Q1c.** Every change in one sample gets the same answer and the same confidence, because they all
 rest on one genome-level call. We say so in the row text. Is that sufficient to stop a reader
