@@ -18,7 +18,7 @@ import assert from 'node:assert/strict'
 import {
   callDosageOrigin, centroid, oriented, fractionFromShift, logitShift, materialOf,
   WINDOW_LO, WINDOW_HI, MAX_HET_BAF_SD, F80_CHROMOSOME, F80_SEGMENT,
-  DRIFT_TAU, VIF_CHROMOSOME, RESIDUAL_R, floorFor, ORIGIN_WITHOUT_CLASS,
+  DRIFT_TAU, VIF_CHROMOSOME, RESIDUAL_R, floorFor, ORIGIN_WITHOUT_CLASS, originUnreachable,
 } from './dosageOrigin.ts'
 import type { DosageState } from './dosageOrigin.ts'
 import type { AB } from './informativity.ts'
@@ -405,3 +405,41 @@ function region(n: number, mu: number, spread = 0.10): [AB, number][] {
 console.log('dosageOrigin.check.ts: all assertions passed, including a uniformly biased array '
   + 'producing no call, not-evaluable decided before the data, and the class-inversion veto '
   + 'withholding the one parent it cannot name')
+
+// --- SKIPPING THE BACKGROUND MUST NEVER SKIP A CALL THAT NEEDS ONE ----------------------------
+//
+// A caller may omit the background when `originUnreachable` says no array of this kind could
+// answer at this width. That is only safe while the predicate and step 1 of callDosageOrigin agree
+// on every combination. If they ever drift, a call would be made on an EMPTY background, which is
+// the reference every statistic here is measured against, and it would not announce itself: the
+// verdict would simply be computed from nothing. So the full cross product is walked.
+{
+  const MATERIALS: Material[] = ['bulk', 'esc-single', 'trophectoderm', 'blastomere']
+  const STATES: DosageState[] = ['loss', 'cnn-loh', 'gain']
+  let unreachable = 0
+  let reachable = 0
+  for (const material of MATERIALS) {
+    for (const state of STATES) {
+      for (const whole of [true, false]) {
+        for (const parents of [1, 2] as const) {
+          const says = originUnreachable(material, state, whole, parents)
+          // What the real call actually does, on real rows, with the background a caller would
+          // have omitted had it trusted the predicate.
+          const call = callDosageOrigin(region(N, 0.5 + 0.20), says ? [] : region(N, 0.5),
+            material, { wholeChromosome: whole, state, parents })
+          const notEvaluable = call.verdict === 'not-evaluable'
+          assert.equal(notEvaluable, says,
+            `${material}/${state}/${whole ? 'whole' : 'segment'}/${parents}p: the predicate says `
+            + `${says ? 'unreachable' : 'reachable'} and the call ${notEvaluable ? 'refused' : 'proceeded'}. `
+            + 'A caller that trusts the predicate would have passed an empty background here')
+          if (says) unreachable += 1
+          else reachable += 1
+        }
+      }
+    }
+  }
+  assert.ok(unreachable > 0 && reachable > 0,
+    'the cross product must contain both kinds, or this proves nothing')
+  console.log(`  background-skip predicate agrees with the call on all ${unreachable + reachable} `
+    + `combinations (${unreachable} unreachable, ${reachable} reachable)`)
+}

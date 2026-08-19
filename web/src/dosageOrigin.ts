@@ -222,6 +222,22 @@ const FLOOR_TWO_PARENTS: Record<DosageState, Record<Material, Floors>> = {
   },
 }
 
+/**
+ * Whether ANY array of this kind, at this width, could name a parent at any mosaic fraction.
+ *
+ * Exported because the answer is a table lookup that needs no data, and a caller that assembles
+ * the data first pays for a background it is about to be told is irrelevant. On single-cell
+ * material every SEGMENT is undefined at every fraction, so a run whose findings are all segments
+ * spends most of its time preparing evidence for a question already known to be unanswerable.
+ *
+ * THE CALLER AND STEP 1 OF `callDosageOrigin` MUST AGREE. They read this one predicate rather than
+ * each testing the floor themselves, so a caller cannot skip the background for a call that then
+ * turns out to need it. `dosageOrigin.check.ts` walks the full cross product to hold that.
+ */
+export const originUnreachable = (
+  material: Material, state: DosageState, wholeChromosome: boolean, parents: 1 | 2,
+): boolean => !Number.isFinite(floorFor(material, state, wholeChromosome, parents))
+
 /** The floor for one combination. `parents` is how many parental arrays are loaded. */
 export function floorFor(
   material: Material, state: DosageState, wholeChromosome: boolean, parents: 1 | 2,
@@ -479,7 +495,7 @@ export function callDosageOrigin(
   // is that no array of its kind at this width could have answered, sends them to re-run a sample
   // instead of to change the design. Nearly every amplified array fails the MoChA gate below, so
   // asking that first would report a QC failure for what is really a study-design limit.
-  if (!Number.isFinite(floor)) {
+  if (originUnreachable(material, state, whole, parents)) {
     return {
       ...base, verdict: 'not-evaluable',
       why: `a ${whole ? 'whole chromosome' : '12 Mb-scale interval'} on ${material} material has `

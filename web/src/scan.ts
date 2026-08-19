@@ -186,7 +186,17 @@ export const buildScanIndex = (src: GatherInput): ScanIndex => {
       a.cnLogR.push(m.log2R)
     }
   }
-  const sorted = (pos: number[]) => pos.map((_, i) => i).sort((x, y) => pos[x] - pos[y])
+  // ALREADY IN ORDER IS THE NORMAL CASE. An array export lists its markers in genomic order, so
+  // the permutation is usually the identity and building it costs a comparator call per marker for
+  // nothing. Checked rather than assumed: a file that is not in order still sorts.
+  const sorted = (pos: number[]) => {
+    let ordered = true
+    for (let i = 1; i < pos.length; i += 1) {
+      if (pos[i] < pos[i - 1]) { ordered = false; break }
+    }
+    const ix = pos.map((_, i) => i)
+    return ordered ? ix : ix.sort((x, y) => pos[x] - pos[y])
+  }
   const byChrom = new Map<string, ChromRows>()
   for (const [c, a] of acc) {
     const o = sorted(a.pos)
@@ -239,7 +249,21 @@ const lowerBound = (xs: Int32Array, v: number): number => {
  * in the parent-homozygous window, which is where its 1.40-1.98x advantage comes from. It is also
  * the only channel that gives a single blastomere a defined floor at all.
  */
-export const gatherInterval = (index: ScanIndex, iv: Interval): Gathered => {
+export const gatherInterval = (
+  index: ScanIndex,
+  iv: Interval,
+  /**
+   * Skip the background entirely.
+   *
+   * The background is every other chromosome, so it is the whole array however small the interval
+   * is, and it is what makes one of these cost a full pass. An interval whose ORIGIN IS ALREADY
+   * KNOWN TO BE UNREACHABLE still reports how many markers it covered, and that count comes from
+   * the region alone. Measured on a real single-cell run: 144 findings, every one of them a
+   * segment, and every segment floor on that material is undefined at any mosaic fraction, so all
+   * 144 backgrounds were built and thrown away. That was 2.2 s of a 3.2 s run.
+   */
+  opts: { regionOnly?: boolean } = {},
+): Gathered => {
   const lo = iv.startBp ?? Number.NEGATIVE_INFINITY
   const hi = iv.endBp ?? Number.POSITIVE_INFINITY
   const whole = !Number.isFinite(lo) && !Number.isFinite(hi)
@@ -271,6 +295,7 @@ export const gatherInterval = (index: ScanIndex, iv: Interval): Gathered => {
     for (let i = 0; i < ca; i += 1) outL.push(here.cnLogR[i])
     for (let i = cb; i < here.cnLogR.length; i += 1) outL.push(here.cnLogR[i])
   }
+  if (opts.regionOnly) return { region, background, inL, outL, untRows }
   // Every other chromosome, laid end to end. The rows are the ones built with the index, so this
   // copies references and allocates nothing per marker.
   for (const c of index.chroms) {

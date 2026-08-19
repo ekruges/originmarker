@@ -9,6 +9,43 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.10.3 "Dictyate"
+
+**Most of a run on single-cell material was spent preparing evidence for questions already known to
+be unanswerable.**
+
+Whether any array of a given kind can name a parent at a given width is a table lookup. It depends
+on the material, the class, whether the interval is a whole chromosome, and how many parents are
+genotyped, and on nothing measured. `callDosageOrigin` asks it first and says so in a comment. The
+caller was assembling the evidence before making the call.
+
+That evidence is dominated by the background, which is the rest of the array however narrow the
+interval is. On single-cell material with one genotyped parent, every SEGMENT floor is undefined at
+every mosaic fraction up to 0.70. A real run on that material: 729,285 called markers, 144 findings,
+every one of them a segment, so 144 backgrounds were built and discarded, and 310 of the 331
+refusals it printed were the same sentence. Measured on a synthetic array of the same shape, that
+was 2.2 s of a 3.2 s sample.
+
+The reachability question is now asked before the array is read, and the background is skipped when
+the answer is no. The interval's own markers are still gathered, so the refusal still reports how
+many it covered and the report keeps its window column. Same stage, 2157 ms to 335 ms.
+
+The predicate is exported as `originUnreachable` and read by both the caller and the call, rather
+than each testing the floor for itself. A caller that skipped the background for a call that then
+used it would compute a verdict against an empty reference and would not announce it, so
+`dosageOrigin.check.ts` now walks the full cross product of material, class, width and parent count
+and requires the two to agree on all 48 combinations, 17 unreachable and 31 reachable.
+
+**The marker index no longer sorts what is already sorted.** An array export lists markers in
+genomic order, so the permutation was the identity and building it cost a comparator call per
+marker to discover that. It is checked instead, and a file that does arrive out of order still
+sorts. Index build 856 ms to 450 ms, with a check that shuffled input returns the same rows and the
+same bounded slice.
+
+A sample of this shape now takes 1.28 s where it took 3.22 s.
+
+---
+
 ## 5.10.2 "Dictyate"
 
 **The build had been failing since 5.9.0 and the suite passed locally every time.**

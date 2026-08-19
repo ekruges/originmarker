@@ -157,6 +157,42 @@ const time = async (f: () => Promise<unknown> | unknown): Promise<number> => {
     + ` (${whole.region.length} rows)`)
 }
 
+// MARKERS OUT OF ORDER. The index skips building a permutation when the positions already
+// ascend, which is the normal case for an array export and most of what the build used to cost.
+// The synthetic array above is built in order, so it only ever exercises the fast path. This
+// shuffles the input and requires the same answer, because a file that arrives out of order and is
+// silently treated as sorted would return the wrong markers for every interval on that chromosome.
+{
+  const { src } = buildArray(20_000)
+  const shuffled = new Map<string, { chrom: string; pos: number }>()
+  const rows = [...src.markerPos.entries()]
+  // Deterministic reversal per chromosome, which is as out-of-order as input gets.
+  for (const [probe, p] of rows.reverse()) shuffled.set(probe, p)
+  const shuffledSrc = { ...src, markerPos: shuffled }
+
+  const inOrder = gatherInterval(buildScanIndex(src), { chrom: '4' })
+  const outOfOrder = gatherInterval(buildScanIndex(shuffledSrc), { chrom: '4' })
+  const bag = (rows: readonly (readonly unknown[])[]) => rows.map((r) => JSON.stringify(r)).sort()
+  assert.deepStrictEqual(bag(outOfOrder.region), bag(inOrder.region),
+    'a shuffled input must yield the same region rows')
+  assert.strictEqual(outOfOrder.background.length, inOrder.background.length,
+    'and the same background size')
+
+  // And a bounded interval, where a wrong permutation shows up as the wrong slice rather than the
+  // wrong order.
+  const on4 = [...src.markerPos.values()].filter((p) => p.chrom === '4').map((p) => p.pos)
+    .sort((a, b) => a - b)
+  const lo = on4[Math.floor(on4.length * 0.25)]
+  const hi = on4[Math.floor(on4.length * 0.75)]
+  const naive = rows.filter(([, p]) => p.chrom === '4' && p.pos >= lo && p.pos <= hi).length
+  const sliced = gatherInterval(buildScanIndex(shuffledSrc),
+    { chrom: '4', startBp: lo, endBp: hi })
+  assert.strictEqual(sliced.region.length, naive,
+    `a bounded slice of shuffled input must hold ${naive} markers, got ${sliced.region.length}`)
+  console.log(`  shuffled input yields the same ${inOrder.region.length} rows, and a bounded slice`
+    + ` of ${naive}`)
+}
+
 // ---------------------------------------------------------------- the growth curve
 // COST PER MARKER, not total time. A linear pass costs the same per marker whatever the size of
 // the array; a quadratic one costs four times as much per marker when the array is four times as

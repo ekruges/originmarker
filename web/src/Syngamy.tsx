@@ -49,7 +49,7 @@ import {
 } from './defects'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
-import { callDosageOrigin, materialOf } from './dosageOrigin'
+import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin'
 import {
   detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh,
   LOH_SEGMENT_MARKERS,
@@ -773,7 +773,16 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               // optional: the raw one-parent null sits at -0.031 on trophectoderm under no event,
               // pointing at the parent that was NOT genotyped, which is the shift a real mosaic
               // fraction of 0.117 would produce.
-              const { region, background, inL, outL, untRows } = gatherInterval(scanIndex, iv)
+              // ASK WHETHER ANY ARRAY OF THIS KIND COULD ANSWER BEFORE READING THE ARRAY.
+              // callDosageOrigin asks this first too, and says so, but by the time it is called
+              // the whole background has already been assembled. The answer depends only on the
+              // material, the class, the width and how many parents are loaded, so it is a table
+              // lookup, and on single-cell material every segment is undefined at every fraction.
+              // Gathering a background to be told that is the bulk of a run on that material.
+              const unreachable = originUnreachable(
+                material, state, wholeChromosome, mat ? 2 : 1)
+              const { region, background, inL, outL, untRows } =
+                gatherInterval(scanIndex, iv, { regionOnly: unreachable })
               const mean = (xs: number[]) => (xs.length
                 ? xs.reduce((a, x) => a + x, 0) / xs.length : NaN)
               const sdOf = (xs: number[], mu: number) => (xs.length > 1
