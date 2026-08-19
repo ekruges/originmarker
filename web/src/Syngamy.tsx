@@ -1027,28 +1027,33 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                   ? (result.genomeRate > result.explainable ? 'other-parent' : 'loaded-parent')
                   : null
               const unnamed = c.verdict !== 'loaded-parent' && c.verdict !== 'other-parent'
+              // MEASURED AT 0.27 TO 0.44, so this grade names no parent. See the note on
+              // BAND_F_MIN: every call landing here has an unresolved class, and with the class
+              // unresolved a gain inverts the sign that loss and copy-neutral share, so the
+              // direction of the shift carries no information about which parent it was.
               const graded = !zyg && unnamed && !c.lean && genomeLean
                 ? {
-                  verdict: genomeLean,
-                  confidence: 0.5,
+                  verdict: 'not-evaluable' as const,
+                  confidence: undefined,
                   band: 'F' as const,
-                  why: `${c.why}. Graded F and named anyway: this interval carried no usable `
-                    + 'marker, so the direction is the whole array\'s, from absence of the loaded '
-                    + `parent at ${(result.genomeRate * 100).toFixed(2)}% against a `
-                    + `${(result.explainable * 100).toFixed(2)}% ceiling. It is a property of the `
-                    + 'genome and not of this interval. Do not report or count this row',
+                  why: `${c.why}. Graded F: this interval carried no usable marker of its own, `
+                    + 'so nothing here bears on which parent it was. The parent is NOT named. An '
+                    + 'injection series on real arrays recovers the parent 0.27 to 0.44 of the '
+                    + 'time in this band, below chance, because every call reaching it has an '
+                    + 'unresolved copy-number class and a gain inverts the sign that loss and '
+                    + 'copy-neutral share',
                 }
                 : !zyg && unnamed && c.lean
                 ? {
-                  verdict: c.lean.verdict,
-                  // Stated honestly. There is no calibration here and no band to borrow one from,
-                  // so it sits just under the weakest measured band and says which way it leans.
-                  confidence: 0.5,
+                  verdict: 'not-evaluable' as const,
+                  confidence: undefined,
                   band: 'F' as const,
-                  why: `${c.why}. Graded F and named anyway: the displacement over `
-                    + `${c.lean.markers} usable marker${c.lean.markers === 1 ? '' : 's'} leans `
-                    + `${c.lean.shift > 0 ? 'toward' : 'away from'} the loaded parent, which is a `
-                    + 'direction and not a measurement. Do not report or count this row',
+                  why: `${c.why}. Graded F: the displacement over ${c.lean.markers} usable `
+                    + `marker${c.lean.markers === 1 ? '' : 's'} does not determine a parent. The `
+                    + 'copy-number class is unresolved here, and a gain inverts the sign that loss '
+                    + 'and copy-neutral share, so the direction of the shift carries no parental '
+                    + 'information at all. Measured on real arrays this band recovers the parent '
+                    + '0.27 to 0.44 of the time, below chance, so no parent is named',
                 }
                 : null
               return {

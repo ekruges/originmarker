@@ -202,9 +202,21 @@ export type Band = 'A' | 'B' | 'C' | 'D' | 'F'
  * grades sees F and knows the row is unusable, which a blank field, a dash, or the phrase "not
  * evaluable" never conveyed as directly.
  *
- * IT IS NOT A RESULT AND MUST NEVER BE READ AS ONE. An F row names the direction the evidence
- * leans, which at this level can be a coin flip, and its stated confidence says exactly that: an F
- * at 0.51 is 0.51. Nothing in a report should aggregate, count or act on an F.
+ * IT NAMES NO PARENT, AND THAT IS MEASURED RATHER THAN CAUTIOUS. An injection series on real
+ * arrays, 600-marker regions displaced by exactly the shift a known parent's copy being affected
+ * produces, recovers the parent 0.27 to 0.44 of the time in this band. That is not weak evidence,
+ * it is evidence pointing the wrong way, and naming a parent from it is worse than saying nothing.
+ *
+ * The mechanism is not mysterious and the series identifies it exactly: EVERY call landing in this
+ * band has an UNRESOLVED class, 1,693 of 1,693 in one array's series. A gain inverts the sign map
+ * that loss and copy-neutral loss of heterozygosity share, so with the class unresolved the
+ * direction of the shift does not determine the parent at all, and the accuracy dips furthest below
+ * chance at the moderate fractions where both classes remain live: 0.27 at a mosaic fraction of
+ * 0.30 against 0.56 at 0.05.
+ *
+ * So an F row reports the event, its location and its class, and states that the parent is not
+ * recoverable. Every row still carries a grade, which is what stops a refusal being a different
+ * KIND of output from an answer; what F no longer carries is a guess.
  */
 export const BAND_F_MIN = 0.55
 

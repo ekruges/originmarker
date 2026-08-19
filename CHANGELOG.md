@@ -9,6 +9,49 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.14.0 "Spindle"
+
+**Band F named a parent. Measured, it names the WRONG one more often than the right one, so it
+names none.**
+
+Grade F was added in 5.11.1 so that nothing left a run ungraded, and it named the parent the
+evidence leaned toward. That was reasoned, not measured. An injection series on real arrays now
+measures it: 600-marker regions displaced by exactly the shift a known parent's copy being affected
+produces, called back through the shipped code, clustered by array. Band F recovers the parent
+**0.27 to 0.44** of the time. Below chance.
+
+The series identifies the mechanism rather than leaving it as a number. **Every call reaching band
+F had an unresolved copy-number class, 1,693 of 1,693 on one array.** A gain inverts the sign map
+that loss and copy-neutral loss of heterozygosity share, so with the class open the direction of
+the shift carries no information about which parent it was. The accuracy dips furthest below chance
+at the moderate fractions where both classes stay live: 0.27 at a mosaic fraction of 0.30 against
+0.56 at 0.05.
+
+So an F row now reports the event, its location and its class, and states that the parent is not
+recoverable. Every row still carries a grade, which is what stops a refusal being a different kind
+of output from an answer. What F no longer carries is a guess.
+
+**A defect in the band table, introduced by the same release.** `bands_measured.csv` measured band
+D as everything below 0.75, because that was the whole tail when it was made. Carving F out of that
+tail at 0.55 left `BAND_ACCURACY` reporting the pooled figure for D: the number beside D had been
+measured over a range that by then included F. The new series separates them, measuring 0.63 for D
+against 0.42 for F on trophectoderm, and F is typed out of the accuracy table entirely because a
+band measured below chance has no number a reader should be given.
+
+**The harness is in the repo and it had a bug worth recording.** Its first version selected the
+sample's own homozygous calls as the informative set. The channel reads the opposite set: sites
+where the LOADED PARENT is homozygous and the sample reads in the central band, which is where the
+sample is heterozygous. Every marker it chose fell outside the window, and it returned band A
+accuracies of 0.09 to 0.38, worse than guessing. That is the signature of a broken harness rather
+than a broken caller, and it is why the corrected series is reported and the first one is not.
+
+The new series is `audit/bands_measured_f_series.csv`, kept beside the original rather than
+replacing it: its injections use the caller's own forward model, so its A, B and C figures carry no
+model misspecification and are optimistic. What it establishes is the comparison WITHIN itself,
+where D and F differ by 0.2 and F sits below chance.
+
+---
+
 ## 5.13.0 "Metaphase"
 
 **The copy-neutral detection floor is measured now, on arrays where any call at all is a false

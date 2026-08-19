@@ -297,3 +297,31 @@ import {
 
 console.log('originPosterior.check.ts: all assertions passed, including the regression that a true '
   + 'gain on the un-genotyped parent is no longer inverted into a confident call for the loaded one')
+
+// --- BAND F NAMES NO PARENT, AND THAT IS A MEASUREMENT --------------------------------------------
+//
+// An injection series on real arrays, 600-marker regions displaced by exactly the shift a known
+// parent's copy being affected produces, recovers the parent 0.27 to 0.44 of the time in this band.
+// Below chance. The mechanism is in the series: every call reaching band F had an UNRESOLVED class,
+// 1,693 of 1,693 on one array, and a gain inverts the sign map that loss and copy-neutral share, so
+// with the class open the direction of the shift carries no parental information. Accuracy dips
+// furthest at the moderate fractions where both classes stay live: 0.27 at f = 0.30 against 0.56 at
+// f = 0.05.
+//
+// So the guard is not that F is weak. It is that F must not carry a parent at all.
+{
+  // F is reachable, and it is what an absent or chance-level number grades to.
+  assert.equal(bandOf(NaN), 'F')
+  assert.equal(bandOf(0.50), 'F')
+  assert.equal(bandOf(0.54), 'F')
+  assert.equal(bandOf(0.56), 'D', 'and just above the floor it is the weakest MEASURED band')
+
+  // F carries no measured accuracy, because there is no cell to fill: the series measured it below
+  // chance, which is a reason to withhold the call rather than a number to publish beside it.
+  for (const m of ['bulk', 'esc-single', 'trophectoderm', 'blastomere'] as const) {
+    assert.ok(!('F' in BAND_ACCURACY[m]),
+      `F must carry no accuracy on ${m}: a band measured below chance is not a band whose number `
+      + 'a reader should be given')
+  }
+  console.log('  band F is reachable, carries no accuracy, and is the grade for a withheld parent')
+}
