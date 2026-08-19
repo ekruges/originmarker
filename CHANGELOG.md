@@ -9,6 +9,44 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.13.0 "Metaphase"
+
+**The copy-neutral detection floor is measured now, on arrays where any call at all is a false
+positive.**
+
+The methods review named one measurement worth making before anything else: the tract-scale
+false-positive rate for apparent loss of heterozygosity on this platform, as a function of tract
+length. Nobody has published it. Two of this project's own arrays are bulk diploid and biparental
+by construction, call rate 0.98 with heterozygosity 0.170 and 0.172, so a copy-neutral call
+anywhere in them is a false positive by definition. Sliding this detector's own test across them:
+
+| window (markers) | 600 | 900 | 1,200 | 1,500 | 1,800 | 2,100 |
+|---|---|---|---|---|---|---|
+| diploid control A | 0.0097 | 0.0029 | 0.0023 | 0.0020 | 0.0012 | 0.0000 |
+| diploid control B | 0.0077 | 0.0047 | 0.0039 | 0.0010 | 0.0000 | 0.0000 |
+
+At the 600 markers the scan uses, about one window in 110 fires on a genome carrying no event at
+all, reaching a depletion of 0.90 against a threshold of 0.65. The rate reaches zero at 1,800 to
+2,100 markers, where the worst depletion seen is 0.54 to 0.64.
+
+On amplified material the same sweep measures 0.066 to 0.290 at 600 markers. One array fires on
+17.3% of windows even at 4,800 markers, median span 19.4 Mb.
+
+Expressed as EXPECTED HETEROZYGOTES, which is what a window can test without knowing the array's
+tier in advance, the zero-crossing sits at 146 to 362 across seven arrays spanning heterozygosity
+0.040 to 0.172. `LOH_MIN_EXPECTED_HET` is set to 400, which clears the worst of them. The previous
+value of 100 was reasoned from the relative error of a ratio and was too low by a factor of 3.6;
+this one is measured. The full sweep is in `audit/false-tract-rate.csv`, arrays lettered rather
+than named.
+
+**Three fixtures were inside the unmeasurable regime and are corrected.** They asked for a
+copy-neutral call on 1,000-marker windows at a background of 0.17, which expects 170
+heterozygotes, where the measurement puts the zero-crossing at 1,800 to 2,100 markers for that
+background. The rates they test are unchanged, so they still ask what they always asked; only the
+window is now large enough for the answer to mean something.
+
+---
+
 ## 5.12.1 "Karyogamy"
 
 The remaining items from the methods review.

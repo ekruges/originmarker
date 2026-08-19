@@ -55,10 +55,15 @@ head('1. MORE TYPES OF CHROMOSOMAL ABNORMALITY',
   ev(`impossible, with a stated limit: ${no.map((x: { label: string }) => x.label).join('; ')}`)
 
   // The detectors must actually fire, not merely be listed.
+  // The window is sized past the MEASURED floor for a copy-neutral call rather than chosen: on
+  // real diploid arrays this detector fires on about 1 window in 110 at 600 markers with no event
+  // present at all, and reaches zero only at 1,800 to 2,100. See LOH_MIN_EXPECTED_HET and
+  // audit/false-tract-rate.csv. A 1,000-marker fixture was inside the regime the measurement says
+  // is not measurable.
   const win = (het: number, logR?: number, whole = false) =>
-    ({ chrom: '7', startBp: 0, endBp: 159e6, called: 1000, het, logR, wholeChromosome: whole })
-  const normal = Array.from({ length: 8 }, () => win(170))
-  const loh = tax.detectLoh([...normal, win(20, 0.01, true)])
+    ({ chrom: '7', startBp: 0, endBp: 159e6, called: 2800, het, logR, wholeChromosome: whole })
+  const normal = Array.from({ length: 8 }, () => win(476))
+  const loh = tax.detectLoh([...normal, win(56, 0.01, true)])
   const upd = tax.detectUpd([{ chrom: '7', startBp: 0, endBp: 40e6, markers: 12000, wholeChromosome: true }])
   const tri = tax.detectTriploidy([
     ...Array.from({ length: 400 }, () => 1 / 3), ...Array.from({ length: 400 }, () => 2 / 3)])

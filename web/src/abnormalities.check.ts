@@ -70,19 +70,24 @@ import {
 
 // --- 3. COPY-NEUTRAL LOH DOES NOT FIRE ON A DELETION -----------------------------------------------
 {
+  // A WINDOW BIG ENOUGH TO BE MEASURED. At 1,000 markers and a background of 0.17 this fixture
+  // expected 170 heterozygotes, and the false-positive sweep on real diploid arrays puts the
+  // zero-crossing at 1,800 to 2,100 markers for exactly that background. The window is now 2,400,
+  // which expects 408, just past the measured floor. The rates are unchanged, so the test still
+  // asks what it always asked.
   const w = (het: number, logR?: number): WindowStat =>
-    ({ chrom: '7', startBp: 1e6, endBp: 13e6, called: 1000, het, logR })
+    ({ chrom: '7', startBp: 1e6, endBp: 13e6, called: 2800, het, logR })
   // Background is taken from the windows themselves, so give it a normal population to sit in.
-  const normal = Array.from({ length: 8 }, () => w(170))
+  const normal = Array.from({ length: 8 }, () => w(476))
 
   // Heterozygosity gone, copy number unchanged: copy-neutral.
-  const flat = detectLoh([...normal, w(20, 0.01)])
+  const flat = detectLoh([...normal, w(56, 0.01)])
   assert.equal(flat.length, 1, 'a depleted window with unchanged intensity is copy-neutral LOH')
   assert.equal(flat[0].cls, 'cnn-loh')
   assert.ok(flat[0].evidence.includes('copy number unchanged'))
 
   // Heterozygosity gone AND intensity moved: a deletion, which this detector must leave alone.
-  const dropped = detectLoh([...normal, w(20, -0.9)])
+  const dropped = detectLoh([...normal, w(56, -0.9)])
   assert.equal(dropped.length, 0,
     'a depleted window whose intensity has moved is a DELETION. Calling it copy-neutral would name '
     + 'the wrong event and then invert its origin, since loss and gain read opposite signs')
@@ -94,7 +99,7 @@ import {
   // segments sent all of them to the segment floor and came back not-evaluable: the class was
   // detected and then refused an origin for a reason that did not apply to it.
   const whole = detectLoh([...normal.map((x) => ({ ...x, wholeChromosome: true })),
-    { ...w(20, 0.01), wholeChromosome: true }])
+    { ...w(56, 0.01), wholeChromosome: true }])
   assert.equal(whole.length, 1)
   assert.equal(whole[0].wholeChromosome, true,
     'a window spanning the chromosome must be reported as a whole chromosome, or it is scored '
@@ -102,7 +107,7 @@ import {
   assert.equal(flat[0].wholeChromosome, false, 'and a sub-chromosomal one must not claim to be')
 
   // No intensity at all: reported, but explicitly not established as copy-neutral.
-  const blind = detectLoh([...normal, w(20)])
+  const blind = detectLoh([...normal, w(56)])
   assert.equal(blind.length, 1)
   assert.ok(blind[0].evidence.includes('loss-or-copy-neutral'),
     'without intensity the class must be left open rather than assumed')
@@ -115,7 +120,7 @@ import {
 
   // A globally low-heterozygosity sample must not be called end to end, because the background is
   // the array's own.
-  assert.equal(detectLoh(Array.from({ length: 8 }, () => w(20))).length, 0)
+  assert.equal(detectLoh(Array.from({ length: 8 }, () => w(56))).length, 0)
 }
 
 // --- 4. NO RUN FOUND IS NOT NO DISOMY --------------------------------------------------------------

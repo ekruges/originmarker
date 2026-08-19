@@ -201,8 +201,32 @@ export const CLUSTERED_DROPOUT_RATE = 0.01
  */
 export const LOH_MIN_BACKGROUND_HET = 0.05
 
-/** Least expected heterozygotes in a window before its rate is used at all. */
-export const LOH_MIN_EXPECTED_HET = 100
+/**
+ * Least expected heterozygotes in a window before its rate is used at all.
+ *
+ * MEASURED, on arrays where any firing at all is an artefact. Two of this project's arrays are
+ * bulk diploid and biparental by construction, call rate 0.98 with heterozygosity 0.170 and 0.172,
+ * so a copy-neutral call anywhere in them is a false positive by definition. Sliding this
+ * detector's own test across them at a range of window sizes:
+ *
+ *   window (markers)   600     900    1200    1500    1800    2100
+ *   false-positive     0.0097  0.0029 0.0023  0.0020  0.0012  0.0000
+ *   rate               0.0077  0.0047 0.0039  0.0010  0.0000  0.0000
+ *
+ * At the 600 the scan uses, about one window in 110 fires on a genome carrying no event at all,
+ * reaching a depletion of 0.90 against a threshold of 0.65. The rate reaches zero at 1,800 to
+ * 2,100 markers, where the worst depletion seen is 0.54 to 0.64.
+ *
+ * Expressed as EXPECTED HETEROZYGOTES, which is the quantity a window can test without knowing the
+ * array's tier, the zero-crossing sits at 146 to 362 across seven arrays spanning heterozygosity
+ * 0.040 to 0.172. Four hundred clears the worst of them. On amplified material this is what makes
+ * the guard bite: at heterozygosity 0.04 it demands 10,000 markers, and the same sweep measured
+ * false-positive rates of 0.066 to 0.290 at 600 markers on that material.
+ *
+ * The earlier value of 100 was reasoned from the relative error of a ratio and was too low by a
+ * factor of 3.6. This one is measured.
+ */
+export const LOH_MIN_EXPECTED_HET = 400
 
 export const LOH_DEPLETION = 0.65
 
