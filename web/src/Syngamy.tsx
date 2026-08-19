@@ -672,20 +672,34 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             // two-parent run that heterodisomy is unreachable when that run has already cleared it.
             result.twoParents = !!mat
             result.units = 1
-            // EVERY FINDING IS PRINTED, because each is a real result with its own numbers. What
-            // is printed ONCE is the paragraph they share. A hundred runs of homozygosity each
-            // carried the same explanation of what isodisomy is and what it does not rule out,
-            // which is worth reading the first time and is scroll thereafter.
-            const explained = new Set<string>()
+            // ONE LINE PER KIND OF FINDING, not per finding. A single run produced 183
+            // copy-neutral regions whose lines differed only in their measurements, and reading
+            // the 183rd told you nothing the first had not. The first of each kind is printed in
+            // full, then one line saying how many more there were and where. Every finding keeps
+            // its own numbers in the genome viewer, the report and the export, which is where a
+            // reader goes to compare them; the log is a narrative of the run.
+            const byShape = new Map<string, {
+              cls: string; chrom: string; evidence: string; blocked: boolean; at: string[]
+            }>()
             for (const f of findings) {
-              // The shape with its numbers masked, so findings differing only in their
-              // measurements count as the same explanation.
+              // Numbers masked, so findings differing only in their measurements group together.
               const shape = `${f.cls}|${f.evidence.replace(/[\d.]+/g, '#')}`
-              const full = !explained.has(shape)
-              explained.add(shape)
-              const cut = f.evidence.indexOf('. ')
-              const short = !full && cut > 0 ? `${f.evidence.slice(0, cut)}.` : f.evidence
-              log(f.originBlocked ? 'WARN' : 'DONE', `${f.cls} ${f.chrom}: ${short}`)
+              const cur = byShape.get(shape)
+              if (cur) cur.at.push(`chr${f.chrom}`)
+              else {
+                byShape.set(shape, {
+                  cls: f.cls, chrom: f.chrom, evidence: f.evidence,
+                  blocked: !!f.originBlocked, at: [`chr${f.chrom}`],
+                })
+              }
+            }
+            for (const g of byShape.values()) {
+              const tag = g.blocked ? 'WARN' : 'DONE'
+              log(tag, `${g.cls} ${g.chrom}: ${g.evidence}`)
+              if (g.at.length > 1) {
+                log(tag, `and ${g.at.length - 1} more ${g.cls} finding`
+                  + `${g.at.length === 2 ? '' : 's'} reading the same way, on ${listChroms(g.at)}`)
+              }
             }
           }
           // --- where each extra copy came from ---------------------------------------------
@@ -816,6 +830,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               iv: Interval,
               wholeChromosome: boolean,
               state: 'loss' | 'gain' | 'cnn-loh' = 'loss',
+              /** The taxonomy class this came from, so the log can group by it. */
+              cls = 'dosage',
             ) => {
               // Background is every OTHER chromosome of this same array. Self-referencing is not
               // optional: the raw one-parent null sits at -0.031 on trophectoderm under no event,
@@ -903,6 +919,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 material: c.material,
                 floor: c.floor,
                 why: c.why,
+                cls,
               }
             }
 
@@ -941,10 +958,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 f.wholeChromosome,
                 f.cls === 'cnn-loh' ? 'cnn-loh'
                   : f.cls === 'segmental-duplication' ? 'gain' : 'loss',
+                f.cls,
               )
               result.dosageCalls.push(call)
-              const named = call.verdict === 'loaded-parent' || call.verdict === 'other-parent'
-              log(named ? 'DONE' : 'WARN', `${f.cls} origin ${call.where}: ${call.why}`)
               scoredSoFar += 1
               // One yield every couple of findings, so the lines above appear as they are decided
               // rather than all at once when the loop ends.
@@ -959,19 +975,23 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             // reader nothing the first one had not, buried the handful of real answers, and cost a
             // render each. The intervals are still listed, and the full table is still in the
             // report and the export.
-            const refusals = new Map<string, string[]>()
+            const refusals = new Map<string, { cls: string; why: string; at: string[] }>()
             for (const c of result.dosageCalls) {
               // 'refused' is the GENOTYPE channel's vocabulary and never appears here, so this
               // line logged DONE for every outcome including a withheld parent.
               const named = c.verdict === 'loaded-parent' || c.verdict === 'other-parent'
-              if (named) { log('DONE', `dosage origin ${c.where}: ${c.why}`); continue }
-              const at = refusals.get(c.why)
-              if (at) at.push(c.where)
-              else refusals.set(c.why, [c.where])
+              const cls = (c as { cls?: string }).cls ?? 'dosage'
+              if (named) { log('DONE', `${cls} origin ${c.where}: ${c.why}`); continue }
+              // Grouped by CLASS as well as reason, so the summary says what it stood for rather
+              // than lumping copy-neutral events together with uniparental disomy.
+              const key = `${cls}|${c.why}`
+              const at = refusals.get(key)
+              if (at) at.at.push(c.where)
+              else refusals.set(key, { cls, why: c.why, at: [c.where] })
             }
-            for (const [why, at] of refusals) {
-              if (at.length === 1) { log('WARN', `dosage origin ${at[0]}: ${why}`); continue }
-              log('WARN', `${at.length} intervals not evaluable for the same reason, on `
+            for (const { cls, why, at } of refusals.values()) {
+              if (at.length === 1) { log('WARN', `${cls} origin ${at[0]}: ${why}`); continue }
+              log('WARN', `${at.length} ${cls} intervals not evaluable for the same reason, on `
                 + `${listChroms(at)}: ${why}`)
             }
           }

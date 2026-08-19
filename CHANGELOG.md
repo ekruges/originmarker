@@ -9,6 +9,27 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.10.4 "Dictyate"
+
+**The log collapse in 5.10.3 only covered one of the two places that log.** Origin results were
+written twice, once by the loop that scores each finding and once by the loop over all the calls,
+and only the second was collapsed. So a run still printed 195 copy-neutral refusals and 25
+uniparental ones in full, and every result appeared twice. Fixed by having one logging site rather
+than two: the scoring loop no longer logs, and the single site that does groups refusals by CLASS
+as well as by reason, so a summary says what it stood for instead of lumping copy-neutral events in
+with uniparental disomy.
+
+**Findings were still one line each.** One run produced 183 copy-neutral regions whose lines
+differed only in their measurements, and reading the 183rd told a reader nothing the first had not.
+The first of each kind is printed in full, then one line saying how many more there were and which
+chromosomes they were on. Every finding keeps its own numbers in the genome viewer, the report and
+the export, which is where they are meant to be compared; the log is a narrative of the run.
+
+Measured on the same nine example arrays: 38 warnings and 44 result lines became 12 and 22, and the
+run went from 30 s to 19 s.
+
+---
+
 ## 5.10.3 "Dictyate"
 
 **Most of a run on single-cell material was spent preparing evidence for questions already known to
