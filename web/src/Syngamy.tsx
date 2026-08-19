@@ -50,6 +50,7 @@ import {
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin'
 import { callOneParentOrigin } from './oneParentOrigin'
 import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin'
+import { uniparentalOrigin } from './uniparentalOrigin'
 import {
   detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh,
   LOH_SEGMENT_MARKERS,
@@ -896,11 +897,23 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 // 0.348 and a segment has none at any fraction.
                 state,
               })
+              // WHERE THE DOSAGE CHANNEL CANNOT REACH, ASK THE ZYGOSITY. A uniparental sample has
+              // one parental genome in it, so every change in it belongs to that parent by
+              // construction and needs no detection floor. Only consulted when dosage returned
+              // nothing, so a measured answer always wins over an inherited one.
+              const zyg = c.verdict === 'not-evaluable'
+                ? uniparentalOrigin({
+                  originClass: result.originClass, zygosity: result.zygosity, role: soloRole,
+                  genomeRate: result.genomeRate, explainable: result.explainable,
+                })
+                : null
               return {
                 where: label,
-                verdict: c.verdict,
-                confidence: c.posterior?.confidence,
-                band: c.posterior?.band,
+                verdict: zyg?.verdict ?? c.verdict,
+                confidence: zyg?.confidence ?? c.posterior?.confidence,
+                band: zyg?.band ?? c.posterior?.band,
+                fromZygosity: !!zyg,
+                parent: zyg?.parent,
                 limitedBy: c.posterior?.limitedBy,
                 uncalibrated: c.posterior?.uncalibrated,
                 classVerdict: c.classVerdict,
@@ -918,7 +931,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 markers: c.markers,
                 material: c.material,
                 floor: c.floor,
-                why: c.why,
+                why: zyg ? zyg.why : c.why,
                 cls,
               }
             }

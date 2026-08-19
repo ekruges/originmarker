@@ -9,6 +9,47 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.11.0 "Pronucleus"
+
+**A run of 18 samples produced 1,272 detected regions and not one parental origin. Every row read
+"not evaluable". The question had been asked of the wrong channel.**
+
+A sub-chromosomal interval on single-cell material has no detection floor at any mosaic fraction,
+with one genotyped parent or two. That is measured and it is true. It is also the answer to
+"which of two parents does this shift point at", and that question only arises when both parents
+are present.
+
+Eight of those samples were gynogenetic and seven androgenetic. A gynogenetic embryo carries
+maternal DNA and no paternal complement, so a chromosome lost from it was maternal, because there
+was no other chromosome there to lose. It is Mendelian, it needs no detection floor, and the run
+had already established it at the genome level: 9.04% absence against a 0.70% ceiling, 12.9x, on
+580,133 informative markers.
+
+This is the same error 5.10.0 removed from triploidy and complex genomes, in a new place. A limit
+that is real for the DOSAGE channel was applied to a case the ZYGOSITY channel had already
+answered.
+
+`uniparentalOrigin` names the parent for every change in a confidently uniparental sample. It is
+consulted only where dosage returned nothing, so a measured answer always wins over an inherited
+one, and it stays silent on biparental samples, unclear ones, samples whose zygosity was not
+resolved, and genome-level calls that did not clear their own ceiling.
+
+**It cannot reach band B, and that is deliberate.** The channel has no injection series, so nothing
+would justify claiming a calibration. It is bounded by the same systematic error bound as every
+other channel, from 13 validation units, so its ceiling is 1 - 0.206 = 0.794. Confidence rises with
+how decisive the genome-level call was: 1.5x over ceiling gives 0.466, 12.9x gives 0.665. Every
+change in one sample carries the SAME answer and the same confidence, because they all rest on one
+genome-level call, and the wording says so rather than letting a reader count 1,272 independent
+confirmations of a single fact.
+
+**The first version of this was dead on arrival and its own tests passed.** It compared zygosity
+against 'uniparental', which is not one of the three shipped values, so it returned nothing on
+every real sample. The check now imports the `Zygosity` type and uses the value the application
+produces. This is the seventh time this repository has shipped a feature that passed tests written
+against a fixture the application never sees, which is why `audit/requirements.check.ts` exists.
+
+---
+
 ## 5.10.4 "Dictyate"
 
 **The log collapse in 5.10.3 only covered one of the two places that log.** Origin results were
