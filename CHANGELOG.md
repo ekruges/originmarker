@@ -55,6 +55,14 @@ refusal is now printed once per distinct reason, with how many intervals it cove
 chromosomes they were on, and a named parent is always printed in full because it is an answer. The
 per-interval table is unchanged in the report and the export.
 
+**The deploy gate no longer waits twelve minutes on a host it cannot reach.** A host blocked by the
+network times out on every attempt rather than answering, so thirty patient retries at the full
+timeout each ran for about twelve minutes before the on-host fallback was tried, and the deploy
+looked hung. Waiting for a container to finish starting is worth thirty tries; waiting for a
+firewall to change its mind is not. A DNS or timeout failure now falls through after two tries and
+asks the host itself, which is the check that was going to answer anyway. Twenty-eight seconds
+instead of seven hundred and twenty. A WRONG answer still never falls back.
+
 Findings had the same problem from the other side: a hundred runs of homozygosity each repeated the
 same paragraph about what isodisomy is and what its absence does not rule out. Every finding is
 still printed with its own measurements, and the shared explanation appears once.

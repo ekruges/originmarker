@@ -64,10 +64,23 @@ for host in "${HOSTS[@]}"; do
   # port, and the tunnel-routed host takes materially longer to answer than the direct one: 5.0.0
   # verified green on originmarker.app and FAILED on ezrakruger.cc inside a 40s window, then
   # answered correctly by hand moments later. A gate that cries wolf is a gate people stop reading.
-  for _ in $(seq 1 30); do
-    got=$(curl -s --max-time 20 "$host/api/health" \
+  #
+  # A HOST THE NETWORK CANNOT SEE IS NOT A HOST THAT IS STILL STARTING. Waiting for a container to
+  # come up is worth thirty tries; waiting for a firewall to change its mind is not. A blocked host
+  # times out at the full --max-time on every attempt, so retrying it thirty times cost twelve
+  # minutes before the on-host fallback below ever ran, and the deploy looked hung. curl exit 6 is
+  # DNS and 28 is timeout, both of which mean this network cannot reach the host at all: two tries
+  # and fall through. Everything else keeps the full patience, because a recreated container really
+  # does answer late.
+  for try in $(seq 1 30); do
+    raw=$(curl -s --max-time 12 "$host/api/health" 2>/dev/null); rc=$?
+    got=$(printf '%s' "$raw" \
       | python3 -c 'import json,sys; print(json.load(sys.stdin).get("version",""))' 2>/dev/null || true)
     [ -n "$got" ] && break
+    if { [ "$rc" = 6 ] || [ "$rc" = 28 ]; } && [ "$try" -ge 2 ]; then
+      echo "       ${host} is not reachable from here (curl ${rc}), asking the host itself"
+      break
+    fi
     sleep 4
   done
   if [ "$got" = "$want" ]; then
