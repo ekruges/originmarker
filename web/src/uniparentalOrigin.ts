@@ -21,7 +21,7 @@
  * report must say so rather than let a reader count 1,272 independent confirmations of one fact.
  */
 import { SYSTEMATIC_ERROR_BOUND, reportedConfidence } from './oneParentOrigin.ts'
-import { ABSENCE_MARGIN } from './parentage.ts'
+import { ABSENCE_MARGIN, HET_BAND_DIPLOID } from './parentage.ts'
 
 export type UniparentalInput = {
   /** The genome-level call. Only the two uniparental classes carry an answer. */
@@ -40,6 +40,15 @@ export type UniparentalInput = {
   /** Absence measured across the genome, and the level that dropout and error alone explain. */
   genomeRate: number
   explainable: number
+  /**
+   * Fraction of calls in the heterozygous band, which is what says ONE parental contribution or
+   * two independently of whose it is.
+   *
+   * Load-bearing for the case where the genome carries the LOADED parent. Absence cannot measure
+   * that case at all: a parent that is present is not absent, so the absence route is silent by
+   * construction and this is the only evidence left.
+   */
+  hetBand: number
 }
 
 export type UniparentalCall = {
@@ -83,11 +92,33 @@ export function uniparentalOrigin(input: UniparentalInput): UniparentalCall | nu
   if (!input.zygosity?.startsWith('uniparental')) return null
   const { genomeRate, explainable } = input
   if (!Number.isFinite(genomeRate) || !Number.isFinite(explainable) || explainable <= 0) return null
-  const fold = genomeRate / explainable
-  // Below its own ceiling the genome-level call is not made, and inheriting from it would be
-  // inventing evidence.
-  if (!(fold > 1)) return null
-
+  // WHICH ROUTE ESTABLISHED THE CLASS DECIDES WHICH MEASUREMENT SUPPORTS IT.
+  //
+  // The first version tested absence of the loaded parent for every sample, which can only ever
+  // be large when the loaded parent is MISSING. Measured on this project's own audit set, that
+  // gate fired on 14 of 14 gynogenetic samples and 0 of 8 androgenetic ones, because an
+  // androgenetic genome loaded against the sperm donor contains the loaded parent and its absence
+  // sits at 0.09 to 0.62 of the explainable ceiling. Half the samples were dropped in silence, and
+  // any aggregation fed from these rows would have found a maternal excess whatever the biology.
+  //
+  // A genome that CARRIES the loaded parent is established by zygosity instead: one contribution
+  // rather than two, from the heterozygous band. That correctly refuses the three androgenetic
+  // arrays sitting at hetBand 0.15 to 0.16, above the diploid threshold, which the absence route
+  // had been admitting on evidence that says the opposite.
+  const matchesLoaded = genomeIs === input.role
+  const { hetBand } = input
+  if (matchesLoaded && (!Number.isFinite(hetBand) || hetBand <= 0)) return null
+  const margin = matchesLoaded ? HET_BAND_DIPLOID / hetBand : genomeRate / explainable
+  const basis = matchesLoaded
+    ? `${(hetBand * 100).toFixed(2)}% of calls in the heterozygous band against the `
+      + `${(HET_BAND_DIPLOID * 100).toFixed(0)}% a second parental contribution would produce, `
+      + `${margin.toFixed(1)}x below it`
+    : `absence of the loaded parent at ${margin.toFixed(1)}x the level dropout and error alone `
+      + 'explain'
+  // Below its own threshold the genome-level call is not supported by the route that has to carry
+  // it, and inheriting from it would be inventing the evidence.
+  if (!(margin > 1)) return null
+  const fold = margin
   const confidence = reportedConfidence(Math.log(fold), {
     bound: SYSTEMATIC_ERROR_BOUND,
     halfEvidence: MARGIN_HALF_EVIDENCE,
@@ -96,19 +127,19 @@ export function uniparentalOrigin(input: UniparentalInput): UniparentalCall | nu
     // reported ignorance here as worse than chance, dragging every number above it down with it.
     floor: 0.5,
   })
-  const verdict = genomeIs === input.role ? 'loaded-parent' : 'other-parent'
+  const verdict = matchesLoaded ? 'loaded-parent' : 'other-parent'
   return {
     verdict,
     parent: genomeIs,
     confidence,
     band: bandOf(confidence),
     foldOverCeiling: fold,
-    why: `this sample carries ONE parental genome, called ${input.originClass} at `
-      + `${fold.toFixed(1)}x the level dropout and error alone explain, so every change in it is `
-      + `${genomeIs}: there was no ${genomeIs === 'maternal' ? 'paternal' : 'maternal'} copy `
-      + 'present to lose, gain or rearrange. This is inherited from the genome-level call rather '
-      + 'than measured on this interval, so it is the same answer and the same confidence for '
-      + 'every change in this sample, and it is capped below band B because the channel has no '
-      + 'injection series of its own',
+    why: `this sample carries ONE parental genome, called ${input.originClass} on ${basis}, so `
+      + `every change in it is ${genomeIs}: there was no `
+      + `${genomeIs === 'maternal' ? 'paternal' : 'maternal'} copy present to lose, gain or `
+      + 'rearrange. This is inherited from the genome-level call rather than measured on this '
+      + 'interval, so it is the same answer and the same confidence for every change in this '
+      + 'sample, and it is capped below band B because the channel has no injection series of '
+      + 'its own',
   }
 }

@@ -10,7 +10,8 @@ import type { Zygosity } from './parentage.ts'
 // version of this file used 'uniparental', which is not one of the three shipped values, so the
 // channel returned null on every real sample and this file passed anyway.
 const ZYGOSITY: Zygosity = 'uniparental_homozygous'
-const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.0070 }
+const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.0070,
+  hetBand: 0.030 }
 
 // --- 1. THE REAL SAMPLE ------------------------------------------------------------------------
 // 52461-01_76: gynogenetic, absence 9.04% against a ceiling of 0.70%, which is 12.9x. The loaded
@@ -81,6 +82,55 @@ const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.007
   console.log(`  bounded at ${cap.toFixed(3)}: 1.5x -> ${weak.confidence.toFixed(3)},`
     + ` 12.9x -> ${strong.confidence.toFixed(3)}, extreme -> ${extreme.confidence.toFixed(3)}`)
   assert.ok(MARGIN_HALF_EVIDENCE > 0, 'the half-evidence is a stated constant, not a magic number')
+}
+
+
+// --- 5. THE GATE MUST NOT BE ONE-SIDED ---------------------------------------------------------
+//
+// THE DEFECT THIS EXISTS TO PREVENT, measured on this project's own audit set. The first version
+// tested absence of the loaded parent for every sample. Absence is large only when the loaded
+// parent is MISSING, so with the sperm donor loaded the gate fired on 14 of 14 gynogenetic samples
+// and 0 of 8 androgenetic ones: margins 4.77 to 17.44 against 0.09 to 0.62. Half the samples were
+// dropped without a word, and any aggregation fed from these rows would have reported a maternal
+// excess whatever the biology, because the paternal group could not contribute a single called
+// event.
+{
+  // Androgenetic with the sperm donor loaded: the genome IS the loaded parent, so its absence is
+  // low by construction. Real values from the audit set.
+  for (const [absenceFold, hetBand] of [[0.62, 0.0285], [0.47, 0.0325], [0.09, 0.0300]]) {
+    const c = uniparentalOrigin({
+      ...base, originClass: 'androgenetic', role: 'paternal',
+      genomeRate: 0.0070 * absenceFold, hetBand,
+    })
+    assert.ok(c, `androgenetic at absence fold ${absenceFold} must still be called: the loaded `
+      + 'parent being present is not a reason to say nothing')
+    assert.equal(c.parent, 'paternal')
+    assert.equal(c.verdict, 'loaded-parent')
+  }
+  // And the mirror still works off absence, unchanged.
+  const gyno = uniparentalOrigin({
+    ...base, originClass: 'gynogenetic', role: 'paternal', genomeRate: 0.0904, hetBand: 0.030 })
+  assert.equal(gyno?.parent, 'maternal')
+  assert.ok(gyno.foldOverCeiling > 12, 'the absence route keeps its own margin')
+  console.log('  both classes are called: absence carries the missing-parent case,'
+    + ' zygosity carries the present-parent case')
+}
+
+// --- 5b. AND THE PRESENT-PARENT BRANCH MUST REFUSE A GENOME THAT LOOKS DIPLOID ------------------
+// Three androgenetic arrays in the audit set sit at hetBand 0.15 to 0.16, ABOVE the 0.08 a second
+// parental contribution produces. The absence route was admitting them on evidence that says the
+// opposite. Zygosity is the measurement that has to carry this branch, so it is the one that
+// refuses.
+{
+  for (const hetBand of [0.1527, 0.1542, 0.1603]) {
+    assert.equal(
+      uniparentalOrigin({ ...base, originClass: 'androgenetic', role: 'paternal',
+        genomeRate: 0.0070 * 0.10, hetBand }),
+      null,
+      `hetBand ${hetBand} is above the diploid threshold, so this genome is not established as `
+      + 'carrying one parental contribution and nothing may be inherited from the class')
+  }
+  console.log('  a genome above the diploid heterozygosity threshold is refused, not inherited from')
 }
 
 console.log('uniparentalOrigin: names a parent where dosage cannot, and stays silent where it must')

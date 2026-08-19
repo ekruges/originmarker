@@ -934,6 +934,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 ? uniparentalOrigin({
                   originClass: result.originClass, zygosity: result.zygosity, role: soloRole,
                   genomeRate: result.genomeRate, explainable: result.explainable,
+                  hetBand: result.hetBand,
                 })
                 : null
               // EVERY ROW LEAVES WITH A GRADE. Where neither the measured channel nor the

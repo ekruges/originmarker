@@ -1,0 +1,29 @@
+question,measurement,value,source
+Q1a,"zygosity gate fires, gynogenetic",7 of 7,audit/results.json
+Q1a,"zygosity gate fires, androgenetic",0 of 5,audit/results.json
+Q1b,confidence range over observed folds 8.6-17.4x,"0.648 to 0.675, all band D",reportedConfidence reimpl
+Q1b,fold needed to leave band D,"~12,961x",reportedConfidence reimpl
+Q1b,SYSTEMATIC_ERROR_BOUND vs rule of three on 13 units,"0.206 vs 0.2058, correct",arithmetic
+Q2a,regions -> merged maximal intervals,"1,513 -> 1,242 (17.9% reduction)","regions-*.tsv, 214 cells"
+Q2a,spearman regions vs merged,0.966,regions-*.tsv
+Q2a,spearman regions vs affected Mb,0.721,regions-*.tsv
+Q2a,"false cnn-LOH windows at true het 0.002, event-free",178 of 800,detectLoh simulation
+Q2b,informative marker spread across arrays,1.82x,audit/results.json
+Q2b,artefact propensity (explainable) spread,19.7x,audit/results.json
+Q2b,"spearman(informative, explainable)","-0.533, p=0.005",audit/results.json
+Q2b,bias raw vs normalised by informative markers,5.89x -> 7.06x (amplified),audit/results.json
+Q2c,"overdispersion, regions per cell","var/mean = 9.8x Poisson, NB k=0.81",regions-*.tsv
+Q2c,"type-I at skew 1.0 / 1.5, pooled statistic",0.044 / 0.164,permutation simulation
+Q2c,"type-I at skew 1.0 / 1.5, rank statistic",0.049 / 0.077,permutation simulation
+Q2d,"MAX_POWER_SKEW keeping type-I <=0.075, pooled",1.1,permutation simulation
+Q2d,"MAX_POWER_SKEW keeping type-I <=0.075, rank",1.4,permutation simulation
+Q2d,"exact min achievable p, 3v3","0.100, cannot clear alpha 0.05","2/C(6,3)"
+Q2d,shipped minAchievableP at 3v3 vs exact,"0.1429 vs 0.100, conservative",parentalBalance.ts
+Q2d,"power at 3x effect, n=3/4/8/20 per group",0.00 / 0.14 / 0.38 / 0.82,NB simulation k=0.81
+Q2d,"power in the actual run, 7v5, 5x effect",0.30,NB simulation
+Q2e,"median call rate, maternal vs paternal arrays",0.858 vs 0.807,audit/results.json
+Q2e,excluded-as-unclear arrays,"3 of 8 paternal, 0 of 7 maternal",audit/results.json
+Q3,GSE148488 material,"dissected pronuclei from biparental 2PN zygotes, Cas9 treated",GEO + Zuccaro 2020
+Q3e,haplarithmisis segmental floor,"4.4 Mb, breakpoint accuracy 0.51 Mb SD 0.48",Zamani Esteki 2015
+Q3e,segmental imbalance parental split,"61.5% paternal, n=162, P=0.004",Tsuiko 2021
+Q3c,PGT-A mosaicism reporting vs validation,"80% report, 61.8% of validated centres validated for it",ESHRE 2022 survey

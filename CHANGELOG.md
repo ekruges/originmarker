@@ -9,6 +9,43 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.11.3 "Pronucleus"
+
+**The zygosity channel could only ever fire on half the samples, and it was the half that made the
+answer come out one way.**
+
+`uniparentalOrigin` tested absence of the LOADED parent for every sample. Absence is large only
+when the loaded parent is MISSING, so with a sperm donor loaded, a gynogenetic genome clears the
+gate and an androgenetic genome cannot: it CONTAINS the loaded parent, so its absence sits below
+the explainable ceiling by construction. Measured on this project's own audit set, the gate fired
+on 14 of 14 gynogenetic samples, margins 4.77 to 17.44, and 0 of 8 androgenetic ones, margins 0.09
+to 0.62. Half the samples returned nothing, without a word.
+
+The consequence runs one direction. Any aggregation fed from these rows would have found a maternal
+excess whatever the biology, because the paternal group could not contribute a single called event.
+`parentalBalance` is not wired to a run, so nothing was published from it, but that is the result it
+would have produced.
+
+Which route established the class now decides which measurement supports it. A genome MISSING the
+loaded parent is carried by absence, as before. A genome CARRYING the loaded parent is carried by
+zygosity: the fraction of calls in the heterozygous band, against the level a second parental
+contribution would produce. Absence cannot speak to that case at all, because a parent that is
+present is not absent.
+
+The second measurement also refuses what the first was admitting. Three androgenetic arrays sit at
+heterozygous-band 0.15 to 0.16, above the 0.08 a second contribution produces, so they are not
+established as carrying one parental genome at all. The absence route had been letting them through
+on evidence that says the opposite. After the change: 14 of 14 gynogenetic and 5 of 8 androgenetic,
+with those three refused.
+
+Found by an external methods review of the consult brief in `audit/`, and confirmed here against
+`audit/results.json` before acting on it. The review's response and its measurement table are
+committed alongside, because the rest of it names further defects that are not addressed in this
+release: the copy-neutral detector on a homozygous genome, the aggregation's denominator and
+statistic, and whether this channel should emit a number at all.
+
+---
+
 ## 5.11.2 "Pronucleus"
 
 **The confidence floor was chance for a three-way question, applied to a two-way one.**
