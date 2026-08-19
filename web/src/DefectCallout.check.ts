@@ -142,3 +142,19 @@ console.log('DefectCallout.check.ts: all assertions passed, including the no-bor
 }
 
 console.log('DefectCallout.check.ts: one-parent mapping pinned in both parent roles')
+
+// --- THE FACE MUST NOT CONTRADICT ITSELF -------------------------------------------------------
+// A band F row NAMES a parent from evidence that reaches no measured band. Printing "no call"
+// beside that parent says two opposite things in one line, which a real run produced.
+{
+  const bandWord = (band: string): string => (band === 'C' ? 'weak'
+    : band === 'D' ? 'not evaluable' : band === 'F' ? 'direction only' : '')
+  for (const band of ['C', 'D', 'F']) {
+    assert.ok(bandWord(band).length > 0,
+      `band ${band} suppresses its digits, so it must say what it is instead of falling through `
+      + 'to the wording reserved for a row that named nothing')
+    assert.notEqual(bandWord(band), 'no call',
+      `band ${band} names a parent, so it must never read "no call"`)
+  }
+  console.log('  bands C, D and F each say what they are rather than reading as no call')
+}

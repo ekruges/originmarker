@@ -2,8 +2,8 @@
 // on the two parental genomes differentially, or equally.
 import assert from 'node:assert/strict'
 import {
-  parentalBalance, mergeEvents, minAchievableP, MAX_POWER_SKEW, MIN_PER_GROUP,
-  REPORTING_PER_GROUP,
+  parentalBalance, pairedWithinSample, mergeEvents, minAchievableP, MAX_POWER_SKEW,
+  MIN_PER_GROUP, REPORTING_PER_GROUP,
 } from './parentalBalance.ts'
 import type { BalanceSample } from './parentalBalance.ts'
 
@@ -178,6 +178,53 @@ const sample = (
   const b = parentalBalance(rows, { permutations: 1000, seed: 42 })
   assert.equal(a.p, b.p, 'the same seed must give the same p')
   console.log(`  same seed, same p (${a.p.toFixed(4)})`)
+}
+
+
+// --- 9. THE WITHIN-EMBRYO DESIGN ---------------------------------------------------------------
+// Both counts come from the SAME array, so array quality, marker count and amplification are
+// identical on the two sides by construction and cannot explain a difference. That is what the
+// between-group comparison cannot claim.
+{
+  // Ten embryos, nine of them carrying more maternal events.
+  const rows = Array.from({ length: 10 }, (_, i) => ({
+    name: `e${i}`, maternalEvents: i === 0 ? 1 : 5, paternalEvents: i === 0 ? 4 : 1,
+  }))
+  const r = pairedWithinSample(rows)
+  assert.equal(r.verdict, 'differential', r.headline)
+  assert.equal(r.informative, 10)
+  assert.equal(r.maternalHigher, 9)
+  // Exact two-sided binomial, 9 of 10: 2 * (C(10,0)+C(10,1)) / 2^10 = 22/1024.
+  assert.ok(Math.abs(r.p - 22 / 1024) < 1e-12, `exact sign-test p, got ${r.p}`)
+  console.log(`  9 of 10 embryos maternal-heavy -> ${r.verdict}, exact p ${r.p.toFixed(4)}`)
+}
+
+// A balanced set must not read as a difference.
+{
+  const rows = Array.from({ length: 10 }, (_, i) => ({
+    name: `e${i}`, maternalEvents: i % 2 ? 5 : 1, paternalEvents: i % 2 ? 1 : 5 }))
+  const r = pairedWithinSample(rows)
+  assert.equal(r.verdict, 'equal')
+  assert.equal(r.p, 1, 'five each way is the least extreme outcome there is')
+  console.log(`  5 each way -> ${r.verdict}, p ${r.p.toFixed(4)}`)
+}
+
+// Ties carry no direction and are excluded, and below six informative samples even perfect
+// agreement cannot clear alpha, so nothing is reported.
+{
+  const tied = Array.from({ length: 20 }, (_, i) => ({
+    name: `t${i}`, maternalEvents: 3, paternalEvents: 3 }))
+  const r = pairedWithinSample(tied)
+  assert.equal(r.informative, 0, 'ties carry no direction')
+  assert.equal(r.verdict, 'underpowered')
+
+  const five = Array.from({ length: 5 }, (_, i) => ({
+    name: `f${i}`, maternalEvents: 9, paternalEvents: 1 }))
+  const r5 = pairedWithinSample(five)
+  assert.equal(r5.verdict, 'underpowered',
+    'five informative samples cannot reach alpha 0.05 even in perfect agreement, since '
+    + '2 x 0.5^4 = 0.125')
+  console.log('  ties excluded; below 6 informative samples nothing is reported')
 }
 
 console.log('parentalBalance: rank statistic holds its size, artefact propensity is the matched '

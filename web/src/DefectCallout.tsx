@@ -96,7 +96,12 @@ function OneDefect({ d, why }: { d: Defect; why: string[] }) {
   const showsDigits = d.band === 'A' || d.band === 'B'
   const conf = showsDigits && d.confidence !== undefined && Number.isFinite(d.confidence)
     ? d.confidence.toFixed(2) : null
-  const weakWord = d.band === 'C' ? 'weak' : d.band === 'D' ? 'not evaluable' : null
+  // What stands in place of the digits, per band. F names a parent from evidence that reaches no
+  // measured band, so it says that rather than "no call", which would contradict the parent shown
+  // beside it.
+  const weakWord = d.band === 'C' ? 'weak'
+    : d.band === 'D' ? 'not evaluable'
+      : d.band === 'F' ? 'direction only' : null
   return (
     <div style={{ border: `1px solid ${open ? colour : 'var(--om-defect)'}`, background: 'var(--om-defect-chip)' }}>
       <button
@@ -237,7 +242,7 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
         . Click a change for its evidence.
       </Text>
 
-      {inherited.length ? (
+      {inherited.length > 1 ? (
         <div style={{
           marginTop: 9, border: '1px solid var(--om-defect)', borderLeft: '3px solid var(--om-defect)',
           background: 'var(--om-defect-chip)', padding: '7px 10px',

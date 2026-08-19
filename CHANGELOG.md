@@ -9,6 +9,45 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.12.1 "Karyogamy"
+
+The remaining items from the methods review.
+
+**The joinable output exists.** A reader of this tool joins its calls against their own sample
+metadata, which a 12-page PDF cannot support: it signals a clinical deliverable while the
+disclaimer says it is not one. `Table (TSV)` writes one row per change with the location, the
+class, the parent, and crucially HOW the parent was arrived at. A parent measured on the interval,
+one inherited from a genome-level call, and a bare direction are three different claims, and a
+column that flattened them would invite the counting error the panel warns about. An
+`independent_determination` column carries 1 on the first inherited row of a sample and 0 on the
+rest, so anything summing it gets the number of real determinations rather than the number of rows.
+Bands C and D export no confidence, for the same reason they no longer print one. The change list
+is now built once and shared with the panel, so the two cannot drift.
+
+**The within-embryo design is available.** Comparing gynogenetic against androgenetic genomes
+compares two groups of samples, and every quality difference between those groups is a rival
+explanation. A biparental sample carries both parental genomes in the same array, on the same
+chemistry in the same reaction, so counting maternal against paternal events WITHIN each sample
+removes every between-sample confound at once and a paired test is far more powerful per sample.
+`pairedWithinSample` runs an exact two-sided sign test, ties excluded as carrying no direction, and
+reports nothing below six informative samples because even perfect agreement cannot reach alpha
+there. Only events with a MEASURED per-event origin may enter, which is what keeps the design
+honest.
+
+**The stated purpose is the open question rather than the settled one.** Whole-chromosome
+aneuploidy is already established as overwhelmingly maternal, and segmental imbalance as
+predominantly paternal, so re-deriving either validates the tool rather than adding biology. What
+is open is the parental split of MITOTIC segmental events, and for a structural reason: haplotype
+methods define a mitotic event as one showing a normal biparental haplotype pattern, so the method
+that yields the meiotic split cannot in principle yield the mitotic one. A self-referenced dosage
+channel does not carry that definition.
+
+**Two display defects a real run surfaced.** A band F row printed a named parent beside the words
+"no call", which says two opposite things in one line; C, D and F now each say what they are. And
+the independent-unit banner read "not 1" when a sample had a single inherited change.
+
+---
+
 ## 5.12.0 "Karyogamy"
 
 Everything an external methods review found, acted on and checked. Its response and measurement

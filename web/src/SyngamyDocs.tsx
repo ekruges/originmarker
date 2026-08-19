@@ -97,6 +97,18 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
 
         {/* --- 1 ------------------------------------------------------------------------- */}
         <Section id="what" title="What this answers">
+          <Text mb={8} fw={600}>
+            The open question this is aimed at: which parental genome a MITOTIC segmental change
+            fell on. Whole-chromosome aneuploidy is already known to be overwhelmingly maternal and
+            maternal-age dependent, and segmental imbalance is already known to be predominantly
+            paternal, so re-deriving either validates the tool rather than adding biology. What is
+            open is the parental split of post-zygotic segmental events specifically, and it is
+            open for a structural reason: haplotype methods DEFINE a mitotic event as one showing a
+            normal biparental haplotype pattern, so the method that yields the meiotic parental
+            split cannot in principle yield the mitotic one. A self-referenced allele-dosage
+            channel does not carry that definition, which is what makes this the contribution
+            rather than a weaker version of karyomapping.
+          </Text>
           <Text mb={8}>
             You have a sample from an experiment that is already finished: an embryo, a
             blastomere, a cell line. You also have an array from the sperm donor. The question

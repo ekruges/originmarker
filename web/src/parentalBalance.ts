@@ -458,3 +458,94 @@ export function parentalBalance(
           + `showing there is no difference. ${anyLine}${scope}`,
   }
 }
+
+// ---------------------------------------------------------------------------------------------
+// THE WITHIN-EMBRYO DESIGN, which is the one the lab's question actually deserves.
+//
+// Comparing gynogenetic against androgenetic genomes compares two groups of SAMPLES, so every
+// difference in array quality between those groups is a rival explanation, and the classes are
+// not a sample of embryos at all: they are fertilisation failures arising by different mechanisms
+// with different replication histories before any parental-genome effect is considered.
+//
+// A biparental sample carries BOTH parental genomes in the same array, read on the same chemistry
+// in the same reaction. Counting maternal against paternal events WITHIN each sample removes every
+// between-sample confound at a stroke, and a paired test is far more powerful per sample than a
+// between-group one. The cost is that only events with a real per-event origin may enter, which on
+// amplified material means whole-chromosome events, where the dosage channel does have a detection
+// floor and can reach a measured band. That discards most segmental events, and it is the right
+// trade: the events kept carry a MEASURED parent rather than an inherited one.
+
+export type PairedSample = {
+  name: string
+  /** Events with a per-event, measured parental origin. Inherited and graded calls do not qualify. */
+  maternalEvents: number
+  paternalEvents: number
+}
+
+export type PairedResult = {
+  verdict: 'differential' | 'equal' | 'underpowered'
+  headline: string
+  samples: number
+  /** Samples where the two counts differ, which are the only ones a sign test can use. */
+  informative: number
+  maternalHigher: number
+  paternalHigher: number
+  p: number
+  methods: string
+}
+
+/**
+ * Exact two-sided sign test on within-sample counts.
+ *
+ * No permutation and no seed: under the null a sample is equally likely to carry more maternal or
+ * more paternal events, so the null distribution is binomial with p = 0.5 and the p value is exact
+ * rather than estimated. Ties carry no information about direction and are excluded, which is what
+ * `informative` counts.
+ */
+export function pairedWithinSample(samples: readonly PairedSample[]): PairedResult {
+  const used = samples.filter((s) => s.maternalEvents !== s.paternalEvents)
+  const mHigh = used.filter((s) => s.maternalEvents > s.paternalEvents).length
+  const n = used.length
+  const methods = 'Within-sample comparison on biparental samples: maternal against paternal '
+    + 'events counted in the SAME array, so array quality, marker count, call rate and '
+    + 'amplification are identical on both sides by construction and cannot explain a difference. '
+    + 'Only events carrying a MEASURED per-event origin are counted; an inherited or direction-only '
+    + 'call would import the between-sample confounds this design exists to remove. Exact '
+    + 'two-sided sign test, ties excluded as carrying no direction.'
+
+  // Even every-sample-agreeing cannot clear alpha below six informative samples: 2 x 0.5^5 = 0.0625.
+  if (n < 6) {
+    return {
+      verdict: 'underpowered',
+      headline: `${n} sample${n === 1 ? '' : 's'} carry a difference between their maternal and `
+        + 'paternal counts. A sign test needs at least 6, below which even perfect agreement '
+        + `cannot reach alpha 0.05 (2 x 0.5^${Math.max(0, n - 1)}). No conclusion either way.`,
+      samples: samples.length, informative: n, maternalHigher: mHigh, paternalHigher: n - mHigh,
+      p: NaN, methods,
+    }
+  }
+
+  // Exact binomial tail, both directions.
+  let cum = 0
+  let coef = 1
+  const k = Math.min(mHigh, n - mHigh)
+  for (let i = 0; i <= k; i += 1) {
+    if (i > 0) coef = (coef * (n - i + 1)) / i
+    cum += coef
+  }
+  const p = Math.min(1, 2 * cum * 0.5 ** n)
+  const differential = p < ALPHA
+  const dir = mHigh > n - mHigh ? 'maternal' : 'paternal'
+  return {
+    verdict: differential ? 'differential' : 'equal',
+    headline: differential
+      ? `Within the same embryos, change falls UNEQUALLY: ${mHigh} of ${n} informative samples `
+        + `carry more maternal events and ${n - mHigh} carry more paternal, favouring ${dir}, `
+        + `p = ${p.toFixed(4)}. Both counts come from the same array, so array quality cannot `
+        + 'explain this.'
+      : `Within the same embryos, change falls EQUALLY within what ${n} informative samples can `
+        + `resolve: ${mHigh} carry more maternal and ${n - mHigh} more paternal, p = ${p.toFixed(4)}.`,
+    samples: samples.length, informative: n, maternalHigher: mHigh, paternalHigher: n - mHigh,
+    p, methods,
+  }
+}

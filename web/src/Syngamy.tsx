@@ -1,4 +1,5 @@
 import { breathe, buildScanIndex, copyNeutralWindows, gatherInterval } from './scan'
+import { syngamyTable } from './syngamyTable'
 import type { Interval } from './scan'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StageCallout } from './StageCallout'
@@ -106,6 +107,35 @@ const genomeGrade = (r: {
       + `${((genomeRate as number) * 100).toFixed(2)}% against a `
       + `${((explainable as number) * 100).toFixed(2)}% ceiling. Do not report or count this row`,
   }
+}
+
+/**
+ * The change list for one sample, built once so the panel and the export cannot disagree.
+ *
+ * Previously assembled inline in the render, which meant any machine-readable output would have
+ * had to reassemble it and could have drifted from what the reader was looking at.
+ */
+function defectsForResult(r: ParentageResult) {
+  return withMechanism([
+      ...defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
+        r.stage, r.dosageCalls ?? []),
+      // One list, not two. A copy-neutral event and a deletion are different measurements
+      // of the same kind of thing and a reader compares them against each other.
+      ...(r.findings ?? []).map((f) => findingToDefect(f, r.stage,
+        // The call scored over THIS finding's own interval, matched by the same label the
+        // scorer wrote, so a finding shows the origin that was actually measured for it
+        // rather than one borrowed from its chromosome.
+        // A GENOME-SCOPED FINDING HAS NO INTERVAL TO SCORE, so it never reached the
+        // scorer and was the one row still leaving without a grade. Its evidence is the
+        // whole array's, which is exactly what a genome-scoped finding should be judged
+        // on, so it is graded F from the same array-wide absence measurement the other
+        // ungradable rows fall back to.
+        f.chrom === 'genome'
+          ? genomeGrade(r)
+          : (r.dosageCalls ?? []).find((d: { where: string }) => d.where
+            === `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`),
+        r.role)),
+    ], r.uniformity)
 }
 
 /** How many log lines are kept. The oldest are dropped, so a run cannot grow the page without end. */
@@ -298,6 +328,31 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     logBuffer.current = []
     setLines((p) => [...p, ...add].slice(-LOG_LINES))
   }
+  const downloadTable = () => {
+    const rows = entries.filter((e) => e.result).map((e) => ({
+      name: e.file.name,
+      originClass: e.result!.originClass,
+      zygosity: e.result!.zygosity,
+      role: e.result!.role,
+      genomeRate: e.result!.genomeRate,
+      explainable: e.result!.explainable,
+      informative: e.result!.informative,
+      stage: e.result!.stage?.stage,
+      changes: defectsForResult(e.result!).map((d) => ({
+        chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
+        origin: d.origin, band: d.band, confidence: d.confidence,
+        inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
+        why: d.why,
+      })),
+    }))
+    const blob = new Blob([syngamyTable(rows)], { type: 'text/tab-separated-values' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `syngamy-changes-${new Date().toISOString().slice(0, 10)}.tsv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }
+
   const log = (tag: Tag, text: string) => {
     logBuffer.current.push({ tag, text })
     if (logBuffer.current.length === 1) queueMicrotask(flushLog)
@@ -1321,6 +1376,16 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 {saving ? 'Building\u2026' : 'Report (PDF)'}
               </Button>
             )}
+            {/* THE JOINABLE OUTPUT, beside the record rather than behind it. A reader of this tool
+                joins these calls against their own sample metadata, which a PDF cannot support. */}
+            {entries.some((e) => e.result) && (
+              <Button variant="default" size="xs" disabled={busy}
+                onClick={() => { downloadTable() }}
+                title="One row per change, tab separated"
+              >
+                Table (TSV)
+              </Button>
+            )}
             {entries.length > 0 && (
               <Button
                 variant="subtle" size="xs" disabled={busy}
@@ -1627,28 +1692,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
             </div>
           )}
           <SegmentCallout segments={r.segments} role={r.role} />
-          <DefectCallout
-            defects={withMechanism([
-              ...defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
-                r.stage, r.dosageCalls ?? []),
-              // One list, not two. A copy-neutral event and a deletion are different measurements
-              // of the same kind of thing and a reader compares them against each other.
-              ...(r.findings ?? []).map((f) => findingToDefect(f, r.stage,
-                // The call scored over THIS finding's own interval, matched by the same label the
-                // scorer wrote, so a finding shows the origin that was actually measured for it
-                // rather than one borrowed from its chromosome.
-                // A GENOME-SCOPED FINDING HAS NO INTERVAL TO SCORE, so it never reached the
-                // scorer and was the one row still leaving without a grade. Its evidence is the
-                // whole array's, which is exactly what a genome-scoped finding should be judged
-                // on, so it is graded F from the same array-wide absence measurement the other
-                // ungradable rows fall back to.
-                f.chrom === 'genome'
-                  ? genomeGrade(r)
-                  : (r.dosageCalls ?? []).find((d: { where: string }) => d.where
-                    === `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`),
-                r.role)),
-            ], r.uniformity)}
-          />
+          <DefectCallout defects={defectsForResult(r)} />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">
