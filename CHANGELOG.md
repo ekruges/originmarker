@@ -9,6 +9,38 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.9.2 "Karyotype"
+
+A requirements audit that runs against the shipped code, and three fixes a review found.
+
+**The audit is the substantive addition.** Every other check in this repository tests a unit; this
+one calls the functions a user's run calls and prints what each original requirement actually
+produces. It exists because features here have repeatedly shipped complete, documented and never
+wired: an origin read from a sign without its class, a timing test nothing called, a feature track
+that matched nothing, an array gate that silenced every amplified sample, a report argument never
+passed. Each passed its own tests, because each test exercised a fixture the application never
+sees. The audit runs in `scripts/checks.sh` and currently reports nine requirements met and two
+partial, with the partials named rather than rounded up.
+
+**The shared axis is guarded at both ends.** Everything downstream reads a feature's `observed` as
+a share of regions: the axis is labelled in percent, the bars share one scale, the grid compares it
+against a per-region count. A scoring mode returning a density or a covered-base count instead puts
+a foreign quantity on that axis, and it rescales every OTHER bar with it. Measured: a density value
+of 20.09 shrank a real fragile-site result of 0.417 to 1.9% of the plot width and printed it as
+"2009%". Such a value is now carried as untestable with the reason rather than charted, and the
+axis calculation refuses it a second time at the line that computes it.
+
+**Per-region overlap is indexed.** It linear-scanned every interval of every track for every
+region, which for a whole-genome track of half a million intervals is hundreds of millions of
+comparisons on the browser's main thread. Now grouped by chromosome and binary-searched, verified
+against brute force on 12,000 random queries and on the abutting, nested and cross-chromosome cases
+a binary search is most likely to get wrong.
+
+**And the audit printed under the wrong heading**, which is cosmetic but makes a passing gate read
+as belonging to the check above it.
+
+---
+
 ## 5.9.1 "Karyotype"
 
 Restores the service. 5.8.0 and 5.9.0 shipped codenames that were not on the release ladder, and

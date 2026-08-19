@@ -30,6 +30,14 @@ for f in "$ROOT"/cli/*.check.ts; do
   run "$(basename "$f")" "$ROOT" "cli/$(basename "$f")"
 done
 
+echo "requirements, against the shipped code"
+# THE REQUIREMENTS AUDIT, run against the shipped code rather than read off it. Every other check
+# here tests a unit; this one exercises the paths a user's run takes and reports what each of the
+# original requirements actually produces. It exists because this project has repeatedly shipped
+# features that were complete, documented and never wired, each passing its own unit tests because
+# each test exercised a fixture the application never sees.
+run 'requirements audit' . audit/requirements.check.ts
+
 echo "python modules compile"
 if python3 -m compileall -q originmarker app tools >/dev/null 2>&1; then
   printf '  ok   compileall\n'

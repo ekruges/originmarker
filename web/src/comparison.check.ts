@@ -369,6 +369,49 @@ const markers = new Map<string, number[]>([['1',
   assert.ok(relatedCount(c) <= regions.length)
 }
 
+// --- 13. A FOREIGN QUANTITY MUST NOT REACH THE SHARED AXIS ----------------------------------------
+//
+// Everything downstream reads `observed` as a share of regions: the axis is labelled "(%)", the
+// bars share one scale, and the grid compares it against a per-region count. scoreAll can be
+// extended with scoring modes that return a density or a covered-base count instead, and one of
+// those on the same axis rescales every OTHER bar with it. Measured before the guard: a density
+// value of 20.09 shrank a real fragile-site result of 0.417 to 1.9% of the plot width and printed
+// it as "2009%" under an axis reading "(%)".
+{
+  const bad = {
+    features: [
+      { label: 'fragile', feature: 'f', means: '', observed: 0.417, observedCount: 5,
+        expected: 0.09, nullLo: 0.02, nullHi: 0.2, p: 0.001, fold: 4.6, significant: true,
+        testable: true, hits: [], regionHits: [], nullHist: { lo: 0, hi: 1, counts: [] } },
+      { label: 'a density track', feature: 'd', means: '', observed: 20.09, observedCount: 240,
+        expected: 18, nullLo: 15, nullHi: 22, p: 0.4, fold: 1.1, significant: false,
+        testable: true, hits: [], regionHits: [], nullHist: { lo: 0, hi: 1, counts: [] } },
+    ],
+  } as never
+
+  const bars = enrichmentBars(bad)
+  assert.equal(bars.length, 1, 'a value that is not a share must not be charted as one')
+  assert.equal(bars[0].label, 'fragile')
+  assert.ok(bars[0].axisMax <= 1,
+    `the axis must stay in share units, got ${bars[0].axisMax}. One foreign number here rescales `
+    + 'every other bar in the figure, not only its own')
+  assert.ok(bars[0].observed / bars[0].axisMax > 0.9,
+    'and the real result must keep its width rather than being squeezed to nothing')
+
+  // The same guard at the other end: compare() marks such a feature untestable with the reason,
+  // rather than dropping it, so a reader still sees that the track was scanned.
+  const withExtra = {
+    ...track,
+    extra: { dense: Array.from({ length: 500 }, (_, i) => ({
+      chrom: '1', startBp: i * 60_000, endBp: i * 60_000 + 40_000, name: `d${i}` })) },
+  } as never
+  const c2 = compare(withExtra, regions, markers, { permutations: 200 })
+  const dense = c2.features.find((f) => f.feature === 'dense')
+  assert.ok(dense, 'the extra track must still appear, or silence reads as absence again')
+  const charted = enrichmentBars(c2)
+  assert.ok(charted.every((b) => b.axisMax <= 1), 'the axis stays in share units on the real path')
+}
+
 console.log('comparison.check.ts: all assertions passed, including the parental caveat travelling '
   + 'on every result, too few regions refusing to read as independence, and one shared axis across '
   + 'the enrichment chart')

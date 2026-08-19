@@ -206,15 +206,33 @@ export function compare(
   // A FEATURE WITH NO COMPUTABLE p IS STILL A FEATURE THAT WAS SCANNED, and dropping it silently
   // is the same defect the taxonomy exists to prevent: a figure that lists four features where five
   // were scanned tells a reader nothing about the fifth. Untestable ones are carried and marked.
-  const usable = raw.filter((e) => Number.isFinite(e.p))
-  const untestable = raw.filter((e) => !Number.isFinite(e.p))
+  //
+  // A FRACTION IS ALSO REQUIRED, and that is a trust boundary rather than a formality. Everything
+  // downstream reads `observed` as a share of regions: the axis is labelled "(%)", the bars share
+  // one scale, and the grid compares it against a per-region count. scoreAll can be extended with
+  // scoring modes that return a density or a covered-base count instead, and one of those on the
+  // same axis rescales it to its own magnitude: measured, a density track at 20.09 shrinks a real
+  // fragile-site result of 0.417 to 1.9% of the plot width and prints it as "2009%". A value that
+  // is not a share is not charted as one; it is carried as untestable with the reason.
+  const isShare = (e: { observed: number }) => e.observed >= 0 && e.observed <= 1
+  const usable = raw.filter((e) => Number.isFinite(e.p) && isShare(e))
+  const untestable = raw.filter((e) => !Number.isFinite(e.p) || !isShare(e))
   // Corrected for the number of features actually tested, not the number the track could carry.
   const alpha = (opts.alpha ?? ALPHA) / Math.max(1, usable.length)
 
   const intervalsFor = scannedTracks(track)
-  const touches = (
-    f: { chrom: string; startBp: number; endBp: number }, r: Region,
-  ) => f.chrom === r.chrom && f.startBp < r.endBp && r.startBp < f.endBp
+  // INDEXED PER CHROMOSOME, because a linear scan here is quadratic in a place a browser feels it.
+  // A whole-genome track can carry half a million intervals, and scanning all of them for every
+  // region on the main thread is hundreds of millions of comparisons. Grouping by chromosome and
+  // binary-searching the sorted starts turns that into a handful per region.
+  const indexed = new Map<string, ReturnType<typeof indexByChrom>>()
+  const indexFor = (
+    feature: string, ivs: readonly { chrom: string; startBp: number; endBp: number }[],
+  ) => {
+    let ix = indexed.get(feature)
+    if (!ix) { ix = indexByChrom(ivs); indexed.set(feature, ix) }
+    return ix
+  }
 
   const features: FeatureComparison[] = usable.map((e) => {
     const m = meaningFor(e.feature)
@@ -235,7 +253,7 @@ export function compare(
       significant: e.p < alpha,
       testable: true,
       hits: e.hits ?? [],
-      regionHits: regions.map((r) => ivs.some((f) => touches(f, r))),
+      regionHits: regions.map((r) => hitsIndexed(indexFor(e.feature, ivs), r)),
       nullHist: e.nullHist,
     }
   }).sort((a, b) => a.p - b.p)
@@ -243,8 +261,15 @@ export function compare(
   // Appended after the tested ones, so the ordering by p still holds for everything comparable.
   for (const e of untestable) {
     const m = meaningFor(e.feature)
+    const notAShare = Number.isFinite(e.p) && !isShare(e)
     features.push({
-      feature: e.feature, label: m.label, means: m.means,
+      feature: e.feature,
+      label: m.label,
+      means: notAShare
+        ? `${m.means}. NOT CHARTED: this track reported ${e.observed} where a share of regions `
+          + 'between 0 and 1 is required, so it is scored on a different quantity from the others '
+          + 'and putting it on their axis would rescale every one of them'
+        : m.means,
       observed: NaN, observedCount: 0, expected: NaN, nullLo: NaN, nullHi: NaN, p: NaN,
       fold: NaN, significant: false, testable: false,
       hits: [], regionHits: regions.map(() => false),
@@ -328,12 +353,15 @@ export interface EnrichmentBar {
  * easiest way to draw a chart that says the opposite of its data.
  */
 export function enrichmentBars(c: ComparisonResult): EnrichmentBar[] {
-  // An untestable feature has no numbers to scale against, so it must not enter the axis
-  // calculation: one NaN there makes every bar in the figure NaN wide.
-  const nums = c.features.filter((f) => f.testable)
-    .flatMap((f) => [f.observed, f.nullHi, f.expected]).filter((x) => Number.isFinite(x))
+  // Guarded again at the drawing boundary, not only where the result is built. The axis is the
+  // thing a foreign number corrupts, and it corrupts every OTHER bar with it rather than only its
+  // own, so the cheapest place to be certain is the line that computes it.
+  const chartable = c.features.filter((f) => f.testable
+    && Number.isFinite(f.observed) && f.observed >= 0 && f.observed <= 1)
+  const nums = chartable.flatMap((f) => [f.observed, f.nullHi, f.expected])
+    .filter((x) => Number.isFinite(x) && x >= 0 && x <= 1)
   const axisMax = Math.max(0.05, ...nums)
-  return c.features.filter((f) => f.testable).map((f) => ({
+  return chartable.map((f) => ({
     label: f.label,
     observed: f.observed,
     expected: f.expected,
@@ -602,3 +630,56 @@ export function regionFlags(c: ComparisonResult, minFold = RELATED_MIN_FOLD): Re
 /** Regions with an alternative explanation available, which is what the star marks. */
 export const relatedCount = (c: ComparisonResult): number =>
   regionFlags(c).filter((f) => f.related.length).length
+
+// ---------------------------------------------------------------------------------------------
+// A small per-chromosome interval index.
+//
+// SELF-CONTAINED ON PURPOSE. features.ts grew a general index in work that is not committed yet, and
+// depending on it would make this file break if that work is reverted. This is eleven lines and
+// covers the one query this module makes.
+
+interface ChromIndex { starts: number[]; ends: number[]; maxSpan: number }
+
+export function indexByChrom(
+  ivs: readonly { chrom: string; startBp: number; endBp: number }[],
+): Map<string, ChromIndex> {
+  const by = new Map<string, { s: number; e: number }[]>()
+  for (const f of ivs) {
+    if (!by.has(f.chrom)) by.set(f.chrom, [])
+    by.get(f.chrom)!.push({ s: f.startBp, e: f.endBp })
+  }
+  const out = new Map<string, ChromIndex>()
+  for (const [chrom, list] of by) {
+    list.sort((a, b) => a.s - b.s)
+    out.set(chrom, {
+      starts: list.map((x) => x.s),
+      ends: list.map((x) => x.e),
+      // The longest interval on this chromosome, which is how far back a scan must look to be sure
+      // it has not stepped over one that starts early and reaches into the region.
+      maxSpan: list.reduce((a, x) => Math.max(a, x.e - x.s), 0),
+    })
+  }
+  return out
+}
+
+/** Whether any interval overlaps the region. Half-open, matching the enrichment's own test. */
+export function hitsIndexed(
+  ix: Map<string, ChromIndex>, r: { chrom: string; startBp: number; endBp: number },
+): boolean {
+  const c = ix.get(r.chrom)
+  if (!c) return false
+  // First index whose start is at or after (region start - longest interval): anything earlier
+  // cannot reach the region however long it is.
+  const from = r.startBp - c.maxSpan
+  let lo = 0
+  let hi = c.starts.length
+  while (lo < hi) {
+    const mid = (lo + hi) >> 1
+    if (c.starts[mid] < from) lo = mid + 1
+    else hi = mid
+  }
+  for (let i = lo; i < c.starts.length && c.starts[i] < r.endBp; i += 1) {
+    if (r.startBp < c.ends[i]) return true
+  }
+  return false
+}
