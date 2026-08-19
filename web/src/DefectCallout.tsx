@@ -82,8 +82,21 @@ function OneDefect({ d, why }: { d: Defect; why: string[] }) {
   const [open, setOpen] = useState(false)
   const colour = bandColour(d)
   const named = d.origin && d.origin !== 'unclear'
-  const conf = d.confidence !== undefined && Number.isFinite(d.confidence)
+  /**
+   * DIGITS ONLY WHERE THEY MEAN SOMETHING.
+   *
+   * Bands A and B carry their number. C and D do not, and that is the lesson of the PGT-A
+   * mosaicism episode rather than a style choice: a low-specificity intermediate category gets
+   * quoted downstream regardless of the label attached to it, and the field's corrective was to
+   * withdraw the category rather than improve the caveat. Band D is measured at 0.60 to 0.64
+   * accuracy, which is four points over guessing, and printing it to three decimals asserts a
+   * precision the quantity does not have. The measurement is still in the expanded detail and in
+   * the export; it is the row face that stops carrying it.
+   */
+  const showsDigits = d.band === 'A' || d.band === 'B'
+  const conf = showsDigits && d.confidence !== undefined && Number.isFinite(d.confidence)
     ? d.confidence.toFixed(2) : null
+  const weakWord = d.band === 'C' ? 'weak' : d.band === 'D' ? 'not evaluable' : null
   return (
     <div style={{ border: `1px solid ${open ? colour : 'var(--om-defect)'}`, background: 'var(--om-defect-chip)' }}>
       <button
@@ -114,7 +127,14 @@ function OneDefect({ d, why }: { d: Defect; why: string[] }) {
         <span style={{ fontSize: 12, fontWeight: 700, color: named ? colour : 'var(--om-text-dim)' }}>
           {parentMark(d)}
         </span>
-        {conf ? (
+        {d.band === 'inherited' ? (
+          // A verdict, not a number. The margin says how strong the genome-level call was; there
+          // is no per-event accuracy to print and printing one invites it being quoted as one.
+          <span style={{ fontSize: 11, fontWeight: 700, color: colour }}>
+            inherited{d.inheritedMargin !== undefined && Number.isFinite(d.inheritedMargin)
+              ? ` ${d.inheritedMargin.toFixed(1)}x` : ''}
+          </span>
+        ) : conf ? (
           <span style={{
             fontFamily: 'var(--om-mono)', fontSize: 12, fontWeight: 700, color: colour,
             fontVariantNumeric: 'tabular-nums',
@@ -127,10 +147,10 @@ function OneDefect({ d, why }: { d: Defect; why: string[] }) {
           // genome-level complex call has no parent to name at any quality, which is a different
           // statement from "we could not measure it here", and the two must not read alike.
           <span style={{ fontSize: 11, color: 'var(--om-text-dim)' }}>
-            {d.originBlocked || originBlockedByClass(d.kind) ? 'n/a' : 'no call'}
+            {weakWord ?? (d.originBlocked || originBlockedByClass(d.kind) ? 'n/a' : 'no call')}
           </span>
         )}
-        {d.band ? (
+        {d.band && d.band !== 'inherited' ? (
           <span style={{
             fontSize: 10, fontWeight: 700, color: colour, border: `1px solid ${colour}`,
             padding: '0 3px', lineHeight: 1.4,
@@ -188,6 +208,9 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
     byParent.set(k, (byParent.get(k) ?? 0) + 1)
   }
   const reportable = defects.filter((d) => d.band === 'A' || d.band === 'B').length
+  // Rows whose parent was INHERITED from one genome-level call rather than measured here. A reader
+  // counts rows, so the count has to be stated before the rows are shown.
+  const inherited = defects.filter((d) => d.band === 'inherited')
   const named = defects.length - (byParent.get('undetermined') ?? 0)
   const parts = [...byParent.entries()]
     .sort((a, b) => b[1] - a[1])
@@ -207,10 +230,31 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
       </Text>
       <Text size="sm" c="dimmed" mt={2}>
         {named
-          ? `${reportable} of ${defects.length} at band A or B, the bands meant for reporting`
+          ? `${reportable} of ${defects.length} measured at band A or B, the bands meant for `
+            + `reporting${inherited.length ? `; ${inherited.length} inherited from one `
+              + 'genome-level call' : ''}`
           : 'none carries a parental origin'}
         . Click a change for its evidence.
       </Text>
+
+      {inherited.length ? (
+        <div style={{
+          marginTop: 9, border: '1px solid var(--om-defect)', borderLeft: '3px solid var(--om-defect)',
+          background: 'var(--om-defect-chip)', padding: '7px 10px',
+        }}
+        >
+          <Text style={{ fontSize: 13, fontWeight: 700, color: 'var(--om-defect)', lineHeight: 1.3 }}>
+            ONE parental determination, not {inherited.length}
+          </Text>
+          <Text size="sm" mt={2} style={{ maxWidth: 780, lineHeight: 1.5 }}>
+            {inherited.length} of these {defects.length} changes take their parent from a single
+            genome-level call, not from anything measured on the change itself. They are one
+            determination inherited {inherited.length} times, and counting them as {inherited.length}
+            independent confirmations would overstate the evidence by that factor. If the
+            genome-level call is wrong, all {inherited.length} are wrong together.
+          </Text>
+        </div>
+      ) : null}
 
       <div style={{
         marginTop: 9, display: 'grid', gap: 4,

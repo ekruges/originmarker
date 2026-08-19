@@ -218,7 +218,7 @@ export const CITATIONS: Record<string, Citation> = {
     page: '1650-1664.e15',
     doi: '10.1016/j.cell.2020.10.025',
     url: 'https://doi.org/10.1016/j.cell.2020.10.025',
-    note: 'Cas9 cleavage in human embryos frequently removes the cut chromosome rather than repairing it, in segments up to a whole chromosome arm. GEO GSE148488 supplies the bundled example arrays.',
+    note: 'Cas9 cleavage in human embryos frequently removes the cut chromosome rather than repairing it, in segments up to a whole chromosome arm. GEO GSE148488 supplies the bundled example arrays. WHAT THE MATERIAL IS, verified from the GEO record: the single-genome arrays in this series are DISSECTED PRONUCLEI from normally fertilised biparental 2PN zygotes, titled "maternal nucleus isolated from 2PN zygote" and "paternal nucleus isolated from 2PN zygote", collected 20h after Cas9 RNP injection. They are not gynogenetic or androgenetic conceptuses. Two consequences: uniparental status is established by dissection rather than inferred, which makes them a strong POSITIVE CONTROL for the absence-detection step; and a dissected pronucleus has not been through syngamy or a single mitosis, so mosaicism, post-zygotic loss, lineage segregation and chimaerism are structurally absent and sensitivity measured here is an upper bound on embryo performance rather than an estimate of it. The losses are also largely nuclease-induced, so using them to estimate the parental balance of spontaneous loss would be circular.',
   },
   kothiyal_2019: {
     id: 'kothiyal_2019',

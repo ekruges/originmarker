@@ -20,8 +20,7 @@
  * answer and the same confidence, because they all rest on the single genome-level call. The
  * report must say so rather than let a reader count 1,272 independent confirmations of one fact.
  */
-import { SYSTEMATIC_ERROR_BOUND, reportedConfidence } from './oneParentOrigin.ts'
-import { ABSENCE_MARGIN, HET_BAND_DIPLOID } from './parentage.ts'
+import { HET_BAND_DIPLOID } from './parentage.ts'
 
 export type UniparentalInput = {
   /** The genome-level call. Only the two uniparental classes carry an answer. */
@@ -55,26 +54,34 @@ export type UniparentalCall = {
   verdict: 'loaded-parent' | 'other-parent'
   /** Which parent in absolute terms, so a reader never has to resolve `loaded` themselves. */
   parent: 'paternal' | 'maternal'
-  confidence: number
-  band: 'A' | 'B' | 'C' | 'D'
+  /**
+   * NO CONFIDENCE NUMBER, DELIBERATELY.
+   *
+   * The number this channel used to emit was `reportedConfidence(log(margin))`, which is monotone
+   * in the margin and in nothing else: a strictly increasing reparameterisation of a quantity
+   * already reported beside it. A reader holding the margin learned nothing from it, and a reader
+   * holding only the number had lost the interpretable quantity.
+   *
+   * Its range made it worse than uninformative. Every value the channel could emit was band D
+   * until the margin passed roughly 13,000x, and the observed range of 4.8x to 17.4x compressed
+   * into 0.65 to 0.68: three decimal places moving by 0.03 across every input the channel will
+   * ever see, carrying the same band the dosage channel uses for its weakest measured guesses,
+   * where measured accuracy is 0.60 to 0.64. A gynogenetic inference is not 60% accurate.
+   * Conditional on the genome-level call it is deductive, and the band said the opposite.
+   *
+   * The bound that produced the cap is a rule of three on 13 units, which bounds the GENOME-LEVEL
+   * call. It is not a bound on the inheritance step, which has no error of its own: given the
+   * class, the parent follows. The cap was being applied to the wrong link in the chain.
+   *
+   * What is emitted instead is the verdict, the margin, and the basis, which cannot be quoted as a
+   * per-event accuracy because it is not one.
+   */
+  band: 'inherited'
   why: string
   /** How far above the explainable ceiling the genome-level call sits. */
   foldOverCeiling: number
 }
 
-/**
- * How fast confidence rises with the genome-level margin.
- *
- * ANCHORED TO THE THRESHOLD THAT MAKES THE CALL AT ALL, rather than chosen. `ABSENCE_MARGIN` is
- * the point at which a genome is declared uniparental, so a sample sitting exactly there is the
- * one the evidence half convinces, and it lands halfway from chance to the cap. Below it there is
- * no call to inherit from and this channel returns nothing.
- */
-export const MARGIN_HALF_EVIDENCE = Math.log(ABSENCE_MARGIN)
-
-/** Bands, shared with every other channel so a reader compares rows rather than scales. */
-const bandOf = (p: number): 'A' | 'B' | 'C' | 'D' =>
-  (p >= 0.985 ? 'A' : p >= 0.90 ? 'B' : p >= 0.75 ? 'C' : 'D')
 
 /**
  * The parent every event in this sample belongs to, or null where the question is still open.
@@ -119,20 +126,11 @@ export function uniparentalOrigin(input: UniparentalInput): UniparentalCall | nu
   // it, and inheriting from it would be inventing the evidence.
   if (!(margin > 1)) return null
   const fold = margin
-  const confidence = reportedConfidence(Math.log(fold), {
-    bound: SYSTEMATIC_ERROR_BOUND,
-    halfEvidence: MARGIN_HALF_EVIDENCE,
-    // TWO HYPOTHESES, NOT THREE. This channel names one of two parents, so an uninformative
-    // answer is a coin flip. The default floor of one third belongs to a three-way channel and
-    // reported ignorance here as worse than chance, dragging every number above it down with it.
-    floor: 0.5,
-  })
   const verdict = matchesLoaded ? 'loaded-parent' : 'other-parent'
   return {
     verdict,
     parent: genomeIs,
-    confidence,
-    band: bandOf(confidence),
+    band: 'inherited',
     foldOverCeiling: fold,
     why: `this sample carries ONE parental genome, called ${input.originClass} on ${basis}, so `
       + `every change in it is ${genomeIs}: there was no `

@@ -192,6 +192,18 @@ export const CLUSTERED_DROPOUT_DEPLETION = 0.40
 export const CLUSTERED_DROPOUT_RATE = 0.01
 
 /** Depletion a window must reach before copy-neutral LOH is called, set clear of the above. */
+/**
+ * Least background heterozygosity at which a RELATIVE depletion still measures something.
+ *
+ * Below this the array has so little heterozygosity that losing it is not an observable event, and
+ * the ratio the test is built on is dominated by counting noise. Set where the relative error of
+ * the rate, about 1/sqrt(called x background), stays under 10% for the window sizes this scans at.
+ */
+export const LOH_MIN_BACKGROUND_HET = 0.05
+
+/** Least expected heterozygotes in a window before its rate is used at all. */
+export const LOH_MIN_EXPECTED_HET = 100
+
 export const LOH_DEPLETION = 0.65
 
 /**
@@ -277,18 +289,38 @@ export interface WindowStat {
  */
 export function detectLoh(
   windows: readonly WindowStat[],
-  opts: { backgroundHet?: number; depletion?: number; logRTolerance?: number } = {},
+  opts: {
+    backgroundHet?: number; depletion?: number; logRTolerance?: number
+    /** The sample's zygosity. A genome with one parental contribution is excluded outright. */
+    zygosity?: string
+  } = {},
 ): Finding[] {
   const need = opts.depletion ?? LOH_DEPLETION
   const tol = opts.logRTolerance ?? 0.15
+  // A GENOME THAT IS HOMOZYGOUS BY CONSTRUCTION HAS NO HETEROZYGOSITY TO LOSE, so "copy-neutral
+  // loss of heterozygosity" is not a well-defined event in it and every window is a candidate.
+  // This is the first of two guards and the decisive one where the caller knows the zygosity.
+  if (opts.zygosity?.startsWith('uniparental')) return []
   const usable = windows.filter((w) => w.called > 0)
   if (usable.length < 3) return []
   // The array's own background, so a globally low-heterozygosity sample is not called end to end.
   const background = opts.backgroundHet
     ?? (usable.reduce((a, w) => a + w.het, 0) / usable.reduce((a, w) => a + w.called, 0))
   if (!(background > 0)) return []
+  // AND THE MEASUREMENT MUST BE STABLE, which is a property of the expected COUNT rather than of
+  // the rate. Depletion is 1 - rate/background, a ratio whose relative error is about
+  // 1/sqrt(called x background): as the background approaches zero the denominator vanishes and
+  // counting noise alone clears any threshold. Simulated on an event-free genome, 800 windows of
+  // 2,000 called markers with no event anywhere, this detector returns 39 false windows at a true
+  // heterozygosity of 0.001. An external review's own simulation of the same code returns more.
+  // Requiring a minimum expected heterozygote count per window bounds that error directly and
+  // adapts to the window size, where a fixed rate floor would not.
+  if (!(background >= LOH_MIN_BACKGROUND_HET)) return []
   const out: Finding[] = []
   for (const w of usable) {
+    // A window too small to expect enough heterozygotes cannot distinguish depletion from noise
+    // however clean the array is.
+    if (w.called * background < LOH_MIN_EXPECTED_HET) continue
     const rate = w.het / w.called
     const depletion = 1 - rate / background
     if (!(depletion >= need)) continue

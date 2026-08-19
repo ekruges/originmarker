@@ -79,6 +79,14 @@ export interface Defect {
   exclusive?: number
   /** The material this was read from, carried so a chip can state it without a second lookup. */
   stage?: string
+  /**
+   * Margin behind an INHERITED call, in its own units, since that channel emits no confidence.
+   *
+   * How far the genome-level evidence sits past the level that would not support the class: an
+   * absence above the explainable ceiling, or a heterozygous band below what a second parental
+   * contribution produces.
+   */
+  inheritedMargin?: number
   /** Dropout the call was parameterised with, and how that figure was arrived at. */
   dropout?: number
   dropoutBasis?: string
@@ -205,6 +213,9 @@ export function defectsFrom(
 export const BAND_WORD: Record<string, string> = {
   A: 'very confident', B: 'confident', C: 'weak, direction only', D: 'weak, not for reporting',
   F: 'no usable evidence, direction only',
+  // Not a band on the measured scale at all. The parent follows deductively from the genome-level
+  // call, so there is no per-event accuracy to state and no number is emitted.
+  inherited: 'inherited from the genome-level call',
 }
 /**
  * What each class is called in a headline, in words rather than in the code's vocabulary.
@@ -252,6 +263,8 @@ export const headline = (d: Defect): string => {
 /** Bands C and D are dimmed, so a weak number cannot be mistaken for a strong one at a glance. */
 export const bandColour = (d: Defect): string => {
   if (d.origin === 'unclear') return 'var(--om-text-dim)'
+  // An inherited call is deductive given the class, so it is not dimmed like a weak measurement.
+  if (d.band === 'inherited') return 'var(--om-defect)'
   // F is not dim like C and D, which are weak but measured. It is the warning colour, because the
   // failure mode this whole grade exists to prevent is an unusable row being read as a quiet one.
   if (d.band === 'F') return 'var(--om-higher)'

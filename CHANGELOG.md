@@ -9,6 +9,73 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.12.0 "Karyogamy"
+
+Everything an external methods review found, acted on and checked. Its response and measurement
+table are in `audit/`. Each finding below was reproduced against this repo before being fixed.
+
+**Copy-neutral LOH fired on genomes that have no heterozygosity to lose.** The detector measures
+depletion RELATIVE to the array's own mean heterozygosity, so as that mean approaches zero the
+ratio is dominated by counting noise and any threshold is cleared by nothing at all. Reproduced
+here: an event-free genome of 800 windows at a true heterozygosity of 0.001 returned 39 findings
+from no event whatsoever. Two guards now: a genome whose zygosity is uniparental is excluded
+outright, because the event is not defined in it, and a window must expect at least 100
+heterozygotes before its rate is used. Event-free genomes now return zero at every heterozygosity
+tested, and a planted 80% depletion is still found on all 60 of its windows.
+
+**The zygosity channel emitted a number that carried no information.** It was monotone in the
+margin printed beside it and in nothing else, a reparameterisation wearing three decimal places.
+Every value it could produce was band D until the margin passed roughly 13,000x, and the observed
+range compressed into 0.03 while sharing a band whose measured accuracy is 0.60 to 0.64. A
+deductive inference is not 60% accurate. The channel now emits a verdict, its margin, and the basis
+for it, and renders as "inherited" rather than borrowing a measured band. The cap it used bounds
+the GENOME-LEVEL call; the inheritance step has no error of its own, so the bound was on the wrong
+link.
+
+**Bands C and D no longer print digits.** Band D is four percentage points over guessing. The
+PGT-A mosaicism episode is the precedent: a low-specificity intermediate category is quoted
+downstream regardless of its label, and the field's corrective was to withdraw the category rather
+than improve the caveat. A and B carry their number; C reads "weak"; D reads "not evaluable". The
+measurement stays in the expanded detail and the export.
+
+**1,272 rows were one determination.** The panel now states the independent-unit count before the
+rows: how many changes take their parent from a single genome-level call, and that if that call is
+wrong they are all wrong together.
+
+**The aggregation was wrong in four ways and is rebuilt.** The pooled rate is not a symmetric
+function of the labels, so the permutation null did not hold its size: measured at 0.164 against a
+nominal 0.05 under a 1.5x marker skew. It is replaced by the rank-sum of per-sample counts, which
+measures 0.030 on the same test. The marker denominator is gone: marker count spans 1.82x across
+these arrays while artefact propensity spans 19.7x and the two are negatively correlated, so
+dividing by markers amplified the confounder rather than removing it. Groups are now matched on the
+explainable-noise ceiling instead. The countable unit is distinct events, merged within 1 Mb,
+because a sliding detector cuts one change into as many rows as it has windows, and the headline is
+the fraction of genomes carrying any change, the one unit immune to both slicing and sensitivity.
+A quality-correlated exclusion is now refused: in the motivating run the three arrays that fell out
+were the three worst and all three were paternal, which silently repaired the balance of the
+survivors.
+
+**Thresholds replaced with measured ones.** MIN_PER_GROUP 3 to 5, because at 3 against 3 the exact
+two-sided floor is 0.100 and cannot clear alpha at any effect size. MAX_POWER_SKEW 1.5 to 1.4. A
+reporting floor of 20 per group is added, below which a result is labelled exploratory. The
+achievable floor is now exact, 2/C(n, min), which returns 0.100 at 3v3 and 0.0286 at 4v4 where the
+previous form returned 0.1429 and 0.0423.
+
+**The example series is described accurately.** Verified against the GEO record: the single-genome
+arrays are DISSECTED PRONUCLEI from normally fertilised biparental 2PN zygotes, collected 20h after
+Cas9 RNP injection, not gynogenetic and androgenetic conceptuses. So uniparental status is
+established by dissection, which makes them a strong positive control for detection; and a
+dissected pronucleus has been through neither syngamy nor a mitosis, so sensitivity measured on
+them is an upper bound on embryo performance rather than an estimate of it. The aggregation's
+methods paragraph now states what such a run cannot answer.
+
+**A failed parent array stops the run.** Every channel measures against the loaded parent, so an
+array that failed its own gates cannot support any of them and continuing produced a report whose
+every row was a refusal traceable to one line. The run also reports which sample it is on and how
+many remain.
+
+---
+
 ## 5.11.3 "Pronucleus"
 
 **The zygosity channel could only ever fire on half the samples, and it was the half that made the

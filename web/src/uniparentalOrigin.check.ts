@@ -2,8 +2,7 @@
 // not one parental origin called, because every one was a segment on single-cell material where no
 // detection floor exists at any mosaic fraction.
 import assert from 'node:assert/strict'
-import { uniparentalOrigin, MARGIN_HALF_EVIDENCE } from './uniparentalOrigin.ts'
-import { SYSTEMATIC_ERROR_BOUND } from './oneParentOrigin.ts'
+import { uniparentalOrigin } from './uniparentalOrigin.ts'
 import type { Zygosity } from './parentage.ts'
 
 // THE VALUE THE APPLICATION ACTUALLY PRODUCES. Written out rather than paraphrased: the first
@@ -22,8 +21,10 @@ const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.007
   assert.equal(c.parent, 'maternal', 'a gynogenetic genome is maternal')
   assert.equal(c.verdict, 'other-parent', 'with the sperm donor loaded, maternal is the other one')
   assert.ok(c.foldOverCeiling > 12 && c.foldOverCeiling < 13, `12.9x, got ${c.foldOverCeiling}`)
-  console.log(`  gynogenetic at ${c.foldOverCeiling.toFixed(1)}x -> ${c.parent},`
-    + ` confidence ${c.confidence.toFixed(3)} (band ${c.band})`)
+  assert.equal(c.band, 'inherited', 'this channel emits a verdict, not a measured band')
+  assert.ok(!('confidence' in c), 'and no confidence number, which would be a reparameterisation '
+    + 'of the margin printed beside it')
+  console.log(`  gynogenetic at ${c.foldOverCeiling.toFixed(1)}x -> ${c.parent}, band ${c.band}`)
 }
 
 // The mirror, and the role flip. Load an OOCYTE instead and the same maternal genome becomes the
@@ -62,28 +63,25 @@ const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.007
   console.log('  silent on biparental, unclear, unresolved zygosity, and below-ceiling absence')
 }
 
-// --- 3. THE CEILING ----------------------------------------------------------------------------
-// The channel has no injection series, so it must not be able to claim what a calibrated one can.
-// Bounded by the same systematic error bound as everything else: 13 validation units, zero events.
+// --- 3. NO NUMBER, AND THAT IS THE POINT -------------------------------------------------------
+// The number this channel used to emit was monotone in the margin and in nothing else, so it added
+// no information to the margin beside it. Its whole observed range compressed into 0.03 while
+// carrying three decimal places, and it landed in the band the dosage channel uses for its weakest
+// measured guesses, where accuracy is 0.60 to 0.64. A deductive inference is not 60% accurate.
 {
-  const cap = 1 - SYSTEMATIC_ERROR_BOUND
-  // An absurd margin, far beyond anything measurable, still cannot buy band A or B.
-  const extreme = uniparentalOrigin({ ...base, originClass: 'gynogenetic', genomeRate: 100 })
-  assert.ok(extreme, 'an extreme margin still produces a call')
-  assert.ok(extreme.confidence < cap + 1e-9,
-    `confidence ${extreme.confidence} must stay under the systematic bound ${cap}`)
-  assert.ok(extreme.band === 'C' || extreme.band === 'D',
-    `an inherited answer must not reach band B, got ${extreme.band}`)
-  // And it rises with the evidence rather than being one flat number.
   const weak = uniparentalOrigin({ ...base, originClass: 'gynogenetic', genomeRate: 0.0105 })
   const strong = uniparentalOrigin({ ...base, originClass: 'gynogenetic', genomeRate: 0.0904 })
-  assert.ok(weak && strong && strong.confidence > weak.confidence,
-    'a more decisive genome-level call must carry more confidence, not the same')
-  console.log(`  bounded at ${cap.toFixed(3)}: 1.5x -> ${weak.confidence.toFixed(3)},`
-    + ` 12.9x -> ${strong.confidence.toFixed(3)}, extreme -> ${extreme.confidence.toFixed(3)}`)
-  assert.ok(MARGIN_HALF_EVIDENCE > 0, 'the half-evidence is a stated constant, not a magic number')
+  assert.ok(weak && strong)
+  for (const c of [weak, strong]) {
+    assert.equal(c.band, 'inherited')
+    assert.ok(!('confidence' in c), 'no confidence is emitted at any margin')
+  }
+  // The margin IS reported, because it is the interpretable quantity and it varies.
+  assert.ok(strong.foldOverCeiling > weak.foldOverCeiling * 5,
+    'the margin carries the evidence the confidence used to compress')
+  console.log(`  no number at any margin; the margin itself spans `
+    + `${weak.foldOverCeiling.toFixed(1)}x to ${strong.foldOverCeiling.toFixed(1)}x`)
 }
-
 
 // --- 5. THE GATE MUST NOT BE ONE-SIDED ---------------------------------------------------------
 //

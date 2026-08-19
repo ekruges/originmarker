@@ -468,6 +468,17 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           }
         }, bar(e.id, e.file.size), log)
         const h = called ? het / called : NaN
+        // THE ONE REFUSAL THAT SHOULD STOP A RUN. Every downstream channel measures against the
+        // loaded parent, so a parent array that failed its own gates cannot support any of them,
+        // and continuing produces a report whose every row is a refusal traceable to this line.
+        const parentBlocked = (g ?? []).filter((x) => x.verdict === 'exclude')
+        if (parentBlocked.length) {
+          log('WARN', `${what} failed ${parentBlocked.length} of its own gates: `
+            + `${parentBlocked.map((x) => x.name).join(', ')}. Every channel below measures `
+            + 'against this array, so nothing downstream can be trusted and the run stops here '
+            + 'rather than producing a report of refusals')
+          throw new Error(`parent array failed ${parentBlocked.length} gate(s)`)
+        }
         log('DONE', `${what} indexed, ${int(gt.size)} markers, autosomal het ${pct(h, 3)}`)
         patch(e.id, { state: 'done', profile, gates: g })
         return { gt, heterozygosity: h, build: profile.build.build }
@@ -513,7 +524,13 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       const sampleGt = new Map<string, Map<string, string>>()
       /** Finished samples, kept locally because patch() writes React state we cannot read back. */
       const finished: { id: string; result: ParentageResult }[] = []
-      for (const s of entries.filter((e) => e.role === 'sample' && e.state !== 'done')) {
+      const queue = entries.filter((e) => e.role === 'sample' && e.state !== 'done')
+      let doneCount = 0
+      for (const s of queue) {
+        // Three things an operator can act on: which file, how many remain, and any refusal that
+        // changes the final answer. Everything else belongs in the report.
+        log('READ', `sample ${doneCount + 1} of ${queue.length}: ${s.file.name}`)
+        doneCount += 1
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
@@ -675,7 +692,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               // Overlapping windows report the same event several times, and a whole chromosome
               // reports it again, so the redundancy is collapsed: the widest interval covering a
               // position wins, and a segment that is merely its chromosome restated is dropped.
-              ...mergeLoh(detectLoh(windows)),
+              // A GENOME WITH ONE PARENTAL CONTRIBUTION HAS NO HETEROZYGOSITY TO LOSE, so the
+              // copy-neutral detector is not run on it at all. Its relative-depletion test divides
+              // by the array's own mean heterozygosity, which on such a genome is near zero.
+              ...mergeLoh(detectLoh(windows, { zygosity: result.zygosity })),
               ...detectUpd(runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd })),
             ]
             log('SCAN', `runs of homozygosity and ploidy over ${selfMarkers.length} called markers`)
@@ -979,8 +999,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               return {
                 where: label,
                 verdict: zyg?.verdict ?? graded?.verdict ?? c.verdict,
-                confidence: zyg?.confidence ?? graded?.confidence ?? c.posterior?.confidence,
+                // NO NUMBER FROM THE ZYGOSITY CHANNEL. It emits a verdict and the margin behind
+                // it; a confidence there would be a reparameterisation of the margin wearing three
+                // decimal places. See the note on UniparentalCall.
+                confidence: zyg ? undefined : (graded?.confidence ?? c.posterior?.confidence),
                 band: zyg?.band ?? graded?.band ?? c.posterior?.band,
+                inheritedMargin: zyg?.foldOverCeiling,
                 fromZygosity: !!zyg,
                 gradedOnly: !!graded,
                 parent: zyg?.parent,

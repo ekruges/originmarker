@@ -374,3 +374,45 @@ import {
 console.log('abnormalities.check.ts: all assertions passed, including every class enumerated with '
   + 'its limits, copy-neutral LOH declining to fire on a deletion, and no-run-found stating that '
   + 'it is not no-disomy')
+
+// --- COPY-NEUTRAL LOH MUST NOT FIRE ON A GENOME THAT HAS NO HETEROZYGOSITY --------------------
+//
+// The detector measures depletion RELATIVE to the array's own mean heterozygosity. As that mean
+// approaches zero the ratio is dominated by counting noise and any threshold is cleared by nothing
+// at all. Measured on this code before the guards: an event-free genome of 800 windows at a true
+// heterozygosity of 0.001 returned 39 copy-neutral findings. An external review's simulation of the
+// same function returned more still, and a real run on uniparental material returned 183.
+{
+  let seed = 20260819
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff }
+  const eventFree = (het: number) => {
+    const w = []
+    for (let i = 0; i < 800; i += 1) {
+      let h = 0
+      for (let k = 0; k < 2000; k += 1) if (rnd() < het) h += 1
+      w.push({ chrom: String((i % 22) + 1), startBp: i * 1e6, endBp: i * 1e6 + 1e6,
+        called: 2000, het: h, logR: 0, wholeChromosome: false })
+    }
+    return w
+  }
+
+  for (const het of [0.001, 0.002, 0.005, 0.010, 0.030]) {
+    const found = detectLoh(eventFree(het))
+    assert.equal(found.length, 0,
+      `an event-free genome at heterozygosity ${het} returned ${found.length} copy-neutral `
+      + 'findings, which is the artefact these guards exist to stop')
+  }
+
+  // The decisive guard where the caller knows the zygosity: a genome with one parental
+  // contribution is homozygous by construction, so the event is not defined in it at any numbers.
+  assert.equal(detectLoh(eventFree(0.30), { zygosity: 'uniparental_homozygous' }).length, 0,
+    'a uniparental genome must produce no copy-neutral findings whatever its windows look like')
+
+  // AND A REAL EVENT MUST STILL BE FOUND, or the guards have simply disabled the detector.
+  const planted = eventFree(0.30)
+  for (let i = 100; i < 160; i += 1) planted[i].het = Math.round(planted[i].called * 0.30 * 0.2)
+  assert.equal(detectLoh(planted).length, 60,
+    'a genuine 80% depletion on a clean genome must still be detected on every planted window')
+  console.log('  copy-neutral: 0 false windows on event-free genomes at every heterozygosity '
+    + 'tested, uniparental excluded outright, 60 of 60 planted events still found')
+}
