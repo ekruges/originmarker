@@ -341,7 +341,10 @@ assert.equal(detectBuild([]).build, null)
 }
 
 // --- 12. values measured on real public data, pinned as regressions -------------------
-// Sources: Zuccaro 2020 GSE148488 and Turocy 2026 GSE186407, both UK Biobank Axiom, 825,656
+// Sources: Zuccaro 2020 GSE148488 and Turocy 2026 GSE186407, both UK Biobank Axiom. The
+// 825,656 figure is OUR OWN measurement off the files, not a platform specification: GEO
+// states no marker count for GPL28377, and Rana 2023 quotes 820,967 for nominally the same
+// array, so the two must not be used interchangeably. 825,656
 // markers. The files are not in the repo - they are 40 MB each and are patient-derived even
 // though public - so the MEASUREMENTS are pinned instead. Each of these caught a real defect.
 
