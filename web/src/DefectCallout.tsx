@@ -88,20 +88,21 @@ function OneDefect({ d, why }: { d: Defect; why: string[] }) {
    * Bands A and B carry their number. C and D do not, and that is the lesson of the PGT-A
    * mosaicism episode rather than a style choice: a low-specificity intermediate category gets
    * quoted downstream regardless of the label attached to it, and the field's corrective was to
-   * withdraw the category rather than improve the caveat. Band D is measured at 0.60 to 0.64
-   * accuracy, which is four points over guessing, and printing it to three decimals asserts a
+   * withdraw the category rather than improve the caveat. Band D sits around 0.63 measured on its
+   * own range, which is thirteen points over guessing, and printing it to three decimals asserts a
    * precision the quantity does not have. The measurement is still in the expanded detail and in
    * the export; it is the row face that stops carrying it.
    */
   const showsDigits = d.band === 'A' || d.band === 'B'
   const conf = showsDigits && d.confidence !== undefined && Number.isFinite(d.confidence)
     ? d.confidence.toFixed(2) : null
-  // What stands in place of the digits, per band. F names a parent from evidence that reaches no
-  // measured band, so it says that rather than "no call", which would contradict the parent shown
-  // beside it.
+  // What stands in place of the digits, per band. F names NO parent: an injection series measured
+  // it recovering the right one 0.27 to 0.44 of the time, below chance, because every call reaching
+  // it has an unresolved class and a gain inverts the sign that loss and copy-neutral share. The
+  // row is still graded, which is what keeps a refusal the same kind of output as an answer.
   const weakWord = d.band === 'C' ? 'weak'
     : d.band === 'D' ? 'not evaluable'
-      : d.band === 'F' ? 'direction only' : null
+      : d.band === 'F' ? 'no parent' : null
   return (
     <div style={{ border: `1px solid ${open ? colour : 'var(--om-defect)'}`, background: 'var(--om-defect-chip)' }}>
       <button
