@@ -25,8 +25,22 @@ if [ "${1:-}" != "--skip-checks" ]; then
   echo "== build";            (cd web && npm run build >/dev/null 2>&1) && echo "  ok   vite build"
 fi
 
+# A DIRTY TREE IS A STOP, NOT A WARNING. The checks above run against the working tree, so an
+# uncommitted file can make them pass while the same checks fail on what was actually committed.
+# That is not hypothetical: comparison.ts shipped referring to a field only an uncommitted edit
+# added, the suite passed locally on every release for five releases, and CI was red the whole
+# time because it checks out the commit. A warning was printed each time and read past.
 if [ -n "$(git status --porcelain)" ]; then
-  echo "WARNING: working tree is dirty, deploying uncommitted state"
+  if [ "${ALLOW_DIRTY:-}" = "1" ]; then
+    echo "WARNING: working tree is dirty, deploying uncommitted state (ALLOW_DIRTY=1)"
+    git status --porcelain | sed 's/^/         /'
+  else
+    echo "working tree is dirty, so these checks did not test what is committed:"
+    git status --porcelain | sed 's/^/  /'
+    echo
+    echo "commit or stash first, or re-run with ALLOW_DIRTY=1 to deploy this state anyway."
+    exit 1
+  fi
 fi
 
 echo "== copy"

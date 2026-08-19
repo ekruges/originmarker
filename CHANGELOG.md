@@ -9,6 +9,34 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.10.2 "Dictyate"
+
+**The build had been failing since 5.9.0 and the suite passed locally every time.**
+
+`comparison.ts` reads an open-ended set of feature tracks from `track.extra`, and the property it
+reads was never added to the shipped `FeatureTrack`. It existed only in an uncommitted edit, so the
+repository typechecked against a file that was never pushed. Every release since 5.9.0 was red on
+GitHub: first the build, on the missing property, and from 5.9.2 the checks as well, once a test
+was added for a track the scorer does not enumerate.
+
+The widened type is now declared where it is used, as `ScannableTrack` in `comparison.ts`, rather
+than assumed of a type defined elsewhere. Nothing outside this module changed.
+
+The behaviour the test asks for is now real rather than assumed. A track carried in the open-ended
+set that no scoring mode enumerates was appearing in neither the tested list nor the untestable
+one, so it was dropped without a word. That is the same defect this module objects to two comments
+higher up, committed against itself: a figure listing four features where five were scanned says
+nothing about the fifth. Every track the run scanned now gets a row, and one that was carried
+without being scored says so and reports its interval count. The step is additive, so when the
+scorer does enumerate these they arrive scored and it has nothing left to add.
+
+**Deploying now stops on a dirty working tree instead of warning about it.** The checks run against
+the working tree, so an uncommitted file can make them pass while the same checks fail on what was
+committed. That is exactly how the above went unnoticed for five releases: a warning was printed
+every time and read past. Set `ALLOW_DIRTY=1` to deploy uncommitted state deliberately.
+
+---
+
 ## 5.10.1 "Dictyate"
 
 A run locked the page. The copy-neutral scan rescanned every marker of a chromosome inside its own

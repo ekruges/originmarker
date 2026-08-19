@@ -67,8 +67,20 @@ export const meaningFor = (feature: string): { label: string; means: string } =>
  * different tracks. Anything a future track file adds under `extra` is picked up here too, which is
  * the point of having it in one place rather than three.
  */
+/**
+ * A track plus the open-ended set, widened HERE rather than assumed of `FeatureTrack`.
+ *
+ * `extra` is how a factor is added without editing the scorer, and this module reads it whether or
+ * not the track type declares it. Reaching for a field the shipped type does not carry is what
+ * broke the build for five releases: this file went out referring to `track.extra` while the type
+ * beside it had no such property, so the repository typechecked only against an unshipped edit.
+ */
+export type ScannableTrack = FeatureTrack & {
+  extra?: Record<string, readonly FeatureInterval[]>
+}
+
 export function scannedTracks(
-  track: FeatureTrack,
+  track: ScannableTrack,
 ): Record<string, readonly { chrom: string; startBp: number; endBp: number }[]> {
   return {
     'common fragile site': track.fragile ?? [],
@@ -189,7 +201,7 @@ export const listOf = (xs: readonly string[]): string => (xs.length <= 1 ? (xs[0
   : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`)
 
 export function compare(
-  track: FeatureTrack,
+  track: ScannableTrack,
   regions: readonly Region[],
   markersByChrom: Map<string, number[]>,
   opts: {
@@ -273,6 +285,33 @@ export function compare(
       observed: NaN, observedCount: 0, expected: NaN, nullLo: NaN, nullHi: NaN, p: NaN,
       fold: NaN, significant: false, testable: false,
       hits: [], regionHits: regions.map(() => false),
+      nullHist: { lo: 0, hi: 0, counts: [] },
+    })
+  }
+
+  // AND THE ONES NOTHING SCORED AT ALL. The two lists above cover a feature the scorer returned
+  // and could not test. A track carried in `extra` that the scorer does not enumerate appears in
+  // neither, so it vanished silently, which is the exact defect the comment above objects to,
+  // committed against itself. Whatever `scannedTracks` says was scanned gets a row.
+  //
+  // This is additive on purpose. When the scorer does start returning these, they arrive in
+  // `usable` or `untestable` and there is nothing left over for this to add.
+  //
+  // Guarded on `regions.length` like the scoring above it: with nothing to compare against there
+  // is no comparison to report, and a row per track would say there was one.
+  const reported = new Set(features.map((f) => f.feature))
+  for (const [feature, ivs] of (regions.length ? Object.entries(intervalsFor) : [])) {
+    if (reported.has(feature)) continue
+    const m = meaningFor(feature)
+    features.push({
+      feature,
+      label: m.label,
+      means: `${m.means}. SCANNED BUT NOT SCORED: ${ivs.length} interval`
+        + `${ivs.length === 1 ? '' : 's'} were read from the track and carried through the run, `
+        + 'and no scoring mode was applied to them, so this row reports coverage without a test',
+      observed: NaN, observedCount: 0, expected: NaN, nullLo: NaN, nullHi: NaN, p: NaN,
+      fold: NaN, significant: false, testable: false,
+      hits: [], regionHits: regions.map((r) => hitsIndexed(indexFor(feature, ivs), r)),
       nullHist: { lo: 0, hi: 0, counts: [] },
     })
   }
