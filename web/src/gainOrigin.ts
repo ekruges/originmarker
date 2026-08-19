@@ -272,14 +272,14 @@ export function callGainOrigin(
 
   if (!Number.isFinite(centre)) {
     return {
-      ...base, origin: 'unclear', confidence: NaN, band: 'D',
+      ...base, origin: 'unclear', confidence: NaN, band: 'F',
       why: 'the sample has no informative markers to centre on',
     }
   }
   if (informative < minInformative) {
     return {
       ...base,
-      origin: 'unclear', confidence: NaN, band: 'D',
+      origin: 'unclear', confidence: NaN, band: 'F',
       why: `${informative} informative markers is under the ${minInformative} needed for a `
         + 'direction at this stage',
     }
@@ -287,7 +287,7 @@ export function callGainOrigin(
   if (Math.abs(deviation) < margin) {
     return {
       ...base,
-      origin: 'unclear', confidence: NaN, band: 'D',
+      origin: 'unclear', confidence: NaN, band: 'F',
       why: `the share sits ${deviation >= 0 ? '+' : ''}${deviation.toFixed(3)} from this `
         + `sample's own centre, inside the ${margin} band that is not called either way`,
     }

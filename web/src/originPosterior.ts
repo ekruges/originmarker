@@ -190,18 +190,37 @@ export function applyCalibration(map: CalibrationMap, raw: number): number {
  * suppressing it would only hide a calibration that can now be demonstrated. What changes across
  * bands is the words beside the number, not whether a number appears.
  */
-export type Band = 'A' | 'B' | 'C' | 'D'
+export type Band = 'A' | 'B' | 'C' | 'D' | 'F'
+
+/**
+ * THE FLOOR OF THE LADDER, AND THE REASON NOTHING LEAVES WITHOUT A GRADE.
+ *
+ * A to D are measured: each was calibrated against the injection series and each carries its own
+ * accuracy. F is not. F means a parent was named from evidence that does not reach the weakest
+ * measured band, or from no interval evidence at all, and it exists so that "we could not say"
+ * stops being a different KIND of output from "we could say". A reader scanning a column of
+ * grades sees F and knows the row is unusable, which a blank field, a dash, or the phrase "not
+ * evaluable" never conveyed as directly.
+ *
+ * IT IS NOT A RESULT AND MUST NEVER BE READ AS ONE. An F row names the direction the evidence
+ * leans, which at this level can be a coin flip, and its stated confidence says exactly that: an F
+ * at 0.51 is 0.51. Nothing in a report should aggregate, count or act on an F.
+ */
+export const BAND_F_MIN = 0.55
 
 export const BAND_A_MIN = 0.985
 export const BAND_B_MIN = 0.90
 export const BAND_C_MIN = 0.75
 
 export const bandOf = (confidence: number): Band => {
-  if (!(confidence >= 0)) return 'D'
+  // A confidence that is not a number at all is not band D, which is a MEASURED band with a
+  // measured accuracy of about 0.62. It is F.
+  if (!(confidence >= 0)) return 'F'
   if (confidence >= BAND_A_MIN) return 'A'
   if (confidence >= BAND_B_MIN) return 'B'
   if (confidence >= BAND_C_MIN) return 'C'
-  return 'D'
+  if (confidence >= BAND_F_MIN) return 'D'
+  return 'F'
 }
 
 export const BAND_LABEL: Record<Band, string> = {
@@ -209,6 +228,7 @@ export const BAND_LABEL: Record<Band, string> = {
   B: 'confident',
   C: 'weak, direction only',
   D: 'weak, not for reporting',
+  F: 'no usable evidence, direction only',
 }
 
 /**
@@ -217,7 +237,17 @@ export const BAND_LABEL: Record<Band, string> = {
  * Array-clustered, matching audit/bands_measured.csv. A naive Wilson interval on pooled rows is 3.5
  * to 5.8x too narrow on amplified material, because rows from one array are not independent.
  */
-export const BAND_ACCURACY: Record<Material, Record<Band, number>> = {
+/**
+ * F IS ABSENT FROM THIS TABLE ON PURPOSE, and the type says so rather than the comment alone.
+ *
+ * A to D were each measured against the injection series. F was not, because F is the grade for
+ * evidence that reaches no measured band, so there is no cell to fill. Typing it as a complete
+ * record would have required inventing a number for the one grade that exists to say a number is
+ * not available.
+ */
+export type MeasuredBand = Exclude<Band, 'F'>
+
+export const BAND_ACCURACY: Record<Material, Record<MeasuredBand, number>> = {
   bulk: { A: 0.9972, B: 0.9599, C: 0.8375, D: 0.6038 },
   'esc-single': { A: 0.9980, B: 0.9481, C: 0.8219, D: 0.6360 },
   trophectoderm: { A: 0.9952, B: 0.9491, C: 0.8138, D: 0.6346 },
@@ -344,7 +374,7 @@ export function originPosterior(
   const prior = { loss: 1 / 3, gain: 1 / 3, 'cnn-loh': 1 / 3, ...opts.classPrior }
 
   const bad = (why: string): OriginPosterior => ({
-    pOther: NaN, confidence: NaN, parent: 'withheld', band: 'D', uncalibrated: true,
+    pOther: NaN, confidence: NaN, parent: 'withheld', band: 'F', uncalibrated: true,
     classPosterior: { loss: NaN, gain: NaN, 'cnn-loh': NaN }, classResolved: 'unresolved',
     limitedBy: 'none', why,
   })

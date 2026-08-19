@@ -162,7 +162,16 @@ import {
   assert.equal(bandOf(0.95), 'B')
   assert.equal(bandOf(0.80), 'C')
   assert.equal(bandOf(0.60), 'D')
-  assert.equal(bandOf(NaN), 'D', 'an absent number is the weakest band, never the strongest')
+  // An absent number is NOT band D. D is a measured band with a measured accuracy of about 0.62,
+  // and handing an ungraded row that accuracy is exactly the borrowing this grade exists to stop.
+  assert.equal(bandOf(NaN), 'F', 'an absent number is ungraded, not the weakest MEASURED band')
+  assert.equal(bandOf(0.50), 'F', 'a coin flip is ungraded')
+  assert.equal(bandOf(0.56), 'D', 'and just above the floor it is the weakest measured band')
+  for (const m of ['bulk', 'esc-single', 'trophectoderm', 'blastomere'] as const) {
+    assert.ok(!('F' in BAND_ACCURACY[m]),
+      `F must carry no measured accuracy on ${m}: there is no cell to fill, and inventing one `
+      + 'would let an ungraded row borrow a number from a graded one')
+  }
 
   // Band D is weak but it is NOT a coin flip, and that is what lets it carry its number. Every
   // measured accuracy must sit clear of 0.5, or the decision to display it stops being honest.
@@ -226,7 +235,10 @@ import {
   const noScale = originPosterior({ shift: 0.02, shiftSd: 0, material: 'bulk' })
   assert.equal(noScale.parent, 'withheld')
   assert.ok(Number.isNaN(noScale.confidence))
-  assert.equal(bandOf(noScale.confidence), 'D')
+  // A withheld parent with no confidence is ungraded, which is now F rather than the weakest
+  // measured band. The two must not share a symbol: one was measured at 0.62 and this was not
+  // measured at all.
+  assert.equal(bandOf(noScale.confidence), 'F')
   assert.ok(CLASSES.length === 3)
 }
 

@@ -9,6 +9,53 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.11.1 "Pronucleus"
+
+**Nothing leaves without a grade, and the panel that shows them is readable.**
+
+A grade F is added below D. A to D are unchanged and still measured, each with its own accuracy
+from the injection series. F is not measured: it means a parent was named from evidence that
+reaches no measured band, or from no interval evidence at all. It is typed OUT of the accuracy
+table rather than merely left blank, so an ungraded row cannot borrow a measured one's number, and
+it renders in the warning colour rather than the dim grey C and D use, because the failure this
+guards against is an unusable row reading as a quiet one. Every F row ends "Do not report or count
+this row".
+
+Three rungs reach it. Where the dosage channel refuses, the displacement it measured anyway is
+carried out with the refusal instead of being blanked, so the row names a direction and says there
+is nothing behind it. Where the interval carried no usable marker at all, the direction comes from
+genome-wide absence of the loaded parent, stated as a property of the genome and not of that
+interval. A finding covering the whole genome has no interval to score and is graded the same way.
+
+**A class that cannot have an origin is not a measurement that failed**, and the two no longer read
+alike: the first shows "not applicable", the second a grade.
+
+**Several places paired an ABSENT confidence with band D.** Band D is measured at about 0.62, so
+that handed ungraded rows a real band's accuracy. Absent is now F in `gainOrigin`,
+`oneParentOrigin` and `originPosterior`. One refusal in `oneParentOrigin` does carry a real
+posterior and is now graded from that number rather than pinned to D.
+
+**Whole-chromosome aneuploidy consulted no origin channel at all.** It read its own field and
+printed "parent not determined" while the scored call for the same chromosome named the parent. It
+now falls back to that call and prints its confidence and band.
+
+**The change panel is a grid of chips rather than a wall of paragraphs.** One run produced 64
+regions in one sample, each with a headline, an evidence row and a paragraph, and 58 of those
+paragraphs were the same sentence, because a parental origin on a uniparental genome is inherited
+from one genome-level call and is identical for every region by construction. A change is now one
+line carrying where, what, whose and how sure, with the confidence on the face of the chip in the
+band's colour, and everything else behind a click. Reasoning shared by more than one change is
+stated once underneath. Counts lead: how many changes, the parental split, and how many are at band
+A or B.
+
+**`parentalBalance.ts` is included but is not wired to anything yet.** It compares maternal-only
+against paternal-only genomes, normalised per 100,000 informative markers, with a label-permutation
+null. It refuses rather than reports when the groups are not measured equally well, and marks a
+class underpowered where the group sizes admit no p below the corrected threshold. It ships here so
+it is under the check suite; the run does not call it.
+
+---
+
 ## 5.11.0 "Pronucleus"
 
 **A run of 18 samples produced 1,272 detected regions and not one parental origin. Every row read

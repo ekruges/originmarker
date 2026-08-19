@@ -34,7 +34,7 @@
  * heterozygous, and those are simply excluded.
  */
 import type { AB } from './informativity.ts'
-import { bandObligateHet, type Band } from './originPosterior.ts'
+import { bandObligateHet, bandOf, type Band } from './originPosterior.ts'
 
 /** Frequency of the allele the known parent lacks, when it cannot be estimated per marker. */
 export const DEFAULT_Q = 0.30
@@ -266,7 +266,7 @@ export function callOneParentOrigin(
   const base = { markers: n, exclusive, heterozygous: het, q }
   if (n < minMarkers) {
     return {
-      ...base, verdict: 'refused', posterior: NaN, band: 'D' as Band,
+      ...base, verdict: 'refused', posterior: NaN, band: 'F' as Band,
       why: `${n} informative markers is under the ${minMarkers} this needs; a marker only counts `
         + 'where the loaded parent is homozygous',
     }
@@ -277,7 +277,7 @@ export function callOneParentOrigin(
   // reason: an impossible rate is evidence about the reaction, not about the genome.
   if (het / n > maxRegionHet) {
     return {
-      ...base, verdict: 'refused', posterior: NaN, band: 'D' as Band,
+      ...base, verdict: 'refused', posterior: NaN, band: 'F' as Band,
       why: `${(100 * het / n).toFixed(1)}% of the informative markers read heterozygous, over the `
         + `${(100 * maxRegionHet).toFixed(0)}% ceiling. Where the loaded parent is homozygous a `
         + 'biparental sample can only be heterozygous when the other parent transmitted the allele '
@@ -301,7 +301,9 @@ export function callOneParentOrigin(
 
   if (post[best] < callPosterior) {
     return {
-      ...base, verdict: 'refused', posterior: post[best], band: 'D' as Band,
+      // This refusal DOES carry a number, so it is graded from that number rather than pinned to
+      // the weakest measured band. A posterior of 0.51 and an absent one are not the same row.
+      ...base, verdict: 'refused', posterior: post[best], band: bandOf(reported) as Band,
       why: `best hypothesis reaches ${post[best].toFixed(3)}, under the ${callPosterior} needed`,
     }
   }

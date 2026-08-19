@@ -320,6 +320,14 @@ export type DosageVerdict =
 export type ClassVerdict = 'loss' | 'gain' | 'cnn-loh' | 'unresolved'
 
 export interface DosageCall {
+  /**
+   * The direction the measured displacement leans, present even on a refusal.
+   *
+   * Null only where the interval carried no usable markers at all, which is the one case with no
+   * direction to report. Everything else has one, however slight, and a caller may grade it rather
+   * than drop the row.
+   */
+  lean?: { verdict: 'loaded-parent' | 'other-parent'; shift: number; markers: number } | null
   verdict: DosageVerdict
   /**
    * The copy-number class, resolved SEPARATELY from the origin and usually not resolved at all.
@@ -484,9 +492,30 @@ export function callDosageOrigin(
 
   const r = centroid(region)
   const b = centroid(background)
+  /**
+   * WHICH WAY THE EVIDENCE LEANS, measured even where it is far too weak to act on.
+   *
+   * A refusal was previously returned with the shift blanked, so a caller that wanted to grade the
+   * row rather than drop it had nothing to grade. The displacement was measured all the same. It
+   * is carried here so a refusal can still name a direction and say plainly how little is behind
+   * it, instead of the row leaving as an empty field.
+   *
+   * Under a LOSS or a copy-neutral event the loaded parent's copy reads HIGH when it is the
+   * affected one; a GAIN inverts that, which is the whole reason the class is marginalised
+   * upstream. The sign map is applied here so the lean names a parent rather than a direction.
+   */
+  const rawShift = r.n > 0 && b.n > 0 ? r.mean - b.mean : NaN
+  const lean = Number.isFinite(rawShift) && rawShift !== 0
+    ? {
+      verdict: ((rawShift > 0) === (state !== 'gain') ? 'loaded-parent' : 'other-parent') as
+        'loaded-parent' | 'other-parent',
+      shift: rawShift,
+      markers: r.n,
+    }
+    : null
   const base = {
     shift: NaN, z: NaN, impliedF: NaN, window: r.n, markers: r.seen, material, floor,
-    classVerdict: 'unresolved' as ClassVerdict, classWhy: '',
+    classVerdict: 'unresolved' as ClassVerdict, classWhy: '', lean,
   }
 
   // 1. COULD ANY ARRAY OF THIS KIND ANSWER AT THIS WIDTH. Asked FIRST, and before looking at the

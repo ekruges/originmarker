@@ -82,6 +82,15 @@ export interface Defect {
   /** Dropout the call was parameterised with, and how that figure was arrived at. */
   dropout?: number
   dropoutBasis?: string
+  /**
+   * Set where the CLASS itself precludes a parental origin, rather than the evidence being weak.
+   *
+   * These two must never look alike. A row graded F was measured and came out worthless; a row
+   * carrying this was never measurable at any quality, and grading it F would imply an attempt
+   * that was not made. Carried onto the defect so a display can tell them apart without
+   * re-deriving it.
+   */
+  originBlocked?: string
 }
 
 /** Build the display list from a run's segments and whatever origin annotations exist for them. */
@@ -195,6 +204,7 @@ export function defectsFrom(
  */
 export const BAND_WORD: Record<string, string> = {
   A: 'very confident', B: 'confident', C: 'weak, direction only', D: 'weak, not for reporting',
+  F: 'no usable evidence, direction only',
 }
 /**
  * What each class is called in a headline, in words rather than in the code's vocabulary.
@@ -242,6 +252,9 @@ export const headline = (d: Defect): string => {
 /** Bands C and D are dimmed, so a weak number cannot be mistaken for a strong one at a glance. */
 export const bandColour = (d: Defect): string => {
   if (d.origin === 'unclear') return 'var(--om-text-dim)'
+  // F is not dim like C and D, which are weak but measured. It is the warning colour, because the
+  // failure mode this whole grade exists to prevent is an unusable row being read as a quiet one.
+  if (d.band === 'F') return 'var(--om-higher)'
   return d.band === 'C' || d.band === 'D' ? 'var(--om-text-dim)' : 'var(--om-defect)'
 }
 
@@ -278,6 +291,8 @@ export function findingToDefect(
   // A blocked class is never scored, so a scored call on one would be a caller error rather than
   // evidence, and is ignored here rather than trusted.
   const use = blocked ? undefined : scored
+  // Carried through, so the chip can say "not applicable" rather than the "no call" it shares with
+  // a measurement that failed.
   const named = use && (use.verdict === 'loaded-parent' || use.verdict === 'other-parent')
   return {
     chrom: f.chrom,
@@ -286,6 +301,7 @@ export function findingToDefect(
     locus: f.chrom === 'genome' ? 'whole genome' : locus(f.chrom, f.startBp, f.endBp),
     kind: f.cls as Defect['kind'],
     origin: named ? (use.verdict === 'loaded-parent' ? loadedParent : other) : 'unclear',
+    originBlocked: blocked,
     why: [f.evidence, blocked, use?.why, f.flag].filter(Boolean).join('. '),
     // Absent where nothing scored an origin, so a missing basis never implies a channel spoke and
     // declined. Where one did, this is the SAME dosage channel the older events use.

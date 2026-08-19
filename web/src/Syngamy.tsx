@@ -79,6 +79,35 @@ const TAG_COLOR: Record<Tag, string> = {
   SCAN: 'var(--om-text-dim)',
 }
 
+/**
+ * An F-grade call for a finding that covers the whole genome rather than an interval.
+ *
+ * There is no interval to measure, so the evidence is the array-wide absence of the loaded parent,
+ * which is the right evidence for a genome-scoped statement and the wrong evidence for a located
+ * one. Graded F because it is a direction and not a measurement of anything in particular.
+ */
+const genomeGrade = (r: {
+  genomeRate?: number; explainable?: number
+}): { verdict: string; shift: number; z: number; impliedF: number; why: string
+  confidence: number; band: string } | undefined => {
+  const { genomeRate, explainable } = r
+  if (!Number.isFinite(genomeRate) || !Number.isFinite(explainable)) return undefined
+  return {
+    verdict: (genomeRate as number) > (explainable as number) ? 'other-parent' : 'loaded-parent',
+    // No interval, so there is no interval statistic. Left absent rather than filled with the
+    // array-wide numbers, which would read as a measurement of this finding.
+    shift: NaN,
+    z: NaN,
+    impliedF: NaN,
+    confidence: 0.5,
+    band: 'F',
+    why: 'Graded F and named anyway: this finding covers the whole genome and has no interval to '
+      + `measure, so the direction is the array's own, from absence of the loaded parent at `
+      + `${((genomeRate as number) * 100).toFixed(2)}% against a `
+      + `${((explainable as number) * 100).toFixed(2)}% ceiling. Do not report or count this row`,
+  }
+}
+
 /** How many log lines are kept. The oldest are dropped, so a run cannot grow the page without end. */
 const LOG_LINES = 500
 
@@ -907,12 +936,52 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                   genomeRate: result.genomeRate, explainable: result.explainable,
                 })
                 : null
+              // EVERY ROW LEAVES WITH A GRADE. Where neither the measured channel nor the
+              // zygosity can answer, the row is graded F rather than dropped: the direction the
+              // displacement leans is named, and the grade says there is nothing behind it. A
+              // reader scanning a column of grades sees F and knows the row is unusable, which an
+              // empty field never conveyed as directly. An F is not a result and nothing should
+              // aggregate or act on one.
+              // THE LAST RUNG, for an interval that carried no usable marker of its own. There is
+              // no direction to measure there, so the only honest source left is the array-wide
+              // one: absence of the loaded parent measured across the whole genome. It says
+              // nothing about THIS interval and the reason says so. Graded F like the rest.
+              const genomeLean: 'loaded-parent' | 'other-parent' | null =
+                Number.isFinite(result.genomeRate) && Number.isFinite(result.explainable)
+                  ? (result.genomeRate > result.explainable ? 'other-parent' : 'loaded-parent')
+                  : null
+              const unnamed = c.verdict !== 'loaded-parent' && c.verdict !== 'other-parent'
+              const graded = !zyg && unnamed && !c.lean && genomeLean
+                ? {
+                  verdict: genomeLean,
+                  confidence: 0.5,
+                  band: 'F' as const,
+                  why: `${c.why}. Graded F and named anyway: this interval carried no usable `
+                    + 'marker, so the direction is the whole array\'s, from absence of the loaded '
+                    + `parent at ${(result.genomeRate * 100).toFixed(2)}% against a `
+                    + `${(result.explainable * 100).toFixed(2)}% ceiling. It is a property of the `
+                    + 'genome and not of this interval. Do not report or count this row',
+                }
+                : !zyg && unnamed && c.lean
+                ? {
+                  verdict: c.lean.verdict,
+                  // Stated honestly. There is no calibration here and no band to borrow one from,
+                  // so it sits just under the weakest measured band and says which way it leans.
+                  confidence: 0.5,
+                  band: 'F' as const,
+                  why: `${c.why}. Graded F and named anyway: the displacement over `
+                    + `${c.lean.markers} usable marker${c.lean.markers === 1 ? '' : 's'} leans `
+                    + `${c.lean.shift > 0 ? 'toward' : 'away from'} the loaded parent, which is a `
+                    + 'direction and not a measurement. Do not report or count this row',
+                }
+                : null
               return {
                 where: label,
-                verdict: zyg?.verdict ?? c.verdict,
-                confidence: zyg?.confidence ?? c.posterior?.confidence,
-                band: zyg?.band ?? c.posterior?.band,
+                verdict: zyg?.verdict ?? graded?.verdict ?? c.verdict,
+                confidence: zyg?.confidence ?? graded?.confidence ?? c.posterior?.confidence,
+                band: zyg?.band ?? graded?.band ?? c.posterior?.band,
                 fromZygosity: !!zyg,
+                gradedOnly: !!graded,
                 parent: zyg?.parent,
                 limitedBy: c.posterior?.limitedBy,
                 uncalibrated: c.posterior?.uncalibrated,
@@ -931,7 +1000,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 markers: c.markers,
                 material: c.material,
                 floor: c.floor,
-                why: zyg ? zyg.why : c.why,
+                why: zyg ? zyg.why : (graded?.why ?? c.why),
                 cls,
               }
             }
@@ -1516,7 +1585,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
           <StageCallout facts={r.stage && entry.profile
             ? stageFacts(r.stage, entry.profile) : null}
           />
-          <AneuploidyCallout chroms={r.chroms} role={r.role} />
+          <AneuploidyCallout chroms={r.chroms} role={r.role} dosageCalls={r.dosageCalls} />
           {r.gains.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <Text size="xs" fw={700} mb={4}>Extra copies, and where they came from</Text>
@@ -1543,8 +1612,15 @@ function ResultCard({ entry, donorName, oocyteName }: {
                 // The call scored over THIS finding's own interval, matched by the same label the
                 // scorer wrote, so a finding shows the origin that was actually measured for it
                 // rather than one borrowed from its chromosome.
-                (r.dosageCalls ?? []).find((d: { where: string }) => d.where
-                  === `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`),
+                // A GENOME-SCOPED FINDING HAS NO INTERVAL TO SCORE, so it never reached the
+                // scorer and was the one row still leaving without a grade. Its evidence is the
+                // whole array's, which is exactly what a genome-scoped finding should be judged
+                // on, so it is graded F from the same array-wide absence measurement the other
+                // ungradable rows fall back to.
+                f.chrom === 'genome'
+                  ? genomeGrade(r)
+                  : (r.dosageCalls ?? []).find((d: { where: string }) => d.where
+                    === `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`),
                 r.role)),
             ], r.uniformity)}
           />
@@ -1806,10 +1882,31 @@ function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate
  * intensity then says which way it went. Both channels are enormous on a real event and fail in
  * unrelated ways, which is why this is stated plainly rather than hedged.
  */
-function AneuploidyCallout({ chroms, role }: { chroms: ChromResult[]; role: string }) {
+function AneuploidyCallout({ chroms, role, dosageCalls }: {
+  chroms: ChromResult[]; role: string
+  /** The scored calls for these same chromosomes, which carry every origin channel. */
+  dosageCalls?: readonly { where: string; verdict: string; confidence?: number; band?: string }[]
+}) {
   const hits = chroms.filter((c) => c.aneuploidy)
   if (!hits.length) return null
   const other = role === 'paternal' ? 'maternal' : 'paternal'
+  // THIS LINE HAD ITS OWN ORIGIN FIELD AND CONSULTED NO CHANNEL. `aneuploidyParent` is set only
+  // where the surviving alleles settle it, so a whole-chromosome gain on a genome already known to
+  // carry ONE parent read "parent not determined" while the scored call for the same chromosome
+  // named that parent. The scored call is consulted wherever the field is empty.
+  const byChrom = new Map<string, { verdict: string; confidence?: number; band?: string }>()
+  for (const d of dosageCalls ?? []) {
+    const m = /^chr([\dXY]+)$/.exec(d.where)
+    if (m && (d.verdict === 'loaded-parent' || d.verdict === 'other-parent')) byChrom.set(m[1], d)
+  }
+  const scored = (chrom: string): string => {
+    const d = byChrom.get(chrom)
+    if (!d) return 'parent not determined'
+    const who = d.verdict === 'loaded-parent' ? role : other
+    const conf = d.confidence !== undefined && Number.isFinite(d.confidence)
+      ? ` at ${d.confidence.toFixed(2)}${d.band ? `, band ${d.band}` : ''}` : ''
+    return `the ${who} copy${conf}`
+  }
   return (
     <div style={{
       border: '1px solid var(--om-higher)', borderLeft: '4px solid var(--om-higher)',
@@ -1834,7 +1931,7 @@ function AneuploidyCallout({ chroms, role }: { chroms: ChromResult[]; role: stri
               ? `the ${role} copy`
               : c.aneuploidyParent === 'other'
                 ? `the ${other} copy, since the ${role} alleles survive on what remains`
-                : 'parent not determined'}
+                : scored(c.chrom)}
           </Text>
         ))}
       </div>
