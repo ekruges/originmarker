@@ -22,8 +22,8 @@ that mount.
     wrapper         scripts/om-tesla.sh <om subcommand and flags...>
     repo (Mac)      /Users/ezrakruger/claudecodegeneralworkspace/originmarker
     repo (tesla)    /root/originmarker
-    lab arrays      /root/originmarker-data/{DIETER,JENNA,ROBLES,TREFF}/...
-                    884 arrays, stored GZIPPED as *.probes.gz
+    lab arrays      /opt/om/data/{DIETER,JENNA,ROBLES,TREFF}/...
+                    884 arrays, uncompressed, already in place
                     DIETER 93, JENNA 178, ROBLES 264, TREFF 349
     public series   GSE148488 (135 arrays, 1 sperm donor + 4 egg donors + embryos)
                     GSE290961 (158 arrays, 9 bulk-quality candidates, 6 with confirmed children)
@@ -31,13 +31,13 @@ that mount.
                     on 175 of 884 arrays. Columns: cell, chr, start_bp, end_bp, log2R_dev, kind.
                     NO parental label on any of them. That is the gap.
 
-**Check the corpus is complete before trusting a sweep.** The transfer was still running when this
-was written:
+**The corpus is already in place and complete.** Verified: 884 arrays, DIETER 93, JENNA 178,
+ROBLES 264, TREFF 349.
 
-    ssh tesla 'find /root/originmarker-data -name "*.probes.gz" | wc -l'      # target 884
+    ssh tesla 'find /opt/om/data -name "*.probes" | wc -l'      # 884
 
-If it is short, re-run the transfer loop from the git history of this commit; it overwrites rather
-than duplicating, so restarting is safe.
+It arrived in an earlier transfer in this project and is uncompressed. Check for it before copying
+anything: a second copy was most of the way to being built before anyone thought to look.
 
 **Two things about tesla that will otherwise waste your time.**
 
@@ -47,9 +47,9 @@ is indistinguishable from the machine being off. `newton` sits on both networks 
 1.5 ms, so `~/.ssh/config` sends tesla through it as a ProxyJump. Plain `ssh tesla` works. If it
 times out, check newton first rather than concluding tesla is down.
 
-The arrays are stored **gzipped**, because 36 GB of text into 37 GB of free disk leaves nothing.
-The loader reads `.gz` directly and the file scanners know the `.probes.gz` extension, so this is
-invisible in use. Do not decompress them in place; there is no room.
+Disk is tight: 36 GB free with the 36 GB corpus already occupying its share. Do not make a second
+copy, and do not decompress anything large in place. The loader reads `.gz` if you ever do need to
+store something compressed, and the file scanners know the `.probes.gz` extension.
 
 `scripts/om-nas.sh` runs the same CLI on the NAS and holds a partial copy of the corpus. It is a
 fallback only: 4 cores and roughly 1 GB free against tesla's 12 and 20, on a box that also serves
@@ -62,8 +62,8 @@ drift from what ships.
 
     # On tesla, against the corpus. Use this for anything touching the 884 arrays.
     ./scripts/om-tesla.sh help
-    ./scripts/om-tesla.sh census /root/originmarker-data
-    ./scripts/om-tesla.sh stage "/root/originmarker-data/DIETER/<file>.probes.gz"
+    ./scripts/om-tesla.sh census /opt/om/data
+    ./scripts/om-tesla.sh stage /opt/om/data/DIETER/<file>.probes
 
     # Locally, for the public series or for development.
     cd /Users/ezrakruger/claudecodegeneralworkspace/originmarker
@@ -136,7 +136,7 @@ products, but a group holds products of BOTH parents and a reconstruction needs 
 the single group already sorted, six became four. So the real count of anchorable groups is unknown
 and everything downstream depends on it.
 
-    ./scripts/om-tesla.sh census /root/originmarker-data
+    ./scripts/om-tesla.sh census /opt/om/data
     ./scripts/om-tesla.sh reconstruct <haploid products of one group>... --group-only --pairs
     ./scripts/om-tesla.sh reconstruct <products of the largest single-parent group>... \
       --out /root/parent.probes
@@ -149,7 +149,7 @@ parents they resolve into, how many products per parent, and which groups clear 
 
 For every group with an anchor, run the cohort and attribute what is attributable.
 
-    ./scripts/om-tesla.sh cohort "/root/originmarker-data/<group>" \
+    ./scripts/om-tesla.sh cohort "/opt/om/data/<group>" \
       --ref /root/parent.probes --role maternal --json --out /root/group.json
 
 Then filter the 1,189 regions to those on arrays that (a) have an anchor, (b) sit on a callable

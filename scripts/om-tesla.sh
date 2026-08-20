@@ -10,12 +10,13 @@
 # 1.5 ms, so ~/.ssh/config sends tesla through it. Without that, a live machine looks like a dead
 # one: the failure is a connection timeout either way.
 #
-# THE CORPUS IS STORED GZIPPED. 36 GB of text into 37 GB of free disk leaves no room; compressed
-# it is about a quarter of that. The loader reads .gz directly, so nothing else changes.
+# THE CORPUS IS ALREADY THERE, at /opt/om/data, uncompressed, from an earlier transfer in this
+# project. 884 arrays: DIETER 93, JENNA 178, ROBLES 264, TREFF 349. Check before copying anything;
+# a second copy was most of the way to being made before anyone looked.
 #
 #   usage: scripts/om-tesla.sh <om subcommand and flags...>
-#     scripts/om-tesla.sh census /root/originmarker-data
-#     scripts/om-tesla.sh cohort "/root/originmarker-data/ROBLES" --ref /root/parent.probes --json
+#     scripts/om-tesla.sh census /opt/om/data
+#     scripts/om-tesla.sh cohort /opt/om/data/ROBLES --ref /root/parent.probes --json
 set -euo pipefail
 REPO=/root/originmarker
 HEAP="${OM_HEAP:-12288}"
