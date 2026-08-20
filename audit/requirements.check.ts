@@ -333,6 +333,117 @@ head('11. THE FEATURE COMPARISON', '"comparison to those other factors ... vs fr
 
 // ---------------------------------------------------------------------------------------------
 say(`\n${'='.repeat(92)}`)
+
+// =============================================================================================
+// 12. EVERY SHIPPED MODULE IS REACHABLE FROM THE APPLICATION
+// =============================================================================================
+head('12. Nothing is complete and unwired',
+  'a module that ships must be called by the application, not only by its own test')
+{
+  // THE GUARD THAT SHOULD HAVE EXISTED EARLIER. This file was written because the project kept
+  // shipping features that were complete, documented and never wired, and then it went on to do it
+  // twice more: parentalBalance sat with no callers through four releases, and pairedWithinSample
+  // through two, because this audit tested the eleven ORIGINAL requirements and was blind to
+  // anything added since. A named list goes stale the same way, so the check is structural: every
+  // module under web/src that exports something must be imported by a file that is not a test.
+  const dir = new URL('../web/src/', import.meta.url).pathname
+  const { readdirSync } = await import('node:fs')
+  const files = readdirSync(dir).filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith('.check.ts'))
+  const sources = new Map<string, string>()
+  for (const f of files) sources.set(f, readFileSync(`${dir}${f}`, 'utf8'))
+
+  const orphans: string[] = []
+  for (const f of files) {
+    const stem = f.replace(/\.(ts|tsx)$/, '')
+    // Entry points are reached by the bundler, not by an import from a sibling.
+    if (['main', 'App', 'vite-env'].includes(stem)) continue
+    if (!/^export /m.test(sources.get(f) ?? '')) continue
+    let imported = false
+    for (const [other, src] of sources) {
+      if (other === f) continue
+      // Extensions vary across this codebase: bare, .ts and .tsx all appear. A check that missed
+      // one form would report a wired module as an orphan, which it did for GenomeViewer.
+      if (new RegExp(`from '\\./${stem}(\\.tsx?)?'`).test(src)) { imported = true; break }
+    }
+    if (!imported) orphans.push(stem)
+  }
+  ev(`${files.length} modules scanned, ${orphans.length} with no caller outside their own test`)
+  for (const o of orphans) ev(`  ORPHAN: ${o}`)
+  verdict(orphans.length === 0 ? 'MET' : 'NOT MET',
+    orphans.length === 0
+      ? 'every module that exports something is imported by the application'
+      : `${orphans.join(', ')} ship but nothing calls them`)
+}
+
+// =============================================================================================
+// 13. EVERY GRADE STATES WHAT IT IS WORTH
+// =============================================================================================
+head('13. Every grade carries a measured accuracy',
+  'a reader seeing a grade can find out how often that grade is right')
+{
+  const uni = await import(`${W}uniparentalOrigin.ts`)
+  const bands = ['A', 'B', 'C', 'D'] as const
+  const materials = ['bulk', 'esc-single', 'trophectoderm', 'blastomere'] as const
+  const missing: string[] = []
+  for (const m of materials) {
+    for (const b of bands) {
+      const a = (post.BAND_ACCURACY as never as Record<string, Record<string, number>>)[m]?.[b]
+      if (!Number.isFinite(a)) missing.push(`${m}/${b}`)
+    }
+  }
+  ev(`bands A to D: ${materials.length * bands.length - missing.length} of `
+    + `${materials.length * bands.length} cells carry a measured accuracy`)
+  // F must NOT carry one: it measures at chance, and a number meaning "coin flip" does not belong
+  // in a column of numbers meaning "how often this is right".
+  const fInTable = materials.some((m) =>
+    'F' in ((post.BAND_ACCURACY as never as Record<string, object>)[m] ?? {}))
+  ev(`band F in the accuracy table: ${fInTable ? 'YES, which is wrong' : 'no, correctly'}`)
+  ev(`band F measured at chance on ${Object.keys(post.BAND_F_AT_CHANCE).length} materials`)
+  // And the inherited grade, which is measured against dissection rather than injection.
+  const v = uni.INHERITED_VALIDATION
+  ev(`inherited: ${v.correct} correct, ${v.wrong} wrong, ${v.declined} declined, `
+    + `floor ${v.accuracyFloor} over ${v.clusters} clusters`)
+  const ok = missing.length === 0 && !fInTable
+    && Object.keys(post.BAND_F_AT_CHANCE).length > 0 && v.wrong === 0
+  verdict(ok ? 'MET' : 'PARTIAL',
+    ok ? 'A to D carry injection accuracies, F is recorded at chance and kept out of the table, '
+      + 'and inherited carries a dissection-measured floor'
+      : `missing: ${missing.join(', ')}${fInTable ? '; F is in the accuracy table' : ''}`)
+}
+
+// =============================================================================================
+// 14. THE RUN-LEVEL QUESTION IS ANSWERABLE
+// =============================================================================================
+head('14. Parental balance is reachable and refuses honestly',
+  'the question the tool exists for can be run, and says when it cannot answer')
+{
+  const pb = await import(`${W}parentalBalance.ts`)
+  const mk = (name: string, parent: 'maternal' | 'paternal', events: number) => ({
+    name, parent, declaredParent: parent, originClass: 'x', informative: 500_000,
+    explainable: 0.01, material: 'esc-single',
+    events: Array.from({ length: events }, (_, i) => ({
+      cls: 'loss', chrom: String((i % 22) + 1),
+      startBp: Math.floor(i / 22) * 20e6, endBp: Math.floor(i / 22) * 20e6 + 5e5,
+    })),
+  })
+  const few = pb.parentalBalance([mk('a', 'maternal', 5), mk('b', 'paternal', 5)])
+  ev(`two genomes -> ${few.verdict}`)
+  const real = pb.parentalBalance([
+    ...Array.from({ length: 6 }, (_, i) => mk(`m${i}`, 'maternal', 20)),
+    ...Array.from({ length: 6 }, (_, i) => mk(`p${i}`, 'paternal', 4)),
+  ], { permutations: 2000 })
+  ev(`a planted 5x excess -> ${real.verdict}, p ${real.p.toFixed(4)}`)
+  const wp = pb.pairedWithinSample(Array.from({ length: 10 }, (_, i) => ({
+    name: `e${i}`, maternalEvents: i === 0 ? 1 : 5, paternalEvents: i === 0 ? 4 : 1 })))
+  ev(`within-embryo, 9 of 10 maternal-heavy -> ${wp.verdict}, exact p ${wp.p.toFixed(4)}`)
+  const ok = few.verdict === 'underpowered' && real.verdict === 'differential'
+    && wp.verdict === 'differential'
+  verdict(ok ? 'MET' : 'NOT MET',
+    ok ? 'the group comparison and the within-embryo comparison both run, and both refuse below '
+      + 'their own floors'
+      : 'a path through the run-level comparison did not behave')
+}
+
 say(`  MET ${pass}   PARTIAL ${partial}   NOT MET ${fail}`)
 say('')
 say('  Three classes remain unanswerable and are named rather than counted as met: uniparental')

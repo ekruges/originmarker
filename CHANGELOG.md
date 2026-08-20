@@ -9,6 +9,56 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.16.0 "Anaphase II"
+
+Four outstanding items, and two defects found while closing them.
+
+**The injection harness was missing the channel that resolves the class, and that changes a claim
+made in 5.14.0.** It supplied no intensity at all, so every call either had a shift so large the
+class did not matter, landing in A, or an unresolved class, landing in F. A bimodal outcome with
+nothing between, which is why it could not reproduce the original series' graded C and D. Supplying
+intensity with the array's measured WINDOW-level log2R spread as its error, rather than the
+per-marker spread over root n, gives it a middle: log2R is spatially correlated, so 600 markers in
+a window are nowhere near 600 independent readings.
+
+With that, **band F measures 0.51 to 0.56, which is chance, not the 0.27 to 0.44 reported in
+5.14.0**. That figure was taken under a condition no real array is in. The conclusion is unchanged
+and its reason is better: a band at chance carries no information about which parent it was, so F
+names none. The mechanism holds under both conditions, 1,693 of 1,693 calls class-unresolved without
+intensity and 195 of 195 with it.
+
+**Band D is corrected.** The harness now reproduces band A within 0.005 and band D within 0.06 on
+every material it covers, while running optimistic at B and C. So D is taken from the new series,
+which measures the range D actually spans since F was carved out of it, and A, B and C stay on the
+original series, which is the harder measurement. Bulk keeps its pooled figure and is marked as
+such, because only one bulk array exists and one array cannot give a clustered interval.
+
+**`pairedWithinSample` had no callers.** Built in 5.12.1, never wired, which made it the ninth
+feature this repository has shipped complete and unreachable. It now runs from the panel on
+biparental samples, counting maternal against paternal events inside the same array where quality,
+marker count and amplification are identical on both sides by construction. Only MEASURED origins
+contribute: an inherited one would put every event in a sample on the same side, and a
+direction-only one carries no side at all.
+
+**The requirements audit was blind to everything added since it was written.** It certified 11 MET
+while `parentalBalance`, `pairedWithinSample`, `uniparentalOrigin` and `syngamyTable` were not
+mentioned once, which is how two modules shipped unwired under a check built to prevent exactly
+that. Three requirements are added. One is structural rather than a named list, because a named list
+goes stale the same way: every module under `web/src` that exports something must be imported by a
+file that is not its own test. It immediately found `FigureSvg`, the on-screen figure renderer made
+dead by the 5.9.0 decision to move analytical figures to the report, which is now deleted. The audit
+reads 14 MET, 0 PARTIAL, 0 NOT MET.
+
+**The feature comparison counted windows, not events.** One change cut into twelve abutting windows
+by a sliding detector arrived as twelve separate regions, so a single event got twelve independent
+chances to coincide with a fragile site. That inflates the observed overlap AND its significance
+together, because the null is drawn per region. This is the same unit defect a methods review found
+in the parental aggregation, living in a second place nobody had looked. Regions within 1 Mb on one
+chromosome are now merged before comparison, and a merged region is named for its own extent rather
+than for whichever window came first.
+
+---
+
 ## 5.15.0 "Univalent"
 
 **Every grade now states what it is worth, and the panel that answers the driving question is

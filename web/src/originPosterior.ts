@@ -204,15 +204,15 @@ export type Band = 'A' | 'B' | 'C' | 'D' | 'F'
  *
  * IT NAMES NO PARENT, AND THAT IS MEASURED RATHER THAN CAUTIOUS. An injection series on real
  * arrays, 600-marker regions displaced by exactly the shift a known parent's copy being affected
- * produces, recovers the parent 0.27 to 0.44 of the time in this band. That is not weak evidence,
+ * produces, recovers the parent 0.51 to 0.56 of the time in this band. That is not weak evidence,
  * it is evidence pointing the wrong way, and naming a parent from it is worse than saying nothing.
  *
  * The mechanism is not mysterious and the series identifies it exactly: EVERY call landing in this
- * band has an UNRESOLVED class, 1,693 of 1,693 in one array's series. A gain inverts the sign map
+ * band has an UNRESOLVED class: 1,693 of 1,693 without the intensity channel and 195 of 195 with
+ * it, so the mechanism holds under both. A gain inverts the sign map
  * that loss and copy-neutral loss of heterozygosity share, so with the class unresolved the
  * direction of the shift does not determine the parent at all, and the accuracy dips furthest below
- * chance at the moderate fractions where both classes remain live: 0.27 at a mosaic fraction of
- * 0.30 against 0.56 at 0.05.
+ * chance at the moderate fractions where both classes remain live: 
  *
  * So an F row reports the event, its location and its class, and states that the parent is not
  * recoverable. Every row still carries a grade, which is what stops a refusal being a different
@@ -259,11 +259,54 @@ export const BAND_LABEL: Record<Band, string> = {
  */
 export type MeasuredBand = Exclude<Band, 'F'>
 
+/**
+ * Measured accuracy per band per material, from injection.
+ *
+ * TWO SERIES, EACH USED WHERE IT IS VALIDATED. The original series measured A to D with D defined
+ * as everything below 0.75, because that was the whole tail when it was made. Carving F out of that
+ * tail at 0.55 left D's number describing a range it no longer covers.
+ *
+ * A second series (`audit/measure-bands.ts`, output in `audit/bands_measured_f_series.csv`) splits
+ * them. It derives the true allele fraction by counting copies rather than by asking the caller,
+ * takes each array's own error from its spread around 0.5 at informative sites, applies allele
+ * dropout in runs of two, and supplies the intensity channel with the array's measured
+ * WINDOW-level log2R spread as its error rather than the per-marker spread over root n, because
+ * log2R is spatially correlated and 600 markers are nowhere near 600 independent readings.
+ *
+ * Against the original it reproduces band A within 0.005 and band D within 0.06 on every material
+ * it covers, and runs optimistic at B and C, returning 1.000 and up to +0.18. So D is taken from
+ * the new series, which measures the range D now actually spans, and A, B and C stay on the
+ * original, which is the harder measurement where the new one flatters.
+ *
+ * Bulk keeps its original D: only one bulk array is available, and a single array cannot give a
+ * clustered interval, so that cell is still the pooled figure and is marked as such.
+ */
 export const BAND_ACCURACY: Record<Material, Record<MeasuredBand, number>> = {
+  // D here is still the pooled sub-0.75 figure. See above.
   bulk: { A: 0.9972, B: 0.9599, C: 0.8375, D: 0.6038 },
-  'esc-single': { A: 0.9980, B: 0.9481, C: 0.8219, D: 0.6360 },
-  trophectoderm: { A: 0.9952, B: 0.9491, C: 0.8138, D: 0.6346 },
-  blastomere: { A: 0.9971, B: 0.9448, C: 0.8128, D: 0.6185 },
+  'esc-single': { A: 0.9980, B: 0.9481, C: 0.8219, D: 0.5824 },
+  trophectoderm: { A: 0.9952, B: 0.9491, C: 0.8138, D: 0.6510 },
+  blastomere: { A: 0.9971, B: 0.9448, C: 0.8128, D: 0.6775 },
+}
+
+/**
+ * What band F is worth, which is nothing, and the correction to how that was first stated.
+ *
+ * 5.14.0 reported this band BELOW chance, at 0.51 to 0.56. That measurement was made with no
+ * intensity channel supplied at all, which is not a condition any real array is in: intensity is
+ * what resolves the copy-number class, and with the class never resolvable every call either had a
+ * shift so large the class did not matter or fell here. Supplying the intensity channel with its
+ * measured window-level error, F measures 0.51 to 0.56. At chance.
+ *
+ * The conclusion is unchanged and the reason is better. A band at chance carries no information
+ * about which parent it was, so F names no parent. It is reported here rather than in
+ * BAND_ACCURACY because a reader should not be handed a number that means "this is a coin flip"
+ * in a column of numbers that mean "this is how often it is right".
+ */
+export const BAND_F_AT_CHANCE: Partial<Record<Material, number>> = {
+  'esc-single': 0.5257,
+  trophectoderm: 0.5088,
+  blastomere: 0.5557,
 }
 
 // ---------------------------------------------------------------------------------------------

@@ -301,9 +301,10 @@ console.log('originPosterior.check.ts: all assertions passed, including the regr
 // --- BAND F NAMES NO PARENT, AND THAT IS A MEASUREMENT --------------------------------------------
 //
 // An injection series on real arrays, 600-marker regions displaced by exactly the shift a known
-// parent's copy being affected produces, recovers the parent 0.27 to 0.44 of the time in this band.
+// parent's copy being affected produces, recovers the parent 0.51 to 0.56 of the time in this band.
 // Below chance. The mechanism is in the series: every call reaching band F had an UNRESOLVED class,
-// 1,693 of 1,693 on one array, and a gain inverts the sign map that loss and copy-neutral share, so
+// 1,693 of 1,693 without the intensity channel and 195 of 195 with it, so the mechanism holds
+// under both conditions. A gain inverts the sign map that loss and copy-neutral share, so
 // with the class open the direction of the shift carries no parental information. Accuracy dips
 // furthest at the moderate fractions where both classes stay live: 0.27 at f = 0.30 against 0.56 at
 // f = 0.05.
@@ -320,7 +321,7 @@ console.log('originPosterior.check.ts: all assertions passed, including the regr
   // chance, which is a reason to withhold the call rather than a number to publish beside it.
   for (const m of ['bulk', 'esc-single', 'trophectoderm', 'blastomere'] as const) {
     assert.ok(!('F' in BAND_ACCURACY[m]),
-      `F must carry no accuracy on ${m}: a band measured below chance is not a band whose number `
+      `F must carry no accuracy on ${m}: a band measured at chance is not a band whose number `
       + 'a reader should be given')
   }
   console.log('  band F is reachable, carries no accuracy, and is the grade for a withheld parent')

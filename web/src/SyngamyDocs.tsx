@@ -1274,7 +1274,7 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             error rate. Measured AUC 1.000 from 50 markers upward, holding even on degraded arrays
             running 24% to 45% spurious heterozygosity. A duplicate of the SAME homologue is
             bit-identical to a single copy at every marker: measured AUC 0.037 to 0.119, which is
-            below chance, and intensity does not rescue it either. So the tool reports the meiotic
+            at chance, and intensity does not rescue it either. So the tool reports the meiotic
             case and, where the evidence is absent, says an identical duplicate cannot be
             distinguished from a normal single copy. <b>That is not the same as reporting no
             gain</b>, and it does not say so.

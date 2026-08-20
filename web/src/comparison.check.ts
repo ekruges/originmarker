@@ -415,3 +415,32 @@ const markers = new Map<string, number[]>([['1',
 console.log('comparison.check.ts: all assertions passed, including the parental caveat travelling '
   + 'on every result, too few regions refusing to read as independence, and one shared axis across '
   + 'the enrichment chart')
+
+// --- A WINDOW IS NOT AN EVENT --------------------------------------------------------------------
+//
+// A sliding detector cuts one change into as many rows as it has windows, and every one of those
+// rows used to arrive here as a separate region. Measured before the fix: twelve abutting windows
+// of a single event arrived as twelve regions, so one event got twelve independent chances to
+// coincide with a fragile site. That inflates the observed overlap and its significance together,
+// because the null is drawn per region. The parental aggregation had the same defect; this was the
+// other place it lived.
+{
+  const sliced = Array.from({ length: 12 }, (_, i) => ({
+    cls: 'cnn-loh', chrom: '4', startBp: 10e6 + i * 5e5, endBp: 10e6 + i * 5e5 + 5e5 }))
+  const merged = comparisonRegions({ findings: sliced })
+  assert.equal(merged.length, 1, 'twelve abutting windows are one region')
+  assert.equal(merged[0].region.startBp, 10e6)
+  assert.equal(merged[0].region.endBp, 10e6 + 12 * 5e5, 'and it spans the whole event')
+  assert.ok(/10\.0-16\.0Mb/.test(merged[0].name),
+    `the merged region must be named for its own extent, got ${merged[0].name}`)
+
+  // Genuinely separate events stay separate, or the fix would be hiding findings rather than
+  // counting them correctly.
+  const apart = comparisonRegions({ findings: [
+    { chrom: '4', startBp: 10e6, endBp: 11e6 },
+    { chrom: '4', startBp: 90e6, endBp: 91e6 },
+    { chrom: '7', startBp: 10e6, endBp: 11e6 },
+  ] })
+  assert.equal(apart.length, 3, 'separate events, and separate chromosomes, stay separate')
+  console.log('  comparison regions: 12 abutting windows merge to 1, 3 separate stay 3')
+}

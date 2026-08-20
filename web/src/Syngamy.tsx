@@ -1,7 +1,7 @@
 import { breathe, buildScanIndex, copyNeutralWindows, gatherInterval } from './scan'
 import { syngamyTable } from './syngamyTable'
 import { ParentalBalancePanel } from './ParentalBalancePanel'
-import type { BalanceSample } from './parentalBalance'
+import type { BalanceSample, PairedSample } from './parentalBalance'
 import type { Interval } from './scan'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StageCallout } from './StageCallout'
@@ -171,6 +171,31 @@ function balanceRowsFor(entries: readonly Entry[]): BalanceSample[] {
       material: r.stage?.stage ?? 'unknown',
       events,
     })
+  }
+  return out
+}
+
+/**
+ * Biparental samples reduced to a within-sample maternal/paternal count.
+ *
+ * ONLY MEASURED ORIGINS COUNT HERE, and that is what keeps the design honest. The whole value of
+ * comparing within one array is that both sides were read on the same chemistry in the same
+ * reaction, so nothing about the array can favour one over the other. An inherited origin comes
+ * from a genome-level call and would put every event in a sample on the same side; a direction-only
+ * one carries no side at all. Either would import the between-sample confounds this design exists
+ * to remove.
+ */
+function pairedRowsFor(entries: readonly Entry[]): PairedSample[] {
+  const out: PairedSample[] = []
+  for (const e of entries) {
+    const r = e.result
+    if (!r || r.originClass !== 'biparental') continue
+    const measured = defectsForResult(r).filter((d) => d.band === 'A' || d.band === 'B'
+      || d.band === 'C' || d.band === 'D')
+    const maternalEvents = measured.filter((d) => d.origin === 'maternal').length
+    const paternalEvents = measured.filter((d) => d.origin === 'paternal').length
+    if (!maternalEvents && !paternalEvents) continue
+    out.push({ name: e.file.name, maternalEvents, paternalEvents })
   }
   return out
 }
@@ -1075,8 +1100,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                   band: 'F' as const,
                   why: `${c.why}. Graded F: this interval carried no usable marker of its own, `
                     + 'so nothing here bears on which parent it was. The parent is NOT named. An '
-                    + 'injection series on real arrays recovers the parent 0.27 to 0.44 of the '
-                    + 'time in this band, below chance, because every call reaching it has an '
+                    + 'injection series on real arrays recovers the parent 0.51 to 0.56 of the '
+                    + 'time in this band, at chance, because every call reaching it has an '
                     + 'unresolved copy-number class and a gain inverts the sign that loss and '
                     + 'copy-neutral share',
                 }
@@ -1090,7 +1115,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                     + 'copy-number class is unresolved here, and a gain inverts the sign that loss '
                     + 'and copy-neutral share, so the direction of the shift carries no parental '
                     + 'information at all. Measured on real arrays this band recovers the parent '
-                    + '0.27 to 0.44 of the time, below chance, so no parent is named',
+                    + '0.51 to 0.56 of the time, which is chance, so no parent is named',
                 }
                 : null
               return {
@@ -1501,7 +1526,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       */}
       {/* THE QUESTION THE TOOL EXISTS FOR, across the whole run rather than one sample. */}
       {entries.some((e) => e.result) && (
-        <ParentalBalancePanel samples={balanceRowsFor(entries)} />
+        <ParentalBalancePanel
+          samples={balanceRowsFor(entries)}
+          paired={pairedRowsFor(entries)}
+        />
       )}
       {entries.some((e) => e.result) && (
         <ComparisonPanel

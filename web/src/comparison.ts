@@ -473,6 +473,46 @@ export function comparisonRegions(run: {
       name: name(f.chrom, f.startBp, f.endBp),
     })
   }
+  // MERGED, BECAUSE A WINDOW IS NOT AN EVENT. A sliding detector cuts one change into as many rows
+  // as it has windows, and every one of those rows was being handed to the comparison as a separate
+  // region. Measured: twelve abutting windows of a single event arrived as twelve regions, so one
+  // event got twelve independent chances to coincide with a fragile site. That inflates the
+  // observed overlap AND its significance, because the null is drawn per region. The same unit
+  // defect was found in the parental aggregation; this is the other place it lived.
+  return mergeRegions(out)
+}
+
+/** Regions that abut or overlap on one chromosome are one region. */
+export const REGION_JOIN_BP = 1_000_000
+
+export function mergeRegions(
+  rows: readonly { region: Region; name: string }[],
+  joinBp = REGION_JOIN_BP,
+): { region: Region; name: string }[] {
+  const byChrom = new Map<string, { region: Region; name: string }[]>()
+  for (const r of rows) {
+    const cur = byChrom.get(r.region.chrom)
+    if (cur) cur.push(r)
+    else byChrom.set(r.region.chrom, [r])
+  }
+  const out: { region: Region; name: string }[] = []
+  for (const group of byChrom.values()) {
+    const sorted = [...group].sort((a, b) => a.region.startBp - b.region.startBp)
+    let cur = { ...sorted[0], region: { ...sorted[0].region } }
+    for (let i = 1; i < sorted.length; i += 1) {
+      const r = sorted[i]
+      if (r.region.startBp - cur.region.endBp <= joinBp) {
+        cur.region.endBp = Math.max(cur.region.endBp, r.region.endBp)
+        // The merged region carries its own extent, not the extent of whichever window came first.
+        cur.name = `chr${cur.region.chrom} ${(cur.region.startBp / 1e6).toFixed(1)}`
+          + `-${(cur.region.endBp / 1e6).toFixed(1)}Mb`
+      } else {
+        out.push(cur)
+        cur = { ...r, region: { ...r.region } }
+      }
+    }
+    out.push(cur)
+  }
   return out
 }
 

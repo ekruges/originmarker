@@ -382,7 +382,7 @@ export function callLossOrigin(
  * background from 50 markers upward, holding even against degraded arrays running 24-45% spurious
  * heterozygosity. If the extra copy is a duplicate of the SAME homologue it is bit-identical to
  * one copy at every marker, and no genotype channel can see it. Measured AUC 0.037 to 0.119,
- * which is below chance, and intensity does not rescue it either: 0.503 to 0.561 for one copy
+ * which is at chance, and intensity does not rescue it either: 0.503 to 0.561 for one copy
  * against two, on a mean log2R difference of 0.005 to 0.013 inside a spread of 0.07 to 0.16.
  *
  * So the honest output is: report the meiotic case, and where the evidence is absent report that

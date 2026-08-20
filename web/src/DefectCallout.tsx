@@ -97,7 +97,7 @@ function OneDefect({ d, why }: { d: Defect; why: string[] }) {
   const conf = showsDigits && d.confidence !== undefined && Number.isFinite(d.confidence)
     ? d.confidence.toFixed(2) : null
   // What stands in place of the digits, per band. F names NO parent: an injection series measured
-  // it recovering the right one 0.27 to 0.44 of the time, below chance, because every call reaching
+  // it recovering the right one 0.51 to 0.56 of the time, which is chance, because every call reaching
   // it has an unresolved class and a gain inverts the sign that loss and copy-neutral share. The
   // row is still graded, which is what keeps a refusal the same kind of output as an answer.
   const weakWord = d.band === 'C' ? 'weak'

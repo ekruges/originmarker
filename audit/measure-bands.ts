@@ -22,7 +22,7 @@
 import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { homedir } from 'node:os'
-import { shiftMean, bandOf, type EventClass } from '../web/src/originPosterior.ts'
+import { bandOf, logRMean, type EventClass } from '../web/src/originPosterior.ts'
 import { callDosageOrigin, WINDOW_LO, WINDOW_HI, type Material } from '../web/src/dosageOrigin.ts'
 
 const DIR = process.argv[2] ?? join(homedir(), 'Downloads', 'probes')
@@ -50,7 +50,7 @@ const rng = (seed: number) => () => {
  * the window and nothing informative survives. It produced band A accuracies of 0.09 to 0.38, worse
  * than guessing, which is the signature of a harness fault rather than a caller fault.
  */
-type Site = { parent: 'AA' | 'BB'; baf: number }
+type Site = { parent: 'AA' | 'BB'; baf: number; log2R: number }
 
 /** The loaded parent's genotype per marker, keyed by probeset. */
 function readParent(path: string): Map<string, 'AA' | 'BB'> {
@@ -92,8 +92,9 @@ function readSample(path: string, parent: Map<string, 'AA' | 'BB'>) {
     const pg = parent.get(p[0])
     if (!pg) continue
     const baf = Number(p[4])
-    if (!Number.isFinite(baf)) continue
-    sites.push({ parent: pg, baf })
+    const log2R = Number(p[3])
+    if (!Number.isFinite(baf) || !Number.isFinite(log2R)) continue
+    sites.push({ parent: pg, baf, log2R })
   }
   return { sites, callRate: total ? called / total : 0, het: called ? het / called : 0 }
 }
@@ -207,6 +208,30 @@ for (const f of files) {
   // homozygous: those are the ones already driven to an extreme.
   const outside = sites.length - informative.length
   const dropout = Math.min(0.4, outside / Math.max(1, sites.length))
+  // THE INTENSITY CHANNEL, which the first two versions of this harness left out entirely and which
+  // is why they had no graded middle. Intensity is what RESOLVES THE CLASS, and the class is what
+  // decides whether a shift's direction names a parent at all. With no intensity every call either
+  // had a shift so large the class did not matter, landing in A, or an unresolved class, landing in
+  // F: a bimodal outcome with nothing between. A real array carries log2R at every marker, so the
+  // caller gets it here too, with the array's own spread as its error.
+  //
+  // THE ERROR SCALE IS THE WINDOW SPREAD, NOT THE MARKER SPREAD OVER ROOT N. log2R is spatially
+  // correlated on amplified material, so 600 markers in a window are nowhere near 600 independent
+  // readings, and dividing the per-marker spread by their root claims a precision the channel does
+  // not have. Measured directly instead: the array is cut into windows of the size the scan uses,
+  // each window's mean log2R is taken, and the spread of THOSE is the error on a window mean. On
+  // amplified material this project measures 0.17 to 0.22, against the 0.029 to 0.081 a class
+  // resolution would need, which is exactly why the class is usually unresolved there.
+  const windowMeans: number[] = []
+  for (let w = 0; w + REGION_MARKERS <= informative.length; w += REGION_MARKERS) {
+    let acc = 0
+    for (let k = 0; k < REGION_MARKERS; k += 1) acc += informative[w + k].log2R
+    windowMeans.push(acc / REGION_MARKERS)
+  }
+  const wmMean = windowMeans.reduce((a, x) => a + x, 0) / Math.max(1, windowMeans.length)
+  const logRSd = windowMeans.length > 1
+    ? Math.sqrt(windowMeans.reduce((a, x) => a + (x - wmMean) ** 2, 0) / (windowMeans.length - 1))
+    : 0.2
 
   for (let t = 0; t < PER_ARRAY; t += 1) {
     const cls = CLASSES[Math.floor(next() * CLASSES.length)]
@@ -227,8 +252,18 @@ for (const f of files) {
       const parentGt = next() < 0.5 ? 'AA' : 'BB'
       region.push([parentGt, parentGt === 'BB' ? 1 - o : o])
     }
-    const call = callDosageOrigin(region as never, background as never, material,
-      { wholeChromosome: true, state: cls, parents: 1 })
+    // The region's own intensity, displaced by what this class and fraction produce, with the
+    // array's own spread as the error on the window mean.
+    const logRShift = logRMean(cls, fr)
+    const logRSe = logRSd
+    const call = callDosageOrigin(region as never, background as never, material, {
+      wholeChromosome: true,
+      state: cls,
+      parents: 1,
+      logRShift: logRShift + (next() - 0.5) * 2 * logRSe,
+      logRShiftSe: logRSe,
+      windowLogRSd: logRSd,
+    })
     const p2 = call.posterior
     if (!p2 || p2.parent === 'withheld') continue
     const band = p2.band ?? bandOf(p2.confidence)

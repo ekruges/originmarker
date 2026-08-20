@@ -10,14 +10,28 @@
  * or taking a difference between unevenly-measured groups for biology.
  */
 import { Text } from '@mantine/core'
-import { parentalBalance, MIN_PER_GROUP, REPORTING_PER_GROUP } from './parentalBalance.ts'
-import type { BalanceSample } from './parentalBalance.ts'
+import {
+  parentalBalance, pairedWithinSample, MIN_PER_GROUP, REPORTING_PER_GROUP,
+} from './parentalBalance.ts'
+import type { BalanceSample, PairedSample } from './parentalBalance.ts'
 
 const pct = (x: number) => (Number.isFinite(x) ? `${(x * 100).toFixed(2)}%` : '-')
 
-export function ParentalBalancePanel({ samples }: { samples: readonly BalanceSample[] }) {
+export function ParentalBalancePanel({ samples, paired }: {
+  samples: readonly BalanceSample[]
+  /**
+   * Biparental samples with per-event MEASURED origins, for the within-sample comparison.
+   *
+   * A different and stronger design than the group one above: both counts come from the same
+   * array, so quality, marker count and amplification are identical on the two sides by
+   * construction and cannot explain a difference. The group comparison can only refuse when they
+   * differ; this one cannot be affected by them at all.
+   */
+  paired?: readonly PairedSample[]
+}) {
   if (!samples.length) return null
   const r = parentalBalance(samples)
+  const wp = paired && paired.length ? pairedWithinSample(paired) : null
   const decided = r.verdict === 'differential' || r.verdict === 'equal'
   const colour = r.verdict === 'differential' ? 'var(--om-defect)' : 'var(--om-text-dim)'
 
@@ -84,6 +98,29 @@ export function ParentalBalancePanel({ samples }: { samples: readonly BalanceSam
               {c.underpowered ? '  (could not have been flagged at this group size)' : ''}
             </Text>
           ))}
+        </div>
+      )}
+
+      {wp && (
+        <div style={{ marginTop: 12, borderTop: '1px solid var(--om-line)', paddingTop: 9 }}>
+          <Text style={{ fontSize: 11, fontWeight: 700, letterSpacing: '0.06em', color: 'var(--om-text-dim)' }}>
+            WITHIN THE SAME EMBRYOS
+          </Text>
+          <Text style={{
+            fontSize: 14, fontWeight: 700, lineHeight: 1.35, marginTop: 2,
+            color: wp.verdict === 'differential' ? 'var(--om-defect)' : 'var(--om-text-dim)',
+          }}
+          >
+            {wp.headline}
+          </Text>
+          <Text style={{ fontFamily: 'var(--om-mono)', fontSize: 12, marginTop: 4 }}>
+            {wp.samples} biparental sample{wp.samples === 1 ? '' : 's'},
+            {' '}{wp.informative} informative,
+            {' '}{wp.maternalHigher} maternal-heavy against {wp.paternalHigher} paternal-heavy
+          </Text>
+          <Text size="xs" c="dimmed" mt={5} style={{ maxWidth: 820, lineHeight: 1.55 }}>
+            {wp.methods}
+          </Text>
         </div>
       )}
 
