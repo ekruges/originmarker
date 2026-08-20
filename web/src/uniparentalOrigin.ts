@@ -22,6 +22,40 @@
  */
 import { HET_BAND_DIPLOID } from './parentage.ts'
 
+/**
+ * What the inherited grade is worth, measured against DISSECTION rather than inference.
+ *
+ * Fifteen single pronuclei were dissected from 2PN zygotes, so which parent each carries is known
+ * physically and not from any statistic. Running the genome-level call on them:
+ *
+ *   called and correct   12
+ *   called and wrong      0
+ *   declined as unclear   3
+ *
+ * Zero errors. That is the accuracy every row carrying this grade rests on, because the grade IS
+ * that call inherited.
+ *
+ * CLUSTERED ON THE ZYGOTE, which is the sampling unit: the two pronuclei of one zygote come from
+ * one fertilisation, and every paternal pronucleus in the series comes from a single sperm donor.
+ * Eight zygotes with zero events give a one-sided 95% error bound of 0.3123, so the reportable
+ * floor is 0.688. Treating the 12 calls as independent would give 0.779 and would be the same
+ * cluster error a methods review already measured at 3.5 to 5.8x too narrow on this material.
+ *
+ * WHAT IT CANNOT SUPPORT. A dissected pronucleus has been through neither syngamy nor a mitosis, so
+ * mosaicism, post-zygotic loss, lineage segregation and chimaerism are structurally absent from
+ * this series. Those are exactly the mechanisms that would break the inheritance step in real
+ * embryo material, so this is an upper bound on embryo performance rather than an estimate of it.
+ */
+export const INHERITED_VALIDATION = {
+  correct: 12,
+  wrong: 0,
+  declined: 3,
+  /** Zygotes, not arrays. See above. */
+  clusters: 8,
+  /** One-sided 95% floor from zero events over the clusters: 1 - 0.05^(1/8). */
+  accuracyFloor: 0.688,
+} as const
+
 export type UniparentalInput = {
   /** The genome-level call. Only the two uniparental classes carry an answer. */
   originClass: 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear' | string

@@ -215,7 +215,9 @@ export const BAND_WORD: Record<string, string> = {
   F: 'no usable evidence, direction only',
   // Not a band on the measured scale at all. The parent follows deductively from the genome-level
   // call, so there is no per-event accuracy to state and no number is emitted.
-  inherited: 'inherited from the genome-level call',
+  // 12 of 12 correct against dissection truth, zero errors, floor 0.688 clustered on the
+  // zygote. See INHERITED_VALIDATION.
+  inherited: 'inherited from the genome-level call, 12 of 12 correct against dissection',
 }
 /**
  * What each class is called in a headline, in words rather than in the code's vocabulary.

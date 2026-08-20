@@ -103,6 +103,42 @@ const FRACTIONS = [0.05, 0.10, 0.15, 0.20, 0.30, 0.45, 0.60]
 const REGION_MARKERS = 600
 const PER_ARRAY = 3000
 
+/**
+ * The true B-allele fraction under an event, BY COUNTING COPIES, not by asking the caller.
+ *
+ * THIS IS THE WHOLE POINT OF THE REBUILD. The first series injected `shiftMean`, which is the
+ * caller's own forward model, so the caller met exactly the displacement it expected and the only
+ * error left was array noise. Bands A, B and C came back at 1.000, which is not a measurement of
+ * anything except that the model agrees with itself.
+ *
+ * Counted instead, at a site where the loaded parent is homozygous and the other parent
+ * transmitted the alternate allele, so an undisturbed cell carries one of each:
+ *
+ *   loss of the loaded copy      (1-f) cells {A,B} + f cells {B}     -> B share 1 / (2 - f)
+ *   loss of the other copy       (1-f) cells {A,B} + f cells {A}     -> (1-f) / (2 - f)
+ *   gain of the loaded copy      (1-f) {A,B} + f {A,A,B}             -> 1 / (2 + f)
+ *   gain of the other copy       (1-f) {A,B} + f {A,B,B}             -> (1 + f) / (2 + f)
+ *   copy-neutral, loaded lost    (1-f) {A,B} + f {B,B}               -> (1 + f) / 2
+ *   copy-neutral, other lost     (1-f) {A,B} + f {A,A}               -> (1 - f) / 2
+ *
+ * These agree with `shiftMagnitude` analytically, as they must if the algebra is right, but no line
+ * of the caller is used to produce them.
+ */
+function trueBaf(cls: EventClass, f: number, affected: 'loaded' | 'other'): number {
+  if (cls === 'cnn-loh') return affected === 'loaded' ? (1 + f) / 2 : (1 - f) / 2
+  if (cls === 'gain') return affected === 'loaded' ? 1 / (2 + f) : (1 + f) / (2 + f)
+  return affected === 'loaded' ? 1 / (2 - f) : (1 - f) / (2 - f)
+}
+
+/**
+ * Allele dropout, which is what the first series left out and what makes single-cell data hard.
+ *
+ * A dropped allele takes the marker to 0 or 1 rather than perturbing it, so it is not noise around
+ * the truth, it is a different observation. It also CLUSTERS on this material: runs of two occur 6
+ * to 10 times more often than independence predicts, so it is drawn as a run rather than per site.
+ */
+const DROPOUT_RUN = 2
+
 /** Which material a file is, from its own quality. The bands are measured per material. */
 function materialOf(callRate: number, het: number): Material {
   if (callRate > 0.95 && het > 0.14) return 'bulk'
@@ -163,19 +199,33 @@ for (const f of files) {
   const byBand = new Map<string, { n: number; right: number }>()
   const background: [string, number][] = informative.map((s2) => [s2.parent, s2.baf])
 
+  // THE ARRAY'S OWN MEASUREMENT ERROR, taken from the array rather than from a distribution. At an
+  // informative site an undisturbed sample should read 0.5, so the spread around 0.5 IS this
+  // array's error: amplification distortion, hybridisation noise and everything else it carries.
+  const noise = informative.map((s2) => (s2.parent === 'BB' ? 1 - s2.baf : s2.baf) - 0.5)
+  // Allele dropout, from the sites that fell OUTSIDE the central band despite the parent being
+  // homozygous: those are the ones already driven to an extreme.
+  const outside = sites.length - informative.length
+  const dropout = Math.min(0.4, outside / Math.max(1, sites.length))
+
   for (let t = 0; t < PER_ARRAY; t += 1) {
     const cls = CLASSES[Math.floor(next() * CLASSES.length)]
     const fr = FRACTIONS[Math.floor(next() * FRACTIONS.length)]
     const affected = next() < 0.5 ? 'loaded' : 'other'
-    // The displacement that parent's copy being affected produces, in ORIENTED space, applied back
-    // through the orientation so the caller sees an ordinary array.
-    const delta = shiftMean(cls, fr, affected)
-    const start = Math.floor(next() * (informative.length - REGION_MARKERS))
+    const truth = trueBaf(cls, fr, affected)
     const region: [string, number][] = []
+    let dropRun = 0
     for (let k = 0; k < REGION_MARKERS; k += 1) {
-      const s2 = informative[start + k]
-      const o = (s2.parent === 'BB' ? 1 - s2.baf : s2.baf) + delta
-      region.push([s2.parent, s2.parent === 'BB' ? 1 - o : o])
+      // Observed = the counted truth, plus this array's own error, with dropout taking a marker
+      // to an extreme instead of perturbing it. Dropout arrives in runs, as measured.
+      if (dropRun > 0) dropRun -= 1
+      else if (next() < dropout) dropRun = DROPOUT_RUN
+      const e = noise[Math.floor(next() * noise.length)]
+      let o = dropRun > 0 ? (next() < truth ? 1 : 0) : truth + e
+      o = Math.min(1, Math.max(0, o))
+      // Written back through the orientation so the caller sees an ordinary array.
+      const parentGt = next() < 0.5 ? 'AA' : 'BB'
+      region.push([parentGt, parentGt === 'BB' ? 1 - o : o])
     }
     const call = callDosageOrigin(region as never, background as never, material,
       { wholeChromosome: true, state: cls, parents: 1 })

@@ -9,6 +9,47 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.15.0 "Univalent"
+
+**Every grade now states what it is worth, and the panel that answers the driving question is
+reachable.**
+
+The `inherited` grade carried no accuracy at all. It does now, and against DISSECTION rather than
+inference: fifteen single pronuclei were dissected from 2PN zygotes, so which parent each carries
+is known physically. The genome-level call returns **12 correct, 0 wrong, 3 declined**. That is the
+accuracy every inherited row rests on, because the grade is that call inherited.
+
+The floor is clustered on the ZYGOTE, which is the sampling unit: the two pronuclei of one zygote
+come from one fertilisation, and every paternal pronucleus in the series comes from a single sperm
+donor. Eight zygotes with zero events give a one-sided 95% bound of 0.3123, so the reportable floor
+is **0.688**. Treating the 12 calls as independent would claim 0.779, which is the cluster error a
+methods review already measured at 3.5 to 5.8x too narrow on this material. What the series cannot
+support is stated with it: a dissected pronucleus has been through neither syngamy nor a mitosis, so
+mosaicism, post-zygotic loss and chimaerism are structurally absent, and this is an upper bound on
+embryo performance rather than an estimate of it.
+
+**The injection series was rebuilt to stop measuring itself, and it still cannot replace the A to D
+table.** The first version injected `shiftMean`, the caller's own forward model, so the caller met
+exactly the displacement it expected. It now derives the true allele fraction by COUNTING COPIES,
+adds each array's own empirical error taken from its spread around 0.5 at informative sites, and
+applies allele dropout in runs of two as measured on this material. Bands A through D still return
+1.000, where the original series measured C at 0.81 and D at 0.60. That is a limit of this harness,
+not a finding about the tool, so the original table stands and the new series stays in a separate
+file. What it does establish, robustly across two harness designs and two parent arrays, is band F
+below chance.
+
+**`parentalBalance` is reachable.** It had no callers through four releases, which made it the
+eighth feature this repository has shipped complete and never wired. A run-level panel now feeds it
+from the same change list the per-sample panel and the export use, so the three cannot disagree.
+Only measured or inherited parents contribute a side; a row graded F names no parent and cannot.
+
+The panel leads with what it cannot do, because a reader who does not see a refusal will read a
+null as a finding. On the bundled examples it refuses on three independent grounds at once and says
+all three: five maternal against one paternal genome is below the hard floor, the groups differ by
+1.92x in artefact propensity, and the exclusions were two maternal against zero paternal.
+
+---
+
 ## 5.14.0 "Spindle"
 
 **Band F named a parent. Measured, it names the WRONG one more often than the right one, so it

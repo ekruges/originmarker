@@ -2,7 +2,7 @@
 // not one parental origin called, because every one was a segment on single-cell material where no
 // detection floor exists at any mosaic fraction.
 import assert from 'node:assert/strict'
-import { uniparentalOrigin } from './uniparentalOrigin.ts'
+import { uniparentalOrigin, INHERITED_VALIDATION } from './uniparentalOrigin.ts'
 import type { Zygosity } from './parentage.ts'
 
 // THE VALUE THE APPLICATION ACTUALLY PRODUCES. Written out rather than paraphrased: the first
@@ -129,6 +129,30 @@ const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.007
       + 'carrying one parental contribution and nothing may be inherited from the class')
   }
   console.log('  a genome above the diploid heterozygosity threshold is refused, not inherited from')
+}
+
+
+// --- THE GRADE CARRIES A MEASURED ACCURACY, AGAINST DISSECTION ---------------------------------
+// Fifteen pronuclei dissected from 2PN zygotes, so the parent is known physically rather than
+// inferred. Zero errors in 12 calls, 3 declined. The floor is clustered on the ZYGOTE, because the
+// two pronuclei of one zygote come from one fertilisation and every paternal one in the series
+// comes from a single sperm donor.
+{
+  const v = INHERITED_VALIDATION
+  assert.equal(v.wrong, 0, 'the series recorded no wrong call')
+  assert.equal(v.correct + v.declined, 15, 'and accounts for all fifteen pronuclei')
+  // 1 - 0.05^(1/8) = 0.3123, so the floor is 0.6877.
+  const exact = 1 - 0.05 ** (1 / v.clusters)
+  assert.ok(Math.abs((1 - exact) - v.accuracyFloor) < 0.001,
+    `the floor must be the zero-event bound over ${v.clusters} clusters, `
+    + `which is ${(1 - exact).toFixed(4)}`)
+  // Clustering is not decoration: treating the 12 calls as independent would claim 0.779.
+  const naive = 1 - (1 - 0.05 ** (1 / v.correct))
+  assert.ok(naive > v.accuracyFloor + 0.05,
+    'the naive per-call bound is materially higher, which is why the cluster is the zygote')
+  console.log(`  inherited: ${v.correct}/${v.correct + v.wrong} correct against dissection, `
+    + `${v.declined} declined, floor ${v.accuracyFloor} over ${v.clusters} zygotes `
+    + `(naive per-call would claim ${naive.toFixed(3)})`)
 }
 
 console.log('uniparentalOrigin: names a parent where dosage cannot, and stays silent where it must')

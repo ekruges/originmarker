@@ -1,5 +1,7 @@
 import { breathe, buildScanIndex, copyNeutralWindows, gatherInterval } from './scan'
 import { syngamyTable } from './syngamyTable'
+import { ParentalBalancePanel } from './ParentalBalancePanel'
+import type { BalanceSample } from './parentalBalance'
 import type { Interval } from './scan'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StageCallout } from './StageCallout'
@@ -136,6 +138,41 @@ function defectsForResult(r: ParentageResult) {
             === `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`),
         r.role)),
     ], r.uniformity)
+}
+
+/**
+ * The whole run reduced to what the parental comparison needs, one row per sample.
+ *
+ * ONLY MEASURED OR INHERITED PARENTS COUNT. A row graded F names no parent at all, and one whose
+ * class blocks an origin never had one, so neither can contribute a side. The sample's parent is
+ * the genome-level class where it has one, because that is what makes a uniparental genome the
+ * clean comparison in the first place.
+ */
+function balanceRowsFor(entries: readonly Entry[]): BalanceSample[] {
+  const out: BalanceSample[] = []
+  for (const e of entries) {
+    const r = e.result
+    if (!r) continue
+    const parent = r.originClass === 'gynogenetic' ? 'maternal' as const
+      : r.originClass === 'androgenetic' ? 'paternal' as const : null
+    // A sample that lost its class still declares which group it WOULD have joined, so an
+    // exclusion correlated with quality is visible rather than silently repairing the balance.
+    const declaredParent = parent ?? (r.role === 'paternal' ? 'maternal' as const : 'paternal' as const)
+    const events = defectsForResult(r)
+      .filter((d) => d.origin && d.origin !== 'unclear' && d.band !== 'F')
+      .map((d) => ({ cls: d.kind, chrom: d.chrom, startBp: d.startBp, endBp: d.endBp }))
+    out.push({
+      name: e.file.name,
+      parent,
+      declaredParent,
+      originClass: r.originClass,
+      informative: r.informative,
+      explainable: r.explainable,
+      material: r.stage?.stage ?? 'unknown',
+      events,
+    })
+  }
+  return out
 }
 
 /** How many log lines are kept. The oldest are dropped, so a run cannot grow the page without end. */
@@ -1462,6 +1499,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         The regions carry their sample name so the grid stays readable and a coincidence can be
         traced back to the array it came from.
       */}
+      {/* THE QUESTION THE TOOL EXISTS FOR, across the whole run rather than one sample. */}
+      {entries.some((e) => e.result) && (
+        <ParentalBalancePanel samples={balanceRowsFor(entries)} />
+      )}
       {entries.some((e) => e.result) && (
         <ComparisonPanel
           regions={pooledRegions(entries, (sg) => segmentCoords(sg as never)).map((x) => x.region)}
