@@ -94,6 +94,9 @@ RELEASES: tuple[Release, ...] = (
             "draws rather than one chromosome at a time."),
     Release("Univalent",
             "A chromosome with no partner at metaphase I, which segregates at random."),
+    Release("Cleavage",
+            "The divisions from zygote to morula, where a blastomere still carries both parental "
+            "genomes and an absent allele is therefore Mendelian rather than statistical."),
     Release("Interphase",
             "The state between divisions, where a genome is being copied rather than segregated "
             "and much of what looks like structure is flux."),
@@ -102,8 +105,8 @@ RELEASES: tuple[Release, ...] = (
             "commonest source of an aneuploid egg."),
 )
 
-VERSION = "5.17.0"
-CODENAME = "Interphase"
+VERSION = "5.18.0"
+CODENAME = "Cleavage"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

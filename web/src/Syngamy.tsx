@@ -130,10 +130,17 @@ function defectsForResult(r: ParentageResult) {
   const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy).map((c) => {
     const scored = (r.dosageCalls ?? []).find((d: { where: string }) => d.where === `chr${c.chrom}`)
     const other = r.role === 'paternal' ? 'maternal' : 'paternal'
-    const origin = c.aneuploidyParent === 'this' ? r.role
-      : c.aneuploidyParent === 'other' ? other
-        : scored?.verdict === 'loaded-parent' ? r.role
-          : scored?.verdict === 'other-parent' ? other : 'unclear'
+    // THE MENDELIAN CHANNEL FIRST, measured at 0.920 on obvious whole-chromosome events against
+    // the dosage channel's band D on the same material. It asks whether an allele is there at all
+    // rather than whether a mean has moved, so it needs no detection floor.
+    const mendel = (r.oneParent ?? []).find((o: { where: string }) => o.where === `chr${c.chrom}`)
+    const mendelParent = mendel?.verdict === 'known-parent-lost' ? r.role
+      : mendel?.verdict === 'other-parent-lost' ? other : null
+    const origin = mendelParent
+      ?? (c.aneuploidyParent === 'this' ? r.role
+        : c.aneuploidyParent === 'other' ? other
+          : scored?.verdict === 'loaded-parent' ? r.role
+            : scored?.verdict === 'other-parent' ? other : 'unclear')
     return {
       chrom: c.chrom,
       startBp: 0,
@@ -141,14 +148,15 @@ function defectsForResult(r: ParentageResult) {
       kind: c.aneuploidy === 'gain' ? 'copy-gain' : 'copy-loss',
       locus: `chr${c.chrom}`,
       origin,
-      band: scored?.band,
-      confidence: scored?.confidence,
+      band: mendelParent ? mendel?.band : scored?.band,
+      confidence: mendelParent ? mendel?.posterior : scored?.confidence,
       inheritedMargin: (scored as { inheritedMargin?: number } | undefined)?.inheritedMargin,
       stage: r.stage?.stage,
       why: `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
         + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest. An intact `
         + 'chromosome calls at 0.78x to 1.16x of its genome median and never leaves -0.79 to +0.42 '
-        + `log2, measured over 1,012 chromosomes.${scored?.why ? ` ${scored.why}` : ''}`,
+        + `log2, measured over 1,012 chromosomes.`
+        + `${mendelParent ? ` ${mendel?.why}` : ''}${scored?.why ? ` ${scored.why}` : ''}`,
     } as never
   })
 
@@ -1281,8 +1289,31 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             }
           }
           if (!mat && result.segments.length) {
-            result.oneParent = result.segments.map((sg) => {
+            // THE OBVIOUS EVENTS GET THE BEST CHANNEL, which is where they were not getting it.
+            //
+            // A whole chromosome gained or lost is the clearest event this tool sees, and until now
+            // only the dosage channel was asked about its parent, which on amplified material
+            // returns band D or F. The Mendelian channel was run on SEGMENTS alone.
+            //
+            // On a biparental sample that channel does not need a detection floor at all: at a
+            // marker where the loaded parent is homozygous, losing that parent's copy leaves an
+            // allele the parent does not have, and dropout removes alleles without inventing one.
+            // Measured by removing one parent's copy across a chromosome on real biparental arrays,
+            // both directions from the same array: 92 of 100 calls correct, per-array 0.920 +/-
+            // 0.100, on arrays that resolve to a stage. The same experiment on arrays their own
+            // inference rejects returns 0.650, which is why those are excluded rather than
+            // reported weakly.
+            const wholeChromEvents = (result.chroms ?? [])
+              .filter((c) => c.aneuploidy)
+              .map((c) => ({ chrom: c.chrom, start: 0, end: Number.MAX_SAFE_INTEGER,
+                label: `chr${c.chrom}` }))
+            const segmentEvents = result.segments.map((sg) => {
               const co = segmentCoords(sg)
+              return { chrom: sg.chrom, start: co.start, end: co.end,
+                label: `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb` }
+            })
+            result.oneParent = [...wholeChromEvents, ...segmentEvents].map((sg) => {
+              const co = { start: sg.start, end: sg.end }
               const pairs: [string, string][] = []
               for (const [probe, gt] of myGt) {
                 const q = markerPos.get(probe)
@@ -1296,7 +1327,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               const ado = Number.isFinite(result.stage!.dropout) ? result.stage!.dropout : 0.308
               const c = callOneParentOrigin(pairs as never, ado)
               return {
-                where: `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`,
+                where: sg.label,
                 verdict: c.verdict,
                 posterior: c.posterior,
                 band: c.band,

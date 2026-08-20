@@ -9,6 +9,42 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.18.0 "Cleavage"
+
+**The most obvious events were being called by the worst channel.**
+
+A blastomere carries BOTH parental genomes. At a marker where the loaded parent is homozygous, a
+sample carrying both copies reads heterozygous exactly when the other parent transmitted the
+alternate allele; remove the loaded parent's copy and that marker reads homozygous for an allele
+the parent does not have. Dropout removes alleles, it cannot invent one, so this is Mendelian and
+needs no detection floor at all. The dosage channel's floors exist because a mosaic fraction shifts
+a mean; this asks whether an allele is present.
+
+That channel was run on SEGMENTS only. A whole chromosome gained or lost, which is the clearest
+event this tool sees, was asked of the dosage channel alone, which on amplified material returns
+band D or F. The clearest events had the weakest answer.
+
+Measured by construction on real biparental arrays: one parent's copy removed across a chromosome,
+both directions built from the same array so nothing but the removed parent differs.
+
+| set | calls | per-array accuracy |
+|---|---|---|
+| all biparental arrays | 131 of 160 | 0.819 +/- 0.108 |
+| arrays that resolve to a stage | **92 of 100** | **0.920 +/- 0.100** |
+| arrays their own inference rejects | 39 of 60 | 0.650 +/- 0.166 |
+
+The channel now runs on whole-chromosome events too and is preferred there, with the dosage call
+kept behind it. The split between the second and third rows is why an array that fails its own
+stage inference is excluded rather than reported weakly: the same channel on the same experiment
+drops to 0.650 there, which is not a weaker answer, it is a different thing.
+
+The harness is `audit/blastomere-origin.ts` and its table `audit/blastomere-origin.csv`. It found
+two faults in itself before it found anything about the tool: it passed an options object where a
+positional dropout number was expected, which made every one of 160 calls refuse, and it initially
+included arrays their own inference rejects in a single pooled figure.
+
+---
+
 ## 5.17.0 "Interphase"
 
 **Chromosomal changes were being overcalled, and the overcall was noise dressed as biology.**

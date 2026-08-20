@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import {
   SYSTEMATIC_ERROR_BOUND, VALIDATION_UNITS,
   callOneParentOrigin, informative, inferDropout, CALL_POSTERIOR, MIN_MARKERS, DEFAULT_Q,
-  MAX_REGION_HET, DROP_IN,
+  MAX_REGION_HET, DROP_IN, OBVIOUS_EVENT_ACCURACY,
 } from './oneParentOrigin.ts'
 import type { AB } from './informativity.ts'
 
@@ -113,3 +113,29 @@ console.log('oneParentOrigin.check.ts: all assertions passed, including symmetry
 }
 
 console.log('oneParentOrigin.check.ts: dropout inference pinned across four stages')
+
+// --- THE OBVIOUS EVENT IS WHERE THIS CHANNEL EARNS ITS PLACE -----------------------------------
+//
+// A blastomere carries both parental genomes, so on a clear whole-chromosome loss this channel
+// needs no detection floor: losing a parent's copy leaves an allele that parent does not have, and
+// dropout removes alleles without inventing one. Measured by construction on real biparental
+// arrays, removing one parent's copy across a chromosome in both directions from the same array.
+{
+  const m = OBVIOUS_EVENT_ACCURACY
+  assert.equal(m.usable.correct, 92)
+  assert.equal(m.usable.calls, 100)
+  // The split is load-bearing: it is why an array that fails its stage inference is excluded from
+  // reporting rather than reported weakly.
+  assert.ok(m.usable.perArray > m.rejected.perArray + 0.2,
+    `an array that resolves to a stage must call materially better than one that does not: `
+    + `${m.usable.perArray} against ${m.rejected.perArray}`)
+  assert.ok(m.rejected.perArray < 0.7,
+    'and the rejected set must be visibly poor, or excluding it would be unjustified')
+  // And it must beat the dosage channel's weakest measured band on the same material, or there
+  // would be no reason to prefer it on an obvious event.
+  assert.ok(m.usable.perArray > 0.7,
+    'this channel is preferred on obvious events because it measures better there')
+  console.log(`  obvious whole-chromosome events: ${m.usable.correct}/${m.usable.calls} correct, `
+    + `per-array ${m.usable.perArray} on arrays that resolve to a stage, `
+    + `${m.rejected.perArray} on those that do not`)
+}

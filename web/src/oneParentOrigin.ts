@@ -72,6 +72,32 @@ export const CALL_POSTERIOR = 0.95
  * says in terms that quoting the uncorrected figure "overstates by a factor of 17". So a reported
  * confidence above 1 - 0.206 claims validation nobody has.
  */
+/**
+ * What this channel is worth on an OBVIOUS whole-chromosome event, measured by construction.
+ *
+ * A blastomere carries both parental genomes, which is what makes this channel work there without
+ * any detection floor: at a marker where the loaded parent is homozygous, losing that parent's copy
+ * leaves an allele the parent does not have, and dropout removes alleles without inventing one. It
+ * asks whether an allele is present, not whether a mean has moved.
+ *
+ * Measured by removing one parent's copy across a chromosome on real biparental arrays, both
+ * directions built from the same array so nothing but the removed parent differs:
+ *
+ *   all biparental arrays            131 of 160 calls, per-array 0.819 +/- 0.108, 16 arrays
+ *   arrays that resolve to a stage    92 of 100 calls, per-array 0.920 +/- 0.100, 10 arrays
+ *   arrays their own inference rejects 39 of 60 calls, per-array 0.650 +/- 0.166,  6 arrays
+ *
+ * The split is the point. On material the stage inference accepts this is the most accurate origin
+ * channel the tool has on an obvious event, well above the dosage channel's band D on the same
+ * arrays. On material it rejects the same channel runs at 0.650, which is why those arrays are
+ * excluded rather than reported weakly. The full table is `audit/blastomere-origin.csv` and the
+ * harness is `audit/blastomere-origin.ts`.
+ */
+export const OBVIOUS_EVENT_ACCURACY = {
+  usable: { calls: 100, correct: 92, perArray: 0.920, ci95: 0.100, arrays: 10 },
+  rejected: { calls: 60, correct: 39, perArray: 0.650, ci95: 0.166, arrays: 6 },
+} as const
+
 export const VALIDATION_UNITS = 13
 export const SYSTEMATIC_ERROR_BOUND = 0.206
 

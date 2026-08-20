@@ -1,0 +1,4 @@
+set,arrays,calls,correct,per_array_accuracy,ci95_halfwidth
+all biparental,16,160,131,0.8188,0.1077
+resolve to a stage,10,100,92,0.9200,0.1004
+own inference rejects,6,60,39,0.6500,0.1659
