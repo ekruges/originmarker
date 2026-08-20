@@ -7,6 +7,8 @@
  * decides it is testable on its own.
  */
 import type { Segment } from './segments.ts'
+import type { DosageVerdict } from './dosageOrigin.ts'
+import type { OneParentVerdict } from './oneParentOrigin.ts'
 import type { GainAnnotation } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
@@ -128,7 +130,6 @@ export function defectsFrom(
 ): Defect[] {
   const byOne = new Map(oneParent.map((o) => [o.where, o]))
   const byDosage = new Map(dosageCalls.map((d) => [d.where, d]))
-  const other = loadedParent === 'paternal' ? 'maternal' : 'paternal'
   const byWhere = new Map<string, GainAnnotation>()
   for (const a of [...gains, ...losses]) byWhere.set(a.where, a)
   return segments.map((sg) => {
@@ -141,8 +142,7 @@ export function defectsFrom(
     // rather than overriding: two parents remain the stronger evidence where both were loaded.
     const one = byOne.get(where)
     if (origin === 'unclear' && one) {
-      if (one.verdict === 'known-parent-lost') origin = loadedParent
-      else if (one.verdict === 'other-parent-lost') origin = other
+      origin = parentNamed(one.verdict as OneParentVerdict, loadedParent) ?? origin
     }
     // Dosage fills what genotypes could not reach. A whole chromosome is detected by its genotype
     // call rate collapsing, so on those events the genotype channel has no evidence left and this
@@ -152,10 +152,9 @@ export function defectsFrom(
     // on THIS channel. The old names presumed a loss, and a loss is exactly what the dosage channel
     // cannot presume: a gain inverts the sign, so the same shift names the opposite parent. The
     // verdict now comes from a posterior that marginalises the class rather than assuming it.
-    const usedDosage = origin === 'unclear' && !!dose
-      && (dose.verdict === 'loaded-parent' || dose.verdict === 'other-parent')
+    const usedDosage = origin === 'unclear' && !!dose && namedAParent(dose.verdict)
     if (usedDosage && dose) {
-      origin = dose.verdict === 'loaded-parent' ? loadedParent : other
+      origin = parentNamed(dose.verdict as DosageVerdict, loadedParent) ?? origin
     }
     return {
       chrom: sg.chrom,
@@ -303,20 +302,19 @@ export function findingToDefect(
 ): Defect {
   const blocked = f.originBlocked ?? (ORIGIN_UNREACHABLE.has(f.cls)
     ? taxonomyFor(f.cls)?.origin : undefined)
-  const other = loadedParent === 'paternal' ? 'maternal' : 'paternal'
   // A blocked class is never scored, so a scored call on one would be a caller error rather than
   // evidence, and is ignored here rather than trusted.
   const use = blocked ? undefined : scored
   // Carried through, so the chip can say "not applicable" rather than the "no call" it shares with
   // a measurement that failed.
-  const named = use && (use.verdict === 'loaded-parent' || use.verdict === 'other-parent')
+  const named = use && namedAParent(use.verdict)
   return {
     chrom: f.chrom,
     startBp: f.startBp,
     endBp: f.endBp,
     locus: f.chrom === 'genome' ? 'whole genome' : locus(f.chrom, f.startBp, f.endBp),
     kind: f.cls as Defect['kind'],
-    origin: named ? (use.verdict === 'loaded-parent' ? loadedParent : other) : 'unclear',
+    origin: (named && parentNamed(use.verdict as DosageVerdict, loadedParent)) || 'unclear',
     originBlocked: blocked,
     why: [f.evidence, blocked, use?.why, f.flag].filter(Boolean).join('. '),
     // Absent where nothing scored an origin, so a missing basis never implies a channel spoke and
@@ -348,6 +346,54 @@ export const originBlockedByClass = (kind: string): boolean =>
  * Absent uniformity leaves every defect untouched, which is the single-unit case: the report then
  * says what a second array would supply rather than showing a blank field.
  */
+/**
+ * Which parent a verdict names, if any.
+ *
+ * TWO CHANNELS, TWO VOCABULARIES, ONE PLACE THEY ARE READ. The Mendelian channel says whose copy
+ * was LOST. The dosage channel cannot know the copy-number class, so it says whose copy the shift
+ * points at and never says "lost". Both answer the one question a reader asks, and both were
+ * spelled out inline at every call site until one of them drifted.
+ *
+ * The switch is exhaustive. The `never` at the end makes a new or renamed verdict a compile error
+ * HERE, instead of a silent "no parent" at whichever call sites were not updated.
+ */
+export function parentNamed(
+  verdict: DosageVerdict | OneParentVerdict, loaded: 'paternal' | 'maternal',
+): 'paternal' | 'maternal' | null {
+  const other = loaded === 'paternal' ? 'maternal' : 'paternal'
+  switch (verdict) {
+    case 'loaded-parent':
+    case 'known-parent-lost':
+      return loaded
+    case 'other-parent':
+    case 'other-parent-lost':
+      return other
+    // Every remaining verdict named nobody, whatever its reason for refusing.
+    case 'both-present':
+    case 'refused':
+    case 'not-evaluable':
+    case 'imbalance-unassigned':
+    case 'array-excluded':
+    case 'class-inverted-risk':
+    case 'no-imbalance':
+      return null
+    default: {
+      const unhandled: never = verdict
+      return unhandled
+    }
+  }
+}
+
+/**
+ * Did the dosage channel NAME a parent?
+ *
+ * Two verdicts name one; every other verdict named nobody, whatever its reason for refusing. Any
+ * caller that instead tests for one specific refusal drops all the others, so a verdict added or
+ * renamed later opts silently out of whatever that caller does for unnamed rows.
+ */
+export const namedAParent = (verdict: string | undefined): boolean =>
+  verdict === 'loaded-parent' || verdict === 'other-parent'
+
 export function withMechanism(
   defects: Defect[],
   uniformity?: readonly {
@@ -362,3 +408,13 @@ export function withMechanism(
     return hit ? { ...d, mechanism: hit.mechanism, mechanismWhy: hit.why } : d
   })
 }
+
+/**
+ * Sentences, kept with their terminator so rejoining them reads normally.
+ *
+ * Splits only at a period FOLLOWED BY WHITESPACE. A decimal point never is, so "0.78x" stays one
+ * token. Splitting on every period breaks numbers apart and leaves the shared/unique grouping
+ * comparing half-sentences instead of sentences.
+ */
+export const sentences = (s: string): string[] =>
+  s.split(/(?<=\.)\s+/).map((x) => x.trim()).filter(Boolean)

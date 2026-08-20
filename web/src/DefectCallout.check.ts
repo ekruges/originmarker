@@ -5,7 +5,7 @@
 // that wrong shows a confident parent for a region that never had one, which is the single most
 // damaging thing this UI could do.
 import assert from 'node:assert/strict'
-import { defectsFrom, headline, bandColour } from './defects.ts'
+import { defectsFrom, headline, bandColour, sentences } from './defects.ts'
 import type { Segment } from './segments.ts'
 import type { GainAnnotation } from './parentage.ts'
 
@@ -158,3 +158,25 @@ console.log('DefectCallout.check.ts: one-parent mapping pinned in both parent ro
   }
   console.log('  bands C, D and F each say what they are rather than reading as no call')
 }
+
+// --- 6. sentence splitting must not cut decimals in half -----------------------------------------
+//
+// Reason text is full of measured numbers. A splitter that breaks at every period turns "0.78x"
+// into "0." and "78x": the number is destroyed on rejoin, and the shared/unique grouping compares
+// fragments, so a half-sentence leads the shared block.
+{
+  const s = 'An intact chromosome calls at 0.78x to 1.16x of its median and never leaves '
+    + '-0.79 to +0.42 log2. This sample carries ONE parental genome at 5.0x.'
+  const out = sentences(s)
+  assert.equal(out.length, 2, `two sentences, got ${out.length}: ${JSON.stringify(out)}`)
+  assert.ok(out[0].startsWith('An intact'), 'no leading fragment')
+  assert.equal(out.join(' '), s, 'rejoining must reproduce the input exactly')
+  for (const n of ['0.78x', '1.16x', '-0.79', '+0.42', '5.0x']) {
+    assert.ok(out.join(' ').includes(n), `${n} must survive intact`)
+  }
+  // A trailing sentence with no terminator is still one sentence.
+  assert.deepEqual(sentences('Only this'), ['Only this'])
+  assert.deepEqual(sentences(''), [])
+}
+
+console.log('DefectCallout.check.ts: decimals survive sentence splitting')

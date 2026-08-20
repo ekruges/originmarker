@@ -166,7 +166,7 @@ export function uniparentalOrigin(input: UniparentalInput): UniparentalCall | nu
     parent: genomeIs,
     band: 'inherited',
     foldOverCeiling: fold,
-    why: `this sample carries ONE parental genome, called ${input.originClass} on ${basis}, so `
+    why: `This sample carries ONE parental genome, called ${input.originClass} on ${basis}, so `
       + `every change in it is ${genomeIs}: there was no `
       + `${genomeIs === 'maternal' ? 'paternal' : 'maternal'} copy present to lose, gain or `
       + 'rearrange. This is inherited from the genome-level call rather than measured on this '

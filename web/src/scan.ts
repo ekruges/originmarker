@@ -1,12 +1,13 @@
 // The two pieces of a Syngamy run whose cost grows with the size of the array.
 //
-// WHY THEY LIVE HERE RATHER THAN IN THE COMPONENT. Both of these were written inline in
-// Syngamy.tsx, and one of them was quadratic: it rescanned every marker of a chromosome inside its
-// own window loop, which is about 28 million operations and 216 full-length allocations on chr1
-// alone. It shipped, and it locked the tab for the whole genome on every run. No check in this
-// repo could have caught it, because nothing outside a browser could reach code that only exists
-// inside a React component body. Moving the scaling work out is what makes `scan.check.ts` able to
-// assert that these stay linear in the number of markers.
+// WHY THEY LIVE IN A MODULE. Both of these were once written inline in the page, and one of them
+// was quadratic: it rescanned every marker of a chromosome inside its own window loop, about 28
+// million operations and 216 full-length allocations on chr1 alone. It shipped, and it locked the
+// tab for the whole genome on every run. No check in this repo could have caught it, because
+// nothing outside a browser could reach code that only exists inside a React component body.
+// Moving the scaling work out is what makes `scan.check.ts` able to assert that these stay linear
+// in the number of markers. The rest of the per-sample pipeline followed, into scoreSample.ts, for
+// the same reason and after the same kind of failure.
 //
 // Nothing here decides anything. Detection, classification and origin all read these outputs.
 

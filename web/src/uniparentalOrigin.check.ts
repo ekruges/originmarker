@@ -3,6 +3,8 @@
 // detection floor exists at any mosaic fraction.
 import assert from 'node:assert/strict'
 import { uniparentalOrigin, INHERITED_VALIDATION } from './uniparentalOrigin.ts'
+import { namedAParent } from './defects.ts'
+import type { DosageVerdict } from './dosageOrigin.ts'
 import type { Zygosity } from './parentage.ts'
 
 // THE VALUE THE APPLICATION ACTUALLY PRODUCES. Written out rather than paraphrased: the first
@@ -13,7 +15,7 @@ const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.007
   hetBand: 0.030 }
 
 // --- 1. THE REAL SAMPLE ------------------------------------------------------------------------
-// 52461-01_76: gynogenetic, absence 9.04% against a ceiling of 0.70%, which is 12.9x. The loaded
+// A real array: gynogenetic, absence 9.04% against a ceiling of 0.70%, which is 12.9x. The loaded
 // array is the sperm donor, so a maternal genome is the OTHER parent.
 {
   const c = uniparentalOrigin({ ...base, originClass: 'gynogenetic', genomeRate: 0.0904 })
@@ -54,9 +56,9 @@ const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.007
       uniparentalOrigin({ ...base, zygosity: z, originClass: 'gynogenetic', genomeRate: 0.0904 }),
       null, `zygosity ${z} gives no basis for the inheritance`)
   }
-  // 52461-12_86 from the same run: labelled unclear, absence 11.63% against a ceiling of 22.43%,
-  // which is BELOW its own ceiling. Inheriting from a call that was never made would be inventing
-  // the evidence.
+  // Another array from the same run: labelled unclear, absence 11.63% against a ceiling of
+  // 22.43%, which is BELOW its own ceiling. Inheriting from a call that was never made would be
+  // inventing the evidence.
   assert.equal(
     uniparentalOrigin({ ...base, originClass: 'gynogenetic', genomeRate: 0.1163, explainable: 0.2243 }),
     null, 'below its own ceiling the genome-level call is not made, so nothing is inherited')
@@ -153,6 +155,35 @@ const base = { zygosity: ZYGOSITY, role: 'paternal' as const, explainable: 0.007
   console.log(`  inherited: ${v.correct}/${v.correct + v.wrong} correct against dissection, `
     + `${v.declined} declined, floor ${v.accuracyFloor} over ${v.clusters} zygotes `
     + `(naive per-call would claim ${naive.toFixed(3)})`)
+}
+
+
+// --- THE FALLBACK MUST NOT BE KEYED ON ONE REFUSAL VERDICT -------------------------------------
+//
+// The zygosity channel is consulted for every row the dosage channel did not NAME a parent on.
+// A caller that instead tests for one refusal verdict answers "no parent" on every other refusal,
+// while a caller asking the question correctly names one from the same file.
+//
+// This runs against the predicate the app calls, so reverting it fails here.
+{
+  // Every member of DosageVerdict. If one is added, the union changes and this list must too.
+  const NAMED: DosageVerdict[] = ['loaded-parent', 'other-parent']
+  const REFUSED: DosageVerdict[] = ['not-evaluable', 'imbalance-unassigned', 'array-excluded',
+    'class-inverted-risk', 'no-imbalance']
+
+  for (const v of REFUSED) {
+    assert.equal(namedAParent(v), false,
+      `${v} names no parent, so it must reach the zygosity channel`)
+  }
+  // And a named parent is measured evidence, which an inherited answer must never overwrite.
+  for (const v of NAMED) {
+    assert.equal(namedAParent(v), true, `${v} names a parent and must not be overwritten`)
+  }
+  // A row that scored nothing at all is unnamed too, not a crash.
+  assert.equal(namedAParent(undefined), false)
+
+  console.log(`  ${REFUSED.length} refusal verdicts all fall through; `
+    + `${NAMED.length} named verdicts are never overwritten`)
 }
 
 console.log('uniparentalOrigin: names a parent where dosage cannot, and stays silent where it must')

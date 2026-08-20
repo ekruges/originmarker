@@ -40,9 +40,10 @@ const segments = await import(`${W}segments.ts`)
 const inferredRef = await import(`${W}inferredReference.ts`)
 const features = await import(`${W}features.ts`)
 const dosage = await import(`${W}dosageOrigin.ts`)
-const unt = await import(`${W}untransmitted.ts`)
 const post = await import(`${W}originPosterior.ts`)
 const tax = await import(`${W}abnormalities.ts`)
+const score = await import(`${W}scoreSample.ts`)
+const defects = await import(`${W}defects.ts`)
 
 type AB = 'AA' | 'AB' | 'BB' | 'NC'
 
@@ -217,98 +218,17 @@ function secondParent(ref: Map<string, AB>, s: Map<string, AB>) {
   }
 }
 
-/** Every event on one sample: whole chromosomes first, then segments outside them. */
-function eventsOf(ref: Loaded, c: Loaded, role: 'paternal' | 'maternal') {
-  const t = parentage.emptyTally()
-  for (const [ch, ms] of c.cnByChrom) {
-    for (const m of ms) {
-      const probe = c.probeAt.get(`${ch}:${m.pos}`)
-      parentage.tallyRow((probe ? ref.gt.get(probe) ?? 'NC' : 'NC') as never, {
-        // THE B-ALLELE FREQUENCY, which this hardcoded to null and therefore discarded.
-        //
-        // `classify` derives zygosity from the fraction of BAFs in the heterozygous band, and falls
-        // back to genotype heterozygosity only when that is unavailable. Discarding the BAFs forced
-        // the fallback, and the two quantities land on opposite sides of the threshold: a real
-        // gynogenetic array reads 0.058 by band and 0.090 by genotype, against a 0.080 boundary. So
-        // the same sample was called uniparental by the web run and diploid here, and the origin
-        // channel that inherits from the genome-level call could never fire on this surface.
-        probesetId: probe ?? '', chrom: ch, pos: m.pos, log2R: m.log2R,
-        baf: probe ? c.baf.get(probe) ?? null : null,
-        genotype: probe ? c.gt.get(probe) ?? 'NC' : 'NC', copyNumber: null,
-      } as never, t as never)
-    }
-  }
-  const cls = parentage.classify(t as never, ref.profile.hetRate, { role }) as {
-    chroms: { chrom: string, aneuploidy?: 'loss' | 'gain' }[], originClass: string, verdict: string
-    zygosity: string, genomeRate: number, explainable: number, hetBand: number
-  }
-  const aneuploid = cls.chroms.filter((x) => x.aneuploidy)
-  const whole = new Set(aneuploid.map((a) => a.chrom))
+/** Which parent a verdict names. The module's exhaustive mapping, never a local re-spelling. */
+const parentNamed = (verdict: string, loaded: 'paternal' | 'maternal'): string | null =>
+  (defects.parentNamed as (v: string, l: string) => string | null)(verdict, loaded)
 
-  const noCall = new Map<string, [number, number]>()
-  for (const [ch, ms] of c.cnByChrom) noCall.set(ch, [ms.length, ms.filter((m) => !m.called).length])
-  const lrr = [...c.cnByChrom.values()].flat()
-    .map((m) => m.log2R).filter((x): x is number => x !== null).sort((a, b) => a - b)
-  const genomeLrr = lrr.length ? lrr[lrr.length >> 1] : 0
-  const minMarkers = num('min-segment-markers', segments.MIN_SEGMENT_MARKERS ?? 3)
-  const segs = [...c.cnByChrom].filter(([ch]) => !whole.has(ch))
-    .flatMap(([ch, ms]) => segments.scanCopyNumber(
-      ms as never, segments.externalNull(noCall, ch), genomeLrr, minMarkers,
-    )) as { chrom: string, kind: string }[]
-
-  const evs: { chrom: string, kind: string, start: number, end: number }[] = []
-  for (const a of aneuploid) {
-    let lo = Infinity
-    let hi = 0
-    for (const p of c.pos.values()) {
-      if (p.chrom !== a.chrom) continue
-      if (p.pos < lo) lo = p.pos
-      if (p.pos > hi) hi = p.pos
-    }
-    evs.push({ chrom: a.chrom, kind: `whole-chromosome ${a.aneuploidy}`, start: lo, end: hi })
-  }
-  for (const sg of segs) {
-    const co = segments.segmentCoords(sg as never) as { start: number, end: number }
-    evs.push({ chrom: sg.chrom, kind: sg.kind, start: co.start, end: co.end })
-  }
-  return {
-    events: evs,
-    originClass: cls.originClass,
-    verdict: cls.verdict,
-    // THE GENOME-LEVEL CALL, carried out so the origin step can inherit from it. Without this the
-    // command line had no way to know that a sample carries ONE parental genome, and on a real
-    // gynogenetic array, a genome with no paternal contribution at all, it named the paternal copy
-    // as the affected one on both of its whole-chromosome losses.
-    zygosity: cls.zygosity,
-    genomeRate: cls.genomeRate,
-    explainable: cls.explainable,
-    hetBand: cls.hetBand,
-  }
-}
-
-/** Call origin over one interval, with every dial exposed. */
-function callOver(ref: Loaded, c: Loaded, chrom: string, start: number, end: number, ado: number) {
-  const pairs: [AB, AB][] = []
-  for (const [probe, p] of c.pos) {
-    if (p.chrom !== chrom || p.pos < start || p.pos > end) continue
-    const pg = ref.gt.get(probe)
-    const cg = c.gt.get(probe)
-    if (pg && cg) pairs.push([pg, cg])
-  }
-  return oneParent.callOneParentOrigin(
-    pairs as never,
-    ado,
-    num('q', oneParent.DEFAULT_Q),
-    num('eps', oneParent.GENOTYPE_ERROR),
-    num('drop-in', oneParent.DROP_IN),
-    originOpts(),
-  ) as {
-    verdict: string, posterior: number, markers: number, exclusive: number,
-    heterozygous: number, why: string
-  }
-}
-
-/** Stage boundaries as flags. Omitting them all is exactly the shipped configuration. */
+/**
+ * Stage thresholds as flags.
+ *
+ * Every constant the modules use is a flag here, and a number produced under a changed constant is
+ * not comparable with one produced under the shipped configuration, so every command that has been
+ * moved off a default says so in its own output.
+ */
 const stageOpts = () => ({
   callFloor: num('qc-call-floor', stageMod.QC_CALL_FLOOR),
   maxDiploidHet: num('max-diploid-het', stageMod.MAX_DIPLOID_HET),
@@ -318,154 +238,121 @@ const stageOpts = () => ({
   bulkMaxBafSd: num('bulk-max-baf-sd', stageMod.BULK_MAX_BAF_SD),
 })
 
-/** Origin thresholds as flags, same rule. */
-const originOpts = () => ({
-  minMarkers: num('min-markers', oneParent.MIN_MARKERS),
-  maxRegionHet: num('max-region-het', oneParent.MAX_REGION_HET),
-  callPosterior: num('call-posterior', oneParent.CALL_POSTERIOR),
-})
 
-/**
- * Call origin over one interval from ALLELE DOSAGE.
- *
- * Uses every marker where the loaded parent is homozygous and a dosage was read, including the
- * ones the genotype caller failed on. That is the point: a whole-chromosome loss is detected by
- * its genotypes collapsing, so on exactly those events the genotype channel has no evidence left.
- */
-function dosageOver(
-  ref: Loaded, c: Loaded, chrom: string, start: number, end: number, whole: boolean,
-) {
-  // Region and BACKGROUND, the latter from everything outside the interval on this same array.
-  // Self-referencing is the point: the raw one-parent null sits at -0.031 on trophectoderm under
-  // no event at all, pointing at the parent that was NOT genotyped, which is the shift a real
-  // mosaic fraction of 0.117 would produce.
-  const region: [AB, number | null][] = []
-  const background: [AB, number | null][] = []
-  for (const [probe, p] of c.pos) {
-    const pg = ref.gt.get(probe)
-    if (!pg) continue
-    const b = c.baf.get(probe) ?? null
-    const inside = p.chrom === chrom && p.pos >= start && p.pos <= end
-    ;(inside ? region : background).push([pg, b])
-  }
-  // The array-level gate, which is a property of the array and asked independently of the interval.
-  const hetB: number[] = []
-  for (const [probe, g] of c.gt) {
-    if (g !== 'AB') continue
-    const b = c.baf.get(probe)
-    if (b !== undefined) hetB.push(b)
-  }
-  const mu = hetB.length ? hetB.reduce((a, x) => a + x, 0) / hetB.length : NaN
-  const hetBafSd = hetB.length > 1
-    ? Math.sqrt(hetB.reduce((a, x) => a + (x - mu) ** 2, 0) / (hetB.length - 1))
-    : undefined
-
-  const forced = args.flags.get('material')
-  const material = (forced ?? dosage.materialOf(
-    stageMod.inferStage(c.profile, stageOpts()).stage,
-  )) as never
-  // Self-referenced intensity for the same interval. State only, never origin.
-  const inL: number[] = []
-  const outL: number[] = []
-  for (const [ch, ms] of c.cnByChrom) {
-    for (const m of ms) {
-      if (m.log2R === null || !Number.isFinite(m.log2R)) continue
-      const inside = ch === chrom && m.pos >= start && m.pos <= end
-      ;(inside ? inL : outL).push(m.log2R)
+/** One array's marker rows, as the shipped ingest parses them. */
+function readRows(path: string) {
+  const raw = readFileSync(path)
+  const text = (path.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')
+  const lines = text.split('\n')
+  let h = -1
+  for (let i = 0; i < 60; i += 1) if (lines[i] && !lines[i].startsWith('#')) { h = i; break }
+  if (h < 0) die(`${path}: no header found in the first 60 lines`)
+  const map = ingest.headerMap(lines[h])
+  if (!map) die(`${path}: header not recognised. Columns were: ${lines[h].slice(0, 120)}`)
+  return function* () {
+    for (let i = h + 1; i < lines.length; i += 1) {
+      const r = ingest.parseRow(lines[i], map)
+      if (r) yield r
     }
   }
-  const mean = (xs: number[]) => (xs.length ? xs.reduce((a, x) => a + x, 0) / xs.length : NaN)
-  const muOut = mean(outL)
-  const sdOut = outL.length > 1
-    ? Math.sqrt(outL.reduce((a, x) => a + (x - muOut) ** 2, 0) / (outL.length - 1)) : NaN
-  const lrrSe = sdOut / Math.sqrt(Math.max(1, inL.length))
-  const lrrShift = mean(inL) - muOut
-  const intensityZ = args.bools.has('no-intensity') || !(lrrSe > 0) || !Number.isFinite(lrrShift)
-    ? undefined : lrrShift / lrrSe
-
-  // THE UNTRANSMITTED CHANNEL, on the marker set the obligate-het path discards. Disjoint, every
-  // member informative by construction, and the only channel that gives a blastomere a floor.
-  const untRows: [string, string, number | null][] = []
-  for (const [probe, p] of c.pos) {
-    const inside = p.chrom === chrom && p.pos >= start && p.pos <= end
-    if (!inside) continue
-    const pg = ref.gt.get(probe)
-    if (pg !== 'AB') continue
-    untRows.push([pg, c.gt.get(probe) ?? 'NC', c.baf.get(probe) ?? null])
-  }
-  const u = unt.untransmittedPairs(untRows as never)
-  const mech = unt.callMechanism(u.pairs as never)
-  const oriented = u.pairs.map(unt.orientUntransmitted as never) as number[]
-  const untShare = oriented.length
-    ? oriented.reduce((a, x) => a + x, 0) / oriented.length : NaN
-
-  // Spread of the window log2R, which decides whether the CLASS separates. Robust estimate, since
-  // a few extreme markers on a damaged chromosome would otherwise widen it and withhold a class
-  // that was in fact resolvable.
-  const sorted = [...inL].sort((a, b) => a - b)
-  const q1 = sorted[Math.floor(sorted.length * 0.25)] ?? NaN
-  const q3 = sorted[Math.floor(sorted.length * 0.75)] ?? NaN
-  const windowLogRSd = Number.isFinite(q3 - q1) ? (q3 - q1) / 1.349 : undefined
-
-  return dosage.callDosageOrigin(region as never, background as never, material, {
-    wholeChromosome: whole,
-    intensityZ,
-    windowLogRSd,
-    state: (args.flags.get('state') ?? 'loss') as never,
-    parents: (args.flags.get('parents') === '2' ? 2 : 1) as never,
-    hetBafSd: args.bools.has('no-array-gate') ? undefined : hetBafSd,
-    zDetect: num('z-detect', dosage.Z_DETECT),
-  }) as {
-    verdict: string, shift: number, z: number, impliedF: number, window: number,
-    markers: number, material: string, floor: number, why: string,
-    posterior?: { confidence: number, band: string, limitedBy: string, uncalibrated: boolean },
-  }
 }
 
-/** The dropout every likelihood is parameterised by, from the stage unless overridden. */
+const idOf = (path: string) => basename(path).replace(/_\d+\.CEL\.probes$/, '')
+  .replace(/\.(probes|CEL\.txt\.gz|CEL\.txt|csv\.gz|txt\.gz)$/, '')
+  .replace(/^(GSM\d+)_.*$/, '$1')
+
+/** The parent, through the accumulator the browser fills. Read once and reused across a cohort. */
+function loadParent(path: string) {
+  const acc = score.emptyParent()
+  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
+  for (const r of readRows(path)()) {
+    if (!first) first = r.probesetId
+    ingest.accumulate(r as never, byChrom as never)
+    ingest.accumulateBaf(r as never, bafSums as never)
+    score.collectParentRow(r as never, acc as never)
+  }
+  const profile = ingest.finishProfile(idOf(path), byChrom as never, bafSums as never, first)
+  return { id: idOf(path), profile, pat: score.finishParent(acc as never, profile.build.build) }
+}
+
 /**
- * The untransmitted-haplotype channel over one interval, plus the trisomy mechanism.
+ * One sample scored, through the module the browser runs.
  *
- * Runs on markers the obligate-het path discards: the loaded parent HETEROZYGOUS and the sample
- * homozygous, so the transmission is determined and every marker is informative by construction.
- * Disjoint from the other channel, which is what makes it additional evidence rather than a
- * re-reading, and the only channel that gives a single blastomere a defined floor.
+ * THERE IS NO SECOND IMPLEMENTATION HERE, and there must not be one. Every channel, guard and
+ * refusal comes from scoreSample, so this surface cannot answer differently from the app on the
+ * same file. Flags reach the science through scoreSample's own inputs, never through a fork of it.
  */
-function untransmittedOver(
-  ref: Loaded, c: Loaded, chrom: string, start: number, end: number, state: string,
+async function scoreWithParent(
+  parent: ReturnType<typeof loadParent>, samplePath: string, role: 'paternal' | 'maternal',
+  onLog: (tag: string, text: string) => void = () => {},
 ) {
-  const rows: [string, string, number | null][] = []
-  for (const [probe, p] of c.pos) {
-    if (p.chrom !== chrom || p.pos < start || p.pos > end) continue
-    if (ref.gt.get(probe) !== 'AB') continue
-    rows.push(['AB', c.gt.get(probe) ?? 'NC', c.baf.get(probe) ?? null])
+  const acc = score.emptyCollected(parent.pat as never, null)
+  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
+  for (const r of readRows(samplePath)()) {
+    if (!first) first = r.probesetId
+    ingest.accumulate(r as never, byChrom as never)
+    ingest.accumulateBaf(r as never, bafSums as never)
+    score.collectRow(r as never, parent.pat as never, null, acc as never)
   }
-  const u = unt.untransmittedPairs(rows as never) as {
-    pairs: never[], considered: number, ambiguous: number
-  }
-  const oriented = u.pairs.map((x) => (unt.orientUntransmitted as never as (y: never) => number)(x))
-  return {
-    markers: u.pairs.length,
-    considered: u.considered,
-    ambiguous: u.ambiguous,
-    share: oriented.length ? oriented.reduce((a, x) => a + x, 0) / oriented.length : NaN,
-    impossible: unt.impossibleRate(u.pairs as never) as number,
-    mechanism: unt.callMechanism(u.pairs as never,
-      { copyNumberThree: state === 'gain' }) as { mechanism: string, why: string },
-  }
+  const profile = ingest.finishProfile(idOf(samplePath), byChrom as never, bafSums as never, first)
+  const result = await score.scoreSample({
+    acc, profile, pat: parent.pat, mat: null, soloRole: role, sibs: [],
+    sampleName: idOf(samplePath), log: onLog, stageOpts: stageOpts(),
+  })
+  return { id: idOf(samplePath), refId: parent.id, profile, result }
 }
 
-function dropoutFor(c: Loaded): { ado: number, source: string } {
-  const forced = args.flags.get('ado')
-  if (forced !== undefined) {
-    const v = Number(forced)
-    if (!Number.isFinite(v) || v < 0 || v >= 1) die('--ado must be between 0 and 1')
-    return { ado: v, source: 'given on the command line' }
-  }
-  const st = stageMod.inferStage(c.profile, stageOpts())
-  if (Number.isFinite(st.dropout)) return { ado: st.dropout, source: `inferred, ${st.stage}` }
-  return { ado: 0.308, source: 'stage unusable, using the most conservative measured value' }
+interface OriginRow {
+  locus: string; kind: string; channel: string; origin: string | null
+  verdict: string; band?: string; confidence?: number; markers?: number; why: string
 }
+
+/**
+ * One row per event, from the channels scoreSample already ran.
+ *
+ * Reads rather than re-derives. The Mendelian channel needs no detection floor, so where it named
+ * a parent it outranks the dosage channel on the same interval; where it refused, the dosage
+ * channel's answer for that interval stands.
+ */
+function originRows(
+  result: { dosageCalls?: unknown[], oneParent?: unknown[] }, role: 'paternal' | 'maternal',
+): OriginRow[] {
+  const byWhere = new Map<string, OriginRow>()
+  for (const c of (result.dosageCalls ?? [])) {
+    const d = c as {
+      where: string, verdict: string, band?: string, confidence?: number, markers?: number,
+      why: string, cls?: string, parent?: string, fromZygosity?: boolean,
+    }
+    byWhere.set(d.where, {
+      locus: d.where,
+      kind: d.cls ?? 'dosage',
+      channel: d.fromZygosity ? 'zygosity' : 'dosage',
+      origin: d.parent ?? parentNamed(d.verdict, role),
+      verdict: d.verdict, band: d.band, confidence: d.confidence, markers: d.markers, why: d.why,
+    })
+  }
+  for (const c of (result.oneParent ?? [])) {
+    const g = c as {
+      where: string, verdict: string, band?: string, posterior?: number, markers?: number,
+      why: string,
+    }
+    const named = parentNamed(g.verdict, role)
+    const prior = byWhere.get(g.where)
+    if (!named && prior) continue
+    byWhere.set(g.where, {
+      locus: g.where, kind: prior?.kind ?? 'genotype', channel: 'genotype',
+      origin: named ?? prior?.origin ?? null,
+      verdict: g.verdict, band: g.band, confidence: g.posterior, markers: g.markers, why: g.why,
+    })
+  }
+  return [...byWhere.values()]
+}
+
+const scoreArray = async (
+  refPath: string, samplePath: string, role: 'paternal' | 'maternal',
+  onLog?: (tag: string, text: string) => void,
+) => scoreWithParent(loadParent(refPath), samplePath, role, onLog)
+
 
 // ------------------------------------------------------------------ commands
 
@@ -535,128 +422,49 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     })
   },
 
-  origin() {
+  async origin() {
     const [refPath, samplePath] = args.positional
     if (!refPath || !samplePath) {
-      die('usage: om origin <parent> <sample> [--role paternal|maternal] [--ado N] [--json]')
+      die('usage: om origin <parent> <sample> [--role paternal|maternal] [--json]')
     }
     const role = (args.flags.get('role') ?? 'paternal') as 'paternal' | 'maternal'
     if (role !== 'paternal' && role !== 'maternal') die('--role must be paternal or maternal')
-    const other = role === 'paternal' ? 'maternal' : 'paternal'
-    const ref = load(refPath)
-    const c = load(samplePath)
-    const { ado, source } = dropoutFor(c)
-    const st = stageMod.inferStage(c.profile, stageOpts())
 
-    // The genome-level call is needed whether or not a region was given, because the uniparental
-    // channel inherits from it.
-    const found = eventsOf(ref, c, role)
-    const region = args.flags.get('region')
-    const evs = region
-      ? [(() => {
-        const m = /^chr?([0-9XY]+):([0-9,_]+)-([0-9,_]+)$/i.exec(region)
-        if (!m) die('--region looks like chr6:39302-294904')
-        return {
-          chrom: m[1], kind: 'given on the command line',
-          start: Number(m[2].replace(/[,_]/g, '')), end: Number(m[3].replace(/[,_]/g, '')),
-        }
-      })()]
-      : found.events
-
-    // WHICH CHANNEL. Genotypes are the better instrument where they exist. They cannot answer a
-    // whole-chromosome loss, because that event is detected by its genotypes collapsing, so the
-    // default routes whole chromosomes to dosage and everything else to genotypes and says which
-    // it used. `--channel` forces one for comparison.
-    const channel = args.flags.get('channel') ?? 'auto'
-    if (!['auto', 'genotype', 'dosage', 'both'].includes(channel)) {
-      die('--channel must be auto, genotype, dosage or both')
-    }
-    const name = (v: string) => (
-      // obligate-het channel
-      v === 'known-parent-lost' ? role : v === 'other-parent-lost' ? other
-        // dosage channel, which no longer says "lost" because it cannot know the class
-        : v === 'loaded-parent' ? role : v === 'other-parent' ? other : null)
-    const rows = evs.map((e) => {
-      const isWhole = e.kind.startsWith('whole-chromosome')
-      const useDosage = channel === 'dosage' || channel === 'both'
-        || (channel === 'auto' && isWhole)
-      const useGeno = channel === 'genotype' || channel === 'both'
-        || (channel === 'auto' && !isWhole)
-      const g = useGeno ? callOver(ref, c, e.chrom, e.start, e.end, ado) : null
-      const d = useDosage ? dosageOver(ref, c, e.chrom, e.start, e.end, isWhole) : null
-      const untransmitted = useDosage
-        ? untransmittedOver(ref, c, e.chrom, e.start, e.end,
-          args.flags.get('state') ?? 'loss') : null
-      // Genotypes answer where they can. Dosage only fills what they cannot reach, and it now
-      // names a parent with a calibrated confidence rather than only above a fraction threshold.
-      // The one cell it still withholds is the class-inverted risk: amplified material where a
-      // small gain and a small loss both fit and name OPPOSITE parents.
-      const gNamed = g && name(g.verdict)
-      const dNamed = d && name(d.verdict)
-      // A UNIPARENTAL GENOME ANSWERS BY CONSTRUCTION, and it answers where the other two channels
-      // cannot: one parental genome is present, so every change in it is that parent's. Consulted
-      // only after them, so a measured answer always wins over an inherited one.
-      const zyg = (!gNamed && !dNamed) ? uniparental.uniparentalOrigin({
-        originClass: found.originClass,
-        zygosity: found.zygosity,
-        role: role as 'paternal' | 'maternal',
-        genomeRate: found.genomeRate,
-        explainable: found.explainable,
-        hetBand: found.hetBand,
-      }) : null
-      return {
-        ...e,
-        locus: stageMod.locus(e.chrom, e.start, e.end),
-        channel: gNamed ? 'genotype' : dNamed ? 'dosage'
-          : zyg ? 'zygosity' : (useGeno ? 'genotype' : 'dosage'),
-        origin: gNamed ?? dNamed ?? zyg?.parent ?? null,
-        inherited: zyg ? { margin: zyg.foldOverCeiling, why: zyg.why } : undefined,
-        genotype: g, dosage: d, untransmitted,
-        verdict: (gNamed ? g?.verdict : dNamed ? d?.verdict : g?.verdict ?? d?.verdict) ?? 'refused',
-        why: (gNamed ? g?.why : dNamed ? d?.why : d?.why ?? g?.why) ?? '',
-      }
+    // THE SAME RUN THE BROWSER PERFORMS. Every channel, every guard and every refusal comes from
+    // scoreSample, so this cannot answer differently from the app on the same file.
+    const verbose = args.bools.has('verbose')
+    const { id, refId, result } = await scoreArray(refPath, samplePath, role, (tag, text) => {
+      if (verbose && !JSON_OUT) process.stderr.write(`  [${tag}] ${text}\n`)
     })
+
+    const st = result.stage as { stage: string, dropout: number, basis: string } | undefined
+    const rows = originRows(result as never, role)
+
     out({
-      reference: ref.id, sample: c.id, role, stage: st.stage, dropout: ado, dropoutSource: source,
+      reference: refId, sample: id, role,
+      stage: st?.stage, dropout: st?.dropout, dropoutSource: st?.basis,
+      originClass: (result as { originClass?: string }).originClass,
+      zygosity: (result as { zygosity?: string }).zygosity,
       events: rows,
     }, () => {
-      process.stdout.write(`${c.id} against ${ref.id} as the ${role} parent\n`)
-      process.stdout.write(`  material ${st.stage}, dropout ${ado.toFixed(3)} (${source})\n\n`)
+      process.stdout.write(`${id} against ${refId} as the ${role} parent\n`)
+      process.stdout.write(`  material ${st?.stage ?? 'unknown'}`
+        + `, dropout ${Number.isFinite(st?.dropout) ? st!.dropout.toFixed(3) : 'not assigned'}`
+        + ` (${st?.basis ?? 'none'})\n`)
+      process.stdout.write(`  genome ${(result as { originClass?: string }).originClass}`
+        + `, ${(result as { zygosity?: string }).zygosity}\n\n`)
       if (!rows.length) { process.stdout.write('  no chromosomal change found\n'); return }
       for (const r of rows) {
         process.stdout.write(`${r.locus}  ${r.kind}\n`)
         process.stdout.write(`   ${r.origin ? `${r.origin.toUpperCase()} copy lost` : r.verdict}`
-          + `  [${r.channel}]\n`)
-        if (r.genotype) {
-          process.stdout.write(`   genotype: ${r.genotype.verdict}, ${r.genotype.markers} `
-            + `informative, ${r.genotype.exclusive} exclusive, `
-            + `${r.genotype.heterozygous} heterozygous\n`)
-        }
-        if (r.untransmitted && r.untransmitted.markers) {
-          const un = r.untransmitted
-          process.stdout.write(`   untransmitted: ${un.markers} determined of ${un.considered} `
-            + `parent-het markers (${un.ambiguous} ambiguous), share `
-            + `${Number.isFinite(un.share) ? un.share.toFixed(4) : '-'}, `
-            + `${(100 * un.impossible).toFixed(1)}% contradict their own call\n`)
-          process.stdout.write(`   mechanism: ${un.mechanism.mechanism}\n`)
-        }
-        if (r.dosage) {
-          const d2 = r.dosage
-          process.stdout.write(`   dosage:   ${d2.verdict} (${d2.material}, class `
-            + `${d2.classVerdict})`
-            + (Number.isFinite(d2.z)
-              ? `, shift ${d2.shift.toFixed(4)} z ${d2.z.toFixed(2)}`
-                + `, implied fraction ${Number.isFinite(d2.impliedF) ? d2.impliedF.toFixed(3) : 'n/a'}`
-                + `, ${d2.window} in the central window`
-              : `, floor ${Number.isFinite(d2.floor) ? d2.floor : 'none at any fraction'}`)
-            + '\n')
-        }
+          + `  [${r.channel}${r.band ? `, band ${r.band}` : ''}`
+          + `${Number.isFinite(r.confidence) ? `, ${r.confidence!.toFixed(3)}` : ''}]\n`)
         process.stdout.write(`   ${r.why}\n\n`)
       }
     })
   },
 
-  cohort() {
+  async cohort() {
     const dir = args.positional[0]
     const refPath = args.flags.get('ref')
     if (!dir || !refPath) die('usage: om cohort <dir> --ref <array> [--role R] [--json]')
@@ -665,6 +473,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     const screenStride = num('screen-stride', 8)
     const oppMax = num('opposite-hom-max', 0.020)
     const ref = load(refPath)
+    const parent = loadParent(refPath)
     const rs = stageMod.inferStage(ref.profile, stageOpts())
     // The reference gate is CALL RATE, not the stage label. The label is derived from
     // heterozygosity against a population anchor, which measures the individual as much as the
@@ -697,21 +506,20 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
         continue
       }
       children += 1
-      const { ado } = dropoutFor(c)
-      const st = stageMod.inferStage(c.profile, stageOpts())
-      const { events } = eventsOf(ref, c, role)
+      // THE SAME RUN THE BROWSER PERFORMS, per sample. A cohort summary assembled from a second
+      // implementation is a summary of a different tool.
+      const scored = await scoreWithParent(parent, join(dir, f), role)
+      const st = scored.result.stage as { stage: string, dropout: number } | undefined
+      const rows = originRows(scored.result as never, role)
       if (!JSON_OUT) {
-        process.stderr.write(`  ${c.id}: child, ${st.stage}, ${events.length} event(s)\n`)
+        process.stderr.write(`  ${c.id}: child, ${st?.stage}, ${rows.length} event(s)\n`)
       }
-      for (const e of events) {
-        const call = callOver(ref, c, e.chrom, e.start, e.end, ado)
-        const named = call.verdict === 'known-parent-lost' ? role
-          : call.verdict === 'other-parent-lost' ? other : null
+      for (const r of rows) {
         results.push({
-          reference: ref.id, sample: c.id, stage: st.stage, dropout: ado, kind: e.kind,
-          locus: stageMod.locus(e.chrom, e.start, e.end), origin: named, verdict: call.verdict,
-          posterior: call.posterior, markers: call.markers, exclusive: call.exclusive,
-          heterozygous: call.heterozygous, why: call.why,
+          reference: ref.id, sample: c.id, stage: st?.stage, dropout: st?.dropout, kind: r.kind,
+          locus: r.locus, origin: r.origin, verdict: r.verdict,
+          posterior: r.confidence, markers: r.markers, exclusive: undefined,
+          heterozygous: undefined, why: r.why,
         })
       }
     }

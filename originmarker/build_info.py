@@ -103,13 +103,16 @@ RELEASES: tuple[Release, ...] = (
     Release("Interphase",
             "The state between divisions, where a genome is being copied rather than segregated "
             "and much of what looks like structure is flux."),
+    Release("Amphimixis",
+            "The union of the paternal and maternal genomes into one nucleus, after which "
+            "there is a single genome rather than two that have to be kept in step."),
     Release("Anaphase II",
             "The second separation, where sister chromatids part and a premature one is the "
             "commonest source of an aneuploid egg."),
 )
 
-VERSION = "5.19.0"
-CODENAME = "Syngamy"
+VERSION = "5.20.0"
+CODENAME = "Amphimixis"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

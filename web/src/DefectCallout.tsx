@@ -19,7 +19,7 @@
 import { useState } from 'react'
 import { Text } from '@mantine/core'
 import type { Defect } from './defects.ts'
-import { headline, bandColour, BAND_WORD, originBlockedByClass } from './defects.ts'
+import { headline, bandColour, BAND_WORD, originBlockedByClass, sentences } from './defects.ts'
 
 const mb = (n: number): string => (n / 1e6).toFixed(2)
 
@@ -56,10 +56,6 @@ const Chip = ({ label, value, mono = false }: {
     </span>
   </span>
 )
-
-/** Sentences, kept with their terminator so rejoining them reads normally. */
-const sentences = (s: string): string[] =>
-  (s.match(/[^.]+\.?/g) ?? []).map((x) => x.trim()).filter(Boolean)
 
 /**
  * Split every reason into the part unique to one region and the part many regions share.
@@ -256,7 +252,7 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
             {inherited.length} of these {defects.length} changes take their parent from a single
             genome-level call, not from anything measured on the change itself. They are one
             determination inherited {inherited.length} times, and counting them as {inherited.length}
-            independent confirmations would overstate the evidence by that factor. If the
+            {' '}independent confirmations would overstate the evidence by that factor. If the
             genome-level call is wrong, all {inherited.length} are wrong together.
           </Text>
         </div>

@@ -9,6 +9,75 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.20.0 "Amphimixis"
+
+**The browser and the command line were two programs answering one question, and they are now
+one.** The per-sample scoring lived inside a React component, 868 lines of it, which meant nothing
+outside the running page could import it: not the command line, which therefore carried its own
+version, and not any check, which is why every disagreement between the two was found by reading
+output by hand. 5.19.0 fixed two such disagreements. This removes the conditions for a third.
+
+`web/src/scoreSample.ts` now holds the whole per-sample pipeline, and both surfaces call it. The
+component reads a File, paints progress and holds state; the command line reads a file and prints.
+Every channel, guard, threshold and refusal below that is one implementation. `eventsOf`,
+`callOver`, `dosageOver` and `untransmittedOver` are deleted rather than kept in step, along with
+the command line's own parent index, which had been keeping only called autosomal markers where
+the browser kept every row: a marker missing from a parent index reads as a no-call downstream, so
+the two produced different tallies before any channel had run.
+
+**Two faults this exposed on material where the loaded parent's copy is genuinely in question.**
+
+*The Mendelian channel never ran on a sample whose only changes were whole chromosomes.* 5.18.0
+added whole-chromosome events to that channel because it is the better instrument for them, and
+needs no detection floor, but the surrounding guard still asked whether any SEGMENT had been found.
+A sample carrying two whole-chromosome losses and nothing else skipped the block entirely and fell
+through to the dosage channel, which cannot reach those events on amplified material. The clearest
+event the tool sees was the one guaranteed to miss its best channel. The guard now asks whether
+there is an event.
+
+*And it must not run on a genome carrying one parental contribution.* That channel reads "the
+loaded parent's copy is absent here", which on a uniparental genome is true of every chromosome by
+construction and says nothing about any interval. It also names the wrong parent: on a gynogenetic
+genome the copy missing from a chromosome was the maternal one, because that was the only copy
+there. Same guard, and the same reasoning, as the copy-neutral and runs-of-homozygosity detectors.
+
+**Verdicts are exhaustive.** Two channels use two vocabularies, and the mapping from a verdict to a
+parent had been written out by hand at five call sites, one of which had drifted. It is now one
+function whose switch is exhaustive over both unions, so adding or renaming a verdict is a compile
+error there rather than a silent "no parent" wherever a call site was not updated.
+
+**A check that runs a whole array through both surfaces and compares the answers.** It builds its
+own arrays, so it runs anywhere: one uniparental and one biparental, the second being the case
+where naming the parent takes measurement rather than inheritance. The fixtures are built to the
+numbers real material produced, including a sample whose two measures of zygosity fall on opposite
+sides of the 0.080 boundary, because a fixture on round numbers agrees with itself either way and
+cannot tell those measures apart. It asserts the answer as well as the agreement: both surfaces
+sharing one defect would agree perfectly. Point it at real arrays with `OM_ARRAYS` and it pins
+those too, and says so plainly when they are absent rather than passing quietly. It catches all
+five of the faults described in this entry and in 5.19.0 when they are reintroduced.
+
+**The performance check was failing about one run in ten while the code was correct.** Its growth
+threshold sat inside its own noise: 20 runs measured single timings scattering from 0.46 to 2.70
+against a limit of 2.0, on scans that are linear and centre on 1.0. The estimator was the problem,
+not the threshold. Each timing is now the fastest of five draws, since contention only ever adds
+time, which brings the same measurements to 0.81 to 1.59 and leaves the limit meaning something.
+The whole-run ceiling was a performance target rather than the lock-up detector it is documented
+as: 1.5 to 1.8 seconds idle, 4.5 to 6.2 on a busy machine, against a 4 second budget. It is now 20
+seconds, above every loaded measurement and far below the 9-second-idle regression it exists to
+catch. And the harness is now pointed at a deliberately quadratic pass and has to report it, so a
+threshold that has stopped measuring anything fails rather than passes.
+
+**A sentence splitter was cutting decimals in half.** Reason text is full of measured numbers, and
+splitting on every full stop turned "0.78x" into "0." and "78x". The number was destroyed when the
+sentences were rejoined, and the shared-reasoning block compared fragments rather than sentences,
+so a half sentence led it. It now splits only where a full stop is followed by whitespace, which a
+decimal point never is.
+
+On the array that prompted 5.19.0, both surfaces report the same two whole-chromosome losses,
+both maternal at 5.0x, from the same code.
+
+---
+
 ## 5.19.0 "Syngamy"
 
 **Running the whole pipeline on the real corpus found three faults that no component test could

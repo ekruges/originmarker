@@ -72,6 +72,30 @@ case "$head_line" in
     fi ;;
 esac
 
+# NO LAB DATA IN THE REPOSITORY, AND NO SAMPLE IDENTIFIERS.
+#
+# The arrays this tool reads are a family's. They get copied into the tree during testing, because
+# the browser can only fetch what the dev server serves, and a copy left behind is committed by the
+# next `git add -A`. The identifiers are the same problem in a smaller package: they appear in run
+# logs, reports and screenshots, and they name real samples.
+#
+# This is a gate rather than a note because the failure is unrecoverable: a public repository does
+# not forget, and rewriting history does not un-publish.
+arrays=$(git ls-files | grep -iE '\.(probes|cel)(\.|$)' || true)
+if [ -n "$arrays" ]; then
+  say "ARRAY DATA IS TRACKED. These are read from disk at run time and never belong in the tree:"
+  printf '%s\n' "$arrays" | sed 's/^/    /'
+  fails=$((fails + 1))
+fi
+# Five digits, a dash, two digits, an underscore, two digits, which is the shape these carry.
+ids=$(git grep -lE '[0-9]{5}-[0-9]{2}_[0-9]{2}' -- . ':!CHANGELOG.md' 2>/dev/null || true)
+if [ -n "$ids" ]; then
+  say "A LAB SAMPLE IDENTIFIER APPEARS IN TRACKED FILES:"
+  printf '%s\n' "$ids" | sed 's/^/    /'
+  fails=$((fails + 1))
+fi
+[ -z "$arrays" ] && [ -z "$ids" ] && say "no array data and no sample identifiers are tracked"
+
 # Every citation the app ships must be one the verifier actually resolves against Crossref.
 missing=0
 while read -r id; do

@@ -52,8 +52,8 @@ const read = (p: string): Row[] => {
  * to establish het for another would be wrong rather than merely noisy.
  *
  * Only one naming scheme here encodes the embryo. Files like 01_chr16pcq_Z10__49 carry it as a
- * letter-plus-digits token, so several biopsies of embryo Z10 group correctly. Files like
- * 13605-23_51 carry an EXPERIMENT prefix and a biopsy index, and different indices are different
+ * letter-plus-digits token, so several biopsies of embryo Z10 group correctly. The other
+ * scheme carries an EXPERIMENT prefix and a biopsy index, and different indices are different
  * embryos, so no grouping is possible from the name and those arrays are excluded rather than
  * grouped wrongly. Returning null is how that exclusion is expressed.
  */
