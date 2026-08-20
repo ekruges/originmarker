@@ -394,8 +394,21 @@ export interface RunOfHomozygosity {
  */
 export function detectUpd(
   runs: readonly RunOfHomozygosity[],
-  opts: { reportMb?: number; consanguinityChromosomes?: number } = {},
+  opts: {
+    reportMb?: number; consanguinityChromosomes?: number
+    /** The sample's zygosity. A genome with one parental contribution is excluded outright. */
+    zygosity?: string
+  } = {},
 ): Finding[] {
+  // A UNIPARENTAL GENOME IS HOMOZYGOUS END TO END BY CONSTRUCTION, so every long run in it is the
+  // genome-level call restated rather than a separate event. Measured on this project's arrays:
+  // uniparental samples return 23 to 24 of these, one real run produced 32, and each was reported
+  // as its own uniparental disomy with its own parental origin inherited from the one call that
+  // already said the entire genome is uniparental. That is circular. The two bulk diploid controls,
+  // where any call at all is a false positive, return 2 each.
+  //
+  // This is the same guard `detectLoh` carries, and it should have been added at the same time.
+  if (opts.zygosity?.startsWith('uniparental')) return []
   const minMb = opts.reportMb ?? LCSH_REPORT_MB
   const many = opts.consanguinityChromosomes ?? CONSANGUINITY_CHROMOSOMES
   const long = runs.filter((r) => (r.endBp - r.startBp) / 1e6 >= minMb)

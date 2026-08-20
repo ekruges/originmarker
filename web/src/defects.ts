@@ -226,6 +226,7 @@ export const BAND_WORD: Record<string, string> = {
  * still there in two copies but both came from one parent. Every class gets a phrase.
  */
 export const KIND_WORD: Record<string, string> = {
+  aneuploidy: 'a whole chromosome gained or lost',
   'copy-gain': 'extra copy',
   'copy-loss': 'copy lost',
   'parental-absence': "parent's alleles absent",

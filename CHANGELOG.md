@@ -9,6 +9,36 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.17.0 "Interphase"
+
+**Chromosomal changes were being overcalled, and the overcall was noise dressed as biology.**
+
+One sample reported 32 chromosomal changes. Every one was a uniparental disomy, and every one took
+its parent from a single genome-level call that had already said the entire genome is uniparental.
+
+A genome with one parental contribution is homozygous END TO END BY CONSTRUCTION, so every long run
+of homozygosity in it is that one call restated. Measured across this project's arrays: uniparental
+samples return 23 to 24 of these, the sample above returned 32, and the two bulk diploid controls,
+where any call is a false positive, return 2 each. `detectUpd` is now gated on zygosity exactly as
+`detectLoh` has been since 5.12.0. The guard should have been added to both at once. On the sample
+that reported 32, it is now 0, leaving its two real whole-chromosome losses.
+
+**An array that failed its own quality inference still produced findings.** One example array reads
+31.2% heterozygous where a single diploid tops out near 25% on this platform, and the stage
+inference says so in those words: no genome reads this way, so this is not a stage. It went on to
+yield 22 findings. Every detector reads a genome's statistics against itself, which is only
+meaningful where the array is reading a genome, so an array that did not resolve to a stage now
+produces an empty event list carrying the stage's own sentence as the reason. Detecting structure
+there is not a conservative reading of weak data, it is reading noise as biology.
+
+**One section, not two.** Whole-chromosome aneuploidy had a panel of its own, so a reader comparing
+a whole-chromosome loss against a segmental one was comparing two boxes with different
+vocabularies, different confidence treatment and no shared ordering. Aneuploidy is now a change in
+the one list, carrying its parent and, where a channel measured one, its confidence and band. The
+separate panel and its explanatory paragraph are gone.
+
+---
+
 ## 5.16.0 "Anaphase II"
 
 Four outstanding items, and two defects found while closing them.

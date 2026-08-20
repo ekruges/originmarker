@@ -94,13 +94,16 @@ RELEASES: tuple[Release, ...] = (
             "draws rather than one chromosome at a time."),
     Release("Univalent",
             "A chromosome with no partner at metaphase I, which segregates at random."),
+    Release("Interphase",
+            "The state between divisions, where a genome is being copied rather than segregated "
+            "and much of what looks like structure is flux."),
     Release("Anaphase II",
             "The second separation, where sister chromatids part and a premature one is the "
             "commonest source of an aneuploid egg."),
 )
 
-VERSION = "5.16.0"
-CODENAME = "Anaphase II"
+VERSION = "5.17.0"
+CODENAME = "Interphase"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

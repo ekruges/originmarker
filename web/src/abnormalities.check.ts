@@ -421,3 +421,29 @@ console.log('abnormalities.check.ts: all assertions passed, including every clas
   console.log('  copy-neutral: 0 false windows on event-free genomes at every heterozygosity '
     + 'tested, uniparental excluded outright, 60 of 60 planted events still found')
 }
+
+// --- A UNIPARENTAL GENOME IS NOT N SEPARATE UNIPARENTAL DISOMIES ------------------------------
+//
+// A genome with one parental contribution is homozygous end to end BY CONSTRUCTION, so every long
+// run of homozygosity in it is the genome-level call restated, not a separate event. Measured on
+// this project's arrays before the guard: uniparental samples returned 23 to 24 of these and one
+// real sample returned 32, each reported as its own uniparental disomy carrying its own parental
+// origin inherited from the single call that had already said the whole genome is uniparental.
+// That is circular, and it is the same defect the copy-neutral detector carried until 5.12.0.
+{
+  // A genome that is homozygous throughout: runs on every chromosome, all reportable length.
+  const runs = Array.from({ length: 22 }, (_, i) => ({
+    chrom: String(i + 1), startBp: 0, endBp: 60e6, markers: 20000, wholeChromosome: false,
+  }))
+  const ungated = detectUpd(runs)
+  assert.ok(ungated.length > 10,
+    `the fixture must reproduce the overcall, got ${ungated.length}`)
+  assert.equal(detectUpd(runs, { zygosity: 'uniparental_homozygous' }).length, 0,
+    'a uniparental genome yields no separate uniparental disomies: its homozygosity IS the '
+    + 'genome-level call, and enumerating it again counts one fact many times')
+  // A diploid genome keeps its runs, or the guard would be disabling the detector rather than
+  // scoping it.
+  assert.equal(detectUpd(runs, { zygosity: 'diploid' }).length, ungated.length,
+    'a diploid genome is unaffected')
+  console.log(`  uniparental: ${ungated.length} runs -> 0 disomies; diploid unchanged`)
+}

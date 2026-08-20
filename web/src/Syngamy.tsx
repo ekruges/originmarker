@@ -117,8 +117,43 @@ const genomeGrade = (r: {
  * Previously assembled inline in the render, which meant any machine-readable output would have
  * had to reassemble it and could have drifted from what the reader was looking at.
  */
+/** The last marker position seen on a chromosome, for a whole-chromosome event's extent. */
+function chromEndOf(r: ParentageResult, chrom: string): number {
+  const pos = r.markerPositions?.get(chrom)
+  return pos && pos.length ? pos[pos.length - 1] : 0
+}
+
 function defectsForResult(r: ParentageResult) {
+  // WHOLE-CHROMOSOME ANEUPLOIDY IS A CHROMOSOMAL CHANGE, and belongs in the one list with the rest.
+  // It used to have a panel of its own, so a reader comparing a whole-chromosome loss against a
+  // segmental one was comparing two boxes with different vocabularies and no shared ordering.
+  const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy).map((c) => {
+    const scored = (r.dosageCalls ?? []).find((d: { where: string }) => d.where === `chr${c.chrom}`)
+    const other = r.role === 'paternal' ? 'maternal' : 'paternal'
+    const origin = c.aneuploidyParent === 'this' ? r.role
+      : c.aneuploidyParent === 'other' ? other
+        : scored?.verdict === 'loaded-parent' ? r.role
+          : scored?.verdict === 'other-parent' ? other : 'unclear'
+    return {
+      chrom: c.chrom,
+      startBp: 0,
+      endBp: chromEndOf(r, c.chrom),
+      kind: c.aneuploidy === 'gain' ? 'copy-gain' : 'copy-loss',
+      locus: `chr${c.chrom}`,
+      origin,
+      band: scored?.band,
+      confidence: scored?.confidence,
+      inheritedMargin: (scored as { inheritedMargin?: number } | undefined)?.inheritedMargin,
+      stage: r.stage?.stage,
+      why: `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
+        + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest. An intact `
+        + 'chromosome calls at 0.78x to 1.16x of its genome median and never leaves -0.79 to +0.42 '
+        + `log2, measured over 1,012 chromosomes.${scored?.why ? ` ${scored.why}` : ''}`,
+    } as never
+  })
+
   return withMechanism([
+    ...aneu,
       ...defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
         r.stage, r.dosageCalls ?? []),
       // One list, not two. A copy-neutral event and a deletion are different measurements
@@ -803,6 +838,22 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             log('SCAN', `copy-neutral scan: ${windows.length} windows over ${cnByChrom.size} `
               + `chromosomes (${scanned} sliding, ${cnByChrom.size} whole-chromosome)`)
 
+            // AN ARRAY THAT IS NOT MEASURING A GENOME PRODUCES NO FINDINGS.
+            //
+            // Every detector below reads a genome's own statistics against itself, and that is only
+            // meaningful where the array is reading a genome at all. The stage inference already
+            // decides this and says so in those words: one example array reads 31.2% heterozygous
+            // where a single diploid tops out near 25% on this platform, and its verdict is "no
+            // genome reads this way, so this is not a stage". It went on to yield 22 findings.
+            //
+            // Detecting structure in an array that failed its own quality inference is not a
+            // conservative reading of weak data, it is reading noise as biology. The event list
+            // stays empty and the reason is the stage's own sentence.
+            if (result.stage?.stage === 'failed') {
+              log('WARN', 'no chromosomal changes are looked for: this array did not resolve to a '
+                + `stage. ${result.stage.why}`)
+              result.findings = []
+            } else {
             log('SCAN', 'looking for copy-neutral loss of heterozygosity')
             await breathe()
             const findings = [
@@ -813,7 +864,11 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               // copy-neutral detector is not run on it at all. Its relative-depletion test divides
               // by the array's own mean heterozygosity, which on such a genome is near zero.
               ...mergeLoh(detectLoh(windows, { zygosity: result.zygosity })),
-              ...detectUpd(runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd })),
+              // Same guard as the copy-neutral detector beside it: a genome with one parental
+              // contribution is homozygous by construction, so its runs are that one call
+              // restated, not separate events.
+              ...detectUpd(runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd }),
+                { zygosity: result.zygosity }),
             ]
             log('SCAN', `runs of homozygosity and ploidy over ${selfMarkers.length} called markers`)
             await breathe()
@@ -834,6 +889,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               + `${new Set(findings.map((f) => f.chrom)).size} chromosome(s)`)
             await breathe()
             result.findings = findings
+            }
             // Which walls stand depends on what the user actually supplied, so it is recorded here
             // rather than guessed at display time. Reading these as undefined would tell a
             // two-parent run that heterodisomy is unreachable when that run has already cleared it.
@@ -848,7 +904,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             const byShape = new Map<string, {
               cls: string; chrom: string; evidence: string; blocked: boolean; at: string[]
             }>()
-            for (const f of findings) {
+            for (const f of (result.findings ?? [])) {
               // Numbers masked, so findings differing only in their measurements group together.
               const shape = `${f.cls}|${f.evidence.replace(/[\d.]+/g, '#')}`
               const cur = byShape.get(shape)
@@ -1749,7 +1805,6 @@ function ResultCard({ entry, donorName, oocyteName }: {
           <StageCallout facts={r.stage && entry.profile
             ? stageFacts(r.stage, entry.profile) : null}
           />
-          <AneuploidyCallout chroms={r.chroms} role={r.role} dosageCalls={r.dosageCalls} />
           {r.gains.length > 0 && (
             <div style={{ marginTop: 10 }}>
               <Text size="xs" fw={700} mb={4}>Extra copies, and where they came from</Text>
@@ -2017,80 +2072,6 @@ function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate
  * detail, in the same visual language the tool uses for a warning, and the table below it carries
  * the numbers rather than replacing the sentence.
  */
-/**
- * Whole-chromosome gain or loss, said before anything else in the detail.
- *
- * The signal is the CALL RATE, not the alleles: a chromosome that is not there yields no DNA and
- * cannot be genotyped, so it collapses here while its allelic statistics only look noisy. The
- * intensity then says which way it went. Both channels are enormous on a real event and fail in
- * unrelated ways, which is why this is stated plainly rather than hedged.
- */
-function AneuploidyCallout({ chroms, role, dosageCalls }: {
-  chroms: ChromResult[]; role: string
-  /** The scored calls for these same chromosomes, which carry every origin channel. */
-  dosageCalls?: readonly { where: string; verdict: string; confidence?: number; band?: string }[]
-}) {
-  const hits = chroms.filter((c) => c.aneuploidy)
-  if (!hits.length) return null
-  const other = role === 'paternal' ? 'maternal' : 'paternal'
-  // THIS LINE HAD ITS OWN ORIGIN FIELD AND CONSULTED NO CHANNEL. `aneuploidyParent` is set only
-  // where the surviving alleles settle it, so a whole-chromosome gain on a genome already known to
-  // carry ONE parent read "parent not determined" while the scored call for the same chromosome
-  // named that parent. The scored call is consulted wherever the field is empty.
-  const byChrom = new Map<string, { verdict: string; confidence?: number; band?: string }>()
-  for (const d of dosageCalls ?? []) {
-    const m = /^chr([\dXY]+)$/.exec(d.where)
-    if (m && (d.verdict === 'loaded-parent' || d.verdict === 'other-parent')) byChrom.set(m[1], d)
-  }
-  const scored = (chrom: string): string => {
-    const d = byChrom.get(chrom)
-    if (!d) return 'parent not determined'
-    const who = d.verdict === 'loaded-parent' ? role : other
-    const conf = d.confidence !== undefined && Number.isFinite(d.confidence)
-      ? ` at ${d.confidence.toFixed(2)}${d.band ? `, band ${d.band}` : ''}` : ''
-    return `the ${who} copy${conf}`
-  }
-  return (
-    <div style={{
-      border: '1px solid var(--om-higher)', borderLeft: '4px solid var(--om-higher)',
-      background: 'var(--om-warn-bg)', padding: '11px 14px', margin: '10px 0 4px',
-    }}
-    >
-      <Text style={{ fontSize: 15, fontWeight: 700, color: 'var(--om-higher)', lineHeight: 1.25 }}>
-        Aneuploidy: {hits.map((c) => `chromosome ${c.chrom} ${c.aneuploidy}`).join(', ')}
-      </Text>
-      <div style={{ marginTop: 7, display: 'grid', gap: 4 }}>
-        {hits.map((c) => (
-          <Text key={c.chrom} size="sm" style={{ lineHeight: 1.5 }}>
-            <b>chr{c.chrom} {c.aneuploidy}</b>
-            {' '}&middot; calls at{' '}
-            <span style={{ fontFamily: 'var(--om-mono)' }}>{c.callFraction.toFixed(2)}x</span>
-            {' '}the genome rate, intensity{' '}
-            <span style={{ fontFamily: 'var(--om-mono)' }}>
-              {c.lrrShift > 0 ? '+' : ''}{c.lrrShift.toFixed(2)}
-            </span>
-            {' '}log2 from the rest &middot;{' '}
-            {c.aneuploidyParent === 'this'
-              ? `the ${role} copy`
-              : c.aneuploidyParent === 'other'
-                ? `the ${other} copy, since the ${role} alleles survive on what remains`
-                : scored(c.chrom)}
-          </Text>
-        ))}
-      </div>
-      <Text size="xs" c="dimmed" mt={6} style={{ maxWidth: 760, lineHeight: 1.5 }}>
-        A chromosome that is gone cannot be genotyped, so the call rate collapses; measured over
-        1,012 chromosomes an intact one calls at 0.78x to 1.16x of its genome&rsquo;s median and
-        never leaves &minus;0.79 to +0.42 log2. The parent is attached only where something
-        survives on the chromosome to attribute and this sample carries that parent&rsquo;s genome
-        elsewhere. A gain is reported more cautiously than a loss: fine copy-number work on
-        amplified material is refused in this tool, and what differs here is only that the effect
-        is an order of magnitude larger than the noise those refusals concern.
-      </Text>
-    </div>
-  )
-}
-
 /** What each segment kind is, in one line, because they are different events and a reader must
  *  not read a copy loss as a parental one or the reverse. */
 const kindLabel = (k: SegmentKind, role: 'paternal' | 'maternal'): string => (
