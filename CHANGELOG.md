@@ -9,6 +9,41 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.19.0 "Syngamy"
+
+**Running the whole pipeline on the real corpus found three faults that no component test could
+see.** Every measurement since 5.11 had been made on synthetic injections or on real arrays feeding
+one function at a time. None of it ran the tool end to end on real files, and all three of these
+only appear when you do.
+
+**The command line discarded every B-allele frequency.** `baf: null`, hardcoded where the tally is
+built. `classify` derives zygosity from the fraction of BAFs in the heterozygous band and falls
+back to genotype heterozygosity only when that is unavailable, so discarding them forced the
+fallback. The two quantities land on opposite sides of the 0.080 boundary on real material: a
+gynogenetic array reads 0.058 by band and 0.090 by genotype. The same array was therefore
+uniparental in the browser and diploid on the command line, and no channel that inherits from the
+genome-level call could ever fire on that surface.
+
+**Band F named a parent everywhere except the one place it was fixed.** 5.14.0 enforced the rule
+inside the web run's own scoring loop, which left every other caller unchanged. On a real
+gynogenetic array, a genome with NO paternal contribution at all, the command line named the
+paternal copy as the affected one on both of its whole-chromosome losses. The rule now lives in
+`callDosageOrigin`, so every caller inherits it, and the verdict is `imbalance-unassigned` rather
+than `not-evaluable`: those are different claims, one saying no array of this kind could answer and
+the other saying this array answered and the answer was at chance.
+
+**The command line had no uniparental channel.** It now consults it after the genotype and dosage
+channels, so a measured answer still wins.
+
+Together, on the array that prompted this: two whole-chromosome losses, both **maternal at 5.0x**,
+where before the same command named them paternal on a genome that has no paternal DNA.
+
+Across 27 real arrays run through the real pipeline: 24 report no events at all, three report one or
+two maternal events, and the one array that fails its own stage inference reports its events with no
+parent attached to them.
+
+---
+
 ## 5.18.0 "Cleavage"
 
 **The most obvious events were being called by the worst channel.**

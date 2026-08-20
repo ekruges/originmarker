@@ -94,6 +94,9 @@ RELEASES: tuple[Release, ...] = (
             "draws rather than one chromosome at a time."),
     Release("Univalent",
             "A chromosome with no partner at metaphase I, which segregates at random."),
+    Release("Syngamy",
+            "The fusion the tool is named for, and the moment after which the two parental "
+            "genomes are one and every question about them is asked indirectly."),
     Release("Cleavage",
             "The divisions from zygote to morula, where a blastomere still carries both parental "
             "genomes and an absent allele is therefore Mendelian rather than statistical."),
@@ -105,8 +108,8 @@ RELEASES: tuple[Release, ...] = (
             "commonest source of an aneuploid egg."),
 )
 
-VERSION = "5.18.0"
-CODENAME = "Cleavage"
+VERSION = "5.19.0"
+CODENAME = "Syngamy"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

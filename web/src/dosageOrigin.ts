@@ -311,6 +311,14 @@ export type DosageVerdict =
   | 'other-parent'
   /** Amplified material where a small gain and a small loss name opposite parents. See the veto. */
   | 'class-inverted-risk'
+  /**
+   * An imbalance was measured and no parent is attached to it.
+   *
+   * Distinct from `not-evaluable`, which says no array of this kind could answer at this width.
+   * This says the array answered and the answer was at chance: band F measures 0.51 to 0.56 on an
+   * injection series, because every call reaching it has an unresolved class and a gain inverts
+   * the sign map that loss and copy-neutral share.
+   */
   | 'imbalance-unassigned'
   | 'no-imbalance'
   | 'not-evaluable'
@@ -694,6 +702,38 @@ export function callDosageOrigin(
         + 'stated parent is 0 of 34 on trophectoderm and 0 of 18 on blastomere, so a number here '
         + 'would not be weak, it would be inverted. A second parental array resolves the class '
         + 'categorically rather than by threshold and removes this cell entirely',
+    }
+  }
+
+  // BAND F NAMES NO PARENT, AND THE RULE LIVES HERE RATHER THAN IN A CALLER.
+  //
+  // An injection series measures this band recovering the parent 0.51 to 0.56 of the time, which is
+  // chance, because every call reaching it has an unresolved copy-number class and a gain inverts
+  // the sign map that loss and copy-neutral share. Naming a parent from it asserts information that
+  // is not there.
+  //
+  // It was first enforced in the web run's own scoring loop, which left every other caller with the
+  // old behaviour: on a real gynogenetic sample, a genome with NO paternal contribution at all, the
+  // command line named the paternal copy as the affected one on both of its whole-chromosome
+  // losses. Fixing it at the call site fixed one path and left the rest, so it is fixed at the
+  // source and every caller inherits it.
+  if (post.band === 'F') {
+    return {
+      ...out,
+      classVerdict: cls,
+      classWhy,
+      posterior: post,
+      // `imbalance-unassigned`, NOT `not-evaluable`. Those are different claims and the
+      // difference is the point: not-evaluable means no array of this kind could answer at this
+      // width, a study-design limit, while this means THIS array measured it and the answer came
+      // back at chance. The imbalance is real and reported; only the parent is withheld.
+      verdict: 'imbalance-unassigned',
+      why: `the imbalance is measured and the parent is not recoverable from it. ${post.why}. `
+        + `The posterior lands in band F, `
+        + 'measured at 0.51 to 0.56 on an injection series, which is chance: every call reaching '
+        + 'this band has an unresolved copy-number class, and with the class open the direction of '
+        + `the shift does not name a parent. Centroid shift ${shift.toFixed(4)} at z ${z.toFixed(2)} `
+        + 'is reported as the evidence it is, and no parent is attached to it',
     }
   }
 

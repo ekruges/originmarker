@@ -34,6 +34,7 @@ const ingest = await import(`${W}ingest.ts`)
 const parentage = await import(`${W}parentage.ts`)
 const stageMod = await import(`${W}stage.ts`)
 const oneParent = await import(`${W}oneParentOrigin.ts`)
+const uniparental = await import(`${W}uniparentalOrigin.ts`)
 const obligate = await import(`${W}obligateHet.ts`)
 const segments = await import(`${W}segments.ts`)
 const inferredRef = await import(`${W}inferredReference.ts`)
@@ -223,13 +224,23 @@ function eventsOf(ref: Loaded, c: Loaded, role: 'paternal' | 'maternal') {
     for (const m of ms) {
       const probe = c.probeAt.get(`${ch}:${m.pos}`)
       parentage.tallyRow((probe ? ref.gt.get(probe) ?? 'NC' : 'NC') as never, {
-        probesetId: probe ?? '', chrom: ch, pos: m.pos, log2R: m.log2R, baf: null,
+        // THE B-ALLELE FREQUENCY, which this hardcoded to null and therefore discarded.
+        //
+        // `classify` derives zygosity from the fraction of BAFs in the heterozygous band, and falls
+        // back to genotype heterozygosity only when that is unavailable. Discarding the BAFs forced
+        // the fallback, and the two quantities land on opposite sides of the threshold: a real
+        // gynogenetic array reads 0.058 by band and 0.090 by genotype, against a 0.080 boundary. So
+        // the same sample was called uniparental by the web run and diploid here, and the origin
+        // channel that inherits from the genome-level call could never fire on this surface.
+        probesetId: probe ?? '', chrom: ch, pos: m.pos, log2R: m.log2R,
+        baf: probe ? c.baf.get(probe) ?? null : null,
         genotype: probe ? c.gt.get(probe) ?? 'NC' : 'NC', copyNumber: null,
       } as never, t as never)
     }
   }
   const cls = parentage.classify(t as never, ref.profile.hetRate, { role }) as {
     chroms: { chrom: string, aneuploidy?: 'loss' | 'gain' }[], originClass: string, verdict: string
+    zygosity: string, genomeRate: number, explainable: number, hetBand: number
   }
   const aneuploid = cls.chroms.filter((x) => x.aneuploidy)
   const whole = new Set(aneuploid.map((a) => a.chrom))
@@ -260,7 +271,19 @@ function eventsOf(ref: Loaded, c: Loaded, role: 'paternal' | 'maternal') {
     const co = segments.segmentCoords(sg as never) as { start: number, end: number }
     evs.push({ chrom: sg.chrom, kind: sg.kind, start: co.start, end: co.end })
   }
-  return { events: evs, originClass: cls.originClass, verdict: cls.verdict }
+  return {
+    events: evs,
+    originClass: cls.originClass,
+    verdict: cls.verdict,
+    // THE GENOME-LEVEL CALL, carried out so the origin step can inherit from it. Without this the
+    // command line had no way to know that a sample carries ONE parental genome, and on a real
+    // gynogenetic array, a genome with no paternal contribution at all, it named the paternal copy
+    // as the affected one on both of its whole-chromosome losses.
+    zygosity: cls.zygosity,
+    genomeRate: cls.genomeRate,
+    explainable: cls.explainable,
+    hetBand: cls.hetBand,
+  }
 }
 
 /** Call origin over one interval, with every dial exposed. */
@@ -525,6 +548,9 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     const { ado, source } = dropoutFor(c)
     const st = stageMod.inferStage(c.profile, stageOpts())
 
+    // The genome-level call is needed whether or not a region was given, because the uniparental
+    // channel inherits from it.
+    const found = eventsOf(ref, c, role)
     const region = args.flags.get('region')
     const evs = region
       ? [(() => {
@@ -535,7 +561,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
           start: Number(m[2].replace(/[,_]/g, '')), end: Number(m[3].replace(/[,_]/g, '')),
         }
       })()]
-      : eventsOf(ref, c, role).events
+      : found.events
 
     // WHICH CHANNEL. Genotypes are the better instrument where they exist. They cannot answer a
     // whole-chromosome loss, because that event is detected by its genotypes collapsing, so the
@@ -567,11 +593,24 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       // small gain and a small loss both fit and name OPPOSITE parents.
       const gNamed = g && name(g.verdict)
       const dNamed = d && name(d.verdict)
+      // A UNIPARENTAL GENOME ANSWERS BY CONSTRUCTION, and it answers where the other two channels
+      // cannot: one parental genome is present, so every change in it is that parent's. Consulted
+      // only after them, so a measured answer always wins over an inherited one.
+      const zyg = (!gNamed && !dNamed) ? uniparental.uniparentalOrigin({
+        originClass: found.originClass,
+        zygosity: found.zygosity,
+        role: role as 'paternal' | 'maternal',
+        genomeRate: found.genomeRate,
+        explainable: found.explainable,
+        hetBand: found.hetBand,
+      }) : null
       return {
         ...e,
         locus: stageMod.locus(e.chrom, e.start, e.end),
-        channel: gNamed ? 'genotype' : dNamed ? 'dosage' : (useGeno ? 'genotype' : 'dosage'),
-        origin: gNamed ?? dNamed ?? null,
+        channel: gNamed ? 'genotype' : dNamed ? 'dosage'
+          : zyg ? 'zygosity' : (useGeno ? 'genotype' : 'dosage'),
+        origin: gNamed ?? dNamed ?? zyg?.parent ?? null,
+        inherited: zyg ? { margin: zyg.foldOverCeiling, why: zyg.why } : undefined,
         genotype: g, dosage: d, untransmitted,
         verdict: (gNamed ? g?.verdict : dNamed ? d?.verdict : g?.verdict ?? d?.verdict) ?? 'refused',
         why: (gNamed ? g?.why : dNamed ? d?.why : d?.why ?? g?.why) ?? '',
