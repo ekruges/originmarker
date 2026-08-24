@@ -8,7 +8,7 @@ openpyxl==3.1.5          # .xlsx
 reportlab==5.0.0         # .pdf
 
 # app/nl.py - intent parsing only; never emits a coordinate (R1)
-anthropic==0.122.0
+anthropic==1.0.0
 
 # tests: fastapi.testclient is a thin wrapper over httpx
 httpx==0.28.1
