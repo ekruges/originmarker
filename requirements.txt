@@ -8,6 +8,22 @@ openpyxl==3.1.5          # .xlsx
 reportlab==5.0.1         # .pdf
 
 # app/nl.py - intent parsing only; never emits a coordinate (R1)
+#
+# HELD BELOW 1.0.0, and this is a decision rather than staleness. That release removes the
+# sampling controls from messages.create: `temperature` is not renamed or moved, it is gone, and
+# the call in app/nl.py passes temperature=0. Reproduced against 1.0.0 in a clean environment,
+# "Messages.create() got an unexpected keyword argument 'temperature'". A TypeError is not an
+# anthropic.APIError, so it also misses the handler that turns provider failures into a readable
+# refusal and would surface as an unhandled 500.
+#
+# NO TEST HERE CATCHES IT. _llm_intent returns before the call when ANTHROPIC_API_KEY is unset,
+# which it is in CI, so a green suite says nothing about this line. Check that call by hand
+# before moving this pin.
+#
+# Everything else the module uses survives: Anthropic(max_retries=), APIError, APIStatusError and
+# its status_code, system= as a list of blocks carrying cache_control, and TextBlock .type/.text.
+# The migration is worth doing on its own: 1.0.0 offers output_config.format for structured JSON,
+# which suits this parser better than temperature=0 plus the code-fence regex it falls back on.
 anthropic==0.122.0
 
 # tests: fastapi.testclient is a thin wrapper over httpx
