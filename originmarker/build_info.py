@@ -113,10 +113,13 @@ RELEASES: tuple[Release, ...] = (
             "One cell of a cleaving embryo, carrying both parental genomes in a single copy of "
             "the material, which is where parent of origin becomes answerable and where the "
             "assay is at its noisiest."),
+    Release("Reciprocal",
+            "The pair of products of one exchange, which carry the same event read from opposite "
+            "sides and are only fully described together."),
 )
 
-VERSION = "5.21.0"
-CODENAME = "Blastomere"
+VERSION = "5.22.0"
+CODENAME = "Reciprocal"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

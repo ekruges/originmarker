@@ -34,6 +34,7 @@ import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin.ts
 import { callOneParentOrigin } from './oneParentOrigin.ts'
 import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin.ts'
 import { uniparentalOrigin } from './uniparentalOrigin.ts'
+import { callBothParentsOrigin } from './bothParentsOrigin.ts'
 import {
   detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh,
   LOH_SEGMENT_MARKERS,
@@ -921,28 +922,62 @@ export async function scoreSample(input: {
     // 0.100, on arrays that resolve to a stage. The same experiment on arrays their own
     // inference rejects returns 0.650, which is why those are excluded rather than
     // reported weakly.
+    //
+    // AND WITH BOTH ARRAYS LOADED, EACH IS ASKED ONLY THE QUESTION IT CAN ANSWER. This channel
+    // is right 0.8539 of the time about the loaded parent's OWN copy and 0.2890 about the other
+    // parent's, on the same arrays and the same events; the difference is structural, since the
+    // second reading rests on missing heterozygosity and missing heterozygosity is what dropout
+    // produces. Loading only the first parent therefore answered about half of all losses by the
+    // unreliable direction. See bothParentsOrigin.ts.
     result.oneParent = mendelEvents.map((sg) => {
       const co = { start: sg.start, end: sg.end }
       const pairs: [string, string][] = []
+      const otherPairs: [string, string][] = []
       for (const [probe, gt] of myGt) {
         const q = markerPos.get(probe)
         if (!q || q.chrom !== sg.chrom || q.pos < co.start || q.pos > co.end) continue
         const pg = pat.gt.get(probe)
         if (pg) pairs.push([pg, gt])
+        if (mat) {
+          const mg = mat.gt.get(probe)
+          if (mg) otherPairs.push([mg, gt])
+        }
       }
       // Dropout comes from the inferred stage. A failed array carries no usable figure
       // rather than a flattering one, so it gets the most conservative dropout measured
       // on any stage instead of NaN, which would silently void every likelihood below.
       const ado = Number.isFinite(result.stage!.dropout) ? result.stage!.dropout : 0.308
       const c = callOneParentOrigin(pairs as never, ado)
+      if (!mat) {
+        return {
+          where: sg.label,
+          verdict: c.verdict,
+          posterior: c.posterior,
+          band: c.band,
+          markers: c.markers,
+          exclusive: c.exclusive,
+          why: c.why,
+        }
+      }
+      const o = callOneParentOrigin(otherPairs as never, ado)
+      // The rule takes the paternal call first, so the two are ordered by role rather than by
+      // which array happened to be loaded into which slot.
+      const bothCall = soloRole === 'paternal'
+        ? callBothParentsOrigin(c, o) : callBothParentsOrigin(o, c)
+      // Markers and exclusives stay those of the side the answer came from, so the evidence a
+      // reader checks by hand is the evidence the verdict rests on.
+      const side = bothCall.parent === soloRole ? c : o
       return {
         where: sg.label,
-        verdict: c.verdict,
-        posterior: c.posterior,
-        band: c.band,
-        markers: c.markers,
-        exclusive: c.exclusive,
-        why: c.why,
+        verdict: bothCall.verdict,
+        posterior: bothCall.posterior,
+        band: bothCall.band,
+        markers: side.markers,
+        exclusive: side.exclusive,
+        why: bothCall.why,
+        twoParents: true,
+        parent: bothCall.parent,
+        corroborated: bothCall.corroborated,
       }
     })
     for (const c of result.oneParent) {

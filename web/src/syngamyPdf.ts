@@ -723,25 +723,44 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         ]),
       )
     }
-    // PARENT OF ORIGIN, GENOTYPE CHANNEL. Present only on a single-parent run: with both parents
-    // loaded, dosage already names the side and these rows would restate it more weakly.
+    // PARENT OF ORIGIN, GENOTYPE CHANNEL.
     if (r.oneParent?.length) {
+      const two = r.oneParent.some((o) => o.twoParents)
       heading('Parent of origin, from genotypes', 8.6)
-      text('A marker where the loaded parent is homozygous and the sample carries the allele that '
+      text('A marker where a loaded parent is homozygous and the sample carries the allele that '
         + "parent does not have is Mendelian evidence that the parent's copy is absent: "
         + 'amplification removes alleles and cannot invent one. The exclusive count is that '
-        + 'evidence directly, and is checkable without trusting the model. Validated on a public '
-        + 'family trio with one parent hidden, 12 of 12 correct across dropout from 0.05 to 0.45.',
+        + 'evidence directly, and is checkable without trusting the model.',
+      7.4, 'Helvetica', 2.4, GREY)
+      text(two
+        // BOTH ARRAYS LOADED. The asymmetry is the reason this reads the way it does, and a
+        // reader deciding whether to act on a row needs the number that applies to it.
+        ? 'Both parental arrays were loaded, so each was asked only the question it can answer. '
+          + "This channel is right 0.8539 [0.6784, 1.0000] of the time about a loaded parent's OWN "
+          + 'copy being absent, and 0.2890 [0.1273, 0.4506] about the other parent\'s, measured on '
+          + 'material where the answer is known from dissection rather than from this tool. The '
+          + 'parent named below is taken only from the array that reported its own copy missing. '
+          + 'Where both arrays reported that, nothing is named: it asserts no parental copy at all, '
+          + 'which on amplified material is more often the array than the genome.'
+        : 'One parental array was loaded. This channel is right 0.8539 [0.6784, 1.0000] of the time '
+          + "about that array's OWN copy being absent and 0.2890 [0.1273, 0.4506] about the other "
+          + "parent's, so a row reading \u201cother parent lost\u201d is close to a coin flip. "
+          + 'Loading the second parental array puts every event on the reliable direction.',
       7.4, 'Helvetica', 2.4, GREY)
       table(
-        [{ head: 'Region', w: 150 }, { head: 'Verdict', w: 112 },
-          { head: 'Informative', w: 62, right: true },
-          { head: 'Exclusive', w: 58, right: true },
-          { head: 'Confidence', w: 108 }],
+        [{ head: 'Region', w: 138 }, { head: 'Verdict', w: 96 },
+          { head: 'Whose copy', w: 82 },
+          { head: 'Informative', w: 58, right: true },
+          { head: 'Exclusive', w: 54, right: true },
+          { head: 'Confidence', w: 92 }],
         r.oneParent.map((o) => [
           o.where,
           { v: o.verdict.replace(/-/g, ' '),
             colour: o.verdict === 'refused' ? GREY : INK },
+          { v: o.twoParents
+            ? (o.parent ? `${o.parent}${o.corroborated ? ', agreed' : ''}` : 'not named')
+            : 'see verdict',
+          colour: o.twoParents && o.parent ? INK : GREY },
           int(o.markers), int(o.exclusive),
           // This channel is capped at band B by construction, so it never prints "very confident".
           { v: Number.isFinite(o.posterior)

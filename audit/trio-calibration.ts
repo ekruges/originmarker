@@ -38,6 +38,7 @@ import { gunzipSync } from 'node:zlib'
 const W = new URL('../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const one = await import(`${W}oneParentOrigin.ts`)
+const both = await import(`${W}bothParentsOrigin.ts`)
 
 const DIR = process.env.OM_TRIOS
 if (!DIR || !existsSync(DIR)) {
@@ -309,6 +310,124 @@ function clustered(perArray: number[]): { mean: number; lo: number; hi: number }
       + `, correct verdict ${want.padEnd(18)} ${c.mean.toFixed(4)} `
       + `[${c.lo.toFixed(4)}, ${c.hi.toFixed(4)}] over ${perArray[arm as 'present' | 'absent'].length} arrays`)
     console.log(`      verdicts seen: ${JSON.stringify(seen[arm])}`)
+  }
+}
+
+// ------------------------------------------------- 3. BOTH PARENTS LOADED, which is the real run
+//
+// The Mendelian channel answers "the loaded parent's own copy is absent" at 0.8539 and "the other
+// parent's copy is absent" at 0.2890, on the same arrays and the same events. With both parental
+// arrays in hand every loss can be put to the side that makes it the first question. This measures
+// whether that actually works, on the same two arms as everything else: a set where the answer is
+// known, and a set where the correct answer is to say nothing.
+//
+// The rule under test is `web/src/bothParentsOrigin.ts`, the same function the tool calls. A rule
+// measured here and re-implemented there would be measuring a different rule.
+{
+  const donorsAll = recs.filter((r) => r.role === 'parent' && present(r.gsm)
+    && !CONTAMINATED.has(r.gsm)).map((r) => ({ id: r.gsm, title: r.title }))
+  const who = (title: string) => (/sperm/i.test(title) ? 'sperm'
+    : (/egg donor ([A-Z])/i.exec(title)?.[1] ?? title))
+  const resolve = (childId: string): { id: string; who: string } | null => {
+    const c = load(childId)
+    const scored = donorsAll.map((d) => {
+      const P = load(d.id)
+      let opp = 0
+      let n = 0
+      for (const [probe, cg] of c.gt) {
+        if (cg === 'AB') continue
+        const pg = P.gt.get(probe)
+        if (!pg || pg === 'AB') continue
+        n += 1
+        if (pg !== cg) opp += 1
+      }
+      return { ...d, who: who(d.title), rate: n ? opp / n : Infinity }
+    }).sort((a, b) => a.rate - b.rate)
+    const best = scored[0]
+    const next = scored.find((x) => x.who !== best.who)
+    if (!next || !(next.rate > best.rate * 2)) return null
+    return { id: best.id, who: best.who }
+  }
+
+  // --- DIRECTION. A pronucleus is missing exactly one parental complement and the dissection says
+  // which. The combined rule must name that parent.
+  const perArray: number[] = []
+  const named: Record<string, number> = {}
+  let wrongParent = 0
+  let unresolved = 0
+  for (const p of pronuclei) {
+    const child = load(p.gsm)
+    const res = resolve(p.gsm)
+    if (!res) { unresolved += 1; continue }
+    // A pronucleus resolving to the sperm donor is PATERNAL, so the MATERNAL copy is the missing
+    // one, and the reverse. Ground truth is the linkage plus the dissection, never this channel.
+    const paternalPn = res.who === 'sperm'
+    const wantParent = paternalPn ? 'maternal' : 'paternal'
+    const patId = paternalPn ? res.id : donorsAll.find((d) => who(d.title) === 'sperm')!.id
+    const matId = paternalPn ? donorsAll.find((d) => who(d.title) !== 'sperm')!.id : res.id
+    const patByChrom = pairsByChrom(load(patId), child)
+    const matByChrom = pairsByChrom(load(matId), child)
+    let right = 0
+    let n = 0
+    for (const c of CHROMS) {
+      const pp = patByChrom.get(c) ?? []
+      const mp = matByChrom.get(c) ?? []
+      if (pp.length < 200 || mp.length < 200) continue
+      const call = both.callBothParentsOrigin(
+        one.callOneParentOrigin(pp, ADO, Q), one.callOneParentOrigin(mp, ADO, Q),
+      ) as { verdict: string; parent: string | null }
+      named[call.verdict] = (named[call.verdict] ?? 0) + 1
+      n += 1
+      if (call.parent === wantParent) right += 1
+      else if (call.parent !== null) wrongParent += 1
+    }
+    if (n) perArray.push(right / n)
+  }
+  const d = clustered(perArray)
+  console.log('\n=== BOTH PARENTS LOADED, direction on the pronuclei')
+  console.log(`  correct parent named ${d.mean.toFixed(4)} [${d.lo.toFixed(4)}, ${d.hi.toFixed(4)}]`
+    + ` over ${perArray.length} arrays, ${unresolved} unresolved`)
+  console.log(`  WRONG PARENT NAMED: ${wrongParent}`)
+  console.log(`  verdicts: ${JSON.stringify(named)}`)
+
+  // --- SPECIFICITY. Real children with BOTH real parents loaded. Every autosome carries both
+  // copies by pedigree, so the only correct answer is to name nobody.
+  const SAMPLE2 = trios.slice(0, Number(process.env.OM_N ?? trios.length))
+  const spec: number[] = []
+  const specByMaterial: Record<string, number[]> = {}
+  const specVerdicts: Record<string, number> = {}
+  for (const t of SAMPLE2) {
+    const child = load(t.gsm)
+    const patByChrom = pairsByChrom(load(t.father!), child)
+    const matByChrom = pairsByChrom(load(t.mother!), child)
+    let bad = 0
+    let n = 0
+    for (const c of CHROMS) {
+      const pp = patByChrom.get(c) ?? []
+      const mp = matByChrom.get(c) ?? []
+      if (pp.length < 200 || mp.length < 200) continue
+      const call = both.callBothParentsOrigin(
+        one.callOneParentOrigin(pp, ADO, Q), one.callOneParentOrigin(mp, ADO, Q),
+      ) as { verdict: string; parent: string | null }
+      specVerdicts[call.verdict] = (specVerdicts[call.verdict] ?? 0) + 1
+      n += 1
+      if (call.parent !== null) bad += 1
+    }
+    if (n) {
+      spec.push(bad / n)
+      specByMaterial[t.material] ??= []
+      specByMaterial[t.material].push(bad / n)
+    }
+  }
+  const sc = clustered(spec)
+  console.log('\n=== BOTH PARENTS LOADED, specificity on real children')
+  console.log(`  a parent named where both copies are present: ${sc.mean.toFixed(4)} `
+    + `[${sc.lo.toFixed(4)}, ${sc.hi.toFixed(4)}] over ${spec.length} arrays`)
+  console.log(`  verdicts: ${JSON.stringify(specVerdicts)}`)
+  for (const m of Object.keys(specByMaterial).sort()) {
+    const c = clustered(specByMaterial[m])
+    console.log(`    ${m.padEnd(16)} n=${String(specByMaterial[m].length).padStart(3)}  `
+      + `${c.mean.toFixed(4)} [${c.lo.toFixed(4)}, ${c.hi.toFixed(4)}]`)
   }
 }
 

@@ -9,6 +9,79 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.22.0 "Reciprocal"
+
+**Load both parental arrays and every loss gets answered by the channel's reliable direction
+instead of half of them getting its unreliable one.** The Mendelian channel answers two questions
+and they were never equally answerable. Measured on the 14 linkage-resolvable pronuclei of
+GSE148488, 308 chromosomes, where exactly one parental complement is missing and which one is known
+from the dissection rather than from this tool:
+
+| loaded array | question | correct |
+|---|---|---|
+| its own copy is absent | `known-parent-lost` | 0.8539 [0.6784, 1.0000] |
+| the other parent's copy is absent | `other-parent-lost` | 0.2890 [0.1273, 0.4506] |
+
+Same arrays, same events, same code. The difference is structural: the first rests on alleles the
+loaded parent does not carry, and dropout cannot manufacture an allele; the second has to be read
+from heterozygosity that is not there, and missing heterozygosity is exactly what dropout produces.
+In the weak arm the channel returned both-copies-present on 172 of 308 chromosomes that carry no
+second parental complement at all.
+
+The tool loaded only the first parental array for this channel however many were supplied, so about
+half of all losses were answered by the direction that is wrong about seven times in ten. With both
+arrays each is now asked only the question it can answer: a paternal loss is a `known-parent-lost`
+when the father is loaded, a maternal loss when the mother is. On the same 14 pronuclei, both
+arrays loaded:
+
+    correct parent named   0.8539 [0.6784, 1.0000]   263 named, 45 refused
+    WRONG PARENT NAMED     0
+
+No likelihood is combined and no independence is assumed between the two readings, because they are
+two readings of one genome and are not independent. The rule selects which of two existing calls to
+believe, on a boundary fixed by a measurement that predates it. It was written before it was
+measured, deliberately: tuning it to these numbers would be fitting it to the set it is scored on.
+
+Where both arrays report their own copy absent, nothing is named. That asserts no parental copy is
+present at all, which is nullisomy, and on amplified material it is more often the array than the
+genome. Both answers cannot be true and picking one would be picking at random.
+
+**The cost, which is real and is on one material.** Two arrays are asked where one was, so each
+carries its own chance of a spurious answer. On the 76 usable trios, where every autosome carries
+both copies by pedigree and any named parent is therefore false:
+
+| material | arrays | one array | both arrays |
+|---|---|---|---|
+| trophectoderm | 36 | 0.0000 | 0.0000 |
+| esc-line | 16 | 0.0000 | 0.0000 |
+| esc-single | 4 | 0.0000 | 0.0000 |
+| blastomere | 19 | 0.0335 | 0.0813 |
+| pooled | 76 | 0.0084 | 0.0203 |
+
+Every false call in both arms is on a blastomere. On a trophectoderm biopsy or an ESC the second
+array costs nothing measurable. On a single cell it roughly doubles the false-call rate, from about
+one intact chromosome in thirty to about one in twelve. That arm scores every autosome, which is a
+worst case by construction: the shipped tool runs this channel only where another channel already
+detected an event, so what it is exposed to is a far smaller and already-selected population.
+
+**A gain still names nobody, and this is where that mattered.** Every channel underneath answers one
+question: whose copy is absent. On a loss that is the origin of the loss. On a gain they are
+opposites. An isodisomic trisomy carries three copies from one parent and none from the other, so
+the channel correctly reports the other parent's copy missing, and passing that through as the
+origin of a copy-gain would print the wrong parent at the confidence of a right one. The row is
+still shown, under a heading that says whose copy is absent; what is withheld is the leap from
+there to the origin of the gain, which needs the allelic ratio splitting one-third against
+two-thirds and is not measured here. The gate lives in the one function that resolves a row to a
+parent, and the event class is a required argument of it rather than an optional one.
+
+**`om origin` takes `--other`.** Both surfaces reach the same path, and the cross-surface check now
+runs a three-file case: a real event, both arrays, compared row for row between the browser's
+pipeline and the command line. On a real trophectoderm array with the paternal copy of chr16 and
+the maternal copy of chr20 removed, the shipped command line names paternal and maternal
+respectively, with one array and with two.
+
+---
+
 ## 5.21.0 "Blastomere"
 
 **A whole-chromosome detector that reads intensity had no sense of scale, and four arrays paid

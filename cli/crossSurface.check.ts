@@ -137,9 +137,10 @@ function synthesise(): { parent: string; sample: string } {
  * gone. That is what `callOneParentOrigin` reads, and it is the only fixture here that exercises
  * the verdict-to-parent mapping: the uniparental path names its parent without consulting it.
  */
-function synthesiseBiparental(): { parent: string; sample: string } {
+function synthesiseBiparental(): { parent: string; mother: string; sample: string } {
   const r = rng(20260821)
   const parent = [HEAD]
+  const mother = [HEAD]
   const sample = [HEAD]
   for (const chrom of CHROMS) {
     for (let i = 0; i < PER_CHROM; i += 1) {
@@ -154,6 +155,13 @@ function synthesiseBiparental(): { parent: string; sample: string } {
       // What the loaded parent transmitted, and what the other parent transmitted alongside it.
       const fromLoaded = pg === 1 ? (r() < 0.5 ? 0 : 1) : (pg === 0 ? 0 : 1)
       const fromOther = r() < OTHER_PARENT_SHARES ? fromLoaded : 1 - fromLoaded
+      // THE OTHER PARENT AS AN ARRAY, consistent with what she transmitted rather than drawn
+      // beside it: heterozygous at the same rate, and otherwise homozygous for the allele the
+      // sample received from her, so no marker asks her to transmit an allele she does not carry.
+      const mg = r() < PARENT_HET ? 1 : 2 * fromOther
+      mother.push([id, chrom, pos, (r() * 0.1 - 0.05).toFixed(4),
+        mg === 1 ? (0.5 + (r() - 0.5) * 0.06).toFixed(4) : (mg === 0 ? 0.02 : 0.98).toFixed(4),
+        '2.0', String(mg), '1'].join('\t'))
       // On a lost chromosome the loaded parent's allele is not there at all, so the sample is
       // homozygous for whatever the other parent gave: at a parent-AA marker that reads BB.
       const alleles = lost ? [fromOther, fromOther] : [fromLoaded, fromOther]
@@ -166,7 +174,9 @@ function synthesiseBiparental(): { parent: string; sample: string } {
         called ? String(sg) : '-1', '1'].join('\t'))
     }
   }
-  return { parent: parent.join('\n'), sample: sample.join('\n') }
+  return {
+    parent: parent.join('\n'), mother: mother.join('\n'), sample: sample.join('\n'),
+  }
 }
 
 // ---------------------------------------------------------------- surface A: the browser's path
@@ -188,7 +198,9 @@ function rowsOf(text: string) {
   return out
 }
 
-async function browserAnswer(parentText: string, sampleText: string, role = 'paternal') {
+async function browserAnswer(
+  parentText: string, sampleText: string, role = 'paternal', motherText?: string,
+) {
   const pacc = score.emptyParent()
   let byChrom = new Map(); let bafSums = ingest.emptyBafSums(); let first = ''
   for (const r of rowsOf(parentText)) {
@@ -200,17 +212,30 @@ async function browserAnswer(parentText: string, sampleText: string, role = 'pat
   const pProfile = ingest.finishProfile('parent', byChrom, bafSums, first)
   const pat = score.finishParent(pacc, pProfile.build.build)
 
-  const acc = score.emptyCollected(pat, null)
+  let mat = null
+  if (motherText) {
+    const macc = score.emptyParent()
+    let mChrom = new Map(); let mBaf = ingest.emptyBafSums(); let mFirst = ''
+    for (const r of rowsOf(motherText)) {
+      if (!mFirst) mFirst = r.probesetId
+      ingest.accumulate(r, mChrom)
+      ingest.accumulateBaf(r, mBaf)
+      score.collectParentRow(r, macc)
+    }
+    mat = score.finishParent(macc, ingest.finishProfile('mother', mChrom, mBaf, mFirst).build.build)
+  }
+
+  const acc = score.emptyCollected(pat, mat)
   byChrom = new Map(); bafSums = ingest.emptyBafSums(); first = ''
   for (const r of rowsOf(sampleText)) {
     if (!first) first = r.probesetId
     ingest.accumulate(r, byChrom)
     ingest.accumulateBaf(r, bafSums)
-    score.collectRow(r, pat, null, acc)
+    score.collectRow(r, pat, mat, acc)
   }
   const profile = ingest.finishProfile('sample', byChrom, bafSums, first)
   const result = await score.scoreSample({
-    acc, profile, pat, mat: null, soloRole: role, sibs: [], sampleName: 'sample',
+    acc, profile, pat, mat, soloRole: role, sibs: [], sampleName: 'sample',
     log: () => {},
   })
   return result
@@ -231,8 +256,13 @@ const comparable = (result: {
     })
   }
   for (const c of (result.oneParent ?? [])) {
-    const g = c as { where: string; verdict: string; band?: string }
-    const named = defects.parentNamed(g.verdict, role)
+    const g = c as {
+      where: string; verdict: string; band?: string
+      twoParents?: boolean; parent?: 'paternal' | 'maternal' | null
+    }
+    // The same resolution the command line performs. With both arrays loaded the parent is on the
+    // row, because it comes from which side reported its own copy absent.
+    const named = g.twoParents ? (g.parent ?? null) : defects.parentNamed(g.verdict, role)
     if (!named && rows.has(g.where)) continue
     rows.set(g.where, { verdict: g.verdict, origin: named, band: g.band })
   }
@@ -245,12 +275,13 @@ const comparable = (result: {
 
 // ---------------------------------------------------------------- surface B: the command line
 
-function cliAnswer(dir: string, role = 'paternal') {
+function cliAnswer(dir: string, role = 'paternal', otherFile?: string) {
   const outText = execFileSync(process.execPath, [
     '--experimental-strip-types',
     new URL('./om.ts', import.meta.url).pathname,
     'origin', join(dir, 'parent.probes'), join(dir, 'sample.probes'),
     '--role', role, '--json',
+    ...(otherFile ? ['--other', join(dir, otherFile)] : []),
   ], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   return JSON.parse(outText) as {
     originClass?: string; zygosity?: string
@@ -345,6 +376,56 @@ const cliComparable = (a: ReturnType<typeof cliAnswer>) => ({
     + `measured parent, identical on both surfaces (${web.zygosity})`)
 }
 
+
+// ---------------------------------------------------------------- 1c. BOTH PARENTAL ARRAYS
+//
+// The run the tool is actually for, and a distinct code path rather than a variation on the last
+// one. The Mendelian channel is right 0.8539 of the time about a loaded parent's OWN copy being
+// absent and 0.2890 about the other parent's, measured on material where the answer is known from
+// dissection, so with both arrays each is asked only the question it can answer. That selection
+// happens in scoreSample and had to reach the command line too, or the two surfaces would answer
+// the same three files differently.
+{
+  const { parent, mother, sample } = synthesiseBiparental()
+  const dir = mkdtempSync(join(tmpdir(), 'om-cross-two-'))
+  writeFileSync(join(dir, 'parent.probes'), parent)
+  writeFileSync(join(dir, 'mother.probes'), mother)
+  writeFileSync(join(dir, 'sample.probes'), sample)
+
+  const one = comparable(await browserAnswer(parent, sample) as never, 'paternal')
+  const web = comparable(await browserAnswer(parent, sample, 'paternal', mother) as never, 'paternal')
+  const cli = cliComparable(cliAnswer(dir, 'paternal', 'mother.probes'))
+
+  // DETECTION MUST NOT MOVE. A second parental array is evidence about origin, not about copy
+  // number. If the event list changes, something outside the origin channels read it.
+  assert.deepEqual(web.rows.map(([w]) => w).sort(), one.rows.map(([w]) => w).sort(),
+    'loading the second parent changed WHICH events were found, which it must not: '
+    + `${JSON.stringify(web.rows.map(([w]) => w))} against `
+    + `${JSON.stringify(one.rows.map(([w]) => w))}`)
+  assert.equal(web.zygosity, one.zygosity, 'and the genome-level call must not move either')
+
+  // AND THE PARENT IS STILL THE RIGHT ONE. The fixture removed the LOADED parent's copy, and the
+  // loaded parent is paternal, so every named row must read paternal on both surfaces. An inverted
+  // two-parent rule reads exactly like this and nothing else in this file would catch it.
+  const named = web.rows.filter(([, v]) => v.origin)
+  assert.ok(named.length >= 1,
+    `at least one event must name a parent with both arrays loaded. Got ${web.rows.length} `
+    + `event(s), ${named.length} named.`)
+  for (const [where, row] of named) {
+    assert.equal(row.origin, 'paternal',
+      `${where} is missing the PATERNAL copy by construction, so with both arrays loaded the `
+      + `paternal array is the one that can see it. Got ${row.origin}.`)
+  }
+
+  assert.deepEqual(cli.rows, web.rows,
+    'THE TWO SURFACES DISAGREE WITH BOTH PARENTAL ARRAYS LOADED. The command line reaches this '
+    + 'path through --other; if that flag is not wired to the same inputs, or the row is resolved '
+    + 'to a parent differently on the two sides, this is where it shows.')
+  assert.equal(cli.zygosity, web.zygosity)
+  console.log(`  both parental arrays: ${web.rows.length} event(s), ${named.length} naming a `
+    + 'parent from the array that can see it, identical on both surfaces')
+}
+
 // ---------------------------------------------------------------- 2. no third implementation
 //
 // A shared module only helps while it is the only caller. These are the channels that decide a
@@ -356,6 +437,7 @@ const cliComparable = (a: ReturnType<typeof cliAnswer>) => ({
     ['callDosageOrigin', 'dosageOrigin.ts'],
     ['uniparentalOrigin', 'uniparentalOrigin.ts'],
     ['callOneParentOrigin', 'oneParentOrigin.ts'],
+    ['callBothParentsOrigin', 'bothParentsOrigin.ts'],
   ]
   const src = new URL('../web/src/', import.meta.url).pathname
   const offenders: string[] = []

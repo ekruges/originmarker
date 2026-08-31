@@ -9,6 +9,7 @@
 import type { Segment } from './segments.ts'
 import type { DosageVerdict } from './dosageOrigin.ts'
 import type { OneParentVerdict } from './oneParentOrigin.ts'
+import type { BothParentsVerdict } from './bothParentsOrigin.ts'
 import type { GainAnnotation } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
@@ -113,6 +114,8 @@ export function defectsFrom(
   oneParent: readonly {
     where: string, verdict: string, posterior: number, markers: number, exclusive: number,
     why: string,
+    /** Set when both parental arrays were loaded, in which case the parent is on the row. */
+    twoParents?: boolean, parent?: 'paternal' | 'maternal' | null, corroborated?: boolean,
     /** Capped at B: this channel's failure mode is dropout, which is the same event as the
      *  observation, so no amount of evidence earns the top band. */
     band?: string,
@@ -142,7 +145,7 @@ export function defectsFrom(
     // rather than overriding: two parents remain the stronger evidence where both were loaded.
     const one = byOne.get(where)
     if (origin === 'unclear' && one) {
-      origin = parentNamed(one.verdict as OneParentVerdict, loadedParent) ?? origin
+      origin = mendelParent(one, loadedParent, sg.kind === 'copy-gain') ?? origin
     }
     // Dosage fills what genotypes could not reach. A whole chromosome is detected by its genotype
     // call rate collapsing, so on those events the genotype channel has no evidence left and this
@@ -358,7 +361,8 @@ export const originBlockedByClass = (kind: string): boolean =>
  * HERE, instead of a silent "no parent" at whichever call sites were not updated.
  */
 export function parentNamed(
-  verdict: DosageVerdict | OneParentVerdict, loaded: 'paternal' | 'maternal',
+  verdict: DosageVerdict | OneParentVerdict | BothParentsVerdict,
+  loaded: 'paternal' | 'maternal',
 ): 'paternal' | 'maternal' | null {
   const other = loaded === 'paternal' ? 'maternal' : 'paternal'
   switch (verdict) {
@@ -368,6 +372,13 @@ export function parentNamed(
     case 'other-parent':
     case 'other-parent-lost':
       return other
+    // THE TWO-PARENT VERDICTS NAME NOBODY HERE, and that is not an oversight. With both arrays
+    // loaded the parent is on the row itself, in `parent`, because it comes from which SIDE
+    // answered and no verdict string carries that. Read those rows with `mendelParent` below,
+    // never with this function alone. They are listed so the switch stays exhaustive: a new
+    // verdict anywhere becomes a compile error here rather than a silent "no parent".
+    case 'parent-lost':
+    case 'contradiction':
     // Every remaining verdict named nobody, whatever its reason for refusing.
     case 'both-present':
     case 'refused':
@@ -383,6 +394,46 @@ export function parentNamed(
     }
   }
 }
+
+/**
+ * The parent a Mendelian origin row names as the ORIGIN OF THE EVENT.
+ *
+ * ONE PLACE, because there are now two ways a row can carry a parent and a caller that knows about
+ * only one of them silently drops the other. With a single parental array the parent is derived
+ * from the verdict and the role of the array that was loaded. With BOTH arrays the parent is on the
+ * row, because it comes from which side reported its own copy absent, and that is not recoverable
+ * from a verdict string. See bothParentsOrigin.ts for why only that direction is believed.
+ *
+ * AND ON A GAIN IT NAMES NOBODY, WHICH IS WHY `isGain` IS REQUIRED RATHER THAN OPTIONAL.
+ *
+ * Every channel underneath answers ONE question: whose copy is ABSENT here. On a loss that is the
+ * origin of the loss and the two coincide. On a gain they are opposites, and the arithmetic is not
+ * subtle. An isodisomic trisomy carries three copies from one parent and none from the other, so
+ * the Mendelian channel correctly reports the other parent's copy missing; but with three copies
+ * present and none of them hers, the EXTRA copy is his. Passing that answer through as the origin
+ * of a copy-gain prints the wrong parent at the confidence of a right one.
+ *
+ * This is the same inversion that runs through this tool's history: a gain flips the sign map that
+ * loss and copy-neutral share, so any quantity read as "whose copy is affected" reverses meaning
+ * when the class changes. The row itself stays true and is still shown, under a heading that says
+ * whose copy is absent. What is withheld is the leap from that to the origin of the gain, which
+ * would need the allelic ratio splitting one-third against two-thirds and is not measured here.
+ */
+export function mendelParent(
+  row: {
+    verdict: string
+    parent?: 'paternal' | 'maternal' | null
+    twoParents?: boolean
+  },
+  loaded: 'paternal' | 'maternal',
+  /** Whether the event at this locus is a copy GAIN. Required: see above. */
+  isGain: boolean,
+): 'paternal' | 'maternal' | null {
+  if (isGain) return null
+  if (row.twoParents) return row.parent ?? null
+  return parentNamed(row.verdict as OneParentVerdict, loaded)
+}
+
 
 /**
  * Did the dosage channel NAME a parent?

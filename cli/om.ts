@@ -16,6 +16,8 @@
  *
  *   om stage      <array>                  what material an array is, and the dropout it implies
  *   om origin     <parent> <sample>        which parent's copy is missing, per region
+ *                 [--other <array>]       the other parent, which puts every event on the
+ *                                         reliable direction rather than half of them
  *   om link       <parent> <sample>...     first-degree, sibling, duplicate, or unrelated
  *   om cohort     <dir> --ref <array>      origin for every confirmed child in a directory
  *   om census     <dir>                    haploid products per group, for reconstruction
@@ -388,21 +390,24 @@ function loadParent(path: string) {
 async function scoreWithParent(
   parent: ReturnType<typeof loadParent>, samplePath: string, role: 'paternal' | 'maternal',
   onLog: (tag: string, text: string) => void = () => {},
+  /** The OTHER parent's array, when the caller has it. See `--other` on `om origin`. */
+  other?: ReturnType<typeof loadParent>,
 ) {
-  const acc = score.emptyCollected(parent.pat as never, null)
+  const mat = other ? other.pat : null
+  const acc = score.emptyCollected(parent.pat as never, mat as never)
   const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
   for (const r of readRows(samplePath)()) {
     if (!first) first = r.probesetId
     ingest.accumulate(r as never, byChrom as never)
     ingest.accumulateBaf(r as never, bafSums as never)
-    score.collectRow(r as never, parent.pat as never, null, acc as never)
+    score.collectRow(r as never, parent.pat as never, mat as never, acc as never)
   }
   const profile = ingest.finishProfile(idOf(samplePath), byChrom as never, bafSums as never, first)
   const result = await score.scoreSample({
-    acc, profile, pat: parent.pat, mat: null, soloRole: role, sibs: [],
+    acc, profile, pat: parent.pat, mat: mat as never, soloRole: role, sibs: [],
     sampleName: idOf(samplePath), log: onLog, stageOpts: stageOpts(),
   })
-  return { id: idOf(samplePath), refId: parent.id, profile, result }
+  return { id: idOf(samplePath), refId: parent.id, otherId: other?.id, profile, result }
 }
 
 interface OriginRow {
@@ -437,9 +442,11 @@ function originRows(
   for (const c of (result.oneParent ?? [])) {
     const g = c as {
       where: string, verdict: string, band?: string, posterior?: number, markers?: number,
-      why: string,
+      why: string, twoParents?: boolean, parent?: 'paternal' | 'maternal' | null,
     }
-    const named = parentNamed(g.verdict, role)
+    // With both arrays loaded the parent is on the row, because it comes from which side reported
+    // its own copy absent and no verdict string carries that.
+    const named = g.twoParents ? (g.parent ?? null) : parentNamed(g.verdict, role)
     const prior = byWhere.get(g.where)
     if (!named && prior) continue
     byWhere.set(g.where, {
@@ -454,7 +461,9 @@ function originRows(
 const scoreArray = async (
   refPath: string, samplePath: string, role: 'paternal' | 'maternal',
   onLog?: (tag: string, text: string) => void,
-) => scoreWithParent(loadParent(refPath), samplePath, role, onLog)
+  otherPath?: string,
+) => scoreWithParent(loadParent(refPath), samplePath, role, onLog,
+  otherPath ? loadParent(otherPath) : undefined)
 
 
 // ------------------------------------------------------------------ commands
@@ -538,29 +547,39 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
   async origin() {
     const [refPath, samplePath] = args.positional
     if (!refPath || !samplePath) {
-      die('usage: om origin <parent> <sample> [--role paternal|maternal] [--json]')
+      die('usage: om origin <parent> <sample> [--other <array>] '
+        + '[--role paternal|maternal] [--json]')
     }
     const role = (args.flags.get('role') ?? 'paternal') as 'paternal' | 'maternal'
     if (role !== 'paternal' && role !== 'maternal') die('--role must be paternal or maternal')
+    // THE OTHER PARENT'S ARRAY, and supplying it changes the answer rather than decorating it.
+    // The Mendelian channel is right 0.8539 about a loaded parent's OWN copy being absent and
+    // 0.2890 about the other parent's, so with one array roughly half of all losses are answered
+    // by the unreliable direction. With both, each array is asked only the question it can answer.
+    const otherPath = args.flags.get('other')
+    if (otherPath && otherPath === refPath) die('--other must be the OTHER parent, not the same array')
 
     // THE SAME RUN THE BROWSER PERFORMS. Every channel, every guard and every refusal comes from
     // scoreSample, so this cannot answer differently from the app on the same file.
     const verbose = args.bools.has('verbose')
-    const { id, refId, result } = await scoreArray(refPath, samplePath, role, (tag, text) => {
+    const { id, refId, otherId, result } = await scoreArray(refPath, samplePath, role, (tag, text) => {
       if (verbose && !JSON_OUT) process.stderr.write(`  [${tag}] ${text}\n`)
-    })
+    }, otherPath)
 
     const st = result.stage as { stage: string, dropout: number, basis: string } | undefined
     const rows = originRows(result as never, role)
 
     out({
-      reference: refId, sample: id, role,
+      reference: refId, otherParent: otherId, sample: id, role,
       stage: st?.stage, dropout: st?.dropout, dropoutSource: st?.basis,
       originClass: (result as { originClass?: string }).originClass,
       zygosity: (result as { zygosity?: string }).zygosity,
       events: rows,
     }, () => {
-      process.stdout.write(`${id} against ${refId} as the ${role} parent\n`)
+      process.stdout.write(`${id} against ${refId} as the ${role} parent`
+        + (otherId
+          ? ` and ${otherId} as the ${role === 'paternal' ? 'maternal' : 'paternal'} one\n`
+          : '\n'))
       process.stdout.write(`  material ${st?.stage ?? 'unknown'}`
         + `, dropout ${Number.isFinite(st?.dropout) ? st!.dropout.toFixed(3) : 'not assigned'}`
         + ` (${st?.basis ?? 'none'})\n`)
@@ -941,7 +960,8 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
 
   om stage       <array>                  material, dropout, marker floor
   om link        <parent> <sample>...     first-degree, sibling, duplicate, or unrelated
-  om origin      <parent> <sample>        which parent's copy is missing, per region
+  om origin      <parent> <sample> [--other <array>]
+                                         which parent's copy is missing, per region
   om cohort      <dir> --ref <array>      origin for every confirmed child in a directory
   om census      <dir>                    haploid products per group
   om reconstruct <product>...             a parent's genotypes from that parent's haploid cells

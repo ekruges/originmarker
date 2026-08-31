@@ -43,9 +43,8 @@ import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
-import { defectsFrom, findingToDefect, parentNamed, withMechanism } from './defects'
+import { defectsFrom, findingToDefect, mendelParent, parentNamed, withMechanism } from './defects'
 import type { DosageVerdict } from './dosageOrigin'
-import type { OneParentVerdict } from './oneParentOrigin'
 import { groupUnits, unitsCarrying, callUniformity } from './abnormalities'
 import { stageFacts } from './stage'
 /**
@@ -120,9 +119,8 @@ function defectsForResult(r: ParentageResult) {
     // the dosage channel's band D on the same material. It asks whether an allele is there at all
     // rather than whether a mean has moved, so it needs no detection floor.
     const mendel = (r.oneParent ?? []).find((o: { where: string }) => o.where === `chr${c.chrom}`)
-    const mendelParent = mendel
-      ? parentNamed(mendel.verdict as OneParentVerdict, r.role) : null
-    const origin = mendelParent
+    const named = mendel ? mendelParent(mendel, r.role, c.aneuploidy === 'gain') : null
+    const origin = named
       ?? (c.aneuploidyParent === 'this' ? r.role
         : c.aneuploidyParent === 'other' ? other
           : (scored && parentNamed(scored.verdict as DosageVerdict, r.role)) || 'unclear')
@@ -133,15 +131,15 @@ function defectsForResult(r: ParentageResult) {
       kind: c.aneuploidy === 'gain' ? 'copy-gain' : 'copy-loss',
       locus: `chr${c.chrom}`,
       origin,
-      band: mendelParent ? mendel?.band : scored?.band,
-      confidence: mendelParent ? mendel?.posterior : scored?.confidence,
+      band: named ? mendel?.band : scored?.band,
+      confidence: named ? mendel?.posterior : scored?.confidence,
       inheritedMargin: (scored as { inheritedMargin?: number } | undefined)?.inheritedMargin,
       stage: r.stage?.stage,
       why: `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
         + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest. An intact `
         + 'chromosome calls at 0.78x to 1.16x of its genome median and never leaves -0.79 to +0.42 '
         + `log2, measured over 1,012 chromosomes.`
-        + `${mendelParent ? ` ${mendel?.why}` : ''}${scored?.why ? ` ${scored.why}` : ''}`,
+        + `${named ? ` ${mendel?.why}` : ''}${scored?.why ? ` ${scored.why}` : ''}`,
     } as never
   })
 

@@ -673,6 +673,16 @@ export interface ParentageResult {
     markers: number
     exclusive: number
     why: string
+    /**
+     * Set when BOTH parental arrays were loaded, in which case `verdict` is a BothParentsVerdict
+     * and the parent is on the row rather than derivable from the verdict and a role. Resolve
+     * either shape with `mendelParent`, never with `parentNamed` alone.
+     */
+    twoParents?: boolean
+    /** The parent whose copy is missing. Two-parent rows only. */
+    parent?: 'paternal' | 'maternal' | null
+    /** Whether the other array independently pointed at the same parent, by the weak direction. */
+    corroborated?: boolean
   }[]
   /**
    * Whole-chromosome origin, read from ALLELE DOSAGE rather than genotypes.
