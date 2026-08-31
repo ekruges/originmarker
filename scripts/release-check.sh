@@ -87,8 +87,14 @@ if [ -n "$arrays" ]; then
   printf '%s\n' "$arrays" | sed 's/^/    /'
   fails=$((fails + 1))
 fi
-# Five digits, a dash, two digits, an underscore, two digits, which is the shape these carry.
-ids=$(git grep -lE '[0-9]{5}-[0-9]{2}_[0-9]{2}' -- . ':!CHANGELOG.md' 2>/dev/null || true)
+# THE PATTERNS ARE ENUMERATED FROM THE CORPUS, NOT GUESSED. The first version of this guard knew
+# only the commonest shape, five digits then a dash then two then two, and reported a clean tree
+# while two tracked files carried an identifier of a different shape. Listing every basename in the
+# corpus and collapsing its digit runs gives seven shapes; these are the ones that are specific
+# enough to match nothing else. A shape absent here is a shape this guard cannot see, so widen it
+# by re-enumerating rather than by inventing a pattern.
+ids=$(git grep -lE '[0-9]{4,6}-[0-9]{1,2}_[0-9]{1,3}|_chr[0-9]+[a-z]*_[A-Z][0-9]+__[0-9]+|[0-9]+_[A-Z][0-9]+-[0-9]+_[0-9]+[pq]X[pq]_[0-9]+|\bH[0-9]+_[0-9]+_X[pq]_[0-9]+' \
+  -- . ':!CHANGELOG.md' ':!scripts/release-check.sh' 2>/dev/null || true)
 if [ -n "$ids" ]; then
   say "A LAB SAMPLE IDENTIFIER APPEARS IN TRACKED FILES:"
   printf '%s\n' "$ids" | sed 's/^/    /'

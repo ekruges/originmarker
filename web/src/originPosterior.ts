@@ -39,11 +39,14 @@
  * on blastomere. That is the difference between a calibrated score and an uncalibrated one, not a
  * refinement.
  *
- * WHAT IS MEASURED HERE AND WHAT IS INHERITED. The algebra, the sign convention and the band
- * arithmetic are computed here and checked in originPosterior.check.ts. The band accuracies and the
- * wrong-parent rates come from a methods review that ran 276,480 real-noise injections over 14
- * arrays of this platform with leave-one-array-out recalibration (audit/CONSULT-calibrated-origin.txt,
- * audit/bands_measured.csv), and are inherited.
+ * WHAT IS MEASURED HERE, WHAT IS INHERITED, AND WHAT CANNOT BE REPRODUCED AT ALL. The algebra, the
+ * sign convention and the band arithmetic are computed here and checked in originPosterior.check.ts.
+ * The wrong-parent rates are inherited from a methods review that ran 276,480 real-noise injections
+ * over 14 arrays of this platform with leave-one-array-out recalibration
+ * (audit/CONSULT-calibrated-origin.txt). The band accuracies are a weaker case and are handled as
+ * one: the review's table, `audit/bands_measured.csv`, arrived as a file with NO PRODUCER IN THIS
+ * TREE, so most of its cells cannot be re-derived. BAND_ACCURACY below carries that fact per cell
+ * rather than in prose.
  *
  * THE RECALIBRATION MAPS ARE NOT SHIPPED, because they were not delivered and could not honestly be
  * refitted: the corpus here carries no material labels, and the tool's own staging separates ploidy
@@ -195,24 +198,32 @@ export type Band = 'A' | 'B' | 'C' | 'D' | 'F'
 /**
  * THE FLOOR OF THE LADDER, AND THE REASON NOTHING LEAVES WITHOUT A GRADE.
  *
- * A to D are measured: each was calibrated against the injection series and each carries its own
- * accuracy. F is not. F means a parent was named from evidence that does not reach the weakest
- * measured band, or from no interval evidence at all, and it exists so that "we could not say"
+ * A to D are GRADES THAT MAY CARRY AN ACCURACY; F is the grade that exists to say one is not
+ * available. Which A-to-D cells actually carry a reproducible accuracy is settled per cell in
+ * BAND_ACCURACY, and most of them do not. F means a parent was named from evidence that does not
+ * reach the weakest graded band, or from no interval evidence at all, so that "we could not say"
  * stops being a different KIND of output from "we could say". A reader scanning a column of
  * grades sees F and knows the row is unusable, which a blank field, a dash, or the phrase "not
  * evaluable" never conveyed as directly.
  *
- * IT NAMES NO PARENT, AND THAT IS MEASURED RATHER THAN CAUTIOUS. An injection series on real
- * arrays, 600-marker regions displaced by exactly the shift a known parent's copy being affected
- * produces, recovers the parent 0.51 to 0.56 of the time in this band. That is not weak evidence,
- * it is evidence pointing the wrong way, and naming a parent from it is worse than saying nothing.
+ * IT NAMES NO PARENT, AND THAT IS STRUCTURAL RATHER THAN A THRESHOLD. BOTH CHANNELS, and it took
+ * two changes to get there, because the ladder is shared and the guard was not. `callDosageOrigin`
+ * has returned `imbalance-unassigned` for every band-F row since 5.19.0; `callOneParentOrigin`
+ * returned `refused` only when its raw posterior missed the calling bar, so a run that was decisive
+ * under the model and knocked down to chance by SYSTEMATIC_ERROR_BOUND still named a parent in
+ * band F. Measured through the shipped composition, `other-parent-lost` at reported 0.4824 and
+ * 0.5291. It now refuses on the band as well.
  *
- * The mechanism is not mysterious and the series identifies it exactly: EVERY call landing in this
- * band has an UNRESOLVED class: 1,693 of 1,693 without the intensity channel and 195 of 195 with
- * it, so the mechanism holds under both. A gain inverts the sign map
- * that loss and copy-neutral loss of heterozygosity share, so with the class unresolved the
- * direction of the shift does not determine the parent at all, and the accuracy dips furthest below
- * chance at the moderate fractions where both classes remain live: 
+ * So no band-F row from either channel reaches a caller carrying a parent, and there is NO ACCURACY
+ * FOR A NAMED PARENT IN THIS BAND, because there are no named parents in it to be right or wrong:
+ * the quantity does not exist, and any figure quoted for it describes a caller this tree no longer
+ * contains. See BAND_F_AT_CHANCE for the superseded figures and the run that retired them.
+ *
+ * The mechanism is not mysterious and the injection series identifies it exactly: EVERY call landing
+ * in this band has an UNRESOLVED class: 1,693 of 1,693 without the intensity channel and 195 of 195
+ * with it, so the mechanism holds under both. A gain inverts the sign map that loss and copy-neutral
+ * loss of heterozygosity share, so with the class unresolved the direction of the shift does not
+ * determine the parent at all. That is why the withhold is unconditional rather than a low score.
  *
  * So an F row reports the event, its location and its class, and states that the parent is not
  * recoverable. Every row still carries a grade, which is what stops a refusal being a different
@@ -225,8 +236,9 @@ export const BAND_B_MIN = 0.90
 export const BAND_C_MIN = 0.75
 
 export const bandOf = (confidence: number): Band => {
-  // A confidence that is not a number at all is not band D, which is a MEASURED band with a
-  // measured accuracy of about 0.62. It is F.
+  // A confidence that is not a number at all is not band D. On the three amplified materials D is
+  // the one band whose accuracy this tree can still reproduce, 0.58 to 0.68, and handing an ungraded
+  // row that number is exactly the borrowing F exists to stop. It is F.
   if (!(confidence >= 0)) return 'F'
   if (confidence >= BAND_A_MIN) return 'A'
   if (confidence >= BAND_B_MIN) return 'B'
@@ -244,64 +256,107 @@ export const BAND_LABEL: Record<Band, string> = {
 }
 
 /**
- * Measured accuracy per band per material, from the injection experiment.
- *
- * Array-clustered, matching audit/bands_measured.csv. A naive Wilson interval on pooled rows is 3.5
- * to 5.8x too narrow on amplified material, because rows from one array are not independent.
- */
-/**
  * F IS ABSENT FROM THIS TABLE ON PURPOSE, and the type says so rather than the comment alone.
  *
- * A to D were each measured against the injection series. F was not, because F is the grade for
- * evidence that reaches no measured band, so there is no cell to fill. Typing it as a complete
- * record would have required inventing a number for the one grade that exists to say a number is
- * not available.
+ * A to D each have a cell, whether or not an experiment has filled it; the provenance table below
+ * says which. F has no cell at all, because F is the grade for evidence that reaches no graded
+ * band. Typing it as a complete record would have required inventing a number for the one grade
+ * that exists to say a number is not available.
  */
 export type MeasuredBand = Exclude<Band, 'F'>
 
 /**
- * Measured accuracy per band per material, from injection.
+ * The producer for the cells this tree can regenerate. Anything else has none.
  *
- * TWO SERIES, EACH USED WHERE IT IS VALIDATED. The original series measured A to D with D defined
- * as everything below 0.75, because that was the whole tail when it was made. Carving F out of that
- * tail at 0.55 left D's number describing a range it no longer covers.
- *
- * A second series (`audit/measure-bands.ts`, output in `audit/bands_measured_f_series.csv`) splits
- * them. It derives the true allele fraction by counting copies rather than by asking the caller,
- * takes each array's own error from its spread around 0.5 at informative sites, applies allele
- * dropout in runs of two, and supplies the intensity channel with the array's measured
- * WINDOW-level log2R spread as its error rather than the per-marker spread over root n, because
- * log2R is spatially correlated and 600 markers are nowhere near 600 independent readings.
- *
- * Against the original it reproduces band A within 0.005 and band D within 0.06 on every material
- * it covers, and runs optimistic at B and C, returning 1.000 and up to +0.18. So D is taken from
- * the new series, which measures the range D now actually spans, and A, B and C stay on the
- * original, which is the harder measurement where the new one flatters.
- *
- * Bulk keeps its original D: only one bulk array is available, and a single array cannot give a
- * clustered interval, so that cell is still the pooled figure and is marked as such.
+ * A cell is only as good as the script that makes it. This script is committed here, takes a
+ * directory of real arrays, and writes the CSV beside it, so a figure attributed to it can be read
+ * back to the code that produced it. It expects the tab-separated probe export, not the
+ * comma-separated GEO one, so re-running it needs the matching format.
  */
-export const BAND_ACCURACY: Record<Material, Record<MeasuredBand, number>> = {
-  // D here is still the pooled sub-0.75 figure. See above.
-  bulk: { A: 0.9972, B: 0.9599, C: 0.8375, D: 0.6038 },
-  'esc-single': { A: 0.9980, B: 0.9481, C: 0.8219, D: 0.5824 },
-  trophectoderm: { A: 0.9952, B: 0.9491, C: 0.8138, D: 0.6510 },
-  blastomere: { A: 0.9971, B: 0.9448, C: 0.8128, D: 0.6775 },
-}
+const F_SERIES = 'audit/measure-bands.ts -> audit/bands_measured_f_series.csv'
 
 /**
- * What band F is worth, which is nothing, and the correction to how that was first stated.
+ * Band accuracy per material, PAIRED WITH THE PRODUCER THAT MAKES IT, or with nothing.
  *
- * 5.14.0 reported this band BELOW chance, at 0.51 to 0.56. That measurement was made with no
- * intensity channel supplied at all, which is not a condition any real array is in: intensity is
- * what resolves the copy-number class, and with the class never resolvable every call either had a
- * shift so large the class did not matter or fell here. Supplying the intensity channel with its
- * measured window-level error, F measures 0.51 to 0.56. At chance.
+ * WHY THE PROVENANCE IS PART OF THE CONSTANT RATHER THAN A COMMENT ABOVE IT. A, B and C on every
+ * material, and all four bulk cells, were read out of `audit/bands_measured.csv`. That file was
+ * added whole in one commit and NO SCRIPT IN THIS TREE PRODUCES IT: the numbers cannot be
+ * reproduced, re-derived, or checked against the code they describe. `audit/measure-bands.ts`
+ * writes a different file and covers only the three amplified materials, and its own header records
+ * that its A, B and C figures use the caller's own forward model and are optimistic by construction
+ * (it returns 1.0000 at A and B), so it is not a substitute for the delivered ones either.
  *
- * The conclusion is unchanged and the reason is better. A band at chance carries no information
- * about which parent it was, so F names no parent. It is reported here rather than in
- * BAND_ACCURACY because a reader should not be handed a number that means "this is a coin flip"
- * in a column of numbers that mean "this is how often it is right".
+ * A NUMBER WITHOUT A PRODUCER IS NOT A MEASUREMENT, IT IS A CLAIM, and the difference matters
+ * exactly here: this table is the answer to "how often is a grade right", which is the question a
+ * reader asks before acting on a call. The delivered figures are kept in the source, because
+ * deleting them would lose the audit trail, but they are kept HERE, beside the empty producer that
+ * disqualifies them, rather than in a column of numbers that reads as calibrated.
+ *
+ * NO REPLACEMENT IS INVENTED, and none is available: the natural truth set on this platform, the
+ * separated pronuclei, is resolved at the genome level rather than per interval, so it emits no
+ * graded rows to score a band against. An unproduced cell resolves to NaN in BAND_ACCURACY below,
+ * which is the honest state, not a placeholder waiting for a guess.
+ */
+const DELIVERED: Record<Material, Record<MeasuredBand, readonly [number, string | null]>> = {
+  bulk: { A: [0.9972, null], B: [0.9599, null], C: [0.8375, null], D: [0.6038, null] },
+  'esc-single': { A: [0.9980, null], B: [0.9481, null], C: [0.8219, null], D: [0.5824, F_SERIES] },
+  trophectoderm: { A: [0.9952, null], B: [0.9491, null], C: [0.8138, null], D: [0.6510, F_SERIES] },
+  blastomere: { A: [0.9971, null], B: [0.9448, null], C: [0.8128, null], D: [0.6775, F_SERIES] },
+}
+
+const mapCells = <T>(f: (cell: readonly [number, string | null]) => T) =>
+  Object.fromEntries(Object.entries(DELIVERED).map(([m, row]) =>
+    [m, Object.fromEntries(Object.entries(row).map(([b, c]) => [b, f(c)]))],
+  )) as Record<Material, Record<MeasuredBand, T>>
+
+/**
+ * Which experiment stands behind each cell, or null where none does.
+ *
+ * Exported so a caller that wants to show a number can be required to show where it came from, and
+ * so a reader auditing the table does not have to take a docstring's word for which half is which.
+ */
+export const BAND_ACCURACY_PROVENANCE: Record<Material, Record<MeasuredBand, string | null>> =
+  mapCells(([, producer]) => producer)
+
+/**
+ * Accuracy per band per material, NaN wherever no experiment produced the cell.
+ *
+ * NaN is the point, not an oversight. It is the one numeric value that cannot be formatted into a
+ * confidence, compared into a threshold, or averaged into a summary without the result becoming NaN
+ * too, so an unproduced cell cannot leak into a printed figure by being read carelessly. A caller
+ * that legitimately wants the delivered value must go through BAND_ACCURACY_PROVENANCE first and
+ * find the null, which is exactly the check that was missing.
+ */
+export const BAND_ACCURACY: Record<Material, Record<MeasuredBand, number>> =
+  mapCells(([acc, producer]) => (producer ? acc : NaN))
+
+/**
+ * THE MEASUREMENT THAT RETIRED BAND F, AND WHY IT NO LONGER DESCRIBES THIS CODE.
+ *
+ * These are the injection-series accuracies for a caller that DID name a parent in band F, from
+ * `audit/measure-bands.ts` over 646, 565 and 904 band-F calls. They are at chance. That is the
+ * evidence on which 5.19.0 made `callDosageOrigin` return `imbalance-unassigned` for every band-F
+ * row instead of a parent.
+ *
+ * THEY ARE HISTORY, NOT A PROPERTY OF THE SHIPPED TOOL, and the distinction is the whole reason
+ * this note is worded this way. With the same withhold now in `callOneParentOrigin`, no band-F row
+ * from either channel can carry a parent, so "how often is a band-F parent right" has no referent:
+ * there is no such parent. Quoting 0.51 to 0.56 as the tool's band-F accuracy describes a caller
+ * this tree no longer contains, and reads as though a coin-flip answer were still being handed out.
+ *
+ * WHAT THE SHIPPED CODE DOES, ON REAL FILES. The 76 usable complete trios of GSE148488, scored
+ * through the shipped pipeline against the linkage-resolved parent, produced 37 band-F rows and
+ * named a parent in 0 of them. The same 76 against a deliberately unrelated adult in the same role
+ * produced 24 band-F rows and named a parent in 0 of them. Zero named in both arms, so there is no
+ * accuracy to report and none is reported.
+ *
+ * THE WRONG-PARENT ARM CANNOT SEPARATE HERE, AND THAT IS THE POINT rather than a failed control:
+ * the withhold is structural, so neither arm names anybody and there is nothing for parentage to
+ * move. A band-F figure that DID separate would mean the withhold had been reintroduced as a
+ * threshold, which is the state this note exists to prevent.
+ *
+ * Kept out of BAND_ACCURACY, as before, because a number meaning "this is a coin flip" does not
+ * belong in a column of numbers meaning "this is how often it is right".
  */
 export const BAND_F_AT_CHANCE: Partial<Record<Material, number>> = {
   'esc-single': 0.5257,
@@ -371,7 +426,49 @@ export interface PosteriorInput {
 
 export interface PosteriorOptions {
   /** Prior over the three classes. Defaults to uniform, which is what marginalising means here. */
+  /**
+   * A SOFT prior over the copy-number class. Never a point mass.
+   *
+   * THE TRAP THIS EXISTS TO DOCUMENT. The caller resolves the class from the same intensity and
+   * allele data this function then scores, so handing that estimate back as a hard prior conditions
+   * the posterior on a deterministic function of its own conditioning data. It adds no information
+   * and discards the uncertainty in the estimate, which makes the result OVERCONFIDENT: the band
+   * label becomes a lie rather than merely a wrong number.
+   *
+   * Measured over 6,000 simulated events, band A defined as confidence at or above 0.985:
+   *
+   *   prior                                band A n   band A acc   confidently wrong
+   *   uniform, intensity supplied            2913       0.9997        0.0002
+   *   SOFT, from the class likelihood        3607       0.9939        0.0037
+   *   HARD, on the ESTIMATED class           5243       0.8741        0.1100
+   *   HARD, on the TRUE class                5193       1.0000        0.0000
+   *
+   * A run that hard-conditions on the estimated class reports 0.8741 inside a band labelled 0.985
+   * and gets 11 percent of ALL events confidently wrong. The class estimated from this data is
+   * correct about 0.72 of the time; hard conditioning needs roughly 0.98 for band A to keep its
+   * label, which is two to three orders of magnitude of evidence away.
+   *
+   * An earlier attempt here wired the resolved class straight in and measured 48 of 48 correct at
+   * band A. That is the signature of the fourth row, not the third: it is what conditioning on the
+   * TRUE class looks like, and it is unreachable in production.
+   *
+   * So: a distribution, never a point mass, and only when the evidence behind it is not also being
+   * supplied to the likelihood. `assertSoft` below enforces the first half.
+   */
   classPrior?: Partial<Record<EventClass, number>>
+  /**
+   * Permit a point mass, for verifying a model identity. PRODUCTION MUST NEVER SET THIS.
+   *
+   * Exact cancellation of the intensity term between the two parental hypotheses is a property of
+   * the model at a fixed class and fraction, and demonstrating it needs the class actually fixed.
+   * That is a statement about the arithmetic, not a way to score a real event.
+   *
+   * It is a separate, awkwardly named flag rather than a looser threshold because the failure being
+   * guarded is a caller wiring in the class it just estimated. Nobody does that by writing
+   * `pointMassClassPrior: true`. originPosterior.check.ts asserts that no file outside a check sets
+   * it, so the backdoor cannot quietly become a door.
+   */
+  pointMassClassPrior?: boolean
   /** Fraction grid to marginalise over. Defaults to 0.01 to 0.70, the range the floors were measured on. */
   fGrid?: readonly number[]
   /** Per-material, per-class calibration maps. Without one the result is flagged uncalibrated. */
@@ -420,6 +517,15 @@ const DEFAULT_F_GRID: readonly number[] = Array.from({ length: 70 }, (_, i) => (
  * 0.5, which is the honest statement. The old code resolved that ambiguity by fiat, in favour of
  * loss, and was therefore confidently wrong on every gain.
  */
+/**
+ * Most weight one class may carry in a supplied prior.
+ *
+ * Above this the prior is a point mass in all but name. Set at the accuracy hard conditioning
+ * would need for band A to keep its label, 0.98, which the class estimate on this material does
+ * not come close to reaching.
+ */
+export const MAX_CLASS_PRIOR = 0.98
+
 export function originPosterior(
   input: PosteriorInput,
   opts: PosteriorOptions = {},
@@ -433,6 +539,21 @@ export function originPosterior(
     classPosterior: { loss: NaN, gain: NaN, 'cnn-loh': NaN }, classResolved: 'unresolved',
     limitedBy: 'none', why,
   })
+
+  // A POINT MASS IS REFUSED RATHER THAN HONOURED. See the note on classPrior: conditioning on a
+  // class estimated from this same data reports 0.8741 accuracy inside a band labelled 0.985. A
+  // caller that means to supply evidence about the class must supply its uncertainty with it.
+  const priorWeights: number[] = Object.values(prior)
+  const priorTotal = priorWeights.reduce((a, x) => a + x, 0)
+  const heaviest = priorTotal > 0
+    ? Math.max(...priorWeights.map((x) => x / priorTotal)) : 0
+  if (!opts.pointMassClassPrior && heaviest > MAX_CLASS_PRIOR) {
+    return bad(`a class prior putting ${heaviest.toFixed(3)} on one class is a point mass in all `
+      + `but name, over the ${MAX_CLASS_PRIOR} allowed. The class is estimated from the same data `
+      + 'this scores, so conditioning that hard on it discards the uncertainty in the estimate and '
+      + 'overstates the result. Supply a distribution, or nothing.')
+  }
+
   if (!Number.isFinite(shift) || !(shiftSd > 0)) {
     return bad('no self-referenced shift or no scale to read it against, so no posterior exists')
   }

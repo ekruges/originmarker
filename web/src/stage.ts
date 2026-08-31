@@ -185,6 +185,42 @@ const BOUNDS: { stage: Stage, minHet: number, dropout: number, templates: string
 ]
 
 /**
+ * The shipped parameters for a NAMED stage, with no array to read them off.
+ *
+ * For the path where the operator declares the material rather than the tool inferring it. The
+ * figures are the same ones inferStage assigns, read from the same table, so a declared stage and
+ * an inferred one of the same name are parameterised identically.
+ */
+export function stageDefaults(stage: Stage): StageCall {
+  const hit = BOUNDS.find((b) => b.stage === stage)
+  if (hit) {
+    return {
+      stage,
+      dropout: hit.dropout,
+      basis: 'stage-default',
+      templates: hit.templates,
+      markerFloor: hit.floor,
+      caveat: '',
+      why: `${stage} parameters, from the shipped table`,
+    }
+  }
+  if (stage === 'haploid') {
+    return {
+      stage, dropout: 0.02, basis: 'stage-default', templates: '1 chromatid', markerFloor: 200,
+      caveat: 'a heavily dropped-out or consanguineous diploid can also read this way',
+      why: 'haploid parameters, from the shipped table',
+    }
+  }
+  // failed and unknown name the absence of a call, so they carry the most conservative dropout
+  // measured on any stage rather than a figure that would flatter a likelihood.
+  return {
+    stage, dropout: stage === 'failed' ? NaN : 0.308, basis: 'none',
+    templates: stage === 'failed' ? 'not applicable' : 'unknown', markerFloor: 200,
+    caveat: '', why: `${stage} carries no stage parameters`,
+  }
+}
+
+/**
  * Call the stage from a sample's own profile.
  *
  * QUALITY IS GATED BEFORE PLOIDY, which is the ordering the audit required. A failed amplification

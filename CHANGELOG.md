@@ -9,6 +9,93 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.21.0 "Blastomere"
+
+**A whole-chromosome detector that reads intensity had no sense of scale, and four arrays paid
+for it.** 5.18.0 added intensity as a second entry channel because the call rate alone sees only a
+chromosome absent from the array: a chromosome at one copy still genotypes, and on bulk DNA it
+genotypes perfectly, so 0 of 271 constructed whole-chromosome events entered at all. The new
+channel compares a chromosome against the spread of the array's own chromosomes, which is the
+right null and carries no physical scale whatever. On a clean array that spread is around 0.005
+log2, so a shift of 0.15 clears any threshold built on it, and no copy state lives at 0.15.
+
+Over the 137 public arrays of GSE148488 the relative test alone took whole-chromosome events from
+39 to 43, and all four additions sat at absolute log2 ratio 0.20 to 0.33. Three copies against two
+is log2(3/2) = 0.585 and one against two is -1.0, so none of the four was at a state that exists.
+Technical replicates say what they were: GSM4472424, 25, 26 and 27 are four arrays of one
+trophectoderm biopsy and read +0.174, +0.201, +0.163 and +0.168 on chr19, and exactly one of them
+was called a gain. In the blastomere pair GSM4552427/28 the array with the smaller shift is the one
+flagged.
+
+Detection now asks both questions: is the shift wider than this array's own noise, and is it large
+enough to be a chromosome. The floor is 0.40, which sits under the smallest trisomy observed on
+real material of this corpus, 0.559 on trophectoderm, and over the largest false shift, 0.33. All
+four false calls go, the false-positive rate on 264 autosomes of adult bulk gDNA known to be at two
+copies returns to 0 of 264, every one of the other 47 events across the corpus is preserved
+unchanged, and constructed trisomies and monosomies on real bulk and trophectoderm arrays still
+detect with the correct direction. What the floor costs is stated where it is set: a trisomy
+present in under about 64 percent of cells reads below it and is not detected. That band is exactly
+where four arrays of one biopsy disagree with each other.
+
+**A gain was naming a parent, and the measurement behind the name reads nothing on a gain.** Which
+parent lost a copy is read from absence: how often the sample lacks an allele that parent had to
+transmit. A third copy removes nothing, so a sample with three copies is missing fewer alleles
+whichever parent supplied the extra one, and a maternal and a paternal trisomy both land in the
+same low-absence branch. The tool answered "the other parent" for both, in a sentence that also
+described the event as a loss. Gains now name no parent and say why. Whose extra copy it is comes
+from the allelic ratio splitting one-third against two-thirds, which this tool does not measure.
+
+**Band F named a parent in one of the two channels.** The dosage channel has withheld the parent in
+band F since a genome with no paternal contribution at all was told its paternal copy was the one
+lost. The genotype channel shares the band ladder and never had the guard: it refused only when its
+raw posterior missed the calling bar, so a region decisive under the model and knocked down to
+chance by the systematic error bound still printed a name. Measured through the shipped
+composition, `other-parent-lost` at reported confidence 0.4824 and 0.5291. Both now refuse. No row
+on real material moves, since 0 band-F rows named a parent across the 76 usable trios in either
+arm, so this closes a hole rather than changing an answer anyone has seen. The band ladder's own
+documentation had asserted the guard was structural for both channels; it is now.
+
+**An isodisomic trisomy was being deleted.** Runs of homozygosity are suppressed on a chromosome
+already called whole, because a chromosome at one copy is hemizygous end to end and the full-length
+run it produces would be classified as isodisomy, which asserts two copies from one parent on an
+event that has one. The filter ran on every aneuploid chromosome rather than only the one-copy
+ones, so a trisomy that is homozygous end to end lost its second finding. That is the
+trisomy-rescue and imprinting mechanism, a separate fact from the gain, and the gain row does not
+carry it. The filter now runs on losses.
+
+**The accuracy figures are measured over every usable trio, and split by material.** The
+specificity arm ran on the first 24 trios; it now runs on all 76 by default. More importantly it is
+no longer one number. A blastomere is one cell and a trophectoderm biopsy is five to ten, so they
+do not drop out at the same rate and cannot share a false-call rate, and the pooled figure is
+dominated by whichever material a dataset holds most of. On intact chromosomes of real children,
+where both-copies-present is correct by pedigree, with the true parent loaded and with an unrelated
+adult:
+
+| material | arrays | true parent | unrelated adult |
+|---|---|---|---|
+| trophectoderm | 36 | 0.0000 [0.0000, 0.0000] | 0.0025 |
+| esc-line | 16 | 0.0000 [0.0000, 0.0000] | 0.0057 |
+| esc-single | 4 | 0.0000 [0.0000, 0.0000] | 0.3523 |
+| blastomere | 19 | 0.0335 [0.0047, 0.0623] | 0.1555 |
+
+Read the blastomere row before using this on cleavage-stage material. About one chromosome in
+thirty comes back with a false loss on a genome that has both parental copies, against none in 792
+trophectoderm chromosome calls. The two arms still separate by a factor of 4.6, so the call is
+reading parentage and not noise, but a single blastomere call is one observation and not a result.
+Pooled, the true-parent arm is 0.0084 [0.0006, 0.0161] and the unrelated-adult arm 0.0598 [0.0230,
+0.0966], both over 76 arrays.
+
+The direction figures are unchanged and were reproduced on this run: with the loaded parent's own
+copy genuinely absent the call is right 0.8539 of the time, and with the other parent's copy absent
+0.2890. The asymmetry is structural. Absence of the loaded parent's allele is Mendelian and dropout
+cannot manufacture it; absence of the other parent's copy has to be read from heterozygosity that
+is not there, which is what dropout produces. The channel errs toward silence: across 308
+chromosomes of pronuclei with a non-parent loaded it named the wrong parent zero times, and across
+the matching arm it returned both-copies-present on 172 chromosomes that carry one parental
+contribution.
+
+---
+
 ## 5.20.0 "Amphimixis"
 
 **The browser and the command line were two programs answering one question, and they are now

@@ -15,6 +15,7 @@ import {
   callOneParentOrigin, informative, inferDropout, CALL_POSTERIOR, MIN_MARKERS, DEFAULT_Q,
   MAX_REGION_HET, DROP_IN, OBVIOUS_EVENT_ACCURACY,
 } from './oneParentOrigin.ts'
+import { parentNamed } from './defects.ts'
 import type { AB } from './informativity.ts'
 
 type Pair = readonly [AB, AB]
@@ -104,12 +105,27 @@ console.log('oneParentOrigin.check.ts: all assertions passed, including symmetry
   assert.ok(c.why.includes('not measuring'))
 
   // A real biparental region sits near the allele frequency and must still be scored.
+  //
+  // BUILT FROM DEFAULT_Q RATHER THAN WRITTEN DOWN. This fixture used to sit at 30 percent
+  // heterozygous, which was "expected" only because q was 0.30. At the measured q a real biparental
+  // region sits near 12 percent, and a fixture pinned to the old number asserts that a region twice
+  // the plausible heterozygosity must be scored, which is the opposite of what this guard is for.
+  const pct = Math.max(1, Math.round(DEFAULT_Q * 10))
   const real: [AB, AB][] = []
-  for (let i = 0; i < 2_000; i += 1) real.push(['AA', i % 10 < 3 ? 'AB' : 'AA'])
+  for (let i = 0; i < 2_000; i += 1) real.push(['AA', i % 10 < pct ? 'AB' : 'AA'])
   assert.notEqual(callOneParentOrigin(real, 0.30).verdict, 'refused',
-    'a region at the expected heterozygosity must still be called')
-  assert.ok(MAX_REGION_HET > 0.30 + DROP_IN,
-    'the ceiling must clear q plus drop-in, or real regions are refused')
+    `a region at the expected heterozygosity (${pct * 10}%, from q=${DEFAULT_Q}) must still be called`)
+
+  // And the ceiling must sit ABOVE that expectation with room, or it rejects real regions.
+  assert.ok(MAX_REGION_HET > DEFAULT_Q,
+    'the refusal ceiling must exceed the heterozygosity a real region shows, or every real region '
+    + `is refused: ceiling ${MAX_REGION_HET} against q ${DEFAULT_Q}`)
+  // DERIVED, NOT WRITTEN DOWN. This read `0.30 + DROP_IN`, which pinned the ceiling to a q that
+  // has since been measured at less than half that. A check that hardcodes the constant it is
+  // guarding cannot notice the constant being wrong.
+  assert.ok(MAX_REGION_HET > DEFAULT_Q + DROP_IN,
+    `the ceiling must clear q plus drop-in, or real regions are refused: `
+    + `${MAX_REGION_HET} against ${DEFAULT_Q} + ${DROP_IN}`)
 }
 
 console.log('oneParentOrigin.check.ts: dropout inference pinned across four stages')
@@ -122,20 +138,95 @@ console.log('oneParentOrigin.check.ts: dropout inference pinned across four stag
 // arrays, removing one parent's copy across a chromosome in both directions from the same array.
 {
   const m = OBVIOUS_EVENT_ACCURACY
-  assert.equal(m.usable.correct, 92)
-  assert.equal(m.usable.calls, 100)
-  // The split is load-bearing: it is why an array that fails its stage inference is excluded from
-  // reporting rather than reported weakly.
-  assert.ok(m.usable.perArray > m.rejected.perArray + 0.2,
-    `an array that resolves to a stage must call materially better than one that does not: `
-    + `${m.usable.perArray} against ${m.rejected.perArray}`)
-  assert.ok(m.rejected.perArray < 0.7,
-    'and the rejected set must be visibly poor, or excluding it would be unjustified')
-  // And it must beat the dosage channel's weakest measured band on the same material, or there
-  // would be no reason to prefer it on an obvious event.
-  assert.ok(m.usable.perArray > 0.7,
-    'this channel is preferred on obvious events because it measures better there')
-  console.log(`  obvious whole-chromosome events: ${m.usable.correct}/${m.usable.calls} correct, `
-    + `per-array ${m.usable.perArray} on arrays that resolve to a stage, `
-    + `${m.rejected.perArray} on those that do not`)
+
+  // THE WRONG-PARENT ARM MUST BE WORSE. This is the assertion the old figure could never have
+  // passed: its harness scored 44 of 44 with the true father, the true mother, and two arrays that
+  // are not parents at all. A parental measurement whose control does not move is not a parental
+  // measurement, and this check exists so that can never ship again.
+  assert.ok(m.specificityWrongParent.falseCallRate > m.specificity.falseCallRate * 3,
+    'loading an unrelated adult must produce materially more false calls than loading the real '
+    + `parent: ${m.specificityWrongParent.falseCallRate} against ${m.specificity.falseCallRate}. `
+    + 'If these are close, the number is measuring the construction rather than the parentage.')
+  // And the intervals must not overlap, or the separation is not established.
+  assert.ok(m.specificityWrongParent.lo > m.specificity.hi,
+    'the two arms\' intervals must be disjoint for the separation to be claimed')
+
+  // THE DIRECTIONS ARE NOT EQUALLY RELIABLE, and the reporting layer depends on knowing which.
+  // Absence of the loaded parent's allele is Mendelian and dropout cannot manufacture it. Absence
+  // of the OTHER parent's copy is read from heterozygosity that is not there, which is exactly what
+  // dropout produces, so it is far weaker on amplified material.
+  assert.ok(m.knownParentLost.accuracy > 0.8,
+    `known-parent-lost is the reportable direction: ${m.knownParentLost.accuracy}`)
+  assert.ok(m.otherParentLost.accuracy < 0.5,
+    'other-parent-lost is NOT reportable on this material, and a figure above 0.5 here would mean '
+    + `the asymmetry had changed and the reporting rules must be revisited: ${m.otherParentLost.accuracy}`)
+  assert.ok(m.knownParentLost.accuracy > m.otherParentLost.accuracy * 2,
+    'the asymmetry between the two directions is the finding, not an artefact')
+
+  // Every figure carries the array count it was clustered over, since many calls from one array
+  // are one array. The per-material split is one level deeper and its rows are smaller by
+  // construction: 76 arrays across five materials cannot each rest on 12.
+  for (const [k, v] of Object.entries(m)) {
+    if (k === 'specificityByMaterial') continue
+    assert.ok((v as { arrays: number }).arrays >= 12,
+      `${k} must state how many independent arrays it rests on`)
+  }
+  let split = 0
+  for (const [k, v] of Object.entries(m.specificityByMaterial)) {
+    assert.ok(v.arrays >= 1, `${k} must state its array count`)
+    split += v.arrays
+    // Each row is a rate with an interval, and its wrong-parent arm alongside it, or it cannot be
+    // read without going back to the pooled figure it exists to replace.
+    assert.ok(v.falseCallRate >= 0 && v.falseCallRate <= 1 && v.hi >= v.lo)
+    assert.ok(v.wrong >= v.falseCallRate,
+      `${k}: the unrelated-adult arm must not be BETTER than the true-parent arm`)
+  }
+  assert.ok(split >= 70 && split <= m.specificity.arrays,
+    `the split must account for the arrays the pooled figure rests on: ${split} of `
+    + `${m.specificity.arrays}`)
+  // AND THE MATERIALS ARE NOT INTERCHANGEABLE, which is the reason the split exists. One cell
+  // against five to ten is an order of magnitude in the error rate, and quoting the pooled number
+  // on a blastomere understates it by four times.
+  const blast = m.specificityByMaterial.blastomere
+  const te = m.specificityByMaterial.trophectoderm
+  assert.ok(blast.falseCallRate > te.falseCallRate,
+    'a single cell cannot have the same false-call rate as a biopsy of several; if these ever '
+    + 'match, the measurement has stopped separating them')
+  assert.ok(blast.falseCallRate > m.specificity.falseCallRate * 2,
+    'the pooled figure materially understates a blastomere, which is why callers must quote the '
+    + `row: pooled ${m.specificity.falseCallRate} against blastomere ${blast.falseCallRate}`)
+}
+
+// --- BAND F NAMES NOBODY IN THIS CHANNEL EITHER -------------------------------------------------
+//
+// The dosage channel has withheld the parent in band F since a gynogenetic sample, a genome with no
+// paternal contribution at all, was told its paternal copy was the one lost. This channel shares the
+// band ladder and did not share the guard: it refused only when its RAW posterior missed the calling
+// bar, so a run decisive under the model and knocked to chance by the systematic bound still printed
+// a parent. audit/requirements.check.ts printed two of them unprompted, at 0.4824 and 0.5291.
+{
+  let named = 0
+  let bandF = 0
+  // A sweep, not a fixture: every combination the audit walks, plus the neighbourhood around the
+  // two rows that were wrong. If any of them names a parent in band F this fails.
+  for (const n of [40, 60, 80, 100, 150, 200, 300, 400, 800]) {
+    for (const exclusive of [0, 1, 2, 3, 5, 8, 15, 40, 120]) {
+      if (exclusive > n) continue
+      const pairs: Pair[] = []
+      for (let i = 0; i < n; i += 1) pairs.push(['AA', i < exclusive ? 'BB' : 'AA'])
+      const r = callOneParentOrigin(pairs, 0.20)
+      if (r.band !== 'F') continue
+      bandF += 1
+      if (parentNamed(r.verdict, 'paternal') !== null) {
+        named += 1
+        console.error(`band F named a parent: n=${n} exclusive=${exclusive} `
+          + `verdict=${r.verdict} posterior=${r.posterior.toFixed(4)}`)
+      }
+    }
+  }
+  assert.ok(bandF > 0, 'the sweep must actually reach band F, or it is asserting nothing')
+  assert.equal(named, 0,
+    `${named} of ${bandF} band-F rows named a parent. Band F is where the tool says it cannot `
+    + 'grade its own answer, and a parent attached to one is a coin flip wearing a name.')
+  console.log(`  band F: ${bandF} rows in the sweep, 0 naming a parent`)
 }

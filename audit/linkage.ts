@@ -82,8 +82,8 @@ const readArray = (path: string): Row[] => {
 /**
  * A stable name for an array, from its filename.
  *
- * NOT the first underscore-delimited field. One experiment names its exports 01_chr16pcq_Z10__49
- * and 21_A1_PB_94, so that rule collapses every array in it to a bare leading number: eight
+ * NOT the first underscore-delimited field. One experiment prefixes every export with a plate
+ * position, so that rule collapses every array in it to a bare leading number: eight
  * references reduced to three names, and because a candidate is skipped when its name matches a
  * reference, the collisions silently excluded the whole directory. It reported zero children and
  * zero set-aside, which reads as a measured emptiness and was a parsing failure.

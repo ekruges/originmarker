@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict'
 import {
   originPosterior, shiftMean, shiftMagnitude, logRMean, fractionAt, applyCalibration,
-  bandOf, classInvertedRisk, CLASS_SIGN, CLASSES, BAND_ACCURACY, BAND_A_MIN,
+  bandOf, classInvertedRisk, CLASS_SIGN, CLASSES, BAND_ACCURACY, BAND_ACCURACY_PROVENANCE, BAND_A_MIN,
   VETO_MAX_F, bandObligateHet, SATURATING_CHANNEL_NOTE, type CalibrationMap,
 } from './originPosterior.ts'
 
@@ -99,7 +99,9 @@ import {
 {
   const shift = 0.02
   const only = { loss: 1, gain: 0, 'cnn-loh': 0 }
-  const oneF = { classPrior: only, fGrid: [0.30] }
+  // The point mass is opt-in, because a caller wiring in a class it estimated from this same data
+  // is the failure this module guards against. Here the class is genuinely fixed by construction.
+  const oneF = { classPrior: only, fGrid: [0.30], pointMassClassPrior: true }
   const a = originPosterior({ shift, shiftSd: 0.004, material: 'bulk' }, oneF)
   const b = originPosterior(
     { shift, shiftSd: 0.004, logR: -0.08, logRSd: 0.01, material: 'bulk' }, oneF)
@@ -114,7 +116,7 @@ import {
   // Measured at a deliberately WEAK shift. At the 5-sigma shift used above the posterior is already
   // pegged at 1e-8 and there is nothing left for intensity to sharpen, so testing it there would
   // have asserted a property of saturation rather than of the model.
-  const free = { classPrior: only }
+  const free = { classPrior: only, pointMassClassPrior: true }
   const weak = 0.002
   const c = originPosterior({ shift: weak, shiftSd: 0.004, material: 'bulk' }, free)
   const d = originPosterior(
@@ -162,8 +164,9 @@ import {
   assert.equal(bandOf(0.95), 'B')
   assert.equal(bandOf(0.80), 'C')
   assert.equal(bandOf(0.60), 'D')
-  // An absent number is NOT band D. D is a measured band with a measured accuracy of about 0.62,
-  // and handing an ungraded row that accuracy is exactly the borrowing this grade exists to stop.
+  // An absent number is NOT band D. D is the one band whose accuracy a script in this tree can
+  // still regenerate, at 0.5824, 0.6510 and 0.6775 on esc-single, trophectoderm and blastomere;
+  // handing an ungraded row that accuracy is exactly the borrowing this grade exists to stop.
   assert.equal(bandOf(NaN), 'F', 'an absent number is ungraded, not the weakest MEASURED band')
   assert.equal(bandOf(0.50), 'F', 'a coin flip is ungraded')
   assert.equal(bandOf(0.56), 'D', 'and just above the floor it is the weakest measured band')
@@ -173,16 +176,50 @@ import {
       + 'would let an ungraded row borrow a number from a graded one')
   }
 
-  // Band D is weak but it is NOT a coin flip, and that is what lets it carry its number. Every
-  // measured accuracy must sit clear of 0.5, or the decision to display it stops being honest.
+  // A CELL CARRIES A NUMBER EXACTLY WHEN AN EXPERIMENT IN THIS TREE PRODUCES IT.
+  //
+  // THIS REPLACES `BAND_ACCURACY[m].A > 0.99` AND THE MONOTONICITY CHAIN, which asserted the size
+  // and the ordering of numbers that no script here can regenerate. `audit/bands_measured.csv`,
+  // where A, B and C and all four bulk cells came from, has no producer in the tree, so those
+  // assertions were checking a delivered file's arithmetic rather than this project's measurement.
+  // Asserting that an unreproducible number is large is not a weaker check than this one, it is a
+  // check of the wrong thing: it passes precisely when the unsupported figure is most confident.
+  //
+  // The biconditional below is the guard that matters. Finite exactly when produced means an
+  // unproduced cell cannot be formatted, compared or averaged into a printed confidence, because
+  // NaN carries through all three, and a produced cell cannot be quietly blanked either.
+  const bands = ['A', 'B', 'C', 'D'] as const
+  let produced = 0
   for (const m of ['bulk', 'esc-single', 'trophectoderm', 'blastomere'] as const) {
-    assert.ok(BAND_ACCURACY[m].D > 0.55, `band D on ${m} must beat chance by a real margin`)
-    assert.ok(BAND_ACCURACY[m].A > 0.99, `band A on ${m} must justify its label`)
-    // Monotone across bands, or the labels mean nothing.
-    assert.ok(BAND_ACCURACY[m].A > BAND_ACCURACY[m].B)
-    assert.ok(BAND_ACCURACY[m].B > BAND_ACCURACY[m].C)
-    assert.ok(BAND_ACCURACY[m].C > BAND_ACCURACY[m].D)
+    for (const b of bands) {
+      const acc = BAND_ACCURACY[m][b]
+      const producer = BAND_ACCURACY_PROVENANCE[m][b]
+      assert.equal(Number.isFinite(acc), producer !== null,
+        `${m}/${b}: a band accuracy must be a number exactly when a producer in this tree makes `
+        + `it (producer ${producer ?? 'none'}, value ${acc})`)
+      if (producer === null) {
+        // The teeth, stated as the thing a caller would actually try to do with it.
+        assert.equal(acc.toFixed(4), 'NaN', `${m}/${b} must not format as a confidence`)
+        assert.equal(acc > 0.5, false, `${m}/${b} must not pass a threshold test`)
+        continue
+      }
+      produced += 1
+      // A produced band is still only worth displaying if it is clear of chance.
+      assert.ok(acc > 0.55, `band ${b} on ${m} is produced, so it must beat chance by a real margin`)
+    }
+    // Monotone WHERE BOTH CELLS ARE PRODUCED, or the labels mean nothing. Vacuous while only D is
+    // produced, and it fires the moment a second cell on a material gets a producer.
+    for (let i = 1; i < bands.length; i += 1) {
+      const hi = BAND_ACCURACY[m][bands[i - 1]!]
+      const lo = BAND_ACCURACY[m][bands[i]!]
+      if (Number.isFinite(hi) && Number.isFinite(lo)) {
+        assert.ok(hi > lo, `${m}: band ${bands[i - 1]} must beat band ${bands[i]}`)
+      }
+    }
   }
+  assert.ok(produced > 0, 'at least one band accuracy must still be reproducible from this tree')
+  console.log(`  band accuracies: ${produced} of 16 cells have a producer; the other `
+    + `${16 - produced} are NaN and cannot be printed as a calibrated confidence`)
 }
 
 // --- 7. THE OBLIGATE-HET CAP IS STRUCTURAL --------------------------------------------------------
@@ -236,8 +273,8 @@ import {
   assert.equal(noScale.parent, 'withheld')
   assert.ok(Number.isNaN(noScale.confidence))
   // A withheld parent with no confidence is ungraded, which is now F rather than the weakest
-  // measured band. The two must not share a symbol: one was measured at 0.62 and this was not
-  // measured at all.
+  // measured band. The two must not share a symbol: D was measured, at 0.58 to 0.68 across the
+  // three materials whose cells a script here can still produce, and this was not measured at all.
   assert.equal(bandOf(noScale.confidence), 'F')
   assert.ok(CLASSES.length === 3)
 }
@@ -298,16 +335,20 @@ import {
 console.log('originPosterior.check.ts: all assertions passed, including the regression that a true '
   + 'gain on the un-genotyped parent is no longer inverted into a confident call for the loaded one')
 
-// --- BAND F NAMES NO PARENT, AND THAT IS A MEASUREMENT --------------------------------------------
+// --- BAND F NAMES NO PARENT, AND SINCE 5.19.0 THAT IS STRUCTURAL ----------------------------------
 //
-// An injection series on real arrays, 600-marker regions displaced by exactly the shift a known
-// parent's copy being affected produces, recovers the parent 0.51 to 0.56 of the time in this band.
-// Below chance. The mechanism is in the series: every call reaching band F had an UNRESOLVED class,
-// 1,693 of 1,693 without the intensity channel and 195 of 195 with it, so the mechanism holds
-// under both conditions. A gain inverts the sign map that loss and copy-neutral share, so
-// with the class open the direction of the shift carries no parental information. Accuracy dips
-// furthest at the moderate fractions where both classes stay live: 0.27 at f = 0.30 against 0.56 at
-// f = 0.05.
+// The injection series that retired this band measured a caller that DID name a parent here, and
+// found it at chance (BAND_F_AT_CHANCE). Since 5.19.0 `callDosageOrigin` returns
+// `imbalance-unassigned` for every band-F row instead, so no band-F row can carry a parent and the
+// old accuracy has no referent: there are no named parents in the band to be right or wrong about.
+// On real files, the 76 usable complete trios of GSE148488 scored through the shipped pipeline gave
+// 37 band-F rows against the linkage-resolved parent and 24 against a deliberately unrelated adult,
+// and named a parent in 0 of them in both arms.
+//
+// The mechanism is unchanged and is why the withhold is unconditional: every call reaching band F
+// had an UNRESOLVED class, 1,693 of 1,693 without the intensity channel and 195 of 195 with it, and
+// a gain inverts the sign map that loss and copy-neutral share, so with the class open the direction
+// of the shift carries no parental information.
 //
 // So the guard is not that F is weak. It is that F must not carry a parent at all.
 {
@@ -317,12 +358,32 @@ console.log('originPosterior.check.ts: all assertions passed, including the regr
   assert.equal(bandOf(0.54), 'F')
   assert.equal(bandOf(0.56), 'D', 'and just above the floor it is the weakest MEASURED band')
 
-  // F carries no measured accuracy, because there is no cell to fill: the series measured it below
-  // chance, which is a reason to withhold the call rather than a number to publish beside it.
+  // F carries no accuracy, because there is no cell to fill: no band-F row names a parent, so
+  // there is no population of named parents in this band whose accuracy could be measured.
   for (const m of ['bulk', 'esc-single', 'trophectoderm', 'blastomere'] as const) {
     assert.ok(!('F' in BAND_ACCURACY[m]),
-      `F must carry no accuracy on ${m}: a band measured at chance is not a band whose number `
-      + 'a reader should be given')
+      `F must carry no accuracy on ${m}: the band names no parent, so the quantity does not exist`)
   }
   console.log('  band F is reachable, carries no accuracy, and is the grade for a withheld parent')
+}
+
+// --- THE POINT-MASS BACKDOOR STAYS SHUT --------------------------------------------------------
+//
+// `pointMassClassPrior` exists so a check can demonstrate exact cancellation at a fixed class. It
+// is a hole in the guard that stops a caller conditioning the posterior on a class estimated from
+// the same data, which was measured at 0.8741 accuracy inside a band labelled 0.985, with 11
+// percent of all events confidently wrong. A hole nobody watches becomes a door.
+{
+  const { readdirSync, readFileSync } = await import('node:fs')
+  const dir = new URL('./', import.meta.url).pathname
+  const offenders: string[] = []
+  for (const f of readdirSync(dir)) {
+    if (!/\.tsx?$/.test(f) || f.endsWith('.check.ts')) continue
+    if (f === 'originPosterior.ts') continue
+    if (/pointMassClassPrior/.test(readFileSync(dir + f, 'utf8'))) offenders.push(f)
+  }
+  assert.deepEqual(offenders, [],
+    'pointMassClassPrior is for verifying a model identity, never for scoring a real event. '
+    + `These set it: ${offenders.join(', ')}`)
+  console.log('  the point-mass opt-in is set by no production file')
 }

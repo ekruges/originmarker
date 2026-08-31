@@ -10,6 +10,7 @@
 // It runs the real modules over the real bundled files. No fixtures: the point is that the file a
 // user downloads still behaves as advertised.
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { EXAMPLES, EXAMPLE_MARKERS } from '../web/src/examples.ts'
@@ -101,7 +102,14 @@ const pct = (s: string, label: RegExp): number | null => {
   return Number.isFinite(v) ? v : null
 }
 
-/** Pairs the run is expected to form: reference GSM -> sample GSMs it is the parent of. */
+/**
+ * Pairs whose `expect` text makes numeric claims, as reference -> samples measured against it.
+ *
+ * This is NOT a table of who is whose parent. An earlier version of it was, and it pinned
+ * GSM8826446 as the parent of the other two arrays in its series while asserting only that the
+ * opposite-homozygote rate was low, which is a first-degree rate and not a parent-child one. All
+ * three of those arrays are mutual siblings; the relationships are asserted below, by measurement.
+ */
 const FAMILIES: [string, string[]][] = [
   ['GSM4472397', ['GSM4472424']],
   ['GSM8826446', ['GSM8826445', 'GSM8826436']],
@@ -118,9 +126,10 @@ for (const [ref, kids] of FAMILIES) {
     const link = secondParent(r.gt, k.gt)
 
     assert.ok(opp < 0.03,
-      `${kid}: opposite-homozygote ${opp.toFixed(4)} against ${ref} is not a parent-child rate`)
+      `${kid}: opposite-homozygote ${opp.toFixed(4)} against ${ref} is not a first-degree rate`)
     assert.equal(link.ploidy, 'biparental',
-      `${kid}: no longer reads as a child of ${ref}, which its text claims`)
+      `${kid}: reads as one genome only against ${ref}, so the second contribution its text `
+      + 'claims is not there')
 
     // "a 1.11% opposite-homozygote rate"
     const claimedOpp = pct(e.expect, /([\d.]+)%\s+opposite-homozygote/)
@@ -145,6 +154,54 @@ for (const [ref, kids] of FAMILIES) {
         `${kid}: text claims dropout ${m[1]}, the stage module now infers ${got.dropout.toFixed(3)}`)
     }
   }
+}
+
+// --- 2b. what the bundled arrays are to each other, through the shipped command ------------------
+//
+// Measured, not assumed, and read out of `om link` rather than out of a second implementation
+// living here. Three facts are pinned.
+//
+//   THE STATISTIC IS SYMMETRIC. Opposite homozygotes are the same count whichever file is named
+//   first, so `link A B` and `link B A` must agree. They once both answered "child", which cannot
+//   be true of both orderings of one pair. Direction is not recoverable from two genotype files:
+//   under Hardy-Weinberg P(a)P(b|a) = P(b)P(a|b), so the two orderings are one hypothesis.
+//
+//   GSE290961'S THREE ARRAYS ARE MUTUAL SIBLINGS. Every pair of them carries stretches where the
+//   two genomes share no allele at all, which a parent and a child cannot produce. The pair that
+//   includes the single amplified cell twice over is left unresolved rather than called, because
+//   its error floor is higher than the segmental signal it would have to show.
+//
+//   THE ONE PARENT-CHILD PAIR STILL READS AS ONE. The sperm donor and embryo 4 share an allele in
+//   every window, at both orderings.
+const om = new URL('om.ts', import.meta.url).pathname
+const link = (ref: string, sample: string) => {
+  const f = (g: string) => `${DIR}${EXAMPLES.find((x) => x.gsm === g)!.file}`
+  const r = execFileSync(process.execPath,
+    ['--experimental-strip-types', om, 'link', f(ref), f(sample), '--json'],
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
+  return (JSON.parse(r).samples as { relationship: string, windowSpread: number }[])[0]
+}
+
+const PARENT_CHILD = 'parent and child, direction not resolved'
+const SIBLINGS = 'not parent and child: stretches sharing no allele (full siblings)'
+
+for (const [a, b, expect] of [
+  ['GSM4472397', 'GSM4472424', PARENT_CHILD],
+  ['GSM8826446', 'GSM8826445', SIBLINGS],
+  ['GSM8826445', 'GSM8826436', SIBLINGS],
+  // The third pair of that family is the two hardest arrays against each other. It must not read
+  // as a parent and a child; at this error floor the segmental test cannot go further than that.
+  ['GSM8826446', 'GSM8826436', 'first-degree, parent-child and sibling not separated'],
+] as [string, string, string][]) {
+  const forward = link(a, b)
+  const back = link(b, a)
+  assert.equal(forward.relationship, expect, `om link ${a} ${b}: ${forward.relationship}`)
+  assert.equal(back.relationship, expect,
+    `om link ${b} ${a} answers ${back.relationship} while ${a} ${b} answers `
+    + `${forward.relationship}. A relationship read off opposite homozygotes cannot depend on `
+    + 'which file was named first')
+  assert.equal(forward.windowSpread.toFixed(4), back.windowSpread.toFixed(4),
+    `${a}/${b}: the window spread changed when the two files were swapped`)
 }
 
 // --- 3. the unrelated examples are still unrelated ------------------------------------------------

@@ -219,6 +219,51 @@ const LARGE = 400_000
 const GROWTH_LIMIT = 2.0
 const REPEATS = 5
 
+/** Fastest of `repeats` draws, per marker. */
+const bestUsPerMarker = async (
+  arr: ReturnType<typeof buildArray>, n: number,
+  work: (a: ReturnType<typeof buildArray>) => Promise<unknown> | unknown,
+  repeats: number,
+): Promise<number> => {
+  let best = Infinity
+  for (let i = 0; i < repeats; i += 1) best = Math.min(best, await time(() => work(arr)))
+  return (best * 1000) / n
+}
+
+/**
+ * The growth ratio, measured with the two sizes INTERLEAVED.
+ *
+ * The ratio is the quantity under test, and a ratio is only meaningful if both of its terms were
+ * measured under the same conditions. Timing all of the small draws and then all of the large ones
+ * does not do that: on a machine whose load is changing, the two halves see different machines and
+ * the ratio absorbs the difference. Measured during a period of heavy background load, that version
+ * reported 2.59x on a scan whose ratio is 1.2x when the machine is quiet, purely because the load
+ * rose between the two halves.
+ *
+ * Interleaving draws puts both sizes in the same load window, so drift affects the numerator and
+ * the denominator together and cancels. Taking the fastest of each still removes the one-sided
+ * outliers within the window.
+ */
+const growthRatio = async (
+  small: number, large: number,
+  work: (a: ReturnType<typeof buildArray>) => Promise<unknown> | unknown,
+  repeats = REPEATS,
+): Promise<{ small: number; large: number; growth: number }> => {
+  const a = buildArray(small)
+  const b = buildArray(large)
+  await work(a) // warm both, so neither pays for compilation inside a timed draw
+  await work(b)
+  let bestA = Infinity
+  let bestB = Infinity
+  for (let i = 0; i < repeats; i += 1) {
+    bestA = Math.min(bestA, await time(() => work(a)))
+    bestB = Math.min(bestB, await time(() => work(b)))
+  }
+  const usA = (bestA * 1000) / small
+  const usB = (bestB * 1000) / large
+  return { small: usA, large: usB, growth: usB / usA }
+}
+
 const usPerMarker = async (
   n: number,
   work: (a: ReturnType<typeof buildArray>) => Promise<unknown> | unknown,
@@ -226,9 +271,7 @@ const usPerMarker = async (
 ): Promise<number> => {
   const arr = buildArray(n)
   await work(arr) // warm, so the first call does not pay for compilation
-  let best = Infinity
-  for (let i = 0; i < repeats; i += 1) best = Math.min(best, await time(() => work(arr)))
-  return (best * 1000) / n
+  return bestUsPerMarker(arr, n, work, repeats)
 }
 
 const scanWork = (a: ReturnType<typeof buildArray>) =>
@@ -266,9 +309,7 @@ const scanWork = (a: ReturnType<typeof buildArray>) =>
 }
 
 {
-  const small = await usPerMarker(SMALL, scanWork)
-  const large = await usPerMarker(LARGE, scanWork)
-  const growth = large / small
+  const { small, large, growth } = await growthRatio(SMALL, LARGE, scanWork)
   console.log(`  window scan: ${small.toFixed(3)}us/marker at ${SMALL / 1000}k,`
     + ` ${large.toFixed(3)}us/marker at ${LARGE / 1000}k (${growth.toFixed(2)}x,`
     + ' quadratic would be ~4x)')
@@ -284,9 +325,7 @@ const scanWork = (a: ReturnType<typeof buildArray>) =>
     const idx = buildScanIndex(a.src)
     for (let i = 0; i < 5; i += 1) gatherInterval(idx, { chrom: String(i + 1) })
   }
-  const small = await usPerMarker(SMALL, gatherWork)
-  const large = await usPerMarker(LARGE, gatherWork)
-  const growth = large / small
+  const { small, large, growth } = await growthRatio(SMALL, LARGE, gatherWork)
   console.log(`  interval gather: ${small.toFixed(3)}us/marker at ${SMALL / 1000}k,`
     + ` ${large.toFixed(3)}us/marker at ${LARGE / 1000}k (${growth.toFixed(2)}x)`)
   assert.ok(growth < GROWTH_LIMIT,

@@ -39,7 +39,10 @@ import {
   LOH_SEGMENT_MARKERS,
 } from './abnormalities.ts'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted.ts'
-import { inferStage } from './stage.ts'
+import { inferStage, stageDefaults, type Stage } from './stage.ts'
+import { nullScale, calibratedZ, median, intensityDetects } from './intensityNull.ts'
+import { reconcileStage } from './declaredStage.ts'
+import { assessIntegrity } from './integrity.ts'
 
 /** One parent's array, reduced to what every channel below reads. */
 export interface ParentIndex {
@@ -244,6 +247,12 @@ export async function scoreSample(input: {
    * the inference. Undefined here means the shipped defaults, which is what the browser passes.
    */
   stageOpts?: Parameters<typeof inferStage>[1]
+  /**
+   * What the operator says this material is, overriding the inference.
+   *
+   * The inference still runs and the disagreement is reported: see declaredStage.ts.
+   */
+  declaredStage?: Stage
 }): Promise<ParentageResult> {
   const { acc, profile, pat, mat, soloRole, sibs, sampleName, log } = input
   const {
@@ -254,8 +263,19 @@ export async function scoreSample(input: {
   // Stage from the array itself, since the dropout each stage carries is what every
   // downstream likelihood is parameterised by. Bundled into the result so every output
   // carries it, with the basis and the confounds attached to the number.
-  result.stage = inferStage(profile, input.stageOpts)
+  // THE OPERATOR'S LABEL WINS, AND THE DISAGREEMENT IS REPORTED. The inference is always run, even
+  // when it is overridden, because a declaration that contradicts the array is the single most
+  // useful thing this tool can tell somebody: either the tube is mislabelled or the reaction
+  // failed, and both are worth knowing before any parental call is read.
+  const stageAgreement = reconcileStage(
+    inferStage(profile, input.stageOpts), input.declaredStage, stageDefaults,
+  )
+  result.stage = stageAgreement.used
+  result.stageAgreement = stageAgreement
   log('DONE', `stage: ${result.stage.stage}. ${result.stage.why}`)
+  if (!stageAgreement.agrees) {
+    log('WARN', stageAgreement.notice)
+  }
   // One contribution or two, per chromosome. Reported, never used to admit or reject a
   // sample: the boundaries are measured for a BULK reference parent, and against a
   // single-cell reference they do not separate at all (audit section E2).
@@ -274,6 +294,35 @@ export async function scoreSample(input: {
       + (uni[0].contribution!.provisional
         ? '. One parent loaded, so this boundary is provisional' : ''))
   }
+  // AN ARRAY THAT IS NOT MEASURING A GENOME PRODUCES NO EVENTS OF ANY KIND.
+  //
+  // The stage inference decides this and says so in those words: one example array reads 31.2%
+  // heterozygous where a single diploid tops out near 25% on this platform, and its verdict is
+  // "no genome reads this way, so this is not a stage".
+  //
+  // THE SAME CONDITION `integrity.ts` ALREADY CALLS UNINTERPRETABLE, and its limits are the ones
+  // enforced here rather than a second opinion beside them: "Nothing on this sample is reportable.
+  // Do not read its changes, its parental calls or its counts". This gate used to empty the
+  // taxonomy findings alone, so whole-chromosome aneuploidy and copy-number segments walked past
+  // it and shipped as calls: 30 aneuploidy calls and 86 segment calls across 186 arrays that had
+  // failed their own quality inference. They are found by the same measurement the tool has just
+  // declared broken.
+  //
+  // POSITION DOES NOT SURVIVE HERE, though it survives the other two uninterpretable verdicts. On
+  // a low call rate or a genome with no undisturbed remainder the array IS reading a genome, so
+  // the coordinates of what it found stand and only the parent is withheld. A failed array is the
+  // case where there is no genome being read, so there is no event to have a position.
+  //
+  // Clearing the aneuploidy here rather than filtering it downstream is what makes the rest of
+  // this function fall silent on its own: `whole` empties, the segment scans are skipped, the
+  // dosage and Mendelian channels have nothing to walk, and `assessIntegrity` counts zero events
+  // under the same headline.
+  const uninterpretable = result.stage?.stage === 'failed'
+  if (uninterpretable) {
+    log('WARN', 'no chromosomal changes are reported: this array did not resolve to a '
+      + `stage. ${result.stage.why}`)
+    for (const c of result.chroms) c.aneuploidy = undefined
+  }
   // Segments, after the per-chromosome verdicts, because a chromosome whose calls are not
   // measuring it must not be scanned either: the same broken calls would produce a
   // confident segment inside it.
@@ -282,6 +331,12 @@ export async function scoreSample(input: {
   // Copy number first: a chromosome already called whole is not scanned for a segment
   // inside it, since that is the same event described twice.
   const whole = new Set(result.chroms.filter((c) => c.aneuploidy).map((c) => c.chrom))
+  // LOSSES ONLY, for the run-of-homozygosity filter below. A chromosome at ONE copy reads
+  // homozygous end to end because it is hemizygous, and that artefact has to go. A chromosome at
+  // THREE copies has no such excuse: a trisomy that IS homozygous end to end is an isodisomic
+  // trisomy, which is the trisomy-rescue and imprinting mechanism and a separate fact from the
+  // gain. Filtering on `whole` deleted it, and the gain row left behind does not carry it.
+  const lost = new Set(result.chroms.filter((c) => c.aneuploidy === 'loss').map((c) => c.chrom))
   const noCall = new Map<string, [number, number]>()
   for (const [c, ms] of cnByChrom) {
     noCall.set(c, [ms.length, ms.filter((m) => !m.called).length])
@@ -289,9 +344,9 @@ export async function scoreSample(input: {
   const lrrAll = [...cnByChrom.values()].flat()
     .map((m) => m.log2R).filter((x): x is number => x !== null).sort((a, b) => a - b)
   const genomeLrr = lrrAll.length ? lrrAll[lrrAll.length >> 1] : 0
-  const copy = [...cnByChrom].filter(([c]) => !whole.has(c))
+  const copy = uninterpretable ? [] : [...cnByChrom].filter(([c]) => !whole.has(c))
     .flatMap(([c, ms]) => scanCopyNumber(ms, externalNull(noCall, c), genomeLrr))
-  result.segments = [
+  result.segments = uninterpretable ? [] : [
     ...copy,
     ...[...absenceByChrom].filter(([c]) => measured.has(c))
       .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))),
@@ -320,17 +375,11 @@ export async function scoreSample(input: {
     // AN ARRAY THAT IS NOT MEASURING A GENOME PRODUCES NO FINDINGS.
     //
     // Every detector below reads a genome's own statistics against itself, and that is only
-    // meaningful where the array is reading a genome at all. The stage inference already
-    // decides this and says so in those words: one example array reads 31.2% heterozygous
-    // where a single diploid tops out near 25% on this platform, and its verdict is "no
-    // genome reads this way, so this is not a stage". It went on to yield 22 findings.
-    //
-    // Detecting structure in an array that failed its own quality inference is not a
-    // conservative reading of weak data, it is reading noise as biology. The event list
-    // stays empty and the reason is the stage's own sentence.
-    if (result.stage?.stage === 'failed') {
-      log('WARN', 'no chromosomal changes are looked for: this array did not resolve to a '
-        + `stage. ${result.stage.why}`)
+    // meaningful where the array is reading a genome at all. Detecting structure in an array
+    // that failed its own quality inference is not a conservative reading of weak data, it is
+    // reading noise as biology. The event list stays empty, on the same condition and for the
+    // same reason as the aneuploidy and segment scans above it.
+    if (uninterpretable) {
       result.findings = []
     } else {
     log('SCAN', 'looking for copy-neutral loss of heterozygosity')
@@ -346,8 +395,23 @@ export async function scoreSample(input: {
       // Same guard as the copy-neutral detector beside it: a genome with one parental
       // contribution is homozygous by construction, so its runs are that one call
       // restated, not separate events.
-      ...detectUpd(runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd }),
-        { zygosity: result.zygosity }),
+      // AND THE SAME RULE THE COPY-NUMBER SCAN ABOVE APPLIES, for the same reason: a
+      // chromosome already called whole is not scanned for a run inside it, since that is
+      // the same event described twice. A chromosome at ONE copy is hemizygous end to end,
+      // so it reads homozygous end to end and produces a full-length run; classified here
+      // that run becomes an isodisomy, which asserts BOTH copies came from one parent on an
+      // event that has one copy. The loss is the true row and it is reported through
+      // `result.chroms`; a real isodisomy has two copies, leaves intensity at normal and is
+      // never in `lost`, so it is untouched by this.
+      //
+      // `lost`, NOT `whole`. Filtering every aneuploid chromosome took the gains with it, and a
+      // gain that is homozygous end to end is an isodisomic trisomy: a real and separately
+      // meaningful finding that the gain row does not report.
+      ...detectUpd(
+        runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd })
+          .filter((r) => !lost.has(r.chrom)),
+        { zygosity: result.zygosity },
+      ),
     ]
     log('SCAN', `runs of homozygosity and ploidy over ${selfMarkers.length} called markers`)
     await breathe()
@@ -511,7 +575,16 @@ export async function scoreSample(input: {
   // happened to carry a whole-chromosome aneuploidy. A run whose changes were all
   // copy-neutral events or runs of homozygosity got no origin on any of them, which is
   // most of what the taxonomy detects.
-  if (!mat && (whole.size || (result.findings?.length ?? 0) > 0)) {
+  // NOT GATED ON THE PARENT COUNT. A second parent is strictly more evidence: it lowers every
+  // dosage floor it touches (an esc-single whole-chromosome loss goes from 0.348 to 0.232) and
+  // takes nothing away. Scoping this block to one-parent runs meant loading the oocyte donor
+  // emitted no dosage call and no Mendelian call at all, so the better-equipped run was the
+  // silent one, and `parents: mat ? 2 : 1` below could never be anything but 1.
+  // AND SEGMENTS COUNT AS SOMETHING TO SCORE. They were reaching the Mendelian channel and
+  // nothing else, so on a sample where that channel is off, a detected segment left the run with
+  // no origin output of any kind: measured on a paternal pronucleus carrying one constructed
+  // 40 Mb loss, 0 dosage rows and 0 Mendelian rows for an event the scan had just reported.
+  if (whole.size || (result.findings?.length ?? 0) > 0 || result.segments.length) {
     // Background from everything OUTSIDE the chromosome under test, which is the same
     // external-null rule the region scan uses: a chromosome cannot set its own baseline.
     // The BAF spread this block used to compute for the array gate now lives on the
@@ -525,6 +598,19 @@ export async function scoreSample(input: {
     // predicate rather than a chromosome name. Duplicating it for the new classes would
     // have let the two drift apart, and a reader compares their confidences directly.
     // ONE INDEX FOR THE SAMPLE, not one walk of the array per finding. See scan.ts.
+    // THE ARRAY'S OWN NULL, built once. A unit is a whole chromosome: its median log2R. The scale
+    // is a median absolute deviation rather than a standard deviation because a plain SD over
+    // chromosomes is inflated 2.34x by a SINGLE affected chromosome, so one real trisomy destroys
+    // the null meant to detect it. The MAD holds to three or four.
+    const chromNull = nullScale(
+      [...cnByChrom].filter(([c]) => isAutosome(c)).map(([, ms]) => {
+        const v = ms.map((m) => m.log2R).filter((x): x is number => x !== null)
+        return median(v)
+      }).filter((x) => Number.isFinite(x)),
+    )
+    log('SCAN', `intensity null from ${chromNull.units} autosomes, `
+      + `centre ${chromNull.centre.toFixed(4)}, scale ${chromNull.scale.toFixed(4)}`)
+
     const scanIndex = buildScanIndex(
       { markerPos, parentGt: pat.gt, myBaf, myGt, cnByChrom })
     const scoreInterval = (
@@ -547,17 +633,19 @@ export async function scoreSample(input: {
       // Gathering a background to be told that is the bulk of a run on that material.
       const unreachable = originUnreachable(
         material, state, wholeChromosome, mat ? 2 : 1)
-      const { region, background, inL, outL, untRows } =
+      const { region, background, inL, untRows } =
         gatherInterval(scanIndex, iv, { regionOnly: unreachable })
       const mean = (xs: number[]) => (xs.length
         ? xs.reduce((a, x) => a + x, 0) / xs.length : NaN)
-      const sdOf = (xs: number[], mu: number) => (xs.length > 1
-        ? Math.sqrt(xs.reduce((a, x) => a + (x - mu) ** 2, 0) / (xs.length - 1)) : NaN)
-      const muOut = mean(outL)
-      const lrrShift = mean(inL) - muOut
-      const lrrSe = sdOf(outL, muOut) / Math.sqrt(Math.max(1, inL.length))
-      const intensityZ = Number.isFinite(lrrShift) && lrrSe > 0
-        ? lrrShift / lrrSe : undefined
+      // `outL` and a difference of means are no longer used for the error: the region is
+      // compared to the array's own units instead. Keeping the old local would invite it back.
+      // MEASURED AGAINST THE ARRAY'S OWN UNITS, NOT sd/sqrt(n). The iid form assumes markers are
+      // independent; on amplified material they are long-range dependent, so it understates the
+      // error by 3.6x at 50 markers rising to 16.5x at 20,000, and it flagged 89.7 percent of
+      // event-free chromosomes. 55 percent of those false positives read as gains, and a gain
+      // inverts the sign map that loss and copy-neutral share, so the parent came out backwards.
+      // See intensityNull.ts.
+      const intensityZ = calibratedZ(mean(inL), chromNull)
 
       // Spread of the per-window log2R on this chromosome, which decides whether the
       // CLASS can be separated from its nearest feasible alternative. Almost never on
@@ -590,7 +678,13 @@ export async function scoreSample(input: {
         // it just no longer refuses, because noise already reaches the answer through the
         // standard error and earns a lower band rather than a silence.
         noSelfReference: !!result.findings?.some((f) => f.cls === 'complex'),
-        intensityZ,
+        // INTENSITY DETECTS OR IT SAYS NOTHING. Below the calibrated threshold the SIGN of a shift
+        // is close to a coin flip: on 264 event-free chromosomes 59 percent of the old statistic's
+        // false positives read POSITIVE, a positive shift resolves the class as a gain, and a gain
+        // inverts the sign map that loss and copy-neutral share, so the parent came out backwards.
+        // Passing a sub-threshold z contributes that coin flip to the class. Passing nothing
+        // contributes nothing, which is the honest value of the evidence.
+        intensityZ: intensityDetects(intensityZ, wholeChromosome) ? intensityZ : undefined,
         parents: mat ? 2 : 1,
         windowLogRSd,
         // The class decides which floor applies, and the floors differ enormously: a
@@ -732,6 +826,31 @@ export async function scoreSample(input: {
       // rather than all at once when the loop ends.
       if (scoredSoFar % 2 === 0) await breathe()
     }
+
+    // THE SEGMENTS GO THROUGH IT TOO, and for the same reason the findings do: a reader comparing
+    // a segment row against a whole-chromosome row must be comparing one posterior and one set of
+    // bands. Where this material cannot answer, the scorer says which channel refused and why, and
+    // an F is not a result; silence was the one outcome that told the reader nothing.
+    //
+    // A segment on a chromosome already called whole is skipped, the same rule the copy-number
+    // scan applies: that is the same event described twice, and the whole-chromosome row above
+    // already carries it.
+    const segs = result.segments.filter((sg) => !whole.has(sg.chrom))
+    if (segs.length) {
+      log('SCAN', `scoring parental origin on ${segs.length} segment`
+        + `${segs.length === 1 ? '' : 's'}`)
+    }
+    for (const sg of segs) {
+      const co = segmentCoords(sg)
+      result.dosageCalls.push(scoreInterval(
+        `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`,
+        { chrom: sg.chrom, startBp: co.start, endBp: co.end },
+        false,
+        sg.kind === 'copy-gain' ? 'gain' : 'loss',
+        sg.kind,
+      ))
+      await breathe()
+    }
     // A NAMED PARENT IS ALWAYS PRINTED IN FULL. It is the answer, and two of them that
     // happen to read alike are still two answers.
     //
@@ -775,7 +894,9 @@ export async function scoreSample(input: {
   // one, because that was the only copy there. Same guard, and same reason, as the copy-neutral
   // and runs-of-homozygosity detectors above.
   const uniparental = result.zygosity?.startsWith('uniparental') ?? false
-  const mendelEvents = !mat && !uniparental ? [
+  // Also not gated on the parent count: this channel reads whether the LOADED parent's allele is
+  // present, which a second parent neither supplies nor obstructs.
+  const mendelEvents = !uniparental ? [
     ...(result.chroms ?? []).filter((c) => c.aneuploidy)
       .map((c) => ({ chrom: c.chrom, start: 0, end: Number.MAX_SAFE_INTEGER,
         label: `chr${c.chrom}` })),
@@ -875,6 +996,29 @@ export async function scoreSample(input: {
         + `${(segmentCoords(x).spanBp / 1e6).toFixed(1)}Mb `
         + `${segmentCoords(x).localised ? segmentCoords(x).interval : '(not localised)'} `
         + `at ${pct(x.rate, 1)}`).join(', ')}`)
+  }
+
+  // THE SAMPLE-LEVEL FLAG, computed last because it summarises everything above it. Reusing the
+  // bounds the taxonomy already measured rather than choosing new ones: see integrity.ts.
+  {
+    const autosomes = (result.chroms ?? []).filter((c) => isAutosome(c.chrom))
+    const affected = new Set<string>()
+    for (const c of autosomes) if (c.aneuploidy) affected.add(c.chrom)
+    for (const sg of (result.segments ?? [])) affected.add(sg.chrom)
+    for (const f of (result.findings ?? [])) if (f.chrom !== 'genome') affected.add(f.chrom)
+    const allMarkers = [...cnByChrom.values()].flat()
+    const callRate = allMarkers.length
+      ? allMarkers.filter((m) => m.called).length / allMarkers.length : NaN
+    result.integrity = assessIntegrity({
+      stage: result.stage?.stage ?? 'unknown',
+      callRate,
+      affectedAutosomes: affected.size,
+      totalAutosomes: autosomes.length,
+      events: (result.segments?.length ?? 0) + (result.findings?.length ?? 0)
+        + autosomes.filter((c) => c.aneuploidy).length,
+    })
+    log(result.integrity.level === 'uninterpretable' ? 'WARN' : 'DONE',
+      `${sampleName}: ${result.integrity.headline}`)
   }
 
   return result

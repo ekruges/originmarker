@@ -54,6 +54,19 @@ const SAMPLE_HET = 0.090
 /** Share of heterozygous CALLS whose intensity is not balanced: 0.090 by genotype, 0.058 by band. */
 const BAND_EXTREME = 0.355
 
+/**
+ * How often the OTHER parent transmits the same allele as the loaded one, in the biparental
+ * fixture below.
+ *
+ * NOT A FREE PARAMETER. Drawing the two transmitted alleles as independent coin flips put that
+ * fixture at 47.3% heterozygous, which no genome reaches: the stage inference rejected the array
+ * as failed, and the block below was then asserting that an array the tool has rejected still
+ * names a parent. Two people share the common allele at most markers of a panel like this one, so
+ * modelling that is what makes the fixture the material its own heading claims. At this share it
+ * reads 13.4% heterozygous, which the inference calls amplified single-cell material.
+ */
+const OTHER_PARENT_SHARES = 0.86
+
 /** A deterministic stream, so a failure is the code changing and never the draw changing. */
 function rng(seed: number): () => number {
   let x = seed >>> 0
@@ -140,7 +153,7 @@ function synthesiseBiparental(): { parent: string; sample: string } {
       const lost = LOST.has(chrom)
       // What the loaded parent transmitted, and what the other parent transmitted alongside it.
       const fromLoaded = pg === 1 ? (r() < 0.5 ? 0 : 1) : (pg === 0 ? 0 : 1)
-      const fromOther = r() < 0.5 ? 0 : 1
+      const fromOther = r() < OTHER_PARENT_SHARES ? fromLoaded : 1 - fromLoaded
       // On a lost chromosome the loaded parent's allele is not there at all, so the sample is
       // homozygous for whatever the other parent gave: at a parent-AA marker that reads BB.
       const alleles = lost ? [fromOther, fromOther] : [fromLoaded, fromOther]

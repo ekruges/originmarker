@@ -51,8 +51,8 @@ const read = (p: string): Row[] => {
  * independent draws from the parental haplotypes, so their heterozygous sites differ and using one
  * to establish het for another would be wrong rather than merely noisy.
  *
- * Only one naming scheme here encodes the embryo. Files like 01_chr16pcq_Z10__49 carry it as a
- * letter-plus-digits token, so several biopsies of embryo Z10 group correctly. The other
+ * Only one naming scheme here encodes the embryo. One scheme carries it as a letter-plus-digits
+ * token, so several biopsies of one embryo group correctly. The other
  * scheme carries an EXPERIMENT prefix and a biopsy index, and different indices are different
  * embryos, so no grouping is possible from the name and those arrays are excluded rather than
  * grouped wrongly. Returning null is how that exclusion is expressed.

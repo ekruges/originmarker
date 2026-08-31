@@ -9,12 +9,14 @@ import { createGunzip } from 'node:zlib'
 import { createInterface } from 'node:readline'
 import { headerMap, parseRow, type ProbeRow } from './ingest.ts'
 import {
-  ABSENCE_MARGIN, BAF_EXTREME_FLOOR, CALL_COLLAPSE, MOSAIC_Z, absenceExplainable, agreement,
+  ABSENCE_MARGIN, BAF_EXTREME_FLOOR, CALL_COLLAPSE, COPY_SHIFT_FLOOR, MOSAIC_Z, absenceExplainable,
+  agreement,
   classify,
   emptyTally,
   HET_BAND_DIPLOID,
   isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
 } from './parentage.ts'
+import { calibratedZ, intensityDetects, nullScale } from './intensityNull.ts'
 
 import type { AB } from './informativity.ts'
 
@@ -76,9 +78,34 @@ const gyno = classify(build({ absent: 0.068, het: 0.03, nonParental: 0.12 }).t, 
 assert.equal(gyno.verdict, 'no_parental_contribution')
 assert.equal(gyno.originClass, 'gynogenetic')
 
-const bip = classify(build({ absent: 0.002, het: 0.30, nonParental: 0.30 }).t, 0.17)
+// A DIPLOID GENOME'S MID-BAND READINGS SIT AT ITS HETEROZYGOUS CALLS. That is what an AB call is,
+// and it is what separates a second parental contribution from a smeared homozygous cluster: the
+// band is read against the array's own homozygous clusters, not against a flat level. The knobs
+// above place the band on homozygous calls, which is a smeared array rather than a diploid one, so
+// this case is built where a real array puts it. See HET_BAND_EXCESS.
+const bipT = ((): Tally => {
+  const t = emptyTally()
+  for (let i = 0; i < 4000; i += 1) {
+    const s = (i * 7919) % 1000
+    const gt: AB = s < 2 ? 'BB' : s < 300 ? 'AB' : 'AA'
+    // 0.4% of the homozygous calls read mid-band anyway, which is the amplification smear every
+    // real array carries and the baseline the boundary is measured against.
+    tallyRow('AA', row('1', 1000 + i * 1000, gt, gt === 'AB' || s % 250 === 7 ? 0.5 : 0.0), t)
+  }
+  return t
+})()
+const bip = classify(bipT, 0.17)
+assert.ok(bip.homBand > 0 && bip.homBand < 0.01, `a real smear, got ${bip.homBand}`)
 assert.equal(bip.zygosity, 'diploid')
 assert.equal(bip.originClass, 'biparental')
+
+// THE SAME BAND ON A SMEARED ARRAY IS NOT A SECOND CONTRIBUTION. Same 30% of markers reading
+// mid-band, but at HOMOZYGOUS calls, which is amplification quality rather than ploidy. A flat
+// threshold on the band cannot tell these two apart and called both diploid; that read 316 of 726
+// lab arrays, and 74 of 81 blastomeres, as carrying one parental contribution.
+const smeared = classify(build({ absent: 0.002, het: 0.30, nonParental: 0.02 }).t, 0.17)
+assert.ok(smeared.hetBand > HET_BAND_DIPLOID, 'the band alone would have said diploid')
+assert.equal(smeared.zygosity, 'uniparental_homozygous', 'but it sits at homozygous calls')
 
 // A homozygous genome never consults the narrow axis: one allele per locus, and if it is the
 // parent's there is no room for a second complement.
@@ -558,4 +585,98 @@ console.log('parentage.check.ts OK')
   // The threshold sits in the empty gap between the two measured populations.
   assert.equal(CALL_COLLAPSE, 0.60)
   assert.ok(CALL_COLLAPSE > 0.41 && CALL_COLLAPSE < 0.78)
+}
+
+// --- 20. a chromosome that still GENOTYPES, and which way it went -----------------------------
+//
+// The call rate is one entry channel and it sees one thing: a chromosome absent from the array.
+// A chromosome at one copy still genotypes, and on bulk DNA it genotypes perfectly; three copies
+// genotype better than two. With the call rate as the only gate, 0 of 271 constructed
+// whole-chromosome events entered at all and 0 of 235 constructed gains were ever called a gain,
+// because the gain test was a magnitude gate at 1.0 and a trisomy is log2(3/2) = 0.585.
+//
+// So intensity is the second channel, read against the array's own null (intensityNull.ts). Its
+// false-positive rate is measured on chromosomes that are event-free by construction:
+// audit/intensity-null-truenegatives.ts, 4 of 264 = 0.0152.
+{
+  // Twenty-two autosomes, every call intact, with per-chromosome intensity noise so the array has
+  // a null of its own. The offsets are a fixed pattern rather than a generator: a check whose
+  // fixture is random is a check that fails on somebody else's afternoon.
+  const buildAll = (shift: number) => {
+    const t = emptyTally()
+    for (let c = 1; c <= 22; c += 1) {
+      const noise = ((c * 37) % 11 - 5) / 100  // -0.05 to +0.05 between chromosomes
+      for (let i = 0; i < 2_000; i += 1) {
+        const s = (i * 7919) % 1000
+        tallyRow('AA', row(String(c), 1000 + i * 1000, 'AA', s % 2 ? 0.02 : 0.98,
+          noise + (c === 7 ? shift : 0) + (s % 7 - 3) / 200), t)
+      }
+    }
+    return classify(t, 0.17).chroms
+  }
+  const build = (shift: number) => buildAll(shift).find((x) => x.chrom === '7')!
+
+  // What the CALIBRATED z ALONE would say, built from the same units the detector builds. Every
+  // reported lrrShift is its chromosome's median minus the genome's, so the set differs from the
+  // set of chromosome medians by one constant; a median-centred scale is unmoved by that, and the
+  // z is identical. This exists so the floor's assertion below demonstrates the gap rather than
+  // asserting it.
+  const zClears = (shift: number) => {
+    const cs = buildAll(shift)
+    const n = nullScale(cs.map((x) => x.lrrShift))
+    return intensityDetects(calibratedZ(cs.find((x) => x.chrom === '7')!.lrrShift, n), true)
+  }
+
+  // Three copies: +log2(3/2). The call rate never moves.
+  const tri = build(Math.log2(3 / 2))
+  assert.equal(tri.aneuploidy, 'gain',
+    `a trisomy is a GAIN, not a loss and not silence: ${JSON.stringify(tri)}`)
+  assert.ok(tri.callFraction > 0.9, 'and it genotypes with the rest of the genome')
+  assert.ok(tri.note!.includes('GAINED'))
+
+  // One copy: -1.0, the call rate intact. This is the case the old gate could not see at all.
+  const mono = build(-1.0)
+  assert.equal(mono.aneuploidy, 'loss', `a genotyping monosomy is a LOSS: ${JSON.stringify(mono)}`)
+  assert.ok(mono.callFraction > 0.9)
+  // And it must NOT short-circuit the parental verdict: the allelic ratio is still measuring this
+  // chromosome, so whose copy survived is read from it rather than asserted from the copy number.
+  assert.notEqual(mono.verdict, 'absent',
+    'a chromosome that still calls has a measurable allelic ratio; do not assert absence from '
+    + 'copy number alone')
+
+  // A GAIN NAMES NO PARENT. The absence statistic that names one on a loss reads nothing on a
+  // gain: a third copy makes the sample miss FEWER alleles whichever parent supplied it, so both
+  // answers land in the same low-absence branch. This fixture is homozygous throughout, which is
+  // that branch, and the old code returned 'other' from it.
+  assert.equal(tri.aneuploidyParent, undefined,
+    'whose extra copy it is comes from the allelic ratio, which is not measured here; naming a '
+    + 'parent from absence on a gain names one at random')
+  assert.ok(/NOT RESOLVED/.test(tri.note!), 'and the note has to say so, not imply a parent')
+  assert.ok(!/the copy that went/.test(tri.note!), 'loss language must not appear on a gain')
+
+  // An intact chromosome, on the same fixture, stays silent.
+  assert.equal(build(0).aneuploidy, undefined)
+  // And a shift under the calibrated threshold stays silent too, which is what keeps the
+  // false-positive rate where it was measured.
+  assert.equal(build(0.05).aneuploidy, undefined,
+    'a shift inside the array\'s own spread is not an event')
+
+  // THE FLOOR, and this is the one the corpus paid for. A relative threshold has no physical
+  // scale: 0.30 log2 on this fixture clears the calibrated z several times over, and no
+  // whole-chromosome copy state lives there. Over all 137 arrays of GSE148488 the z alone added
+  // four events at |log2R| 0.20 to 0.33, and four arrays of ONE trophectoderm biopsy read +0.174,
+  // +0.201, +0.163 and +0.168 on chr19 with exactly one called a gain. See COPY_SHIFT_FLOOR.
+  const belowFloor = build(0.30)
+  assert.ok(zClears(0.30), 'the calibrated z alone would admit 0.30, which is the whole point')
+  assert.equal(belowFloor.aneuploidy, undefined,
+    'a shift no copy state can produce is not an event, however far it sits from this array\'s '
+    + 'own noise')
+  assert.ok(0.33 < COPY_SHIFT_FLOOR && COPY_SHIFT_FLOOR < 0.559,
+    'the floor must sit above the largest false shift measured on real arrays and below the '
+    + 'smallest true one, which is a trisomy read on trophectoderm')
+  // And the smallest event that physically exists still gets through, on all three materials.
+  for (const observed of [0.585, 0.559, 0.615]) {
+    assert.equal(build(observed).aneuploidy, 'gain',
+      `a trisomy reads ${observed} log2 on real material and must still be detected`)
+  }
 }

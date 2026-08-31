@@ -15,8 +15,10 @@
  *               homozygous genome is immune however much drops out.
  *   other parent  how often the sample carries an allele the parent cannot supply, against half
  *               the parent's own heterozygosity, which is what a second parent contributes.
- *   zygosity    the fraction of B-allele frequencies in the heterozygous band, which says
- *               whether the genome is diploid at all. Dropout does not empty that band.
+ *   zygosity    how far the heterozygous B-allele band sits ABOVE the same array's own homozygous
+ *               clusters, which says whether the genome carries one parental contribution or two.
+ *               The LEVEL of that band is amplification quality rather than ploidy, so the
+ *               baseline is read off the array in hand; see HET_BAND_EXCESS.
  *
  * The arithmetic is duplicated from the Python deliberately. NOTE, from an independent audit:
  * this docstring used to claim both sides are pinned by a shared fixture so a divergence fails a
@@ -34,6 +36,7 @@ import type { Segment } from './segments.ts'
 import type { HetCall } from './obligateHet.ts'
 import type { Enrichment } from './features.ts'
 import type { StageCall } from './stage.ts'
+import { calibratedZ, intensityDetects, nullScale } from './intensityNull.ts'
 
 /** Residual absence on clean data, from genotyping error alone. Measured at 0.03% and 0.05%. */
 export const ABSENCE_ERROR_FLOOR = 0.005
@@ -41,8 +44,65 @@ export const ABSENCE_ERROR_FLOOR = 0.005
 /** How far above the explainable level an absence must sit before it is called. */
 export const ABSENCE_MARGIN = 3.0
 
-/** Diploid genomes run 15-16% in the heterozygous BAF band, uniparental ones 1.3-3.4%. */
+/**
+ * Diploid genomes run 15-16% in the heterozygous BAF band, uniparental ones 1.3-3.4%.
+ *
+ * ON UNAMPLIFIED DNA ONLY, AND NOT THE ZYGOSITY BOUNDARY. Kept because other callers still read
+ * it, and because it is the level a clean array shows. Zygosity is decided by HET_BAND_EXCESS,
+ * which is the same band measured against the same array's own homozygous clusters; see there for
+ * what a flat threshold does to amplified material.
+ */
 export const HET_BAND_DIPLOID = 0.08
+
+/**
+ * How far the heterozygous BAF band must sit ABOVE the same array's homozygous clusters before the
+ * genome carries two parental contributions.
+ *
+ * THE LEVEL OF THE BAND IS NOT PLOIDY. Write H = E[2p(1-p)], the panel's expected heterozygosity,
+ * about 0.169 here; r for retention, one minus dropout; B_ret for the chance a retained
+ * heterozygote reads inside the band and B_hom for the chance a HOMOZYGOUS cluster does. Then
+ *
+ *     two parental contributions   band = H*r*B_ret + (1 - H*r)*B_hom
+ *     one parental contribution    band = B_hom
+ *     what separates them          H*r*(B_ret - B_hom)
+ *
+ * So B_hom sets the level of BOTH classes, and B_hom is amplification quality rather than ploidy.
+ * A flat threshold on the band therefore fails in both directions at once, which is what the
+ * corpus shows: amplified diploid material reads a median band of 0.0730, below the old 0.08 flat
+ * boundary, and 316 of 726 unique arrays read as carrying one contribution, including 74 of 81
+ * blastomeres, while three genuinely haploid pronuclei read 0.1806, 0.2128 and 0.2678, far above
+ * it. The flat figure was measured on unamplified DNA, where B_hom is near zero and the two
+ * quantities coincide.
+ *
+ * B_hom IS THE ONLY LEGITIMATE ADJUSTER. On a genome with one parental contribution every AB call
+ * is an error, so any statistic conditioned on AB calls carries ploidy and adjusting by it is
+ * circular. Mann-Whitney between the two classes: band mass at AB calls p = 1.3e-05, heterozygous
+ * BAF spread p = 1.7e-05, call rate p = 0.0013, all contaminated. Band mass at HOMOZYGOUS calls
+ * p = 0.63, which is the one that is clean, and it stays clean here: it runs 0.0019 to 0.1313 on
+ * the two-contribution arrays against 0.0017 to 0.0289 on the one-contribution ones.
+ *
+ * MEASURED ON GSE148488, ploidy known from the pedigree rather than from this tool: 25 amplified
+ * children of complete trios, which have both a maternal and a paternal complement by
+ * construction, against the 15 pronuclei, each at one copy on every autosome. With the call-rate
+ * gate the shipped code already applies,
+ *
+ *     flat band > 0.08      sensitivity 0.680 (17/25)   specificity 1.000 (15/15)
+ *     band - B_hom > 0.05   sensitivity 0.920 (23/25)   specificity 0.933 (14/15)
+ *
+ * and over all 60 amplified children of complete trios, 0.767 against 0.900 against those same
+ * 15 pronuclei. Six of nineteen blastomeres move from one contribution to two and none is left
+ * reading one, which is the number that decides whether a single-cell workflow runs at all.
+ *
+ * WHERE THE FIGURE SITS. The one-contribution arrays reach 0.0440 and every two-contribution array
+ * measured is at or above 0.0527, so 0.05 sits inside that gap. TWO EXCEPTIONS, both named rather
+ * than excluded. GSM4774681 reads 0.0729 and is called two-contribution here: it is the array
+ * whose chr1 mis-clusters at 0.130 extreme BAF under BAF_EXTREME_FLOOR, and a band read over
+ * broken calls is inflated. The three pronuclei below CALL_RATE_FLOOR read 0.166 to 0.239 and are
+ * not rescued by this statistic either; they are withheld by that gate, which is why it stays.
+ *
+ * See audit/zygosity-boundary.ts, which prints the table and runs the wrong-parent arm.
+ */
+export const HET_BAND_EXCESS = 0.05
 
 /**
  * Call rate below which heterozygous calls stop being trustworthy, so nothing derived from them
@@ -55,6 +115,10 @@ export const HET_BAND_DIPLOID = 0.08
  * on three isolated paternal pronuclei at 53.8%, 55.6% and 59.1% call rate: each is haploid and
  * therefore homozygous by construction, each showed an 18-27% heterozygous band that a haploid
  * genome cannot produce, and each was called biparental on the strength of it.
+ *
+ * READING THE BAND AGAINST THE ARRAY'S OWN HOMOZYGOUS CLUSTERS DOES NOT RESCUE THEM. The three sit
+ * at 0.166, 0.192 and 0.239 above their own clusters, against a 0.05 boundary, so they would be
+ * called biparental by that route too. This gate is what withholds them; see HET_BAND_EXCESS.
  */
 export const CALL_RATE_FLOOR = 0.60
 
@@ -198,23 +262,67 @@ export const MOSAIC_Z = 8
  * ARE lost in these embryos, so a pronucleus can genuinely lack one. Mis-clustering and loss both
  * depress the allelic ratio, and the call rate is what separates them, because a mis-clustered
  * chromosome still calls.
+ *
+ * IT IS ONE OF TWO ENTRY CHANNELS, NOT THE ONLY ONE, and it was the only one for long enough to
+ * cost every event that does not collapse. A chromosome at one copy still genotypes and on bulk
+ * DNA it genotypes perfectly; three copies genotype better than two. Measured with this gate
+ * alone: 0 of 271 constructed whole-chromosome events entered at all. The eleven above are the
+ * cases where the chromosome is absent from the array, which is a subset of the cases where a copy
+ * is absent from the cell. Intensity is what sees the rest, against the array's own null; see
+ * intensityNull.ts.
  */
 export const CALL_COLLAPSE = 0.60
 
 /**
- * Which way a collapsed chromosome went. Only the SIGN is used, and only once the call rate has
- * already established that something is wrong.
+ * The direction of a COLLAPSED chromosome where the array has no usable null of its own.
  *
- * Measured on the same eleven: six sit at log2R -1.59 to -2.04 against the genome, and five at
- * +1.60 to +1.95. Nothing else in 1,012 observations leaves -0.79 to +0.42. So the sign is not a
- * threshold on a noisy quantity, it is the direction of a shift already known to be real.
+ * A fallback and nothing else. Where `intensityNull.nullScale` can be formed, which is every real
+ * array measured here, direction comes from the calibrated z against that array's own chromosomes
+ * and this number is never consulted. It exists for the degenerate case the calibrated route
+ * refuses outright: fewer than eight measurable autosomes, or a spread of exactly zero.
  *
- * A gain is reported more cautiously than a loss and says so: fine copy-number work on amplified
- * material is refused elsewhere in this tool for good measured reasons, and what makes this
- * different is only that the effect is an order of magnitude larger than the noise those
- * measurements were about.
+ * Measured on the eleven collapsed chromosomes: six sit at log2R -1.59 to -2.04 against the
+ * genome and five at +1.60 to +1.95, while nothing else in 1,012 observations leaves -0.79 to
+ * +0.42. So on that population it separates with a factor of two to spare.
+ *
+ * IT IS NOT A DETECTION THRESHOLD AND MUST NOT BECOME ONE AGAIN. Used as one it filed every gain
+ * as a loss, 0 of 235 constructed, because a trisomy is log2(3/2) = 0.585 and only a four-copy
+ * state clears 1.0.
  */
 export const LRR_SHIFT = 1.0
+
+/**
+ * The smallest intensity shift that can BE a whole-chromosome copy change, in log2 ratio.
+ *
+ * THE CALIBRATED z IS RELATIVE AND CARRIES NO PHYSICAL SCALE. It asks whether a chromosome sits
+ * further from the array's own centre than that array's other chromosomes do. On a clean array the
+ * spread between chromosomes is around 0.005 log2, so a shift of 0.15 clears any z threshold
+ * comfortably, and no copy state lives at 0.15. Detection needs both questions answered: is the
+ * shift bigger than this array's noise, and is it big enough to be a chromosome.
+ *
+ * WHAT THE RELATIVE TEST ALONE DID, measured over all 137 arrays of GSE148488: 39 whole-chromosome
+ * events became 43, and all four additions sat at |log2R| 0.20 to 0.33. Technical replicates say
+ * what those are. GSM4472424, 25, 26 and 27 are four arrays of ONE trophectoderm biopsy and read
+ * +0.174, +0.201, +0.163 and +0.168 on chr19; exactly one of the four was called a gain. In the
+ * blastomere pair GSM4552427/28 the array with the SMALLER shift is the one flagged. Same DNA,
+ * opposite answers, so what is being thresholded down there is the assay and not the genome.
+ *
+ * WHERE 0.40 COMES FROM. Three copies against two is log2(3/2) = 0.585 and one against two is
+ * -1.0, so 0.585 is the smallest whole-chromosome change that exists. Amplification attenuates it
+ * slightly: constructed on real arrays of this corpus a trisomy reads 0.585 on bulk, 0.559 on
+ * trophectoderm and 0.615 on blastomere, and the 39 real events run |1.06| to |2.44|. The floor
+ * therefore has to sit below 0.559 and above 0.33, and 0.40 is inside that with room either side.
+ *
+ * WHAT IT COSTS, stated rather than hidden. A trisomy present in fewer than about 64 percent of
+ * cells reads under 0.40 and is not detected here, since log2(2.64/2) = 0.40. That band, 0.20 to
+ * 0.40, is exactly where replicates of one biopsy disagree with each other, so a call made inside
+ * it would be a coin flip wearing a parent's name. A miss gets investigated; that would not.
+ *
+ * IT GATES THE INTENSITY CHANNEL ONLY. A chromosome whose calls have collapsed is detected by the
+ * call rate and is not asked to clear this, because a chromosome absent from the array is not
+ * being measured by intensity in the first place.
+ */
+export const COPY_SHIFT_FLOOR = 0.40
 
 export type OriginClass = 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear'
 
@@ -283,6 +391,11 @@ export interface Tally {
   markers: number
   bafInBand: number
   bafTotal: number
+  /** The same band, restricted to markers called HOMOZYGOUS. This is B_hom: the rate at which
+   *  this array's amplification alone puts a reading mid-band, measured where no heterozygote
+   *  can contribute. See HET_BAND_EXCESS. */
+  homInBand: number
+  homTotal: number
   /** Per chromosome: [B-allele frequencies at an extreme, B-allele frequencies read]. The
    *  mis-clustering check; see BAF_EXTREME_FLOOR. */
   bafByChrom: Map<string, [number, number]>
@@ -306,7 +419,8 @@ export interface Tally {
 
 export const emptyTally = (): Tally => ({
   byChrom: new Map(), nonParental: 0, nonParentalDen: 0,
-  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, bafByChrom: new Map(),
+  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, homInBand: 0, homTotal: 0,
+  bafByChrom: new Map(),
   hetDevByChrom: new Map(), callByChrom: new Map(), lrrByChrom: new Map(),
   yCalled: 0, yTotal: 0, build: null,
 })
@@ -337,8 +451,16 @@ export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   // homozygous genome from a diploid one that lost calls. Excluding them moved the band from
   // 1.27% to 0.92% on a real sample, and the noise ceiling with it.
   if (row.baf !== null && isAutosome(row.chrom)) {
+    const inBand = row.baf >= 0.35 && row.baf <= 0.65
     t.bafTotal += 1
-    if (row.baf >= 0.35 && row.baf <= 0.65) t.bafInBand += 1
+    if (inBand) t.bafInBand += 1
+    // The same reading at a homozygous CALL, which is where the band's own baseline is measured.
+    // Conditioning on AB instead would carry ploidy, since on a one-parent genome every AB call
+    // is an error, and adjusting the band by it would be circular.
+    if (row.genotype === 'AA' || row.genotype === 'BB') {
+      t.homTotal += 1
+      if (inBand) t.homInBand += 1
+    }
     const b = t.bafByChrom.get(row.chrom) ?? [0, 0]
     b[1] += 1
     if (row.baf < 0.15 || row.baf > 0.85) b[0] += 1
@@ -435,6 +557,20 @@ export interface ParentageResult {
   verdict: Verdict
   originClass: OriginClass
   zygosity: Zygosity
+  /**
+   * Whether the operator's declared material and the array's own reading agree.
+   *
+   * Present on every run. When nothing was declared it records the inference agreeing with itself,
+   * so a reader never has to distinguish "no declaration" from "not computed".
+   */
+  stageAgreement?: import('./declaredStage.ts').StageAgreement
+  /**
+   * Whether this sample is intact enough for the rest of the row to mean anything.
+   *
+   * A sample-level flag rather than a refusal: an array that failed produces an EMPTY result, which
+   * looks exactly like a clean one until something says otherwise.
+   */
+  integrity?: import('./integrity.ts').IntegrityCall
   spermType: SpermType
   genomeRate: number
   explainable: number
@@ -442,6 +578,9 @@ export interface ParentageResult {
   nonParentalRate: number
   secondParentExpected: number
   hetBand: number
+  /** The same band at HOMOZYGOUS calls, which is this array's own baseline for it. Zygosity is
+   *  the EXCESS of hetBand over this; see HET_BAND_EXCESS. */
+  homBand: number
   noCallRate: number
   /** Second factor of the ceiling, beside noCallRate: a dropped call only fakes absence where
    *  the genotype was heterozygous, so the ceiling is their product plus the error floor. */
@@ -611,6 +750,7 @@ export function classify(
   const genomeRate = nTot ? aTot / nTot : NaN
   const noCallRate = t.markers ? 1 - t.called / t.markers : NaN
   const hetBand = t.bafTotal ? t.bafInBand / t.bafTotal : NaN
+  const homBand = t.homTotal ? t.homInBand / t.homTotal : NaN
   const gtHet = t.called ? t.het / t.called : NaN
   const hetFraction = Number.isFinite(hetBand) ? hetBand : gtHet
   // A measured parental array contributes no absence of its own, so the ceiling is the sample's
@@ -690,7 +830,15 @@ export function classify(
       + 'The presence or absence of this parent\'s contribution is unaffected: that is Mendelian '
       + 'and does not rest on heterozygous calls.',
     )
+  } else if (Number.isFinite(hetBand) && homBand > 0) {
+    // Against this array's own homozygous clusters, never against a flat level: B_hom sets where
+    // BOTH classes sit, so the level of the band is amplification quality and only the EXCESS
+    // over it is a second parental contribution. See HET_BAND_EXCESS.
+    zygosity = hetBand - homBand > HET_BAND_EXCESS ? 'diploid' : 'uniparental_homozygous'
   } else if (Number.isFinite(hetBand)) {
+    // No homozygous call anywhere reads mid-band, so this array has no amplification smear to
+    // correct for and the unamplified boundary is the one calibrated on exactly that material.
+    // Every amplified array measured here sits at 0.0017 to 0.1313 instead.
     zygosity = hetBand > HET_BAND_DIPLOID ? 'diploid' : 'uniparental_homozygous'
   } else if (Number.isFinite(gtHet) && Number.isFinite(parentHeterozygosity)) {
     zygosity = gtHet > parentHeterozygosity / 2 ? 'diploid' : 'uniparental_homozygous'
@@ -741,9 +889,19 @@ export function classify(
     }
   }
 
-  // Aneuploidy, from the call rate rather than from the alleles. A chromosome that is gone yields
-  // no DNA and cannot be genotyped, so it collapses here while its allelic statistics only look
-  // noisy. Computed before the per-chromosome verdicts because it changes what they may say.
+  // Aneuploidy, on TWO channels, because neither one sees the whole class.
+  //
+  // The call rate sees a chromosome that is GONE: it yields no DNA, so it cannot be genotyped and
+  // it collapses here while its allelic statistics only look noisy. It sees nothing else. A
+  // chromosome at one copy still genotypes, and on bulk DNA it genotypes perfectly, so a call-rate
+  // gate alone found 0 of 271 constructed whole-chromosome events. Three copies genotype better
+  // still. The easiest material was the most affected.
+  //
+  // Intensity sees both, and it is the array's own null that makes it usable: a region is compared
+  // against the spread of that array's own 22 chromosome units, at the measured threshold for a
+  // whole chromosome. See intensityNull.ts, and audit/intensity-null-truenegatives.ts for the
+  // 0.0152 false-positive rate this carries on chromosomes that are event-free by construction.
+  // Computed before the per-chromosome verdicts because it changes what they may say.
   const callPerChrom = new Map<string, number>()
   for (const [c, [k, n]] of t.callByChrom) if (isAutosome(c) && n >= 200) callPerChrom.set(c, k / n)
   const callSorted = [...callPerChrom.values()].sort((x, y) => x - y)
@@ -754,18 +912,43 @@ export function classify(
     return q[q.length >> 1]
   }
   const genomeLrr = medianOf([...t.lrrByChrom.values()].flat())
+  // One unit per autosome, which is the null a WHOLE-chromosome test must be read against. A
+  // window-level null is finer but a whole-chromosome event contaminates every window on that
+  // chromosome at once, so it would be measuring the event against itself.
+  const chromLrr = new Map<string, number>()
+  for (const [c, xs] of t.lrrByChrom) {
+    if (isAutosome(c) && xs.length >= 200) chromLrr.set(c, medianOf(xs))
+  }
+  const lrrNull = nullScale([...chromLrr.values()])
   const aneuploidy = new Map<string, 'loss' | 'gain'>()
   const callFrac = new Map<string, number>()
   const lrrShift = new Map<string, number>()
+  const lrrZ = new Map<string, number>()
   for (const [c, r] of callPerChrom) {
     const frac = callMedian > 0 ? r / callMedian : NaN
     callFrac.set(c, frac)
-    const shift = medianOf(t.lrrByChrom.get(c) ?? []) - genomeLrr
-    lrrShift.set(c, shift)
-    if (!(frac < CALL_COLLAPSE)) continue
-    // Which way it went. Without a usable intensity the collapse is still reported, as a loss,
-    // because that is what a chromosome absent from the array looks like from the genotypes alone.
-    aneuploidy.set(c, Number.isFinite(shift) && shift >= LRR_SHIFT ? 'gain' : 'loss')
+    const med = chromLrr.get(c)
+    lrrShift.set(c, (med ?? NaN) - genomeLrr)
+    const z = med === undefined ? undefined : calibratedZ(med, lrrNull)
+    if (z !== undefined) lrrZ.set(c, z)
+    // BOTH questions, not one. The z says the shift is bigger than this array's own noise; the
+    // floor says it is big enough to be a chromosome. The z alone added four events to the corpus
+    // at |log2R| 0.20 to 0.33, where no copy state exists and where four arrays of one biopsy
+    // disagree with each other. See COPY_SHIFT_FLOOR.
+    const shift = lrrShift.get(c) as number
+    const byIntensity = intensityDetects(z, true)
+      && Number.isFinite(shift) && Math.abs(shift) >= COPY_SHIFT_FLOOR
+    if (!(frac < CALL_COLLAPSE) && !byIntensity) continue
+    // Which way it went. A GAIN is asserted where the intensity cleared BOTH gates and points
+    // upward. The magnitude gate is COPY_SHIFT_FLOOR at 0.40 and not LRR_SHIFT at 1.0: a trisomy
+    // is log2(3/2) = 0.585 rather than a doubling, and a gate at 1.0 filed all 235 constructed
+    // gains as losses. Where the call rate collapsed and the intensity says nothing the report is
+    // a loss, which is what a chromosome absent from the array looks like from the genotypes
+    // alone; where there is no calibrated null at all, LRR_SHIFT is the fallback.
+    const gain = z !== undefined
+      ? byIntensity && z > 0
+      : Number.isFinite(lrrShift.get(c)) && (lrrShift.get(c) as number) >= LRR_SHIFT
+    aneuploidy.set(c, gain ? 'gain' : 'loss')
   }
 
   const chroms: ChromResult[] = []
@@ -794,7 +977,11 @@ export function classify(
     // ratio. Both look identical to the ratio alone, so the ratio may only diagnose mis-clustering
     // where the chromosome is still being genotyped. Withholding a real loss was the earlier bug.
     const aneu = aneuploidy.get(c)
-    const clustered = !Number.isFinite(extreme) || extreme >= BAF_EXTREME_FLOOR || aneu !== undefined
+    // The exemption is the COLLAPSE, not the event. A chromosome detected on intensity alone is
+    // still being genotyped at a normal rate, so its allelic ratio is measuring it and the
+    // mis-clustering test applies to it exactly as to any other chromosome.
+    const collapsed = (callFrac.get(c) ?? NaN) < CALL_COLLAPSE
+    const clustered = !Number.isFinite(extreme) || extreme >= BAF_EXTREME_FLOOR || collapsed
 
     chroms.push({
       chrom: c,
@@ -803,16 +990,27 @@ export function classify(
       bafExtreme: extreme,
       mosaicZ: mosaicZ.get(c) ?? NaN,
       aneuploidy: aneu,
-      // Whose copy went. Determinable only where the parent is measurable on this chromosome at
-      // all: a sample carrying none of this parent's genome anywhere cannot say anything per
-      // chromosome, and a chromosome with nothing left has no surviving copy to attribute.
-      aneuploidyParent: !aneu || !present ? undefined
+      // Whose copy went. LOSSES ONLY, and this is the direction of the whole tool. The statistic
+      // underneath is absence: how often the sample lacks an allele this parent had to transmit.
+      // On a loss that reads whose copy survived. ON A GAIN IT READS NOTHING. A third copy makes
+      // the sample miss FEWER alleles, not more, whichever parent supplied it, so a maternal and a
+      // paternal trisomy land in the same low-absence branch and the tool named the other parent
+      // for both. Whose extra copy it is comes from the allelic ratio splitting one-third against
+      // two-thirds, which is not measured here.
+      //
+      // Determinable only where the parent is measurable on this chromosome at all: a sample
+      // carrying none of this parent's genome anywhere cannot say anything per chromosome.
+      aneuploidyParent: aneu !== 'loss' || !present ? undefined
         : rate <= explainable ? 'other'
           : rate >= explainable * ABSENCE_MARGIN ? 'this' : undefined,
       callFraction: callFrac.get(c) ?? NaN,
       lrrShift: lrrShift.get(c) ?? NaN,
       verdict: !clustered ? 'not_measured'
-        : aneu === 'loss' ? 'absent'
+        // Only where the chromosome is not being genotyped at all. A chromosome at one copy that
+        // still calls has a measurable allelic ratio, and that ratio is what says whether THIS
+        // parent's alleles are the ones that survived; asserting 'absent' from the copy number
+        // alone would name the wrong parent on every loss whose surviving copy is this one's.
+        : aneu === 'loss' && collapsed ? 'absent'
           : expected ? 'expected_absent'
             : rate >= explainable * ABSENCE_MARGIN ? 'absent'
               : rate <= explainable ? 'present' : 'unclear',
@@ -820,21 +1018,42 @@ export function classify(
       note: aneu
         ? `${aneu === 'loss' ? 'LOST' : 'GAINED'}: this chromosome calls at `
           + `${pct(callFrac.get(c) ?? NaN, 0)} of the genome's median rate and its intensity sits `
-          + `${(lrrShift.get(c) ?? NaN).toFixed(2)} log2 from the rest. A chromosome that is not `
-          + 'there cannot be genotyped, which is what the call rate is reading; the intensity says '
-          + `which way it went. Measured over 1,012 chromosomes, an intact one calls at 0.78x to `
-          + '1.16x and never leaves -0.79 to +0.42 log2.'
-          + (!present
-            ? ` No parent is attached: this sample carries none of the ${role} genome anywhere, `
-              + 'so there is nothing to attribute per chromosome.'
-            : rate <= explainable
-              ? ` The ${role} alleles ARE present on what remains, so the copy that went was the `
-                + "other parent's."
-              : rate >= explainable * ABSENCE_MARGIN
-                ? ` The ${role} alleles are absent from what remains, so the copy that went was `
-                  + `the ${role} one.`
-                : ' Which parent lost the copy is not resolved: absence here sits between what '
-                  + "this sample's own noise explains and the margin needed to call it.")
+          + `${(lrrShift.get(c) ?? NaN).toFixed(2)} log2 from the rest`
+          // The array's own spread is quotable only where the array HAS one. Under eight
+          // measurable autosomes calibratedZ refuses, and printing that refusal as a number gave
+          // the reader "NaN times this array's own spread" on exactly the arrays least able to
+          // support a claim.
+          + `${lrrZ.has(c)
+            ? `, ${Math.abs(lrrZ.get(c) as number).toFixed(1)} times this array's own spread `
+              + 'between its chromosomes'
+            : ', and this array has too few measurable chromosomes to form a spread of its own, so '
+              + 'the call rate is the only channel behind this'}. ${collapsed
+            ? 'A chromosome that is not there cannot be genotyped, which is what the call rate is '
+              + 'reading. Measured over 1,012 chromosomes, an intact one calls at 0.78x to 1.16x.'
+            : 'The genotypes are intact, which is what a chromosome at one or three copies looks '
+              + 'like: it is still there to be read. Intensity is the channel that sees it, at the '
+              + 'threshold measured on chromosomes carrying nothing.'} `
+          + `The direction is the sign of a shift that cleared both gates: wider than this `
+          + `array's own spread between its chromosomes, and at least `
+          + `${COPY_SHIFT_FLOOR.toFixed(2)} log2, which sits under the 0.585 a third copy produces `
+          + 'and over the 0.33 that four arrays of one biopsy disagree by.'
+          + (aneu === 'gain'
+            ? ' WHICH PARENT SUPPLIED THE EXTRA COPY IS NOT RESOLVED. What names a parent on a '
+              + 'loss is absence: how often this sample lacks an allele the parent had to '
+              + 'transmit. A gain removes nothing, so a sample with three copies is missing fewer '
+              + 'alleles whichever parent contributed the third, and both answers land in the same '
+              + 'place. Naming one from that measurement would be naming one at random.'
+            : !present
+              ? ` No parent is attached: this sample carries none of the ${role} genome anywhere, `
+                + 'so there is nothing to attribute per chromosome.'
+              : rate <= explainable
+                ? ` The ${role} alleles ARE present on what remains, so the copy that went was the `
+                  + "other parent's."
+                : rate >= explainable * ABSENCE_MARGIN
+                  ? ` The ${role} alleles are absent from what remains, so the copy that went was `
+                    + `the ${role} one.`
+                  : ' Which parent lost the copy is not resolved: absence here sits between what '
+                    + "this sample's own noise explains and the margin needed to call it.")
         : !clustered
         ? `${pct(extreme, 1)} of this chromosome's B-allele frequencies sit at an extreme, `
           + `against a ${pct(BAF_EXTREME_FLOOR, 0)} floor and ${pct(0.752, 0)} to `
@@ -910,7 +1129,7 @@ export function classify(
     segments: [],
     gains: [],
     losses: [],
-    nonParentalRate, secondParentExpected, hetBand, noCallRate, hetFraction,
+    nonParentalRate, secondParentExpected, hetBand, homBand, noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, notes, limits,
   }
 }

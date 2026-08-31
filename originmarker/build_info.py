@@ -109,10 +109,14 @@ RELEASES: tuple[Release, ...] = (
     Release("Anaphase II",
             "The second separation, where sister chromatids part and a premature one is the "
             "commonest source of an aneuploid egg."),
+    Release("Blastomere",
+            "One cell of a cleaving embryo, carrying both parental genomes in a single copy of "
+            "the material, which is where parent of origin becomes answerable and where the "
+            "assay is at its noisiest."),
 )
 
-VERSION = "5.20.0"
-CODENAME = "Amphimixis"
+VERSION = "5.21.0"
+CODENAME = "Blastomere"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
