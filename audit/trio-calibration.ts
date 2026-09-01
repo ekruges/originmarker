@@ -353,6 +353,10 @@ function clustered(perArray: number[]): { mean: number; lo: number; hi: number }
   // which. The combined rule must name that parent.
   const perArray: number[] = []
   const named: Record<string, number> = {}
+  // Does the OTHER array independently point at the same parent? It is never acted on, because
+  // that direction is the 0.2890 one, but whether it tracks the truth decides if it could ever
+  // serve as a filter on material where dropout drives false calls.
+  const corrob: Record<string, number> = { yes: 0, no: 0 }
   let wrongParent = 0
   let unresolved = 0
   for (const p of pronuclei) {
@@ -378,6 +382,7 @@ function clustered(perArray: number[]): { mean: number; lo: number; hi: number }
       ) as { verdict: string; parent: string | null }
       named[call.verdict] = (named[call.verdict] ?? 0) + 1
       n += 1
+      if (call.parent) { corrob[call.corroborated ? 'yes' : 'no'] += 1 }
       if (call.parent === wantParent) right += 1
       else if (call.parent !== null) wrongParent += 1
     }
@@ -389,6 +394,7 @@ function clustered(perArray: number[]): { mean: number; lo: number; hi: number }
     + ` over ${perArray.length} arrays, ${unresolved} unresolved`)
   console.log(`  WRONG PARENT NAMED: ${wrongParent}`)
   console.log(`  verdicts: ${JSON.stringify(named)}`)
+  console.log(`  corroborated by the other array: ${JSON.stringify(corrob)}`)
 
   // --- SPECIFICITY. Real children with BOTH real parents loaded. Every autosome carries both
   // copies by pedigree, so the only correct answer is to name nobody.
@@ -396,6 +402,7 @@ function clustered(perArray: number[]): { mean: number; lo: number; hi: number }
   const spec: number[] = []
   const specByMaterial: Record<string, number[]> = {}
   const specVerdicts: Record<string, number> = {}
+  const specCorrob: Record<string, number> = { yes: 0, no: 0 }
   for (const t of SAMPLE2) {
     const child = load(t.gsm)
     const patByChrom = pairsByChrom(load(t.father!), child)
@@ -411,7 +418,7 @@ function clustered(perArray: number[]): { mean: number; lo: number; hi: number }
       ) as { verdict: string; parent: string | null }
       specVerdicts[call.verdict] = (specVerdicts[call.verdict] ?? 0) + 1
       n += 1
-      if (call.parent !== null) bad += 1
+      if (call.parent !== null) { bad += 1; specCorrob[call.corroborated ? 'yes' : 'no'] += 1 }
     }
     if (n) {
       spec.push(bad / n)
@@ -424,6 +431,7 @@ function clustered(perArray: number[]): { mean: number; lo: number; hi: number }
   console.log(`  a parent named where both copies are present: ${sc.mean.toFixed(4)} `
     + `[${sc.lo.toFixed(4)}, ${sc.hi.toFixed(4)}] over ${spec.length} arrays`)
   console.log(`  verdicts: ${JSON.stringify(specVerdicts)}`)
+  console.log(`  FALSE calls corroborated by the other array: ${JSON.stringify(specCorrob)}`)
   for (const m of Object.keys(specByMaterial).sort()) {
     const c = clustered(specByMaterial[m])
     console.log(`    ${m.padEnd(16)} n=${String(specByMaterial[m].length).padStart(3)}  `

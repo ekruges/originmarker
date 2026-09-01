@@ -169,6 +169,30 @@ const VERDICTS: OneParentVerdict[]
     `the split must account for the arrays behind the pooled figure: ${arrays}`)
 }
 
+
+// --- 8. CORROBORATION IS REPORTED AND NOT REQUIRED, and the measurement says why ----------------
+//
+// The obvious next move on a 0.0813 blastomere false-call rate is to demand that both arrays agree.
+// It was measured before it was rejected, and this pins the arithmetic so nobody has to re-derive
+// it from an intuition that the filter "must" be worth it.
+{
+  const c = TWO_PARENT_ACCURACY.corroboration
+  const inTrue = c.trueCalls.agreed / c.trueCalls.total
+  const inFalse = c.falseCalls.agreed / c.falseCalls.total
+  assert.ok(inTrue > inFalse * 3,
+    `corroboration must carry signal to be worth showing: ${inTrue.toFixed(3)} of true calls `
+    + `against ${inFalse.toFixed(3)} of false ones`)
+  // And the reason it is not a gate: it would cost more true calls than it saves false ones.
+  const trueLost = c.trueCalls.total - c.trueCalls.agreed
+  const falseSaved = c.falseCalls.total - c.falseCalls.agreed
+  assert.ok(trueLost > falseSaved * 4,
+    `requiring corroboration would drop ${trueLost} real calls to remove ${falseSaved} false ones, `
+    + 'which is the trade this constant exists to record')
+  console.log(`  corroboration: ${(inTrue * 100).toFixed(1)}% of true calls, `
+    + `${(inFalse * 100).toFixed(1)}% of false; as a gate it would cost ${trueLost} real calls `
+    + `to remove ${falseSaved} false ones`)
+}
+
 console.log('bothParentsOrigin.check.ts: a parent is named only from the direction measured at '
   + '0.854, both sides claiming their own loss names nobody, and the weak direction never creates '
   + 'a call')

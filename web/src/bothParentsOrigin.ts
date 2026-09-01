@@ -86,6 +86,23 @@ export const TWO_PARENT_ACCURACY = {
   directionOneArray: { accuracy: 0.2890, lo: 0.1273, hi: 0.4506, arrays: 14 },
   /** A parent named where both copies are present. Pooled over all 76 trios. */
   specificity: { falseCallRate: 0.0203, lo: 0.0029, hi: 0.0378, arrays: 76 },
+  /**
+   * WHAT CORROBORATION IS WORTH, and it is why it is reported rather than required.
+   *
+   * The other array pointing at the same parent by the weak direction is genuinely enriched in
+   * true calls: 89 of 263 real ones carry it against 2 of 34 false ones, 0.338 against 0.059,
+   * an enrichment of 5.8x. So it is real signal and a reader should see it.
+   *
+   * AS A GATE IT IS A BAD TRADE AND WAS MEASURED BEFORE BEING REJECTED. Requiring it would drop
+   * 32 of the 34 false calls and 174 of the 263 true ones: two thirds of every real answer, to
+   * remove a false-call rate already under one in fifty. The channel would name a parent on 89
+   * events instead of 263. Refusing is cheaper than a wrong answer, but not at that price, and the
+   * weak direction is 0.2890 accurate on its own, so its silence is barely evidence at all.
+   */
+  corroboration: {
+    trueCalls: { agreed: 89, total: 263 },
+    falseCalls: { agreed: 2, total: 34 },
+  },
   /** And by material, because every one of those false calls is on a single cell. */
   specificityByMaterial: {
     trophectoderm: { falseCallRate: 0.0000, oneArray: 0.0000, arrays: 36 },
@@ -113,9 +130,12 @@ export interface BothParentsCall {
   posterior: number
   band: Band
   /**
-   * Whether the OTHER side independently agreed, by returning other-parent-lost. Corroboration
-   * only. It never creates or changes a call, because the direction it rests on is the 0.289 one;
-   * it is reported so a reader can see when the two arrays tell the same story.
+   * Whether the OTHER side independently agreed, by returning other-parent-lost.
+   *
+   * REPORTED, NEVER REQUIRED. It carries real signal, measured at 0.338 of true calls against
+   * 0.059 of false ones, but requiring it would cost two thirds of every real answer to remove a
+   * false-call rate already under one in fifty. See TWO_PARENT_ACCURACY.corroboration for the
+   * counts. It never creates or changes a call.
    */
   corroborated: boolean
   why: string

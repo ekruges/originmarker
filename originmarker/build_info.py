@@ -116,10 +116,14 @@ RELEASES: tuple[Release, ...] = (
     Release("Reciprocal",
             "The pair of products of one exchange, which carry the same event read from opposite "
             "sides and are only fully described together."),
+    Release("Polar Body",
+            "The discarded sister product of a meiotic division, biopsied in clinical work to "
+            "infer indirectly what the oocyte kept. A second reading of the same event, from the "
+            "side that was thrown away."),
 )
 
-VERSION = "5.22.0"
-CODENAME = "Reciprocal"
+VERSION = "5.23.0"
+CODENAME = "Polar Body"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

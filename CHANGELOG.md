@@ -9,6 +9,36 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.23.0 "Polar Body"
+
+**The obvious way to cut the two-parent false-call rate was measured, and it costs more than it
+saves.** 5.22.0 loads both parental arrays and names a parent only from the side reporting its own
+copy absent, which took the direction from 0.2890 to 0.8539 and left a false-call rate of 0.0203
+overall and 0.0813 on blastomeres. The natural next move is to demand that the two arrays agree
+before naming anyone. This release measures that filter rather than assuming it.
+
+The other array pointing at the same parent by the weak direction is real signal, enriched 5.8x in
+true calls:
+
+| | agreed | total | rate |
+|---|---|---|---|
+| true calls, the 14 pronuclei | 89 | 263 | 0.338 |
+| false calls, the 76 trios | 2 | 34 | 0.059 |
+
+But as a gate the arithmetic is one-sided. Requiring agreement removes 32 of the 34 false calls and
+174 of the 263 true ones. The channel would name a parent on 89 events instead of 263: two thirds
+of every real answer surrendered to remove a false-call rate already under one in fifty. The weak
+direction is only 0.2890 accurate on its own, so its silence is barely evidence.
+
+So corroboration stays on the row, shown to the reader, and is never required. The counts are in
+`TWO_PARENT_ACCURACY.corroboration` and pinned by a check, so the next person who reaches for the
+filter finds the measurement instead of re-deriving the intuition.
+
+No scoring behaviour changes in this release. `audit/trio-calibration.ts` now reports corroboration
+counts in both arms.
+
+---
+
 ## 5.22.0 "Reciprocal"
 
 **Load both parental arrays and every loss gets answered by the channel's reliable direction
