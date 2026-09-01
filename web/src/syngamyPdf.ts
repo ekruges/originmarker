@@ -8,7 +8,7 @@
  * its SHA-256.
  */
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
-import { BAND_WORD, KIND_WORD } from './defects.ts'
+import { BAND_WORD, KIND_WORD, runAlerts } from './defects.ts'
 import { unanswerable } from './abnormalities.ts'
 import {
   GLOSS, pct,
@@ -529,6 +529,20 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         text(`The two declared parents agree at ${pct(f.paired.agreement, 1)} of shared markers.`,
           7.4, 'Helvetica', 2.2, GREY)
       }
+    }
+
+    // WHAT WOULD STOP A READER, BEFORE ANY EVIDENCE. Three checks the run performs reached no
+    // surface at all before this: the parental array not matching the slot it was loaded under,
+    // the sample being too damaged to interpret, and the declared material disagreeing with what
+    // the array reads. Each one changes how every number below should be read, so each is printed
+    // above them in the same banner the reconstructed-genotype notice uses.
+    for (const a of runAlerts(r)) {
+      const msg = `${a.headline} ${a.body}`
+      const h = wrap(msg, 'Helvetica-Bold', 8.4, R - L - 10).length * 10.4 + 3
+      need(h + 4)
+      pdf.setFillColor(WARN)
+      pdf.rect(L, y - h, 3, h, true)
+      text(msg, 8.4, 'Helvetica-Bold', 3, WARN, L + 10)
     }
 
     heading(m ? 'Evidence, sperm donor' : 'Evidence', 8.6)

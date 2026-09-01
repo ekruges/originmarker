@@ -395,6 +395,71 @@ export function parentNamed(
   }
 }
 
+
+/**
+ * Everything about a run that should stop the person reading it, in one list.
+ *
+ * ONE IMPLEMENTATION, FOR THE SAME REASON THE SCORER HAS ONE. These three checks were each computed
+ * by `scoreSample` and displayed by NOTHING: not the page, not the report, not the command line. An
+ * audit of the three surfaces found zero of the three anywhere. The run decided a sample was too
+ * damaged to interpret, or that the material was not what the operator declared, or that the
+ * parental array was not the sex its slot requires, and then every surface printed the findings as
+ * though none of that had happened.
+ *
+ * ORDERED BY WHAT IT COSTS THE READER. A wrong parental slot invalidates every name in the report,
+ * so it goes first. An uninterpretable sample invalidates the findings but not the positions. A
+ * declaration the array disagrees with changes how the numbers should be read without invalidating
+ * them.
+ */
+export function runAlerts(r: {
+  relationship?: {
+    verdict: string; oppositeHomRate: number; oppositeHomMarkers: number
+    windowSpread: number; windows: number
+  }
+  parentSanity?: { conflict?: string; headline: string; why: string }
+  parentSanityOther?: { conflict?: string; headline: string; why: string }
+  integrity?: { level: string; headline: string; why: string; limits: string }
+  stageAgreement?: {
+    agrees: boolean; ploidyConflict: boolean; notice: string
+    declared?: string; inferred: { stage: string }
+  }
+}): { key: string; headline: string; body: string }[] {
+  const out: { key: string; headline: string; body: string }[] = []
+  // NO RELATIONSHIP ALERT, AND THE MEASUREMENT IS WHY. An earlier version raised one whenever the
+  // loaded array read `unrelated` against the sample. On amplified material that fires on CORRECT
+  // runs: a real blastomere against its genetically confirmed father reads 0.0276 opposite
+  // homozygotes over 524,821 markers, against a 0.020 gate measured on bulk adult DNA.
+  //
+  // A per-material threshold was then measured and does not rescue it. Over the 40 usable trios of
+  // GSE148488, a true parent reaches 0.0831 on trophectoderm where an unrelated donor starts at
+  // 0.0567: no threshold separates them on the commonest PGT material. See
+  // audit/relatedness-by-material.ts for the full table.
+  //
+  // `relationship` is still on the result and still reported, because it is real information about
+  // what was loaded and it is what let this defect be found. It raises nothing. An alarm that fires
+  // on the correct run trains an operator to ignore alarms, which costs more than having none.
+  for (const p of [r.parentSanity, r.parentSanityOther]) {
+    if (p?.conflict) out.push({ key: p.conflict, headline: p.headline, body: p.why })
+  }
+  if (r.integrity && r.integrity.level !== 'intact') {
+    out.push({
+      key: `integrity-${r.integrity.level}`,
+      headline: r.integrity.headline,
+      body: [r.integrity.why, r.integrity.limits].filter(Boolean).join(' '),
+    })
+  }
+  if (r.stageAgreement && !r.stageAgreement.agrees) {
+    out.push({
+      key: `stage-${r.stageAgreement.declared ?? 'none'}-${r.stageAgreement.inferred.stage}`,
+      headline: r.stageAgreement.ploidyConflict
+        ? 'THE DECLARED MATERIAL AND THE ARRAY DISAGREE ABOUT PLOIDY.'
+        : 'The declared material is not what this array reads.',
+      body: r.stageAgreement.notice,
+    })
+  }
+  return out
+}
+
 /**
  * The parent a Mendelian origin row names as the ORIGIN OF THE EVENT.
  *

@@ -34,6 +34,9 @@ import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin.ts
 import { callOneParentOrigin } from './oneParentOrigin.ts'
 import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin.ts'
 import { uniparentalOrigin } from './uniparentalOrigin.ts'
+import { accumulateSex, emptySex, sexCall, type SexCall, type SexTally } from './sexing.ts'
+import { reconcileParentSex } from './parentSanity.ts'
+import { relate, OPPOSITE_HOM_MAX } from './relatedness.ts'
 import { callBothParentsOrigin } from './bothParentsOrigin.ts'
 import {
   detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh,
@@ -50,6 +53,11 @@ export interface ParentIndex {
   gt: Map<string, AB>
   heterozygosity: number
   build: string | null
+  /**
+   * What chromosome Y says about this array. Read on the PARENT, which is the slot an operator can
+   * put the wrong file into: see parentSanity.ts.
+   */
+  sex: SexCall
 }
 
 /** Where a run writes its narrative. The browser paints it, the command line prints it. */
@@ -82,12 +90,22 @@ export const listChroms = (wheres: readonly string[]): string => {
  * index omits reads as a no-call downstream, so the same array produced different tallies on the
  * two surfaces before either channel had run.
  */
-export interface ParentAccum { gt: Map<string, AB>; called: number; het: number }
+export interface ParentAccum {
+  gt: Map<string, AB>; called: number; het: number
+  /** Chromosome Y, accumulated in the same pass. See parentSanity.ts for what it is for. */
+  sex: SexTally
+}
 
-export const emptyParent = (): ParentAccum => ({ gt: new Map(), called: 0, het: 0 })
+export const emptyParent = (): ParentAccum => ({
+  gt: new Map(), called: 0, het: 0, sex: emptySex(),
+})
 
 export function collectParentRow(r: ProbeRow, acc: ParentAccum): void {
   acc.gt.set(r.probesetId, r.genotype)
+  // ON THE SAME PASS, because the alternative is a second read of a 790,000-row file to answer a
+  // question that costs two counters. This is what lets the tool notice that the array in the
+  // paternal slot is not male.
+  accumulateSex(r, acc.sex)
   if (r.genotype !== 'NC' && isAutosome(r.chrom)) {
     acc.called += 1
     if (r.genotype === 'AB') acc.het += 1
@@ -99,6 +117,7 @@ export const finishParent = (acc: ParentAccum, build: string | null): ParentInde
   gt: acc.gt,
   heterozygosity: acc.called ? acc.het / acc.called : NaN,
   build,
+  sex: sexCall(acc.sex),
 })
 
 /**
@@ -324,6 +343,150 @@ export async function scoreSample(input: {
       + `stage. ${result.stage.why}`)
     for (const c of result.chroms) c.aneuploidy = undefined
   }
+
+  // IS THE ARRAY IN THE PARENTAL SLOT THE KIND OF PERSON THAT SLOT SAYS IT IS?
+  //
+  // Checked on every parental array loaded, against the role the operator declared for it. The
+  // mistake this catches makes no error anywhere else: a valid, high-quality array of a real
+  // person, put in the wrong slot, produces arithmetic that is entirely correct under a label that
+  // is entirely wrong. See parentSanity.ts for the measurement and for why silence is not a
+  // conflict.
+  result.parentSanity = reconcileParentSex(soloRole, pat.sex)
+  const otherRole = soloRole === 'paternal' ? 'maternal' : 'paternal'
+  const matSanity = mat ? reconcileParentSex(otherRole, mat.sex) : undefined
+  if (matSanity) result.parentSanityOther = matSanity
+  // EITHER slot being wrong poisons the naming, because with both arrays loaded the answer comes
+  // from whichever side reported its own copy absent, and a swap makes that side the wrong one.
+  // AND IS THE ARRAY IN THE PARENTAL SLOT A PARENT OF THIS SAMPLE AT ALL?
+  //
+  // THE SEX CHECK ABOVE CATCHES THE WRONG KIND OF PERSON. This catches the wrong person. Measured
+  // on 8 children of the published trios, each scored against five wrong files, the tool named a
+  // parent on 2 runs against an unrelated adult and 4 against a full sibling, at the confidence of
+  // a correct run and with nothing on the page to say otherwise.
+  //
+  // NOTHING HERE IS NEW ARITHMETIC. `om link` has separated a parent from a sibling and from an
+  // unrelated adult since the segmental test was measured: over the published trios, 181 verified
+  // parent-child pairs reach a window spread of at most 0.0238 and 166 constructed full-sibling
+  // pairs at least 0.0312. Those functions lived in the command-line file, so the surface most lab
+  // staff use could not run them. They now live in relatedness.ts and both surfaces call them.
+  //
+  // A REFUSAL IS ONLY TAKEN ON A DECISIVE VERDICT. `firstDegree` means the segmental test had no
+  // power here, not that the pair failed it, and refusing on it would refuse whenever the panel is
+  // thin. Only `unrelated` and `sibling` are grounds to withhold, and `oneParent` is left alone
+  // because a haploid product genuinely reads that way against its own parent.
+  //
+  // WHAT THAT COSTS, MEASURED RATHER THAN ASSUMED. On amplified single-cell material the segmental
+  // test usually has no power: a real trophectoderm biopsy against its own sperm donor reads
+  // opposite homozygotes 0.00680 over 521,965 markers, a window spread of 0.0250 over 2,719
+  // windows, and comes back `firstDegree`. So on exactly the material this tool is for, the
+  // UNRELATED half of the test does the work and the SIBLING half often cannot. An unrelated adult
+  // is caught by the rate, which is decisive; a sibling of the same embryo series may not be, and
+  // is then caught only if the sexes happen to differ. That gap is real and is not papered over.
+  //
+  // IT COSTS ABOUT THREE AND A HALF SECONDS PER SAMPLE on the slowest machine this was measured on,
+  // dominated by sorting half a million markers into genomic order. Paid once per sample, against
+  // a report that would otherwise name a parent that is not one.
+  //
+  // NOT ON AN ARRAY THE TOOL HAS ALREADY REFUSED. A failed array reports nothing, so a relationship
+  // verdict on it describes a genome that is not being read, at three and a half seconds a sample.
+  // It is also where the statistic is least meaningful: the arrays that fail this way read 55 to 62
+  // percent heterozygous, which is a mixed or contaminated sample rather than a genome, and they
+  // read as unrelated to everyone including themselves.
+  const rel = uninterpretable ? null : relate(
+    { gt: pat.gt, pos: markerPos },
+    { gt: myGt as Map<string, AB>, pos: markerPos },
+    OPPOSITE_HOM_MAX,
+  )
+  if (rel) {
+    result.relationship = {
+      verdict: rel.relationship,
+      oppositeHomRate: rel.opp.rate,
+      oppositeHomMarkers: rel.opp.n,
+      windowSpread: rel.win.spread,
+      windows: rel.win.windows,
+    }
+  }
+  // A UNIPARENTAL GENOME IS NOT AN OPERATOR ERROR, AND IT LOOKS EXACTLY LIKE ONE HERE. A
+  // gynogenote carries no paternal contribution at all, so against the true sperm donor its
+  // opposite-homozygote rate is that of two unrelated people. That is the FINDING, not a wrong
+  // file, and it is the one case this tool most needs to be able to report: withholding on it
+  // silenced "the paternal copy is absent" on a genome whose paternal copy is absent.
+  //
+  // `relate` already has a verdict for this and cannot reach it here: it tests ploidy only AFTER
+  // the opposite-homozygote gate, which a uniparental sample fails first. So the sample's own
+  // zygosity, which is measured independently of any parental array, is what separates the two.
+  // AND IT DOES NOT WITHHOLD, because on this material no threshold exists that could.
+  //
+  // WIRING IT AS A GATE WITHHELD EVERY NAMED PARENT ON EIGHT OF EIGHT CORRECT RUNS. The first real
+  // single cell it saw, a blastomere against its genetically confirmed father, read 0.0276 opposite
+  // homozygotes over 524,821 markers and came back `unrelated`. Amplification drops alleles; a
+  // heterozygous marker that loses one allele is CALLED homozygous, and if what it kept is the
+  // allele the parent lacks, the pair reads as opposite homozygotes. The statistic is inflated by
+  // exactly what single-cell material has most of, in the direction that makes a parent a stranger.
+  // The 0.020 gate is sound where it was measured, on bulk adult DNA for `om link`.
+  //
+  // A PER-MATERIAL THRESHOLD WAS THEN MEASURED RATHER THAN ASSUMED, in
+  // audit/relatedness-by-material.ts: every usable trio of GSE148488 against its confirmed father,
+  // its confirmed mother, a second array of the father as a control, and an unrelated donor. Of 76
+  // trios the tool refuses 36 outright as `failed`, so those never reach this code and are
+  // excluded. On the 40 that remain:
+  //
+  //   material        true parents      an unrelated donor   separable?
+  //   esc-line        0.0013 to 0.0110  0.0531 to 0.0562     yes, a five-fold gap, n=16
+  //   esc-single      0.0077 to 0.0311  0.0592 to 0.0803     yes, but n=4
+  //   blastomere      0.0183 to 0.0658  0.0693 to 0.1161     a 5 percent margin, n=8
+  //   trophectoderm   0.0035 to 0.0831  0.0567 to 0.0954     NO, they overlap by 0.0263
+  //
+  // The shipped 0.020 fires on 8 of 8 true blastomere fathers, 2 of 4 esc-single and 4 of 12
+  // trophectoderm. Only esc-line passes it. And trophectoderm, the commonest PGT material, has no
+  // threshold at all: a true parent reaches 0.0831 where a stranger starts at 0.0567.
+  //
+  // So this cannot gate a parental call on the material this tool is for, and pretending otherwise
+  // would refuse correct runs. Revisiting it needs more trios per material, trophectoderm most.
+  // The verdict is still computed and still reported, because a reader deciding whether to trust
+  // a run should see what the loaded array measures against the sample. It just does not gate
+  // anything until a per-material threshold exists. See audit/relatedness-by-material.ts.
+
+  // ONE REASON STRING, because three different checks can withhold and every message that quotes
+  // one of them has to quote the one that actually fired. Reading the sex conflict when the
+  // relationship test was what refused threw `Cannot read properties of undefined`, on a run whose
+  // only fault was a wrong file.
+  const sexConflict = result.parentSanity.conflict ? result.parentSanity
+    : matSanity?.conflict ? matSanity : undefined
+  const withholdReason = sexConflict
+    ? `the parental array does not match the role it was loaded under. ${sexConflict.why}`
+    : ''
+  /** The same fact in one clause, for the per-row strings. See the alert for the whole reason. */
+  const shortWithholdReason = sexConflict
+    ? `the array loaded as the ${sexConflict.declared} parent is not the sex that slot requires.`
+    : ''
+  const parentSlotWrong = !!withholdReason
+  if (parentSlotWrong) {
+    log('WARN', `NO PARENT IS NAMED ON THIS RUN: ${withholdReason}`)
+  }
+  /**
+   * Strip the parent off a dosage row when the parental slot is wrong.
+   *
+   * THE VERDICT CHANGES AND NOT ONLY THE FIELD. `originRows` and the report both fall back to
+   * naming a parent from the VERDICT when the explicit field is absent, so clearing `parent` alone
+   * would withhold nothing: `loaded-parent` still reads as the loaded parent's name. The row keeps
+   * its location, its shift and its evidence, because those do not depend on which slot the
+   * parental array went into.
+   */
+  const withheldIfSlotWrong = <T extends { verdict: string; why: string; parent?: unknown }>(
+    call: T,
+  ): T => (parentSlotWrong
+    ? {
+      ...call,
+      verdict: 'array-excluded',
+      parent: null,
+      // SHORT, because the full reason is on the run's own alert and this string is repeated on
+      // every row. Printing a seven-hundred-character paragraph beside each event buried the
+      // measurement it was supposed to qualify.
+      why: `no parent is named on this run: ${shortWithholdReason} See the notice on this sample `
+        + `for what to do. The measurement itself stands: ${call.why}`,
+    }
+    : call)
   // Segments, after the per-chromosome verdicts, because a chromosome whose calls are not
   // measuring it must not be scanned either: the same broken calls would produce a
   // confident segment inside it.
@@ -730,12 +893,17 @@ export async function scoreSample(input: {
           verdict: 'not-evaluable' as const,
           confidence: undefined,
           band: 'F' as const,
+          // THE FIGURE IS HISTORY AND HAS TO READ AS HISTORY. Since 5.19.0 no band-F row from
+          // either channel carries a parent, so "this band recovers the parent 0.51 to 0.56 of
+          // the time" has no referent in the shipped tool: there is no such parent to be right
+          // or wrong about. It is quoted as the evidence that RETIRED that caller, which is
+          // what makes the refusal below something other than caution.
           why: `${c.why}. Graded F: this interval carried no usable marker of its own, `
-            + 'so nothing here bears on which parent it was. The parent is NOT named. An '
-            + 'injection series on real arrays recovers the parent 0.51 to 0.56 of the '
-            + 'time in this band, at chance, because every call reaching it has an '
-            + 'unresolved copy-number class and a gain inverts the sign that loss and '
-            + 'copy-neutral share',
+            + 'so nothing here bears on which parent it was. The parent is NOT named. That '
+            + 'withhold is not caution: when an earlier build did name a parent in this band, '
+            + 'an injection series on real arrays scored it right 0.51 to 0.56 of the time, '
+            + 'which is chance, because every call reaching this band has an unresolved '
+            + 'copy-number class and a gain inverts the sign that loss and copy-neutral share',
         }
         : !zyg && unnamed && c.lean
         ? {
@@ -746,8 +914,9 @@ export async function scoreSample(input: {
             + `marker${c.lean.markers === 1 ? '' : 's'} does not determine a parent. The `
             + 'copy-number class is unresolved here, and a gain inverts the sign that loss '
             + 'and copy-neutral share, so the direction of the shift carries no parental '
-            + 'information at all. Measured on real arrays this band recovers the parent '
-            + '0.51 to 0.56 of the time, which is chance, so no parent is named',
+            + 'information at all. When an earlier build did name a parent in this band, an '
+            + 'injection series on real arrays scored it right 0.51 to 0.56 of the time, '
+            + 'which is chance. No parent is named here',
         }
         : null
       return {
@@ -790,7 +959,7 @@ export async function scoreSample(input: {
     }
     result.dosageCalls = []
     for (const chrom of whole) {
-      result.dosageCalls.push(scoreInterval(`chr${chrom}`, { chrom }, true))
+      result.dosageCalls.push(withheldIfSlotWrong(scoreInterval(`chr${chrom}`, { chrom }, true)))
       await breathe()
     }
 
@@ -821,7 +990,7 @@ export async function scoreSample(input: {
           : f.cls === 'segmental-duplication' ? 'gain' : 'loss',
         f.cls,
       )
-      result.dosageCalls.push(call)
+      result.dosageCalls.push(withheldIfSlotWrong(call))
       scoredSoFar += 1
       // One yield every couple of findings, so the lines above appear as they are decided
       // rather than all at once when the loop ends.
@@ -843,13 +1012,13 @@ export async function scoreSample(input: {
     }
     for (const sg of segs) {
       const co = segmentCoords(sg)
-      result.dosageCalls.push(scoreInterval(
+      result.dosageCalls.push(withheldIfSlotWrong(scoreInterval(
         `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb`,
         { chrom: sg.chrom, startBp: co.start, endBp: co.end },
         false,
         sg.kind === 'copy-gain' ? 'gain' : 'loss',
         sg.kind,
-      ))
+      )))
       await breathe()
     }
     // A NAMED PARENT IS ALWAYS PRINTED IN FULL. It is the answer, and two of them that
@@ -897,7 +1066,11 @@ export async function scoreSample(input: {
   const uniparental = result.zygosity?.startsWith('uniparental') ?? false
   // Also not gated on the parent count: this channel reads whether the LOADED parent's allele is
   // present, which a second parent neither supplies nor obstructs.
-  const mendelEvents = !uniparental ? [
+  // AND THE MENDELIAN CHANNEL DOES NOT RUN AT ALL WITH A WRONG PARENTAL SLOT. Unlike dosage, every
+  // row it produces IS a parental attribution: there is no location-only part of it to keep. A row
+  // reading "the loaded parent's copy is absent" is only meaningful once "the loaded parent" is
+  // the person the report says it is.
+  const mendelEvents = !uniparental && !parentSlotWrong ? [
     ...(result.chroms ?? []).filter((c) => c.aneuploidy)
       .map((c) => ({ chrom: c.chrom, start: 0, end: Number.MAX_SAFE_INTEGER,
         label: `chr${c.chrom}` })),

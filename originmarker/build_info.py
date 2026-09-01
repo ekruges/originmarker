@@ -120,10 +120,14 @@ RELEASES: tuple[Release, ...] = (
             "The discarded sister product of a meiotic division, biopsied in clinical work to "
             "infer indirectly what the oocyte kept. A second reading of the same event, from the "
             "side that was thrown away."),
+    Release("Zona Pellucida",
+            "The coat around the oocyte that decides what is allowed to fuse with it, and blocks "
+            "everything after the first. A check on the identity of what has been presented, "
+            "before anything downstream depends on it being what it claims."),
 )
 
-VERSION = "5.23.0"
-CODENAME = "Polar Body"
+VERSION = "5.24.0"
+CODENAME = "Zona Pellucida"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

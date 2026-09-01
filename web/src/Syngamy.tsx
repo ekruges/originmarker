@@ -43,7 +43,7 @@ import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
-import { defectsFrom, findingToDefect, mendelParent, parentNamed, withMechanism } from './defects'
+import { defectsFrom, findingToDefect, mendelParent, parentNamed, runAlerts, withMechanism } from './defects'
 import type { DosageVerdict } from './dosageOrigin'
 import { groupUnits, unitsCarrying, callUniformity } from './abnormalities'
 import { stageFacts } from './stage'
@@ -1103,6 +1103,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
           )}
         </Group>
         <Text size="sm" mt={3}>{gloss}</Text>
+        <RunAlerts r={r} />
         <div style={{ marginTop: 6 }}>
           <Axis label={m ? 'paternal' : ''} r={r} />
           {m && <Axis label="maternal" r={m} />}
@@ -1437,6 +1438,41 @@ function GainCallout({ gains }: { gains: GainAnnotation[] }) {
  * to the reader, because the number means nothing without it: a region is only callable where
  * markers are, so the comparison is against intervals carrying the same number of markers.
  */
+
+
+/**
+ * What would stop an operator, above the fold.
+ *
+ * ALL THREE OF THESE WERE COMPUTED AND SHOWN NOWHERE. The run decided the sample was damaged, or
+ * that the material is not what the operator declared, or that the parental array is not the sex
+ * its slot requires, and then the page printed the findings as though none of it had happened. A
+ * warning behind a collapsed "Detail" toggle is a warning nobody reads, so this sits in the header
+ * with the badges, before any result.
+ */
+function RunAlerts({ r }: { r: ParentageResult }) {
+  const alerts = runAlerts(r)
+  if (!alerts.length) return null
+  return (
+    <div style={{ marginTop: 8 }}>
+      {alerts.map((a) => (
+        <div
+          key={a.key}
+          style={{
+            border: '1px solid var(--om-higher)',
+            borderLeftWidth: 3,
+            padding: '7px 10px',
+            marginBottom: 6,
+            fontSize: 12,
+            lineHeight: 1.5,
+          }}
+        >
+          <div style={{ fontWeight: 700, color: 'var(--om-higher)' }}>{a.headline}</div>
+          <div style={{ color: 'var(--om-text-dim)', marginTop: 2 }}>{a.body}</div>
+        </div>
+      ))}
+    </div>
+  )
+}
 
 function SegmentCallout({ segments, role }: {
   segments: Segment[], role: 'paternal' | 'maternal'

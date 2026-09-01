@@ -9,6 +9,143 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.24.0 "Zona Pellucida"
+
+**Every safety check this tool performed was displayed by nothing, and the wrong array in the
+parental slot went unnoticed.** Until now every harness here asked whether the science was right.
+This release asks a different question: what happens when the person driving it makes a mistake.
+`audit/stress.ts` is the new suite, on real arrays throughout.
+
+### The wrong array in the parental slot
+
+Eight children of the published trios, each scored against five wrong files. Every file is a valid,
+high-quality array of a real person; the only thing wrong is which slot it went into.
+
+| scenario | parents named before | after |
+|---|---|---|
+| control, the correct file | 8 | 8 |
+| the true MOTHER declared paternal | 4 | **0** |
+| an unrelated adult as the parent | 2 | **0** |
+| a sibling as the parent | 4 | **0** |
+| the sample as its own parent | 0 | 0 |
+| the child in the parent slot, parent scored as the sample | 35 | 31 |
+
+Four distinct operator errors produced confidently named parents, with nothing on the page to say
+otherwise. Generation inversion produced more named parents than the correct run. Three of the four
+are now silent, and the correct run is unchanged.
+
+**GENERATION INVERSION IS THE ONE THAT REMAINS, and it is named rather than quietly left out.** Put
+the child in the parental slot and score the parent as the sample, and the tool still names 31
+parents across 8 runs. It cannot be caught from genotypes: the opposite-homozygote statistic is
+symmetric by construction, so parent-child and child-parent are the same hypothesis, and an adult
+genuinely does carry alleles its child did not inherit. Every one of those 8 runs raised at least
+one alert, so the run is flagged even though the rows are not withheld. What resolves it is
+declaring the material: a sperm donor's bulk gDNA scored as though it were an embryo trips the
+declared-material check, which this release also makes visible for the first time.
+
+Nor can the parental array's own stage label be used to catch it. That was considered and rejected
+on evidence already in the tree: the label refused two genuine parental arrays, an egg donor's bulk
+gDNA at a 0.9837 call rate and a cumulus sample at 0.951, both mislabelled single-cell.
+
+### The parental slot now has to match the role it was loaded under
+
+A sperm donor is male and an egg donor is female, so the paternal array carries a chromosome Y.
+`sexing.ts` has read Y since long before this release and nothing ever asked it about the PARENT.
+Measured over the 12 donor arrays of GSE148488, roles taken from the GEO titles rather than from
+this tool:
+
+| | Y call ratio |
+|---|---|
+| 4 sperm donor arrays | 1.029 to 1.039 |
+| 8 egg donor arrays | 0.000, all eight |
+
+Twelve of twelve, with nothing in between: this is the presence or absence of a chromosome, not a
+threshold on a noisy quantity. A conflict withholds every named parent and says so. The events and
+their positions survive, because the channels that found them never read the parental array's sex.
+A panel with too few Y probes to answer is NOT a conflict and withholds nothing.
+
+### Three warnings that reached no surface at all
+
+The run decided a sample was too damaged to interpret, or that the material was not what the
+operator declared, and then every surface printed the findings as though none of that had happened.
+An audit of the three surfaces found zero of the three anywhere:
+
+| signal | computed | browser | report | command line |
+|---|---|---|---|---|
+| damaged-sample flag | yes | no | no | no |
+| declared material disagrees with the array | yes | no | no | no |
+| parental array does not match its slot | new | no | no | no |
+
+All three now render from one shared list, above the result rather than behind a toggle.
+
+### The relationship statistics were only in the command line
+
+`om link` could tell a parent from a sibling and from an unrelated adult. The browser could not,
+because those functions lived in the CLI file. They now live in `web/src/relatedness.ts` and both
+surfaces call them. One crash fixed on the way: the windowed test assumed both files carry the same
+probe set and threw `Cannot read properties of undefined` from inside `Array.sort` when they do not,
+which is what happens whenever a lab mixes panel versions.
+
+### And that statistic cannot gate a parental call on this material
+
+Wiring it as a gate withheld every named parent on eight of eight CORRECT runs. A real blastomere
+against its genetically confirmed father reads 0.0276 opposite homozygotes over 524,821 markers,
+against a 0.020 gate. Amplification drops alleles; a heterozygous marker that loses one is CALLED
+homozygous, and if what it kept is the allele the parent lacks, the pair reads as opposite
+homozygotes. The statistic is inflated by exactly what single-cell material has most of, in the
+direction that makes a parent look like a stranger.
+
+A per-material threshold was then measured rather than assumed, in
+`audit/relatedness-by-material.ts`. Of 76 trios the tool refuses 36 outright as `failed`, so those
+never reach this code; on the 40 that remain:
+
+| material | true parents | an unrelated donor | separable |
+|---|---|---|---|
+| esc-line | 0.0013 to 0.0110 | 0.0531 to 0.0562 | yes, a five-fold gap, n=16 |
+| esc-single | 0.0077 to 0.0311 | 0.0592 to 0.0803 | yes, but n=4 |
+| blastomere | 0.0183 to 0.0658 | 0.0693 to 0.1161 | a 5 percent margin, n=8 |
+| trophectoderm | 0.0035 to 0.0831 | 0.0567 to 0.0954 | NO, they overlap by 0.0263 |
+
+The shipped 0.020 fires on 8 of 8 true blastomere fathers, 2 of 4 esc-single and 4 of 12
+trophectoderm. Trophectoderm, the commonest PGT material, has no threshold at all. So the verdict is
+computed and reported, and gates nothing. An alarm that fires on the correct run trains an operator
+to ignore alarms.
+
+### Two corrections to measurements made in this release
+
+Both were caught by controls and are recorded because the numbers were quoted before they were
+right. The first version of the by-material table picked the "unrelated" donor by accession, so for
+a trio fathered by sperm donor rep 1 it selected rep 2: the same person. A replicate arm was added
+so this cannot recur silently, and it now tracks the true father in every material. The second
+reading of that table took a 0.53 opposite-homozygote rate on trophectoderm as wrong fathers in the
+manifest. Those 23 arrays read 55 to 62 percent heterozygosity against a panel expectation of about
+17; they are mixed or contaminated samples, and `inferStage` already calls every one of them
+`failed`.
+
+### `om cohort` stops on a swapped reference instead of emptying a folder
+
+One reference is scored against a whole directory, so a wrong array there does not produce one wrong
+answer, it produces a directory of them: every sample comes back with its parents withheld and no
+reason attached to the run, which reads as "this cohort has no events" rather than "you loaded the
+wrong file". The check runs once, before anything is scored.
+
+### A truncated parental array is partial, not wrong
+
+Checked rather than assumed, because the suite first flagged it as a failure. A file cut to half its
+rows covers chr1 to chr8 and nothing after. On a real blastomere it returns the SAME two chr6 calls
+as the whole array, identical: the markers it lacks carry no parental genotype at all, which is a
+no-call rather than an absence, so it cannot manufacture a false one. The suite now asserts that
+property, that a truncated parent's calls are a subset of the whole array's, which is stronger than
+demanding silence.
+
+### Also
+
+The relationship test is skipped on an array the tool has already refused, which it cannot inform
+and which costs 3.45 seconds a sample. Determinism is pinned: one input scored twice is
+byte-identical.
+
+---
+
 ## 5.23.0 "Polar Body"
 
 **The obvious way to cut the two-parent false-call rate was measured, and it costs more than it

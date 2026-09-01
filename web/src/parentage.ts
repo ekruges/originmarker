@@ -663,6 +663,25 @@ export interface ParentageResult {
     mechanism: 'meiotic' | 'post-zygotic' | 'unresolved'
     why: string
   }[]
+  /**
+   * Whether the parental array matched the role it was declared under. See parentSanity.ts: a
+   * conflict withholds every named parent while leaving the events and their positions standing.
+   */
+  parentSanity?: import('./parentSanity.ts').ParentSanity
+  /** The same, for the second parental array when one was loaded. */
+  parentSanityOther?: import('./parentSanity.ts').ParentSanity
+  /**
+   * What the loaded parental array actually IS to this sample, measured rather than assumed. An
+   * unrelated adult or a sibling in the parental slot withholds every named parent: see
+   * relatedness.ts, and scoreSample for why only a decisive verdict withholds.
+   */
+  relationship?: {
+    verdict: string
+    oppositeHomRate: number
+    oppositeHomMarkers: number
+    windowSpread: number
+    windows: number
+  }
   oneParent?: {
     where: string
     verdict: string

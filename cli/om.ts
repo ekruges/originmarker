@@ -46,6 +46,12 @@ const post = await import(`${W}originPosterior.ts`)
 const tax = await import(`${W}abnormalities.ts`)
 const score = await import(`${W}scoreSample.ts`)
 const defects = await import(`${W}defects.ts`)
+// ONE IMPLEMENTATION. These lived in this file and nowhere else, so the browser could not tell
+// a parent from a sibling. Moved to web/src so both surfaces run the same measurement.
+const rel = await import(`${W}relatedness.ts`)
+const parentSanity = await import(`${W}parentSanity.ts`)
+const { oppositeHom, windowedIbs0, secondParent, relate, REL,
+  IBD0_SPREAD_MIN, IBD0_FLOOR_MAX } = rel as never as typeof import('../web/src/relatedness.ts')
 
 type AB = 'AA' | 'AB' | 'BB' | 'NC'
 
@@ -193,135 +199,6 @@ function arraysUnder(dir: string, rel = ''): string[] {
 const pct = (x: number, d = 1): string => (Number.isFinite(x) ? `${(100 * x).toFixed(d)}%` : 'n/a')
 
 // ------------------------------------------------------------------ shared pieces
-
-/** Opposite homozygotes. A parent and child cannot be AA and BB at the same marker. */
-function oppositeHom(a: Map<string, AB>, b: Map<string, AB>): { rate: number, n: number } {
-  let n = 0
-  let opp = 0
-  for (const [probe, ga] of a) {
-    if (ga !== 'AA' && ga !== 'BB') continue
-    const gb = b.get(probe)
-    if (gb !== 'AA' && gb !== 'BB') continue
-    n += 1
-    if (ga !== gb) opp += 1
-  }
-  return { rate: n ? opp / n : NaN, n }
-}
-
-/**
- * Opposite homozygotes in genomic windows, and the spread between the top decile and the median.
- *
- * WHY A SPREAD AND NOT A RATE. Opposite homozygotes are symmetric BY CONSTRUCTION: swap the two
- * files and every count is the same, so nothing built from them can say which array is the parent.
- * What they can say is whether the two genomes share an allele EVERYWHERE. A parent and a child
- * share one allele at every marker, so the only opposite homozygotes between them are genotyping
- * error, and error is spread evenly along the genome. Full siblings share no allele over about a
- * quarter of the genome, and those stretches carry the rate of two unrelated people. So the
- * top-decile window minus the median window is small for a parent-child pair whatever the error
- * rate, and large for siblings. The overall rate cannot make that split: measured over the 106
- * published trios, sibling pairs sit at 0.0114 and parent-child pairs at 0.0037, both under the
- * 0.020 gate, which is why the gate alone called siblings children.
- *
- * The median is the error floor because a pair only reaches this test after passing that gate, and
- * the gate already excludes everything sharing no allele over more than a third of the genome.
- */
-function windowedIbs0(ref: Loaded, s: Map<string, AB>, win = 200) {
-  const order = [...ref.gt].filter(([, g]) => g !== 'AB')
-  // Genomic order, not file order. The statistic is about NEIGHBOURING markers, so a file whose
-  // rows are shuffled would spread the sibling signal evenly across windows and read as a parent.
-  order.sort(([a], [b]) => {
-    const pa = ref.pos.get(a)!
-    const pb = ref.pos.get(b)!
-    return pa.chrom === pb.chrom ? pa.pos - pb.pos : Number(pa.chrom) - Number(pb.chrom)
-  })
-  const rates: number[] = []
-  let chrom = ''
-  let n = 0
-  let opp = 0
-  for (const [probe, ga] of order) {
-    const at = ref.pos.get(probe)!
-    // A window never spans two chromosomes, and its unfinished tail is dropped rather than
-    // counted at a smaller denominator.
-    if (at.chrom !== chrom) { chrom = at.chrom; n = 0; opp = 0 }
-    const gb = s.get(probe)
-    if (gb !== 'AA' && gb !== 'BB') continue
-    n += 1
-    if (ga !== gb) opp += 1
-    if (n === win) { rates.push(opp / n); n = 0; opp = 0 }
-  }
-  rates.sort((a, b) => a - b)
-  const q = (p: number) => rates[Math.min(rates.length - 1, Math.floor(p * rates.length))]
-  const floor = rates.length ? q(0.5) : NaN
-  const top = rates.length ? q(0.9) : NaN
-  return { windows: rates.length, floor, top, spread: top - floor }
-}
-
-/** The one-parent heterozygosity call: is there a second parental contribution, or not. */
-function secondParent(ref: Map<string, AB>, s: Map<string, AB>) {
-  const t = obligate.emptyHet()
-  for (const [probe, pg] of ref) {
-    const cg = s.get(probe)
-    if (cg) obligate.addOneParent(pg as never, cg as never, t as never)
-  }
-  return obligate.hetCall(t as never, 1) as {
-    ploidy: string, fraction: number, informative: number, why: string
-  }
-}
-
-/**
- * The segmental test's constants, measured over the published trios.
- *
- * Of the pairs that pass the opposite-homozygote gate and whose window floor is under
- * IBD0_FLOOR_MAX, the 181 verified parent-child pairs reach a spread of at most 0.0238 and the 166
- * constructed full-sibling pairs a spread of at least 0.0312. The threshold sits between them.
- * Over the floor the test has no power at all: error alone then moves a window further than a
- * missing quarter-genome does.
- *
- * WHAT ELSE CAN PRODUCE THE SIGNAL, and it is not parentage. Two cells of ONE embryo that lost
- * opposite parental copies of a region read as opposite homozygotes across that whole region, and
- * four of 122 same-embryo blastomere pairs do exactly that, at 0.053-0.056. So this test separates
- * a parent-child pair from a pair that is not one; it does not certify that the other pair is
- * siblings. A parent and a child cannot produce it in either direction: whatever copy a child
- * keeps in a region it lost, that copy carries a parental allele.
- */
-const IBD0_SPREAD_MIN = 0.028
-const IBD0_FLOOR_MAX = 0.012
-const IBD0_MIN_WINDOWS = 100
-
-/** Verdicts `relate` can return. Kept as constants because two commands branch on them. */
-const REL = {
-  unrelated: 'unrelated',
-  parentChild: 'parent and child, direction not resolved',
-  sibling: 'not parent and child: stretches sharing no allele (full siblings)',
-  firstDegree: 'first-degree, parent-child and sibling not separated',
-  oneParent: 'this parent only, a duplicate or a haploid product',
-  ambiguous: 'ambiguous',
-  refused: 'refused, too few homozygous markers in common',
-} as const
-
-/**
- * What two arrays are to each other, as far as two arrays can say.
- *
- * DIRECTION IS NOT IN HERE, and no amount of arithmetic on two genotype files will put it there.
- * Under Hardy-Weinberg the likelihood of a pair factors as P(a)P(b|a) = P(b)P(a|b), so parent-child
- * and child-parent are the same hypothesis; the tool that says "child" is reading the order of its
- * own arguments. Direction needs something outside the genotypes: the age of the material, a third
- * relative, or the caller's own knowledge of which sample is the embryo.
- */
-function relate(ref: Loaded, s: Loaded, oppMax: number) {
-  const opp = oppositeHom(ref.gt, s.gt)
-  const link = secondParent(ref.gt, s.gt)
-  const win = windowedIbs0(ref, s.gt)
-  const verdict = (): string => {
-    if (opp.n < 10_000) return REL.refused
-    if (!(opp.rate <= oppMax)) return REL.unrelated
-    if (link.ploidy === 'uniparental') return REL.oneParent
-    if (link.ploidy !== 'biparental') return REL.ambiguous
-    if (win.windows < IBD0_MIN_WINDOWS || !(win.floor <= IBD0_FLOOR_MAX)) return REL.firstDegree
-    return win.spread >= IBD0_SPREAD_MIN ? REL.sibling : REL.parentChild
-  }
-  return { opp, link, win, relationship: verdict() }
-}
 
 /** Which parent a verdict names. The module's exhaustive mapping, never a local re-spelling. */
 const parentNamed = (verdict: string, loaded: 'paternal' | 'maternal'): string | null =>
@@ -569,13 +446,32 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     const st = result.stage as { stage: string, dropout: number, basis: string } | undefined
     const rows = originRows(result as never, role)
 
+    // WHAT WOULD STOP AN OPERATOR, ABOVE THE ANSWER RATHER THAN BURIED UNDER IT. Every one of
+    // these was computed and reached no surface at all: the run decided the sample was damaged,
+    // or that the material is not what it was declared to be, or that the parental array is not
+    // the sex its slot requires, and then printed its findings as though none of that had
+    // happened. A warning nobody sees is not a warning.
+    const alerts = (defects.runAlerts as (x: unknown) => { headline: string, body: string }[])(result)
+    const r = result as {
+      integrity?: unknown, stageAgreement?: unknown
+      parentSanity?: unknown, parentSanityOther?: unknown
+    }
+
     out({
       reference: refId, otherParent: otherId, sample: id, role,
       stage: st?.stage, dropout: st?.dropout, dropoutSource: st?.basis,
       originClass: (result as { originClass?: string }).originClass,
       zygosity: (result as { zygosity?: string }).zygosity,
+      integrity: r.integrity,
+      stageAgreement: r.stageAgreement,
+      parentSanity: r.parentSanity,
+      parentSanityOther: r.parentSanityOther,
       events: rows,
     }, () => {
+      for (const a of alerts) {
+        process.stdout.write(`\n!! ${a.headline}\n   ${a.body}\n`)
+      }
+      if (alerts.length) process.stdout.write('\n')
       process.stdout.write(`${id} against ${refId} as the ${role} parent`
         + (otherId
           ? ` and ${otherId} as the ${role === 'paternal' ? 'maternal' : 'paternal'} one\n`
@@ -615,6 +511,17 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     if (rs.stage === 'failed' || ref.profile.callRate < minCall) {
       die(`reference ${ref.id} is not usable: call ${ref.profile.callRate.toFixed(4)}, `
         + `het ${ref.profile.hetRate.toFixed(4)}, stage ${rs.stage}`)
+    }
+    // DOES THE REFERENCE MATCH THE ROLE IT WAS GIVEN? Checked ONCE, here, rather than per sample.
+    // One reference is scored against a whole folder, so a swapped array does not produce one wrong
+    // answer, it produces a directory of them. Each sample would come back with every parent
+    // withheld and no reason attached to the run as a whole, which reads as "this cohort has no
+    // events" rather than "you loaded the wrong file".
+    const refSanity = (parentSanity.reconcileParentSex as (
+      d: string, x: unknown,
+    ) => { conflict?: string, headline: string, why: string })(role, parent.pat.sex)
+    if (refSanity.conflict) {
+      die(`${refSanity.headline} ${refSanity.why}. Nothing in ${dir} was scored.`)
     }
 
     const files = arraysUnder(dir)

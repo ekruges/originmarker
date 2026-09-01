@@ -20,7 +20,8 @@
 import assert from 'node:assert/strict'
 import { headerMap, parseRow, accumulate, accumulateBaf, emptyBafSums, finishProfile } from './ingest.ts'
 import { emptyParent, collectParentRow, finishParent, emptyCollected, collectRow, scoreSample } from './scoreSample.ts'
-import { mendelParent } from './defects.ts'
+import { mendelParent, runAlerts } from './defects.ts'
+import { buildReportPdf } from './syngamyPdf.ts'
 
 /** A deterministic stream, so a failure is the code changing and never the draw changing. */
 function rng(seed: number): () => number {
@@ -121,6 +122,20 @@ function synthesise(): { parent: string; mother: string; sample: string } {
         '2.0', called ? String(sg) : '-1', '1'].join('\t'))
     }
   }
+  // CHROMOSOME Y, so the parental-slot check has something to read. Without it `sexCall` returns
+  // null and refuses to judge, which is the right behaviour on a panel with no Y coverage and is
+  // exactly why the rest of this fixture is unaffected by that check. The father calls his Y at
+  // full intensity; the mother has the same probes, all no-call, at the intensity of an absent
+  // chromosome. That is what the two really look like.
+  const TAB = String.fromCharCode(9)
+  for (let i = 0; i < 400; i += 1) {
+    const id = `Y_${i}`
+    const pos = String(1000 + i * 10_000)
+    parent.push([id, 'Y', pos, '0.0200', '0.9800', '1.0', 'AA', '1'].join(TAB))
+    mother.push([id, 'Y', pos, '-3.5000', '', '0.0', 'NC', '1'].join(TAB))
+    // The sample is a female embryo here: it took no Y. Only the PARENT slots are under test.
+    sample.push([id, 'Y', pos, '-3.5000', '', '0.0', 'NC', '1'].join(TAB))
+  }
   return {
     parent: parent.join('\n'), mother: mother.join('\n'), sample: sample.join('\n'),
   }
@@ -151,6 +166,28 @@ function indexOf(rows: ReturnType<typeof rowsOf>) {
     accumulate(row, byChrom); accumulateBaf(row, bafSums); collectParentRow(row, pacc)
   }
   return finishParent(pacc, finishProfile('p', byChrom, bafSums, first).build.build)
+}
+
+/** Any array in the parental slot, under any declared role. The slot check is about this pair. */
+async function runWith(
+  patRows: ReturnType<typeof rowsOf>,
+  matRows: ReturnType<typeof rowsOf> | null,
+  soloRole: 'paternal' | 'maternal',
+  declaredStage?: 'failed',
+) {
+  const pat = indexOf(patRows)
+  const mat = matRows ? indexOf(matRows) : null
+  const acc = emptyCollected(pat, mat)
+  const byChrom = new Map(); const bafSums = emptyBafSums(); let first = ''
+  for (const row of sampleRows) {
+    if (!first) first = row.probesetId
+    accumulate(row, byChrom); accumulateBaf(row, bafSums); collectRow(row, pat, mat, acc)
+  }
+  const profile = finishProfile('sample', byChrom, bafSums, first)
+  return scoreSample({
+    acc, profile, pat, mat, soloRole, sibs: [], sampleName: 'sample',
+    log: () => {}, declaredStage,
+  })
 }
 
 async function run(declaredStage?: 'failed', withMother = false) {
@@ -328,6 +365,81 @@ async function run(declaredStage?: 'failed', withMother = false) {
   assert.ok(/0\.8539/.test(patGone!.why),
     'the row has to carry the accuracy of the direction it used, or a reader cannot weigh it')
   assert.ok(!patGone!.why.includes('\u2014'), 'em dash')
+}
+
+
+// ------------------------------------------------------- THE WRONG ARRAY IN THE PARENTAL SLOT
+//
+// An operator opens a folder holding a sperm donor and four egg donors, picks the wrong one, and
+// marks it paternal. Every genotype in that file is real and every calculation downstream is
+// arithmetically correct. What is wrong is the LABEL, and the label is the answer: every event
+// comes out named for the parent it did not come from.
+//
+// Measured on the 12 donor arrays of GSE148488, roles from the GEO titles rather than from this
+// tool: 4 sperm donors read a Y call ratio of 1.029 to 1.039, and all 8 egg donors read exactly
+// 0.000. Twelve of twelve, with nothing in between.
+{
+  // The MOTHER's array in the paternal slot. She is a real, complete, high-quality array.
+  const swapped = await runWith(motherRows, null, 'paternal')
+  assert.equal(swapped.parentSanity?.conflict, 'paternal-array-has-no-y',
+    `an array with no Y in the paternal slot must be caught. Got `
+    + `${JSON.stringify(swapped.parentSanity)}`)
+
+  // AND NOTHING MAY BE NAMED. This is the whole point: the events survive, the names do not.
+  const named = [
+    ...(swapped.oneParent ?? []).filter((o) => o.parent
+      || o.verdict === 'known-parent-lost' || o.verdict === 'other-parent-lost')
+      .map((o) => `mendel ${o.where}`),
+    ...(swapped.dosageCalls ?? []).filter((d) => (d as { parent?: string }).parent)
+      .map((d) => `dosage ${d.where}`),
+  ]
+  assert.deepEqual(named, [],
+    `no parent may be named when the parental slot is wrong. Got: ${named.join(', ')}`)
+
+  // AND THE EVENTS SURVIVE. Refusing the whole run would throw away real findings: they were
+  // found by channels that never read the parental array's sex.
+  const events = (swapped.chroms ?? []).filter((c) => c.aneuploidy).length
+  assert.ok(events > 0,
+    'the copy-number events must still be reported: a wrong parental slot corrupts the naming, '
+    + `not the detection. Found ${events}.`)
+
+  // AND IT REACHES A SURFACE. Every one of these checks was computed and displayed nowhere.
+  const alerts = runAlerts(swapped)
+  assert.ok(alerts.length > 0, 'the conflict must appear in the shared alert list')
+  assert.ok(alerts.some((a) => /CARRIES NO CHROMOSOME Y/.test(a.headline)),
+    'the sex conflict must be one of them, wherever it sits in the order: '
+    + alerts.map((a) => a.headline).join(' | '))
+
+  // THE CONTROL. The father in the paternal slot is not a conflict, and still names parents.
+  const fine = await runWith(parentRows, null, 'paternal')
+  assert.equal(fine.parentSanity?.conflict, undefined,
+    `the real father in the paternal slot must NOT trip the check. `
+    + `Got ${JSON.stringify(fine.parentSanity)}`)
+  const fineNamed = (fine.oneParent ?? []).filter((o) =>
+    o.verdict === 'known-parent-lost' || o.verdict === 'other-parent-lost').length
+  assert.ok(fineNamed > 0,
+    'and the correct run must still name parents, or the guard has simply broken the tool')
+
+  // THE MIRROR. The father declared MATERNAL is the same mistake the other way round.
+  const mirrored = await runWith(parentRows, null, 'maternal')
+  assert.equal(mirrored.parentSanity?.conflict, 'maternal-array-has-y')
+
+  // AND IT REACHES THE REPORT, which is the artefact that leaves the lab. A warning that exists
+  // only in a JSON field is not a warning; the page, the report and the command line each render
+  // the same list, and this pins the one that gets printed and filed.
+  const pdf = await buildReportPdf({
+    files: [{
+      name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: swapped,
+    }],
+    donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+    tool: 'OriginMarker', reportId: 'CHECK', fromExamples: true,
+  } as never)
+  const txt = Buffer.from(await pdf.arrayBuffer()).toString('latin1')
+  assert.ok(txt.startsWith('%PDF-') && txt.includes('%%EOF'),
+    'the report must still build on a run whose parental slot is wrong, rather than throwing')
+  assert.ok(/CHROMOSOME Y/.test(txt),
+    'and the conflict has to be IN it: a report that prints the findings without the reason they '
+    + 'carry no parent is the failure this whole check is about')
 }
 
 console.log('scoreSample.check.ts: a rejected array reports nothing, a one-copy chromosome is not '
