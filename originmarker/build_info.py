@@ -124,10 +124,13 @@ RELEASES: tuple[Release, ...] = (
             "The coat around the oocyte that decides what is allowed to fuse with it, and blocks "
             "everything after the first. A check on the identity of what has been presented, "
             "before anything downstream depends on it being what it claims."),
+    Release("Parthenote",
+            "An embryo developing from an egg alone, carrying a maternal genome and no paternal "
+            "one. The case the genome-level class named backwards."),
 )
 
-VERSION = "5.24.0"
-CODENAME = "Zona Pellucida"
+VERSION = "5.25.0"
+CODENAME = "Parthenote"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

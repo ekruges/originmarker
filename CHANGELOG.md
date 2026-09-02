@@ -9,6 +9,65 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.25.0 "Parthenote"
+
+**A genome carrying only the mother was reported as carrying only the father.** For a zygote-stage
+sample the genome-level class IS the answer, so this inverted the foundational call on every
+maternal run. Found by putting every pronucleus of GSE148488 through the whole pipeline for the
+first time, in `audit/zygote-origin.ts`.
+
+### What it did
+
+`classify` decided the class like this:
+
+```
+originClass = present ? 'androgenetic' : 'gynogenetic'
+```
+
+`present` means the LOADED parent's genome is present. Naming that androgenetic is right only when
+the loaded parent is the father. Every surface of this tool supports loading the mother alone and
+says so in its own comment: *either parent alone is enough, nothing below this line is paternal
+except the label it is given*. The label was the part that never followed.
+
+Measured on the seven maternal pronuclei, each resolved to egg donor B by linkage and loaded under
+its true maternal role:
+
+| | before | after |
+|---|---|---|
+| correct at genome level | 4/14 | **11/14** |
+| **wrong parent** | **7/14** | **0/14** |
+| silent | 3/14 | 3/14 |
+
+All seven maternal pronuclei were reported androgenetic. They are gynogenetic. The eight paternal
+ones were right for the wrong reason, since the hardcoded class happened to match.
+
+Four sites were wrong: the uniparental class, its mirror, and two notes keyed on the class NAME
+rather than on the loaded parent, so they inverted with it. One of those explained a duplicated
+maternal genome as "two sperm".
+
+### Why nothing caught it
+
+**Every check in the repo loaded a paternal parent.** The whole suite passed against the bug, and
+still passes against the fix. The new check scores one fixture twice, once under each role, and
+requires the two classes to be mirror images. It fails on the exact previous behaviour.
+
+### The arms should agree, and that is the fix working
+
+The genome-level class is a property of the genome, not of which array was loaded. Loading the
+mother says "her genome is all that is here"; loading the father says "he contributed nothing".
+Both mean gynogenetic. After the fix the two arms agree on 13 of 14. Before it they disagreed on 12
+of 14, precisely because one of them was inverted.
+
+### The per-chromosome channel was never affected
+
+`trio-calibration.ts` reports 0.8539 with zero wrong parents and that stands. It measures the
+Mendelian channel directly, and `scoreSample` switches that channel OFF on a uniparental sample
+because one genome-level statement is better than twenty-two rows repeating it. So the number
+everyone quoted for the original use case was measured on a channel the original use case does not
+run. That gap is what this release closes.
+
+---
+
 ## 5.24.0 "Zona Pellucida"
 
 **Every safety check this tool performed was displayed by nothing, and the wrong array in the

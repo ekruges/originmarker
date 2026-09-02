@@ -680,3 +680,77 @@ console.log('parentage.check.ts OK')
       `a trisomy reads ${observed} log2 on real material and must still be detected`)
   }
 }
+
+// --- 21. THE GENOME-LEVEL CLASS MUST FOLLOW WHICH PARENT WAS LOADED ----------------------------
+//
+// EVERY CHECK IN THIS FILE LOADED A PATERNAL PARENT, AND THAT IS HOW THIS SURVIVED. `classify`
+// hardcoded `androgenetic` for a genome carrying the loaded parent's alleles and `gynogenetic` for
+// one that did not, which is right only when the loaded parent is the father. The whole tool
+// supports loading the mother alone and says so in its own comments.
+//
+// Measured on the seven maternal pronuclei of GSE148488, each resolved to egg donor B by linkage
+// and loaded under its true maternal role: all seven came back ANDROGENETIC. For a zygote-stage
+// genome that word IS the answer, so the foundational call was inverted on every maternal run.
+{
+  // A genome carrying ONE parental complement, and it is the loaded parent's: every call is the
+  // parent's own homozygous genotype, so nothing the other parent could have supplied is present.
+  const uniparental = () => {
+    const t = emptyTally()
+    for (let c = 1; c <= 22; c += 1) {
+      for (let i = 0; i < 2_000; i += 1) {
+        const g = (c + i) % 2 ? 'AA' : 'BB'
+        tallyRow(g, row(String(c), 1000 + i * 1000, g, g === 'AA' ? 0.02 : 0.98,
+          ((c * 37) % 11 - 5) / 100), t)
+      }
+    }
+    return t
+  }
+  const t = uniparental()
+  const asPaternal = classify(t, 0.17, { role: 'paternal' })
+  const asMaternal = classify(t, 0.17, { role: 'maternal' })
+
+  assert.equal(asPaternal.zygosity, 'uniparental_homozygous',
+    `the fixture must reach the uniparental branch, got ${asPaternal.zygosity}`)
+  assert.equal(asMaternal.zygosity, asPaternal.zygosity,
+    'and zygosity does not depend on which parent was loaded')
+
+  // THE POINT. Same genome, same data, one loaded array. Which class it is depends entirely on
+  // whose array that was.
+  assert.equal(asPaternal.originClass, 'androgenetic',
+    'the father\'s genome alone is androgenetic')
+  assert.equal(asMaternal.originClass, 'gynogenetic',
+    `the MOTHER'S genome alone is GYNOGENETIC, not androgenetic. Got `
+    + `${asMaternal.originClass}. This is the inversion that reported all seven maternal `
+    + 'pronuclei of GSE148488 as androgenetic.')
+  assert.notEqual(asPaternal.originClass, asMaternal.originClass,
+    'a class that does not move when the loaded parent changes is not reading parentage')
+
+  // AND THE MIRROR: a genome carrying NONE of the loaded parent belongs to the other one.
+  const absent = () => {
+    const t2 = emptyTally()
+    for (let c = 1; c <= 22; c += 1) {
+      for (let i = 0; i < 2_000; i += 1) {
+        // The parent is homozygous for one allele and the sample is homozygous for the other, so
+        // nothing the parent could have transmitted is present anywhere.
+        const pg = (c + i) % 2 ? 'AA' : 'BB'
+        const sg = pg === 'AA' ? 'BB' : 'AA'
+        tallyRow(pg, row(String(c), 1000 + i * 1000, sg, sg === 'AA' ? 0.02 : 0.98,
+          ((c * 37) % 11 - 5) / 100), t2)
+      }
+    }
+    return t2
+  }
+  const a = absent()
+  const noPat = classify(a, 0.17, { role: 'paternal' })
+  const noMat = classify(a, 0.17, { role: 'maternal' })
+  assert.equal(noPat.originClass, 'gynogenetic',
+    `no paternal contribution means gynogenetic, got ${noPat.originClass}`)
+  assert.equal(noMat.originClass, 'androgenetic',
+    `no MATERNAL contribution means ANDROGENETIC, got ${noMat.originClass}`)
+
+  // AND NO NOTE MAY NAME THE WRONG PARENT EITHER. The notes were keyed on the class name, so they
+  // inverted with it.
+  assert.ok(!asMaternal.notes.some((n) => /two sperm/.test(n)),
+    `a maternal run must not explain a duplicated maternal genome as "two sperm": `
+    + JSON.stringify(asMaternal.notes))
+}

@@ -876,27 +876,46 @@ export function classify(
   }
 
   const present = verdict === 'parent_genome_present'
+  /**
+   * WHICH CLASS "THE LOADED PARENT'S GENOME AND NOTHING ELSE" IS DEPENDS ON WHO WAS LOADED.
+   *
+   * These three lines used to hardcode `androgenetic` for a genome that carried the loaded
+   * parent's alleles and `gynogenetic` for one that did not, which is only correct when the loaded
+   * parent is the father. Every surface of this tool supports loading the mother alone, and says
+   * so: "either parent alone is enough, nothing below this line is paternal except the label it is
+   * given". The label was the part that never followed.
+   *
+   * Measured on the seven maternal pronuclei of GSE148488, each resolved to egg donor B by linkage
+   * and loaded under its true maternal role: all seven were reported ANDROGENETIC. They are
+   * gynogenetic, and the word an operator reads is the whole answer for a zygote-stage genome. The
+   * eight paternal pronuclei were right for the wrong reason, since the hardcoded class happened to
+   * match.
+   */
+  const onlyLoaded: OriginClass = role === 'paternal' ? 'androgenetic' : 'gynogenetic'
+  const onlyOther: OriginClass = role === 'paternal' ? 'gynogenetic' : 'androgenetic'
+  const otherRole = role === 'paternal' ? 'maternal' : 'paternal'
   let originClass: OriginClass
   if (zygosity === 'uniparental_homozygous') {
     // One allele per locus. If those alleles are the parent's there is no room for a second
     // complement, so this settles it without consulting the narrower axis.
-    originClass = present ? 'androgenetic'
-      : verdict === 'no_parental_contribution' ? 'gynogenetic' : 'unclear'
+    originClass = present ? onlyLoaded
+      : verdict === 'no_parental_contribution' ? onlyOther : 'unclear'
   } else if (zygosity === 'diploid' && present) {
     if (!Number.isFinite(secondParentExpected)) originClass = 'unclear'
     else if (nonParentalRate > secondParentExpected) originClass = 'biparental'
     else {
-      originClass = 'androgenetic'
+      originClass = onlyLoaded
       notes.push(
         `Diploid but carrying ${pct(nonParentalRate)} alleles the parent lacks, below the `
         + `${pct(secondParentExpected)} a second parent would contribute. Consistent with a `
-        + 'parent-only genome that is heterozygous rather than duplicated, meaning two sperm. '
+        + 'parent-only genome that is heterozygous rather than duplicated, meaning '
+        + `${role === 'paternal' ? 'two sperm' : 'two eggs'}. `
         + 'This axis separates by about 1.6x against thirty-fold for absence, so treat a '
         + 'near-boundary call as provisional.',
       )
     }
   } else if (verdict === 'no_parental_contribution') {
-    originClass = 'gynogenetic'
+    originClass = onlyOther
   } else {
     originClass = 'unclear'
   }
@@ -1139,13 +1158,17 @@ export function classify(
     )
   }
 
-  if (originClass === 'androgenetic') {
+  // KEYED ON THE LOADED PARENT, NOT ON THE CLASS NAME. Both of these say something about the
+  // array that was loaded, so on a maternal run they belong to the opposite class name. Testing
+  // the name directly is what inverted them.
+  if (originClass === onlyLoaded) {
     notes.push('Every allele traces to this parent and the genome is homozygous: a parent-only '
       + 'complement, duplicated. Nothing here required chrY.')
   }
-  if (originClass === 'gynogenetic' && spermType === 'unknown') {
-    notes.push('No contribution from this parent anywhere. chrY alone would not have separated '
-      + 'this from an X-bearing sperm carrying a full paternal genome.')
+  if (originClass === onlyOther && spermType === 'unknown') {
+    notes.push(`No contribution from this parent anywhere, so the genome is ${otherRole} in `
+      + 'origin. chrY alone would not have separated this from an X-bearing sperm carrying a '
+      + 'full paternal genome.')
   }
   if (spermType === 'X_bearing') {
     notes.push("No chrY, yet the parent's alleles are present on chrX as well as the autosomes: "
