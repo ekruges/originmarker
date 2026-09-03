@@ -125,6 +125,50 @@ export function secondParent(ref: Map<string, AB>, s: Map<string, AB>) {
  */
 export const OPPOSITE_HOM_MAX = 0.020
 
+/**
+ * Materials whose opposite-homozygote rate separates a true parent from a stranger at all.
+ *
+ * MEASURED TWICE, INDEPENDENTLY, AND THE TWO RUNS DISAGREE ABOUT THE AMPLIFIED MATERIALS. Over 106
+ * children and 318 pairs in audit/relationship-separability.ts, each child scored against its
+ * manifest parent, a SECOND array of that same parent as a control, and a donor who is not its
+ * parent by identity rather than by accession:
+ *
+ *   material        true parent       an unrelated donor   gap
+ *   bulk            0.0032 to 0.0142  0.0531 to 0.0574     +0.0389
+ *   blastomere      0.0213 to 0.0497  0.0679 to 0.1068     +0.0182
+ *   single-cell     0.0139 to 0.0487  0.0641 to 0.0908     +0.0154
+ *   trophectoderm   0.0056 to 0.0749  0.0545 to 0.1177     OVERLAP
+ *
+ * Taken alone that would support a per-material threshold for three of the four. It does not
+ * survive the earlier run in audit/relatedness-by-material.ts, where true blastomere parents
+ * reached 0.0658 against strangers starting at 0.0693. Pooling both, a true blastomere parent
+ * reaches 0.0658 and a stranger starts at 0.0679: a margin of 0.0021, which is not a threshold, it
+ * is two samplings happening not to overlap yet. Only bulk holds up across both, and OPPOSITE_HOM_MAX
+ * already is that number.
+ *
+ * SO NOTHING HERE GATES ANYTHING NEW. What it does establish is narrower and was costing the
+ * operator something real: on amplified material the shipped verdict reads `unrelated` for a TRUE
+ * parent and `unrelated` for a stranger, 9 times out of 9 on blastomeres either way. Identical
+ * words for opposite facts is worse than silence, because it reads as a finding. Where the
+ * statistic cannot separate, the verdict is withheld and the reason given instead.
+ *
+ * WHAT THIS DOES NOT COVER, and it is a real hole rather than an oversight. The material tested is
+ * the SAMPLE's, because that is the array the tool infers a stage for. The statistic depends on
+ * BOTH arrays: whichever one is amplified inflates it. In the intended configuration the parental
+ * slot holds bulk genomic DNA and keying on the sample is correct, but load an amplified array as
+ * the parent and a bulk one as the sample and this reports a verdict on a pair it cannot read.
+ * Measured: in that configuration a child and its own father come back `unrelated` at 0.0653.
+ * Gating on the parental array's material instead was tried and refused two genuine parental
+ * arrays, an egg donor's bulk gDNA at a 0.9837 call rate and a cumulus sample at 0.951, so it is
+ * not simply the missing half of this check.
+ */
+export const RELATEDNESS_SEPARABLE_MATERIALS: readonly string[] = ['bulk']
+
+/** Whether a relationship verdict means anything on this material. See the table above. */
+export function relatednessAssessable(material: string | undefined | null): boolean {
+  return !!material && RELATEDNESS_SEPARABLE_MATERIALS.includes(material)
+}
+
 export const IBD0_SPREAD_MIN = 0.028
 export const IBD0_FLOOR_MAX = 0.012
 export const IBD0_MIN_WINDOWS = 100
@@ -138,6 +182,7 @@ export const REL = {
   oneParent: 'this parent only, a duplicate or a haploid product',
   ambiguous: 'ambiguous',
   refused: 'refused, too few homozygous markers in common',
+  notAssessable: 'not assessed: this material does not separate a parent from a stranger',
 } as const
 
 /**

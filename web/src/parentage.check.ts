@@ -15,6 +15,7 @@ import {
   emptyTally,
   HET_BAND_DIPLOID,
   isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
+  BAF_CLAMPED_FLOOR, GT_FALLBACK_HAPLOID_MAX, GT_FALLBACK_DIPLOID_MIN,
 } from './parentage.ts'
 import { calibratedZ, intensityDetects, nullScale } from './intensityNull.ts'
 
@@ -753,4 +754,147 @@ console.log('parentage.check.ts OK')
   assert.ok(!asMaternal.notes.some((n) => /two sperm/.test(n)),
     `a maternal run must not explain a duplicated maternal genome as "two sperm": `
     + JSON.stringify(asMaternal.notes))
+}
+
+
+// --- 22. A ZERO NOISE FLOOR IS NOT THE SAME FACT AS A CLEAN ARRAY ----------------------------
+//
+// THE RUN THAT FOUND THIS. GSE19247 converted from its raw intensities reads 23 of 23 known-haploid
+// sperm cells as diploid, while the same call gets every haploid pronucleus in GSE148488 right.
+// The cause is not the boundary.
+//
+// WHY THE FLOOR CAN BE UNMEASURABLE. `HET_BAND_EXCESS` subtracts the mid-band mass at HOMOZYGOUS
+// calls, and that quantity only exists if the genotype and the B-allele frequency were derived
+// INDEPENDENTLY. Affymetrix calls genotypes with one algorithm and computes the allelic ratio with
+// another, so the two disagree at a small rate and that disagreement is the floor: 0.0020 to 0.0034
+// on the arrays every threshold here was measured on. A cluster-file BAF is a function of the same
+// theta the genotype came from, so a marker called homozygous CANNOT read mid-band and the floor is
+// identically 0.0000. On the converted series it is exactly that on all three materials, alongside
+// 70 to 85 percent of homozygous calls sitting on an exact 0 or 1.
+//
+// The branch read that zero as "this array has no amplification smear to correct for" and applied
+// the UNAMPLIFIED boundary to single sperm cells, the most heavily amplified material in the series.
+// Absence of a floor and inability to measure one are different facts. This pins the difference.
+{
+  /**
+   * A HAPLOID genome, every marker homozygous, with an amplification smear.
+   *
+   * The smear is carried by markers the caller FAILED, which is where it really sits: a mid-scale
+   * reading on a one-parent genome is an artefact, and a caller that derives both quantities from
+   * it produces a no-call rather than a homozygous call at 0.5. Those markers still carry a BAF,
+   * which is why the band sees them and `HET_BAND_EXCESS` was written to correct for them.
+   */
+  const haploid = (clamped: boolean) => {
+    const t = emptyTally()
+    for (let c = 1; c <= 22; c += 1) {
+      for (let i = 0; i < 2_000; i += 1) {
+        const homAllele: AB = (c + i) % 2 ? 'AA' : 'BB'
+        // One marker in eight reads mid-band, in both arms, so the BAND IS IDENTICAL and nothing
+        // about its level distinguishes them. 0.125 is over HET_BAND_DIPLOID, so a flat threshold
+        // calls this haploid genome diploid outright.
+        const smear = i % 8 === 0
+        if (clamped) {
+          // A CALLER THAT DERIVES BOTH QUANTITIES FROM ONE THETA. A mid-scale reading cannot come
+          // back as a homozygous call, so the smear lands on no-calls and the homozygous calls sit
+          // on exact endpoints. The floor has nowhere to be measured.
+          if (smear) tallyRow(homAllele, row(String(c), 1000 + i * 1000, 'NC', 0.5, 0), t)
+          else {
+            tallyRow(homAllele,
+              row(String(c), 1000 + i * 1000, homAllele, homAllele === 'AA' ? 0 : 1, 0), t)
+          }
+        } else if (smear) {
+          // INDEPENDENTLY DERIVED. The genotype algorithm calls this marker homozygous and the
+          // allelic ratio disagrees with it, which is exactly the disagreement the floor measures.
+          tallyRow(homAllele, row(String(c), 1000 + i * 1000, homAllele, 0.5, 0), t)
+        } else {
+          tallyRow(homAllele,
+            row(String(c), 1000 + i * 1000, homAllele, homAllele === 'AA' ? 0.01 : 0.99, 0), t)
+        }
+      }
+    }
+    return t
+  }
+
+  const clamped = classify(haploid(true), 0.17, { role: 'paternal' })
+  const continuous = classify(haploid(false), 0.17, { role: 'paternal' })
+
+  // The fixture must actually reproduce the situation, or the rest proves nothing.
+  assert.ok(clamped.hetBand > HET_BAND_DIPLOID,
+    `the band must be over the flat boundary, got ${clamped.hetBand}`)
+  assert.equal(clamped.homBand, 0, `the clamped arm must have no measurable floor, `
+    + `got ${clamped.homBand}`)
+  assert.ok(continuous.homBand > 0, `the continuous arm must have one, got ${continuous.homBand}`)
+  assert.ok(clamped.homPinnedRate >= BAF_CLAMPED_FLOOR,
+    `a clamped file must be recognised as clamped, got ${clamped.homPinnedRate}`)
+  assert.ok(continuous.homPinnedRate < BAF_CLAMPED_FLOOR,
+    `a continuous file must not be, got ${continuous.homPinnedRate}`)
+
+  // THE REGRESSION. This genome is haploid by construction. Before the fix the clamped arm took
+  // the flat unamplified boundary, on a band of 0.125 against a 0.08 threshold, and called it
+  // diploid.
+  assert.equal(clamped.zygosity, 'uniparental_homozygous',
+    'a clamped BAF on a HAPLOID genome must not be called diploid by the unamplified boundary, '
+    + `got ${clamped.zygosity} at hetBand ${clamped.hetBand} homBand ${clamped.homBand}`)
+  // And the operator is told why the weaker measure was used, rather than the file silently
+  // getting a boundary that does not apply to it.
+  assert.ok(clamped.limits.some((l) => /exactly 0 or 1/.test(l)),
+    `the clamped run must say why: ${JSON.stringify(clamped.limits)}`)
+
+  // THE CONTROL. Where the floor is measurable the correction still runs, and it still reads this
+  // genome as one parent's: the smear appears at homozygous calls too, so the EXCESS is small.
+  assert.equal(continuous.zygosity, 'uniparental_homozygous',
+    `the correction must still work on a continuous file, got ${continuous.zygosity} `
+    + `at excess ${continuous.hetBand - continuous.homBand}`)
+  assert.ok(!continuous.limits.some((l) => /exactly 0 or 1/.test(l)),
+    'a continuous file must not be told its BAF is clamped')
+}
+
+// --- 23. THE GENOTYPE FALLBACK MUST REFUSE THE MIDDLE, NOT GUESS IT ---------------------------
+//
+// THE RUN THAT FOUND THIS, and it was a regression introduced by section 22's own fix. Sending a
+// clamped-BAF file to the genotype fallback took the converted second platform from 23 wrong calls
+// to 38: it read 15 of 23 known-haploid sperm right, and 29 of 30 known-DIPLOID single lymphoblasts
+// wrong. Both classes sit at the same place on this measure, 0.32 and 0.41 of the loaded parent's
+// heterozygosity, because what put them there is dropout rather than ploidy. A single split at the
+// midpoint cannot do anything but trade one error for the other.
+//
+// Bulk material with the same clamped BAF sits at 0.971 and is answered correctly. So the fallback
+// keeps the case it can measure and refuses the case it cannot.
+{
+  const parentHet = 0.17
+  /** `abEvery` controls the sample's heterozygosity, which is the only thing under test here. */
+  const mid = (abEvery: number) => {
+    const t = emptyTally()
+    for (let c = 1; c <= 22; c += 1) {
+      for (let i = 0; i < 2_000; i += 1) {
+        const homAllele: AB = (c + i) % 2 ? 'AA' : 'BB'
+        // No B-allele frequency at all, so the fallback is the only branch available.
+        const gt: AB = i % abEvery === 0 ? 'AB' : homAllele
+        tallyRow(homAllele, row(String(c), 1000 + i * 1000, gt, null, 0), t)
+      }
+    }
+    return t
+  }
+
+  // One AB in fifteen is 6.7% heterozygous, which is 0.39 of the parent's: squarely in the gap
+  // where the two amplified classes overlapped.
+  const ambiguous = classify(mid(15), parentHet, { role: 'paternal' })
+  // With no BAF at all, `hetFraction` IS the genotype heterozygosity the fallback reads.
+  const share = ambiguous.hetFraction / parentHet
+  assert.ok(share > GT_FALLBACK_HAPLOID_MAX && share < GT_FALLBACK_DIPLOID_MIN,
+    `the fixture must land in the refused gap, got ${share}`)
+  assert.equal(ambiguous.zygosity, 'unknown',
+    `heterozygosity at ${share.toFixed(3)} of the parent's separates nothing, so it must be `
+    + `refused rather than called, got ${ambiguous.zygosity}`)
+  assert.ok(ambiguous.limits.some((l) => /about amplification rather than ploidy/.test(l)),
+    `the refusal must say why: ${JSON.stringify(ambiguous.limits)}`)
+
+  // BOTH ENDS STILL ANSWER. One AB in 200 is 0.5%, well under a quarter of the parent's.
+  const clearlyHaploid = classify(mid(200), parentHet, { role: 'paternal' })
+  assert.equal(clearlyHaploid.zygosity, 'uniparental_homozygous',
+    `almost no heterozygosity is one parent's genome, got ${clearlyHaploid.zygosity}`)
+  // One AB in five is 20%, over three quarters of the parent's 17%.
+  const clearlyDiploid = classify(mid(5), parentHet, { role: 'paternal' })
+  assert.equal(clearlyDiploid.zygosity, 'diploid',
+    `heterozygosity above the parent's own is two contributions, got ${clearlyDiploid.zygosity}`)
 }

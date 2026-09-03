@@ -130,10 +130,13 @@ RELEASES: tuple[Release, ...] = (
     Release("Heteroduplex",
             "A stretch where two strands from different sources are paired, and mismatches show "
             "only once both are read. What a second study is for."),
+    Release("Resolvase",
+            "The enzyme that cuts a junction one way or the other. Leaving it uncut is also an "
+            "outcome, and the safer one when neither cut can be justified."),
 )
 
-VERSION = "5.26.0"
-CODENAME = "Heteroduplex"
+VERSION = "5.27.0"
+CODENAME = "Resolvase"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

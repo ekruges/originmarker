@@ -105,6 +105,59 @@ export const HET_BAND_DIPLOID = 0.08
 export const HET_BAND_EXCESS = 0.05
 
 /**
+ * Share of homozygous calls pinned to an exact 0 or 1 above which the file's BAF is CLAMPED and
+ * its noise floor cannot be measured.
+ *
+ * WHY A ZERO FLOOR IS NOT THE SAME FACT AS A CLEAN ARRAY. `HET_BAND_EXCESS` subtracts the mid-band
+ * mass at homozygous calls, which is this array's own smear. Reading that as zero has two causes
+ * and they call for opposite handling: an array with genuinely no smear, or a BAF that cannot place
+ * a homozygote mid-band at all because it saturates at the ends of its scale. The second is what a
+ * cluster-file BAF does by construction, and it is not rare: it is how the format is defined.
+ *
+ * MEASURED, on the two platforms in hand. Publisher-normalised Affymetrix pins 0.0% of homozygous
+ * calls to an endpoint and reports a floor of 0.0020 to 0.0034, so the correction has something to
+ * work with. Cluster-derived Illumina pins 70.5% on single lymphoblasts, 79.5% on single sperm and
+ * 85.2% on bulk blood, and reports a floor of exactly 0.0000 on all three. Treating that as a
+ * clean array applied the unamplified boundary to the most heavily amplified material in the
+ * series and read 23 of 23 known-haploid sperm cells as diploid.
+ *
+ * A continuous BAF essentially never lands on an exact endpoint, so anything above a few percent
+ * already means clamping. The floor sits well clear of both measurements rather than beside either.
+ */
+export const BAF_CLAMPED_FLOOR = 0.20
+
+/**
+ * How far from a parent's own heterozygosity the GENOTYPE fallback needs to be before it calls.
+ *
+ * WHY THIS EXISTS RATHER THAN A SINGLE SPLIT. The fallback compares the sample's heterozygosity
+ * against half the loaded parent's, on the reasoning that one parental complement contributes
+ * almost none and two contribute about as much as the parent has. Split at the midpoint with no
+ * gap, it answers every array it is handed, including the ones where dropout has pushed a diploid
+ * genome down to where a haploid one sits.
+ *
+ * MEASURED, as a share of the parent's heterozygosity, on material whose ploidy is known by
+ * biology rather than by this tool:
+ *
+ *     bulk blood, diploid                 0.971
+ *     single sperm cells, HAPLOID         0.322
+ *     single lymphoblasts, DIPLOID        0.414
+ *
+ * The two amplified classes sit together at 0.32 and 0.41 with opposite true answers, so no
+ * threshold placed between them means anything: a boundary at 0.45 would read the sperm right and
+ * the lymphoblasts wrong for the same reason, which is dropout rather than ploidy. Bulk material
+ * sits an order of magnitude clear at 0.971. Refusing the whole middle keeps the case the
+ * statistic can answer and declines the case it cannot, which is the shape every other boundary
+ * in this codebase already has: see HAPLOID_MAX against DIPLOID_MIN, and ONE_PARENT_HAPLOID_MAX
+ * against ONE_PARENT_DIPLOID_MIN, both of which leave the gap uncalled.
+ *
+ * WHAT IT COSTS. Without a usable B-allele frequency, amplified material gets no zygosity call at
+ * all. That is the honest reading: on the converted second platform neither channel separates
+ * haploid from diploid single cells, in either direction.
+ */
+export const GT_FALLBACK_HAPLOID_MAX = 0.25
+export const GT_FALLBACK_DIPLOID_MIN = 0.75
+
+/**
  * Call rate below which heterozygous calls stop being trustworthy, so nothing derived from them
  * may be asserted. Natesan 2014, the only published threshold measured on amplified material,
  * and the same figure `ingest.gates` already excludes on.
@@ -396,6 +449,10 @@ export interface Tally {
    *  can contribute. See HET_BAND_EXCESS. */
   homInBand: number
   homTotal: number
+  /** Homozygous calls whose B-allele frequency is EXACTLY 0 or 1. A continuous BAF essentially
+   *  never lands on an endpoint, so a large share here means the file's BAF is clamped and
+   *  `homInBand` cannot measure anything. See BAF_CLAMPED_FLOOR. */
+  homPinned: number
   /** Per chromosome: [B-allele frequencies at an extreme, B-allele frequencies read]. The
    *  mis-clustering check; see BAF_EXTREME_FLOOR. */
   bafByChrom: Map<string, [number, number]>
@@ -419,7 +476,7 @@ export interface Tally {
 
 export const emptyTally = (): Tally => ({
   byChrom: new Map(), nonParental: 0, nonParentalDen: 0,
-  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, homInBand: 0, homTotal: 0,
+  called: 0, het: 0, markers: 0, bafInBand: 0, bafTotal: 0, homInBand: 0, homTotal: 0, homPinned: 0,
   bafByChrom: new Map(),
   hetDevByChrom: new Map(), callByChrom: new Map(), lrrByChrom: new Map(),
   yCalled: 0, yTotal: 0, build: null,
@@ -460,6 +517,7 @@ export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
     if (row.genotype === 'AA' || row.genotype === 'BB') {
       t.homTotal += 1
       if (inBand) t.homInBand += 1
+      if (row.baf === 0 || row.baf === 1) t.homPinned += 1
     }
     const b = t.bafByChrom.get(row.chrom) ?? [0, 0]
     b[1] += 1
@@ -581,6 +639,9 @@ export interface ParentageResult {
   /** The same band at HOMOZYGOUS calls, which is this array's own baseline for it. Zygosity is
    *  the EXCESS of hetBand over this; see HET_BAND_EXCESS. */
   homBand: number
+  /** Share of homozygous calls whose BAF is exactly 0 or 1. At or over BAF_CLAMPED_FLOOR the
+   *  band is clamped and `homBand` measures nothing. */
+  homPinnedRate: number
   noCallRate: number
   /** Second factor of the ceiling, beside noCallRate: a dropped call only fakes absence where
    *  the genotype was heterozygous, so the ceiling is their product plus the error floor. */
@@ -780,6 +841,9 @@ export function classify(
   const noCallRate = t.markers ? 1 - t.called / t.markers : NaN
   const hetBand = t.bafTotal ? t.bafInBand / t.bafTotal : NaN
   const homBand = t.homTotal ? t.homInBand / t.homTotal : NaN
+  // Whether homBand measured a floor or merely failed to. See BAF_CLAMPED_FLOOR.
+  const homPinnedRate = t.homTotal ? t.homPinned / t.homTotal : NaN
+  const bafClamped = homPinnedRate >= BAF_CLAMPED_FLOOR
   const gtHet = t.called ? t.het / t.called : NaN
   const hetFraction = Number.isFinite(hetBand) ? hetBand : gtHet
   // A measured parental array contributes no absence of its own, so the ceiling is the sample's
@@ -864,15 +928,40 @@ export function classify(
     // BOTH classes sit, so the level of the band is amplification quality and only the EXCESS
     // over it is a second parental contribution. See HET_BAND_EXCESS.
     zygosity = hetBand - homBand > HET_BAND_EXCESS ? 'diploid' : 'uniparental_homozygous'
-  } else if (Number.isFinite(hetBand)) {
-    // No homozygous call anywhere reads mid-band, so this array has no amplification smear to
-    // correct for and the unamplified boundary is the one calibrated on exactly that material.
-    // Every amplified array measured here sits at 0.0017 to 0.1313 instead.
+  } else if (Number.isFinite(hetBand) && !bafClamped) {
+    // No homozygous call anywhere reads mid-band AND the BAF could have put one there, so this
+    // array has no amplification smear to correct for and the unamplified boundary is the one
+    // calibrated on exactly that material. Every amplified array measured here sits at 0.0017 to
+    // 0.1313 instead.
     zygosity = hetBand > HET_BAND_DIPLOID ? 'diploid' : 'uniparental_homozygous'
-  } else if (Number.isFinite(gtHet) && Number.isFinite(parentHeterozygosity)) {
-    zygosity = gtHet > parentHeterozygosity / 2 ? 'diploid' : 'uniparental_homozygous'
-    limits.push('No B-allele frequencies in this file, so zygosity comes from genotype '
-      + 'heterozygosity rather than the BAF band. That is the weaker of the two measures.')
+  } else if (Number.isFinite(gtHet) && Number.isFinite(parentHeterozygosity)
+    && parentHeterozygosity > 0) {
+    // A RATIO AGAINST THE PARENT'S OWN HETEROZYGOSITY, with the middle refused. See
+    // GT_FALLBACK_HAPLOID_MAX: dropout moves a diploid genome down into the range a haploid one
+    // occupies, so an answer from the middle of this range is about amplification, not ploidy.
+    const share = gtHet / parentHeterozygosity
+    if (share <= GT_FALLBACK_HAPLOID_MAX) zygosity = 'uniparental_homozygous'
+    else if (share >= GT_FALLBACK_DIPLOID_MIN) zygosity = 'diploid'
+    else {
+      limits.push(
+        `Genotype heterozygosity is ${pct(share, 0)} of the loaded parent's, between the `
+        + `${pct(GT_FALLBACK_HAPLOID_MAX, 0)} and ${pct(GT_FALLBACK_DIPLOID_MIN, 0)} this measure `
+        + 'separates on. Dropout moves a two-parent genome down into the range a one-parent '
+        + 'genome occupies, so a call from here would be about amplification rather than ploidy. '
+        + 'Zygosity is left unreported.',
+      )
+    }
+    limits.push(bafClamped
+      // A CLAMPED BAF IS THE SAME SITUATION AS NO BAF, and saying so is the whole point: the
+      // band is present, unusable, and indistinguishable from a clean array by its level alone.
+      ? `${pct(homPinnedRate, 1)} of homozygous calls carry a B-allele frequency of exactly 0 `
+        + `or 1, at or over the ${pct(BAF_CLAMPED_FLOOR, 0)} where the values are clamped rather `
+        + 'than measured. The heterozygous band cannot be corrected against a baseline that '
+        + 'cannot be observed, so zygosity comes from genotype heterozygosity instead, which is '
+        + 'the weaker of the two measures. A file exported with continuous B-allele frequencies '
+        + 'would be read on the stronger one.'
+      : 'No B-allele frequencies in this file, so zygosity comes from genotype '
+        + 'heterozygosity rather than the BAF band. That is the weaker of the two measures.')
   }
 
   const present = verdict === 'parent_genome_present'
@@ -1181,7 +1270,8 @@ export function classify(
     segments: [],
     gains: [],
     losses: [],
-    nonParentalRate, secondParentExpected, hetBand, homBand, noCallRate, hetFraction,
+    nonParentalRate, secondParentExpected, hetBand, homBand, homPinnedRate,
+    noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, notes, limits,
   }
 }

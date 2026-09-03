@@ -33,16 +33,30 @@
  *   GSE19247  sperm, haploid       band 0.1362   homBand 0.0000   excess 0.1362
  *   GSE19247  lymphoblast, diploid band 0.0903   homBand 0.0000   excess 0.0903
  *
- * Two things there are impossible for a real array. `homBand` is identically zero, because the
- * piecewise map in toprobes.py saturates at exactly 0 and 1 outside the homozygote clouds, so the
- * homozygous-cluster correction that HET_BAND_EXCESS is built on cannot exist. And the known
- * HAPLOID sperm carry MORE mid-band mass than the known DIPLOID lymphoblasts, which is backwards.
+ * SUPERSEDED, AND THE CORRECTION MATTERS MORE THAN THE ORIGINAL CLAIM. This file previously read
+ * those numbers as proof that the CONVERTER was broken and that nothing about the tool could be
+ * concluded from them. `audit/baf-shape.ts` measured the converted BAF against the one expectation
+ * no threshold here can move, that a marker CALLED AB must sit at 0.5, and it does: 0.5036, 0.4886
+ * and 0.4919 on the three materials, with bulk agreeing across platforms at 0.1651 against
+ * Affymetrix's 0.1549. The scale is right. The conversion is not the fault.
  *
- * SO THE ZYGOSITY ARM BELOW IS A TEST OF THE CONVERTER, NOT OF THE TOOL, and it fails as one. It is
- * kept and still printed because deleting a failing arm is how a limitation becomes invisible, but
- * nothing about the tool's zygosity boundary may be concluded from it in either direction. What
- * this file DOES establish on a second platform is detection: the trisomy arm and the crash arm
- * read a real log2 ratio and a real genotype, neither of which depends on the BAF shape.
+ * WHAT IS ACTUALLY GOING ON, and it is a property of the tool rather than the file. HET_BAND_EXCESS
+ * subtracts the mid-band mass at HOMOZYGOUS calls, and that quantity exists only where the genotype
+ * and the B-allele frequency were derived INDEPENDENTLY. Affymetrix genotypes with one algorithm
+ * and computes the allelic ratio with another, so they disagree at 0.2 to 0.3 percent and that
+ * disagreement is the floor. A cluster-file BAF is a function of the same theta the genotype came
+ * from, so a marker called homozygous cannot read mid-band and the floor is structurally 0.0000.
+ * Reading that zero as "a clean array with no smear to correct for" applied the UNAMPLIFIED
+ * boundary to single sperm cells. That was a bug, it is fixed, and both halves of the fix are
+ * pinned in parentage.check.ts sections 22 and 23.
+ *
+ * THE ARM BELOW STILL DOES NOT VALIDATE THE BOUNDARY, for a different and narrower reason: on this
+ * material neither channel separates one parental complement from two, so the tool now refuses
+ * rather than guessing. Testing HET_BAND_EXCESS needs a second series with independently derived
+ * genotypes and B-allele frequencies, and a cluster-file export is structurally not that. The arm
+ * is kept and still printed because deleting a failing arm is how a limitation becomes invisible.
+ * What this file DOES establish on a second platform is detection: the trisomy arm and the crash
+ * arm read a real log2 ratio and a real genotype, neither of which depends on the BAF shape.
  *
  * Run: OM_GSE=<dir of .probes and truth.json> node --experimental-strip-types \
  *        --max-old-space-size=6144 audit/gse19247-tool.ts

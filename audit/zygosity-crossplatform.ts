@@ -10,10 +10,20 @@
  *
  * WHAT SEPARATES THEM. `HET_BAND_EXCESS` compares the heterozygous BAF band against the same
  * array's OWN homozygous clusters, and the whole reason it is written that way is that the LEVEL of
- * the band is amplification quality rather than ploidy. If the excess on known-haploid material
- * reads the same on both platforms, the boundary transfers and the sperm result is a conversion
- * artefact. If the excess is genuinely larger on one platform for genomes that are equally haploid,
- * the boundary is calibrated to a series rather than to biology.
+ * the band is amplification quality rather than ploidy.
+ *
+ * THE ANSWER TURNED OUT TO BE NEITHER OF THOSE TWO, and this header records it so the run is read
+ * for what it found rather than for what it set out to ask. The converted BAF is correctly scaled:
+ * `audit/baf-shape.ts` shows AB calls sitting at 0.4886 to 0.5036 on every material, which is what
+ * a B-allele frequency means. What the converted file cannot supply is the FLOOR, because a
+ * cluster-file BAF is a function of the same theta the genotype came from, so a marker called
+ * homozygous can never read mid-band. Affymetrix has a floor of 0.0020 to 0.0034 only because it
+ * genotypes and computes allelic ratio with separate algorithms that disagree at that rate.
+ *
+ * So the boundary is not disproved and it is not confirmed: it is untestable on this material, and
+ * the tool now says so rather than falling through to a boundary calibrated for clean unamplified
+ * arrays. That fall-through was a real bug and it read 23 of 23 known-haploid sperm as diploid.
+ * The CALLED column below is what makes that visible; the bands alone never did.
  *
  * BOTH SETS ARE KNOWN HAPLOID BY BIOLOGY, NOT BY THIS TOOL:
  *   GSE148488 pronuclei    one parental complement, from the dissection
@@ -56,29 +66,58 @@ function rowsOfText(t: string) {
 const readAny = (p: string) => (p.endsWith('.gz')
   ? gunzipSync(readFileSync(p)).toString('utf8') : readFileSync(p, 'utf8'))
 
-/** The three numbers the zygosity call actually rests on, for one array. */
+/**
+ * The numbers the zygosity call rests on AND the call itself, for one array.
+ *
+ * The verdict matters as much as the bands: an array can report a plausible band and still have
+ * reached its answer down a branch that does not apply to it, which is exactly what this series
+ * found. `classify` is the shipped entry point, so the call here is the call an operator gets.
+ */
 function bands(path: string) {
   const t = parentage.emptyTally()
   for (const r of rowsOfText(readAny(path))()) parentage.tallyRow('NC' as never, r as never, t as never)
   const tt = t as unknown as {
-    bafInBand: number; bafTotal: number; homInBand: number; homTotal: number
+    bafInBand: number; bafTotal: number; homInBand: number; homTotal: number; homPinned: number
   }
   const hetBand = tt.bafTotal ? tt.bafInBand / tt.bafTotal : NaN
   const homBand = tt.homTotal ? tt.homInBand / tt.homTotal : NaN
-  return { hetBand, homBand, excess: hetBand - homBand }
+  // A fixed 0.17 stands in for the loaded parent's heterozygosity. Only the genotype fallback
+  // reads it, and using ONE value for every array means it cannot be a variable here.
+  const r = parentage.classify(t as never, 0.17, { role: 'paternal' }) as {
+    zygosity: string; homPinnedRate: number; limits: string[]
+  }
+  return {
+    hetBand, homBand, excess: hetBand - homBand,
+    pinned: r.homPinnedRate, zygosity: r.zygosity,
+    clampNoted: r.limits.some((l) => /exactly 0 or 1/.test(l)),
+  }
 }
 
 const q = (xs: number[], p: number) => {
   const s = xs.filter(Number.isFinite).sort((a, b) => a - b)
   return s.length ? s[Math.min(s.length - 1, Math.floor(p * s.length))] : NaN
 }
-const line = (label: string, xs: { hetBand: number; homBand: number; excess: number }[]) => {
+type Shape = ReturnType<typeof bands>
+/** `expect` is what the biology says, so the CALLED column is scored rather than just printed. */
+const line = (label: string, xs: Shape[], expect?: string) => {
+  if (!xs.length) { console.log(`  ${label.padEnd(30)} no arrays`); return }
   const e = xs.map((x) => x.excess)
-  console.log(`  ${label.padEnd(34)} n=${String(xs.length).padStart(3)}  `
+  // REFUSED IS NOT WRONG, and collapsing the two would make a tool that declines to answer look
+  // identical to one that answers incorrectly. `unknown` is what classify returns when the call
+  // rate is under the floor, which is a refusal by design.
+  const right = expect ? xs.filter((x) => x.zygosity === expect).length : NaN
+  const refused = xs.filter((x) => x.zygosity === 'unknown').length
+  const wrong = expect ? xs.length - right - refused : NaN
+  console.log(`  ${label.padEnd(30)} n=${String(xs.length).padStart(3)}  `
     + `band ${q(xs.map((x) => x.hetBand), 0.5).toFixed(4)}  `
     + `homBand ${q(xs.map((x) => x.homBand), 0.5).toFixed(4)}  `
-    + `EXCESS min ${q(e, 0).toFixed(4)} p50 ${q(e, 0.5).toFixed(4)} max ${q(e, 1).toFixed(4)}  `
-    + `over ${parentage.HET_BAND_EXCESS}: ${e.filter((x) => x > parentage.HET_BAND_EXCESS).length}/${e.length}`)
+    + `pinned ${(q(xs.map((x) => x.pinned), 0.5) * 100).toFixed(1)}%  `
+    + `EXCESS p50 ${q(e, 0.5).toFixed(4)}  `
+    + `clamp noted ${xs.filter((x) => x.clampNoted).length}/${xs.length}  `
+    + (expect
+      ? `${expect.slice(0, 12)}: ${right}/${xs.length} right, ${wrong} WRONG, ${refused} refused`
+        + `${wrong > 0 ? '   <-- WRONG CALLS' : ''}`
+      : ''))
 }
 
 console.log(`the boundary under test: HET_BAND_EXCESS = ${parentage.HET_BAND_EXCESS}`)
@@ -102,13 +141,13 @@ console.log('=== GSE148488, Affymetrix, the series every threshold was measured 
 {
   const pn = recs.filter((r) => r.pronucleus && hasT(r.gsm))
     .map((r) => bands(join(TRIOS, `${r.gsm}.probes.gz`)))
-  line('pronuclei, KNOWN HAPLOID', pn)
+  line('pronuclei, KNOWN HAPLOID', pn, 'uniparental_homozygous')
   const kids = recs.filter((r) => r.complete && r.role !== 'parent' && !r.pronucleus && hasT(r.gsm))
     .slice(0, 25).map((r) => bands(join(TRIOS, `${r.gsm}.probes.gz`)))
-  line('children, known two-parent', kids)
+  line('children, known two-parent', kids, 'diploid')
   const par = recs.filter((r) => r.role === 'parent' && hasT(r.gsm))
     .map((r) => bands(join(TRIOS, `${r.gsm}.probes.gz`)))
-  line('adult donors, bulk diploid', par)
+  line('adult donors, bulk diploid', par, 'diploid')
 }
 
 // ---------------------------------------------------------------- GSE19247, the second platform
@@ -120,9 +159,12 @@ if (GSE && existsSync(join(GSE, 'truth.json'))) {
     .filter((t: T) => existsSync(join(GSE, `${t.gsm}.probes`)))
   const grab = (f: (s: string) => boolean, cap = 40) => truth.filter((t) => f(t.src))
     .slice(0, cap).map((t) => bands(join(GSE, `${t.gsm}.probes`)))
-  line('sperm cells, KNOWN HAPLOID', grab((s) => /sperm/i.test(s)))
-  line('lymphoblasts, known diploid', grab((s) => /lymphoblast/i.test(s), 30))
-  line('blood, known diploid', grab((s) => /blood cell/i.test(s)))
+  line('sperm cells, KNOWN HAPLOID', grab((s) => /sperm/i.test(s)), 'uniparental_homozygous')
+  // SINGLE CELLS, not bulk: the series titles them 1 to 83. A diploid single cell after whole
+  // genome amplification is the hardest case in either series, and it is scored as diploid because
+  // that is what it is.
+  line('lymphoblasts, SINGLE diploid', grab((s) => /lymphoblast/i.test(s), 30), 'diploid')
+  line('blood, BULK diploid', grab((s) => /blood cell/i.test(s)), 'diploid')
 } else {
   console.log('')
   console.log('=== GSE19247 NOT INCLUDED: set OM_GSE to the converted directory.')

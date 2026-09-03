@@ -18,6 +18,7 @@
 // shape of the arrays this tool is for and not a substitute for them: the measurements behind
 // each of the three sit in the audit, on real material.
 import assert from 'node:assert/strict'
+import { relatednessAssessable, REL } from './relatedness.ts'
 import { headerMap, parseRow, accumulate, accumulateBaf, emptyBafSums, finishProfile } from './ingest.ts'
 import { emptyParent, collectParentRow, finishParent, emptyCollected, collectRow, scoreSample } from './scoreSample.ts'
 import { mendelParent, runAlerts } from './defects.ts'
@@ -445,3 +446,35 @@ async function run(declaredStage?: 'failed', withMother = false) {
 console.log('scoreSample.check.ts: a rejected array reports nothing, a one-copy chromosome is not '
   + 'an isodisomy, a real isodisomy still is, a segment leaves with an origin row, and with both '
   + 'parents loaded each loss is named from the array that can see it')
+
+// ---------------------------------------------------------------- the verdict the material carries
+//
+// THE MEASUREMENT THAT FORCED THIS, over 106 children and 318 pairs in
+// audit/relationship-separability.ts. On blastomeres the shipped verdict read `unrelated` for the
+// child's own confirmed father 9 times out of 9, and `unrelated` for a stranger 9 times out of 9.
+// The same word for opposite facts is worse than no word: it reads as a finding either way. Only
+// bulk separates across both independent measurements of this, so only bulk carries a verdict.
+{
+  const r = await run()
+  const stage = r.stage?.stage
+  assert.ok(r.relationship, 'the relationship block must still be produced')
+  assert.ok(Number.isFinite(r.relationship!.oppositeHomRate),
+    'the RATE is a measurement and is reported whatever the material')
+  if (relatednessAssessable(stage)) {
+    assert.notEqual(r.relationship!.verdict, REL.notAssessable,
+      `${stage} separates a parent from a stranger, so it must carry a verdict`)
+  } else {
+    assert.equal(r.relationship!.verdict, REL.notAssessable,
+      `${stage} does not separate a true parent from a stranger, so a verdict of `
+      + `"${r.relationship!.verdict}" states something the array cannot support`)
+  }
+  // And the split is on the material rather than on the number, so a stranger and a true parent on
+  // the same material are treated the same way. Withholding only the awkward answers would be
+  // worse than withholding none.
+  assert.equal(relatednessAssessable('trophectoderm'), false,
+    'trophectoderm overlapped in both measurements and must not carry a verdict')
+  assert.equal(relatednessAssessable('blastomere'), false,
+    'blastomere had a 0.0021 pooled margin, which is two samplings not overlapping yet')
+  assert.equal(relatednessAssessable('bulk'), true,
+    'bulk separated by 0.0389 and is where OPPOSITE_HOM_MAX was measured')
+}

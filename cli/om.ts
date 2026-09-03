@@ -466,6 +466,12 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       stageAgreement: r.stageAgreement,
       parentSanity: r.parentSanity,
       parentSanityOther: r.parentSanityOther,
+      // WHY A CALL CAME OUT WEAKER THAN IT LOOKS. `limits` is where the scorer records that it
+      // used a fallback: a call rate under the floor, no B-allele frequencies, or a BAF whose
+      // values are clamped so the band cannot be corrected against its own baseline. The answer
+      // prints the same either way, so a reader with only the answer cannot tell which measure
+      // produced it. Same reason the alerts above are printed rather than computed and dropped.
+      limits: (result as { limits?: string[] }).limits ?? [],
       events: rows,
     }, () => {
       for (const a of alerts) {
@@ -480,7 +486,11 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
         + `, dropout ${Number.isFinite(st?.dropout) ? st!.dropout.toFixed(3) : 'not assigned'}`
         + ` (${st?.basis ?? 'none'})\n`)
       process.stdout.write(`  genome ${(result as { originClass?: string }).originClass}`
-        + `, ${(result as { zygosity?: string }).zygosity}\n\n`)
+        + `, ${(result as { zygosity?: string }).zygosity}\n`)
+      for (const l of (result as { limits?: string[] }).limits ?? []) {
+        process.stdout.write(`  limit: ${l}\n`)
+      }
+      process.stdout.write('\n')
       if (!rows.length) { process.stdout.write('  no chromosomal change found\n'); return }
       for (const r of rows) {
         process.stdout.write(`${r.locus}  ${r.kind}\n`)

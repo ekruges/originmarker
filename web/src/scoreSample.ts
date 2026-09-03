@@ -36,7 +36,9 @@ import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin.
 import { uniparentalOrigin } from './uniparentalOrigin.ts'
 import { accumulateSex, emptySex, sexCall, type SexCall, type SexTally } from './sexing.ts'
 import { reconcileParentSex } from './parentSanity.ts'
-import { relate, OPPOSITE_HOM_MAX } from './relatedness.ts'
+import {
+  relate, OPPOSITE_HOM_MAX, relatednessAssessable, REL,
+} from './relatedness.ts'
 import { callBothParentsOrigin } from './bothParentsOrigin.ts'
 import {
   detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh,
@@ -398,8 +400,16 @@ export async function scoreSample(input: {
     OPPOSITE_HOM_MAX,
   )
   if (rel) {
+    // THE VERDICT IS WITHHELD WHERE THE MATERIAL CANNOT CARRY IT, and the measurements are in
+    // relatednessAssessable. On a blastomere the shipped verdict read `unrelated` for the child's
+    // OWN confirmed father 9 times out of 9, and `unrelated` for a stranger 9 times out of 9. The
+    // same word for opposite facts is not a weak signal, it is a misleading one: a reader who sees
+    // `unrelated` on a correct run has been told something false, and one who sees it on a wrong
+    // run cannot tell it apart. The rate and the marker count are still reported, because those
+    // are measurements rather than conclusions and a reader can weigh them.
+    const assessable = relatednessAssessable(result.stage?.stage)
     result.relationship = {
-      verdict: rel.relationship,
+      verdict: assessable ? rel.relationship : REL.notAssessable,
       oppositeHomRate: rel.opp.rate,
       oppositeHomMarkers: rel.opp.n,
       windowSpread: rel.win.spread,

@@ -9,6 +9,189 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.27.0 "Resolvase"
+
+**The three limits 5.26.0 named were attacked with real data instead of being restated.** One of
+them was not a limit at all: it was two bugs in shipped code, and the second was introduced by the
+fix for the first. The other two are real, and are now measured rather than asserted.
+
+### The zygosity boundary, where 5.26.0 blamed the wrong component
+
+5.26.0 concluded that the converted B-allele frequency was broken and that the tool was therefore
+untested. `audit/baf-shape.ts` checks that conclusion against something no threshold here can move:
+a marker CALLED AB sits in the heterozygous cluster, so its B-allele frequency must be 0.5.
+
+| | AB fraction | BAF at AB calls | homozygotes on an exact 0 or 1 | homBand |
+|---|---|---|---|---|
+| GSE148488 adults, bulk | 0.1549 | **0.5035** | **0.0%** | 0.0020 |
+| GSE148488 children | 0.1700 | **0.5017** | **0.0%** | 0.0034 |
+| GSE19247 blood, bulk | 0.1651 | **0.4886** | 85.2% | **0.0000** |
+| GSE19247 lymphoblasts, single cells | 0.0703 | **0.5036** | 70.5% | **0.0000** |
+| GSE19247 sperm, single cells | 0.0548 | **0.4919** | 79.5% | **0.0000** |
+
+The scale is correct on both platforms, and bulk material agrees across them at 0.1549 against
+0.1651. **So the 5.26.0 conclusion was wrong.** The real mechanism is narrower and it is a property
+of the tool, not of the file: `HET_BAND_EXCESS` subtracts the mid-band mass at HOMOZYGOUS calls, and
+that quantity only exists when the genotype and the B-allele frequency were derived independently.
+Affymetrix calls genotypes with one algorithm and computes the allelic ratio with another, so the
+two disagree at 0.2 to 0.3 percent, and that disagreement IS the noise floor. A cluster-file BAF is
+a function of the same theta the genotype came from, so a marker called homozygous cannot read
+mid-band and the floor is structurally 0.0000.
+
+**The bug.** The branch read a zero floor as "this array has no amplification smear to correct for"
+and applied the UNAMPLIFIED boundary to single sperm cells, the most heavily amplified material in
+the series. Absence of a floor and inability to measure one are different facts, and the code had no
+way to tell them apart. Now it does, from the share of homozygous calls pinned to an exact endpoint:
+`BAF_CLAMPED_FLOOR`, 0.0 percent on Affymetrix against 70 to 85 percent on a cluster file.
+
+**The second bug, which was the first fix.** Sending those files to the genotype fallback instead
+made the platform worse, not better:
+
+| converted GSE19247, 58 arrays of known ploidy | right | WRONG | refused |
+|---|---|---|---|
+| as shipped in 5.26.0 | 35 | **23** | 0 |
+| after detecting the clamp and using the genotype fallback | 20 | **38** | 0 |
+| after refusing the middle of that fallback | 12 | **7** | 39 |
+
+The fallback split at half the loaded parent's heterozygosity with no gap. Measured as a share of
+that heterozygosity, single sperm cells sit at 0.322 and single lymphoblasts at 0.414 with OPPOSITE
+true answers, because what put them there is dropout rather than ploidy. No threshold placed between
+0.322 and 0.414 means anything; a boundary that reads the sperm right reads the lymphoblasts wrong
+for the same reason. Bulk blood sits clear of both at 0.971, more than twice the lymphoblast
+figure, and is the one material of the three still answered: 3 of 5, with 0 wrong and 2 falling in
+the refused gap.
+
+`GT_FALLBACK_HAPLOID_MAX` and `GT_FALLBACK_DIPLOID_MIN` refuse the middle, which is the shape
+`HAPLOID_MAX` against `DIPLOID_MIN` and `ONE_PARENT_HAPLOID_MAX` against `ONE_PARENT_DIPLOID_MIN`
+already have. Amplified material with no usable B-allele frequency now gets no zygosity call at all,
+and says so.
+
+**AND IT IS A TRADE, NOT A CLEAN WIN.** The build answers 58 of 58 and gets 23 wrong; this answers
+19 and gets 7 wrong. The 30 single lymphoblasts it used to call correctly are now refused outright.
+Those 30 were right by coincidence rather than by measurement: the flat unamplified boundary of 0.08
+happens to sit just under their band of 0.0903, and the same boundary on the same platform produced
+all 23 wrong sperm calls. A coincidence that holds on one material and fails on another is not a
+validated call. Fewer answers and a third of the errors is the right side of that trade for a tool
+whose output decides which parental allele an embryo inherited.
+
+Affymetrix is unchanged to the array: 11 of 15 pronuclei, 22 of 25 children and 12 of 12 adults
+before and after, including a pre-existing single wrong pronucleus call that this release does not
+touch and does not explain.
+
+Both are pinned by checks that FAIL against the previous code, verified by reverting each in turn.
+Every existing check passed against both bugs, which is the same way the genome-level class
+inversion survived in 5.25.0: the fixtures had no case where the two differed.
+
+**The boundary itself is still validated on one platform only.** Testing it needs a second series
+with independently derived genotypes and B-allele frequencies, and a cluster-file export is
+structurally not that whatever is done to it. What changed is that the tool now detects when the
+correction cannot be computed instead of silently substituting a boundary that does not apply.
+
+### What the zygosity change cost on the platform it was already right on
+
+Nothing measurable. `audit/replicates.ts`, 14 groups and 42 real arrays, before and after:
+
+| | before | after |
+|---|---|---|
+| same zygosity | 14/14 | 14/14 |
+| same integrity verdict | 14/14 | 14/14 |
+| same whole-chromosome set | 14/14 | 14/14 |
+| same segment set | 13/14 | 13/14 |
+| same named parents, by chromosome | 13/14 | 13/14 |
+| one locus given two different parents | 0 | 0 |
+
+That matters more than it looks. The fix changes a branch every array passes through, and the
+platform it was aimed at is not the platform the tool is used on. An improvement on a second series
+that quietly degraded the first would be a bad trade whatever the second series said.
+
+### Generation inversion: the limit is real, and now it is measured
+
+The claim in `relatedness.ts` is that direction cannot be recovered from two genotype files, because
+under Hardy-Weinberg the parent-child joint distribution is exchangeable. That is true and it is
+about a PAIR. The standard configuration for this tool loads both parents, so a third array exists,
+and a third array is not covered by the theorem: a mother is her child's parent and a stranger to
+the child's father. `audit/generation-inversion.ts` scores every complete trio in both directions
+and asks whether that difference is visible.
+
+**It is not.** Over 8 complete trios:
+
+| | correct run | inverted run |
+|---|---|---|
+| opposite-homozygote rate, second array against the sample | 0.0187 to 0.1239 | 0.0653 |
+| window floor, same pair | 0.0300 to 0.1050 | 0.0750 |
+
+Both inverted values sit INSIDE the correct range, so neither statistic separates. The reason is the
+same one that limits every other relatedness question here: in the correct configuration the second
+array is compared against amplified material, and amplification manufactures opposite homozygotes
+out of a real relative faster than unrelatedness does out of a stranger.
+
+The one-parent arm is the control and separates nothing either, which is what the theorem predicts
+and what keeps the two-parent result from being an artefact of the setup. The docstring stands as
+written.
+
+**The honest weakness of this measurement**: the series carries one sperm donor and one egg donor,
+so the inverted arm is a single pair measured eight times. Its two numbers are exact repeats. A
+second series with more donors would be worth more than more trios from this one.
+
+Worth recording separately: across the 8 inverted runs the tool still named 2 parents, against 8
+named across the 8 correct ones. Nothing refuses an inverted run.
+
+### The relationship verdict, which was saying the same word for opposite facts
+
+`audit/relationship-separability.ts`, 106 children and 318 pairs, every child against its manifest
+parent, against a SECOND array of that same parent as a control, and against a donor who is not its
+parent by identity rather than by accession. The replicate control tracks the true parent in every
+material, which is what makes the stranger arm about relatedness and not about batch.
+
+| material | true parent | a stranger | separable |
+|---|---|---|---|
+| bulk | 0.0032 to 0.0142 | 0.0531 to 0.0574 | yes, +0.0389 |
+| blastomere | 0.0213 to 0.0497 | 0.0679 to 0.1068 | yes, +0.0182 |
+| single-cell | 0.0139 to 0.0487 | 0.0641 to 0.0908 | yes, +0.0154 |
+| trophectoderm | 0.0056 to 0.0749 | 0.0545 to 0.1177 | NO, they overlap |
+
+Three of four separate, which reads like an argument for a per-material threshold. **It is not, and
+the reason is in this repository already.** `audit/relatedness-by-material.ts` measured the same
+question on different trios and found true blastomere parents reaching 0.0658 where these reach
+0.0497. Pooling both independent samplings, a true blastomere parent reaches 0.0658 and a stranger
+starts at 0.0679: a margin of 0.0021. That is not a threshold, it is two samplings that have not
+overlapped yet. Only bulk holds across both, and `OPPOSITE_HOM_MAX` already is that number. **No new
+gate is added.**
+
+What the run does establish is narrower and was costing something real:
+
+| blastomere, as shipped | verdict |
+|---|---|
+| against its own confirmed father, 9 arrays | 9x `unrelated` |
+| against a stranger, 9 arrays | 9x `unrelated` |
+
+The same word for opposite facts. That is worse than silence: a reader seeing `unrelated` on a
+correct run has been told something false, and one seeing it on a wrong run cannot tell the two
+apart. The verdict is now withheld on material that cannot carry it, with the reason given in its
+place. The rate and the marker count are still reported, because those are measurements rather than
+conclusions and a reader can weigh them.
+
+**And the new check has a hole, named rather than left to be found.** The material it tests is the
+SAMPLE's, because that is the array the tool infers a stage for, while the statistic depends on
+whichever of the two arrays is amplified. In the intended configuration the parental slot holds bulk
+genomic DNA and that is correct. Put an amplified array in the parental slot and a bulk one in the
+sample slot, which is exactly the inverted configuration above, and a verdict is still reported on a
+pair the statistic cannot read: a child and its own father come back `unrelated` at 0.0653. Keying
+on the parental array's material instead was tried previously and refused two genuine parental
+arrays, so it is not simply the missing half of this check.
+
+### Known and not fixed
+
+With zygosity `unknown` the Mendelian channel still runs, because it gates on
+`zygosity.startsWith('uniparental')` and a refusal is not that string. So a genome whose ploidy this
+release newly declines to call can still have a parent named on it, and the comment directly above
+that line says the channel names the WRONG parent on a one-parent genome. It is pre-existing rather
+than introduced here. It is not changed in this release because the candidate fix would also gate
+the Affymetrix arrays refused by the call-rate floor, and the pronuclei path currently returns 11 of
+14 correct with 0 wrong; moving it needs that measured first, not assumed.
+
+---
+
 ## 5.26.0 "Heteroduplex"
 
 **Every threshold in this tree was measured on one series, and until now nothing had ever asked
