@@ -9,6 +9,100 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.26.0 "Heteroduplex"
+
+**Every threshold in this tree was measured on one series, and until now nothing had ever asked
+whether that mattered.** This release adds four harnesses that put the tool against known answers it
+did not come from: a second public study on a different platform, the laboratory's own targeted
+experiments, technical replicates, and the parental power question. No shipped code changes.
+
+### A second study, a second laboratory, a second chemistry
+
+GSE19247 (Vanneste 2009), Illumina rather than Affymetrix, roughly half the marker density, public.
+`audit/gse19247/toprobes.py` converts it into the format the tool reads so `scoreSample` itself can
+be run on it, rather than only the numpy side-analysis that already lived here.
+
+**255 arrays, 0 threw.** Detection transfers:
+
+| | |
+|---|---|
+| change found on chr21, karyotype-confirmed trisomy 21 | 16/82 |
+| other chromosomes per array | 0.07 of 21 available |
+| **chr21 rate against per-other-chromosome rate** | **0.195 against 0.003, a 65-fold enrichment** |
+| those same cells read as diploid | 80/82 |
+| blood, ordinary diploid tissue, read as diploid | 4/5 |
+
+The pre-existing numpy validation also re-ran clean after every change made since it was written:
+AUC 0.9991 over 83 trisomy against 27 control, chr21 ranking first of 22 autosomes.
+
+### And one thing that is NOT validated, which is the point of running it
+
+The converted B-allele frequency cannot support the zygosity call, and
+`audit/zygosity-crossplatform.ts` is what establishes that rather than a hunch:
+
+| set | band | homBand | excess |
+|---|---|---|---|
+| GSE148488 pronuclei, known haploid | 0.0359 | 0.0033 | 0.0327 |
+| GSE19247 sperm, known haploid | 0.1362 | **0.0000** | 0.1362 |
+| GSE19247 lymphoblast, known diploid | 0.0903 | **0.0000** | 0.0903 |
+
+Two impossibilities. `homBand` is identically zero, because the piecewise map saturates at exactly 0
+and 1, so the homozygous-cluster correction `HET_BAND_EXCESS` is built on cannot exist. And the
+known HAPLOID sperm carry more mid-band mass than the known DIPLOID lymphoblasts, which is backwards.
+
+So the run reading 20 of 23 sperm cells as diploid is a failure of the CONVERTER. It is not evidence
+against the tool, and it is not evidence for it either: **the zygosity boundary remains validated on
+one platform only.** The arm is kept and still printed, because deleting a failing arm is how a
+limitation becomes invisible.
+
+### The laboratory's own experiments, where the targeted locus is known before the array is read
+
+`audit/lab-targets.ts`. Truth comes from the experimental design, matched on locus words rather than
+on any sample identifier, and the directory is supplied at run time.
+
+| group | usable | on target | other chromosomes per array |
+|---|---|---|---|
+| chromosome 16 targeted | 15 | 6 | 0.07 |
+| HBB, chromosome 11 | 17 | 3 | 0.71 |
+| experimental controls | 17 | n/a | 0.35 |
+| karyotyped euploid 46,XY | 1 | n/a | 0.00 |
+
+As a per-chromosome rate that is **0.40 against 0.0033 for chr16, about 120-fold**, and 0.18 against
+0.034 for HBB, about 5-fold. The karyotyped euploid sample reports nothing at all. 61 arrays, no
+crashes, on a tab-separated export the public series does not use.
+
+### Same DNA, twice
+
+`audit/replicates.ts`, over 14 groups and 42 arrays of GSE148488 where `_repN` names one biopsy run
+more than once.
+
+| | |
+|---|---|
+| same zygosity, same integrity verdict, same whole-chromosome set | 14/14 |
+| same segment set | 13/14 |
+| same material inferred | 11/14 |
+| **one locus given two different parents** | **0** |
+
+The material label is the least reproducible thing the tool prints, and the events are the most.
+
+### Whether the tool can see both parents equally
+
+`audit/parental-power.ts`, because a detector with unequal power answers a question about inequality
+by construction.
+
+Informative markers, paternal against maternal, over the usable trios: skew **1.058**, inside the
+1.4 the shipped comparison already refuses beyond. On the pronuclei, where a whole parental
+complement is genuinely absent, recovery is 0.9870 when the paternal side is missing and 0.7208 when
+the maternal side is, and those intervals overlap at this n. On mirrored constructed losses,
+paternal 12/12 and maternal 10/12 with **zero wrong parents either way**, against a negative control
+of **0/12**.
+
+That control was wrong in the first version and is worth recording: it selected "a donor who is not
+the father", and since the corpus has exactly one sperm donor it fell back to the father himself, so
+the control was the true arm again and passed 12 of 12 while proving nothing.
+
+---
+
 ## 5.25.0 "Parthenote"
 
 **A genome carrying only the mother was reported as carrying only the father.** For a zygote-stage

@@ -127,10 +127,13 @@ RELEASES: tuple[Release, ...] = (
     Release("Parthenote",
             "An embryo developing from an egg alone, carrying a maternal genome and no paternal "
             "one. The case the genome-level class named backwards."),
+    Release("Heteroduplex",
+            "A stretch where two strands from different sources are paired, and mismatches show "
+            "only once both are read. What a second study is for."),
 )
 
-VERSION = "5.25.0"
-CODENAME = "Parthenote"
+VERSION = "5.26.0"
+CODENAME = "Heteroduplex"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
