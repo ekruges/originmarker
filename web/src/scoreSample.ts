@@ -19,7 +19,7 @@ import { breathe, buildScanIndex, copyNeutralWindows, gatherInterval, type Inter
 import { type AB } from './informativity.ts'
 import type { ProbeRow, SampleProfile } from './ingest.ts'
 import {
-  classify, emptyTally, isAutosome, pct, tallyRow, type ParentageResult,
+  classify, emptyTally, isAutosome, knownBiparental, pct, tallyRow, type ParentageResult,
 } from './parentage.ts'
 import {
   scanChromosome, scanCopyNumber, externalNull, segmentCoords, type MarkerAbsence,
@@ -1073,14 +1073,19 @@ export async function scoreSample(input: {
   // parent: on a gynogenetic genome the copy that went missing from a chromosome was the maternal
   // one, because that was the only copy there. Same guard, and same reason, as the copy-neutral
   // and runs-of-homozygosity detectors above.
-  const uniparental = result.zygosity?.startsWith('uniparental') ?? false
+  // AND NOT ON A GENOME WHOSE PLOIDY WAS REFUSED EITHER, which is what this used to allow. The
+  // test was `startsWith('uniparental')`, so a zygosity of `unknown` read as "not uniparental" and
+  // the channel ran. `unknown` is the tool declining to say how many parental contributions are
+  // present, not a finding that there are two, and a genome it declines to call may well be the
+  // one-parent case this guard exists for. See knownBiparental.
+  const canAttribute = knownBiparental(result.zygosity)
   // Also not gated on the parent count: this channel reads whether the LOADED parent's allele is
   // present, which a second parent neither supplies nor obstructs.
   // AND THE MENDELIAN CHANNEL DOES NOT RUN AT ALL WITH A WRONG PARENTAL SLOT. Unlike dosage, every
   // row it produces IS a parental attribution: there is no location-only part of it to keep. A row
   // reading "the loaded parent's copy is absent" is only meaningful once "the loaded parent" is
   // the person the report says it is.
-  const mendelEvents = !uniparental && !parentSlotWrong ? [
+  const mendelEvents = canAttribute && !parentSlotWrong ? [
     ...(result.chroms ?? []).filter((c) => c.aneuploidy)
       .map((c) => ({ chrom: c.chrom, start: 0, end: Number.MAX_SAFE_INTEGER,
         label: `chr${c.chrom}` })),

@@ -9,6 +9,175 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.28.0 "Gene Conversion"
+
+**Detection and attribution put to real data with a known answer, including a public study from
+another laboratory on a third array chemistry.** One shipped bug fixed, one converter defect found
+and fixed, and one sensitivity limit measured rather than described.
+
+### The bug: a parent named on a genome whose ploidy was refused
+
+The Mendelian channel was gated on `!zygosity.startsWith('uniparental')`. That expression reads as
+"biparental" and is not: it is also true for `unknown`, which is the tool DECLINING to say how many
+parental contributions are present. A refusal is not a negative answer, and the comment directly
+above that line says the channel names the WRONG parent on a one-parent genome.
+
+`knownBiparental` replaces it, and the distinction is named once rather than inlined. On a
+genotype-only export the old gate produced 4 named parents at zygosity `unknown`; it now produces 0.
+
+Verified against every harness that carries known truth, before and after:
+
+| | before | after |
+|---|---|---|
+| zygote origin, 14 pronuclei | 11 correct, 0 wrong | identical |
+| parental power, constructed mirror losses | 12/12 and 10/12, 0 wrong | identical |
+| replicates, 14 groups over 42 arrays | 14/14 zygosity, 0 contradictions | identical |
+
+Nothing that was already right changed.
+
+### Attribution, against truth computed outside this tool
+
+`audit/attribution-truth.ts`. Where the father is homozygous for one allele and the mother for the
+other, a normal child is obliged to be heterozygous; if a region carries only the mother's allele
+the paternal copy is the one that went. That is decided in a few lines over both parental arrays and
+never consults the scorer.
+
+| | |
+|---|---|
+| real events where the trio could answer | 8 |
+| **correct** | **8** |
+| wrong | **0** |
+| named nothing where the trio could answer | 0 |
+| pronuclei, one complement by dissection, parents named on them | **0 over 15 arrays** |
+
+The margins were not close: 479 to 1, 1115 to 8, 235 to 1. Two further events sat just under the
+200-marker floor this harness demands, at 109 and 112 informative markers, and read 109 to 0 and
+112 to 0 with the tool calling paternal on both.
+
+**The truth reproduces the source paper without being told it.** Every chromosome 6 loss lands on
+the PATERNAL side, and chromosome 6 is where Cas9 cut EYS on the allele the father carried.
+
+One pronucleus in the control arm is the case the fix was for: 12 events, zygosity `unknown`, one
+parental complement by the dissection. Nothing is named on it.
+
+**The reciprocal arm is vacuous and is reported as such.** No interval was named by BOTH the
+father-loaded and mother-loaded runs, so its zero contradictions rest on nothing. When the mother is
+loaded against a paternal loss the answer is the unreliable direction and the tool withholds, which
+is correct behaviour and also leaves the test with nothing to compare.
+
+### Detection, and the question was overdetection
+
+`audit/detection-truth.ts`. A living adult gamete donor carries no autosomal whole-chromosome loss,
+so their arrays are a specificity set that costs nothing and assumes nothing.
+
+| | |
+|---|---|
+| bulk adult donors | 11 arrays, 242 autosome observations |
+| **whole-chromosome false positives** | **0** |
+| per-autosome false positive rate | **0.00000** |
+
+Sensitivity with a position attached, on the same series: Cas9 cut EYS, which is on chromosome 6.
+
+| | |
+|---|---|
+| arrays carrying an event on chr6 | 9/40 = 0.225 |
+| mean over the other 21 autosomes | 1.24/40 = 0.031 |
+| **enrichment** | **7.3x** |
+| **chr6 rank** | **1 of 22** |
+| chr6 segments spanning the cut site | 6 of 16, identical under GRCh37 and GRCh38 |
+
+**Chromosome 19 ranks second at 8 of 40, and that is not a random runner-up.** chr19 is the
+chromosome whose technical replicates disagreed and forced `COPY_SHIFT_FLOOR` into existence in
+5.20.0. A known artefact-prone chromosome sitting just behind the targeted one is a caveat on this
+result, not a footnote to it.
+
+Structural validity, which is a separate question from whether a call is right:
+
+| | arrays | threw | structurally invalid events |
+|---|---|---|---|
+| GSE148488 and the laboratory corpus | 116 | 0 | **0** |
+| GSE19247, third chemistry | 180 | 0 | **0** |
+
+Start past end, coordinates off the end of the chromosome they claim, non-finite numbers, zero
+markers behind a call, duplicate loci, and per-array counts no genome could carry. None occurred.
+
+### A public study, another laboratory, a third array chemistry
+
+GSE19247 carries 367 more arrays on GPL8855, a different chip from the GPL6985 arm used in 5.26.0,
+and it carries both halves of the question in one series: 247 lymphoblasts of a karyotype-confirmed
+trisomy 21 individual, and 69 lymphoblasts of two euploid reference pedigrees prepared the same way
+on the same chips. `cluster.py` now reads either platform's manifest schema; the GPL6985 path was
+checked to be unchanged to the address before anything ran, 342,946 of them, `array_equal` true.
+
+**The first run of it was wrong, and the cause was this repository's converter.** Sensitivity came
+back 0 of 58 while chromosome 21 was called on 8 of 25 EUPLOID cells: inverted. `toprobes.py` built
+its per-marker reference as the median across every array in the series, and GPL8855 is 247 trisomy
+cells out of 367. A median does not survive a 67 percent majority, so on chromosome 21 the reference
+WAS the trisomy level. Measured, as chr21 log2R minus each array's own median:
+
+| | with the all-array reference | with a blood reference |
+|---|---|---|
+| trisomy 21 | +0.2131 | **+0.5457** |
+| euploid Coriell 1463 | -0.3774 | **-0.0060** |
+| euploid Coriell 1423 | -0.3841 | **-0.0218** |
+
+log2(3/2) is 0.585. The separation was 0.590 the whole time: the biology was intact and only the
+OFFSET was wrong, which put the trisomies at +0.21, under `COPY_SHIFT_FLOOR`, and never called.
+`--ref-match` now names the arrays the baseline is built from. It is set to the blood samples, a
+different family and tissue from either scored group, so the reference and the test cannot share
+their errors. GPL6985 was never affected: its trisomy share is 32 percent and its median stayed
+euploid.
+
+With that corrected, false positives on euploid material fell from 22 to **5 over 2,134 autosome
+observations**, and chromosome 21 on euploid cells went from 11 calls to **0**.
+
+### The limit, measured rather than described
+
+Sensitivity on that series remains **0 of 58**, and the reason is not the threshold being slightly
+wrong. `Z_CHROMOSOME` compares a chromosome against the spread of the SAME ARRAY's other
+chromosomes. On these single cells, at a 0.67 call rate, that spread is about 0.28 log2 units, an
+order of magnitude above a clean array's, so a textbook trisomy at +0.54 reaches z = 1.91 against a
+threshold of 5.49.
+
+**No threshold separates them.** Over 880 euploid autosome observations, where every reading is
+noise by construction:
+
+| cut | trisomies caught | euploid false calls |
+|---|---|---|
+| 1.5 | 35/40 | 209/880 |
+| 2 | 16/40 | 144/880 |
+| 3 | 2/40 | 54/880 |
+| **5.49, shipped** | **0/40** | **0/880** |
+
+Euploid noise reaches 5.34 and the strongest trisomy reaches 2.56, so the two overlap outright. The
+shipped value is the only one that buys silence rather than false calls, and silence is the right
+purchase.
+
+**Where the information actually lives.** Between arrays, not within them: trisomy chr21 sits at
++0.5457 and euploid at -0.006, which is a clean group separation and is why the numpy cohort
+analysis of this same data reaches AUC 0.9991. A per-array instrument cannot reach a cohort
+statistic. Closing this gap needs a reference cohort, which is a design change and not a constant.
+
+So, on heavily amplified single cells, this tool reports nothing rather than reporting wrongly. That
+is a real limit on what it can be used for and it belongs beside the specificity numbers above, not
+under them.
+
+### Three harness defects found, all in this repository's own test code
+
+None reached a conclusion, and each was caught by a result looking wrong rather than by a check
+failing. Recorded because the pattern matters more than the individual mistakes.
+
+| | effect |
+|---|---|
+| a whole-chromosome row's count read as `markers`, which is named `informative` | 35 valid calls reported as structurally invalid |
+| the converter reference above | an entire external validation inverted |
+| the verdict-to-parent mapping reimplemented as a regex, against a vocabulary that does not exist | 8 correct attributions scored as silence |
+
+The third is now `defects.parentNamed`, the shipped function both other surfaces already use, whose
+switch is exhaustive so an unhandled verdict is a compile error rather than a silent null.
+
+---
+
 ## 5.27.0 "Resolvase"
 
 **The three limits 5.26.0 named were attacked with real data instead of being restated.** One of

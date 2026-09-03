@@ -19,11 +19,30 @@ WHAT THE TRUTH IS, from the GEO `source_name` field and nothing else:
                                          many times
 
 INTENSITY. The tool reads a log2 ratio, which this platform does not publish. It is built here the
-standard way: each marker's total intensity against the median of that marker across every array in
-the series, then the whole sample recentred on its own median so the array's own loading drops out.
-That is a real LRR and it is the quantity the intensity channel was designed for. It is NOT the
+standard way: each marker's total intensity against the median of that marker across a REFERENCE
+PANEL, then the whole sample recentred on its own median so the array's own loading drops out. That
+is a real LRR and it is the quantity the intensity channel was designed for. It is NOT the
 publisher's own normalisation, and any number that comes out of it should be read as this
 conversion's as much as the tool's.
+
+WHICH ARRAYS FORM THE REFERENCE, AND WHY IT IS NOT ALL OF THEM. A per-marker median is only a
+normal baseline where the arrays behind it are mostly normal AT THAT MARKER. GPL8855 is 247 trisomy
+21 cells out of 367, so on chromosome 21 the median IS the trisomy level and a median cannot survive
+a 67 percent majority. Measured on the output of the all-arrays reference, as chr21 log2R minus each
+array's own median:
+
+    trisomy 21    +0.2131        euploid 1463  -0.3774
+    blood         -0.3757        euploid 1423  -0.3841
+
+The separation is 0.590, which is log2(3/2) to two decimal places, so the biology is intact and
+entirely present. What is wrong is the OFFSET: every array is shifted down by the trisomy baseline,
+which puts the trisomies at +0.21, under the tool's COPY_SHIFT_FLOOR of 0.40, and never called. The
+same conversion is correct on GPL6985, where trisomies are 32 percent and the median stays euploid.
+
+So --ref-match names the samples the baseline is built from, by their GEO source_name. Building a
+reference from known-normal material is what a copy-number pipeline does; the failure above is what
+happens when that step is skipped. Pick a group that is NOT the group being scored for sensitivity,
+or the baseline and the test share their errors.
 
 CALLS COME FROM cluster.py AND geno.py UNCHANGED. Nothing about genotyping is re-decided here.
 
@@ -59,6 +78,10 @@ def main():
     ap.add_argument('--platform', default='6985', choices=['6985', '8855'])
     ap.add_argument('--out', required=True)
     ap.add_argument('--limit', type=int, default=0, help='stop after N samples, for a smoke run')
+    ap.add_argument('--ref-match', default='',
+                    help='substring of source_name selecting the reference panel. '
+                         'Empty means every array, which is only valid where the series is '
+                         'majority-normal at every marker. See the module docstring.')
     a = ap.parse_args()
 
     idat_root = 'idat' if a.platform == '6985' else 'idat8'
@@ -91,10 +114,20 @@ def main():
         n_seen += 1
         if (i + 1) % 25 == 0:
             print(f'  intensity pass {i + 1}/{len(recs)}', flush=True)
-    stack = np.vstack(mats)
+    if a.ref_match:
+        idx = [i for i, r in enumerate(recs) if a.ref_match.lower() in r['src'].lower()]
+        if len(idx) < 10:
+            sys.exit(f'--ref-match {a.ref_match!r} selected {len(idx)} arrays, too few for a '
+                     'baseline')
+        print(f'  reference panel: {len(idx)} arrays matching {a.ref_match!r}', flush=True)
+    else:
+        idx = list(range(len(mats)))
+        print(f'  reference panel: all {len(idx)} arrays', flush=True)
+    stack = np.vstack([mats[i] for i in idx])
     ref = np.median(stack, axis=0)
     ref[ref <= 0] = np.nan
-    print(f'  reference built from {n_seen} arrays', flush=True)
+    del stack
+    print(f'  reference built from {len(idx)} of {n_seen} arrays', flush=True)
 
     os.makedirs(a.out, exist_ok=True)
     written = 0
@@ -131,7 +164,11 @@ def main():
             print(f'  written {written}/{len(recs)}', flush=True)
 
     # The truth table, so a harness never has to parse a filename.
-    truth = [{'gsm': r['gsm'], 'title': r['title'], 'src': r['src']} for r in recs]
+    # The panel is recorded beside the truth so a reader can see which arrays the baseline came
+    # from without re-deriving it, and so a group used as its own reference is visible.
+    truth = [{'gsm': r['gsm'], 'title': r['title'], 'src': r['src'],
+              'in_reference': (not a.ref_match) or (a.ref_match.lower() in r['src'].lower())}
+             for r in recs]
     with open(os.path.join(a.out, 'truth.json'), 'w') as fh:
         json.dump(truth, fh, indent=1)
     print(f'wrote {written} probes files and truth.json to {a.out}', flush=True)

@@ -388,6 +388,23 @@ export const GLOSS: Record<OriginClass, string> = {
 }
 export type Verdict = 'parent_genome_present' | 'no_parental_contribution' | 'unclear'
 export type Zygosity = 'diploid' | 'uniparental_homozygous' | 'unknown'
+
+/**
+ * Whether the genome is KNOWN to carry two parental contributions.
+ *
+ * WHY THIS IS NOT `!zygosity.startsWith('uniparental')`. That expression reads as "biparental" and
+ * is not: it is true for `unknown` as well, which is the tool REFUSING to say how many parental
+ * contributions are present. A refusal is not a negative answer, and the three ways to reach one
+ * here are a call rate under the floor, a heterozygosity that separates nothing, and a file with
+ * no B-allele frequencies and no parent to compare against. In every one of them the genome may
+ * be uniparental.
+ *
+ * IT MATTERS WHERE A CHANNEL IS ONLY VALID ON A TWO-PARENT GENOME. The Mendelian channel reads
+ * "the loaded parent's copy is absent here", which on a one-parent genome is true on every
+ * chromosome by construction and names the parent that was never there. Asking it about a genome
+ * whose ploidy was refused is asking a question whose premise is unestablished.
+ */
+export const knownBiparental = (z: Zygosity | string | undefined | null): boolean => z === 'diploid'
 export type SpermType = 'X_bearing' | 'Y_bearing' | 'unknown'
 
 /**

@@ -478,3 +478,65 @@ console.log('scoreSample.check.ts: a rejected array reports nothing, a one-copy 
   assert.equal(relatednessAssessable('bulk'), true,
     'bulk separated by 0.0389 and is where OPPOSITE_HOM_MAX was measured')
 }
+
+// ------------------------------------------------- no parent is named on a genome of unknown ploidy
+//
+// THE BUG THIS PINS. The Mendelian channel was gated with `!zygosity.startsWith('uniparental')`,
+// which reads as "biparental" and is not: it is also true for `unknown`, which is the tool
+// REFUSING to say how many parental contributions are present. So a genome whose ploidy could not
+// be established still had parents named on it, by a channel whose own comment says it names the
+// WRONG parent on a one-parent genome. Four rows on this fixture, at full confidence.
+//
+// THE FIXTURE IS THE REAL SITUATION, not a contrived one. Removing the B-allele frequencies is
+// what a genotype-only export looks like, and it is what the converted second platform effectively
+// is: the band cannot be read, the genotype fallback lands between its boundaries, and zygosity
+// comes back `unknown` while the array still resolves to a stage and still carries its events.
+{
+  /** The same sample with no B-allele frequency column. Nothing else is touched. */
+  const noBaf = (() => {
+    const ls = sample.split('\n')
+    const out = [ls[0]]
+    for (let i = 1; i < ls.length; i += 1) {
+      if (!ls[i]) continue
+      const f = ls[i].split('\t')
+      f[4] = ''
+      out.push(f.join('\t'))
+    }
+    return out.join('\n')
+  })()
+
+  const pat = indexOf(parentRows)
+  const acc = emptyCollected(pat, null)
+  const byChrom = new Map(); const bafSums = emptyBafSums(); let first = ''
+  for (const row of rowsOf(noBaf)) {
+    if (!first) first = row.probesetId
+    accumulate(row, byChrom); accumulateBaf(row, bafSums); collectRow(row, pat, null, acc)
+  }
+  const profile = finishProfile('nobaf', byChrom, bafSums, first)
+  const out = await scoreSample({
+    acc, profile, pat, mat: null, soloRole: 'paternal', sibs: [], sampleName: 'nobaf',
+    log: () => {},
+  })
+
+  // The fixture must reproduce the situation, or the assertion below proves nothing.
+  assert.equal(out.zygosity, 'unknown',
+    `this fixture exists to exercise a REFUSED zygosity, got ${out.zygosity}`)
+  assert.notEqual(out.stage?.stage, 'failed',
+    'the array must still resolve to a stage, or the run is refused for an unrelated reason')
+  assert.ok((out.segments?.length ?? 0) + (out.chroms ?? []).filter((c) => c.aneuploidy).length > 0,
+    'the array must still carry events, or there is nothing for the channel to name a parent on')
+
+  // THE REGRESSION. Detection is unaffected by ploidy and is kept; ATTRIBUTION is not.
+  assert.equal((out.oneParent ?? []).length, 0,
+    'no parent may be named on a genome whose ploidy the tool declined to call: '
+    + `got ${(out.oneParent ?? []).length} rows at zygosity ${out.zygosity}`)
+
+  // THE CONTROL. The same fixture WITH its B-allele frequencies reads diploid and still names
+  // parents, so the guard above is withholding on ploidy rather than switching the channel off.
+  const ok = await run()
+  assert.equal(ok.zygosity, 'diploid',
+    `the control must be a known two-parent genome, got ${ok.zygosity}`)
+  assert.ok((ok.oneParent ?? []).length > 0,
+    'a known biparental genome must still have its parents named, or this guard has silenced the '
+    + 'channel outright rather than restricting it')
+}

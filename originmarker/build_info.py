@@ -133,10 +133,13 @@ RELEASES: tuple[Release, ...] = (
     Release("Resolvase",
             "The enzyme that cuts a junction one way or the other. Leaving it uncut is also an "
             "outcome, and the safer one when neither cut can be justified."),
+    Release("Gene Conversion",
+            "Where one sequence is overwritten by the copy it was paired with, and the record of "
+            "what was there is gone. What a reference built from the wrong majority does."),
 )
 
-VERSION = "5.27.0"
-CODENAME = "Resolvase"
+VERSION = "5.28.0"
+CODENAME = "Gene Conversion"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

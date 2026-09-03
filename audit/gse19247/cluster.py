@@ -1,4 +1,4 @@
-"""Estimate per-marker genotype cluster positions for GPL6985 from the series itself.
+"""Estimate per-marker genotype cluster positions from the series itself.
 
 WHY. Illumina's BAF and genotype calls come from a cluster file (.egt) holding, for every marker,
 where the AA / AB / BB clouds sit in theta. Without it a global threshold has to stand in, and
@@ -40,6 +40,15 @@ def read_idat_np(path):
 
 
 def manifest(path='gpl6985.txt'):
+    """Address, chromosome and position per marker, from whichever schema the platform publishes.
+
+    THE TWO PLATFORMS OF THIS SERIES DESCRIBE THEMSELVES DIFFERENTLY. GPL6985 publishes the full
+    Illumina manifest, with a separate address per allele and flags for intensity-only and CNV
+    probes; the Infinium II markers are the ones with no second address, and only those have a
+    single bead whose theta means anything here. GPL8855 publishes a reduced table with one
+    Address column and no flags, so every row it lists is taken. Reading the columns by name and
+    branching on what is present keeps one code path per fact rather than one per platform.
+    """
     addr, chrom, pos = [], [], []
     with open(path) as f:
         hdr = None
@@ -51,11 +60,22 @@ def manifest(path='gpl6985.txt'):
             if hdr is None or line.startswith('!'):
                 continue
             p = line.rstrip('\n').split('\t')
-            if len(p) <= hdr['CNV_Probe'] or p[hdr['AddressB_ID']].strip():
-                continue
-            a, c, m = p[hdr['AddressA_ID']].strip(), p[hdr['Chr']].strip(), p[hdr['MapInfo']].strip()
-            if not (a and c and m) or p[hdr['Intensity_Only']].strip() == '1':
-                continue
+            if 'AddressA_ID' in hdr:
+                if len(p) <= hdr['CNV_Probe'] or p[hdr['AddressB_ID']].strip():
+                    continue
+                a = p[hdr['AddressA_ID']].strip()
+                c = p[hdr['Chr']].strip()
+                m = p[hdr['MapInfo']].strip()
+                if not (a and c and m) or p[hdr['Intensity_Only']].strip() == '1':
+                    continue
+            else:
+                if len(p) <= hdr['Position']:
+                    continue
+                a = p[hdr['Address']].strip()
+                c = p[hdr['Chr']].strip()
+                m = p[hdr['Position']].strip()
+                if not (a and c and m):
+                    continue
             addr.append(int(a)); chrom.append(c); pos.append(int(m))
     return np.array(addr, '<i4'), np.array(chrom), np.array(pos, '<i8')
 
@@ -98,12 +118,16 @@ def sample_theta(grn, red, addr_idx):
 
 
 def main():
-    addr, chrom, pos = manifest()
-    print(f'{len(addr)} Infinium II markers')
-    samples = json.load(open('gpl6985_samples.json'))
+    plat = '6985'
+    if '--platform' in sys.argv:
+        plat = sys.argv[sys.argv.index('--platform') + 1]
+    idat_dir = 'idat' if plat == '6985' else 'idat8'
+    addr, chrom, pos = manifest(f'gpl{plat}.txt')
+    print(f'GPL{plat}: {len(addr)} markers, reading from {idat_dir}/')
+    samples = json.load(open(f'gpl{plat}_samples.json'))
     usable = []
     for s in samples:
-        fs = ['idat/' + f for f in s['idats']]
+        fs = [idat_dir + '/' + f for f in s['idats']]
         g = [f for f in fs if 'Grn' in f]
         r = [f for f in fs if 'Red' in f]
         if g and r and os.path.exists(g[0]) and os.path.exists(r[0]):
@@ -153,10 +177,11 @@ def main():
     mu = np.sort(mu, axis=1)
     print(f'AB cloud inferred rather than observed at {thin.sum()} of {len(addr)} markers')
 
-    np.savez_compressed('clusters_gpl6985.npz', addr=addr, chrom=chrom, pos=pos,
+    out = f'clusters_gpl{plat}.npz'
+    np.savez_compressed(out, addr=addr, chrom=chrom, pos=pos,
                         mu=mu, counts=counts, n_ok=n_ok,
                         gsms=np.array([s['gsm'] for s, _, _ in usable]))
-    print('wrote clusters_gpl6985.npz')
+    print(f'wrote {out}')
 
 
 if __name__ == '__main__':
