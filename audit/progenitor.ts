@@ -86,7 +86,8 @@ const EGG_DONORS = ['GSM4472407', 'GSM4472415']
 
 const ALL = [...PRODUCTS, ...TRUTH, ...MAT_NUCLEI, ...EGG_DONORS]
 
-const files = readdirSync(RAW).filter((f) => f.endsWith('.CEL.txt.gz'))
+// Either naming the corpus has used. The reader is the same; only the file name differs.
+const files = readdirSync(RAW).filter((f) => f.endsWith('.CEL.txt.gz') || f.endsWith('.probes.gz'))
 const find = (gsm: string): string => {
   const f = files.find((x) => x.startsWith(gsm))
   if (!f) throw new Error(`${gsm} not in ${RAW}`)

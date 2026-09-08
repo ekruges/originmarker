@@ -9,6 +9,79 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.29.0 "Plasmogamy"
+
+**The Progenitor handoff could not complete.** A reconstructed parent was refused by Syngamy before
+a single call was made, so the one artefact the two halves of this tool exist to pass between them
+never crossed. Two bugs, one in each half of the crossing.
+
+### A reconstruction is zero percent heterozygous by construction
+
+Progenitor builds a parent from haploid meiotic products, and it can only assert that parent's
+HOMOZYGOUS sites. A marker where the products disagree is exactly a marker where the parent is
+heterozygous, and no single haploid product carries both alleles, so there is nothing to write
+there. `inferredReference.ts` therefore emits `AA` and `BB` and never `AB`, which is correct and is
+what the Mendelian channel wants: a marker counts for a parent only where that parent is homozygous.
+
+`gates()` read the resulting 0.000000 heterozygosity as its `genome-wide LOH` signature, a candidate
+abnormal fertilisation, and returned `exclude`. A parent array that fails its own gates stops the
+run, on the reasoning that every channel below measures against it. So the refusal was correct
+machinery pointed at the wrong kind of file.
+
+The mark that separates the two was already written into the file by Progenitor and already read on
+drop by Syngamy. It never reached the gates. It does now, and only two gates consult it:
+
+| gate | as a measured array | as a reconstruction |
+|---|---|---|
+| call rate | usable | usable |
+| het-to-hom asymmetry valid | usable | **report_only** |
+| genome-wide LOH | **exclude** | **report_only** |
+| heterozygosity plausible | usable | usable |
+| numeric genotype coding | report_only | report_only |
+| sex call | report_only | report_only |
+
+Both changed gates ask about heterozygosity. Every gate that asks about the DATA is untouched, and
+`audit/handoff-truth.ts` asserts that: `gates unrelated to heterozygosity that changed: 0`.
+
+### The mark was read and then thrown away
+
+`isInferredFile` fires on drop and calls `patch(e.id, { inferred: true })`. That queues a state
+update, while the profiling loop immediately below iterates the same LOCAL entry objects. So the
+gates were told the file was measured on the very run that had just identified it as a
+reconstruction. The flag is now set on both.
+
+### It was opened, not weakened
+
+A gate can be made to pass by lowering it. The reconstruction has to still work after crossing, and
+that is scored against the man himself, who was never given to it. Built from 8 paternal pronuclei
+at a marker depth the module chose without seeing him:
+
+| array | verdict | non-parental rate |
+|---|---|---|
+| his own array, replicate 1 | parent genome present | 0.0277, against 0.0119 explainable |
+| his own array, replicate 2 | parent genome present | 0.0431, against 0.0145 explainable |
+| maternal pronucleus | no parental contribution | 0.1451 |
+| maternal pronucleus | no parental contribution | 0.1379 |
+| maternal pronucleus | no parental contribution | 0.1482 |
+
+His own arrays sit at 0.028 to 0.043 and every genome that is not his at 0.138 to 0.148.
+
+### Also in this release
+
+`audit/progenitor.ts` had not run since the corpus changed file naming: it looked for `.CEL.txt.gz`
+and the arrays are `.probes.gz`. It reads either now, and the audit it performs, a man's genotype
+rebuilt from his sons' pronuclei and scored against his own array, returns **35 correct, 6 refused,
+0 incorrect**. `audit/progenitor-report.ts` read `build_info.py` from the wrong directory and so
+could not write its record at all.
+
+New harnesses, each against an answer stated by someone other than this tool: `handoff-truth`
+(the crossing above), `mole-truth` (13 complete hydatidiform moles), `blastomere-truth` (within-embryo
+agreement, where identity must be 1:1 and copy number must not be), `duplicate-truth` (the same DNA
+twice), `meiotic-segregation` (sperm are 1:1 X to Y, an egg carries no Y), `panel-truth`,
+`gse19247-relatedness`, and `gse19247-detection`.
+
+---
+
 ## 5.28.0 "Gene Conversion"
 
 **Detection and attribution put to real data with a known answer, including a public study from

@@ -301,11 +301,19 @@ async function eachLine(
   if (carry) fn(carry)
 }
 
+/**
+ * `inferred` reaches the gates because two of them ask questions a reconstructed reference cannot
+ * answer. Progenitor writes only the homozygous sites its haploid products agree on, so that file
+ * is zero percent heterozygous by construction, and the genome-wide LOH gate read that as a failed
+ * genome unification and stopped the run. The mark is already read on drop; this carries it the
+ * rest of the way instead of letting the gates guess from the data.
+ */
 async function profileFile(
   file: File,
   onRow: ((r: ProbeRow) => void) | null,
   tick: (s: Partial<Stage>) => void,
   log: (tag: Tag, text: string) => void,
+  inferred = false,
 ): Promise<{ profile: SampleProfile; gates: Gate[] }> {
   const byChrom = new Map<string, ChromStats>()
   const baf = emptyBafSums()
@@ -338,7 +346,7 @@ async function profileFile(
   const profile: SampleProfile = {
     ...finishProfile(file.name, byChrom, baf, firstId, builds), build: buildVerdict(builds),
   }
-  const g = gates(profile)
+  const g = gates(profile, inferred)
   log('PARSE', `${int(n)} markers, ${byChrom.size} chromosomes`)
   log('CALL', `call ${pct(profile.callRate, 1)}, het ${pct(profile.hetRate, 1)}, `
     + `BAF spread at het calls ${Number.isFinite(profile.hetBafSd)
@@ -470,6 +478,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     // mark is read before anything is profiled rather than trusted to the file name.
     for (const e of fresh) {
       if (await isInferredFile(e.file)) {
+        // Both the state and THIS object. `patch` queues a state update, and the profiling loop
+        // below reads these same local entries, so setting only the state left the gates being
+        // told the file was measured on the very run that had just identified it as inferred.
+        e.inferred = true
         patch(e.id, { inferred: true })
         log('WARN', `${e.file.name}: this is a RECONSTRUCTED genotype, not a measured array. `
           + 'Every call made against it inherits that, and the report says so throughout.')
@@ -489,7 +501,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             markers: x.markers ?? (p?.id === e.id ? p.markers : 0),
             bytes: x.bytes ?? (p?.id === e.id ? p.bytes : 0),
           })),
-          log,
+          log, !!e.inferred,
         )
         patch(e.id, { state: 'waiting', profile, gates: g })
       } catch (err) {
@@ -584,7 +596,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       try {
         const pacc = emptyParent()
         const { profile, gates: g } = await profileFile(
-          e.file, (r) => collectParentRow(r, pacc), bar(e.id, e.file.size), log,
+          e.file, (r) => collectParentRow(r, pacc), bar(e.id, e.file.size), log, !!e.inferred,
         )
         // THE ONE REFUSAL THAT SHOULD STOP A RUN. Every downstream channel measures against the
         // loaded parent, so a parent array that failed its own gates cannot support any of them,

@@ -136,10 +136,13 @@ RELEASES: tuple[Release, ...] = (
     Release("Gene Conversion",
             "Where one sequence is overwritten by the copy it was paired with, and the record of "
             "what was there is gone. What a reference built from the wrong majority does."),
+    Release("Plasmogamy",
+            "The step where two cells join but their nuclei have not yet met. A handoff that has "
+            "to complete before anything downstream can happen at all."),
 )
 
-VERSION = "5.28.0"
-CODENAME = "Gene Conversion"
+VERSION = "5.29.0"
+CODENAME = "Plasmogamy"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

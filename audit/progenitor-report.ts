@@ -12,7 +12,7 @@ import { join } from 'node:path'
 
 /** Version and codename, read out of build_info.py so the record cannot claim a build that
  *  never existed. One regex rather than a second copy of the constants. */
-const py = readFileSync(new URL('../build_info.py', import.meta.url), 'utf8')
+const py = readFileSync(new URL('../originmarker/build_info.py', import.meta.url), 'utf8')
 const build = {
   version: /VERSION = "(.*?)"/.exec(py)![1],
   codename: /CODENAME = "(.*?)"/.exec(py)![1],

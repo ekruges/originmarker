@@ -404,7 +404,18 @@ export interface Gate {
  * Nothing here invents a threshold. Where no amplified-material threshold exists in the
  * literature the gate is `report_only`, which is the honest verdict rather than a guess.
  */
-export function gates(p: SampleProfile): Gate[] {
+/**
+ * The quality gates, and WHAT KIND OF FILE they are being asked about.
+ *
+ * `inferred` marks a reconstructed reference rather than a measured array. Progenitor builds one
+ * from haploid meiotic products, and it can only assert the parent's HOMOZYGOUS sites: a marker
+ * where the products disagree is exactly the marker where that parent is heterozygous, and one
+ * haploid product carries only one of the two alleles, so the reconstruction has nothing to write
+ * there. Its heterozygosity is therefore zero by construction rather than by biology, and a gate
+ * that reads zero heterozygosity as a failed genome unification is asking a question the file
+ * cannot answer. Every other gate is about the DATA and applies unchanged.
+ */
+export function gates(p: SampleProfile, inferred = false): Gate[] {
   const out: Gate[] = []
   const cr = p.callRate
 
@@ -427,11 +438,16 @@ export function gates(p: SampleProfile): Gate[] {
   out.push({
     name: 'het-to-hom asymmetry valid',
     value: cr,
-    verdict: cr < 0.60 ? 'exclude' : cr < 0.75 ? 'marginal' : 'usable',
-    detail: cr < 0.60
-      ? 'SUSPENDED: below 60% call rate erroneous heterozygous calls are common, so a het call is '
-        + 'no longer robust and the key/non-key partition loses its guarantee'
-      : 'holds within the usable call-rate band',
+    // The asymmetry is about erroneous HETEROZYGOUS calls on amplified material. A reconstruction
+    // makes none, so the partition it guards cannot be lost the way this gate describes.
+    verdict: inferred ? 'report_only' : cr < 0.60 ? 'exclude' : cr < 0.75 ? 'marginal' : 'usable',
+    detail: inferred
+      ? 'not applicable: a reconstructed reference emits no heterozygous calls, so there are none '
+        + 'to be erroneous'
+      : cr < 0.60
+        ? 'SUSPENDED: below 60% call rate erroneous heterozygous calls are common, so a het call is '
+          + 'no longer robust and the key/non-key partition loses its guarantee'
+        : 'holds within the usable call-rate band',
   })
 
   // Turocy 2026 excluded samples showing LOH along all chromosomes as abnormal fertilisation.
@@ -440,12 +456,19 @@ export function gates(p: SampleProfile): Gate[] {
   out.push({
     name: 'genome-wide LOH',
     value: p.hetRate,
-    verdict: p.hetRate < 0.02 ? 'exclude' : 'report_only',
-    detail: p.hetRate < 0.02
-      ? 'heterozygosity near zero genome-wide: candidate abnormal fertilisation or failed genome '
-        + 'unification (Turocy 2026 excluded such samples). The published criterion is qualitative '
-        + 'and embryo-clustered, which a single unlabelled sample cannot reproduce.'
-      : 'no genome-wide LOH signature',
+    // NOT AN EXCLUSION ON A RECONSTRUCTED REFERENCE. A reconstruction asserts only homozygous
+    // sites, so this reads zero on every one of them, and excluding on it stopped the Progenitor
+    // handoff before a single call was made. The signature it is looking for is a property of a
+    // fertilised genome, and a reconstruction is not one.
+    verdict: p.hetRate < 0.02 && !inferred ? 'exclude' : 'report_only',
+    detail: inferred
+      ? 'not applicable: a reconstructed reference carries only the homozygous sites its products '
+        + 'agree on, so its heterozygosity is zero by construction and says nothing about a genome'
+      : p.hetRate < 0.02
+        ? 'heterozygosity near zero genome-wide: candidate abnormal fertilisation or failed genome '
+          + 'unification (Turocy 2026 excluded such samples). The published criterion is qualitative '
+          + 'and embryo-clustered, which a single unlabelled sample cannot reproduce.'
+        : 'no genome-wide LOH signature',
   })
 
   // A diploid human cannot be 56% heterozygous. A real WGA'd blastomere measured exactly that at
