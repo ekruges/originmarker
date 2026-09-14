@@ -64,10 +64,11 @@ head('1. MORE TYPES OF CHROMOSOMAL ABNORMALITY',
     ({ chrom: '7', startBp: 0, endBp: 159e6, called: 2800, het, logR, wholeChromosome: whole })
   const normal = Array.from({ length: 8 }, () => win(476))
   const loh = tax.detectLoh([...normal, win(56, 0.01, true)])
-  const upd = tax.detectUpd([{ chrom: '7', startBp: 0, endBp: 40e6, markers: 12000, wholeChromosome: true }])
+  const upd = tax.detectUpd([{ chrom: '7', startBp: 0, endBp: 40e6, markers: 12000, hets: 0, wholeChromosome: true }],
+    { backgroundHet: 476 / 2800 })
   const tri = tax.detectTriploidy([
     ...Array.from({ length: 400 }, () => 1 / 3), ...Array.from({ length: 400 }, () => 2 / 3)])
-  const cx = tax.detectComplex(12, 22, 0.95)
+  const cx = tax.detectComplex(12, 22)
   const fired = [['copy-neutral LOH', loh.length], ['uniparental disomy', upd.length],
     ['triploidy', tri ? 1 : 0], ['complex genome', cx ? 1 : 0]] as const
   for (const [name, n] of fired) ev(`detector fires: ${name} -> ${n ? 'yes' : 'NO'}`)
@@ -102,7 +103,8 @@ head('2. AND FROM WHICH PARENT', '"and from which parent"')
 head('3. BOTH COPIES OF ONE CHROMOSOME FROM ONE PARENT',
   '"Maybe both chromosomes in chr7 are paternal"')
 {
-  const iso = tax.detectUpd([{ chrom: '7', startBp: 0, endBp: 159e6, markers: 40000, wholeChromosome: true }])
+  const iso = tax.detectUpd([{ chrom: '7', startBp: 0, endBp: 159e6, markers: 40000, hets: 0, wholeChromosome: true }],
+    { backgroundHet: 0.168 })
   ev(`class returned: ${iso[0]?.cls ?? 'none'}`)
   ev(`states what it cannot see: ${/Heterodisomy leaves heterozygosity normal/.test(iso[0]?.evidence ?? '')}`)
   ev(`carries the 32% no-run rate: ${/32%/.test(iso[0]?.evidence ?? '')}`)

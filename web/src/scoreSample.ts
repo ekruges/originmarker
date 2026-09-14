@@ -41,7 +41,7 @@ import {
 } from './relatedness.ts'
 import { callBothParentsOrigin } from './bothParentsOrigin.ts'
 import {
-  detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh,
+  detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh, COMPLEX_CALL_RATE,
   LOH_SEGMENT_MARKERS,
 } from './abnormalities.ts'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted.ts'
@@ -400,13 +400,8 @@ export async function scoreSample(input: {
     OPPOSITE_HOM_MAX,
   )
   if (rel) {
-    // THE VERDICT IS WITHHELD WHERE THE MATERIAL CANNOT CARRY IT, and the measurements are in
-    // relatednessAssessable. On a blastomere the shipped verdict read `unrelated` for the child's
-    // OWN confirmed father 9 times out of 9, and `unrelated` for a stranger 9 times out of 9. The
-    // same word for opposite facts is not a weak signal, it is a misleading one: a reader who sees
-    // `unrelated` on a correct run has been told something false, and one who sees it on a wrong
-    // run cannot tell it apart. The rate and the marker count are still reported, because those
-    // are measurements rather than conclusions and a reader can weigh them.
+    // The verdict is withheld where the material cannot separate a parent from a stranger (see
+    // RELATEDNESS_SEPARABLE_MATERIALS). The rate and marker count are measurements and stay.
     const assessable = relatednessAssessable(result.stage?.stage)
     result.relationship = {
       verdict: assessable ? rel.relationship : REL.notAssessable,
@@ -515,9 +510,22 @@ export async function scoreSample(input: {
   for (const [c, ms] of cnByChrom) {
     noCall.set(c, [ms.length, ms.filter((m) => !m.called).length])
   }
-  const lrrAll = [...cnByChrom.values()].flat()
+  const allCn = [...cnByChrom.values()].flat()
+  const lrrAll = allCn
     .map((m) => m.log2R).filter((x): x is number => x !== null).sort((a, b) => a - b)
   const genomeLrr = lrrAll.length ? lrrAll[lrrAll.length >> 1] : 0
+  // Genome call rate from the markers themselves. StageCall does not carry one, and the stage's
+  // own inference took it as an input rather than storing it.
+  const genomeCallRate = allCn.length ? allCn.filter((m) => m.called).length / allCn.length : NaN
+  // WHAT A FILE WITHOUT INTENSITY CANNOT SHOW, stated rather than left to read as a clean genome.
+  if (!lrrAll.length) {
+    result.limits.push(
+      'This file carries genotype calls and no intensity (log2R). A gained chromosome or segment '
+      + 'cannot be seen at all, because a third copy leaves the calls unchanged. A lost one is seen '
+      + 'only as heterozygosity gone, which is what isodisomy looks like too, so those findings are '
+      + 'reported as either. A chromosome absent altogether still reads through its call rate.',
+    )
+  }
   const copy = uninterpretable ? [] : [...cnByChrom].filter(([c]) => !whole.has(c))
     .flatMap(([c, ms]) => scanCopyNumber(ms, externalNull(noCall, c), genomeLrr))
   result.segments = uninterpretable ? [] : [
@@ -584,7 +592,12 @@ export async function scoreSample(input: {
       ...detectUpd(
         runsOfHomozygosity(selfMarkers, { chromEndBp: chromEnd })
           .filter((r) => !lost.has(r.chrom)),
-        { zygosity: result.zygosity },
+        {
+          zygosity: result.zygosity,
+          backgroundHet: selfMarkers.length
+            ? selfMarkers.filter((m) => m.het).length / selfMarkers.length : undefined,
+          intensity: lrrAll.length > 0,
+        },
       ),
     ]
     log('SCAN', `runs of homozygosity and ploidy over ${selfMarkers.length} called markers`)
@@ -594,12 +607,7 @@ export async function scoreSample(input: {
     // A genome with too little undisturbed remainder cannot self-reference, which blocks
     // every origin call on the array rather than only on the affected chromosomes.
     const deviant = new Set([...whole, ...result.segments.map((sg) => sg.chrom)]).size
-    // Genome call rate from the markers themselves. StageCall does not carry one, and the
-    // stage's own inference took it as an input rather than storing it.
-    const allMarkers = [...cnByChrom.values()].flat()
-    const callRate = allMarkers.length
-      ? allMarkers.filter((m) => m.called).length / allMarkers.length : NaN
-    const cx = detectComplex(deviant, cnByChrom.size, callRate)
+    const cx = detectComplex(deviant, cnByChrom.size)
     if (cx) findings.push(cx)
     log('SCAN', `taxonomy: ${findings.length} finding`
       + `${findings.length === 1 ? '' : 's'} across `
@@ -851,7 +859,9 @@ export async function scoreSample(input: {
         // remainder cannot self-reference. The BAF spread is still measured and reported,
         // it just no longer refuses, because noise already reaches the answer through the
         // standard error and earns a lower band rather than a silence.
-        noSelfReference: !!result.findings?.some((f) => f.cls === 'complex'),
+        // Or too few calls to form the reference, which is the array's property and not a finding.
+        noSelfReference: !!result.findings?.some((f) => f.cls === 'complex')
+          || genomeCallRate < COMPLEX_CALL_RATE,
         // INTENSITY DETECTS OR IT SAYS NOTHING. Below the calibrated threshold the SIGN of a shift
         // is close to a coin flip: on 264 event-free chromosomes 59 percent of the old statistic's
         // false positives read POSITIVE, a positive shift resolves the class as a gain, and a gain
@@ -1073,11 +1083,8 @@ export async function scoreSample(input: {
   // parent: on a gynogenetic genome the copy that went missing from a chromosome was the maternal
   // one, because that was the only copy there. Same guard, and same reason, as the copy-neutral
   // and runs-of-homozygosity detectors above.
-  // AND NOT ON A GENOME WHOSE PLOIDY WAS REFUSED EITHER, which is what this used to allow. The
-  // test was `startsWith('uniparental')`, so a zygosity of `unknown` read as "not uniparental" and
-  // the channel ran. `unknown` is the tool declining to say how many parental contributions are
-  // present, not a finding that there are two, and a genome it declines to call may well be the
-  // one-parent case this guard exists for. See knownBiparental.
+  // Nor on a genome whose ploidy was refused: `unknown` may be the one-parent case this guard
+  // exists for. See knownBiparental.
   const canAttribute = knownBiparental(result.zygosity)
   // Also not gated on the parent count: this channel reads whether the LOADED parent's allele is
   // present, which a second parent neither supplies nor obstructs.
@@ -1229,12 +1236,9 @@ export async function scoreSample(input: {
     for (const c of autosomes) if (c.aneuploidy) affected.add(c.chrom)
     for (const sg of (result.segments ?? [])) affected.add(sg.chrom)
     for (const f of (result.findings ?? [])) if (f.chrom !== 'genome') affected.add(f.chrom)
-    const allMarkers = [...cnByChrom.values()].flat()
-    const callRate = allMarkers.length
-      ? allMarkers.filter((m) => m.called).length / allMarkers.length : NaN
     result.integrity = assessIntegrity({
       stage: result.stage?.stage ?? 'unknown',
-      callRate,
+      callRate: genomeCallRate,
       affectedAutosomes: affected.size,
       totalAutosomes: autosomes.length,
       events: (result.segments?.length ?? 0) + (result.findings?.length ?? 0)

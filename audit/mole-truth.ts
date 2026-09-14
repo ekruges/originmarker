@@ -1,31 +1,23 @@
 /**
- * THIRTEEN COMPLETE HYDATIDIFORM MOLES, WHERE THE ANSWER IS BOTH KNOWN AND HARD.
+ * Thirteen complete hydatidiform moles, the hardest case for the zygosity call.
  *
- * WHY THIS SERIES AND NOT A LARGER ONE. A complete hydatidiform mole carries two paternal genomes
- * and no maternal one. These thirteen were established as DISPERMIC by the submitters, from
- * centromeric zygosity, which means they are androgenetic AND heterozygous at the same time. That
- * combination is the hardest case this tool has: heterozygosity is what its zygosity call reads as
- * two parental contributions, and here there are two contributions from ONE parent.
+ * A complete mole carries two paternal genomes and no maternal one. These thirteen are DISPERMIC
+ * by the submitters' centromeric zygosity, so they are androgenetic AND heterozygous: two
+ * contributions from ONE parent, where heterozygosity is what the zygosity call reads as two
+ * parents. They exercise the dispermic branch of the genome-level class on real arrays.
  *
- * It is also the exact branch that carried the class inversion fixed in 5.25.0, whose own comment
- * reads "meaning two sperm". These are thirteen real cases of two sperm, and until now that branch
- * had only ever been exercised against a written-out fixture.
- *
- * WHAT IS KNOWN, FROM THE SUBMITTERS AND NOT FROM THIS TOOL:
+ * Truth, from the submitters and not from this tool:
  *   all 13   androgenetic, dispermic, therefore HETEROZYGOUS rather than homozygous
  *    3 of 13 carry a trisomy
  *    6 of 13 female placental sex, 7 male
  *
- * WHAT THIS CANNOT TEST, and saying so matters more than the arms below. There is no parental
- * array in this series, so `originClass` cannot be scored: naming a parent needs a parent loaded.
- * What can be scored is everything the sample answers about ITSELF.
+ * No parental array is in the series, so `originClass` cannot be scored; only what the sample
+ * answers about itself can. The files are GenomeStudio final reports, far fewer of whose
+ * homozygous BAFs sit on exactly 0 or 1 than a cluster-file export's, so the `HET_BAND_EXCESS`
+ * noise floor is measurable on them.
  *
- * THE SECOND-PLATFORM QUESTION. 5.27.0 recorded that HET_BAND_EXCESS could not be tested off
- * Affymetrix, because a cluster-file B-allele frequency is a function of the same theta the
- * genotype came from and its homozygous band is therefore structurally zero. These files are
- * GenomeStudio final reports, and 36% of their homozygous calls sit on an exact 0 or 1 against
- * 70-85% for a cluster-file export. So a floor is measurable here, and the boundary can be put to
- * a second platform for the first time.
+ * Failure: a heterozygous mole read as one parental contribution. The sex split and the trisomy
+ * count are compared with the submitters'.
  *
  * Run: OM_MOLES=<dir of .probes> node --experimental-strip-types \
  *        --max-old-space-size=3072 audit/mole-truth.ts

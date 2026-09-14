@@ -1,18 +1,11 @@
 /**
- * WHICH PARENT, ON REAL EVENTS, AGAINST TRUTH THIS TOOL DID NOT PRODUCE.
+ * Which parent's copy is missing, on real events, scored against truth built without the tool's
+ * answer.
  *
- * ATTRIBUTION IS THE CLAIM THAT MATTERS AND THE ONE HARDEST TO CHECK. Detection can be checked
- * against a karyotype or an experimental design. Which parent's copy went missing usually cannot,
- * because nobody dissected the embryo. This file builds that truth three different ways and none of
- * them reads the tool's answer.
- *
- * ARM A, DIRECT MENDELIAN TRUTH FROM THE TRIO, AND IT IS NOT THE TOOL'S ARITHMETIC. Where the
- * father is homozygous for one allele and the mother is homozygous for the OTHER, a normal child
- * must be heterozygous. If the child instead carries only the mother's allele across a region, the
- * paternal copy is the one that went; only the father's allele, and it was the maternal. That is
- * decided here in a few lines, over both parental arrays at once, and compared against what the
- * tool said from ONE parent. It is the configuration a laboratory is usually in, scored against the
- * configuration that can actually answer.
+ * Arm A, Mendelian truth from the trio. Where the father is homozygous for one allele and the
+ * mother for the other, a normal child must be heterozygous. A child carrying only the mother's
+ * allele across a region lost the paternal copy; only the father's, the maternal. That is decided
+ * here over both parental arrays and compared against what the tool said from ONE parent.
  *
  *   the marker classes this rests on, and why they are the informative ones:
  *     father AA, mother BB   a normal child is AB. Homozygous AA means the mother's copy is gone,
@@ -21,19 +14,16 @@
  *   taken over every informative marker in the interval with a floor and a margin, and refuses
  *   rather than guessing when the two counts are close.
  *
- * ARM B, RECIPROCAL CONSISTENCY, WHICH NEEDS NO TRUTH AT ALL. Score the same array twice, once
- * against the father and once against the mother. Each run is most reliable about ITS OWN loaded
- * parent's copy, at 0.8539 against 0.2890 for the other direction. If the father-loaded run says
- * the paternal copy is gone at an interval and the mother-loaded run says the maternal copy is gone
- * at the same interval, both cannot be true: the sample would have neither copy and the DNA is
- * there. A contradiction is an error with no ground truth required, which is why this arm can be
- * run on every array rather than only on the few with a resolvable answer.
+ * Arm B, reciprocal consistency, which needs no truth. The same array is scored once against the
+ * father and once against the mother. If the father-loaded run says the paternal copy is gone at an
+ * interval and the mother-loaded run says the maternal copy is gone at the same interval, the
+ * sample would carry neither copy while its DNA is there. This arm runs on every array.
  *
- * ARM C, THE NEGATIVE CONTROL, and it is the one that catches attribution invented out of nothing.
- * On a genome carrying ONE parental complement, "the loaded parent's copy is absent here" is true
- * on every chromosome by construction and names the parent that was never there. Nothing may be
- * named on those. The pronuclei are known one-complement by the dissection, so this needs no
- * threshold either.
+ * Arm C, the negative control. On a genome carrying ONE parental complement, "the loaded parent's
+ * copy is absent here" is true on every chromosome by construction, so nothing may be named. The
+ * pronuclei are one-complement by the dissection.
+ *
+ * Failure is any wrong parent in arm A, any contradiction in arm B, or any parent named in arm C.
  *
  * Run: OM_TRIOS=<dir> node --experimental-strip-types --max-old-space-size=6144 \
  *        audit/attribution-truth.ts

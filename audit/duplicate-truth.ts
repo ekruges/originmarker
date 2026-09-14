@@ -1,22 +1,14 @@
 /**
- * THE STRONGEST RELATEDNESS TRUTH THERE IS: THE SAME DNA, TWICE.
+ * Identity: whether the opposite-homozygote rate tells two arrays of the same DNA from two
+ * different samples. Every relationship verdict rests on that rate, and identity is the easiest
+ * point on its scale, so a material with no gap here cannot carry a relationship verdict at all.
  *
- * WHY THIS COMES BEFORE ANY QUESTION ABOUT RELATIVES. Every relationship verdict in this tool rests
- * on the opposite-homozygote rate between two arrays. Before asking whether that statistic can tell
- * a parent from a stranger, it is worth asking whether it can tell ONE PERSON from a different
- * person, which is the same question with the relationship dialled to its maximum. If it cannot
- * separate a technical replicate of a biopsy from a different biopsy, nothing further down the
- * scale can work either, and the failures found in 5.27.0 have a simpler explanation than
- * material.
+ * Truth needs no pedigree. Two arrays of the same biopsy are the same DNA, by the experiment; two
+ * arrays of different samples are not. The negative set is drawn from a DIFFERENT replicate group,
+ * never by accession alone, so two arrays are called different DNA only when the experiment says
+ * they are different samples.
  *
- * THE TRUTH NEEDS NO PEDIGREE. Two arrays of the same biopsy are the same DNA, by the experiment.
- * Two arrays of different samples are not. Neither fact comes from this tool, from a manifest field
- * that could be wrong about relationships, or from any threshold measured here.
- *
- * THE TRAP THIS FILE IS BUILT TO AVOID. An earlier harness in this repository picked its "unrelated"
- * array by accession and drew a second array of the SAME PERSON, then reported that relatives and
- * strangers were inseparable. Here the negative set is drawn from a DIFFERENT replicate group, so
- * two arrays are only called different DNA when the experiment says they are different samples.
+ * Failure: two different samples called the same person.
  *
  * Run: OM_TRIOS=<dir> node --experimental-strip-types --max-old-space-size=3072 \
  *        audit/duplicate-truth.ts

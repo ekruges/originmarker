@@ -239,7 +239,11 @@ export const LOH_DEPLETION = 0.65
  * losses in the series this was measured on sit here, which is why they were never assignable.
  */
 export const COMPLEX_DEVIANT_FRACTION = 0.30
-/** Call rate below which the same applies, for the same reason. */
+/**
+ * Call rate below which self-reference is refused, for the same reason. A property of the array
+ * rather than the genome: `integrity.ts` reports it as a damaged sample, and it is not a `complex`
+ * finding.
+ */
 export const COMPLEX_CALL_RATE = 0.70
 
 /** Allele-fraction bands a triploid genome occupies, and the one it vacates. */
@@ -375,6 +379,8 @@ export interface RunOfHomozygosity {
   startBp: number
   endBp: number
   markers: number
+  /** Heterozygous calls inside the run, which the run-finder's tolerance admits. */
+  hets: number
   /** True where the run covers essentially the whole chromosome. */
   wholeChromosome: boolean
 }
@@ -388,6 +394,19 @@ export interface RunOfHomozygosity {
  * run at all. A negative result from this function therefore means "no run was found", never "no
  * disomy is present", and it is returned in those words.
  *
+ * MEASURED AGAINST THE ARRAY'S OWN BACKGROUND, ON THE SAME THREE BOUNDS AS `detectLoh`. The
+ * run-finder admits heterozygotes up to a fixed rate, so on an array whose own heterozygosity is
+ * near that rate a chromosome reads as one long run whatever it carries. A run is reported only
+ * where the array's background heterozygosity is at least LOH_MIN_BACKGROUND_HET, the run is long
+ * enough to expect LOH_MIN_EXPECTED_HET heterozygotes at that background, and its own rate is
+ * depleted by at least LOH_DEPLETION against it. With no background supplied nothing is reported.
+ * These bounds, not the ploidy call, are what hold on a genome whose ploidy was refused: see
+ * audit/upd-premise.ts.
+ *
+ * WITHOUT INTENSITY A RUN IS NOT ESTABLISHED AS DISOMY. One copy of a chromosome or a segment is
+ * homozygous end to end as well, and only intensity separates one copy from two identical ones, so
+ * each finding then says it is either.
+ *
  * Consanguinity produces the same runs on many chromosomes at once. Rather than fold that into the
  * threshold, runs are counted across chromosomes and the calls are flagged when the count is
  * reached: the runs are real either way, it is what they imply that changes.
@@ -398,6 +417,10 @@ export function detectUpd(
     reportMb?: number; consanguinityChromosomes?: number
     /** The sample's zygosity. A genome with one parental contribution is excluded outright. */
     zygosity?: string
+    /** Heterozygous fraction of the sample's called autosomal markers. No finding without it. */
+    backgroundHet?: number
+    /** Whether the file carries intensity. `false` reports each run as loss-or-isodisomy. */
+    intensity?: boolean
   } = {},
 ): Finding[] {
   // A UNIPARENTAL GENOME IS HOMOZYGOUS END TO END BY CONSTRUCTION, so every long run in it is the
@@ -406,29 +429,41 @@ export function detectUpd(
   // as its own uniparental disomy with its own parental origin inherited from the one call that
   // already said the entire genome is uniparental. That is circular. The two bulk diploid controls,
   // where any call at all is a false positive, return 2 each.
-  //
-  // This is the same guard `detectLoh` carries, and it should have been added at the same time.
   if (opts.zygosity?.startsWith('uniparental')) return []
+  const bg = opts.backgroundHet
+  if (!(bg !== undefined && bg >= LOH_MIN_BACKGROUND_HET)) return []
   const minMb = opts.reportMb ?? LCSH_REPORT_MB
   const many = opts.consanguinityChromosomes ?? CONSANGUINITY_CHROMOSOMES
-  const long = runs.filter((r) => (r.endBp - r.startBp) / 1e6 >= minMb)
+  const long = runs.filter((r) => (r.endBp - r.startBp) / 1e6 >= minMb
+    && r.markers * bg >= LOH_MIN_EXPECTED_HET
+    && 1 - r.hets / r.markers / bg >= LOH_DEPLETION)
   const chroms = new Set(long.map((r) => r.chrom))
   const consanguineous = chroms.size >= many
+  const blind = opts.intensity === false
   return long.map((r) => {
     const mb = ((r.endBp - r.startBp) / 1e6).toFixed(1)
-    return {
-      cls: r.wholeChromosome ? 'isodisomy' : 'segmental-upd',
-      chrom: r.chrom, startBp: r.startBp, endBp: r.endBp, wholeChromosome: r.wholeChromosome,
-      evidence: `a homozygous run of ${mb} Mb over ${r.markers} markers, past the ${minMb} Mb at `
-        + 'which such runs are worth reporting. This is ISOdisomy: the two copies are the same '
-        + `homologue. Heterodisomy leaves heterozygosity normal and is invisible here, and `
-        + `${(100 * UPD_NO_STRETCH_RATE).toFixed(0)}% of confirmed uniparental disomy carries no `
-        + 'significant run at all, so the absence of one is not the absence of disomy',
-      flag: consanguineous
+    const flags = [
+      blind
+        ? 'NO INTENSITY was supplied, and one copy is homozygous end to end as well, so this is '
+          + 'loss-or-isodisomy rather than established as disomy'
+        : undefined,
+      consanguineous
         ? `runs of this length are present on ${chroms.size} chromosomes at once, which is the `
           + 'pattern of shared parental ancestry rather than of disomy. The runs are real; whether '
           + 'they mean disomy is what this puts in doubt'
         : undefined,
+    ].filter(Boolean)
+    return {
+      cls: r.wholeChromosome ? 'isodisomy' : 'segmental-upd',
+      chrom: r.chrom, startBp: r.startBp, endBp: r.endBp, wholeChromosome: r.wholeChromosome,
+      evidence: `a homozygous run of ${mb} Mb over ${r.markers} markers, heterozygosity `
+        + `${(100 * r.hets / r.markers).toFixed(1)}% against this array's own ${(100 * bg).toFixed(1)}%, `
+        + `past the ${minMb} Mb at which such runs are worth reporting. `
+        + `${blind ? 'Where two copies are present this' : 'This'} is ISOdisomy: the two copies are `
+        + `the same homologue. Heterodisomy leaves heterozygosity normal and is invisible here, and `
+        + `${(100 * UPD_NO_STRETCH_RATE).toFixed(0)}% of confirmed uniparental disomy carries no `
+        + 'significant run at all, so the absence of one is not the absence of disomy',
+      flag: flags.length ? flags.join('. ') : undefined,
     }
   })
 }
@@ -467,7 +502,7 @@ export function runsOfHomozygosity(
           const span = ms[i - 1].pos - ms[start].pos
           const chromEnd = opts.chromEndBp?.get(chrom)
           out.push({
-            chrom, startBp: ms[start].pos, endBp: ms[i - 1].pos, markers: n,
+            chrom, startBp: ms[start].pos, endBp: ms[i - 1].pos, markers: n, hets,
             // Whole-chromosome only when the run covers essentially all of what was assayed, which
             // is what separates an isodisomy from a long segmental run.
             wholeChromosome: chromEnd !== undefined
@@ -531,23 +566,22 @@ export function detectTriploidy(
  * poor. This says the array may be perfect and the GENOME is the thing that is disturbed, so the
  * self-referenced statistics every origin call here depends on have no undisturbed remainder to
  * measure against. It is reported as a finding in its own right rather than as a refusal.
+ *
+ * DEVIANCE ONLY, for the same distinction. A low call rate says the array is poor, not that the
+ * genome is disturbed: `integrity.ts` reports it as a damaged sample and the dosage channel refuses
+ * self-reference on it, without this finding asserting anything about the genome.
  */
 export function detectComplex(
-  deviantAutosomes: number, totalAutosomes: number, callRate: number,
-  opts: { deviantFraction?: number; callRate?: number } = {},
+  deviantAutosomes: number, totalAutosomes: number,
+  opts: { deviantFraction?: number } = {},
 ): Finding | null {
   const maxDev = opts.deviantFraction ?? COMPLEX_DEVIANT_FRACTION
-  const minCall = opts.callRate ?? COMPLEX_CALL_RATE
   const frac = totalAutosomes > 0 ? deviantAutosomes / totalAutosomes : NaN
-  const byDeviance = Number.isFinite(frac) && frac > maxDev
-  const byCallRate = Number.isFinite(callRate) && callRate < minCall
-  if (!byDeviance && !byCallRate) return null
+  if (!(Number.isFinite(frac) && frac > maxDev)) return null
   return {
     cls: 'complex', chrom: 'genome', startBp: 0, endBp: 0, wholeChromosome: true,
-    evidence: byDeviance
-      ? `${deviantAutosomes} of ${totalAutosomes} autosomes deviate from this array's own centre, `
-        + `a share of ${frac.toFixed(2)} over the ${maxDev} at which self-reference fails`
-      : `call rate ${callRate.toFixed(3)} is under the ${minCall} at which self-reference fails`,
+    evidence: `${deviantAutosomes} of ${totalAutosomes} autosomes deviate from this array's own `
+      + `centre, a share of ${frac.toFixed(2)} over the ${maxDev} at which self-reference fails`,
     originBlocked: 'every origin statistic here is measured against the rest of this array\'s own '
       + 'genome, and this genome has no undisturbed part left to measure against. No parent is '
       + 'named on any event of this array, at any confidence. This is a property of the genome '

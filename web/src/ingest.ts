@@ -405,15 +405,10 @@ export interface Gate {
  * literature the gate is `report_only`, which is the honest verdict rather than a guess.
  */
 /**
- * The quality gates, and WHAT KIND OF FILE they are being asked about.
- *
- * `inferred` marks a reconstructed reference rather than a measured array. Progenitor builds one
- * from haploid meiotic products, and it can only assert the parent's HOMOZYGOUS sites: a marker
- * where the products disagree is exactly the marker where that parent is heterozygous, and one
- * haploid product carries only one of the two alleles, so the reconstruction has nothing to write
- * there. Its heterozygosity is therefore zero by construction rather than by biology, and a gate
- * that reads zero heterozygosity as a failed genome unification is asking a question the file
- * cannot answer. Every other gate is about the DATA and applies unchanged.
+ * `inferred` marks a reconstructed reference, Progenitor's output, rather than a measured array.
+ * A reconstruction writes only the homozygous sites its haploid products agree on, so its
+ * heterozygosity is zero by construction. On one, `het-to-hom asymmetry valid` and
+ * `genome-wide LOH` are `report_only`; every other gate applies unchanged.
  */
 export function gates(p: SampleProfile, inferred = false): Gate[] {
   const out: Gate[] = []
@@ -438,8 +433,7 @@ export function gates(p: SampleProfile, inferred = false): Gate[] {
   out.push({
     name: 'het-to-hom asymmetry valid',
     value: cr,
-    // The asymmetry is about erroneous HETEROZYGOUS calls on amplified material. A reconstruction
-    // makes none, so the partition it guards cannot be lost the way this gate describes.
+    // A reconstruction emits no heterozygous calls, so none of them can be erroneous.
     verdict: inferred ? 'report_only' : cr < 0.60 ? 'exclude' : cr < 0.75 ? 'marginal' : 'usable',
     detail: inferred
       ? 'not applicable: a reconstructed reference emits no heterozygous calls, so there are none '
@@ -551,6 +545,19 @@ export function gates(p: SampleProfile, inferred = false): Gate[] {
         + 'guessing here is the one place this module could invert a declared role.'
       : `chrX/autosome heterozygosity ratio ${p.chrXHetRatio?.toFixed(3) ?? 'n/a'} is inside the `
         + `${p.sex} band. Dropout cancels in the ratio, so this survives amplified material.`,
+  })
+
+  // SAID ON EVERY SAMPLE, because a mixture that trips nothing would otherwise read as a pass.
+  out.push({
+    name: 'two-person mixture',
+    value: null,
+    verdict: 'report_only',
+    detail: 'not tested: nothing here is validated to detect a sample mixed from two people. Checks '
+      + 'for excess heterozygosity detect only contamination above 5 to 10%, and published array '
+      + 'methods read B-allele frequencies against population allele frequencies (Jun et al. 2012, '
+      + 'Am J Hum Genet 91:839), which this module does not have. Two things here respond to a '
+      + 'mixture without identifying one: heterozygosity above the diploid ceiling refuses the '
+      + 'stage, and a chrX ratio between the sex bands is reported on the sex call.',
   })
 
   return out

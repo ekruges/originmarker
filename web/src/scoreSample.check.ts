@@ -39,8 +39,10 @@ const HEAD = 'probeset_id\tchr\tposition\tlog2R\tbaf\tcopy_number\tgenotype\tBes
 const CHROMS = Array.from({ length: 22 }, (_, i) => String(i + 1))
 /** The segment chromosome carries more, because a segment is not reported under 2,400 markers,
  *  and it must stay a SEGMENT: a chromosome whose call rate collapses below 0.60 of the array's
- *  median is a whole-chromosome event and is not scanned for a segment inside it. */
-const PER_CHROM = (c: string) => (c === '9' ? 9_000 : 2_400)
+ *  median is a whole-chromosome event and is not scanned for a segment inside it. The two
+ *  homozygous chromosomes carry enough markers to expect LOH_MIN_EXPECTED_HET heterozygotes at
+ *  this sample's own heterozygosity, which a real array's chromosome clears many times over. */
+const PER_CHROM = (c: string) => (c === '9' ? 9_000 : c === '7' || c === '11' ? 4_000 : 2_400)
 const PARENT_HET = 0.170
 /** How often the other parent transmits the same allele. Two people share the common allele at
  *  most markers of a panel like this; independent draws put the sample at 47% heterozygous, which

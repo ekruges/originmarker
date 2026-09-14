@@ -40,14 +40,12 @@ def read_idat_np(path):
 
 
 def manifest(path='gpl6985.txt'):
-    """Address, chromosome and position per marker, from whichever schema the platform publishes.
+    """Address, chromosome and position per marker, from either platform's table schema.
 
-    THE TWO PLATFORMS OF THIS SERIES DESCRIBE THEMSELVES DIFFERENTLY. GPL6985 publishes the full
-    Illumina manifest, with a separate address per allele and flags for intensity-only and CNV
-    probes; the Infinium II markers are the ones with no second address, and only those have a
-    single bead whose theta means anything here. GPL8855 publishes a reduced table with one
-    Address column and no flags, so every row it lists is taken. Reading the columns by name and
-    branching on what is present keeps one code path per fact rather than one per platform.
+    GPL6985, the full Illumina manifest: Infinium II markers only, the rows with no AddressB_ID,
+    because only a single-bead marker has a theta this module can use; intensity-only rows are
+    skipped. GPL8855, a reduced table with one Address column and no flags: every row with an
+    address, chromosome and position is kept.
     """
     addr, chrom, pos = [], [], []
     with open(path) as f:

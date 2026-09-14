@@ -1,35 +1,27 @@
 /**
- * IS THE CONVERTED B-ALLELE FREQUENCY USABLE AT ALL? MEASURED AGAINST A DEFINITIONAL EXPECTATION.
+ * Whether a converted B-allele frequency is a BAF at all, checked against its definition.
  *
- * WHY THIS HAD TO BE BUILT BEFORE ANYTHING ELSE. `audit/zygosity-crossplatform.ts` found that the
- * tool reads 20 of 23 known-haploid sperm cells as diploid on GSE19247 and gets every haploid
- * pronucleus right on GSE148488. Two readings of that are possible and they are opposite: the
- * zygosity boundary does not transfer between platforms, or the conversion feeding it does not
- * produce a BAF. Deciding between them by looking at the zygosity answer is circular, because that
- * answer is the thing in dispute.
+ * A marker called AB sits in the heterozygous cluster, so by definition its BAF centres on 0.5.
+ * That expectation comes from what BAF means, not from either series or any threshold in this
+ * tool, so it can judge a conversion without consulting the zygosity call the conversion feeds.
+ * Failure is AB calls that do not centre on 0.5: the conversion is then broken, and nothing
+ * measured downstream of it says anything about the tool.
  *
- * SO THIS MEASURES THE BAF AGAINST SOMETHING THAT CANNOT BE TUNED. A marker called AB is a marker
- * the caller placed in the heterozygous cluster. By the definition of B-allele frequency its BAF
- * must sit at 0.5. That expectation comes from what BAF MEANS, not from either series, not from any
- * threshold in this tool, and not from what would make the zygosity call come out right. If AB
- * calls on converted data do not centre at 0.5, the conversion is broken and nothing measured
- * downstream of it says anything about the tool.
+ * Saturation is reported beside it. `HET_BAND_EXCESS` subtracts the mid-band mass at homozygous
+ * calls, the array's own noise floor, from the mid-band mass overall. A conversion that pins
+ * homozygotes to exactly 0 and 1 makes that floor zero, so the correction cannot fire and the call
+ * falls through to a flat threshold without any sign of it in the zygosity output.
  *
- * THE SECOND QUANTITY IS SATURATION. `HET_BAND_EXCESS` works by subtracting the mid-band mass at
- * HOMOZYGOUS calls, which is the array's own noise floor, from the mid-band mass overall. A
- * conversion that pins homozygotes to exactly 0 and 1 makes that floor identically zero, so the
- * correction cannot fire and the call silently falls through to a flat threshold. That fall-through
- * is invisible in the zygosity output: it reports a call either way.
- *
- * WHAT IS KNOWN, AND FROM WHERE:
+ * Known material, and where each fact comes from:
  *   GSE148488 adult donors     bulk gDNA of a consenting adult, so diploid, and the series every
  *                              threshold in this tool was measured on
  *   GSE148488 pronuclei        one parental complement, from the micromanipulation
  *   GSE19247  lymphoblasts     a diploid cell line, and the source of that series' trisomy truth
  *   GSE19247  sperm cells      one parental complement, from being sperm
  *
- * A diploid genome carries roughly a quarter to a third of its markers heterozygous. That is
- * population genetics, not a tool output, and it gives the AB fraction a known range too.
+ * A diploid genome carries roughly a quarter to a third of its markers heterozygous, from
+ * population genetics rather than any tool output. An AB fraction far below that points at the
+ * caller, not the BAF scale.
  *
  * Run: OM_TRIOS=<dir> OM_GSE=<converted dir> node --experimental-strip-types \
  *        --max-old-space-size=6144 audit/baf-shape.ts

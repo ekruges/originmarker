@@ -244,6 +244,18 @@ export const CITATIONS: Record<string, Citation> = {
     url: 'https://doi.org/10.1038/gim.2014.45',
     note: 'The call-rate band this tool gates on, and the only published threshold measured on amplified embryo biopsy material rather than bulk DNA.',
   },
+  jun_2012: {
+    id: 'jun_2012',
+    authors: 'Jun et al.',
+    year: 2012,
+    title: 'Detecting and Estimating Contamination of Human DNA Samples in Sequencing and Array-Based Genotype Data',
+    journal: 'The American Journal of Human Genetics',
+    volume: '91',
+    page: '839-848',
+    doi: '10.1016/j.ajhg.2012.09.004',
+    url: 'https://doi.org/10.1016/j.ajhg.2012.09.004',
+    note: 'Why no two-person mixture gate ships: excess-heterozygosity checks see only contamination above 5 to 10%, and the array method reads B-allele frequencies against population allele frequencies.',
+  },
   piyamongkol_2003: {
     id: 'piyamongkol_2003',
     authors: 'Piyamongkol et al.',

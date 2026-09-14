@@ -302,11 +302,8 @@ async function eachLine(
 }
 
 /**
- * `inferred` reaches the gates because two of them ask questions a reconstructed reference cannot
- * answer. Progenitor writes only the homozygous sites its haploid products agree on, so that file
- * is zero percent heterozygous by construction, and the genome-wide LOH gate read that as a failed
- * genome unification and stopped the run. The mark is already read on drop; this carries it the
- * rest of the way instead of letting the gates guess from the data.
+ * Profile one file and run its sample gates. `inferred` is forwarded to `gates` and comes from the
+ * file's reconstruction mark, never from the data.
  */
 async function profileFile(
   file: File,
@@ -478,9 +475,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     // mark is read before anything is profiled rather than trusted to the file name.
     for (const e of fresh) {
       if (await isInferredFile(e.file)) {
-        // Both the state and THIS object. `patch` queues a state update, and the profiling loop
-        // below reads these same local entries, so setting only the state left the gates being
-        // told the file was measured on the very run that had just identified it as inferred.
+        // On this object as well as in state: `patch` only queues an update, and the profiling
+        // loop below reads these local entries.
         e.inferred = true
         patch(e.id, { inferred: true })
         log('WARN', `${e.file.name}: this is a RECONSTRUCTED genotype, not a measured array. `

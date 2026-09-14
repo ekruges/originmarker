@@ -390,19 +390,11 @@ export type Verdict = 'parent_genome_present' | 'no_parental_contribution' | 'un
 export type Zygosity = 'diploid' | 'uniparental_homozygous' | 'unknown'
 
 /**
- * Whether the genome is KNOWN to carry two parental contributions.
+ * Whether the genome is known to carry two parental contributions. True only for `diploid`.
  *
- * WHY THIS IS NOT `!zygosity.startsWith('uniparental')`. That expression reads as "biparental" and
- * is not: it is true for `unknown` as well, which is the tool REFUSING to say how many parental
- * contributions are present. A refusal is not a negative answer, and the three ways to reach one
- * here are a call rate under the floor, a heterozygosity that separates nothing, and a file with
- * no B-allele frequencies and no parent to compare against. In every one of them the genome may
- * be uniparental.
- *
- * IT MATTERS WHERE A CHANNEL IS ONLY VALID ON A TWO-PARENT GENOME. The Mendelian channel reads
- * "the loaded parent's copy is absent here", which on a one-parent genome is true on every
- * chromosome by construction and names the parent that was never there. Asking it about a genome
- * whose ploidy was refused is asking a question whose premise is unestablished.
+ * Gate every channel that is valid only on a two-parent genome on this, not on
+ * `!zygosity.startsWith('uniparental')`, which is also true for `unknown`. `unknown` is a refusal
+ * to count parental contributions, and a refused genome may be uniparental.
  */
 export const knownBiparental = (z: Zygosity | string | undefined | null): boolean => z === 'diploid'
 export type SpermType = 'X_bearing' | 'Y_bearing' | 'unknown'
@@ -1065,7 +1057,6 @@ export function classify(
     const q = [...xs].sort((x, y) => x - y)
     return q[q.length >> 1]
   }
-  const genomeLrr = medianOf([...t.lrrByChrom.values()].flat())
   // One unit per autosome, which is the null a WHOLE-chromosome test must be read against. A
   // window-level null is finer but a whole-chromosome event contaminates every window on that
   // chromosome at once, so it would be measuring the event against itself.
@@ -1082,7 +1073,10 @@ export function classify(
     const frac = callMedian > 0 ? r / callMedian : NaN
     callFrac.set(c, frac)
     const med = chromLrr.get(c)
-    lrrShift.set(c, (med ?? NaN) - genomeLrr)
+    // From lrrNull.centre, the origin calibratedZ uses, so both gates measure one distance. A
+    // marker-pooled median would weight large chromosomes, and an aneuploid one would pull the
+    // centre toward itself.
+    lrrShift.set(c, (med ?? NaN) - lrrNull.centre)
     const z = med === undefined ? undefined : calibratedZ(med, lrrNull)
     if (z !== undefined) lrrZ.set(c, z)
     // BOTH questions, not one. The z says the shift is bigger than this array's own noise; the

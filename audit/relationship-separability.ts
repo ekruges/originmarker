@@ -1,39 +1,24 @@
 /**
- * THE RELATIONSHIP TEST GATES NOTHING ON AMPLIFIED MATERIAL. IS THERE A STATISTIC THAT WOULD?
+ * Whether any statistic separates a true parent from a stranger on amplified material, where the
+ * pooled opposite-homozygote rate does not.
  *
- * THE STANDING LIMIT. `OPPOSITE_HOM_MAX = 0.020` was measured on bulk adult DNA. On amplified
- * single cells a TRUE parent reads over it, because dropout turns a heterozygote into whichever
- * homozygote survived and that manufactures opposite homozygotes out of a real relative. defects.ts
- * records a real blastomere reading 0.0276 against its genetically confirmed father, and the
- * relationship alert was removed for firing on 8 of 8 correct runs. On trophectoderm the two
- * distributions overlap outright: true parents to 0.0831, strangers from 0.0567.
+ * `OPPOSITE_HOM_MAX` holds on bulk DNA only. On amplified cells dropout turns a heterozygote into
+ * whichever homozygote survived, manufacturing opposite homozygotes out of a real relative. Those
+ * are scattered at random, while unrelatedness makes them dense everywhere: the same average, a
+ * different shape. The hypothesis under test is that the window floor from `windowedIbs0` keeps the
+ * shape. Against a true parent some 200-marker windows escape dropout and read clean, so the median
+ * window rate stays low; against a stranger no window can read clean.
  *
- * WHY THE RATE FAILS, AND WHY THAT DOES NOT SETTLE IT. Dropout is a per-marker accident, so the
- * opposite homozygotes it manufactures are scattered at random across the genome. Genuine
- * unrelatedness is a property of every marker at once, so its opposite homozygotes are dense
- * EVERYWHERE. Those two produce the same average and a different shape. A pooled rate throws the
- * shape away by construction. `windowedIbs0` already measures the shape and already ships; it is
- * used as a sibling test and has never been asked this question.
+ * Truth: `father_gsms` and `mother_gsms` in the manifest, established by the experiment.
  *
- * SO THE HYPOTHESIS IS SPECIFIC AND FALSIFIABLE. Against a true parent, some 200-marker windows
- * escape dropout and read clean, so the MEDIAN window rate stays low however bad the array is.
- * Against a stranger no window can read clean, because there is no relationship anywhere to be
- * clean about. If that holds, the window floor separates the two where the pooled rate cannot, and
- * the tool is already computing it.
- *
- * TRUTH, AND NONE OF IT FROM THIS TOOL. `father_gsms` and `mother_gsms` in the manifest were
- * established by the experiment.
- *
- * THE THREE ARMS, and the third is the one that caught the last mistake here:
+ * Three arms, per material, since a statistic that separates on bulk and not on trophectoderm is
+ * not a fix and pooling the materials would hide it:
  *   TRUE        the child against its own manifest parent
  *   STRANGER    the child against a donor who is not its parent, with every replicate of the true
- *               parent excluded. Picking a stranger by accession alone once selected the father's
- *               own second replicate and called it unrelated.
- *   REPLICATE   the child against a DIFFERENT array of its true parent. It must read TRUE. This is
- *               what proves the stranger arm is measuring unrelatedness and not batch.
- *
- * PER MATERIAL, because that is where the limit lives. A number that separates on bulk and not on
- * trophectoderm is not a fix, and pooling the materials would hide exactly that.
+ *               parent excluded by identity, never by accession
+ *   REPLICATE   the child against a DIFFERENT array of its true parent. It must read with TRUE;
+ *               if it reads with STRANGER, the stranger arm is measuring batch and no conclusion
+ *               here holds.
  *
  * Run: OM_TRIOS=<dir> node --experimental-strip-types --max-old-space-size=8192 \
  *        audit/relationship-separability.ts

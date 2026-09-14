@@ -1,19 +1,10 @@
 /**
- * RELATEDNESS ON A PUBLIC STUDY, WHERE THE FAMILIES ARE STATED IN THE METADATA.
+ * Relatedness on GSE19247, where the submitters label every sample with its family.
  *
- * WHY THIS SERIES CAN ANSWER IT. GSE19247 labels every sample with the family it came from, and
- * those labels are the submitters', not this tool's. Two samples from one family are related; two
- * from different families are not. That gives a positive and a negative set of arbitrary size on
- * material this tool has never been calibrated against, from a different laboratory and chemistry.
+ * Truth: the submitters' family labels, on material from another laboratory and chemistry that this
+ * tool was never calibrated against. What is known decides what is scored:
  *
- * THE CHANNEL UNDER TEST IS THE ONE THAT HAS ALREADY BEEN WRONG. 5.27.0 found that the shipped
- * relationship verdict reads `unrelated` for a true parent and `unrelated` for a stranger on
- * amplified material, and withheld the verdict where the material cannot carry it. That was
- * measured on ONE series. This asks the same question of another.
- *
- * WHAT IS AND IS NOT KNOWN, and the difference decides what gets scored:
- *
- *   ACROSS families      definitely unrelated. Scored.
+ *   ACROSS families      unrelated. Any relative verdict is a false positive.
  *   WITHIN one family    related, but the degree is not published, and several arrays of one
  *                        family may be single cells of the SAME person rather than relatives.
  *                        So a within-family pair is scored only as "should not read unrelated",

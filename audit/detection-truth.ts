@@ -1,31 +1,22 @@
 /**
- * DOES CHROMOSOMAL CHANGE DETECTION FIND WHAT IS THERE, AND NOTHING ELSE?
+ * Whether chromosomal change detection finds what is there and nothing else, against truth the
+ * tool did not produce. Detection only: the call-rate and intensity channels never read the
+ * parental array, so whether a change exists, and where, is independent of attribution.
  *
- * DETECTION IS A SEPARATE QUESTION FROM ATTRIBUTION and is tested separately here. Whether a change
- * exists, and where, does not depend on which parent supplied a copy: the call-rate and intensity
- * channels never read the parental array. So this asks only three things, each against truth the
- * tool did not produce.
+ * Arm 1, specificity: the adult gamete donors' bulk genomic DNA. A living adult who produced
+ * viable gametes carries no autosomal whole-chromosome loss, so every whole-chromosome autosomal
+ * call on those arrays is a false positive, with no injection, construction or noise model.
  *
- * ARM 1, SPECIFICITY, AND IT IS THE ONE THAT MATTERS FOR OVERDETECTION. The series carries bulk
- * genomic DNA from the adult gamete donors. A living adult who produced viable gametes does not
- * carry an autosomal whole-chromosome loss, and their array reads a normal diploid heterozygosity
- * genome-wide. So EVERY whole-chromosome autosomal call on those arrays is a false positive, with
- * no injection, no construction and no modelling of noise. This is the cleanest specificity set
- * available and it costs nothing to run.
+ * Arm 2, sensitivity with a position. Zuccaro et al. cut EYS, on chromosome 6, with Cas9, so
+ * chromosome 6 is where a change is expected and the other 21 autosomes are a specificity arm on
+ * the same arrays: a detector firing at random shows the same per-chromosome rate on 6 as on 13.
+ * The locus is used for position only, never as a filter. Segments are reported wherever they are
+ * found and their distance from EYS measured afterwards.
  *
- * ARM 2, SENSITIVITY WITH A POSITION ATTACHED. Zuccaro et al. cut EYS with Cas9. EYS is on
- * chromosome 6, so chromosome 6 is where a change is expected and the other 21 autosomes are a
- * specificity arm on the SAME arrays at the same time. That comparison needs no threshold and no
- * control group: a detector firing at random shows the same per-chromosome rate on 6 as on 13.
- *
- * The locus is used for POSITION only, never as a filter. Segments are reported wherever they are
- * found and their distance from EYS is measured afterwards.
- *
- * ARM 3, JUNK. A statistic can be right while the output is unusable. Every event emitted anywhere
- * in the run is checked for the things that make an output junk rather than wrong: a start past its
- * own end, coordinates off the end of the chromosome they claim, a non-finite number in a field a
- * reader will read, zero markers behind a call, the same locus emitted twice, and a per-array event
- * count no genome could carry. None of these are statistical judgements; each is either true or not.
+ * Arm 3, structure. Every emitted event is checked for a start past its own end, coordinates off
+ * the end of its chromosome, a non-finite number in a field a reader will read, zero markers behind
+ * a call, the same locus emitted twice, and a per-array event count no genome could carry. Any such
+ * event, or any array that throws, fails the run.
  *
  * Run: OM_TRIOS=<dir> [OM_LAB=<dir>] node --experimental-strip-types \
  *        --max-old-space-size=6144 audit/detection-truth.ts

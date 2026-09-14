@@ -9,6 +9,114 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.30.0 "Isodisomy"
+
+**Heterozygosity-loss findings are measured against the array, not against the ploidy label.**
+Uniparental disomy was reported on genomes whose ploidy the tool had refused to call, and a low call
+rate was reported as a chaotic genome. Both were false findings on material whose answer is known.
+
+### Runs of homozygosity had no self-reference
+
+`detectUpd` reported any homozygous run past 13.5 Mb. The run-finder admits heterozygotes up to 5% of
+markers, so on an array whose own heterozygosity sits near that rate a chromosome reads as one long
+run whatever it carries. The only guard excluded a genome called `uniparental`, and a genome whose
+ploidy was refused, `unknown`, went straight past it.
+
+It now carries the three bounds `detectLoh` already had, with no new constant: a background
+heterozygosity of at least `LOH_MIN_BACKGROUND_HET`, a run long enough to expect
+`LOH_MIN_EXPECTED_HET` heterozygotes at that background, and a depletion of at least `LOH_DEPLETION`
+against it. Driven with the ploidy call withheld on genomes whose answer is known
+(`audit/upd-premise.ts`):
+
+| set | arrays | findings, 5.29.0 | findings, 5.30.0 |
+|---|---|---|---|
+| GSE12713 complete moles, monospermic | 100 | 2,200 | **0** |
+| GSE19247 single sperm | 29 | 384 | **0** |
+| GSE148488 pronuclei | 15 | 163 | **0** |
+| GSE148488 adult donors, segmental | 12 | 4 | 0 |
+| GSE60909 parents and grandparents, segmental | 32 | 13 | 2 |
+| GSE18932 stated isodisomy, on the stated chromosome | 8 | 8 | 7 |
+
+Every finding on a one-complement genome is false by biology. The isodisomy array that drops expects
+380 heterozygotes on chr8 at its own 5.8% background, under the 400 the bound was measured at, and
+the stage inference refuses that array at a 38.1% call rate before any finding is reported.
+
+Blocking `unknown` outright was not the fix. All eight arrays of the only outside isodisomy control
+read `unknown`, and blocking them removes every true call.
+
+### A low call rate was reported as a complex genome
+
+`detectComplex` fired on deviant autosomes or on a call rate under 0.70. Its contract is that it
+describes the genome and not the array, and `integrity.ts` already reports a low call rate as a
+damaged sample. The call-rate path asserted a chaotic genome on arrays whose karyotypes say
+otherwise:
+
+| arrays the tool accepts | 5.29.0 | 5.30.0 |
+|---|---|---|
+| GSE18932 normal-karyotype blastocysts, with a complex call | 2 of 2 | 0 of 2 |
+| GSE18932 isodisomy cell lines, false findings | 4 complex, 13 segmental UPD | 0 |
+
+It now fires on deviance only. The dosage channel still refuses self-reference under that call rate,
+read from the array rather than from the finding.
+
+### Across 600 arrays
+
+`audit/coverage.ts`, the same 600 arrays in both releases. Only the classes changed here moved:
+
+| class | arrays, 5.29.0 | arrays, 5.30.0 | instances, 5.29.0 | instances, 5.30.0 |
+|---|---|---|---|---|
+| segmental uniparental disomy | 282 | 36 | 2,976 | 178 |
+| whole-chromosome isodisomy | 61 | 15 | 244 | 35 |
+| complex or chaotic genome | 170 | 12 | 170 | 12 |
+
+Monosomy, trisomy, segmental deletion, copy-neutral LOH and haploidy are identical, and the 12 adult
+donors carry no class a healthy adult cannot.
+
+The full regression battery, 19 harness runs on the same inputs as the last full run, reads
+identically in 17 of 19 logs. The handoff audit gains one line, the new mixture gate, reading the
+same on a measured array and on a reconstruction. The determinism check still scores one array
+identically twice, in a result 19,273 bytes long rather than 23,219, because the removed findings
+are no longer serialised.
+
+### What a file without intensity cannot show is stated
+
+On genotype-only input a gain is invisible and a loss reads the same as isodisomy. The run now says
+both as a limit, and a disomy finding made without intensity is reported as loss-or-isodisomy.
+
+### Mixed samples: stated, not gated
+
+Every sample carries a `two-person mixture` gate reading `report_only`, not tested. No gate ships
+because none could be validated: excess-heterozygosity checks see only contamination above 5 to 10%,
+and the array method reads B-allele frequencies against population allele frequencies (Jun et al.
+2012, added to the verified citations). On six real mixtures of GM00323 (male) and GM00321 (female)
+in GSE18932:
+
+| | arrays | stage refused | sex call ambiguous | either |
+|---|---|---|---|---|
+| pure lines | 2 | 0 | 0 | 0 |
+| two-person mixtures | 4 | 2 | 3 | 3 |
+
+The mixture that is 75% female trips neither.
+
+### "0 of 47 monosomies" and "4 of 8 isodisomies" were refusals
+
+Neither figure was a miss. All 47 karyotype-listed monosomies in GSE20975 and GSE18932, and 189 of
+their 191 normal arrays, sit under the 40% call-rate floor, where the tool reports nothing and says
+so. Four of the eight isodisomy arrays sit there too, at 36.4 to 39.4%. The other four are flagged
+4 of 4, as they were in 5.29.0. The floor is not moved to reach the refused ones.
+
+### Also
+
+- The whole-chromosome magnitude gate measures from `lrrNull.centre`, the origin `calibratedZ` uses,
+  instead of a marker-pooled genome median that weights large chromosomes and is pulled toward an
+  aneuploid one. Shifts moved by 0.001 to 0.013 and the 12-harness battery was unchanged.
+- Comments in `parentage.ts`, `relatedness.ts`, `ingest.ts`, `scoreSample.ts` and `Syngamy.tsx` state
+  the constraint rather than its history. No behaviour change.
+- Harnesses: `cellline-truth` takes line sex from Cellosaurus (CVCL_7280, CVCL_7279) instead of a
+  series field that contradicts itself; `karyotype-truth` and `cellline-truth` score a refusal apart
+  from a miss. Added `upd-premise`, `karyotype-truth`, `cellline-truth`, `mole-genotype`, `coverage`,
+  `detection-limit`, `intervals`, `pgd-families` and the GPL3718 converter.
+
 ## 5.29.0 "Plasmogamy"
 
 **The Progenitor handoff could not complete.** A reconstructed parent was refused by Syngamy before

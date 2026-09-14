@@ -1,13 +1,8 @@
 /**
- * THE PANEL BUILDER, AGAINST REAL TRIOS WHERE THE ANSWER IS ALREADY KNOWN.
+ * The panel builder's claims, on real trios whose relationships are established independently.
  *
- * WHAT HAD NEVER BEEN CHECKED. `informativity.ts` decides which markers can testify about an
- * embryo's parental contribution, and that decision is the product: a panel is nothing but the
- * markers this module kept. Every check on it so far has been a unit test against a written-out
- * genotype table, which tests the arithmetic against itself. None has asked whether the claims
- * hold on real arrays of real people whose relationships are established independently.
- *
- * FOUR CLAIMS, EACH FALSIFIABLE ON THIS DATA:
+ * `informativity.ts` decides which markers can testify about an embryo's parental contribution,
+ * and a panel is nothing but the markers it kept. Four claims, each falsifiable on this data:
  *
  *   1. MENDELIAN CONSISTENCY SEPARATES A REAL FATHER FROM A STRANGER. On a verified trio the
  *      violation rate is dropout and genotyping error and nothing else. Swap in an unrelated

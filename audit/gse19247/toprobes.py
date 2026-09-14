@@ -25,24 +25,14 @@ is a real LRR and it is the quantity the intensity channel was designed for. It 
 publisher's own normalisation, and any number that comes out of it should be read as this
 conversion's as much as the tool's.
 
-WHICH ARRAYS FORM THE REFERENCE, AND WHY IT IS NOT ALL OF THEM. A per-marker median is only a
-normal baseline where the arrays behind it are mostly normal AT THAT MARKER. GPL8855 is 247 trisomy
-21 cells out of 367, so on chromosome 21 the median IS the trisomy level and a median cannot survive
-a 67 percent majority. Measured on the output of the all-arrays reference, as chr21 log2R minus each
-array's own median:
+REFERENCE PANEL. A per-marker median is a normal baseline only where most arrays behind it are
+normal at that marker. GPL8855 is mostly trisomy 21 cells, so an all-arrays median on chromosome 21
+sits at the trisomy level and shifts every array's chr21 log2R down by it. GPL6985 is mostly
+euploid, so an all-arrays panel is valid there.
 
-    trisomy 21    +0.2131        euploid 1463  -0.3774
-    blood         -0.3757        euploid 1423  -0.3841
-
-The separation is 0.590, which is log2(3/2) to two decimal places, so the biology is intact and
-entirely present. What is wrong is the OFFSET: every array is shifted down by the trisomy baseline,
-which puts the trisomies at +0.21, under the tool's COPY_SHIFT_FLOOR of 0.40, and never called. The
-same conversion is correct on GPL6985, where trisomies are 32 percent and the median stays euploid.
-
-So --ref-match names the samples the baseline is built from, by their GEO source_name. Building a
-reference from known-normal material is what a copy-number pipeline does; the failure above is what
-happens when that step is skipped. Pick a group that is NOT the group being scored for sensitivity,
-or the baseline and the test share their errors.
+--ref-match builds the baseline from the samples whose GEO source_name contains it. Choose
+known-normal material that is not the group being scored for sensitivity, or the baseline and the
+test share their errors.
 
 CALLS COME FROM cluster.py AND geno.py UNCHANGED. Nothing about genotyping is re-decided here.
 
@@ -100,7 +90,7 @@ def main():
 
     # ---- PASS ONE: the per-marker reference intensity.
     #
-    # The median across every array in the series. A per-marker reference is what makes the ratio a
+    # The median across the reference panel. A per-marker reference is what makes the ratio a
     # RATIO: probe affinity varies by orders of magnitude between markers and would otherwise sit in
     # the signal, swamping the copy-number differences this is for.
     tot_sum = None

@@ -1,9 +1,7 @@
 /**
- * DETECTION ON A PUBLIC STUDY THIS TOOL HAD NOTHING TO DO WITH, WHERE THE ANSWER IS A KARYOTYPE.
- *
- * WHY THIS SERIES AND NOT ANOTHER. GSE19247 (Vanneste et al.) is public, was produced in a
- * different laboratory, on a different manufacturer's chemistry, roughly a decade before anything
- * here, and it carries BOTH halves of the question in the same series:
+ * Detection on GSE19247 (Vanneste et al.), a public series from another laboratory on another
+ * manufacturer's chemistry, where the answer is a karyotype. Both halves of the question are in
+ * the one series:
  *
  *   Coriell family 1990    lymphoblasts of a karyotype-confirmed TRISOMY 21 individual
  *   Coriell family 1463    lymphoblasts of a euploid reference pedigree
@@ -11,22 +9,18 @@
  *   blood, family 231      ordinary diploid somatic tissue
  *   sperm, family 231      one parental complement, so every chromosome is at one copy at once
  *
- * The truth is the GEO `source_name` field and the cell lines' own published karyotypes. Nothing
- * in it comes from this tool, from the Egli series, or from any threshold measured here.
+ * Truth: the GEO `source_name` field and the cell lines' published karyotypes. Nothing in it comes
+ * from this tool, from the Egli series, or from any threshold measured here.
  *
- * WHAT MAKES IT A REAL TEST RATHER THAN A DEMONSTRATION. The euploid lines are a specificity set
- * of the same material type, from the same laboratory, on the same chips, prepared the same way as
- * the trisomies. Every aneuploidy call on them is a false positive with nothing to argue about. A
- * sensitivity result without that is worth very little: calling chromosome 21 on everything scores
- * perfectly on the trisomies alone.
+ * The euploid lines are the specificity set: same material, laboratory, chips and preparation as
+ * the trisomies, so every aneuploidy call on them is a false positive. Chromosome 21 on the trisomy
+ * line is read only beside that set, since calling 21 everywhere would score perfectly on the
+ * trisomies alone. A throw or a structurally invalid event is a failure whatever the rates say.
  *
- * SPERM ARE EXCLUDED FROM BOTH SCORED ARMS AND REPORTED SEPARATELY. A haploid cell is at one copy
- * on every chromosome simultaneously, so "which chromosome differs from the rest" has no answer in
- * it. Scoring them either way would be measuring the wrong thing.
- *
- * THE CLEAVAGE-STAGE EMBRYOS ARE REPORTED AND NOT SCORED. That is the series' own finding rather
- * than its control: those cells are aneuploid at a high and per-cell-unknown rate, so there is no
- * ground truth per array, only an expectation about the group.
+ * Sperm are excluded from both scored arms and reported apart: a haploid cell is at one copy on
+ * every chromosome, so no chromosome differs from the rest. Cleavage-stage embryos are reported
+ * and not scored: their cells are aneuploid at a high, per-cell unknown rate, so no array has its
+ * own answer.
  *
  * Run: OM_GSE=<converted dir with truth.json> node --experimental-strip-types \
  *        --max-old-space-size=6144 audit/gse19247-detection.ts

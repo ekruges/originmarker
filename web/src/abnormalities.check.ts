@@ -16,6 +16,7 @@ import assert from 'node:assert/strict'
 import {
   TAXONOMY, taxonomyFor, detectLoh, detectUpd, detectTriploidy, detectComplex, callUniformity,
   unanswerable, ORIGIN_UNREACHABLE, LCSH_REPORT_MB, UPD_NO_STRETCH_RATE, LOH_DEPLETION,
+  LOH_MIN_BACKGROUND_HET, LOH_MIN_EXPECTED_HET,
   CLUSTERED_DROPOUT_DEPLETION, COMPLEX_DEVIANT_FRACTION, TRIPLOID_BANDS, DIPLOID_BAND,
   runsOfHomozygosity, groupUnits, overlaps, unitsCarrying, mergeLoh, LOH_SEGMENT_MARKERS,
   callTriploidyOrigin,
@@ -125,12 +126,16 @@ import {
 
 // --- 4. NO RUN FOUND IS NOT NO DISOMY --------------------------------------------------------------
 {
-  const run = (chrom: string, mb: number, whole = false): RunOfHomozygosity =>
-    ({ chrom, startBp: 0, endBp: mb * 1e6, markers: Math.round(mb * 300), wholeChromosome: whole })
+  const run = (chrom: string, mb: number, whole = false, hetRate = 0): RunOfHomozygosity => {
+    const markers = Math.round(mb * 300)
+    return { chrom, startBp: 0, endBp: mb * 1e6, markers, hets: Math.round(markers * hetRate),
+      wholeChromosome: whole }
+  }
+  const bulk = { backgroundHet: 0.20 }
 
-  assert.equal(detectUpd([run('7', 5)]).length, 0, `${LCSH_REPORT_MB} Mb is the reporting floor`)
+  assert.equal(detectUpd([run('7', 5)], bulk).length, 0, `${LCSH_REPORT_MB} Mb is the reporting floor`)
 
-  const one = detectUpd([run('7', 40, true)])
+  const one = detectUpd([run('7', 40, true)], bulk)
   assert.equal(one.length, 1)
   assert.equal(one[0].cls, 'isodisomy', 'a whole-chromosome run is isodisomy')
   assert.ok(one[0].evidence.includes('Heterodisomy leaves heterozygosity normal'),
@@ -139,18 +144,40 @@ import {
     'and the share of real disomy that carries no run at all must travel with it')
   assert.equal(one[0].flag, undefined, 'a single chromosome is not consanguinity')
 
-  assert.equal(detectUpd([run('7', 30)])[0].cls, 'segmental-upd',
+  assert.equal(detectUpd([run('7', 30)], bulk)[0].cls, 'segmental-upd',
     'a run short of the whole chromosome is segmental')
 
   // Runs on many chromosomes at once are shared ancestry, and the calls are FLAGGED rather than
   // withdrawn: the runs are real, it is what they imply that changes.
-  const many = detectUpd(['1', '4', '9', '15', '20'].map((c) => run(c, 30)))
+  const many = detectUpd(['1', '4', '9', '15', '20'].map((c) => run(c, 30)), bulk)
   assert.equal(many.length, 5)
   for (const f of many) {
     assert.ok(f.flag && f.flag.includes('shared parental ancestry'),
       'runs across many chromosomes must flag consanguinity on every one of them')
   }
   assert.ok(UPD_NO_STRETCH_RATE > 0.3)
+
+  // AGAINST THE ARRAY'S OWN BACKGROUND, on detectLoh's bounds. Without one there is nothing to be
+  // depleted against, and a background under the floor has too little heterozygosity to lose.
+  assert.equal(detectUpd([run('7', 40, true)]).length, 0, 'no background, no finding')
+  assert.equal(detectUpd([run('7', 40, true)], { backgroundHet: LOH_MIN_BACKGROUND_HET / 2 }).length, 0,
+    'a background under the floor reports nothing')
+  // The run-finder admits 5% heterozygotes, so on an array that is 6% heterozygous a run at 4% is
+  // a run to it and not depleted against the array at all. A real run on the same array still is.
+  assert.equal(detectUpd([run('7', 40, true, 0.04)], { backgroundHet: 0.06 }).length, 0,
+    'depleted against the array, not against the run-finder tolerance')
+  assert.equal(detectUpd([run('7', 40, true, 0.002)], { backgroundHet: 0.06 }).length, 1)
+  const short: RunOfHomozygosity = { chrom: '7', startBp: 0, endBp: 20e6,
+    markers: Math.floor((LOH_MIN_EXPECTED_HET - 1) / 0.06), hets: 0, wholeChromosome: false }
+  assert.equal(detectUpd([short], { backgroundHet: 0.06 }).length, 0,
+    'too few markers to expect enough heterozygotes at this background')
+  assert.equal(detectUpd([run('7', 40, true)], { ...bulk, zygosity: 'uniparental_homozygous' }).length, 0,
+    'a genome called uniparental is excluded whatever its background')
+
+  // WITHOUT INTENSITY one copy reads the same as two identical ones, and the finding says so.
+  const blind = detectUpd([run('7', 40, true)], { ...bulk, intensity: false })
+  assert.ok(blind[0].flag?.includes('NO INTENSITY'), 'a genotype-only run is loss-or-isodisomy')
+  assert.ok(blind[0].evidence.includes('Where two copies are present'))
 }
 
 // --- 5. TRIPLOIDY NEEDS THE HALF BAND VACATED, NOT JUST THE THIRDS OCCUPIED ------------------------
@@ -178,9 +205,9 @@ import {
 
 // --- 6. A COMPLEX GENOME BLOCKS EVERY ORIGIN, AND IS NOT A QUALITY FAILURE -------------------------
 {
-  assert.equal(detectComplex(2, 22, 0.95), null, 'two deviant autosomes is not a chaotic genome')
+  assert.equal(detectComplex(2, 22), null, 'two deviant autosomes is not a chaotic genome')
 
-  const chaotic = detectComplex(12, 22, 0.95)
+  const chaotic = detectComplex(12, 22)
   assert.ok(chaotic)
   assert.ok(chaotic!.originBlocked!.includes('no undisturbed part left'))
   assert.ok(chaotic!.originBlocked!.includes('rather than a fault of the array'),
@@ -191,8 +218,9 @@ import {
   assert.ok(!ORIGIN_UNREACHABLE.has('complex'),
     'a complex genome keeps the Mendelian channel even though it loses the self-referenced one')
 
-  // The same conclusion arrives from a collapsed call rate, for the same reason.
-  assert.ok(detectComplex(1, 22, 0.5))
+  // DEVIANCE ONLY. A collapsed call rate is the array's property: integrity.ts reports it as a
+  // damaged sample and the dosage channel refuses self-reference on it, without this finding.
+  assert.equal(detectComplex(1, 22), null, 'a low call rate is not a disturbed genome')
   assert.ok(COMPLEX_DEVIANT_FRACTION < 0.5)
 }
 
@@ -433,17 +461,18 @@ console.log('abnormalities.check.ts: all assertions passed, including every clas
 {
   // A genome that is homozygous throughout: runs on every chromosome, all reportable length.
   const runs = Array.from({ length: 22 }, (_, i) => ({
-    chrom: String(i + 1), startBp: 0, endBp: 60e6, markers: 20000, wholeChromosome: false,
+    chrom: String(i + 1), startBp: 0, endBp: 60e6, markers: 20000, hets: 0, wholeChromosome: false,
   }))
-  const ungated = detectUpd(runs)
+  const bg = { backgroundHet: 0.20 }
+  const ungated = detectUpd(runs, bg)
   assert.ok(ungated.length > 10,
     `the fixture must reproduce the overcall, got ${ungated.length}`)
-  assert.equal(detectUpd(runs, { zygosity: 'uniparental_homozygous' }).length, 0,
+  assert.equal(detectUpd(runs, { ...bg, zygosity: 'uniparental_homozygous' }).length, 0,
     'a uniparental genome yields no separate uniparental disomies: its homozygosity IS the '
     + 'genome-level call, and enumerating it again counts one fact many times')
   // A diploid genome keeps its runs, or the guard would be disabling the detector rather than
   // scoping it.
-  assert.equal(detectUpd(runs, { zygosity: 'diploid' }).length, ungated.length,
+  assert.equal(detectUpd(runs, { ...bg, zygosity: 'diploid' }).length, ungated.length,
     'a diploid genome is unaffected')
   console.log(`  uniparental: ${ungated.length} runs -> 0 disomies; diploid unchanged`)
 }

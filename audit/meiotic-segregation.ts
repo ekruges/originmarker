@@ -1,26 +1,17 @@
 /**
- * THE SEX CALL AGAINST A RATIO FIXED BY BIOLOGY, NOT BY A LABEL.
+ * The sex call against proportions fixed by meiosis rather than by a metadata field.
  *
- * WHY THIS IS A STRONGER TEST THAN CHECKING A DONOR'S RECORDED SEX. A recorded sex is a metadata
- * field that can be wrong, and checking twelve bulk adults against it is twelve observations. Male
- * meiosis puts one X or one Y into every sperm, in equal numbers, and that 1:1 is not a convention
- * or an annotation. So a set of single sperm cells carries an EXPECTED PROPORTION that this tool
- * had no part in setting, and any number of cells can be measured against it.
+ * Male meiosis puts one X or one Y into every sperm, in equal numbers, and an egg carries an X.
+ * The expected answers are prior to the tool:
  *
- * THREE GROUPS, THREE DIFFERENT EXPECTED ANSWERS, ALL OF THEM PRIOR TO THE TOOL:
+ *   sperm cells             about half Y-bearing, tested against a fair coin at n cells
+ *   maternal pronuclei      ZERO Y-bearing: one Y call here is one error
+ *   paternal pronuclei      about half, for the same reason as the sperm
  *
- *   sperm cells             about half Y-bearing. The null is a fair coin at n cells, so a
- *                           deviation is testable rather than a matter of opinion.
- *   maternal pronuclei      ZERO Y-bearing. An egg carries an X. There is no other possibility,
- *                           which makes this the sharpest arm: one Y call here is one error.
- *   paternal pronuclei      about half, for the same reason as the sperm.
- *
- * WHAT A FAILURE WOULD MEAN. A Y call on a maternal pronucleus is a false positive with nothing to
- * argue about. A sperm set far from half means the call is not reading the Y at all on haploid
- * amplified material, and everything the sex check gates on that material is then unfounded.
- *
- * THE BINOMIAL IS COMPUTED HERE AND NOT TAKEN FROM THE TOOL, so the tool is not marking its own
- * work. It is an exact two-sided test against p = 0.5.
+ * Failure: any Y call on a maternal pronucleus, or a sperm set far from half, which means the call
+ * is not reading the Y on haploid amplified material and nothing the sex check gates there is
+ * founded. The binomial is an exact two-sided test against p = 0.5, computed here rather than
+ * taken from the tool.
  *
  * Run: OM_TRIOS=<dir> [OM_GSE=<converted dir>] node --experimental-strip-types \
  *        --max-old-space-size=3072 audit/meiotic-segregation.ts

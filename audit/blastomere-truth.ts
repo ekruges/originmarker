@@ -1,24 +1,22 @@
 /**
- * THE PIPELINE ON BLASTOMERES, WHERE 1:1 IS AND IS NOT REQUIRED.
+ * The pipeline on single blastomeres, where agreement within one embryo is and is not required.
  *
- * THE MATERIAL. GSE186407 and GSE290961 are single blastomeres from human embryos injected at the
- * 2PN stage, arrayed one cell at a time, several cells per embryo. That is the stage this tool
- * exists for and the stage at which parent-of-origin is supposed to be callable.
+ * GSE186407 and GSE290961 are single blastomeres from human embryos injected at the 2PN stage,
+ * arrayed one cell at a time, several cells per embryo.
  *
- * WHAT THE FILENAME KNOWS, and it is not this tool's opinion:
+ * Truth, from the filename rather than this tool:
  *   the target locus     GSE186407 cut chr16, and every file says so on its face
- *   the embryo           several blastomeres carry the same embryo tag, so cells of ONE genome
- *                        are identifiable without any inference
+ *   the embryo           blastomeres carrying the same embryo tag are cells of ONE genome.
+ *                        GSE290961 carries no embryo identifier, so it contributes only the
+ *                        structural arm.
  *
- * WHERE 1:1 IS REQUIRED AND WHERE DEMANDING IT WOULD BE WRONG. Blastomeres of one embryo are one
- * person's cells. Anything that is a property of the PERSON has to read the same on all of them:
- * the sex, and which parental genome is present. Anything that is a property of a CELL need not:
- * Zuccaro and others found these embryos are frequently mosaic, so two blastomeres of one embryo
- * genuinely can carry different chromosome complements. Scoring copy number as a 1:1 requirement
- * would mark the paper's own central finding as a defect.
+ * Properties of the PERSON must agree across one embryo's cells: which parental genome is present,
+ * and the sex unless a called sex-chromosome event explains the difference. Properties of a CELL
+ * need not: these embryos are frequently mosaic (Zuccaro and others), so copy number is reported
+ * as a spread with no pass mark.
  *
- * So the identity arms below are scored as agreement, and the copy-number arm is REPORTED as a
- * spread with no pass mark attached.
+ * Failure: an array that throws, a structurally invalid event, or a sex difference within an
+ * embryo with no called sex-chromosome event behind it.
  *
  * Run: OM_BLASTO=<dir> [OM_TARGET=16] node --experimental-strip-types \
  *        --max-old-space-size=3072 audit/blastomere-truth.ts
@@ -86,6 +84,7 @@ const refParent = (() => {
 interface Row {
   name: string; embryo: string | null; stage: string; callRate: number
   zygosity: string; y: boolean | null; eventChroms: string[]; onTarget: boolean
+  sexEvent: boolean
   junk: string[]; error?: string
 }
 const out: Row[] = []
@@ -140,12 +139,14 @@ for (const f of use) {
       y: (sexing.sexCall(sx as never) as { yBearing: boolean | null }).yBearing,
       eventChroms,
       onTarget: TARGET ? eventChroms.includes(TARGET) : false,
+      sexEvent: chroms.some((c) => c.aneuploidy && !isAutosome(c.chrom))
+        || segs.some((sg) => !isAutosome(sg.chrom)),
       junk,
     })
   } catch (e) {
     out.push({
       name: f, embryo: embryoOf(f), stage: 'error', callRate: NaN, zygosity: '?',
-      y: null, eventChroms: [], onTarget: false, junk: [],
+      y: null, eventChroms: [], onTarget: false, sexEvent: false, junk: [],
       error: String((e as Error).message ?? e).slice(0, 80),
     })
   }
@@ -185,20 +186,37 @@ const groups = new Map<string, Row[]>()
 for (const r of usable) if (r.embryo) groups.set(r.embryo, [...(groups.get(r.embryo) ?? []), r])
 const multi = [...groups.entries()].filter(([, v]) => v.length >= 2)
 console.log(`  embryos with 2 or more usable blastomeres: ${multi.length}`)
+if (!multi.length) {
+  // NOT A PASS. GSE290961 states only "tissue: Preimplantation embryo" per sample: no embryo
+  // identifier anywhere in its metadata, and its file prefixes are case numbers carrying up to 57
+  // cells, far more than one day-3 embryo. Printing 0/0 agree here read as a clean sweep of a test
+  // that never ran. This series can only contribute the structural arm below.
+  console.log('  NOT ASSESSED: this series states no embryo identifier, so cells of one genome')
+  console.log('  cannot be identified and nothing below is scored. The structural arm still is.')
+}
 
-let sexAgree = 0; let sexSplit = 0
+let sexAgree = 0; let sexSplit = 0; let sexExplained = 0
 let zygAgree = 0; let zygSplit = 0
 const cnSpread: number[] = []
 for (const [emb, cells] of multi) {
+  // A SEX DISAGREEMENT IS NOT AUTOMATICALLY A DEFECT, and treating it as one was wrong in the
+  // first version of this file. Loss of the Y chromosome is a copy-number event like any other,
+  // and these embryos are mosaic: on embryo z10 one blastomere called 0 of 812 Y probes while its
+  // six siblings called about 90 percent, which is a real Y loss correctly reported. A split only
+  // counts against the tool when nothing on the sex chromosomes explains it.
   const sexes = new Set(cells.map((c) => c.y).filter((v) => v !== null))
   const zygs = new Set(cells.map((c) => c.zygosity).filter((z) => z !== 'unknown'))
-  if (sexes.size <= 1) sexAgree += 1; else sexSplit += 1
+  const explained = cells.some((c) => c.sexEvent)
+  if (sexes.size <= 1) sexAgree += 1
+  else if (explained) sexExplained += 1
+  else sexSplit += 1
   if (zygs.size <= 1) zygAgree += 1; else zygSplit += 1
   const sets = cells.map((c) => c.eventChroms.slice().sort().join(','))
   cnSpread.push(new Set(sets).size)
   if (sexes.size > 1) {
-    console.log(`    ${emb}: SEX DISAGREES across ${cells.length} cells `
-      + `-> ${cells.map((c) => (c.y === null ? '?' : c.y ? 'Y' : '-')).join(' ')}`)
+    console.log(`    ${emb}: sex differs across ${cells.length} cells `
+      + `-> ${cells.map((c) => (c.y === null ? '?' : c.y ? 'Y' : '-')).join(' ')}`
+      + `${explained ? '   explained by a sex-chromosome event' : '   UNEXPLAINED, a defect'}`)
   }
 }
 console.log('')
@@ -220,6 +238,7 @@ for (const j of allJunk.slice(0, 10)) console.log(`  ${j}`)
 for (const e of out.filter((r) => r.error).slice(0, 6)) console.log(`  THREW ${e.name}: ${e.error}`)
 console.log('')
 console.log((out.length - ok.length) === 0 && allJunk.length === 0 && sexSplit === 0
-  ? 'blastomere-truth: nothing threw, nothing malformed, and every embryo has one sex.'
+  ? 'blastomere-truth: nothing threw, nothing malformed, and every sex difference within an '
+    + 'embryo has a called sex-chromosome event behind it.'
   : `blastomere-truth: ${out.length - ok.length} threw, ${allJunk.length} malformed, `
     + `${sexSplit} embryos with a split sex call.`)

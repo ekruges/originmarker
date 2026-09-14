@@ -1,28 +1,21 @@
 /**
- * THE PROGENITOR TO SYNGAMY HANDOFF, END TO END, ON REAL ARRAYS.
+ * The Progenitor to Syngamy handoff, end to end, on real arrays.
  *
- * WHAT BROKE. Progenitor reconstructs a parent from haploid meiotic products and writes it out as
- * an array file for Syngamy to load as the donor. That file is zero percent heterozygous BY
- * CONSTRUCTION: the reconstruction can only assert the sites its products agree on, and a marker
- * where they disagree is exactly a marker where the parent is heterozygous, which no single
- * haploid product can resolve. Syngamy's `genome-wide LOH` gate reads heterozygosity under 2% as a
- * candidate failed genome unification and excludes the array, and a parent array that fails its own
- * gates stops the run. So every reconstruction was refused before a single call was made, and the
- * one product the two halves of this tool exist to hand between them could not cross.
+ * Progenitor writes a parent reconstructed from haploid meiotic products as an array file for
+ * Syngamy to load as the donor. It asserts only the sites its products agree on, so it is zero
+ * percent heterozygous by construction. Zero heterozygosity in a fertilised genome is a finding; in
+ * a reconstruction it is arithmetic, and the file's reconstruction mark is what tells the gates
+ * which one they are reading.
  *
- * WHY THAT GATE IS RIGHT ABOUT A SAMPLE AND WRONG ABOUT A REFERENCE. Zero heterozygosity in a
- * FERTILISED genome is a real finding. In a reconstruction it is arithmetic. The mark that tells
- * the two apart was already written into the file by Progenitor and already read on drop by
- * Syngamy; it simply never reached the gates.
- *
- * WHAT THIS PROVES, and none of it is asserted from the shape of the code:
- *   1. a reconstruction built from real pronuclei carries zero heterozygosity, as expected
+ * Asserted on real pronuclei, not read off the code:
+ *   1. a reconstruction carries zero heterozygosity
  *   2. the gates refuse it when it is treated as a measured array
  *   3. the gates accept it when it is declared a reconstruction, and no OTHER gate changes
- *   4. the file still round-trips through the reader and still identifies its own man
+ *   4. the file round-trips through the reader and still identifies its own man
  *
- * Point 4 is the one that matters: a gate can be made to pass by weakening it. The reconstruction
- * has to still WORK after crossing, and that is scored against the sperm donor's own array.
+ * Truth for point 4: the sperm donor's own arrays, which the reconstruction never sees. His arrays
+ * must read present and maternal pronuclei absent; a gate that passes the file without that was
+ * weakened rather than corrected.
  *
  * Run: OM_TRIOS=<dir> node --experimental-strip-types --max-old-space-size=3072 \
  *        audit/handoff-truth.ts

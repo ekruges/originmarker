@@ -1,37 +1,25 @@
 /**
- * GENERATION INVERSION: IS IT REALLY UNDETECTABLE, OR IS A THEOREM EXCUSING A MISSED CHECK?
+ * Whether a generation-inverted run, a child in the parental slot and its parent as the sample,
+ * can be told from a correct one once both parents are loaded.
  *
- * THE STANDING CLAIM, from relatedness.ts: "DIRECTION IS NOT IN HERE, and no amount of arithmetic
- * on two genotype files will put it there. Under Hardy-Weinberg the likelihood of a pair factors as
- * P(a)P(b|a) = P(b)P(a|b), so parent-child and child-parent are the same hypothesis."
- *
- * THAT IS TRUE, AND IT IS ABOUT A PAIR. The parent-child joint genotype distribution really is
- * exchangeable under Hardy-Weinberg, so the statistic the tool computes cannot see direction and
- * saying so is honest. What the theorem does not cover is a THIRD array, and the standard clinical
- * configuration for this tool has one: both parents are loaded, not one.
- *
- * THE ASYMMETRY A THIRD ARRAY CREATES, and it needs no new arithmetic:
+ * A pair cannot show it: under Hardy-Weinberg the likelihood of a pair factors as
+ * P(a)P(b|a) = P(b)P(a|b), so parent-child and child-parent are the same hypothesis. A third array
+ * breaks the symmetry with no new arithmetic:
  *
  *   correct     paternal slot = father,  maternal slot = mother,  sample = child
  *               the mother IS the child's parent            -> parent and child
  *   inverted    paternal slot = CHILD,   maternal slot = mother,  sample = FATHER
  *               the mother is the father's WIFE, not his parent   -> unrelated
  *
- * Two unrelated adults is not a subtle signal and it is not a quality signal. Both arrays in that
- * comparison are bulk genomic DNA, so it is measured where the statistic has the MOST power, which
- * is the opposite of the situation that made the material-based gate unusable.
+ * Both arrays in the maternal comparison are bulk genomic DNA, where the statistic has the most
+ * power.
  *
- * WHY THIS IS WORTH MEASURING RATHER THAN ASSUMING. scoreSample.ts calls `relate` on `pat` and on
- * nothing else. The maternal array is loaded, carried through the whole scorer, used for parental
- * attribution, and never once asked whether it is related to the sample. If the separation below is
- * clean then the tool holds the evidence to refuse an inverted run and does not look at it.
+ * The one-parent arm is the control: with a single parental array nothing should separate. If it
+ * does, something other than the third array is doing the work and the two-parent result does not
+ * hold.
  *
- * THE ONE-PARENT ARM IS THE CONTROL, and it is there to keep the finding honest. With a single
- * parental array the theorem should bite and nothing should separate. A harness that only ran the
- * two-parent arm could not tell a real catch from an artefact of how it was set up.
- *
- * TRUTH COMES FROM THE MANIFEST. `father_gsms` and `mother_gsms` were established by the
- * experiment, and `complete_trio` marks the children where both are known.
+ * Truth: `father_gsms` and `mother_gsms` in the manifest, established by the experiment;
+ * `complete_trio` marks the children where both are known.
  *
  * Run: OM_TRIOS=<dir> node --experimental-strip-types --max-old-space-size=8192 \
  *        audit/generation-inversion.ts
