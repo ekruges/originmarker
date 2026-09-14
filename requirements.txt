@@ -24,7 +24,7 @@ reportlab==5.0.1         # .pdf
 # its status_code, system= as a list of blocks carrying cache_control, and TextBlock .type/.text.
 # The migration is worth doing on its own: 1.0.0 offers output_config.format for structured JSON,
 # which suits this parser better than temperature=0 plus the code-fence regex it falls back on.
-anthropic==0.122.0
+anthropic==1.5.0
 
 # tests: fastapi.testclient is a thin wrapper over httpx
 httpx==0.28.1
