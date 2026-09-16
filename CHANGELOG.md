@@ -9,6 +9,33 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.30.1 "Isodisomy"
+
+**Clustered rates now carry both ends of their interval.** The uncertainty record said that a
+cluster-robust interval measured 3.5 to 5.8 times wider than the naive one, and left the reader to
+apply that factor. A factor measured on a different arm is not a correction. Where observations
+share an array, `audit/intervals.ts` prints the Wilson interval over all observations and the
+Wilson interval over the arrays, which are the two ends between which the true interval lies.
+
+| claim | k/n | independent | by array |
+|---|---|---|---|
+| trio-resolved attributions correct | 8/8 | 67.6% to 100% | 4/4 arrays, 51.0% to 100% |
+| false positives, adult donors | 0/242 | 0% to 1.6% | 0/11 arrays, 0% to 25.9% |
+| false calls, euploid lines and donors | 1/1584 | 0% to 0.4% | 1/72 arrays, 0.2% to 7.5% |
+| all parental calls correct | 263/263 | 98.6% to 100% | cluster count not recorded |
+
+Two arms were marked clustered and are not: the mirrored-loss arms are twelve arrays carrying one
+constructed event each, so their intervals stand as printed. The row for all parental calls says its
+cluster count is not recorded rather than borrowing one from another arm.
+
+The rates 5.30.0 measured are in the table too: 0 heterozygosity-loss findings on 144 one-complement
+genomes bounds that rate at 2.6% per genome, isodisomy flagged on 4 of 4 accepted arrays, 100 of 100
+moles read as one parental contribution, and 3 of 4 two-person mixtures tripping a signal.
+
+Narrowing the genuinely clustered rows needs a cluster bootstrap over arrays, and that needs each
+array's own numerator and denominator. The harnesses emit the pooled figure, so that is the open
+item. Nothing in `web/src` is touched by this release.
+
 ## 5.30.0 "Isodisomy"
 
 **Heterozygosity-loss findings are measured against the array, not against the ploidy label.**

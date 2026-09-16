@@ -281,19 +281,25 @@ which three. No claim is made here about bulk sensitivity.
 
 ## Uncertainty
 
-Wilson 95% intervals on the rates above. At 0 or 1 the interval is what bounds the claim.
+Wilson 95% intervals on the rates above. At 0 or 1 the interval is what bounds the claim. Where
+observations share an array they are not independent draws, so both ends of what the interval could
+be are given: the independent end assumes no sharing, the by-array end assumes an array moves as
+one, and the truth lies between them.
 
-| claim | k/n | 95% interval |
-|---|---|---|
-| trio-resolved attributions correct | 8/8 | 67.6% to 100% |
-| all parental calls correct | 263/263 | 98.6% to 100% |
-| sensitivity, single cells, shipped point | 0/60 | 0% to 6.0% |
-| false positives, adult donors | 0/242 | 0% to 1.6% |
-| reconstruction verdicts correct | 35/41 | 71.6% to 93.1% |
+| claim | k/n | independent | by array |
+|---|---|---|---|
+| trio-resolved attributions correct | 8/8 | 67.6% to 100% | 4/4 arrays, 51.0% to 100% |
+| all parental calls correct | 263/263 | 98.6% to 100% | cluster count not recorded |
+| false positives, adult donors | 0/242 | 0% to 1.6% | 0/11 arrays, 0% to 25.9% |
+| false calls, euploid lines and donors | 1/1584 | 0% to 0.4% | 1/72 arrays, 0.2% to 7.5% |
+| heterozygosity-loss findings, one-complement genomes | 0/144 | 0% to 2.6% | one per array |
+| sensitivity, single cells, shipped point | 0/60 | 0% to 6.0% | one per array |
+| reconstruction verdicts correct | 35/41 | 71.6% to 93.1% | one per array |
 
-Several of these count chromosomes within arrays, which are not independent draws. A cluster-robust
-interval on this corpus measured 3.5 to 5.8 times wider than the naive one, so the intervals above
-are the optimistic bound.
+Two arms that were marked clustered are not: the mirrored-loss arms are twelve arrays carrying one
+constructed event each, so their intervals stand as printed. Narrowing the genuinely clustered rows
+needs a cluster bootstrap over arrays, and that needs each array's own numerator and denominator.
+The harnesses emit the pooled figure today, which is the open item rather than a correction factor.
 
 ## Stated limits
 
