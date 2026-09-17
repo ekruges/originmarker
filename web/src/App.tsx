@@ -17,6 +17,7 @@ import { PanelTable } from './PanelTable'
 import { CarrierGenotypes } from './CarrierGenotypes'
 import type { GenotypeSet } from './genotypes'
 import { DocsPage } from './DocsPage'
+import { DocsHome } from './DocsHome'
 import { SyngamyDocsPage } from './SyngamyDocs'
 import { ProgenitorDocsPage } from './ProgenitorDocs'
 import { SyngamyPage } from './Syngamy'
@@ -78,7 +79,10 @@ export default function App() {
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const route = useHashRoute()
-  const atDocs = route.startsWith('#/docs')
+  // The bare route is the index; '#/docs/<section>' stays the panel builder's own reference, so
+  // every cross-reference and bookmark into it still lands where it did.
+  const atDocsHome = route === '#/docs' || route === '#/docs/'
+  const atDocs = route.startsWith('#/docs') && !atDocsHome
   const atProgDocs = route.startsWith('#/progenitor-docs')
   const atProgenitor = route.startsWith('#/progenitor') && !atProgDocs
   const atSynDocs = route.startsWith('#/syngamy-docs')
@@ -86,7 +90,7 @@ export default function App() {
   const atTerms = route.startsWith('#/terms')
   // Keyed on having no data, not on phase === 'idle': the hero must stay mounted while a
   // resolve is in flight, or the layout tears down mid-click.
-  const atHome = !atDocs && !atSynDocs && !atProgDocs && !atTerms && !atSyngamy
+  const atHome = !atDocs && !atDocsHome && !atSynDocs && !atProgDocs && !atTerms && !atSyngamy
     && !atProgenitor && !resolved && !result
 
   const stopWatch = () => {
@@ -350,7 +354,9 @@ export default function App() {
           margin: '0 auto',
         }}
       >
-        {atDocs ? (
+        {atDocsHome ? (
+          <DocsHome health={health} />
+        ) : atDocs ? (
           <DocsPage health={health} />
         ) : atSynDocs ? (
           <SyngamyDocsPage health={health} />

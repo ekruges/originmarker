@@ -21,7 +21,7 @@ import { PROGENITOR_EXAMPLES } from './progenitorExamples.ts'
 
 const src = readFileSync(new URL('./ProgenitorDocs.tsx', import.meta.url), 'utf8')
 
-const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+") \}/g)].map((m) => m[1])
+const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+")(?:, group: '[^']+')? \}/g)].map((m) => m[1])
 const heads = [...src.matchAll(/<Section id="([\w-]+)" title="/g)].map((m) => m[1])
 
 assert.ok(nav.length > 0 && heads.length > 0, 'parsed nothing: the regexes have drifted')
@@ -89,3 +89,12 @@ assert.ok(src.includes('docsHelpers(PREFIX, SECTIONS)'),
 
 console.log(`ProgenitorDocs.check OK (${nav.length} sections, ${cited.length} citation markers, `
   + 'nav == headings, cross-refs and citations resolve, thresholds match the code)')
+
+// EVERY SECTION BELONGS TO A PART. The nav and the body both render the part above the first
+// section that carries it, so a section without one silently joins whatever came before it.
+{
+  const entries = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+")(, group: '[^']+')? \}/g)]
+  for (const [, id, group] of entries) {
+    assert.ok(group, `${id} has no group: it would fold into the part above it`)
+  }
+}

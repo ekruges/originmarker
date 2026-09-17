@@ -35,6 +35,7 @@ import { callOneParentOrigin } from './oneParentOrigin.ts'
 import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin.ts'
 import { uniparentalOrigin } from './uniparentalOrigin.ts'
 import { accumulateSex, emptySex, sexCall, type SexCall, type SexTally } from './sexing.ts'
+import { callSexChromosomes } from './sexChromosome.ts'
 import { reconcileParentSex } from './parentSanity.ts'
 import {
   relate, OPPOSITE_HOM_MAX, relatednessAssessable, REL,
@@ -45,7 +46,7 @@ import {
   LOH_SEGMENT_MARKERS,
 } from './abnormalities.ts'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted.ts'
-import { inferStage, stageDefaults, type Stage } from './stage.ts'
+import { inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE } from './stage.ts'
 import { nullScale, calibratedZ, median, intensityDetects } from './intensityNull.ts'
 import { reconcileStage } from './declaredStage.ts'
 import { assessIntegrity } from './integrity.ts'
@@ -54,6 +55,8 @@ import { assessIntegrity } from './integrity.ts'
 export interface ParentIndex {
   gt: Map<string, AB>
   heterozygosity: number
+  /** Called fraction of this array's autosomal markers. */
+  callRate: number
   build: string | null
   /**
    * What chromosome Y says about this array. Read on the PARENT, which is the slot an operator can
@@ -94,12 +97,14 @@ export const listChroms = (wheres: readonly string[]): string => {
  */
 export interface ParentAccum {
   gt: Map<string, AB>; called: number; het: number
+  /** Autosomal markers seen, so the parental array's own call rate is known. */
+  markers: number
   /** Chromosome Y, accumulated in the same pass. See parentSanity.ts for what it is for. */
   sex: SexTally
 }
 
 export const emptyParent = (): ParentAccum => ({
-  gt: new Map(), called: 0, het: 0, sex: emptySex(),
+  gt: new Map(), called: 0, het: 0, markers: 0, sex: emptySex(),
 })
 
 export function collectParentRow(r: ProbeRow, acc: ParentAccum): void {
@@ -108,9 +113,12 @@ export function collectParentRow(r: ProbeRow, acc: ParentAccum): void {
   // question that costs two counters. This is what lets the tool notice that the array in the
   // paternal slot is not male.
   accumulateSex(r, acc.sex)
-  if (r.genotype !== 'NC' && isAutosome(r.chrom)) {
-    acc.called += 1
-    if (r.genotype === 'AB') acc.het += 1
+  if (isAutosome(r.chrom)) {
+    acc.markers += 1
+    if (r.genotype !== 'NC') {
+      acc.called += 1
+      if (r.genotype === 'AB') acc.het += 1
+    }
   }
 }
 
@@ -118,6 +126,8 @@ export function collectParentRow(r: ProbeRow, acc: ParentAccum): void {
 export const finishParent = (acc: ParentAccum, build: string | null): ParentIndex => ({
   gt: acc.gt,
   heterozygosity: acc.called ? acc.het / acc.called : NaN,
+  // Whether this array is in a state to say anything about its panel: see PANEL_ANCHOR_CALL_RATE.
+  callRate: acc.markers ? acc.called / acc.markers : NaN,
   build,
   sex: sexCall(acc.sex),
 })
@@ -140,6 +150,8 @@ export interface Collected {
   myGt: Map<string, string>
   myBaf: Map<string, number>
   markerPos: Map<string, { chrom: string; pos: number }>
+  /** Chromosome Y of the SAMPLE. What one X means depends on it; see sexChromosome.ts. */
+  sex: SexTally
 }
 
 /**
@@ -181,6 +193,7 @@ export function emptyCollected(pat: ParentIndex, mat?: ParentIndex | null): Coll
     // the only readings left. This is what the dosage channel runs on.
     myBaf: new Map(),
     markerPos: new Map(),
+    sex: emptySex(),
   }
 }
 
@@ -198,6 +211,9 @@ export function collectRow(
     t, tm, myGt, myBaf, markerPos, cnByChrom, selfMarkers, hetByChrom, obligateByChrom,
     absenceByChrom, dosageByChrom,
   } = acc
+  // On the same pass, for the same reason the parental arrays do it: a second read of an
+  // 800,000-row file to count one chromosome costs more than the counters do.
+  accumulateSex(r, acc.sex)
   if (isAutosome(r.chrom) && r.genotype !== 'NC') {
     myGt.set(r.probesetId, r.genotype)
     markerPos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
@@ -281,7 +297,27 @@ export async function scoreSample(input: {
     t, myGt, myBaf, markerPos, cnByChrom, selfMarkers, hetByChrom, obligateByChrom,
     absenceByChrom, dosageByChrom,
   } = acc
-  const result = classify(t, pat.heterozygosity, { role: soloRole })
+  // THE PANEL THE SAMPLE IS ON, from a parental array in a state to say so. An array that is
+  // itself heavily dropped out cannot define a panel, and the case that proves it is the operator
+  // dropping the SAMPLE into the parent slot: the sample then anchors its own ceiling, and an
+  // implausibly heterozygous array certifies itself as ordinary. See PANEL_ANCHOR_CALL_RATE.
+  const parentHets = [pat, mat]
+    .filter((x): x is ParentIndex => !!x && x.callRate >= PANEL_ANCHOR_CALL_RATE)
+    .map((x) => x.heterozygosity)
+    .filter((x) => Number.isFinite(x) && x > 0)
+  const stageAgreement = reconcileStage(
+    inferStage(profile, {
+      panelHeterozygosity: parentHets.length ? Math.min(...parentHets) : undefined,
+      ...input.stageOpts,
+    }), input.declaredStage, stageDefaults,
+  )
+  // The material goes in because the whole-chromosome magnitude gate depends on it. Bulk here means
+  // the stage reads bulk AND the array calls at a bulk rate: a single cell amplified by MDA can
+  // read bulk heterozygosity through drop-in, and its call rate is what it cannot hide. See
+  // BULK_SPREAD_MAX for the third condition, which classify checks itself.
+  const bulkMaterial = stageAgreement.used.stage === 'bulk'
+    && profile.callRate >= PANEL_ANCHOR_CALL_RATE
+  const result = classify(t, pat.heterozygosity, { role: soloRole, bulk: bulkMaterial })
   // Stage from the array itself, since the dropout each stage carries is what every
   // downstream likelihood is parameterised by. Bundled into the result so every output
   // carries it, with the basis and the confounds attached to the number.
@@ -289,9 +325,6 @@ export async function scoreSample(input: {
   // when it is overridden, because a declaration that contradicts the array is the single most
   // useful thing this tool can tell somebody: either the tube is mislabelled or the reaction
   // failed, and both are worth knowing before any parental call is read.
-  const stageAgreement = reconcileStage(
-    inferStage(profile, input.stageOpts), input.declaredStage, stageDefaults,
-  )
   result.stage = stageAgreement.used
   result.stageAgreement = stageAgreement
   log('DONE', `stage: ${result.stage.stage}. ${result.stage.why}`)
@@ -524,6 +557,35 @@ export async function scoreSample(input: {
       + 'cannot be seen at all, because a third copy leaves the calls unchanged. A lost one is seen '
       + 'only as heterozygosity gone, which is what isodisomy looks like too, so those findings are '
       + 'reported as either. A chromosome absent altogether still reads through its call rate.',
+    )
+  }
+  // --- what the sex chromosomes are ---------------------------------------------------
+  //
+  // The profile's sex call reads chrX heterozygosity, which is the same on a 46,XY male and on a
+  // 45,X female: one X, no heterozygous calls outside the pseudoautosomal region. Copy number and
+  // chrY together separate them, where the panel carries chrY at all.
+  //
+  // Haploid material is not asked, because one X is what it is supposed to carry, and neither is
+  // an array whose stage did not resolve: this reads the same intensity every other call rests on.
+  const xChrom = result.chroms.find((c) => c.chrom === 'X' || c.chrom === '23')
+  const diploidMaterial = !uninterpretable && result.stage?.stage !== 'haploid'
+    && result.stage?.stage !== 'unknown'
+  result.sexChromosome = callSexChromosomes({
+    xShift: xChrom?.lrrShift ?? NaN,
+    xZ: xChrom && Number.isFinite(xChrom.lrrZ) ? xChrom.lrrZ : undefined,
+    y: acc.sex,
+    bulk: bulkMaterial,
+    diploid: diploidMaterial,
+  })
+  if (result.sexChromosome.aneuploid) {
+    log('WARN', `sex chromosomes: ${result.sexChromosome.constitution}. `
+      + `${result.sexChromosome.why}.`)
+  } else if (result.sexChromosome.xCopies === 1
+    && result.sexChromosome.constitution === 'unresolved') {
+    result.limits.push(
+      'This sample carries ONE copy of chromosome X. Whether that is an ordinary male karyotype '
+      + 'or a monosomy X cannot be said from this file, which carries too few chromosome Y '
+      + 'markers to test for a Y. Both are consistent with everything measured here.',
     )
   }
   const copy = uninterpretable ? [] : [...cnByChrom].filter(([c]) => !whole.has(c))

@@ -308,3 +308,51 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
 
 console.log('stage.check.ts: all assertions passed, including quality gated before ploidy, '
   + 'first polar bodies not treated as error, and confounds travelling with every estimate')
+
+
+// --- THE STAGE TABLE FOLLOWS THE PANEL IT IS GIVEN ------------------------------------------------
+//
+// Every boundary in the table is a heterozygosity, which is a property of which markers a panel
+// carries. Bulk arrays of this corpus run 0.141 to 0.170 on Axiom, 0.201 to 0.308 on Affymetrix
+// 250K Nsp and 0.301 to 0.316 on Illumina CytoSNP-12, so an Axiom-derived ceiling refuses an
+// undamaged bulk array on either of the other two.
+{
+  const { panelScale, PANEL_SCALE_MAX } = await import('./stage.ts')
+  const bulkOnRichPanel = { hetRate: 0.3075, callRate: 0.969 }
+  assert.equal(inferStage(bulkOnRichPanel).stage, 'failed',
+    'unanchored, the ceiling refuses a normal bulk array on a richer panel: the defect itself')
+  assert.equal(inferStage(bulkOnRichPanel, { panelHeterozygosity: 0.2485 }).stage, 'bulk',
+    'anchored to the panel its parent is on, the same array is bulk')
+
+  // THE RUNGS DO NOT MOVE WITH THE PANEL. Scaling them put a bulk array onto an amplified rung,
+  // where the relationship verdict is withheld, and the tool stopped warning that an array was in
+  // its own parental slot. Whatever the panel, a sample at bulk heterozygosity reads as bulk.
+  assert.equal(inferStage({ hetRate: 0.20, callRate: 0.95 }, { panelHeterozygosity: 0.31 }).stage,
+    'bulk', 'a rich panel must not demote a bulk array to an amplified rung')
+  assert.equal(inferStage({ hetRate: 0.1157, callRate: 0.42 }, { panelHeterozygosity: 0.2008 }).stage,
+    inferStage({ hetRate: 0.1157, callRate: 0.42 }).stage,
+    'the rung a sample lands on is the same with or without a panel anchor')
+
+  // SCALED UP ONLY. A parent's own dropout depresses its heterozygosity and says nothing about the
+  // panel, and one bad parental array reads high, so the ratio is floored at one and capped.
+  assert.equal(panelScale(0.05), 1)
+  assert.equal(panelScale(undefined), 1)
+  assert.ok(panelScale(0.31) > 1.8 && panelScale(0.31) <= PANEL_SCALE_MAX)
+  assert.equal(panelScale(10), PANEL_SCALE_MAX)
+
+  // AND AN ARRAY HAS TO BE IN A STATE TO ANCHOR ANYTHING. Bulk arrays across the panels measured
+  // here call 0.81 to 0.99; the arrays that wrongly inflated the anchor, by being dropped into
+  // their own parental slot, called 0.53 to 0.59.
+  const { PANEL_ANCHOR_CALL_RATE } = await import('./stage.ts')
+  assert.ok(PANEL_ANCHOR_CALL_RATE > 0.59 && PANEL_ANCHOR_CALL_RATE <= 0.81)
+
+  // An explicit threshold from a caller is honoured as given rather than scaled underneath it.
+  assert.equal(inferStage(bulkOnRichPanel, { panelHeterozygosity: 0.31, maxDiploidHet: 0.25 }).stage,
+    'failed')
+
+  // What must keep failing still fails on any panel.
+  assert.equal(inferStage({ hetRate: 0.60, callRate: 0.95 }, { panelHeterozygosity: 0.31 }).stage,
+    'failed', 'a 60% heterozygous array is not a genome on any panel')
+  assert.equal(inferStage({ hetRate: 0.20, callRate: 0.30 }, { panelHeterozygosity: 0.31 }).stage,
+    'failed', 'the call-rate floor is not a heterozygosity and does not move with the panel')
+}

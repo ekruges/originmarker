@@ -139,14 +139,17 @@ RELEASES: tuple[Release, ...] = (
     Release("Plasmogamy",
             "The step where two cells join but their nuclei have not yet met. A handoff that has "
             "to complete before anything downstream can happen at all."),
+    Release("Capacitation",
+            "The conditioning a sperm undergoes in the female tract before it can fertilise "
+            "anything: the same cell, competent only once it has adjusted to where it is."),
     Release("Isodisomy",
             "Both copies of a chromosome from one homologue of one parent, visible only as "
             "heterozygosity gone. One copy reads the same way, and only intensity or the array's "
             "own background can say which."),
 )
 
-VERSION = "5.30.1"
-CODENAME = "Isodisomy"
+VERSION = "5.31.0"
+CODENAME = "Capacitation"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

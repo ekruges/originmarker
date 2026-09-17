@@ -12,7 +12,7 @@ import {
   ABSENCE_MARGIN, BAF_EXTREME_FLOOR, CALL_COLLAPSE, COPY_SHIFT_FLOOR, MOSAIC_Z, absenceExplainable,
   agreement,
   classify,
-  emptyTally,
+  emptyTally, COPY_SHIFT_FLOOR_BULK, BULK_SPREAD_MAX,
   HET_BAND_DIPLOID,
   isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
   BAF_CLAMPED_FLOOR, GT_FALLBACK_HAPLOID_MAX, GT_FALLBACK_DIPLOID_MIN,
@@ -897,4 +897,50 @@ console.log('parentage.check.ts OK')
   const clearlyDiploid = classify(mid(5), parentHet, { role: 'paternal' })
   assert.equal(clearlyDiploid.zygosity, 'diploid',
     `heterozygosity above the parent's own is two contributions, got ${clearlyDiploid.zygosity}`)
+}
+
+// --- THE MAGNITUDE FLOOR FOLLOWS THE MATERIAL -----------------------------------------------------
+//
+// COPY_SHIFT_FLOOR is 0.40 because four arrays of ONE biopsy disagree with each other by 0.33, and
+// that disagreement is an amplification artefact. Bulk DNA does not carry it: over 60 arrays of a
+// series stating each sample free of clinical variation, the largest shift on any autosome is
+// 0.070, while a stated trisomy on the same chemistry shifts by 0.299 to 0.357. Held at 0.40, the
+// gate refuses every one of those positives.
+{
+  const tally = (shifted: string, shift: number, wobbleStep = 0.002): Tally => {
+    const t = emptyTally()
+    for (let c = 1; c <= 22; c += 1) {
+      const chrom = String(c)
+      for (let i = 0; i < 300; i += 1) {
+        // A quiet array: chromosomes sit a few thousandths apart, which is what the measured
+        // spread between one bulk array's chromosomes looks like, and the null needs a spread.
+        const wobble = ((c % 7) - 3) * wobbleStep
+        const l2 = (chrom === shifted ? shift : 0) + wobble + ((i % 5) - 2) * 0.0005
+        tallyRow('AA', row(chrom, 1000 + i * 1000, i % 4 === 0 ? 'AB' : 'AA', 0.5, l2), t)
+      }
+    }
+    return t
+  }
+  const gainOf = (r: ReturnType<typeof classify>, chrom: string) =>
+    r.chroms.find((x) => x.chrom === chrom)?.aneuploidy
+
+  // BULK AND QUIET: the stated trisomies of the bulk series, called.
+  assert.equal(gainOf(classify(tally('21', 0.30), 0.17, { bulk: true }), '21'), 'gain',
+    'a stated trisomy shifts by 0.30 on bulk, and a quiet bulk array must call it')
+  assert.equal(gainOf(classify(tally('21', 0.070), 0.17, { bulk: true }), '21'), undefined,
+    'the worst drift measured on a normal bulk array must not be called')
+
+  // NOT READ AS BULK: the drift floor stands however quiet the array is, because an amplified
+  // blastomere can be as quiet as a bulk array.
+  assert.equal(gainOf(classify(tally('21', 0.30), 0.17, { bulk: false }), '21'), undefined)
+  assert.equal(gainOf(classify(tally('21', 0.30), 0.17), '21'), undefined,
+    'an unstated material is treated as amplified, which is the conservative side')
+
+  // READ AS BULK BUT NOISY: single cells amplified by MDA land on the bulk rung through drop-in,
+  // and their own spread is what gives them away.
+  assert.equal(gainOf(classify(tally('21', 0.30, 0.013), 0.17, { bulk: true }), '21'), undefined,
+    'an array with a single cell\'s spread keeps the drift floor even when read as bulk')
+  assert.ok(COPY_SHIFT_FLOOR_BULK >= 2 * 0.070 && COPY_SHIFT_FLOOR_BULK < 0.299)
+  assert.ok(BULK_SPREAD_MAX > 0.0249 && BULK_SPREAD_MAX < 0.0302,
+    'the boundary sits between the largest bulk spread and the smallest amplified one')
 }

@@ -1,13 +1,11 @@
-import { useEffect, type ReactNode } from 'react'
+import { type ReactNode } from 'react'
 import { Alert, Anchor, Button, Code, Group, List, Paper, Table, Text, Title } from '@mantine/core'
 import { CITATIONS, formatCitation } from './citations'
 import { PRIMER_SIZE_CAP, type Health } from './api'
 import {
   FIELD_KEYS, PRIMER_FIELDS, PRIMER_GROUPS, type FieldKey, type GroupKey,
 } from './PrimerOptions'
-import {
-  AvatarMark, DocsSiblingLinks, GithubMark, HOME_URL, REPO_URL, jumpToSection,
-} from './DocsShell'
+import { DocsShell, docsHelpers, type DocSection } from './DocsShell'
 
 const CONTACT = 'kruger.ezra.s@gmail.com'
 
@@ -38,30 +36,30 @@ function Ref({ id }: { id: string }) {
   )
 }
 
-const SECTIONS = [
-  { id: 'what', label: 'What this is' },
-  { id: 'using', label: 'Using the site' },
-  { id: 'not', label: 'Scope and limits' },
-  { id: 'pipeline', label: 'How a panel is built' },
-  { id: 'star', label: 'The star: ESHRE flanking criteria' },
-  { id: 'ld', label: 'Linkage disequilibrium and rare variants' },
-  { id: 'prior', label: 'Expected heterozygosity is a prior' },
-  { id: 'recomb', label: 'Recombination and the genetic map' },
-  { id: 'layerb', label: 'Using the panel in the lab' },
-  { id: 'carrier', label: "The carrier's own genotypes, and choosing a platform" },
-  { id: 'primers', label: 'Primers: design, settings and checking' },
-  { id: 'sources', label: 'Data sources and versions' },
-  { id: 'conventions', label: 'Conventions' },
-  { id: 'freetext', label: 'Free text and the model' },
-  { id: 'limits', label: 'Known limitations' },
-  { id: 'example', label: 'Worked example' },
-  { id: 'api', label: 'API' },
-  { id: 'references', label: 'References' },
+export const SECTIONS: DocSection[] = [
+  { id: 'what', label: 'What this is', group: 'Overview' },
+  { id: 'using', label: 'Using the site', group: 'Overview' },
+  { id: 'not', label: 'Scope and limits', group: 'Overview' },
+  { id: 'pipeline', label: 'How a panel is built', group: 'Method' },
+  { id: 'star', label: 'The star: ESHRE flanking criteria', group: 'Method' },
+  { id: 'ld', label: 'Linkage disequilibrium and rare variants', group: 'Method' },
+  { id: 'prior', label: 'Expected heterozygosity is a prior', group: 'Method' },
+  { id: 'recomb', label: 'Recombination and the genetic map', group: 'Method' },
+  { id: 'layerb', label: 'Using the panel in the lab', group: 'In the lab' },
+  { id: 'carrier', label: "The carrier's own genotypes, and choosing a platform", group: 'In the lab' },
+  { id: 'primers', label: 'Primers: design, settings and checking', group: 'In the lab' },
+  { id: 'sources', label: 'Data sources and versions', group: 'Reference' },
+  { id: 'conventions', label: 'Conventions', group: 'Reference' },
+  { id: 'freetext', label: 'Free text and the model', group: 'Reference' },
+  { id: 'limits', label: 'Known limitations', group: 'Reference' },
+  { id: 'example', label: 'Worked example', group: 'Reference' },
+  { id: 'api', label: 'API', group: 'Reference' },
+  { id: 'references', label: 'References', group: 'Reference' },
 ]
 
 /** A section's number, from its position in SECTIONS. The one place the ordering is stated,
  *  so headings, the nav and every cross-reference all read it rather than restate it. */
-const sectionNo = (id: string) => SECTIONS.findIndex((s) => s.id === id) + 1
+const { Section, SecRef } = docsHelpers('docs', SECTIONS)
 
 /** The constraint each primer group carries that its numbers cannot show. Lifted out of the
  *  form itself: they are worth reading once, not above every row of boxes forever. */
@@ -160,65 +158,20 @@ export function DocsPage({ health }: { health: Health | null }) {
   const mapSource = health?.map_source ?? 'deCODE 2019 sex-averaged (Beagle GRCh38 liftover, plink format)'
   const steps = health?.layer_b_steps?.length ? health.layer_b_steps : FALLBACK_STEPS
 
-  // The hash is a route, not an element id, so the browser will not scroll for us.
-  useEffect(() => {
-    const jump = () => {
-      const id = docSectionFromHash(window.location.hash)
-      if (!id) return
-      jumpToSection(id)
-    }
-    jump()
-    window.addEventListener('hashchange', jump)
-    return () => window.removeEventListener('hashchange', jump)
-  }, [])
-
   return (
-    <div className="om-docs-wrap" style={{ display: 'flex', gap: 24, margin: '0 auto', padding: 12, alignItems: 'flex-start' }}>
-      <nav
-        className="om-docs-nav"
-        aria-label="Documentation sections"
-        style={{ position: 'sticky', top: 12, flex: '0 0 200px', alignSelf: 'flex-start' }}
-      >
-        <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
-          {SECTIONS.map((s, i) => (
-            <li key={s.id}>
-              <a href={docHref(s.id)}>
-                <span className="om-mono" style={{ marginRight: 6 }}>
-                  {i + 1}
-                </span>
-                {s.label}
-              </a>
-            </li>
-          ))}
-        </ol>
-        <Text size="xs" c="dimmed" mt={10} pl={8} className="om-mono">
-          {build} · {gnomad} · Ensembl {ensembl}
-        </Text>
-        <div className="om-docs-links">
-          <a href={REPO_URL} target="_blank" rel="noreferrer" aria-label="Source on GitHub" title="Source on GitHub">
-            <GithubMark />
-          </a>
-          <a href={HOME_URL} aria-label="ezrakruger.cc" title="ezrakruger.cc">
-            <AvatarMark />
-          </a>
-        </div>
-        <DocsSiblingLinks
-          siblings={[
-            { label: 'Syngamy documentation', href: '#/syngamy-docs' },
-            { label: 'Progenitor documentation', href: '#/progenitor-docs' },
-          ]}
-        />
-      </nav>
-
-      <article className="om-docs-body" style={{ flex: 1, minWidth: 0 }}>
-        <Title order={1} mb={4}>
-          OriginMarker documentation
-        </Title>
-        <Text size="xs" c="dimmed" mb="md">
-          Candidate flanking-SNP panels for PGT-M linkage, built from population data. Research decision
-          support, not a diagnostic.
-        </Text>
-
+    <DocsShell
+      prefix="docs"
+      sections={SECTIONS}
+      title="OriginMarker documentation"
+      subtitle={'Candidate flanking-SNP panels for PGT-M linkage, built from population data. '
+        + 'Research decision support, not a diagnostic.'}
+      health={health}
+      navNote={`${build} · ${gnomad} · Ensembl ${ensembl}`}
+      siblings={[
+        { label: 'Syngamy documentation', href: '#/syngamy-docs' },
+        { label: 'Progenitor documentation', href: '#/progenitor-docs' },
+      ]}
+    >
         <Section id="what" title="What this is">
           <Text mb={8}>
             A carrier parent transmits either the wild-type or the mutant allele. After an embryo is
@@ -1547,35 +1500,13 @@ r.recommended                   # balanced, both-sided candidate panel`}
           </Button>
         </Group>
 
-        <Text size="xs" c="dimmed" mt="lg" pt={8} style={{ borderTop: '1px solid var(--om-border)' }}>
-          {health?.disclaimer ?? FALLBACK_DISCLAIMER}
-        </Text>
-      </article>
-    </div>
+      <Text size="xs" c="dimmed" mt="lg" pt={8} style={{ borderTop: '1px solid var(--om-border)' }}>
+        {health?.disclaimer ?? FALLBACK_DISCLAIMER}
+      </Text>
+    </DocsShell>
   )
 }
 
-/**
- * One numbered section. The number comes from SECTIONS order, exactly as a citation's comes
- * from CITATIONS order: there is one ordering, not two, so the nav and the heading cannot
- * disagree and inserting a section renumbers everything below it for free.
- */
-function Section({ id, title, children }: { id: string; title: string; children: ReactNode }) {
-  return (
-    <section id={id} style={{ scrollMarginTop: 12, marginBottom: 22 }}>
-      <Title order={2} mb={6} pb={3} style={{ borderBottom: '1px solid var(--om-border)' }}>
-        {sectionNo(id)} · {title}
-      </Title>
-      {children}
-    </section>
-  )
-}
-
-/** A cross-reference in prose. Written as an id, rendered as whatever number that section
- *  currently holds, so a renumber carries it rather than stranding it. */
-const SecRef = ({ id }: { id: string }) => (
-  <Anchor href={docHref(id)}>section {sectionNo(id)}</Anchor>
-)
 
 /** Scroll box for tables, which do not fit the prose column's measure. */
 const Wide = ({ children }: { children: ReactNode }) => (

@@ -9,6 +9,139 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.31.0 "Capacitation"
+
+**Two thresholds were measured on one chemistry and applied to every other, and each refused real
+material.** A newborn's own gDNA was refused as "not a genome". Every trisomy on bulk DNA was
+refused as too small to be a chromosome. Both are now properties of the panel and the material in
+front of the tool.
+
+### The diploid ceiling refused undamaged bulk arrays
+
+The stage inference rejected any array over 25% heterozygous, a figure derived from one panel's
+16.8% rate plus drop-in. Heterozygosity is a property of which markers a panel carries:
+
+| panel | bulk heterozygosity |
+|---|---|
+| Axiom GPL28377 | 0.141 to 0.170 |
+| Affymetrix 250K Nsp GPL3718 | 0.201 to 0.308 |
+| Illumina CytoSNP-12 GPL13829 | 0.301 to 0.316 |
+
+On two of the three, a normal bulk array sits above the ceiling. A newborn's gDNA at a 96.9% call
+rate and 30.8% heterozygous read `failed`, and so would every bulk parent of the twelve PGD
+families. The ceiling and the dropout anchor now scale with the parental array's heterozygosity,
+which is measured on the same panel as the sample. They scale up only, because a parent's own
+dropout can only depress its own figure, and they are capped at twice the anchor.
+
+**The stage rungs are deliberately not scaled.** Scaling those too moved one bulk array of the
+stress corpus onto an amplified rung, where the relationship verdict is withheld, and the tool
+stopped warning that an array had been put in its own parental slot on one run in eight. The battery
+caught it; a check now pins both halves.
+
+This also corrects a claim in the validation record. Two of four two-person mixtures were said to be
+refused by the stage inference. They were refused by this ceiling, which also refuses undamaged
+arrays on that panel, so it was never evidence of mixture detection.
+
+### The magnitude floor refused every trisomy on bulk DNA
+
+A whole-chromosome call needs both a significant z and a shift of at least 0.40 log2. That 0.40 is
+there because four arrays of ONE biopsy disagree with each other by 0.33, which is an amplification
+artefact. Bulk DNA does not carry it. Measured on Affymetrix CytoScan 750K miscarriage material:
+
+| | |
+|---|---|
+| a stated trisomy shifts by | 0.299 to 0.357 |
+| one array's own spread between chromosomes | 0.0155 |
+| largest drift on any autosome of 60 stated-normal arrays | 0.070 |
+
+So the floor sat above every real positive on the chemistry. It now follows the material: 0.40
+amplified, 0.14 on bulk, the latter twice the worst measured drift and under half the weakest
+positive.
+
+| stated, 189 bulk arrays | 5.30.1 | 5.31.0 |
+|---|---|---|
+| trisomy 13 | 0/21 | 20/21 |
+| trisomy 16 | 0/20 | 18/20 |
+| trisomy 18 | 0/7 | 7/7 |
+| trisomy 21 | 1/18 | 18/18 |
+| trisomy 22 | 0/20 | 20/20 |
+| **all gains** | **1/86** | **83/86, 96.5%** |
+| triploidy | 20/23 | 20/23 |
+| 45,X | 0/20 | 17/20 |
+| stated free of variation, clean | 58/58 | 58/58 |
+
+### Three series, and a reader for a fourth file format
+
+GSE207887 (189 bulk miscarriage arrays), GSE163799 (23 with a stated microduplication) and GSE21732
+(48 embryos of a balanced t(2;20) carrier with both parents, one published karyotype per sample).
+`audit/cytoscan/convert.py` reads the Affymetrix Command Console binary that carries them: log2
+ratio, genotype calls, and a B-allele frequency computed by clustering each marker's raw A and B
+signals across the cohort, because the file's own BAF column is empty.
+
+Triploidy is emitted on real material for the first time: 20 of 23 stated cases, with no false
+triploidy on any of the 58 negatives.
+
+### Chromosome X was being written out as chromosome Y
+
+`audit/cytoscan/convert.py` mapped the numeric chromosome codes in a Command Console file with a
+fixed table: 23 to X, 24 to Y, 25 to MT. Those numbers are not a convention. A CytoScan 750K file
+numbers chrX as 24 and chrY as 25 and carries no 23 at all, and states exactly that in its own
+`Chromosomes/Summary` dataset. So every chrX marker of both CytoScan series was written out as
+chrY, and chrY itself was written as mitochondrial. The converter now reads the names the file
+states and records them beside the markers.
+
+Autosomes were never affected, and no autosomal result moves: gains stay 83/86, triploidy 20/23,
+the 58 negatives stay clean. What was affected was everything that reads a sex chromosome, which on
+that corpus was reading the wrong one.
+
+chrY carries no genotype calls on that platform: its genotyping algorithm calls chrX and the
+autosomes and leaves chrY alone. Its 4,135 copy-number probes are now carried through staging as
+intensity with no genotype, rather than dropped for having no call.
+
+### One X is a male or a monosomy, and chrY is what decides
+
+The sex call read chrX heterozygosity alone. A 46,XY male and a 45,X female both carry one X and
+neither is heterozygous outside the pseudoautosomal region, so every 45,X read as male and no
+monosomy X could be reported. `web/src/sexChromosome.ts` measures the copy number and consults
+chrY, and chrX now carries an intensity measurement like any other chromosome.
+
+| measured on 189 bulk arrays with a stated karyotype | log2 |
+|---|---|
+| chrX, one copy (20 stated 45,X and 26 normal males) | -0.49 to -0.63 |
+| chrX, two copies (33 normal females) | -0.05 to +0.01 |
+| chrY minus chrX, normal male | +0.09 |
+| chrY minus chrX, stated 45,X | -1.78 |
+| chrY minus chrX, normal female | -2.25 |
+
+chrY is judged against the array's OWN chrX rather than an absolute level. The threshold measured
+on a panel that genotypes chrY sits inside the male cluster on a panel that does not, and calling
+it absolutely named four normal males a monosomy. Both sex chromosomes are single-copy in a male,
+so the array carries its own reference.
+
+45,X is now called on 17 of 20 stated cases, with no array of the other 144 called a monosomy. The
+three not called read TWO X copies with female heterozygosity, 0.79 to 0.85 of their own autosomal
+rate: whatever the karyotype of the pregnancy, those three arrays are not reading one X.
+
+Three gates stay shut. The question is not asked of material that is not expected to carry two of
+each chromosome, so a pronucleus carrying one X is not a monosomy. The intensity-only chrY path is
+open to bulk DNA only, because the array that reads chrY at -0.10 while genotyping none of it is an
+amplified single cell. And where chrY cannot be measured at all, the tool reports one X and says
+that a male karyotype and a monosomy are not separable on that file, rather than naming the
+commoner one.
+
+### Limits that now carry numbers
+
+- A segment under 2,400 markers is not reported, which is 8.3 Mb on the densest panel here and
+  34.3 Mb on the sparsest. The 15 stated microduplications are 0.6 to 2.6 Mb, so 0 of 15 are
+  reported and none could be. On 43 further bulk arrays stated to carry a pathogenic CNV of
+  unstated size, the tool reports an imbalance on 8 and a SEGMENT on 1. The class is exercised on
+  stated-positive material for the first time, and what it measures is the floor.
+- A sex chromosome constitution is reported only on material expected to be diploid, and 47,XXX
+  and 47,XXY are emitted by the same rule but have no stated case in any corpus here, so neither
+  has been measured.
+- On GSE21732 the tool refuses 45 of 51 arrays on call rate, calls 2 of 6 listed whole-chromosome
+  events on the rest, and reports nothing on the four normal and balanced-carrier arrays.
+
 ## 5.30.1 "Isodisomy"
 
 **Clustered rates now carry both ends of their interval.** The uncertainty record said that a

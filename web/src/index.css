@@ -507,3 +507,59 @@ body {
 .om-docs-nav:hover::-webkit-scrollbar-thumb {
   background: var(--om-border);
 }
+
+/* The part a documentation section belongs to, in the nav and above the first section of each
+   part. Plain text in the page's own weight scale. */
+.om-docs-part {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--om-text-dim);
+  margin: 14px 0 2px;
+}
+.om-docs-nav .om-docs-part {
+  margin: 12px 0 2px;
+  padding-left: 8px;
+}
+.om-docs-nav li:first-child .om-docs-part {
+  margin-top: 0;
+}
+.om-docs-body .om-docs-part {
+  margin-top: 26px;
+}
+
+/* The documentation index: a part name, then that part's sections running on. */
+.om-doc-index {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 13px;
+  line-height: 1.55;
+}
+.om-doc-index th {
+  text-align: left;
+  vertical-align: top;
+  font-weight: 600;
+  color: var(--om-text-dim);
+  white-space: nowrap;
+  padding: 3px 16px 3px 0;
+  width: 150px;
+}
+.om-doc-index td {
+  padding: 3px 0;
+  border-top: 1px solid var(--om-border);
+}
+.om-doc-index tr:first-child td {
+  border-top: none;
+}
+.om-doc-index td a {
+  display: inline-block;
+  margin-right: 16px;
+  text-decoration: none;
+  color: var(--mantine-color-anchor);
+}
+.om-doc-index td a:hover {
+  text-decoration: underline;
+}
+.om-doc-index td a .om-mono {
+  color: var(--om-text-dim);
+  font-size: 11px;
+}

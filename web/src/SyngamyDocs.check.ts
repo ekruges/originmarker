@@ -13,7 +13,7 @@ import { CITATIONS } from './citations.ts'
 
 const src = readFileSync(new URL('./SyngamyDocs.tsx', import.meta.url), 'utf8')
 
-const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+") \}/g)].map((m) => m[1])
+const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+")(?:, group: '[^']+')? \}/g)].map((m) => m[1])
 const heads = [...src.matchAll(/<Section id="([\w-]+)" title="/g)].map((m) => m[1])
 
 assert.ok(nav.length > 0 && heads.length > 0, 'parsed nothing: the regexes have drifted')
@@ -65,3 +65,12 @@ assert.ok(prog.includes("href: '#/syngamy-docs'"), 'the Progenitor docs must lin
 
 console.log(`SyngamyDocs.check OK (${nav.length} sections, ${cited.length} citation markers, `
   + 'nav == headings, cross-refs and citations resolve)')
+
+// EVERY SECTION BELONGS TO A PART. The nav and the body both render the part above the first
+// section that carries it, so a section without one silently joins whatever came before it.
+{
+  const entries = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+")(, group: '[^']+')? \}/g)]
+  for (const [, id, group] of entries) {
+    assert.ok(group, `${id} has no group: it would fold into the part above it`)
+  }
+}

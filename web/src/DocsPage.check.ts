@@ -14,7 +14,7 @@ const src = readFileSync(new URL('./DocsPage.tsx', import.meta.url), 'utf8')
 // Either quote style: a label containing an apostrophe has to be double-quoted, and a
 // parser that only read single quotes would drop that entry and report it as a Section with
 // no nav entry, which is a confusing way to say "your label has an apostrophe in it".
-const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+") \}/g)].map((m) => m[1])
+const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+")(?:, group: '[^']+')? \}/g)].map((m) => m[1])
 const heads = [...src.matchAll(/<Section id="([\w-]+)" title="/g)].map((m) => m[1])
 
 assert.ok(nav.length > 0 && heads.length > 0, 'parsed nothing: the regexes have drifted')
@@ -40,3 +40,12 @@ for (const [, id] of src.matchAll(/<SecRef id="([\w-]+)" \/>/g)) {
 assert.ok(nav.includes('primers'), "the primer notes link to '#/docs/primers'")
 
 console.log(`DocsPage.check OK (${nav.length} sections, nav == headings, cross-refs resolve)`)
+
+// EVERY SECTION BELONGS TO A PART. The nav and the body both render the part above the first
+// section that carries it, so a section without one silently joins whatever came before it.
+{
+  const entries = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+")(, group: '[^']+')? \}/g)]
+  for (const [, id, group] of entries) {
+    assert.ok(group, `${id} has no group: it would fold into the part above it`)
+  }
+}

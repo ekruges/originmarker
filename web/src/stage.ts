@@ -177,6 +177,47 @@ export function dropoutFromReplicates(discordantFraction: number): number {
   return phi / (2 - phi)
 }
 
+/**
+ * Bulk heterozygosity of THE PANEL IN FRONT OF THE TOOL, taken from the parental array.
+ *
+ * Every rung in BOUNDS and every ceiling here is a heterozygosity, and heterozygosity is a property
+ * of which markers a panel carries. Measured on bulk arrays of this corpus:
+ *
+ *     panel                       bulk heterozygosity
+ *     Axiom (GPL28377)            0.141 to 0.170
+ *     Affymetrix 250K Nsp         0.201 to 0.308
+ *     Illumina CytoSNP-12         0.301 to 0.316
+ *
+ * Applied as the Axiom figure everywhere, MAX_DIPLOID_HET sits BELOW the normal bulk range of two
+ * of those three, so an undamaged bulk array on either is refused as not a stage: a newborn's own
+ * gDNA at a 96.9% call rate and 30.8% heterozygous reads `failed`. The parental array is on the
+ * same panel as the sample, so its heterozygosity anchors the table to the panel in use.
+ *
+ * SCALED UP ONLY, AND CAPPED. A parent's own dropout can only depress its heterozygosity, so a
+ * ratio under one is evidence about that array rather than about the panel and the table is left
+ * alone. The cap is there because one bad parental array also reads high: the richest panel
+ * measured here is 1.85x the anchor.
+ *
+ * WHAT IT SCALES IS THE CEILING AND THE DROPOUT ANCHOR, NOT THE RUNGS. See inferStage.
+ */
+/**
+ * Call rate an array must reach before its heterozygosity is allowed to anchor the panel.
+ *
+ * An array that is itself heavily dropped out says nothing about which markers a panel carries.
+ * The case that forces this is an operator dropping the SAMPLE into the parental slot: the sample
+ * then anchors its own ceiling, and an array at 28 to 31% heterozygous, which on its panel is a
+ * failed reaction, certifies itself as ordinary. Bulk arrays across the four panels measured here
+ * call 0.81 to 0.99; the arrays that wrongly inflated the anchor called 0.53 to 0.59.
+ */
+export const PANEL_ANCHOR_CALL_RATE = 0.80
+
+export const PANEL_SCALE_MAX = 2.0
+export const panelScale = (panelHeterozygosity?: number): number => (
+  Number.isFinite(panelHeterozygosity as number) && (panelHeterozygosity as number) > 0
+    ? Math.min(PANEL_SCALE_MAX, Math.max(1, (panelHeterozygosity as number) / BULK_HETEROZYGOSITY))
+    : 1
+)
+
 const BOUNDS: { stage: Stage, minHet: number, dropout: number, templates: string, floor: number }[] = [
   { stage: 'bulk', minHet: 0.158, dropout: 0.013, templates: '~10^6', floor: 100 },
   { stage: 'trophectoderm', minHet: 0.145, dropout: 0.050, templates: '10-20', floor: 100 },
@@ -241,6 +282,8 @@ export function inferStage(
   opts: {
     callFloor?: number, maxDiploidHet?: number, haploidMaxHet?: number,
     bulkHeterozygosity?: number, bandDiploidCertain?: number,
+    /** Bulk heterozygosity of this panel, which scales every boundary below. See panelScale. */
+    panelHeterozygosity?: number,
     /** BAF spread above which the bulk rung is refused. See BULK_MAX_BAF_SD. */
     bulkMaxBafSd?: number,
   } = {},
@@ -249,9 +292,17 @@ export function inferStage(
   const call = profile.callRate
   const band = profile.hetBand
   const callFloor = opts.callFloor ?? QC_CALL_FLOOR
-  const maxDiploid = opts.maxDiploidHet ?? MAX_DIPLOID_HET
+  // An explicit threshold from a caller is used as given; only the defaults follow the panel.
+  const scale = panelScale(opts.panelHeterozygosity)
+  // THE CEILING AND THE DROPOUT ANCHOR FOLLOW THE PANEL; THE RUNGS DO NOT, and that asymmetry is
+  // measured rather than chosen. The ceiling is the defect: it refuses undamaged bulk arrays on a
+  // rich panel. The rungs decide which MATERIAL a sample is treated as, and scaling them moved one
+  // bulk array of the stress corpus onto an amplified rung, where the relationship verdict is
+  // withheld: the tool then failed to warn that an array had been put in its own parental slot, on
+  // one run in eight. A gate that scales a ceiling must not quietly disarm a safety check.
+  const maxDiploid = opts.maxDiploidHet ?? MAX_DIPLOID_HET * scale
   const haploidMax = opts.haploidMaxHet ?? HAPLOID_MAX_HET
-  const bulkHet = opts.bulkHeterozygosity ?? BULK_HETEROZYGOSITY
+  const bulkHet = opts.bulkHeterozygosity ?? BULK_HETEROZYGOSITY * scale
   const bandCertain = opts.bandDiploidCertain ?? BAND_DIPLOID_CERTAIN
 
   if (!Number.isFinite(h) || !Number.isFinite(call)) {

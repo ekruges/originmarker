@@ -48,6 +48,15 @@ export const AvatarMark = () => (
 export interface DocSection {
   id: string
   label: string
+  /**
+   * The part of the page this section belongs to.
+   *
+   * A reference page of thirty-seven sections read as one undifferentiated list, in the nav and in
+   * the body. The group is carried on the section rather than in a separate table so a section
+   * cannot be added to one and forgotten by the other, and the numbering stays global: section 21
+   * is section 21 wherever it sits.
+   */
+  group?: string
 }
 
 export interface DocSibling {
@@ -103,10 +112,19 @@ export function docsHelpers(prefix: string, sections: DocSection[]) {
   const href = (id: string): string => `#/${prefix}/${id}`
   const no = (id: string): number => sections.findIndex((s) => s.id === id) + 1
 
+  // The first section of each group carries the group's name above its heading, so the body has
+  // the same shape as the nav rather than running on flat.
+  const opensGroup = (id: string): string | null => {
+    const i = sections.findIndex((s) => s.id === id)
+    if (i < 0 || !sections[i].group) return null
+    return i === 0 || sections[i - 1].group !== sections[i].group ? sections[i].group as string : null
+  }
+
   const Section = ({ id, title, children }: {
     id: string; title: string; children: ReactNode
   }) => (
     <section id={id} style={{ scrollMarginTop: 12, marginBottom: 22 }}>
+      {opensGroup(id) && <div className="om-docs-part">{opensGroup(id)}</div>}
       <Title order={2} mb={6} pb={3} style={{ borderBottom: '1px solid var(--om-border)' }}>
         {no(id)} · {title}
       </Title>
@@ -121,12 +139,16 @@ export function docsHelpers(prefix: string, sections: DocSection[]) {
   return { Section, SecRef, href, no }
 }
 
-export function DocsShell({ prefix, sections, title, subtitle, health, siblings, children }: {
+export function DocsShell({
+  prefix, sections, title, subtitle, health, siblings, navNote, children,
+}: {
   prefix: string
   sections: DocSection[]
   title: string
   subtitle: ReactNode
   health: Health | null
+  /** What the nav prints under the section list. Defaults to the build's version and codename. */
+  navNote?: ReactNode
   /** The other documentation pages. Each is a button; the name is the whole of it. */
   siblings: DocSibling[]
   children: ReactNode
@@ -169,6 +191,9 @@ export function DocsShell({ prefix, sections, title, subtitle, health, siblings,
         <ol style={{ listStyle: 'none', margin: 0, padding: 0 }}>
           {sections.map((s, i) => (
             <li key={s.id}>
+              {(i === 0 || sections[i - 1].group !== s.group) && s.group && (
+                <div className="om-docs-part">{s.group}</div>
+              )}
               <a href={`#/${prefix}/${s.id}`}>
                 <span className="om-mono" style={{ marginRight: 6 }}>{i + 1}</span>
                 {s.label}
@@ -177,7 +202,8 @@ export function DocsShell({ prefix, sections, title, subtitle, health, siblings,
           ))}
         </ol>
         <Text size="xs" c="dimmed" mt={10} pl={8} className="om-mono">
-          {health ? `${health.version} · ${health.release_codename}` : 'browser-only'} · in-tab
+          {navNote
+            ?? `${health ? `${health.version} · ${health.release_codename}` : 'browser-only'} · in-tab`}
         </Text>
         <div className="om-docs-links">
           <a
@@ -194,7 +220,8 @@ export function DocsShell({ prefix, sections, title, subtitle, health, siblings,
       </nav>
 
       <article className="om-docs-body" style={{ flex: 1, minWidth: 0 }}>
-        <Title order={1} mb={4}>{title}</Title>
+        <Anchor href="#/docs" size="xs" c="dimmed">All documentation</Anchor>
+        <Title order={1} mb={4} mt={4}>{title}</Title>
         <Text size="xs" c="dimmed" mb="md">{subtitle}</Text>
         {children}
 

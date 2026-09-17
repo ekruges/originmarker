@@ -22,11 +22,14 @@ Supersedes `validation-2.0.md`, which covers the 2.0 inference path only.
 | GSE20975 | 82 | single cleavage-stage blastomeres | 24-chromosome karyotype per blastomere, from the submitters' array method |
 | GSE18932 | 206 | blastocyst biopsies, Coriell cell lines, two-person mixtures | karyotype per sample; Coriell isodisomy karyotypes; stated mixing proportions |
 | GSE12713 | 100 | complete hydatidiform moles | monospermic, stated by the series for its whole collection |
+| GSE207887 | 189 of 564 | miscarriage chorionic villus and fetal skin, BULK | one stated abnormality per sample, trisomies, 45,X, triploidy, or free of variation |
+| GSE163799 | 23 | fetal amniotic and villus, BULK | a stated microduplication or microdeletion per sample, with its band |
+| GSE21732 | 51 | embryos of a balanced t(2;20) carrier, plus both parents and the newborn | one ISCN karyotype per sample, agreed by real-time PCR, SNP array and FISH |
 | laboratory corpus | 884 | mixed | targeted loci, from experimental design |
 
-Roughly 2,500 arrays on five array platforms (GPL28377, GPL6985, GPL8855, GPL13829, GPL3718),
-spanning about fifteen years of instrument generations. The three GPL3718 series were submitted by
-RMA of New Jersey (GSE20975, GSE18932) and Kyushu University (GSE12713).
+Roughly 2,800 arrays on six array platforms (GPL28377, GPL6985, GPL8855, GPL13829, GPL3718,
+GPL18637), spanning about twenty years of instrument generations, from four laboratories on three
+continents.
 
 ## What is established
 
@@ -188,10 +191,12 @@ CVCL_7279), with each line pure as its own control:
 | | arrays | stage refused | sex call ambiguous | either |
 |---|---|---|---|---|
 | pure | 2 | 0 | 0 | 0 |
-| mixed | 4 | 2 | 3 | 3 |
+| mixed | 4 | 0 | 3 | 3 |
 
-Two signals respond to a mixture without identifying one, and the mixture that is 75% female trips
-neither. No mixture gate ships, because none can be validated here: checks for excess heterozygosity
+One signal responds to a mixture without identifying one, and the mixture that is 75% female trips
+nothing. Two of these mixtures were refused by the stage inference until 5.31.0, and that refusal is
+not evidence of anything: the ceiling refusing them also refuses undamaged bulk arrays on this
+panel. No mixture gate ships, because none can be validated here: checks for excess heterozygosity
 detect only contamination above 5 to 10%, and the array method reads B-allele frequencies against
 population allele frequencies (Jun et al. 2012, Am J Hum Genet 91:839). Every sample reports the
 mixture question as not tested.
@@ -233,6 +238,123 @@ duplication, triploidy, and a segmental change introduced by the gamete.
 The full regression battery, 19 harness runs on the same inputs, reads identically across the two
 releases in 17 of 19 logs. The other two differ only by the new mixture gate and by a smaller
 serialised result where the removed findings used to be.
+
+### Two constants were platform properties
+
+Both were measured on one chemistry and applied to every other, and each refused real material:
+
+| panel | bulk heterozygosity |
+|---|---|
+| Axiom GPL28377 | 0.141 to 0.170 |
+| Affymetrix 250K Nsp GPL3718 | 0.201 to 0.308 |
+| Illumina CytoSNP-12 GPL13829 | 0.301 to 0.316 |
+
+The stage inference refused any array over 25% heterozygous as "not a genome", a figure derived from
+the Axiom rate plus drop-in. On the other two panels an undamaged bulk array sits above it: a
+newborn's own gDNA, 96.9% called and 30.8% heterozygous, was refused. The ceiling and the dropout
+anchor now follow the panel, taken from the parental array, which is on the same panel as the
+sample. They scale up only, because a parent's own dropout can only depress its heterozygosity, and
+they are capped at twice the anchor.
+
+The stage RUNGS are deliberately left alone. Scaling those as well moved one bulk array of the
+stress corpus onto an amplified rung, where the relationship verdict is withheld, and the tool
+stopped warning that an array had been placed in its own parental slot on one run in eight. That
+regression was caught by the battery and is pinned by a check.
+
+### A published method's own calls, on its own data
+
+GSE21732 is a PGD case report: 48 embryos of a mother carrying a balanced t(2;20), both parents
+arrayed, one ISCN karyotype per sample agreed by real-time PCR, SNP array and FISH. It is the only
+set here whose answers were produced by another method rather than by a bench dissection.
+
+| | |
+|---|---|
+| arrays the tool refuses, at 19% to 43% call rate | 45 of 51 |
+| listed whole-chromosome events called, on accepted arrays | 2 of 6 |
+| normal and balanced-carrier arrays, no call anywhere | 4 of 4 |
+| derivative chromosomes, which are maternal by the parents' karyotypes | 0 of 4 reported |
+
+The comparison is narrow because the material is not: these are 2010 arrays of trophectoderm
+biopsies and arrested whole embryos, and the tool refuses most of them on call rate. What it does
+establish is that on the arrays it accepts it invents nothing, and that the derivative segments,
+which are 20 to 90 Mb of imbalance, are not reported: this platform's segment floor is 26.1 Mb and
+those events sit near it.
+
+### Bulk material, with the answer stated per sample
+
+Every sensitivity figure in this record used to come from amplified single cells. GSE207887 is
+miscarriage material on Affymetrix CytoScan 750K, unamplified, with one stated abnormality per
+sample:
+
+| stated | called |
+|---|---|
+| trisomy 13 | 20 of 21 |
+| trisomy 16 | 18 of 20 |
+| trisomy 18 | 7 of 7 |
+| trisomy 21 | 18 of 18 |
+| trisomy 22 | 20 of 20 |
+| **whole-chromosome gains, all** | **83 of 86, 96.5% [90.2%, 98.8%]** |
+| triploidy | 20 of 23, 87.0% [67.9%, 95.5%] |
+| stated free of clinical variation | **58 of 58 clean**, 2 refused |
+| 45,X | 17 of 20, 85.0% [64.0%, 94.8%] |
+
+Triploidy had never been emitted on a real array before this series, and it is called here with no
+false triploidy on any of the 58 negatives.
+
+The 45,X row read 0 of 20 through 5.30.1, for two reasons that were both fixable. The converter
+mapped the file's numeric chromosome codes with a fixed table and wrote every chrX marker out as
+chrY; the file states its own names and the converter now reads them. And the sex call read chrX
+heterozygosity alone, which is the same on a 46,XY male and a 45,X female, so one X always read
+male. chrX is now measured for copy number and chrY is consulted, against the array's own chrX
+rather than an absolute level, because both sex chromosomes are single-copy in a male and an
+absolute cut taken from another panel called four normal males a monosomy.
+
+| measured on the 189 stated-karyotype arrays | log2 |
+|---|---|
+| chrX, one copy (20 stated 45,X and 26 normal males) | -0.49 to -0.63 |
+| chrX, two copies (33 normal females) | -0.05 to +0.01 |
+| chrY minus chrX, normal male | +0.09 |
+| chrY minus chrX, stated 45,X | -1.78 |
+| chrY minus chrX, normal female | -2.25 |
+
+No array of the other 144 is called a monosomy. The three stated 45,X not called read two X copies
+with female heterozygosity, 0.79 to 0.85 of their own autosomal rate, so those three arrays are not
+reading one X whatever the pregnancy was karyotyped as.
+
+### 43 arrays stated to carry a pathogenic CNV
+
+The same series states "Chromosomal deletions/duplications" on 43 further arrays and says neither
+which chromosome nor how big, so the only scoreable question is whether the tool reports an
+imbalance at all. It does on 8 of 43, 18.6% [9.7%, 32.6%], and only ONE of those eight is a
+segment. The other seven are five whole-chromosome gains and two sex chromosome constitutions,
+which may be the stated event or may be a different event on the same array; the label cannot say.
+
+That single segment is the honest measure of this class on bulk material. Clinical CNVs of this
+kind run 0.6 to 2.6 Mb where a companion series states their size, and the smallest segment this
+panel can report is 26 Mb. The arm measures the floor, not the detector.
+
+Through 5.30.1 the gains row read 1 of 86. The magnitude gate demanded 0.40 log2 before calling a
+gain, a figure measured from four arrays of one biopsy disagreeing with each other by 0.33, which is
+an amplification artefact. On this chemistry a stated trisomy shifts by 0.299 to 0.357, the spread
+between one array's own chromosomes is 0.0155, and the largest drift on any autosome of the 60
+negatives is 0.070. The floor now follows the material.
+
+### A segment has to be big enough to be seen
+
+The segment scanner reports nothing under 2,400 markers, which is a different number of megabases on
+every panel:
+
+| panel | marker spacing | smallest reportable segment |
+|---|---|---|
+| Axiom GPL28377 | 3.5 kb | 8.3 Mb |
+| Illumina CytoSNP-12 GPL13829 | 9.9 kb | 23.9 Mb |
+| Affymetrix 250K Nsp GPL3718 | 10.9 kb | 26.1 Mb |
+| CytoScan 750K GPL18637, genotyped markers | 14.3 kb | 34.3 Mb |
+
+GSE163799 states a microduplication per sample, 0.6 to 2.6 Mb, which is three to forty times under
+that floor: **0 of 15 are reported**, and none could be. Segmental duplication therefore remains a
+class this tool has never emitted on real material. The one absence-of-heterozygosity case in that
+series, stated on a whole chromosome, is reported.
 
 ## The detection limit
 
@@ -295,6 +417,9 @@ one, and the truth lies between them.
 | heterozygosity-loss findings, one-complement genomes | 0/144 | 0% to 2.6% | one per array |
 | sensitivity, single cells, shipped point | 0/60 | 0% to 6.0% | one per array |
 | reconstruction verdicts correct | 35/41 | 71.6% to 93.1% | one per array |
+| whole-chromosome gains, bulk | 83/86 | 90.2% to 98.8% | one per array |
+| triploidy, bulk | 20/23 | 67.9% to 95.5% | one per array |
+| bulk negatives clean | 58/58 | 93.8% to 100% | one per array |
 
 Two arms that were marked clustered are not: the mirrored-loss arms are twelve arrays carrying one
 constructed event each, so their intervals stand as printed. Narrowing the genuinely clustered rows
@@ -328,6 +453,14 @@ The harnesses emit the pooled figure today, which is the open item rather than a
   run states both.
 - **Whole-chromosome sensitivity cannot be scored on the karyotyped GPL3718 single cells.** All 47
   listed monosomies sit under the call-rate floor.
+- **A sex chromosome constitution is reported only on material expected to be diploid**, and only
+  where chrY can be measured. Where a panel carries no chrY the tool reports one X and states that
+  a male karyotype and a monosomy X are not separable on that file. 47,XXX and 47,XXY are emitted by
+  the same rule and have no stated case in any corpus here, so neither has been measured.
+- **A segment under 2,400 markers is not reported**, which is 8.3 Mb on the densest panel here and
+  34.3 Mb on the sparsest. Clinical microduplications are 0.6 to 2.6 Mb and cannot be seen at all.
+- **Segmental duplication has still never been emitted on real material**, and neither has a
+  segmental change introduced by the gamete.
 
 ## How the evidence is produced
 
@@ -336,13 +469,38 @@ against fixtures. The harnesses that carry a scored answer are `detection-truth`
 `attribution-truth`, `detection-limit`, `handoff-truth`, `mole-truth`, `blastomere-truth`,
 `replicates`, `zygote-origin`, `parental-power`, `progenitor`, `meiotic-segregation`,
 `duplicate-truth`, `pgd-families`, `karyotype-truth`, `cellline-truth`, `mole-genotype`,
-`upd-premise`, `coverage`, and the two on the second public series.
+`upd-premise`, `coverage`, `cytoscan-truth`, `gse21732-truth`, and the two on the second public
+series.
 
 Fifteen harness defects were found and corrected during this work, most of them the same mistake:
 a negative set built from material that was not actually negative. Two of them produced clean-looking
 results that were reported before being caught. Of the last two, one scored a refusal as a miss,
 which read 47 refused monosomies as 47 missed ones, and the other took a cell line's sex from a
-series field that contradicts itself rather than from Cellosaurus. The rule that now governs every arm is that a
+series field that contradicts itself rather than from Cellosaurus. Two more were in a format
+converter rather than a harness. The reader for Affymetrix CytoScan files emitted empty marker
+names, so every row inherited one position; and it mapped the numeric chromosome codes with a fixed
+table, writing every chrX marker out as chrY on 214 arrays. The first was caught on the first file,
+because a converter is checked against the file it came from before anything is scored. The second
+was not, and it stood until chromosome X was measured for its own sake: a mislabelled chromosome
+reads as a plausible result on every array that does not depend on it, and no autosomal number
+moved. Both are why the converter now takes the chromosome names from the file's own header rather
+than from an assumption about the format. The rule that now governs every arm is that a
 dataset enters the corpus only if its answer is retrievable per sample, from the source, before any
 analysis runs. A 5,062-sample series was rejected under it, because its answers live in a paper
 rather than in the data.
+
+## What no public dataset here supplies
+
+Four things the tool would be measured better against, none of which exist in the corpora above.
+
+- **Embryo arrays with both parents.** Of the three public embryo series, only GSE148488 genotyped
+  the parents, so parent of origin is answerable on 69 arrays of 355. Every other embryo array here
+  can be read for copy number and not for whose copy it is.
+- **A sample sheet for the lab's own 884 arrays**, stating stage, embryo and parents. Without it
+  those arrays can be scored one at a time and cannot be grouped: mechanism needs two units known
+  to be one embryo, and the array cannot say which embryo it came from.
+- **A stated 47,XXX or 47,XXY.** Both are emitted by the sex chromosome rule and neither has a
+  stated case in any corpus here, so neither has been measured.
+- **Bulk arrays with stated segmental imbalances and coordinates, at a size this panel can see.**
+  The stated CNVs available are 0.6 to 2.6 Mb against a 26 Mb floor, and the 43 arrays whose CNV is
+  stated without a size measure presence only.

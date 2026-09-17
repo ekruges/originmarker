@@ -377,6 +377,44 @@ export const LRR_SHIFT = 1.0
  */
 export const COPY_SHIFT_FLOOR = 0.40
 
+/**
+ * The same floor on UNAMPLIFIED material, where the drift it guards against does not happen.
+ *
+ * COPY_SHIFT_FLOOR is 0.40 because four arrays of one biopsy disagree with each other by 0.33, and
+ * that disagreement is an amplification artefact. Bulk DNA does not carry it. Measured on 60
+ * arrays of a series stating each sample free of clinical variation, on Affymetrix CytoScan 750K:
+ * the largest shift on any autosome of any of them is 0.070, the typical spread between a single
+ * array's chromosomes is 0.0155, and a stated trisomy on the same chemistry shifts by 0.299 to
+ * 0.357. A floor of 0.40 sits above every one of those positives, so on bulk material it refuses
+ * the whole class. This is twice the largest drift measured on a normal bulk array, and less than
+ * half the weakest positive.
+ */
+export const COPY_SHIFT_FLOOR_BULK = 0.14
+
+/**
+ * The array's own spread between chromosomes above which it is not treated as unamplified.
+ *
+ * COPY_SHIFT_FLOOR_BULK is for bulk DNA, and the stage inference alone cannot say which arrays
+ * those are: single cells amplified by MDA read bulk heterozygosity through drop-in, land on the
+ * bulk rung, and on that floor produced chromosome-scale artefacts at 0.25. Their own spread gives
+ * them away. Measured as nullScale reports it, the scaled median absolute deviation of an array's
+ * chromosome medians:
+ *
+ *     arrays                                         spread
+ *     60 bulk arrays stated free of variation         0.0067 median, 0.0171 largest
+ *     86 bulk arrays with a stated trisomy            0.0090 median, 0.0249 largest
+ *     11 euploid single cells amplified by MDA        0.0302 smallest, 0.0842 median
+ *
+ * Spread alone is not the test either: an amplified blastomere of GSE186407 reads 0.0185, and an
+ * MDA blood cell of GSE19247 reads 0.0194, both inside the bulk range. So the bulk floor needs
+ * three things: the stage reading bulk, a bulk-level call rate, which is what separated that blood
+ * cell at 0.686 from bulk arrays at 0.81 to 0.99, and this spread. The boundary sits nearer
+ * the amplified side's smallest value than the bulk side's largest, but clear of both: a bulk
+ * array just above it loses the smaller floor, which misses a gain, while an amplified array just
+ * below it would gain one, which invents a gain.
+ */
+export const BULK_SPREAD_MAX = 0.0265
+
 export type OriginClass = 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear'
 
 /** One line per class, so the card, the table and the PDF cannot describe a call differently. */
@@ -494,7 +532,13 @@ export const emptyTally = (): Tally => ({
 /** One marker of the sample, against the parent's call at the same marker. */
 export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   t.markers += 1
-  if (isAutosome(row.chrom)) {
+  // chrX is measured here alongside the autosomes so that its COPY NUMBER can be read: one X and
+  // two X are what separate a male from a female and a 45,X from either, and neither is visible in
+  // the genotypes. The pseudoautosomal region is left out because it is two copies in both sexes
+  // and would lift a male's X median toward a female's. What the level means is decided in
+  // sexChromosome.ts, against chrY; the whole-chromosome test below stays autosomal.
+  const sexX = (row.chrom === 'X' || row.chrom === '23') && !inPar(row.pos, t.build)
+  if (isAutosome(row.chrom) || sexX) {
     const cc = t.callByChrom.get(row.chrom) ?? [0, 0]
     cc[1] += 1
     if (row.genotype !== 'NC') cc[0] += 1
@@ -594,6 +638,8 @@ export interface ChromResult {
   callFraction: number
   /** Median log2 intensity ratio against the genome's. Its SIGN tells a loss from a gain. */
   lrrShift: number
+  /** That shift in units of the array's own autosomal spread. NaN where no null could be built. */
+  lrrZ: number
   note?: string
 }
 
@@ -722,15 +768,16 @@ export interface ParentageResult {
    * Per-event timing, available only when two or more units of THIS embryo were arrayed.
    *
    * Whether a segmental change came from the gamete or arose after fertilisation is not separable
-   * on genotype at any material quality. Uniformity across independently sampled units is the only
-   * channel measured to break the tie: meiotic 64 of 64 uniform, post-zygotic 6 of 7 non-uniform.
+   * on genotype at any material quality. Two units of one embryo separate them: a reciprocal pair,
+   * where one unit gains what another loses, is a division error after fertilisation, and otherwise
+   * uniformity decides, measured at meiotic 64 of 64 uniform against post-zygotic 6 of 7 non-uniform.
    * Absent on a single-unit run, and the report says the second array is what would supply it.
    */
   uniformity?: {
     chrom: string
     startBp: number
     endBp: number
-    mechanism: 'meiotic' | 'post-zygotic' | 'unresolved'
+    mechanism: import('./timing.ts').Mechanism
     why: string
   }[]
   /**
@@ -831,13 +878,22 @@ export interface ParentageResult {
   }[]
   notes: string[]
   limits: string[]
+  /** One X or two, and what that is, from sexChromosome.ts. */
+  sexChromosome?: import('./sexChromosome.ts').SexChromosomeCall
 }
 
 /** Turn the tallies into the three axes and the class they imply. */
 export function classify(
   t: Tally,
   parentHeterozygosity: number,
-  opts: { role?: 'paternal' | 'maternal'; spuriousAbsence?: number } = {},
+  opts: {
+    role?: 'paternal' | 'maternal'; spuriousAbsence?: number
+    /**
+     * Whether the stage inference reads this material as bulk. Necessary for the bulk magnitude
+     * floor, not sufficient: see BULK_SPREAD_MAX. Unset is treated as amplified.
+     */
+    bulk?: boolean
+  } = {},
 ): ParentageResult {
   const role = opts.role ?? 'paternal'
   const notes: string[] = []
@@ -1049,8 +1105,12 @@ export function classify(
   // 0.0152 false-positive rate this carries on chromosomes that are event-free by construction.
   // Computed before the per-chromosome verdicts because it changes what they may say.
   const callPerChrom = new Map<string, number>()
-  for (const [c, [k, n]] of t.callByChrom) if (isAutosome(c) && n >= 200) callPerChrom.set(c, k / n)
-  const callSorted = [...callPerChrom.values()].sort((x, y) => x - y)
+  for (const [c, [k, n]] of t.callByChrom) if (n >= 200) callPerChrom.set(c, k / n)
+  // The reference is AUTOSOMAL. chrX is measured with the rest so that its own copy number can be
+  // read, but a sample carrying one of it would drag the median every other chromosome's call
+  // fraction and intensity are measured against.
+  const callSorted = [...callPerChrom].filter(([c]) => isAutosome(c))
+    .map(([, v]) => v).sort((x, y) => x - y)
   const callMedian = callSorted.length ? callSorted[callSorted.length >> 1] : NaN
   const medianOf = (xs: number[]): number => {
     if (!xs.length) return NaN
@@ -1062,9 +1122,13 @@ export function classify(
   // chromosome at once, so it would be measuring the event against itself.
   const chromLrr = new Map<string, number>()
   for (const [c, xs] of t.lrrByChrom) {
-    if (isAutosome(c) && xs.length >= 200) chromLrr.set(c, medianOf(xs))
+    if (xs.length >= 200) chromLrr.set(c, medianOf(xs))
   }
-  const lrrNull = nullScale([...chromLrr.values()])
+  // THE NULL IS AUTOSOMAL. A sex chromosome sits at its own copy level in a normal sample, so
+  // including chrX would widen the spread this measures events against by a whole copy on half
+  // of all samples. chrX is still measured above, and read by sexChromosome.ts, which knows what
+  // level to expect it at; it is kept out of the whole-chromosome test below for the same reason.
+  const lrrNull = nullScale([...chromLrr].filter(([c]) => isAutosome(c)).map(([, v]) => v))
   const aneuploidy = new Map<string, 'loss' | 'gain'>()
   const callFrac = new Map<string, number>()
   const lrrShift = new Map<string, number>()
@@ -1084,8 +1148,19 @@ export function classify(
     // at |log2R| 0.20 to 0.33, where no copy state exists and where four arrays of one biopsy
     // disagree with each other. See COPY_SHIFT_FLOOR.
     const shift = lrrShift.get(c) as number
+    // The magnitude gate this array earns: the bulk floor only on material the stage reads as bulk
+    // AND whose own spread says it was not amplified. See BULK_SPREAD_MAX.
+    const floor = opts.bulk === true && lrrNull.scale < BULK_SPREAD_MAX
+      ? COPY_SHIFT_FLOOR_BULK : COPY_SHIFT_FLOOR
+    // AUTOSOMES ONLY, AND THAT IS BOTH GATES. One X is the normal state of half of all samples and
+    // no X at all is the normal state of a Y-bearing sperm, so on chrX the same shift and the same
+    // collapsed call rate that are events on an autosome are ordinary sex determination. The
+    // measurements above are still taken and still reported; what they MEAN is decided against
+    // chrY in sexChromosome.ts. Reporting a lost chrX from here named a loss on every Y-bearing
+    // product.
+    if (!isAutosome(c)) continue
     const byIntensity = intensityDetects(z, true)
-      && Number.isFinite(shift) && Math.abs(shift) >= COPY_SHIFT_FLOOR
+      && Number.isFinite(shift) && Math.abs(shift) >= floor
     if (!(frac < CALL_COLLAPSE) && !byIntensity) continue
     // Which way it went. A GAIN is asserted where the intensity cleared BOTH gates and points
     // upward. The magnitude gate is COPY_SHIFT_FLOOR at 0.40 and not LRR_SHIFT at 1.0: a trisomy
@@ -1153,6 +1228,7 @@ export function classify(
           : rate >= explainable * ABSENCE_MARGIN ? 'this' : undefined,
       callFraction: callFrac.get(c) ?? NaN,
       lrrShift: lrrShift.get(c) ?? NaN,
+      lrrZ: lrrZ.get(c) ?? NaN,
       verdict: !clustered ? 'not_measured'
         // Only where the chromosome is not being genotyped at all. A chromosome at one copy that
         // still calls has a measurable allelic ratio, and that ratio is what says whether THIS

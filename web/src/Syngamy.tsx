@@ -45,7 +45,8 @@ import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
 import { defectsFrom, findingToDefect, mendelParent, parentNamed, runAlerts, withMechanism } from './defects'
 import type { DosageVerdict } from './dosageOrigin'
-import { groupUnits, unitsCarrying, callUniformity } from './abnormalities'
+import { groupUnits } from './abnormalities'
+import { timeGroup } from './timing'
 import { stageFacts } from './stage'
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
@@ -718,38 +719,22 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         })
         for (const group of groups) {
           if (group.length < 2) continue
-          const perUnit = group.map((u) => [
-            ...(u.result.segments ?? []).map((sg: { chrom: string }) => {
-              const co = segmentCoords(sg as never)
-              return { chrom: sg.chrom, startBp: co.start, endBp: co.end }
-            }),
-            ...(u.result.findings ?? []).map((f) => ({
-              chrom: f.chrom, startBp: f.startBp, endBp: f.endBp,
-            })),
-          ])
           log('DONE', `${group.length} arrays are units of one embryo, by genotype concordance. `
-            + 'Segmental changes can now be separated into gamete-borne and post-zygotic')
-          for (const u of group) {
+            + 'Changes can now be separated into gamete-borne and post-zygotic')
+          // One call for the whole group, in timing.ts, so the page and the batch harnesses read
+          // the same rules: a reciprocal pair first, then uniformity across the units.
+          const timed = timeGroup(group.map((u) => u.result as never))
+          group.forEach((u, i) => {
             u.result.units = group.length
-            u.result.uniformity = [
-              ...(u.result.segments ?? []).map((sg: { chrom: string }) => {
-                const co = segmentCoords(sg as never)
-                return { chrom: sg.chrom, startBp: co.start, endBp: co.end }
-              }),
-              ...(u.result.findings ?? []).map((f) => ({
-                chrom: f.chrom, startBp: f.startBp, endBp: f.endBp,
-              })),
-            ].filter((e) => e.chrom !== 'genome').map((e) => {
-              const carried = unitsCarrying(e, perUnit)
-              const call = callUniformity(carried, group.length)
-              return { ...e, mechanism: call.mechanism, why: call.why }
-            })
+            u.result.uniformity = timed[i].map((e) => ({
+              chrom: e.chrom, startBp: e.startBp, endBp: e.endBp, mechanism: e.mechanism, why: e.why,
+            }))
             patch(u.id, { result: { ...u.result } })
             for (const m of u.result.uniformity) {
               log(m.mechanism === 'unresolved' ? 'WARN' : 'DONE',
                 `timing chr${m.chrom}: ${m.mechanism}. ${m.why}`)
             }
-          }
+          })
         }
       }
     }
@@ -1095,6 +1080,18 @@ function ResultCard({ entry, donorName, oocyteName }: {
           <Badge size="sm" variant="outline" color="genomeGrey">
             {r.zygosity.replace(/_/g, ' ')}
           </Badge>
+          {/* The sex chromosomes, where they were resolved. An aneuploid one is an abnormality
+              like any other and is coloured as one; XX and XY are just what the sample is. */}
+          {r.sexChromosome && r.sexChromosome.constitution !== 'unresolved' && (
+            <Badge
+              size="sm"
+              variant={r.sexChromosome.aneuploid ? 'filled' : 'outline'}
+              color={r.sexChromosome.aneuploid ? 'orange' : 'genomeGrey'}
+              title={r.sexChromosome.why}
+            >
+              {r.sexChromosome.constitution}
+            </Badge>
+          )}
           {r.chroms.some((c) => c.aneuploidy) && (
             <Badge size="sm" variant="filled" color="orange">
               {r.chroms.filter((c) => c.aneuploidy).map((c) =>

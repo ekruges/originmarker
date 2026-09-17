@@ -72,9 +72,10 @@ export interface Defect {
    *
    * Present only when two or more units of the same embryo were arrayed. Genotype alone cannot
    * separate the two at any material quality, so on a single-unit run this is absent and the
-   * report says what would supply it rather than leaving a blank.
+   * report says what would supply it rather than leaving a blank. `reciprocal` is the decisive
+   * case: another unit of the embryo carries the opposite change over the same interval.
    */
-  mechanism?: 'meiotic' | 'post-zygotic' | 'unresolved'
+  mechanism?: import('./timing.ts').Mechanism
   mechanismWhy?: string
   /** Markers carrying an allele the loaded parent does not have. This is the Mendelian evidence
    *  itself rather than a summary of it: a parent who is AA has no B to give, and dropout removes
@@ -514,7 +515,7 @@ export function withMechanism(
   defects: Defect[],
   uniformity?: readonly {
     chrom: string, startBp: number, endBp: number,
-    mechanism: 'meiotic' | 'post-zygotic' | 'unresolved', why: string,
+    mechanism: import('./timing.ts').Mechanism, why: string,
   }[],
 ): Defect[] {
   if (!uniformity?.length) return defects
