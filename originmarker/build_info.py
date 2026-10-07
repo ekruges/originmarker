@@ -148,7 +148,7 @@ RELEASES: tuple[Release, ...] = (
             "own background can say which."),
 )
 
-VERSION = "5.31.0"
+VERSION = "5.31.1"
 CODENAME = "Capacitation"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'

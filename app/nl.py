@@ -304,6 +304,24 @@ _SYSTEM = (
 )
 
 
+# The JSON object _SYSTEM asks for, as a schema the API enforces. Keys mirror the prompt
+# one for one; every key is required and nullable so a null is a stated answer rather than
+# an omission. Ancestry is left as a free string: the prompt names the gnomAD codes, and the
+# caller validates them against the engine's own list.
+_INTENT_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "variant": {"type": ["string", "null"]},
+        "gene": {"type": ["string", "null"]},
+        "window_bp": {"type": ["integer", "null"]},
+        "ancestry": {"type": ["string", "null"]},
+        "common_maf": {"type": ["number", "null"]},
+    },
+    "required": ["variant", "gene", "window_bp", "ancestry", "common_maf"],
+    "additionalProperties": False,
+}
+
+
 def _llm_intent(text: str) -> dict:
     """One tiny Haiku call. Returns the raw parsed JSON dict; the caller validates it
     (_require_identifier), because the model is never trusted. Raises ValueError."""
@@ -324,7 +342,10 @@ def _llm_intent(text: str) -> dict:
         resp = client.messages.create(
             model=MODEL,
             max_tokens=MAX_TOKENS,
-            temperature=0,
+            # The reply shape is held by the API, not by the prompt alone: with a JSON schema
+            # in output_config.format the first text block is valid JSON with exactly these
+            # keys. The fence regex below stays as the defensive path.
+            output_config={"format": {"type": "json_schema", "schema": _INTENT_SCHEMA}},
             system=[{
                 "type": "text",
                 "text": _SYSTEM,

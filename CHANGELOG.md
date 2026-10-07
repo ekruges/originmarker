@@ -9,6 +9,24 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.31.1 "Capacitation"
+
+**The free-text parser moves to the 1.x Anthropic SDK.** `messages.create` in 1.0 and later takes no
+`temperature`; the call passed `temperature=0`, which under 1.x is a `TypeError` rather than an
+`APIError`, so it would have escaped the handler that turns a provider failure into a readable
+refusal and surfaced as a 500. The pin was held at 0.122.0 for that reason. The reply shape, which
+`temperature=0` plus a code-fence regex used to approximate, is now stated to the API as a JSON
+schema in `output_config.format`: five keys, each required and nullable, matching the prompt one
+for one. The fence regex stays as the defensive path.
+
+`tests/test_nl.py` checks the request against the installed SDK's own `Messages.create`
+signature, so a parameter the SDK drops fails in CI instead of on a live key, and checks that the
+schema names exactly the keys the prompt asks for. One live call runs under `RUN_LIVE=1` with a key.
+
+Also: the npm minor and patch group of 28 September (Mantine 9.6.2, vite 8.3.1, oxlint 1.85.0).
+
+---
+
 ## 5.31.0 "Capacitation"
 
 **Two thresholds were measured on one chemistry and applied to every other, and each refused real
