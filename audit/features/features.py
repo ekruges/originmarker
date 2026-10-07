@@ -16,7 +16,7 @@ Feature sets, hg19, all public:
                          a real breakage correlate, and must be reported so it cannot be confused
                          with a fragile-site result
 """
-import gzip, random, sys
+import gzip, os, random, sys
 import numpy as np
 
 TR = 'tracks/'
@@ -170,8 +170,30 @@ def main(regions_tsv, marker_pos):
           f'ratio {o/max(np.nanmean(nl),1e-9):.2f}')
 
 
+def markers(path):
+    """Autosomal marker positions, from any probes export. The null is matched on marker count,
+    so what this needs from an array is where the panel can see, not what it called."""
+    import gzip
+    op = gzip.open if path.endswith('.gz') else open
+    out = []
+    with op(path, 'rt') as f:
+        first = f.readline().rstrip('\n')
+        sep = ',' if first.count(',') > first.count('\t') else '\t'
+        head = [h.strip().lower() for h in first.split(sep)]
+        ic = head.index('chr') if 'chr' in head else head.index('chromosome')
+        ip = head.index('position') if 'position' in head else head.index('pos')
+        for line in f:
+            r = line.split(sep)
+            if len(r) > max(ic, ip) and r[ic] in AUT:
+                try:
+                    out.append((r[ic], int(r[ip])))
+                except ValueError:
+                    pass
+    return out
+
+
 if __name__ == '__main__':
-    from real_father import read
-    _, ch, po, _ = read('sperm/GSM4472397.txt.gz')
-    mp = [(c, int(p)) for c, p in zip(ch, po) if c in AUT]
-    main(sys.argv[1] if len(sys.argv) > 1 else 'answer.tsv', mp)
+    panel = os.environ.get('OM_MARKERS')
+    if not panel:
+        raise SystemExit('OM_MARKERS must point at a probes export from the same panel')
+    main(sys.argv[1] if len(sys.argv) > 1 else 'answer.tsv', markers(panel))

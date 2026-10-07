@@ -40,8 +40,11 @@ if (!SHEET || !existsSync(SHEET) || !DIRS.size) {
 }
 
 interface SheetRow {
+  /** Whatever names the array: a GEO accession, or the barcode a lab file is named by. */
   gsm: string; series: string; stage: string; embryo: string; role: string
   cells?: number; parentOfOrigin?: string; title?: string
+  /** What the source says this sample is, where it says anything. Printed, never used. */
+  stated?: string
 }
 const sheet: SheetRow[] = JSON.parse(readFileSync(SHEET, 'utf8'))
 
@@ -50,8 +53,11 @@ const fileOf = new Map<string, string>()
 for (const [series, dir] of DIRS) {
   if (!existsSync(dir)) throw new Error(`${series}: ${dir} is not readable`)
   for (const f of readdirSync(dir)) {
-    const m = /^(GSM\d+)/.exec(f)
-    if (m && (f.endsWith('.gz') || f.endsWith('.probes'))) fileOf.set(m[1], join(dir, f))
+    if (!f.endsWith('.gz') && !f.endsWith('.probes')) continue
+    // A GEO accession where the file is one, and otherwise the barcode the filename starts with,
+    // which is what a lab array is named by and what its sample sheet keys on.
+    const id = /^(GSM\d+)/.exec(f)?.[1] ?? f.split('_')[0]
+    fileOf.set(id, join(dir, f))
   }
 }
 
@@ -111,6 +117,11 @@ interface Event {
 interface Row {
   gsm: string; series: string; stage: string; embryo: string; cells?: number
   callRate: number; called: string; originAssessable: boolean
+  stated?: string
+  /** Which parental genome the tool says this unit carries, and which the source says. */
+  originClass?: string; statedParent?: string
+  /** Whose array was in the parental slot, where a real one was. A stand-in is not a parent. */
+  parentRole?: 'maternal' | 'paternal' | null
   events: Event[]; error?: string
   result?: unknown
 }
@@ -143,6 +154,8 @@ for (const s of samples) {
   }
   if (!pat && mat) { pat = mat; mat = null }
   try {
+    const parentRole: 'maternal' | 'paternal' | null = p.mother && !p.father ? 'maternal'
+      : p.father ? 'paternal' : null
     const acc = score.emptyCollected(pat as never, mat as never)
     const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
     for (const r of rowsOf(fileOf.get(s.gsm)!)()) {
@@ -174,6 +187,10 @@ for (const s of samples) {
     }))
     rows.push({
       gsm: s.gsm, series: s.series, stage: s.stage, embryo: s.embryo, cells: s.cells,
+      stated: s.stated,
+      originClass: String((res.originClass as string) ?? ''),
+      statedParent: s.parentOfOrigin,
+      parentRole,
       callRate: profile.callRate,
       called: (res.stage as { stage?: string } | undefined)?.stage ?? 'none',
       originAssessable, events, result: res,
@@ -181,7 +198,7 @@ for (const s of samples) {
   } catch (e) {
     rows.push({
       gsm: s.gsm, series: s.series, stage: s.stage, embryo: s.embryo, callRate: NaN,
-      called: 'error', originAssessable: false, events: [],
+      called: 'error', originAssessable: false, events: [], stated: s.stated,
       error: String((e as Error).message ?? e).slice(0, 90),
     })
   }
@@ -301,6 +318,72 @@ for (const r of t21) {
   console.log(`    ${r.gsm}  ${r.stage}  embryo ${r.embryo || '?'}  `
     + `${e.whole ? 'whole chromosome' : 'segment'}  ${e.mechanism}`
     + `${e.origin ? `  origin ${e.origin}` : ''}`)
+}
+
+// Which parental genome a unit carries, against what the source says it is. This is the question a
+// pronucleus is biopsied to answer, and it needs a REAL parent array: the class the tool prints is
+// about the array in the parental slot, so against a stand-in every unit reads as carrying nothing
+// of it, which is an artefact of the slot rather than a statement about a parent.
+{
+  // THE PAIRING IS TESTED BEFORE ANYTHING IS SCORED AGAINST IT. A whole zygote carries both parental
+  // genomes, so against its real mother or father it must read biparental. One that reads as lacking
+  // the loaded parent says that array is not this experiment's parent, and against an unrelated
+  // array every unit reads "not theirs": the paternal units then agree for free and the maternal
+  // ones disagree, which looks like a tool error and is a sample sheet error.
+  const carriesNone = (r: Row) => (r.parentRole === 'maternal' ? /andro/i : /gyno/i)
+    .test(r.originClass ?? '')
+  const unpaired = new Set(rows
+    .filter((r) => r.stage === 'whole zygote' && r.parentRole && !r.error && r.called !== 'failed'
+      && carriesNone(r))
+    .map((r) => r.series))
+  const said = rows.filter((r) => r.statedParent && r.parentRole && !r.error
+    && r.called !== 'failed' && !unpaired.has(r.series))
+  for (const sr of unpaired) {
+    console.log(`  ${sr}: NOT ASSESSED. A whole zygote of this experiment reads as carrying none of `
+      + 'the loaded parent\'s genome, so that array is not its parent and nothing is scored '
+      + 'against it.')
+  }
+  const noParent = rows.filter((r) => r.statedParent && !r.parentRole).length
+  console.log('')
+  console.log('=== WHICH PARENT. The source states the genome each unit was taken from.')
+  if (!said.length) {
+    console.log(`  NOT ASSESSED. ${noParent} units carry a stated parent and none of them was `
+      + 'scored against a parental array, so there is nothing to agree or disagree with.')
+  } else {
+    const carries = (r: Row) => /gyno/i.test(r.originClass ?? '') ? 'maternal'
+      : /andro/i.test(r.originClass ?? '') ? 'paternal'
+        : /biparental/i.test(r.originClass ?? '') ? 'both' : ''
+    const decided = said.filter((r) => carries(r))
+    console.log(`  units with a stated parent AND a parental array: ${said.length}, of which the `
+      + `tool named a genome for ${decided.length}`)
+    console.log(`  agreed with the source: `
+      + `${decided.filter((r) => carries(r) === r.statedParent).length} of ${decided.length}`)
+    if (noParent) {
+      console.log(`  ${noParent} further units state a parent and had no parental array, so they `
+        + 'are left out rather than scored against a stand-in.')
+    }
+    for (const r of said) {
+      console.log(`  ${pad(r.gsm, 12)}${pad(r.embryo.slice(0, 22), 24)}`
+        + `${pad(`stated ${r.statedParent}`, 20)}${pad(`${r.parentRole} array loaded`, 24)}`
+        + `${r.originClass || '-'}`)
+    }
+  }
+}
+
+if (rows.some((r) => r.stated)) {
+  console.log('')
+  console.log('=== WHAT THE SOURCE STATES, BESIDE WHAT THE TOOL SAID. Not scored: the stated')
+  console.log('    outcomes are free text and a reader has to match them by eye.')
+  for (const r of rows.filter((x) => x.stated)) {
+    const called = r.error ? `threw: ${r.error}`
+      : r.called === 'failed' ? 'refused, no stage'
+        : r.events.length
+          ? r.events.map((e) => `${e.chrom}${e.direction ? ` ${e.direction}` : ''}`
+            + `${e.whole ? '' : ' seg'}`).join(', ')
+          : 'no change reported'
+    console.log(`  ${pad(r.gsm, 12)}${pad(r.embryo.slice(0, 22), 24)}`
+      + `${pad(r.stated.slice(0, 34), 36)}${called.slice(0, 60)}`)
+  }
 }
 
 const errs = rows.filter((r) => r.error)

@@ -301,6 +301,19 @@ sample:
 Triploidy had never been emitted on a real array before this series, and it is called here with no
 false triploidy on any of the 58 negatives.
 
+Chromosome 21 is the class a reader will ask about first, and it separates without ambiguity. Every
+one of the 18 stated trisomy 21 arrays is called, each on chromosome 21 alone with no other
+chromosome emitted, and no array of the 60 stated free of clinical variation carries a chromosome 21
+call.
+
+| | chr21 log2 shift | z against the array's own spread |
+|---|---|---|
+| 18 stated trisomy 21 | 0.300 to 0.413 | 15.9 to 99.2 |
+| 60 stated free of variation | -0.009 to +0.020 | none called |
+
+The weakest stated trisomy sits fifteen times further from zero than the largest drift on any normal
+array, against a magnitude floor of 0.14 on bulk material.
+
 The 45,X row read 0 of 20 through 5.30.1, for two reasons that were both fixable. The converter
 mapped the file's numeric chromosome codes with a fixed table and wrote every chrX marker out as
 chrY; the file states its own names and the converter now reads them. And the sex call read chrX
