@@ -244,8 +244,8 @@ and tightly:
 | pair | no-call | het | bound | observed absence |
 |---|---|---|---|---|
 | PennCNV offspring | 0.4% | 31.8% | 0.13% | 0.05% |
-| 52461 androgenote 02 | 13.6% | 1.3% | 0.18% | 0.16% |
-| 52461 androgenote 04 | 13.7% | 2.0% | 0.27% | 0.22% |
+| S23 androgenote 02 | 13.6% | 1.3% | 0.18% | 0.16% |
+| S23 androgenote 04 | 13.7% | 2.0% | 0.27% | 0.22% |
 | Zuccaro A8 | 46.9% | 22.2% | 10.4% | 9.69% |
 
 Against nine pairs of known relationship, including the adversarial A8 case, the rule makes
@@ -265,7 +265,7 @@ assumption. The hardcoded 7% is gone.
 
 | pair | composition | half the father's het | observed |
 |---|---|---|---|
-| 52461 androgenotes 02 / 04 / 05 | paternal-only | 8.48% | 3.39 / 5.15 / 4.07% |
+| S23 androgenotes 02 / 04 / 05 | paternal-only | 8.48% | 3.39 / 5.15 / 4.07% |
 | Zuccaro A8 | biparental | 8.33% | 34.66% |
 | PennCNV offspring | biparental | 16.10% | 16.35% |
 | HapMap NA12878 | biparental | 9.72% | 10.65% |
@@ -331,7 +331,7 @@ One reader, validated against real public files rather than against a specificat
 
 | format | source | samples/file | coding | BAF | LRR | build |
 |---|---|---|---|---|---|---|
-| Axiom `.CEL.probes`, tab | lab 52461 | 1 | numeric | yes | yes | GRCh37 |
+| Axiom `.CEL.probes`, tab | lab S23 | 1 | numeric | yes | yes | GRCh37 |
 | Axiom `.CEL.txt`, comma | GSE148488 | 1 | numeric | yes | yes | GRCh37 |
 | FinalReport wide | PennCNV example | 1 | AB | yes | yes | undetermined |
 | FinalReport long, `[Header]` block | GSE16912 | many | nucleotide | yes | yes | undetermined |
@@ -441,7 +441,7 @@ separates them, and the correct build gives zero. No rsIDs, no manifest, no chai
 
 | dataset | verdict | illegal under GRCh37 | under GRCh38 |
 |---|---|---|---|
-| lab 52461 Axiom, 825,656 markers | **GRCh37** | 0 | 6,315 |
+| lab S23 Axiom, 825,656 markers | **GRCh37** | 0 | 6,315 |
 | GIAB HG001 WGS VCF, 89,974 | **GRCh38** | 761 | 0 |
 | PennCNV Illumina, 93,129 | undetermined | 405 | 280 |
 | HapMap chr11, 207,012 | undetermined | 620 | 146 |

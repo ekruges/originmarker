@@ -9,6 +9,75 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.32.0 "Monosomy"
+
+**With both parents loaded, the alleles now find a whole-chromosome loss on a single cell that the
+intensity cannot see, and name the parent whose copy is missing.** At markers where the parents are
+homozygous for opposite alleles, a cell carrying both copies of a chromosome reads heterozygous,
+and a cell carrying one parent's copy alone reads that parent's allele and nothing else. Dropout
+cannot fake the second pattern: it removes a heterozygote's alleles at random, not one parent's
+allele at every marker of a chromosome. The tool already tallied the heterozygous share at these
+markers per chromosome (obligateHet.ts) and reported it without using it. It now also counts whose
+allele remains, and a chromosome reading one parent's allele alone, on a genome that carries both
+parents elsewhere, is reported as missing the other parent's copy.
+
+The reason this was needed is measured. Zuccaro 2020 karyotyped every arrayed cell by eye and
+recorded which parent's copy each monosomy lost. Of 111 whole-chromosome losses so recorded on
+cells with both parents arrayed, 53 sit inside 0.2 log2R of the genome, where no intensity floor
+can reach them, and the call rate on a one-copy chromosome of an amplified cell is ordinary. Those
+chromosomes never reached the Mendelian channel, because that channel runs on events already
+detected. On the same arrays, the allele count reads as follows:
+
+| chromosomes | heterozygous share | surviving parent's share |
+|---|---|---|
+| intact, 490 | 0.355 to 0.960 | never above 0.627 |
+| lost, 105 | 0.034 to 0.213 | never below 0.735 |
+
+The boundaries are the ones obligateHet.ts already carried, 0.20 and 0.45, measured earlier on
+68 arrays; the floor for naming a survivor is new at 0.70, inside the measured gap. Two bulk
+parental arrays are required, because a reconstructed or single-cell reference is homozygous at
+markers where the parent is not, and every such marker reads as the other parent's absence.
+
+| hand call, true parents loaded | the alleles, shipped pipeline |
+|---|---|
+| monosomy with a parent named, on the 27 arrays the tool scores (85) | same parent **78**, other parent **1**, declined 4, read as both copies present 2 |
+| intact chromosome on those arrays (477) | a parent named on 2, both on one blastomere whose file copy number reads 0.8 to 0.9 there |
+| monosomy on the 4 arrays the stage inference refuses outright (23) | not reported: a refused array reports nothing, by design |
+| the Mendelian channel on the 78 | agrees on 78, declines on 0 |
+| a different egg donor as mother | 0 wrong parents named; the maternal-loss half is still found (34), the paternal-loss half is not |
+
+The four refused arrays carry 23 of the 29 misses, and on every one of them the alleles read the
+loss as plainly as on the scored arrays (heterozygous share 7 to 18 percent, survivor 79 to 91
+percent). Whether a cell with eight to twelve monosomies should be refused as "no genome reads this
+way" or reported chromosome by chromosome is a decision the stage inference currently makes for
+the whole array, and it is left as it stands here. The one wrong parent and the two hand calls the
+alleles read as intact are listed in `audit/zuccaro-table-s3-results.txt`.
+
+**What the alleles do not say is the copy number.** One parent's allele alone is what a monosomy
+reads, and it is also what an isodisomy reads: the other parent's copy is absent in both, and only
+the intensity separates one remaining copy from two. So the new reading sets the absent parent
+and leaves the copy number to the call rate and the intensity. A chromosome with an absent parent
+and no intensity verdict is reported as a parental absence, with the one-or-two question stated,
+which is as far as a hand karyotype of the same cell can go. The synthetic fixture's isodisomy
+chromosome keeps its isodisomy finding and gains no loss. Where the allele count and the Mendelian
+channel name different parents the row says unclear and shows both.
+
+**The embryo summary read the wrong channel.** `audit/embryo/summary.ts` took the parent of a
+whole-chromosome loss from the dosage rows, which on amplified material decline on most of them,
+while the page reads the Mendelian rows. It now reads the Mendelian rows first, then the allele
+count, then dosage.
+
+**Lab sample identifiers were tracked, and the release guard did not see them.** The guard matched
+the shape of an array filename and not the bare barcode, five digits, a dash and two digits, so
+that shape sat in the audit narratives, the per-array result tables and the regions scripts from
+13 August. The tables are now untracked and live under `audit/local/` on the machine holding the
+arrays, beside a map from pseudonym to prefix; the narratives and scripts name lab experiments by
+pseudonym (S01 to S24); and the guard refuses the bare shape, with the boundaries that keep a DOI,
+a coordinate range and a UUID from matching it. The history is not rewritten: a public repository
+does not forget, and the guard's own note says so.
+
+---
+
 ## 5.31.1 "Capacitation"
 
 **The free-text parser moves to the 1.x Anthropic SDK.** `messages.create` in 1.0 and later takes no

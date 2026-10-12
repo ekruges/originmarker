@@ -16,7 +16,7 @@ what stops recurrent platform failure being reported as biology.
 """
 import numpy as np
 
-CACHE = "cells_14801.npz"
+CACHE = "cells_S06.npz"
 AUTOSOMES = [str(i) for i in range(1, 23)]
 NC, AA, AB, BB = -1, 0, 1, 2
 

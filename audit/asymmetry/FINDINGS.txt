@@ -5,17 +5,17 @@ was known because the losses were constructed from the family's own alleles. The
 runs against the laboratory material, through the shipped modules via one_parent_cohort.ts.
 
 
-EXPERIMENT 14801, MATERNAL REFERENCE
+EXPERIMENT S06, MATERNAL REFERENCE
 ------------------------------------
-38 arrays. Reference 14801-05, the one cumulus sample in the whole set, named by the laboratory
+38 arrays. Reference S06-05, the one cumulus sample in the whole set, named by the laboratory
 rather than chosen by the harness.
 
   FOUR ARRAYS EXCLUDED AS NOT-A-GENOME, and they are the four PLAN.txt names:
 
-    14801-20   call 57.9%   het 56.2%
-    14801-23   call 45.2%   het 52.7%
-    14801-27   call 58.0%   het 55.5%
-    14801-38   call 59.0%   het 54.7%
+    S06-20   call 57.9%   het 56.2%
+    S06-23   call 45.2%   het 52.7%
+    S06-27   call 58.0%   het 55.5%
+    S06-38   call 59.0%   het 54.7%
 
   THE EXCLUSION IS THE CEILING, NOT THE CALL-RATE FLOOR, and this is why the ceiling was added.
   Every one of those call rates is above the 40% quality floor, so before it existed all four were
@@ -25,25 +25,25 @@ rather than chosen by the harness.
 
   SIX ARRAYS ARE BULK-LIKE by call rate and heterozygosity:
 
-    14801-02   call 0.961   het 0.160   ->  bulk
-    14801-05   call 0.951   het 0.145   ->  single-cell
-    14801-11   call 0.934   het 0.153   ->  trophectoderm
-    14801-15   call 0.914   het 0.154   ->  trophectoderm
-    14801-35   call 0.904   het 0.137   ->  single-cell
-    14801-10   call 0.904   het 0.155   ->  trophectoderm
+    S06-02   call 0.961   het 0.160   ->  bulk
+    S06-05   call 0.951   het 0.145   ->  single-cell
+    S06-11   call 0.934   het 0.153   ->  trophectoderm
+    S06-15   call 0.914   het 0.154   ->  trophectoderm
+    S06-35   call 0.904   het 0.137   ->  single-cell
+    S06-10   call 0.904   het 0.155   ->  trophectoderm
 
-  THE CUMULUS SAMPLE STAGES AS SINGLE-CELL, WHICH IT IS NOT. 14801-05 is maternal somatic DNA and
+  THE CUMULUS SAMPLE STAGES AS SINGLE-CELL, WHICH IT IS NOT. S06-05 is maternal somatic DNA and
   reads 0.951 called, within a thousandth of the bulk sperm gDNA on this platform at 0.954. Its
   heterozygosity is 0.145 against 0.168, and the shortfall estimator reads that gap as dropout.
   It is not dropout: it is a different individual. This is the confound the stage audit quantified
   at +0.155 for an East Asian sample against this European-derived anchor, appearing on a real
   sample, and it is why the reference here is named rather than inferred.
 
-  ONE CHILD CONFIRMED, of 37 candidates. 14801-07, at opposite-homozygote 0.0154 with a second
+  ONE CHILD CONFIRMED, of 37 candidates. S06-07, at opposite-homozygote 0.0154 with a second
   parental contribution at 9.1% of 597,714 informative markers. It carries no copy-number regions,
   so it produces no origin call.
 
-  FIVE ARRAYS SIT IN THE PROVISIONAL BAND: 14801-01 at 8.2%, 14801-06 at 7.8%, 14801-12 at 7.2%,
+  FIVE ARRAYS SIT IN THE PROVISIONAL BAND: S06-01 at 8.2%, S06-06 at 7.8%, S06-12 at 7.2%,
   and others between the 6.5% and 8.5% one-parent boundaries, which is neither haploid nor
   confidently biparental. Those boundaries are wide on purpose, because one parent carries less
   information than two, and the module refuses rather than guessing.
@@ -124,7 +124,7 @@ THE BINDING SHORTAGE IS EVENTS, NOT METHOD. 122 arrays yielded three. The materi
 events is the laboratory cohort, where 1,189 regions are already called from the dosage channel,
 and what that cohort lacks is a parental anchor for the donors carrying them. One anchor per donor
 group is enough, and the EYS donor is an anchor for exactly one group in the local corpus: five
-arrays of experiment 32477, four of which are uniparental paternal and therefore answer the
+arrays of experiment S20, four of which are uniparental paternal and therefore answer the
 parent question trivially.
 
 
@@ -142,7 +142,7 @@ BOTH PARENTAL SIDES, GSE148488
 THE REFERENCE GATE CANNOT BE THE STAGE LABEL, and two real parental arrays proved it. Egg donor A
 is bulk gDNA at a 0.9837 call rate, the highest in the series, and the heterozygosity ladder calls
 it single-cell because it reads 0.1414 against a 0.168 anchor. The cumulus sample in experiment
-14801 fails the same way at 0.951. What the obligate-het statistic needs from a reference is
+S06 fails the same way at 0.951. What the obligate-het statistic needs from a reference is
 complete, accurate genotypes, which is dropout, which call rate measures directly. Heterozygosity
 against a population anchor measures the individual as much as the material. The gate is call rate
 now, with a heterozygosity band only wide enough to exclude what is not a diploid genome at all.
@@ -181,12 +181,12 @@ is why PLAN.txt names polar bodies as the correct substitute and why Progenitor 
 74 of the 884 arrays are haploid. MIN_PRODUCTS is 5, below which the method inverts.
 
   group    arrays   haploid   heterozygosity
-  13605        42         5    0.083-0.104
-  22531        99        19    0.034-0.102
-  22537        48         9    0.030-0.091
-  32477        16         6    0.049-0.101
-  50402        23        12    0.053-0.094
-  52461        19        13    0.040-0.090
+  S03        42         5    0.083-0.104
+  S12        99        19    0.034-0.102
+  S13        48         9    0.030-0.091
+  S20        16         6    0.049-0.101
+  S21        23        12    0.053-0.094
+  S23        19        13    0.040-0.090
 
   Six groups clear the floor, covering 247 arrays. No group sits at three or four, so the corpus
   splits cleanly into groups with enough and groups with none.
@@ -194,7 +194,7 @@ is why PLAN.txt names polar bodies as the correct substitute and why Progenitor 
 THE COUNT ABOVE IS AN UPPER BOUND, AND THE ONE GROUP ALREADY SORTED SHOWS WHY. Progenitor needs
 five products OF THE SAME PARENT, and a group holds products of both: polar bodies and oocytes on
 the maternal side, sperm and paternal pronuclei on the other. This census cannot tell them apart.
-In 32477 the sorting has been done, against the EYS donor: the census counts 6 haploid arrays and
+In S20 the sorting has been done, against the EYS donor: the census counts 6 haploid arrays and
 exactly 4 of them are his. That group is one short on the paternal side, not one over.
 
   SO THE NEXT STEP IS THE SORT, NOT THE RECONSTRUCTION. Products of one parent share half their

@@ -17,7 +17,7 @@ from real_father import read
 
 USB = "/Volumes/SANDISK USB/SNP array data"
 AUT = [str(i) for i in range(1, 23)]
-HAPLOID = ['32477-19', '32477-12', '32477-13', '32477-16']
+HAPLOID = ['S20-19', 'S20-12', 'S20-13', 'S20-16']
 
 fid, fch, fpo, fgt = read('sperm/GSM4472397.txt.gz')
 idx = {k: i for i, k in enumerate(fid)}

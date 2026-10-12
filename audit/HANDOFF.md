@@ -169,7 +169,7 @@ as a consequence.
 marker-matched permutation null. Result was negative everywhere, every ratio between 0.77 and 1.04,
 including no fragile-site enrichment at n=1,189.
 
-    ./scripts/om-tesla.sh enrich audit/features/regions-ROBLES.tsv \
+    ./scripts/om-tesla.sh enrich audit/local/features/regions-ROBLES.tsv \
       --track <features.json> --markers <an array>
 
 **The null is the entire difficulty and it is already solved: do not change it.** A region can only

@@ -146,10 +146,13 @@ RELEASES: tuple[Release, ...] = (
             "Both copies of a chromosome from one homologue of one parent, visible only as "
             "heterozygosity gone. One copy reads the same way, and only intensity or the array's "
             "own background can say which."),
+    Release("Monosomy",
+            "One copy of a chromosome where there should be two. Whose copy survived is what the "
+            "alleles say; whether one copy remains or two is what only the intensity can."),
 )
 
-VERSION = "5.31.1"
-CODENAME = "Capacitation"
+VERSION = "5.32.0"
+CODENAME = "Monosomy"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

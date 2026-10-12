@@ -119,22 +119,22 @@ repo as example data. Where EYS was the sperm source, the paternal side needs no
 
 THE MATERNAL REFERENCE IS ONE SAMPLE, AND IT IS USABLE
 -------------------------------------------------------
-There is exactly one cumulus sample in the whole set: 14801-05, experiment 8. Measured against
+There is exactly one cumulus sample in the whole set: S06-05, experiment 8. Measured against
 the known bulk gDNA on this platform, it is bulk-like rather than single-cell:
 
   GSM4472397  sperm donor bulk gDNA      call 0.954   het 0.168
-  14801-05    cumulus, maternal somatic  call 0.950   het 0.145
+  S06-05    cumulus, maternal somatic  call 0.950   het 0.145
 
 NOTE THE PLATFORM RANGE. A diploid genome reads about 0.15-0.17 heterozygous on GPL28377, not the
 0.30 typical of a denser common-SNP array. A threshold carried over from another platform will
 call every diploid here haploid.
 
-Experiment 14801 is therefore the one complete unit in the set: a maternal somatic reference, a
+Experiment S06 is therefore the one complete unit in the set: a maternal somatic reference, a
 polar body, three MII oocyte biopsies, isolated zygote nuclei, and a genotyped father if EYS was
 the sperm source. 38 arrays. Whatever is built should be built and checked here first.
 
 FOUR ARRAYS IN THAT EXPERIMENT ARE FAILURES and must be excluded rather than modelled:
-14801-20, -23, -27 and -38 read 0.53-0.56 heterozygous at 0.45-0.59 call rate. No genome does
+S06-20, -23, -27 and -38 read 0.53-0.56 heterozygous at 0.45-0.59 call rate. No genome does
 that; it is amplification failure or mixture.
 
 COHORT ARITHMETIC

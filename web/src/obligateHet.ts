@@ -103,9 +103,32 @@ export interface HetTally {
   informative: number
   /** Of those, how many the sample called heterozygous. */
   het: number
+  /**
+   * Of those, how many read the FIRST parent's allele alone, and how many the second's alone.
+   * Two parents only: with one parent loaded the other allele has no owner, so both stay at zero.
+   */
+  onlyA: number
+  onlyB: number
 }
 
-export const emptyHet = (): HetTally => ({ informative: 0, het: 0 })
+export const emptyHet = (): HetTally => ({ informative: 0, het: 0, onlyA: 0, onlyB: 0 })
+
+/**
+ * Share of informative markers reading ONE parent's allele alone before that parent is named the
+ * survivor, which names the other parent's copy as the one lost.
+ *
+ * Measured on GSE148488 against the hand karyotypes of Zuccaro 2020 Table S3, 31 arrays with both
+ * parents, 595 autosomes: on the 105 chromosomes read as lost the surviving parent's share was
+ * never under 0.735, and on the 490 intact chromosomes neither parent's share reached 0.627. The
+ * floor sits in that gap. Dropout cannot cross it, because dropout removes a heterozygote's alleles
+ * at random rather than one parent's allele at every marker of a chromosome.
+ *
+ * Two BULK parental arrays are a precondition, for the same reason as the boundaries above: a
+ * reconstructed or single-cell reference is homozygous at markers where the parent is not, and
+ * every such marker reads as the other parent's absence. audit/zuccaro-table-s3.ts reproduces the
+ * figures.
+ */
+export const SURVIVOR_MIN = 0.70
 
 /**
  * One marker, with one parent known.
@@ -131,12 +154,23 @@ export function addTwoParent(a: AB, b: AB, sample: AB, t: HetTally): void {
   if (sample === 'NC') return
   t.informative += 1
   if (sample === 'AB') t.het += 1
+  else if (sample === a) t.onlyA += 1
+  else if (sample === b) t.onlyB += 1
 }
 
 export interface HetCall {
   ploidy: Ploidy2
   fraction: number
   informative: number
+  /** Share of informative markers reading the first parent's allele alone, and the second's. */
+  onlyA: number
+  onlyB: number
+  /**
+   * Which parent's allele is all that remains, on a uniparental chromosome with two parents
+   * loaded and that share at or over SURVIVOR_MIN. Absent otherwise: a uniparental reading with no
+   * survivor is a chromosome the arrays are not measuring, not a loss.
+   */
+  survivor?: 'a' | 'b'
   /** True when only one parent defined the informative set, so the boundaries are the wider,
    *  provisional pair rather than the measured ones. */
   provisional: boolean
@@ -145,6 +179,8 @@ export interface HetCall {
 
 export function hetCall(t: HetTally, parents: 1 | 2): HetCall {
   const fraction = t.informative ? t.het / t.informative : NaN
+  const onlyA = t.informative ? (t.onlyA ?? 0) / t.informative : NaN
+  const onlyB = t.informative ? (t.onlyB ?? 0) / t.informative : NaN
   const provisional = parents === 1
   const lo = provisional ? ONE_PARENT_HAPLOID_MAX : HAPLOID_MAX
   const hi = provisional ? ONE_PARENT_DIPLOID_MIN : DIPLOID_MIN
@@ -153,15 +189,22 @@ export function hetCall(t: HetTally, parents: 1 | 2): HetCall {
       ploidy: 'uncalled',
       fraction,
       informative: t.informative,
+      onlyA,
+      onlyB,
       provisional,
       why: `${t.informative} informative markers is under the ${MIN_INFORMATIVE} this needs`,
     }
   }
   if (fraction < lo) {
+    const survivor = parents === 2 && onlyA >= SURVIVOR_MIN ? 'a' as const
+      : parents === 2 && onlyB >= SURVIVOR_MIN ? 'b' as const : undefined
     return {
       ploidy: 'uniparental',
       fraction,
       informative: t.informative,
+      onlyA,
+      onlyB,
+      survivor,
       provisional,
       why: `${(fraction * 100).toFixed(1)}% heterozygous where a parent is homozygous, under `
         + `${(lo * 100).toFixed(0)}%: one parent's genome and nothing else`,
@@ -172,6 +215,8 @@ export function hetCall(t: HetTally, parents: 1 | 2): HetCall {
       ploidy: 'biparental',
       fraction,
       informative: t.informative,
+      onlyA,
+      onlyB,
       provisional,
       why: `${(fraction * 100).toFixed(1)}% heterozygous where a parent is homozygous, at or over `
         + `${(hi * 100).toFixed(0)}%: a second parental contribution is present`,
@@ -181,6 +226,8 @@ export function hetCall(t: HetTally, parents: 1 | 2): HetCall {
     ploidy: 'uncalled',
     fraction,
     informative: t.informative,
+    onlyA,
+    onlyB,
     provisional,
     why: `${(fraction * 100).toFixed(1)}% sits between the ${(lo * 100).toFixed(0)}% and `
       + `${(hi * 100).toFixed(0)}% boundaries, which is neither`,

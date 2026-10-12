@@ -11,7 +11,7 @@ Output: sample, chromosome, class (whole|segmental|unspecified), verbatim source
 import glob, re, sys, csv
 
 SRC = '/Users/ezrakruger/Downloads'
-# A barcode like 52461-33 is what joins these rows to an array file.
+# A barcode like S23-33 is what joins these rows to an array file.
 BARCODE = re.compile(r'\b(\d{5}-\d{2})\b')
 # Chromosome mentions that are safe to read: "on 1", "chr16", "16p", "trisomy 21".
 CHROM = re.compile(r'\b(?:chr\.?\s*)?([12]?\d|2[0-2]|X|Y)\b(?=\s*[pq]?\b)', re.I)

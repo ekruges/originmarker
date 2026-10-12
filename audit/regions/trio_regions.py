@@ -1,4 +1,4 @@
-"""Both-direction parental regions on experiment 14801, with the three confounds closed.
+"""Both-direction parental regions on experiment S06, with the three confounds closed.
 
   1  external per-window null, so recurrent platform failure is not read as a parental result
   2  obligate-het markers, so a paternal loss has the same headroom as a maternal one
@@ -17,7 +17,7 @@ import numpy as np
 from regions import read_probes
 
 USB = "/Volumes/SANDISK USB/SNP array data"
-CACHE = "cells_14801.npz"
+CACHE = "cells_S06.npz"
 AUTOSOMES = [str(i) for i in range(1, 23)]
 
 MAX_OPP = 0.15
@@ -35,7 +35,7 @@ NC, AA, AB, BB = -1, 0, 1, 2
 
 
 def build():
-    mumf = glob.glob(f'{USB}/ROBLES/**/14801-05_*.probes', recursive=True)[0]
+    mumf = glob.glob(f'{USB}/ROBLES/**/S06-05_*.probes', recursive=True)[0]
     mum = read_probes(mumf)
     keys = [k for k, v in mum.items() if v[3] in ('0', '2') and v[0] in AUTOSOMES]
     keys.sort(key=lambda k: (AUTOSOMES.index(mum[k][0]), mum[k][1]))
@@ -46,8 +46,8 @@ def build():
     print(f'mother: {len(keys)} autosomal homozygous markers', flush=True)
 
     names, G, B = [], [], []
-    for cf in sorted(f for f in glob.glob(f'{USB}/ROBLES/**/14801-*.probes', recursive=True)
-                     if '14801-05_' not in f):
+    for cf in sorted(f for f in glob.glob(f'{USB}/ROBLES/**/S06-*.probes', recursive=True)
+                     if 'S06-05_' not in f):
         name = cf.split('/')[-1].split('_')[0]
         s = read_probes(cf)
         g = np.full(len(keys), NC, dtype=np.int8)

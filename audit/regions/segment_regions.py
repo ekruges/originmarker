@@ -22,7 +22,7 @@ and isolated pronuclei carry one parental genome, so every chromosome in them is
 """
 import numpy as np
 
-CACHE = "cells_14801.npz"
+CACHE = "cells_S06.npz"
 AUTOSOMES = [str(i) for i in range(1, 23)]
 NC, AA, AB, BB = -1, 0, 1, 2
 MIN_COV, HET_FRAC = 10, 0.30
@@ -32,8 +32,8 @@ NPERM = 400
 DIR_MARGIN = 0.60
 
 # One parental genome by construction, from the GEO submission sheet.
-UNIPARENTAL = {'14801-01', '14801-02', '14801-03', '14801-04', '14801-06',
-               '14801-12', '14801-13', '14801-14', '14801-16'}
+UNIPARENTAL = {'S06-01', 'S06-02', 'S06-03', 'S06-04', 'S06-06',
+               'S06-12', 'S06-13', 'S06-14', 'S06-16'}
 
 
 def max_segment(x):

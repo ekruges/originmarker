@@ -28,6 +28,7 @@ const W = new URL('../../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const score = await import(`${W}scoreSample.ts`)
 const timing = await import(`${W}timing.ts`)
+const defects = await import(`${W}defects.ts`)
 
 const SHEET = process.env.OM_SHEET ?? ''
 const DIRS = new Map<string, string>(
@@ -169,9 +170,25 @@ for (const s of samples) {
       acc, profile, pat, mat, soloRole: p.mother && !p.father ? 'maternal' : 'paternal',
       sibs: [], sampleName: s.gsm, log: () => {},
     }) as Record<string, unknown>
-    // Whose copy it is, from the two lists that carry an origin. Keyed by chromosome and
-    // direction, which is what the timing events are keyed by.
+    // Whose copy it is. Keyed by chromosome and direction, which is what the timing events are
+    // keyed by. THE MENDELIAN ROWS FIRST: on a whole-chromosome event they are the channel the
+    // page itself reads, and this summary used to read the dosage rows alone, which on amplified
+    // material return no parent on most whole-chromosome losses. Then the allele count, then the
+    // dosage rows for whatever is left.
     const origins = new Map<string, string>()
+    const role = (res.role as 'paternal' | 'maternal' | undefined) ?? 'paternal'
+    const aneuOf = new Map(((res.chroms ?? []) as { chrom: string; aneuploidy?: string }[])
+      .map((c) => [c.chrom, c.aneuploidy]))
+    for (const o of (res.oneParent ?? []) as Parameters<typeof defects.mendelParent>[0][]
+      & { where: string }[]) {
+      const m = /^chr(\S+)$/.exec(o.where)
+      if (!m || aneuOf.get(m[1]) !== 'loss') continue
+      const p = defects.mendelParent(o, role, false)
+      if (p) origins.set(`${m[1]}|loss`, p)
+    }
+    for (const c of (res.chroms ?? []) as { chrom: string; lostParent?: string }[]) {
+      if (c.lostParent && !origins.has(`${c.chrom}|loss`)) origins.set(`${c.chrom}|loss`, c.lostParent)
+    }
     for (const [dir, list] of [['gain', res.gains], ['loss', res.losses]] as const) {
       for (const g of (list ?? []) as { where: string; origin: string }[]) {
         const m = /^chr(\S+)/.exec(g.where)

@@ -310,6 +310,26 @@ async function run(declaredStage?: 'failed', withMother = false) {
     'the second parental array is evidence about origin, not about copy number, and must not add '
     + `or remove an event. One parent: ${found(one).join(' ')}. Two: ${found(two).join(' ')}.`)
 
+  // WHAT THE SECOND ARRAY DOES ADD IS THE ABSENT PARENT, FROM THE ALLELES ALONE. At markers where
+  // the parents are opposite homozygotes, a chromosome reading one parent's allele and nothing
+  // else is missing the other parent's copy. chr5 lost the loaded parent's copy, chr13 the
+  // mother's, chr7 carries two copies from the father and none from the mother, and chr11 three
+  // from the father and none from the mother: all four are missing a parent, and the alleles say
+  // which, without saying how many copies remain. That is why chr7 keeps its isodisomy finding and
+  // gains no loss: the copy number is the intensity's to decide, and on chr7 the intensity reads
+  // two. On chr11 it reads three, and the alleles then say whose all three are.
+  const lostParentOf = (r: Awaited<ReturnType<typeof run>>) =>
+    Object.fromEntries((r.chroms ?? []).filter((c) => c.lostParent).map((c) => [c.chrom, c.lostParent]))
+  assert.deepEqual(lostParentOf(one), {},
+    'with one parent loaded the other allele has no owner, so no parent is named from the alleles')
+  assert.deepEqual(lostParentOf(two),
+    { [ONE_COPY]: 'paternal', [ISODISOMY]: 'maternal', [ISO_TRISOMY]: 'maternal', [MAT_LOST]: 'maternal' },
+    `the alleles name the absent parent on every chromosome that is missing one. Got ${JSON.stringify(lostParentOf(two))}`)
+  assert.equal((two.chroms ?? []).find((c) => c.chrom === ISODISOMY)?.aneuploidy, undefined,
+    'and an absent parent at normal intensity is not a loss: it is the isodisomy the findings carry')
+  assert.ok((two.oneParent ?? []).some((o) => o.where === `chr${ISODISOMY}`),
+    'a chromosome the alleles flagged reaches the Mendelian channel like any detected event')
+
   const rowFor = (r: Awaited<ReturnType<typeof run>>, chrom: string) =>
     (r.oneParent ?? []).find((o) => o.where === `chr${chrom}`)
 
@@ -356,9 +376,10 @@ async function run(declaredStage?: 'failed', withMother = false) {
     'and the same row read as a LOSS does name that parent, so the gate is the class and not the '
     + 'row')
 
-  // NEITHER PARENT IS NAMED WHERE BOTH COPIES ARE THERE. Every remaining autosome in this fixture
-  // is intact, so anything named on one is a false call.
-  const built = new Set([`chr${ONE_COPY}`, `chr${MAT_LOST}`, `chr${ISO_TRISOMY}`])
+  // NEITHER PARENT IS NAMED WHERE BOTH PARENTS' COPIES ARE THERE. Every remaining autosome in this
+  // fixture is intact, so anything named on one is a false call. chr7 is built: two copies, both
+  // the father's, so its row rightly says the maternal copy is absent.
+  const built = new Set([`chr${ONE_COPY}`, `chr${MAT_LOST}`, `chr${ISO_TRISOMY}`, `chr${ISODISOMY}`])
   const intact = (two.oneParent ?? []).filter((o) => !built.has(o.where) && !o.where.includes('Mb'))
   const falseCalls = intact.filter((o) => o.parent)
   assert.deepEqual(falseCalls.map((o) => `${o.where}=${o.parent}`), [],

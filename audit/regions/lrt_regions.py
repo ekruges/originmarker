@@ -16,13 +16,13 @@ by how this bin behaves in the OTHER cells. Departure from that is the statistic
 
   expected_ij = n_ij * r_i * (q_j / q)      r_i cell rate, q_j cohort rate here, q cohort overall
 
-Truth for measuring sensitivity is 14801-02 and 14801-16, which carry no paternal genome anywhere,
+Truth for measuring sensitivity is S06-02 and S06-16, which carry no paternal genome anywhere,
 so every scoreable bin in them is a true positive and every bin in a biparental cell is a true
 negative for the paternal direction.
 """
 import numpy as np
 
-CACHE = "cells_14801.npz"
+CACHE = "cells_S06.npz"
 AUTOSOMES = [str(i) for i in range(1, 23)]
 NC, AA, AB, BB = -1, 0, 1, 2
 MIN_COV, HET_FRAC = 10, 0.30
@@ -30,7 +30,7 @@ BIN_MB, MIN_CALLED = 5.0, 60
 MIN_COHORT = 8
 LRT = 12.0                # about p 5e-4 on 1 df, before multiplicity
 DIR_MARGIN = 0.60
-MATERNAL_ONLY = {'14801-02', '14801-16'}     # established independently, see FINDINGS
+MATERNAL_ONLY = {'S06-02', 'S06-16'}     # established independently, see FINDINGS
 
 
 def lrt(k, n, e):

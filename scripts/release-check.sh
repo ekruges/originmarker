@@ -93,7 +93,12 @@ fi
 # corpus and collapsing its digit runs gives seven shapes; these are the ones that are specific
 # enough to match nothing else. A shape absent here is a shape this guard cannot see, so widen it
 # by re-enumerating rather than by inventing a pattern.
-ids=$(git grep -lE '[0-9]{4,6}-[0-9]{1,2}_[0-9]{1,3}|_chr[0-9]+[a-z]*_[A-Z][0-9]+__[0-9]+|[0-9]+_[A-Z][0-9]+-[0-9]+_[0-9]+[pq]X[pq]_[0-9]+|\bH[0-9]+_[0-9]+_X[pq]_[0-9]+' \
+# AND THE BARE BARCODE, five digits, a dash, two digits, with nothing alphanumeric before it and
+# no third digit after. That shape is a lab sample on its own, without the array suffix, and it is
+# what the audit narratives, result tables and scripts carried for two months while the guard above
+# looked only for filenames. A DOI (s41586-...), a coordinate range (60001-2699520) and a UUID all
+# fail one of the two boundaries, which is what makes the shape specific enough to enforce.
+ids=$(git grep -lE '[0-9]{4,6}-[0-9]{1,2}_[0-9]{1,3}|_chr[0-9]+[a-z]*_[A-Z][0-9]+__[0-9]+|[0-9]+_[A-Z][0-9]+-[0-9]+_[0-9]+[pq]X[pq]_[0-9]+|\bH[0-9]+_[0-9]+_X[pq]_[0-9]+|(^|[^0-9A-Za-z])[0-9]{5}-[0-9]{2}([^0-9]|$)|previewData[0-9]{5}' \
   -- . ':!CHANGELOG.md' ':!scripts/release-check.sh' 2>/dev/null || true)
 if [ -n "$ids" ]; then
   say "A LAB SAMPLE IDENTIFIER APPEARS IN TRACKED FILES:"

@@ -1,0 +1,50 @@
+arrays with hand calls and both parents on disk: 31 of 31
+...............................
+
+TRUE PARENTS (31 arrays, 682 chromosomes)
+  all mothers:            EXTRA 2, MISSED 29, WRONG parent 1, agree intact 475, agree parent 78, not scored 97
+  without egg donor D:    MISSED 15, agree intact 185, agree parent 8, not scored 56
+  chromosomes with a parent named from the alleles: 83
+  of the agreed parents, the Mendelian channel agrees on 78 and declines on 0
+
+WRONG MOTHER (31 arrays, 682 chromosomes)
+  all mothers:            EXTRA 1, MISSED 74, agree intact 476, agree parent 34, not scored 97
+  without egg donor D:    MISSED 19, agree intact 185, agree parent 4, not scored 56
+  chromosomes with a parent named from the alleles: 37
+
+DISAGREEMENTS, true parents:
+  MISSED        GSM4472413 chr 6  hand: monosomy 6 (pat)     alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage trophectoderm
+  EXTRA         GSM4472423 chr12  hand: normal               alleles: paternal  AB 9.3%  father-only 7.3%  mother-only 83.5%  n 799  intensity none  mendel paternal  stage blastomere
+  EXTRA         GSM4472423 chr13  hand: normal               alleles: paternal  AB 12.2%  father-only 8.9%  mother-only 78.9%  n 526  intensity none  mendel declined  stage blastomere
+  MISSED        GSM4552380 chr 2  hand: monosomy 2 (pat)     alleles: -  AB 74.0%  father-only 19.3%  mother-only 6.7%  n 1350  intensity none  mendel declined  stage trophectoderm
+  WRONG parent  GSM4552382 chr 2  hand: monosomy 2 (mat)     alleles: paternal  AB 5.4%  father-only 9.4%  mother-only 85.2%  n 1467  intensity none  mendel paternal  stage single-cell
+  MISSED        GSM4472422 chr 5  hand: monosomy 5 (pat)     alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage failed
+  MISSED        GSM4472422 chr13  hand: monosomy 13 (pat)    alleles: -  AB 50.9%  father-only 4.1%  mother-only 45.0%  n 700  intensity none  mendel declined  stage failed
+  MISSED        GSM4552389 chr 5  hand: monosomy 5 (pat)     alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr 2  hand: monosomy 2 (pat)     alleles: -  AB 9.0%  father-only 11.0%  mother-only 80.0%  n 911  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr 3  hand: monosomy 3 (mat)     alleles: -  AB 8.4%  father-only 89.3%  mother-only 2.3%  n 859  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr 6  hand: monosomy 6 (pat)     alleles: -  AB 6.8%  father-only 6.9%  mother-only 86.4%  n 992  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr 8  hand: monosomy 8 (mat)     alleles: -  AB 8.0%  father-only 89.0%  mother-only 3.0%  n 709  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr 9  hand: monosomy 9 (mat)     alleles: -  AB 13.7%  father-only 83.5%  mother-only 2.8%  n 642  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr10  hand: monosomy 10 (pat)    alleles: -  AB 6.9%  father-only 6.3%  mother-only 86.8%  n 699  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr12  hand: monosomy 12 (mat)    alleles: -  AB 8.3%  father-only 88.9%  mother-only 2.8%  n 678  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr14  hand: monosomy 14 (mat)    alleles: -  AB 10.2%  father-only 82.8%  mother-only 7.0%  n 470  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr16  hand: monosomy 16 (pat)    alleles: -  AB 15.1%  father-only 3.6%  mother-only 81.3%  n 604  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr17  hand: monosomy 17 (mat)    alleles: -  AB 14.9%  father-only 78.8%  mother-only 6.3%  n 542  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr18  hand: monosomy 18 (mat)    alleles: -  AB 8.5%  father-only 90.8%  mother-only 0.7%  n 448  intensity none  mendel declined  stage failed
+  MISSED        GSM4472409 chr20  hand: monosomy 20 (pat)    alleles: -  AB 10.8%  father-only 5.4%  mother-only 83.8%  n 351  intensity none  mendel declined  stage failed
+  MISSED        GSM4472405 chr 2  hand: monosomy 2 (mat)     alleles: -  AB 14.6%  father-only 84.4%  mother-only 1.0%  n 1791  intensity none  mendel declined  stage failed
+  MISSED        GSM4472405 chr 4  hand: monosomy 4 (pat)     alleles: -  AB 14.0%  father-only 84.9%  mother-only 1.1%  n 1526  intensity none  mendel declined  stage failed
+  MISSED        GSM4472405 chr 5  hand: monosomy 5 (mat)     alleles: -  AB 15.6%  father-only 83.6%  mother-only 0.8%  n 1532  intensity none  mendel declined  stage failed
+  MISSED        GSM4472405 chr10  hand: monosomy 10 (mat)    alleles: -  AB 16.8%  father-only 82.4%  mother-only 0.8%  n 1282  intensity none  mendel declined  stage failed
+  MISSED        GSM4472405 chr11  hand: monosomy 11 (pat)    alleles: -  AB 15.7%  father-only 0.6%  mother-only 83.7%  n 1396  intensity none  mendel declined  stage failed
+  MISSED        GSM4472405 chr13  hand: monosomy 13 (mat)    alleles: -  AB 16.2%  father-only 82.8%  mother-only 1.0%  n 808  intensity none  mendel declined  stage failed
+  MISSED        GSM4472405 chr16  hand: monosomy 16 (pat)    alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage failed
+  MISSED        GSM4472405 chr21  hand: monosomy 21 (mat)    alleles: -  AB 18.1%  father-only 80.4%  mother-only 1.5%  n 474  intensity none  mendel declined  stage failed
+  MISSED        GSM4552420 chr 9  hand: monosomy 9 (mat)     alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage trophectoderm
+  MISSED        GSM4552420 chr11  hand: monosomy 11 (pat)    alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage trophectoderm
+  MISSED        GSM4552420 chr13  hand: monosomy 13 (mat)    alleles: -  AB 46.0%  father-only 48.1%  mother-only 5.9%  n 724  intensity none  mendel declined  stage trophectoderm
+  MISSED        GSM4552420 chr15  hand: monosomy 15 (mat)    alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage trophectoderm
+
+stage/zygosity of the scored arrays (per chromosome): blastomere/diploid 110, bulk/diploid 22, failed/diploid 132, failed/unknown 66, haploid/diploid 22, single-cell/diploid 154, trophectoderm/diploid 176
+

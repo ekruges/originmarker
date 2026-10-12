@@ -38,8 +38,8 @@ assert.equal(absenceExplainable(0.5, 0), 0, 'homozygous: immune to dropout')
 assert.equal(absenceExplainable(0, 0.5), 0, 'no dropout: nothing to inflate')
 for (const [nc, het, observed] of [
   [0.004, 0.318, 0.0005], // PennCNV offspring
-  [0.136, 0.013, 0.0016], // 52461 androgenote 02
-  [0.137, 0.020, 0.0022], // 52461 androgenote 04
+  [0.136, 0.013, 0.0016], // S23 androgenote 02
+  [0.137, 0.020, 0.0022], // S23 androgenote 04
   [0.469, 0.222, 0.0969], // Zuccaro A8, a TRUE pair scoring above unrelated ones
 ] as const) {
   assert.ok(absenceExplainable(nc, het) >= observed,

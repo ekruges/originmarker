@@ -104,7 +104,7 @@ DATA
 - 884 probe exports held locally, verified byte-for-byte against source, 736 unique samples.
 - 684 CEL files named in the three submission sheets; 474 present, 210 absent from the shared
   drive and never deposited there.
-- One cumulus sample in the entire set, 14801-05, bulk-quality and confirmed as the mother of the
+- One cumulus sample in the entire set, S06-05, bulk-quality and confirmed as the mother of the
   other arrays in its experiment.
 - 14 polar bodies, publicly deposited, genome-wide heterozygosity median 0.1116 where truth is
   zero. That is the error floor for one-genome material on this platform.

@@ -630,6 +630,14 @@ export interface ChromResult {
    * Absent when no parent made enough markers informative here.
    */
   contribution?: HetCall
+  /**
+   * The parent whose copy is gone, read from the alleles alone: at markers where the parents are
+   * homozygous for opposite alleles this chromosome shows one parent's allele and nothing else.
+   * Set only with two bulk parental arrays on a biparental genome, and it is what sets
+   * `aneuploidy` to 'loss' on a chromosome the call rate and intensity did not reach. See
+   * obligateHet.SURVIVOR_MIN.
+   */
+  lostParent?: 'paternal' | 'maternal'
   /** Whose copy changed, where determinable. 'this' is the parent this result is scored against;
    *  'other' means their alleles survive on what is left, so the copy that went was the other
    *  parent's. Undefined where the sample carries none of this parent's genome anywhere. */

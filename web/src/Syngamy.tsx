@@ -113,7 +113,10 @@ function defectsForResult(r: ParentageResult) {
   // WHOLE-CHROMOSOME ANEUPLOIDY IS A CHROMOSOMAL CHANGE, and belongs in the one list with the rest.
   // It used to have a panel of its own, so a reader comparing a whole-chromosome loss against a
   // segmental one was comparing two boxes with different vocabularies and no shared ordering.
-  const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy).map((c) => {
+  // AND A CHROMOSOME THE ALLELES READ AS MISSING ONE PARENT, with no intensity verdict: that is a
+  // parental absence rather than a copy loss, because one parent's allele alone is what a
+  // monosomy and an isodisomy both read. See ChromResult.lostParent.
+  const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy || c.lostParent).map((c) => {
     const scored = (r.dosageCalls ?? []).find((d: { where: string }) => d.where === `chr${c.chrom}`)
     const other = r.role === 'paternal' ? 'maternal' : 'paternal'
     // THE MENDELIAN CHANNEL FIRST, measured at 0.920 on obvious whole-chromosome events against
@@ -121,25 +124,57 @@ function defectsForResult(r: ParentageResult) {
     // rather than whether a mean has moved, so it needs no detection floor.
     const mendel = (r.oneParent ?? []).find((o: { where: string }) => o.where === `chr${c.chrom}`)
     const named = mendel ? mendelParent(mendel, r.role, c.aneuploidy === 'gain') : null
-    const origin = named
+    // THE ALLELES ALONE, with two bulk parents loaded: see ChromResult.lostParent. Where the
+    // Mendelian channel also names a parent the two must agree, or the row names nobody. Two
+    // readings of one genome that disagree are a fact about the genome, not a tie to break.
+    // On a GAIN the origin is the parent who supplied the extra copy. One parent's allele alone on
+    // a three-copy chromosome means every copy is that parent's, so the absent parent is inverted.
+    const letters = !c.lostParent ? null
+      : c.aneuploidy === 'gain' ? (c.lostParent === 'paternal' ? 'maternal' : 'paternal')
+        : c.lostParent
+    const conflict = !!(named && letters && named !== letters)
+    const origin = conflict ? 'unclear'
+      : named ?? letters
       ?? (c.aneuploidyParent === 'this' ? r.role
         : c.aneuploidyParent === 'other' ? other
           : (scored && parentNamed(scored.verdict as DosageVerdict, r.role)) || 'unclear')
+    const k = c.contribution
+    const [father, mother] = k
+      ? (r.role === 'paternal' ? [k.onlyA, k.onlyB] : [k.onlyB, k.onlyA]) : [NaN, NaN]
+    const lettersWhy = letters && k
+      ? ` Of ${int(k.informative)} markers where the parents are opposite homozygotes, `
+        + `${pct(k.fraction, 1)} read both alleles, ${pct(father, 1)} the father's alone and `
+        + `${pct(mother, 1)} the mother's alone, so `
+        + (c.aneuploidy === 'gain' ? `every copy present is ${letters}.`
+          : `the ${c.lostParent} copy is the one missing.`)
+        + (c.aneuploidy ? '' : ' Whether one copy remains or two is a question for the intensity, '
+          + 'which did not reach a verdict on this chromosome: a monosomy and an isodisomy read '
+          + 'the same at these markers.')
+      : ''
+    const conflictWhy = conflict
+      ? ` The allele count and the Mendelian channel name different parents, so no parent is named.`
+      : ''
     return {
       chrom: c.chrom,
       startBp: 0,
       endBp: chromEndOf(r, c.chrom),
-      kind: c.aneuploidy === 'gain' ? 'copy-gain' : 'copy-loss',
+      kind: c.aneuploidy === 'gain' ? 'copy-gain' : c.aneuploidy === 'loss' ? 'copy-loss'
+        : 'parental-absence',
       locus: `chr${c.chrom}`,
       origin,
       band: named ? mendel?.band : scored?.band,
       confidence: named ? mendel?.posterior : scored?.confidence,
       inheritedMargin: (scored as { inheritedMargin?: number } | undefined)?.inheritedMargin,
       stage: r.stage?.stage,
-      why: `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
-        + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest. An intact `
-        + 'chromosome calls at 0.78x to 1.16x of its genome median and never leaves -0.79 to +0.42 '
-        + `log2, measured over 1,012 chromosomes.`
+      why: (c.aneuploidy
+        ? `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
+          + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest. An intact `
+          + 'chromosome calls at 0.78x to 1.16x of its genome median and never leaves -0.79 to '
+          + '+0.42 log2, measured over 1,012 chromosomes.'
+        : `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
+          + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest, neither of `
+          + 'which reached a whole-chromosome verdict; the alleles did.')
+        + `${lettersWhy}${conflictWhy}`
         + `${named ? ` ${mendel?.why}` : ''}${scored?.why ? ` ${scored.why}` : ''}`,
     } as never
   })

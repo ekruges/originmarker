@@ -108,6 +108,47 @@ The two agree within every family as well as in aggregate: 47.06% against 46.94%
 the most dropout, 94.70% against 94.61% in the cleanest. The spread between families is embryo
 quality, not a parental asymmetry. Pairs drawn from different families called relatives: 0 of 12.
 
+### Whole-chromosome losses on single cells, against a published method's own calls
+
+Zuccaro et al. karyotyped every arrayed cell of GSE148488 by eye and recorded, per chromosome,
+whether it is normal, which parent's copy a monosomy lost, or whether the chromosome is absent.
+On the 31 cells with both parents arrayed that is 682 chromosome calls, committed as
+`audit/zuccaro-table-s3.tsv`. The comparison is against a hand reading of the same amplified array,
+not against dissection, so a disagreement is a difference between two readings and not a proven
+error on either side.
+
+At markers where the parents are homozygous for opposite alleles, a chromosome reading one
+parent's allele alone is missing the other parent's copy. The intensity reaches about half of these
+losses on amplified cells and the alleles reach them all:
+
+| chromosomes | heterozygous share | surviving parent's share |
+|---|---|---|
+| intact, 490 | 0.355 to 0.960 | never above 0.627 |
+| lost, 105 | 0.034 to 0.213 | never below 0.735 |
+
+The shipped pipeline, both parents loaded, scored by `audit/zuccaro-table-s3.ts`:
+
+| hand call, true parents loaded | the alleles, shipped pipeline |
+|---|---|
+| monosomy with a parent named, on the 27 arrays the tool scores (85) | same parent **78**, other parent **1**, declined 4, read as both copies present 2 |
+| intact chromosome on those arrays (477) | a parent named on 2, both on one blastomere whose file copy number reads 0.8 to 0.9 there |
+| monosomy on the 4 arrays the stage inference refuses outright (23) | not reported: a refused array reports nothing, by design |
+| the Mendelian channel on the 78 | agrees on 78, declines on 0 |
+| a different egg donor as mother | 0 wrong parents named; the maternal-loss half is still found (34), the paternal-loss half is not |
+
+The four refused arrays carry 23 of the 29 misses, and on every one of them the alleles read the
+loss as plainly as on the scored arrays (heterozygous share 7 to 18 percent, survivor 79 to 91
+percent). Whether a cell with eight to twelve monosomies should be refused as "no genome reads this
+way" or reported chromosome by chromosome is a decision the stage inference currently makes for
+the whole array, and it is left as it stands here. The one wrong parent and the two hand calls the
+alleles read as intact are listed in `audit/zuccaro-table-s3-results.txt`.
+
+What the alleles cannot say is whether one copy remains or two: a monosomy and an isodisomy of the
+surviving parent read the same at these markers. The row therefore names the absent parent and
+leaves the copy number to the intensity, which on these cells mostly declines. Egg donor D is
+excluded as a parental genotype elsewhere in this record for her heterozygosity; she is the mother
+of 18 of the 31 cells here, and the figures are given with and without her.
+
 ### The panel builder keeps the markers that hold up
 
 `informativity.ts` labels which markers can testify about an embryo's paternal contribution. The

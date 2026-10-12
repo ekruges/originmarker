@@ -19,7 +19,8 @@ import { breathe, buildScanIndex, copyNeutralWindows, gatherInterval, type Inter
 import { type AB } from './informativity.ts'
 import type { ProbeRow, SampleProfile } from './ingest.ts'
 import {
-  classify, emptyTally, isAutosome, knownBiparental, pct, tallyRow, type ParentageResult,
+  classify, emptyTally, isAutosome, knownBiparental, pct, tallyRow, PANEL_HET_FLOOR,
+  type ParentageResult,
 } from './parentage.ts'
 import {
   scanChromosome, scanCopyNumber, externalNull, segmentCoords, type MarkerAbsence,
@@ -331,18 +332,60 @@ export async function scoreSample(input: {
   if (!stageAgreement.agrees) {
     log('WARN', stageAgreement.notice)
   }
-  // One contribution or two, per chromosome. Reported, never used to admit or reject a
-  // sample: the boundaries are measured for a BULK reference parent, and against a
-  // single-cell reference they do not separate at all (audit section E2).
+  // One contribution or two, per chromosome. The boundaries are measured for a BULK reference
+  // parent, and against a single-cell reference they do not separate at all (audit section E2),
+  // so with one parent, or an amplified one, this is reported and never used to admit or reject.
+  //
+  // WITH TWO BULK PARENTS IT IS ALSO A DETECTOR, and the one that reaches a whole chromosome on
+  // amplified material. The call-rate and intensity gates in classify() miss about half of the
+  // whole-chromosome losses a published method called by hand on single cells: 53 of 111 sit
+  // inside 0.2 log2R of the genome, where no intensity floor can reach them. The alleles do not
+  // depend on intensity. A chromosome reading one parent's allele alone at the markers where the
+  // parents are homozygous for opposite alleles, on a genome carrying both parents elsewhere, is
+  // missing the other parent's copy. Dropout cannot produce that pattern: it removes a
+  // heterozygote's alleles at random rather than one parent's allele at every marker. Measured
+  // against the same hand calls through this pipeline: 78 of 85 monosomies on the arrays it
+  // scores name the same parent, 1 the other, and the Mendelian channel agrees on all 78
+  // (obligateHet.SURVIVOR_MIN, audit/zuccaro-table-s3.ts).
+  //
+  // WHAT THE ALLELES DO NOT SAY IS THE COPY NUMBER. One parent's allele alone is what a monosomy
+  // reads, and it is also what an isodisomy reads: the other parent's copy is absent in both, and
+  // only the intensity separates one remaining copy from two. So this sets `lostParent`, which is
+  // the fact the alleles establish, and leaves `aneuploidy` to the call rate and the intensity.
+  // The page reports a chromosome with a lost parent and no intensity verdict as a parental
+  // absence with the one-or-two question stated, which is also as far as a hand karyotype of the
+  // same cell can go. The Mendelian channel then runs on the chromosome like any detected event,
+  // so the row carries that channel's posterior and band, and a disagreement between the two
+  // readings is reported as unclear rather than resolved in favour of either.
+  const twoBulk = !!mat && pat.heterozygosity >= PANEL_HET_FLOOR
+    && mat.heterozygosity >= PANEL_HET_FLOOR
+  const otherRole = soloRole === 'paternal' ? 'maternal' : 'paternal'
   for (const c of result.chroms) {
     const two = mat !== null && mat !== undefined
     const tally = two
       ? obligateByChrom.get(c.chrom) ?? emptyHet()
-      : hetByChrom.get(c.chrom) ?? emptyHet()
+      : { ...emptyHet(), ...(hetByChrom.get(c.chrom) ?? {}) }
     const call = hetCall(tally, two ? 2 : 1)
     if (call.ploidy !== 'uncalled') c.contribution = call
+    if (!twoBulk || !knownBiparental(result.zygosity) || !isAutosome(c.chrom)
+      || c.verdict === 'not_measured' || call.ploidy !== 'uniparental' || !call.survivor) continue
+    // The first parental slot holds the array whose role is soloRole; the survivor's allele is
+    // what remains, so the copy that is missing is the other parent's.
+    const lost = call.survivor === 'a' ? otherRole : soloRole
+    c.lostParent = lost
+    if (c.aneuploidy === 'loss') c.aneuploidyParent = lost === soloRole ? 'this' : 'other'
   }
-  const uni = result.chroms.filter((c) => c.contribution?.ploidy === 'uniparental')
+  for (const c of result.chroms) {
+    if (!c.lostParent || !c.contribution) continue
+    const k = c.contribution
+    const [father, mother] = soloRole === 'paternal' ? [k.onlyA, k.onlyB] : [k.onlyB, k.onlyA]
+    log('DONE', `chr${c.chrom}: the ${c.lostParent} copy is absent. Of ${k.informative} markers `
+      + `where the parents are opposite homozygotes, ${pct(k.fraction, 1)} read both alleles, `
+      + `${pct(father, 1)} the father's alone and ${pct(mother, 1)} the mother's alone`
+      + (c.aneuploidy ? '.' : '. Whether one copy remains or two is for the intensity, which did '
+        + 'not reach a verdict on this chromosome.'))
+  }
+  const uni = result.chroms.filter((c) => c.contribution?.ploidy === 'uniparental' && !c.lostParent)
   if (uni.length) {
     log('WARN', `one parental contribution only on ${uni.map((c) => `chr${c.chrom}`)
       .join(', ')}: ${uni[0].contribution!.why}`
@@ -376,7 +419,11 @@ export async function scoreSample(input: {
   if (uninterpretable) {
     log('WARN', 'no chromosomal changes are reported: this array did not resolve to a '
       + `stage. ${result.stage.why}`)
-    for (const c of result.chroms) c.aneuploidy = undefined
+    for (const c of result.chroms) {
+      c.aneuploidy = undefined
+      c.lostParent = undefined
+      c.aneuploidyParent = undefined
+    }
   }
 
   // IS THE ARRAY IN THE PARENTAL SLOT THE KIND OF PERSON THAT SLOT SAYS IT IS?
@@ -387,7 +434,6 @@ export async function scoreSample(input: {
   // is entirely wrong. See parentSanity.ts for the measurement and for why silence is not a
   // conflict.
   result.parentSanity = reconcileParentSex(soloRole, pat.sex)
-  const otherRole = soloRole === 'paternal' ? 'maternal' : 'paternal'
   const matSanity = mat ? reconcileParentSex(otherRole, mat.sex) : undefined
   if (matSanity) result.parentSanityOther = matSanity
   // EITHER slot being wrong poisons the naming, because with both arrays loaded the answer comes
@@ -532,7 +578,9 @@ export async function scoreSample(input: {
     .filter((c) => c.verdict !== 'not_measured').map((c) => c.chrom))
   // Copy number first: a chromosome already called whole is not scanned for a segment
   // inside it, since that is the same event described twice.
-  const whole = new Set(result.chroms.filter((c) => c.aneuploidy).map((c) => c.chrom))
+  // A chromosome the alleles read as missing one parent is whole as well: a segment found inside
+  // it would be the same absence described twice.
+  const whole = new Set(result.chroms.filter((c) => c.aneuploidy || c.lostParent).map((c) => c.chrom))
   // LOSSES ONLY, for the run-of-homozygosity filter below. A chromosome at ONE copy reads
   // homozygous end to end because it is hemizygous, and that artefact has to go. A chromosome at
   // THREE copies has no such excuse: a trisomy that IS homozygous end to end is an isodisomic
@@ -1155,7 +1203,7 @@ export async function scoreSample(input: {
   // reading "the loaded parent's copy is absent" is only meaningful once "the loaded parent" is
   // the person the report says it is.
   const mendelEvents = canAttribute && !parentSlotWrong ? [
-    ...(result.chroms ?? []).filter((c) => c.aneuploidy)
+    ...(result.chroms ?? []).filter((c) => c.aneuploidy || c.lostParent)
       .map((c) => ({ chrom: c.chrom, start: 0, end: Number.MAX_SAFE_INTEGER,
         label: `chr${c.chrom}` })),
     ...result.segments.map((sg) => {

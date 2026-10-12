@@ -371,8 +371,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       const g = r.gains.find((x) => x.where === `chr${chrom}`)
       return g && g.called ? ` (${g.origin})` : ''
     }
-    const whole = r.chroms.filter((c) => c.aneuploidy)
-      .map((c) => `chr${c.chrom} ${c.aneuploidy}${c.aneuploidy === 'gain' ? originOf(c.chrom) : ''}`)
+    const whole = r.chroms.filter((c) => c.aneuploidy || c.lostParent)
+      .map((c) => `chr${c.chrom} ${c.aneuploidy ?? `${c.lostParent} copy absent`}`
+        + `${c.aneuploidy === 'gain' ? originOf(c.chrom) : ''}`)
     const copy = r.segments.filter((sg) => sg.kind !== 'parental-absence')
       .map((sg) => `chr${sg.chrom} ${sg.kind === 'copy-gain' ? 'gain' : 'loss'} `
         + `${(segmentCoords(sg).spanBp / 1e6).toFixed(0)}Mb`)
@@ -600,7 +601,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       heading('Sex chromosomes', 8.6)
       chromTable(sex, r.explainable)
     }
-    const aneu = r.chroms.filter((c) => c.aneuploidy)
+    const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent)
     if (aneu.length) {
       heading('Aneuploidy', 8.6)
       text('A chromosome that is not there cannot be genotyped, so a whole-chromosome change '
@@ -608,19 +609,26 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'then says which way it went. Measured over 1,012 chromosomes, an intact one calls at '
         + '0.78x to 1.16x of its genome median and never leaves -0.79 to +0.42 log2. A parent is '
         + 'attached only where something survives on the chromosome to attribute and the sample '
-        + 'carries that parent elsewhere.', 7.4, 'Helvetica', 2.4, GREY)
+        + 'carries that parent elsewhere. With both parents loaded, a chromosome reading one '
+        + 'parent\'s allele alone where the parents are opposite homozygotes is missing the other '
+        + 'parent\'s copy; that row says PARENT ABSENT, because one remaining copy and two read the '
+        + 'same at those markers and only the intensity can separate them.',
+      7.4, 'Helvetica', 2.4, GREY)
       table(
         [{ head: 'Chromosome', w: 92 }, { head: 'Change', w: 56 },
           { head: 'Call rate', w: 62, right: true }, { head: 'Intensity', w: 62, right: true },
           { head: 'Whose copy', w: 156 }],
         aneu.map((c) => [
           `chr${c.chrom}`,
-          { v: c.aneuploidy!.toUpperCase(), colour: WARN },
+          { v: c.aneuploidy?.toUpperCase() ?? 'PARENT ABSENT', colour: WARN },
           `${c.callFraction.toFixed(2)}x`,
           `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2`,
-          c.aneuploidyParent === 'this' ? 'the parent scored against'
-            : c.aneuploidyParent === 'other' ? 'the other parent'
-              : 'not determined',
+          c.lostParent ? (c.aneuploidy === 'gain'
+            ? `no ${c.lostParent} copy: every copy is the other parent's, from the alleles`
+            : `${c.lostParent} copy absent, from the alleles`)
+            : c.aneuploidyParent === 'this' ? 'the parent scored against'
+              : c.aneuploidyParent === 'other' ? 'the other parent'
+                : 'not determined',
         ]),
       )
     }

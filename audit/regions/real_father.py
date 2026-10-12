@@ -2,7 +2,7 @@
 
 Every resolution figure so far was measured against a father reconstructed from siblings, and the
 contaminated marker class that produced was shown to be the limit. The EYS sperm donor is bulk
-gDNA on this platform at full density and five arrays of the 32477 series are his children, so the
+gDNA on this platform at full density and five arrays of the S20 series are his children, so the
 obligate-het class can be DEFINED here rather than inferred.
 
 With one parent the informative set is his homozygous markers: a cell carrying only his genome
@@ -46,7 +46,7 @@ def main():
     keep = hom & auto
     print(f'father EYS, bulk gDNA: {len(fid)} markers, {int(keep.sum())} autosomal homozygous')
 
-    files = sorted(glob.glob(f'{USB}/**/32477-*.probes', recursive=True))
+    files = sorted(glob.glob(f'{USB}/**/S20-*.probes', recursive=True))
     rows = []
     for p in files:
         nm = p.split('/')[-1].split('_')[0]

@@ -44,4 +44,6 @@ tools/step2_bootstrap.py
 tools/step2b_groups.py
 tools/step3_depth.py
 web/src/PreviewProducts.tsx
-web/src/previewData50402.json
+web/src/previewData*.json
+# Per-array lab outputs and the barcode map live on the machine holding the data, never in the tree.
+audit/local/

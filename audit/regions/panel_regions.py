@@ -20,7 +20,7 @@ import numpy as np
 from regions import read_probes
 
 USB = "/Volumes/SANDISK USB/SNP array data"
-CACHE = "windows_14801.npz"
+CACHE = "windows_S06.npz"
 AUTOSOMES = [str(i) for i in range(1, 23)]
 
 WIN, STEP = 300, 150
@@ -35,7 +35,7 @@ MIN_COHORT = 8      # cells needed at a window before it has a usable null
 
 
 def build_cache():
-    mumf = glob.glob(f'{USB}/ROBLES/**/14801-05_*.probes', recursive=True)[0]
+    mumf = glob.glob(f'{USB}/ROBLES/**/S06-05_*.probes', recursive=True)[0]
     mum = read_probes(mumf)
     hom = {k: v for k, v in mum.items() if v[3] in ('0', '2') and v[0] in AUTOSOMES}
     print(f'maternal reference: {len(hom)} autosomal homozygous markers', flush=True)
@@ -48,8 +48,8 @@ def build_cache():
         grid[c] = np.array(ps, dtype=np.int64)
 
     cells, mats = [], []
-    for cf in sorted(f for f in glob.glob(f'{USB}/ROBLES/**/14801-*.probes', recursive=True)
-                     if '14801-05_' not in f):
+    for cf in sorted(f for f in glob.glob(f'{USB}/ROBLES/**/S06-*.probes', recursive=True)
+                     if 'S06-05_' not in f):
         name = cf.split('/')[-1].split('_')[0]
         s = read_probes(cf)
         opp = tot = 0

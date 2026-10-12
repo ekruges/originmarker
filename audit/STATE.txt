@@ -60,13 +60,14 @@ DATA, AS COUNTED
   884   probe exports held locally, verified byte-for-byte, 736 unique samples
   684   CEL files named across the three submission sheets
   474   of those present locally; 210 absent from the shared drive and never deposited there
-    1   cumulus sample in the whole set, 14801-05, bulk-quality, confirmed mother of 33 arrays
+    1   cumulus sample in the whole set, S06-05, bulk-quality, confirmed mother of 33 arrays
    14   polar bodies, public, median genome-wide heterozygosity 0.1116 where truth is zero
    17+  arrays in ROBLES alone meet the bulk-reference bar (93%+ call, 12-22% het). "One usable
         parent" was WRONG as stated: it was true of cumulus samples only, and bulk-QUALITY is not
         the same as parent, which is what the linkage harness decides.
 
-Committed region tables, counted from the files:
+Region tables, counted from the files (per-array lab output, kept untracked under audit/local/
+on the machine holding the arrays):
   regions-dieter.tsv 93, regions-dieter-sensitive.tsv 324, regions-JENNA.tsv 164,
   regions-ROBLES.tsv 417, regions-TREFF.tsv 515.
   NOTE: these were produced by an OFFLINE script and carry 5-Mb bin edges, NOT refined

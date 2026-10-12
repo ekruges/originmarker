@@ -1,8 +1,8 @@
-"""Parent-labelled regions on experiment 14801, the one complete trio unit.
+"""Parent-labelled regions on experiment S06, the one complete trio unit.
 
-Mother  14801-05, the single cumulus sample in the set, maternal somatic DNA.
+Mother  S06-05, the single cumulus sample in the set, maternal somatic DNA.
 Father  the EYS sperm donor, bulk gDNA (GSM4472397), used where EYS was the sperm source.
-Cells   the remaining 14801 arrays.
+Cells   the remaining S06 arrays.
 
 The informative class is obligate-het: both parents homozygous for OPPOSITE alleles. A biparental
 cell must read heterozygous there. Each marker is oriented to PATERNAL SHARE before anything is
@@ -68,10 +68,10 @@ def opposite_hom_rate(a, b):
 
 def main():
     dad = read_probes(f'{REPO}/GSM4472397_sperm_DNA_71.subset.csv.gz')
-    mumf = glob.glob(f'{USB}/ROBLES/**/14801-05_*.probes', recursive=True)[0]
+    mumf = glob.glob(f'{USB}/ROBLES/**/S06-05_*.probes', recursive=True)[0]
     mum = read_probes(mumf)
     print(f'father {len(dad)} markers (EYS sperm bulk gDNA)')
-    print(f'mother {len(mum)} markers (14801-05 cumulus)')
+    print(f'mother {len(mum)} markers (S06-05 cumulus)')
 
     r, n = opposite_hom_rate(dad, mum)
     print(f'\nfather vs mother opposite-homozygote rate {r:.4f} over {n} markers '
@@ -91,8 +91,8 @@ def main():
     if len(info) < 2000:
         print('too few to proceed'); return
 
-    cells = sorted(f for f in glob.glob(f'{USB}/ROBLES/**/14801-*.probes', recursive=True)
-                   if '14801-05_' not in f)
+    cells = sorted(f for f in glob.glob(f'{USB}/ROBLES/**/S06-*.probes', recursive=True)
+                   if 'S06-05_' not in f)
     print(f'\n{len(cells)} cells to score\n')
     print(f'{"cell":<12} {"chr":>4} {"start Mb":>10} {"end Mb":>10} {"span":>8} '
           f'{"n":>6} {"share":>7} {"dev":>7}  call')

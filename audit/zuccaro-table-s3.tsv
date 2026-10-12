@@ -1,0 +1,688 @@
+# Zuccaro MV et al., Cell 2020;183(6):1650-1664, Table S3 "karyotypes", one row per autosome of each
+# arrayed sample that has both parents in GSE148488. `table_row` is the sample name as the table gives it;
+# `gsm` is the GEO array it was matched to by title and, where several cells of one embryo share a title,
+# by the assignment of rows to arrays that agrees with the fewest chromosomes of each array contradicted.
+# `manual` is the table cell verbatim. Public data: no laboratory sample is named here.
+gsm	table_row	karyotype	chrom	manual
+GSM4472421	MII injection 'wt' zygote 1	46,XX	1	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	2	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	3	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	4	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	5	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	6	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	7	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	8	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	9	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	10	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	11	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	12	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	13	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	14	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	15	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	16	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	17	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	18	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	19	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	20	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	21	normal
+GSM4472421	MII injection 'wt' zygote 1	46,XX	22	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	1	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	2	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	3	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	4	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	5	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	6	monosomy 6 (pat)
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	7	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	8	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	9	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	10	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	11	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	12	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	13	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	14	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	15	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	16	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	17	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	18	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	19	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	20	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	21	normal
+GSM4472413	MII injection TE BIOPSY embryo F	45,XY,-6	22	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	1	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	2	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	3	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	4	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	5	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	6	del 6q (pat)
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	7	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	8	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	9	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	10	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	11	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	12	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	13	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	14	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	15	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	16	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	17	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	18	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	19	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	20	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	21	normal
+GSM4472412	MII injection TE BIOPSY embryo E	46,XY,del(6q) breakpoint near EYS	22	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	1	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	2	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	3	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	4	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	5	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	6	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	7	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	8	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	9	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	10	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	11	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	12	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	13	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	14	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	15	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	16	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	17	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	18	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	19	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	20	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	21	normal
+GSM4472410	MII injection TE BIOPSY embryo D	46,XX	22	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	1	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	2	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	3	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	4	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	5	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	6	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	7	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	8	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	9	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	10	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	11	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	12	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	13	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	14	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	15	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	16	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	17	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	18	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	19	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	20	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	21	normal
+GSM4472448	MII injection TE biopsy embryo 10	46, XX	22	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	1	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	2	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	3	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	4	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	5	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	6	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	7	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	8	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	9	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	10	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	11	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	12	del12p (pat)*
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	13	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	14	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	15	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	16	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	17	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	18	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	19	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	20	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	21	normal
+GSM4552371	MII injection blastomere embryo B1	del 12p (pat)	22	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	1	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	2	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	3	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	4	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	5	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	6	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	7	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	8	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	9	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	10	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	11	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	12	del12p (pat) *
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	13	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	14	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	15	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	16	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	17	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	18	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	19	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	20	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	21	normal
+GSM4552372	MII injection blastomere embryo B2	del 12p (pat)	22	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	1	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	2	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	3	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	4	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	5	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	6	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	7	del7q (pat)
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	8	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	9	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	10	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	11	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	12	del12p (pat) *
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	13	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	14	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	15	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	16	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	17	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	18	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	19	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	20	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	21	normal
+GSM4552374	MII injection blastomere embryo B3	del 12p (pat)	22	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	1	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	2	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	3	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	4	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	5	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	6	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	7	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	8	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	9	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	10	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	11	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	12	del12p (pat) *
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	13	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	14	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	15	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	16	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	17	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	18	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	19	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	20	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	21	normal
+GSM4552376	MII injection blastomere embryo B4	del 12p (pat)	22	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	1	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	2	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	3	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	4	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	5	monosomy 5 (pat)
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	6	monosomy 6 (pat)
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	7	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	8	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	9	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	10	monosomy 10 (pat)
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	11	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	12	monosomy 12 (pat)
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	13	monosomy 13 (pat)
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	14	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	15	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	16	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	17	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	18	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	19	monosomy 19 (pat)
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	20	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	21	normal
+GSM4552384	MII injection single 'wt' blastomere embryo C (C2)	chaotic aneuploid	22	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	1	monosomy 1 (mat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	2	monosomy 2 (mat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	3	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	4	monosomy 4 (mat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	5	monosomy 5 (pat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	6	monosomy 6 (pat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	7	monosomy 7 (mat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	8	monosomy 8 (mat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	9	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	10	monosomy 10 (pat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	11	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	12	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	13	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	14	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	15	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	16	del 16q23.1-tel (mat)*
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	17	monosomy 17 (mat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	18	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	19	monosomy 19 (pat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	20	monosomy 20 (mat)
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	21	normal
+GSM4552385	MII injection single 'wt' blastomere embryo C (C3)	chaotic aneuploid	22	monosomy 22 (mat)
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	1	monosomy 1 (pat)
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	2	normal
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	3	nullisomy 3
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	4	monosomy 4 (pat)
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	5	normal
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	6	paternal 6p only
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	7	normal
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	8	nullisomy 8
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	9	monosomy 9 (mat)
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	10	normal
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	11	nullisomy 10
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	12	normal
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	13	normal
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	14	normal
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	15	nullisomy 15
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	16	normal
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	17	monosomy 17 (pat)
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	18	monosomy 18 (mat)
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	19	nullisomy 19
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	20	monosomy 20 (pat)
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	21	monosomy 21 (pat)
+GSM4552378	MII injection single  blastomere embryo C (C4)	chaotic aneuploid	22	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	1	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	2	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	3	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	4	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	5	monosomy 5 (pat)
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	6	monosomy 6 (pat)
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	7	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	8	del8p23.1 (mat)
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	9	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	10	monosomy 10 (pat)
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	11	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	12	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	13	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	14	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	15	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	16	Chr16 gain (mat), del 16q23.1-tel (mat)*
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	17	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	18	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	19	monosomy 19 (pat)
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	20	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	21	normal
+GSM4472423	MII injection single 'wt' blastomere embryo C (C5)	chaotic aneuploid	22	normal
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	1	monosomy 1 (pat)
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	2	monosomy 2 (pat)
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	3	nullisomy 3
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	4	monosomy 4 (pat)
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	5	normal
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	6	paternal 6p only
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	7	normal
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	8	nullisomy 8
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	9	monosomy 9 (mat)
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	10	normal
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	11	nullisomy 10
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	12	normal
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	13	normal
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	14	nullisomy 14
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	15	nullisomy 15
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	16	dup 16q23.1-tel (mat)*
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	17	monosomy 17 (pat)
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	18	monosomy 18 (mat)
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	19	normal
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	20	monosomy 20 (pat)
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	21	monosomy 21 (pat)
+GSM4552380	MII injection single  blastomere embryo C (C6)	chaotic aneuploid	22	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	1	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	2	monosomy 2 (mat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	3	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	4	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	5	monosomy 5 (mat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	6	dup(6q)(pat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	7	monosomy 7 (pat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	8	complex rearrangements
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	9	monosomy 9 (pat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	10	monosomy 10 (mat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	11	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	12	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	13	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	14	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	15	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	16	nullisomy 16
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	17	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	18	monosomy 18 (pat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	19	monosomy 19 (mat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	20	normal
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	21	monosomy 21 (mat)
+GSM4552382	MII injection single 'wt' blastomere embryo C (C7)	chaotic aneuploid	22	monosomy 22 (pat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	1	monosomy 1 (mat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	2	monosomy 2 (mat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	3	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	4	monosomy 4 (mat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	5	monosomy 5 (pat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	6	monosomy 6 (pat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	7	monosomy 7 (mat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	8	monosomy 8 (mat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	9	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	10	monosomy 10 (pat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	11	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	12	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	13	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	14	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	15	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	16	del 16q23.1-tel (mat)*
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	17	monosomy 17 (mat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	18	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	19	monosomy 19 (pat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	20	monosomy 20 (mat)
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	21	normal
+GSM4552386	MII injection single 'wt' blastomere embryo C (C8)	chaotic aneuploid	22	monosomy 22 (mat)
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	1	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	2	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	3	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	4	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	5	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	6	del(6q) (pat)
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	7	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	8	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	9	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	10	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	11	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	12	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	13	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	14	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	15	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	16	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	17	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	18	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	19	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	20	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	21	normal
+GSM4552387	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	22	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	1	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	2	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	3	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	4	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	5	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	6	del(6q)(pat)
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	7	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	8	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	9	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	10	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	11	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	12	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	13	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	14	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	15	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	16	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	17	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	18	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	19	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	20	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	21	normal
+GSM4552388	MII injection single 'wt' blastomere embryo 1	normal for other chromosomes	22	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	1	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	2	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	3	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	4	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	5	monosomy 5 (pat)
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	6	dup (6q)(pat)
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	7	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	8	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	9	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	10	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	11	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	12	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	13	monosomy 13 (pat)
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	14	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	15	trisomy 15 (mat)
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	16	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	17	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	18	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	19	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	20	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	21	normal
+GSM4472422	MII injection single 'wt' blastomere embryo 1	45,XY,-5,-13,+15	22	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	1	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	2	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	3	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	4	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	5	monosomy 5 (pat)
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	6	del(6q) (pat)
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	7	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	8	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	9	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	10	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	11	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	12	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	13	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	14	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	15	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	16	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	17	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	18	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	19	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	20	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	21	normal
+GSM4552389	MII injection single 'wt' blastomere embryo 1	monosomy 5	22	normal
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	1	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	2	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	3	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	4	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	5	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	6	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	7	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	8	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	9	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	10	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	11	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	12	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	13	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	14	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	15	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	16	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	17	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	18	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	19	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	20	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	21	no call
+GSM4552422	MII injection single 'wt' blastomere embryo 1	failed	22	no call
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	1	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	2	monosomy 2 (pat)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	3	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	4	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	5	del 5q32-tel (mat)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	6	del (6q21-tel) (mat) (Fra6F)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	7	monosomy 7 (mat)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	8	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	9	monosomy 9 (mat)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	10	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	11	monosomy 11 (pat)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	12	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	13	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	14	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	15	monosomy 15 (pat)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	16	monosomy 16q (pat) FRA16F
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	17	monosomy 17 (mat)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	18	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	19	monosomy 19 (pat)
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	20	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	21	normal
+GSM4552364	MII injection blastomere embryo A (cell 1)	chaotic aneuploid	22	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	1	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	2	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	3	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	4	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	5	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	6	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	7	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	8	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	9	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	10	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	11	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	12	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	13	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	14	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	15	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	16	dup 16q21-tel (pat) FRA16I
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	17	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	18	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	19	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	20	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	21	normal
+GSM4552365	MII injection blastomere embryo A (cell 2)	normal	22	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	1	del 1q25.2-tel (pat)
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	2	monosomy 2 (pat)
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	3	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	4	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	5	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	6	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	7	monosomy 7 (mat)
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	8	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	9	monosomy 9 (mat)
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	10	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	11	monosomy 11 (pat)
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	12	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	13	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	14	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	15	monosomy 15 (pat)
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	16	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	17	monosomy 17 (mat)
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	18	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	19	monosomy 19 (pat)
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	20	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	21	normal
+GSM4552367	MII injection blastomere embryo A (cell 3)	chaotic aneuploid	22	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	1	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	2	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	3	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	4	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	5	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	6	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	7	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	8	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	9	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	10	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	11	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	12	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	13	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	14	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	15	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	16	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	17	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	18	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	19	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	20	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	21	normal
+GSM4552369	MII injection blastomere embryo A (cell 4)	normal	22	normal
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	1	nullisomy 1
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	2	monosomy 2 (pat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	3	monosomy 3 (mat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	4	nullisomy 4
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	5	nullisomy 5
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	6	monosomy 6 (pat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	7	nullisomy 7
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	8	monosomy 8 (mat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	9	monosomy 9 (mat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	10	monosomy 10 (pat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	11	nullisomy 11
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	12	monosomy 12 (mat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	13	nullisomy 13
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	14	monosomy 14 (mat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	15	nullisomy 15
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	16	monosomy 16 (pat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	17	monosomy 17 (mat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	18	monosomy 18 (mat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	19	nullisomy 19
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	20	monosomy 20 (pat)
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	21	nullisomy 21
+GSM4472409	MII injection blastomere embryo A8	chaotic aneuploid	22	nullisomy 22
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	1	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	2	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	3	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	4	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	5	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	6	del(6q)(pat)
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	7	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	8	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	9	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	10	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	11	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	12	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	13	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	14	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	15	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	16	del 16q23.1-tel (mat)*
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	17	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	18	del18p (mat) FRA18E
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	19	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	20	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	21	normal
+GSM4472401	2-cell injection, blastomere embryo one	del 16q22-tel (mat), del18p (mat)	22	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	1	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	2	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	3	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	4	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	5	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	6	del(6p)(pat),dup(6q)(pat)
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	7	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	8	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	9	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	10	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	11	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	12	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	13	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	14	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	15	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	16	del 16q23.1-tel (pat)*
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	17	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	18	dup18p (mat) FRA18E
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	19	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	20	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	21	normal
+GSM4472403	2-cell injection, blastomere embryo one	del 16q22-tel (pat), del18p (pat)	22	normal
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	1	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	2	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	3	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	4	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	5	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	6	paternal 6p only
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	7	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	8	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	9	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	10	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	11	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	12	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	13	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	14	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	15	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	16	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	17	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	18	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	19	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	20	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	21	nullisomic
+GSM4552418	2-cell injection, blastomere embryo one	chr6p fragment only	22	nullisomic
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	1	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	2	monosomy 2 (mat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	3	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	4	monosomy 4 (pat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	5	monosomy 5 (mat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	6	del(6q)(pat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	7	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	8	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	9	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	10	monosomy 10 (mat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	11	monosomy 11 (pat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	12	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	13	monosomy 13 (mat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	14	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	15	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	16	monosomy 16 (pat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	17	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	18	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	19	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	20	normal
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	21	monosomy 21 (mat)
+GSM4472405	2-cell injection, blastomere embryo 2	chaotic aneuploidy	22	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	1	monosomy 1 (mat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	2	monosomy 2 (pat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	3	monosomy 3 (mat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	4	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	5	monosomy 5 (pat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	6	monosomy 6 (pat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	7	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	8	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	9	monosomy 9 (mat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	10	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	11	monosomy 11 (pat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	12	monosomy 12 (mat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	13	monosomy 13 (mat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	14	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	15	monosomy 15 (mat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	16	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	17	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	18	monosomy 18 (pat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	19	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	20	normal
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	21	monosomy 21 (pat)
+GSM4552420	2-cell injection, blastomere embryo 2	chaotic aneuploidy	22	normal

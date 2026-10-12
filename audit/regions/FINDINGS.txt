@@ -1,17 +1,17 @@
 REGION CALLING AGAINST A SINGLE MATERNAL REFERENCE: TWO CONFOUNDS, BOTH MEASURED
 ================================================================================
-Material: experiment 14801, the one complete unit in the laboratory set. 825,657-marker arrays.
-Reference: 14801-05, the single cumulus sample, maternal somatic DNA at bulk quality on this
+Material: experiment S06, the one complete unit in the laboratory set. 825,657-marker arrays.
+Reference: S06-05, the single cumulus sample, maternal somatic DNA at bulk quality on this
 platform (call 0.950, het 0.145 against 0.954 / 0.168 for known bulk gDNA).
 
 THE REFERENCE IS CONFIRMED, NOT ASSUMED
 ----------------------------------------
 Opposite-homozygote rate of every array in the experiment against the cumulus donor:
 
-  14801-02   0.0012      33 arrays span 0.0012 to 0.114
-  14801-12   0.0061      an MII oocyte biopsy, her own gamete, which is the internal control
+  S06-02   0.0012      33 arrays span 0.0012 to 0.114
+  S06-12   0.0061      an MII oocyte biopsy, her own gamete, which is the internal control
   ...
-  14801-20/23/27/38   0.307 to 0.523   amplification failures, excluded
+  S06-20/23/27/38   0.307 to 0.523   amplification failures, excluded
 
 Unrelated adults sit near 0.30. Everything under 0.12 is her material or her child. So the
 maternal assignment is measured, and the four failures separate cleanly from it.
@@ -73,9 +73,9 @@ The 59 regions are therefore kept as a MATERNAL-LOSS CANDIDATE LIST with breakpo
 as a parental split, and the strongest of them are worth checking against the laboratory's manual
 breakpoint maps:
 
-  14801-29  chr9   21.22-22.99, 34.47-35.75, 106.93-108.13 Mb   z -17 to -23
-  14801-30  chr12  32.48-34.01, 111.32-113.35, 120.47-122.22 Mb  z -14 to -19
-  14801-19  chr5  178.79-180.17 Mb                                z -21
+  S06-29  chr9   21.22-22.99, 34.47-35.75, 106.93-108.13 Mb   z -17 to -23
+  S06-30  chr12  32.48-34.01, 111.32-113.35, 120.47-122.22 Mb  z -14 to -19
+  S06-19  chr5  178.79-180.17 Mb                                z -21
 
 
 CONFOUND 3: RECONSTRUCTING THE FATHER FROM THE CELLS THAT WILL BE SCORED IS CIRCULAR
@@ -97,10 +97,10 @@ selection produced the answer.
 THE ORIENTATION ITSELF IS CORRECT, and three cells prove it independently of the above. Their
 centres sit where the biology says they should, without being told what they are:
 
-  14801-04   paternal share 0.158   the POLAR BODY, maternal material, so near zero is right
-  14801-02   0.104   14801-06  0.112     maternal-only material
-  14801-01   0.547   14801-07  0.558     biparental
-  14801-12   0.417   an MII oocyte biopsy
+  S06-04   paternal share 0.158   the POLAR BODY, maternal material, so near zero is right
+  S06-02   0.104   S06-06  0.112     maternal-only material
+  S06-01   0.547   S06-07  0.558     biparental
+  S06-12   0.417   an MII oocyte biopsy
 
 So the statistic separates maternal-only from biparental material on real arrays with no labels
 supplied. What is wrong is the marker selection feeding it, not the measure.
@@ -157,12 +157,12 @@ null. Direction comes from the non-heterozygous calls, by which parent's allele 
 
 Every one of the 9 is PATERNAL copy missing, and they fall in exactly two cells:
 
-  14801-02   8 regions   chr1, 7, 8, 11, 12, 18, 19, 20     his-allele fraction 0.00-0.01
-  14801-16   1 region    chr1 155.00-159.99 Mb              his-allele fraction 0.22
+  S06-02   8 regions   chr1, 7, 8, 11, 12, 18, 19, 20     his-allele fraction 0.00-0.01
+  S06-16   1 region    chr1 155.00-159.99 Mb              his-allele fraction 0.22
 
-Those two are the positive control, and neither was labelled to the caller. 14801-02 reads 0.0012
+Those two are the positive control, and neither was labelled to the caller. S06-02 reads 0.0012
 opposite-homozygote against the mother, which is her own genome rather than a child's, and
-14801-16 is a POLAR BODY. Both are maternal-only material and therefore paternal-absent by
+S06-16 is a POLAR BODY. Both are maternal-only material and therefore paternal-absent by
 construction. The statistic found the right cells, the right direction, and a his-allele fraction
 of essentially zero, from genotype calls alone.
 
@@ -171,7 +171,7 @@ Three earlier attempts on the same data returned 154 regions all maternal (self-
 in cells that must carry the event.
 
 SENSITIVITY IS THE OPEN NUMBER, NOT DIRECTION. A maternal-only cell is paternal-absent on every
-bin, and 8 of about 560 were flagged in 14801-02, so the per-bin detection rate at z >= 4 is low
+bin, and 8 of about 560 were flagged in S06-02, so the per-bin detection rate at z >= 4 is low
 even where truth is certain. Bin size sets it: at 2 Mb a bin holds about 43 obligate-het markers
 and the sampling standard deviation of the fraction is 0.076, the same size as the signal. 5 Mb
 halves that. Larger bins or a segment-level likelihood, rather than independent bins, is the way
@@ -207,13 +207,13 @@ CELL RANKING RECOVERS MATERIAL TYPE WITHOUT BEING TOLD IT
 Ordering all 33 cells by heterozygous fraction at obligate-het markers puts six of the seven lowest
 on known one-genome material, with the cumulus donor's own pronucleus at the bottom:
 
-  14801-02  0.1160  pronucleus        14801-12  0.2477  MII oocyte biopsy
-  14801-06  0.2003  pronucleus        14801-16  0.2701  polar body
-  14801-03  0.2269  pronucleus        14801-01  0.2835  pronucleus
-  14801-04  0.2404  polar body
+  S06-02  0.1160  pronucleus        S06-12  0.2477  MII oocyte biopsy
+  S06-06  0.2003  pronucleus        S06-16  0.2701  polar body
+  S06-03  0.2269  pronucleus        S06-01  0.2835  pronucleus
+  S06-04  0.2404  polar body
 
-TWO SAMPLES CONTRADICT THEIR LABEL and are worth raising with the laboratory: 14801-13 and
-14801-14 are recorded as MII oocyte biopsies but read 0.4555 and 0.4516, inside the biparental
+TWO SAMPLES CONTRADICT THEIR LABEL and are worth raising with the laboratory: S06-13 and
+S06-14 are recorded as MII oocyte biopsies but read 0.4555 and 0.4516, inside the biparental
 range and above 20 of the 23 unlabelled cells. Either those biopsies carried surrounding diploid
 material or the arrays are mixtures. They should not be used as maternal references.
 
@@ -289,7 +289,7 @@ Relatedness above was judged against "unrelated adults sit near 0.30 opposite-ho
 correct on a dense common-SNP Illumina array and WRONG on GPL28377. Measured directly, on the full
 825,657-marker exports:
 
-  EYS sperm donor vs the 14801 cumulus mother   0.0727 over 552,595 shared homozygous markers
+  EYS sperm donor vs the S06 cumulus mother   0.0727 over 552,595 shared homozygous markers
 
 Those two are an unrelated donor couple, so 0.073 IS the unrelated baseline here. The array is
 enriched for low-frequency variants - the sperm donor reads 0.163 heterozygous against the 0.30 of
@@ -297,11 +297,11 @@ a common-SNP panel - so both members of any pair are the same homozygote at most
 opposite homozygotes are intrinsically rare.
 
 CONSEQUENCE. A cutoff of 0.12, chosen against the 0.30 benchmark, admits unrelated material.
-Rechecking experiment 14801 against the correct baseline:
+Rechecking experiment S06 against the correct baseline:
 
-  14801-02  0.0012   her own genome
-  14801-01  0.0155   14801-06  0.0195   14801-04  0.0214    her material
-  14801-03  0.1141   ABOVE the 0.073 unrelated baseline, so NOT her child
+  S06-02  0.0012   her own genome
+  S06-01  0.0155   S06-06  0.0195   S06-04  0.0214    her material
+  S06-03  0.1141   ABOVE the 0.073 unrelated baseline, so NOT her child
 
 So the 33-cell cohort used for the region work contains at least one array that is not this
 mother's, and every cohort-null figure computed from it carries that contamination. The direction
@@ -336,21 +336,21 @@ The EYS sperm donor is deposited as BULK gDNA on this platform at full density, 
 four replicates (GSM4472397-4472400 of GSE148488). Scoring him against a sample of 90 laboratory
 arrays and reading against the platform's own unrelated baseline of 0.073:
 
-  32477-19  0.0033      32477-13  0.0081        five arrays of the 16 in this series are his
-  32477-16  0.0042      32477-15  0.0117        children, an order of magnitude below unrelated
-  32477-12  0.0073
+  S20-19  0.0033      S20-13  0.0081        five arrays of the 16 in this series are his
+  S20-16  0.0042      S20-15  0.0117        children, an order of magnitude below unrelated
+  S20-12  0.0073
 
-He is NOT the father of experiment 14801: every array there reads 0.069 to 0.127 against him,
+He is NOT the father of experiment S06: every array there reads 0.069 to 0.127 against him,
 which is at or above the unrelated baseline. So the region work above could not have used him, and
 the reconstructed father was the only option for that experiment.
 
-THE 32477 SERIES HAS STRUCTURE WORTH USING. Heterozygosity separates its members into two classes:
+THE S20 SERIES HAS STRUCTURE WORTH USING. Heterozygosity separates its members into two classes:
 
-  his children, LOW het        32477-19 0.0498, -16 0.0660, -12 0.0582, -13 0.0644
+  his children, LOW het        S20-19 0.0498, -16 0.0660, -12 0.0582, -13 0.0644
                                one-genome material of his: paternal pronuclei or sperm
-  his child, DIPLOID het       32477-15 0.1445, call rate 0.912
+  his child, DIPLOID het       S20-15 0.1445, call rate 0.912
                                a biparental embryo of his, which is the trio member wanted
-  not his, HAPLOID             32477-14 het 0.0526 at 0.1203 against him
+  not his, HAPLOID             S20-14 het 0.0526 at 0.1203 against him
                                one-genome material of somebody else, so maternal material
   not his, diploid             seven arrays at 0.062 to 0.077 against him, het 0.13 to 0.21
 
@@ -363,7 +363,7 @@ supplies the bulk reference the whole method was specified for. Every resolution
 above was measured against a RECONSTRUCTED father and should be re-measured here before being
 treated as the ceiling.
 
-  NOT YET RUN. The trio is identified, not analysed. What is needed is the mother of 32477-15,
+  NOT YET RUN. The trio is identified, not analysed. What is needed is the mother of S20-15,
   which the haploid non-EYS material in the same series may supply, and then the obligate-het class
   is defined rather than inferred for the first time in this work.
 
@@ -375,8 +375,8 @@ RUN AGAINST THE BULK FATHER: THE MODULE IS CONFIRMED, THE CONFIGURATION IS ABSEN
 Scored against EYS bulk gDNA at 639,543 autosomal homozygous markers, the one-parent obligate-het
 fraction of his six children:
 
-  32477-19  0.0428    32477-16  0.0587    32477-10  0.0894
-  32477-12  0.0514    32477-13  0.0570    32477-15  0.0973
+  S20-19  0.0428    S20-16  0.0587    S20-10  0.0894
+  S20-12  0.0514    S20-13  0.0570    S20-15  0.0973
 
 obligateHet.ts calls uniparental below 0.12 with one parent loaded. Six of six fall under it, so
 every one of his arrays here is one-genome material and the module's one-parent boundary behaves as
@@ -396,9 +396,9 @@ stands unchallenged rather than confirmed.
 THE CONFIGURATION THAT WOULD SETTLE IT DOES NOT EXIST IN THIS MATERIAL. It requires one parent with
 a BULK array together with that parent's BIPARENTAL children. What is present instead:
 
-  experiment 14801   a mother, and her children, but her array is a single cumulus cell and the
+  experiment S06   a mother, and her children, but her array is a single cumulus cell and the
                      father is reconstructed from the children themselves
-  series 32477       a father with a true bulk array, and only his haploid products
+  series S20       a father with a true bulk array, and only his haploid products
 
 Neither is a trio. That is why every resolution figure in this file was measured against a
 reconstructed father, and why none of them should be quoted as the ceiling for the METHOD. They are
@@ -419,9 +419,9 @@ The statement above that no biparental child of the bulk father exists was made 
 sample and is WRONG. Scanning all 884 finds nine of his children, five of them biparental, spread
 across four experiments rather than concentrated in one:
 
-  32477-15  het 0.1475  vs father 0.0084      22549-31  het 0.2168  vs father 0.0423
-  22424-02  het 0.1660  vs father 0.0411      A1        het 0.1281  vs father 0.0357
-  32477-10  het 0.1235  vs father 0.0418
+  S20-15  het 0.1475  vs father 0.0084      S16-31  het 0.2168  vs father 0.0423
+  S10-02  het 0.1660  vs father 0.0411      A1        het 0.1281  vs father 0.0357
+  S20-10  het 0.1235  vs father 0.0418
 
 Scored per 5-Mb bin at 639,543 father-homozygous markers, his biparental children against his
 one-genome products, which are the negative control by construction:
@@ -466,11 +466,11 @@ allele homozygously cannot have his copy. That is sound genetics and it produced
 It is wrong, and the control that shows it is the non-paternal fraction in regions with NO loss:
 
   cell         non-paternal in LOSS bins   in NORMAL bins
-  32477-15               0.0048                0.0073
-  22424-02               0.0268                0.0404
-  22549-31               0.0209                0.0416
+  S20-15               0.0048                0.0073
+  S10-02               0.0268                0.0404
+  S16-31               0.0209                0.0416
   A1                     0.0220                0.0311
-  32477-10               0.0430                0.0420
+  S20-10               0.0430                0.0420
 
 The two are the same, and slightly LOWER where a copy is supposedly missing. The statistic that
 assigns the parent therefore carries no information about the parent, and all 29 calls are

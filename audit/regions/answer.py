@@ -16,8 +16,8 @@ from real_father import read
 
 USB = "/Volumes/SANDISK USB/SNP array data"
 AUT = [str(i) for i in range(1, 23)]
-BIP = ['32477-15', '22424-02', '22549-31', 'A1', '32477-10']
-UNI = ['32477-19', '32477-12', '32477-13', '32477-16']
+BIP = ['S20-15', 'S10-02', 'S16-31', 'A1', 'S20-10']
+UNI = ['S20-19', 'S20-12', 'S20-13', 'S20-16']
 BIN, MINM = 5_000_000, 200
 
 fid, fch, fpo, fgt = read('sperm/GSM4472397.txt.gz')

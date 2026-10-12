@@ -1,5 +1,10 @@
 # Accuracy audits
 
+Lab arrays are named in these files by pseudonym, S01 to S24 for the experiment prefix and the
+array's own two-digit suffix after it. Per-array tables (regions, linkage, manual calls) are not
+tracked; they sit under `audit/local/` on the machine holding the arrays, beside the map from
+pseudonym to prefix. `scripts/release-check.sh` refuses a tree carrying a real barcode.
+
 Two, one per feature that makes a call from array data. Each runs against public arrays whose
 answer was established at the bench rather than by any statistic the tool computes.
 
@@ -8,6 +13,7 @@ answer was established at the bench rather than by any statistic the tool comput
 | [Syngamy](AUDIT.txt) | 22 | 4 | **0** |
 | [Progenitor](PROGENITOR-AUDIT.txt) | 35 | 6 | **0** |
 | [Breakpoints and gain origin](BREAKPOINTS-AUDIT.txt) | 3 of 4 parts | 1 blocked | **0** |
+| [Whole-chromosome losses against hand karyotypes](zuccaro-table-s3.ts) | 78 | 4, plus 23 on 4 arrays refused whole | **1** |
 
 The third audit is newer and narrower. Three of its four parts run on the public arrays in this
 repo: breakpoint accuracy against constructed events with known truth (12.2x better than the

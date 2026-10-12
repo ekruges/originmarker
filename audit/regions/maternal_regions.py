@@ -1,6 +1,6 @@
-"""Parent-labelled REGIONS on experiment 14801, against a confirmed maternal reference.
+"""Parent-labelled REGIONS on experiment S06, against a confirmed maternal reference.
 
-The reference is 14801-05, the single cumulus sample in the whole set: maternal somatic DNA, bulk
+The reference is S06-05, the single cumulus sample in the whole set: maternal somatic DNA, bulk
 quality on this platform (call 0.950, het 0.145 against 0.954 / 0.168 for known bulk gDNA). Every
 other usable array in the experiment reads as her material at 0.0012 to 0.114 opposite-homozygote
 rate, against ~0.30 for unrelated adults, so the assignment is measured rather than assumed.
@@ -35,13 +35,13 @@ MIN_MARKERS = 20_000
 
 
 def main():
-    mumf = glob.glob(f'{USB}/ROBLES/**/14801-05_*.probes', recursive=True)[0]
+    mumf = glob.glob(f'{USB}/ROBLES/**/S06-05_*.probes', recursive=True)[0]
     mum = read_probes(mumf)
     hom = {k: v for k, v in mum.items() if v[3] in ('0', '2') and v[0] in AUTOSOMES}
-    print(f'maternal reference 14801-05: {len(hom)} autosomal homozygous markers\n')
+    print(f'maternal reference S06-05: {len(hom)} autosomal homozygous markers\n')
 
-    cells = sorted(f for f in glob.glob(f'{USB}/ROBLES/**/14801-*.probes', recursive=True)
-                   if '14801-05_' not in f)
+    cells = sorted(f for f in glob.glob(f'{USB}/ROBLES/**/S06-*.probes', recursive=True)
+                   if 'S06-05_' not in f)
     print(f'{"cell":<11} {"chr":>3} {"start Mb":>9} {"end Mb":>9} {"span Mb":>8} {"markers":>8} '
           f'{"share":>6} {"dev":>7}  parental call')
     print('-' * 104)

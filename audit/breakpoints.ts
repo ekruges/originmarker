@@ -24,7 +24,7 @@
  *      that the orientation is invariant on real marker pairs, and that the refusals fire on the
  *      real array that carries gains.
  */
-import { readFileSync, writeFileSync, readdirSync } from 'node:fs'
+import { readFileSync, writeFileSync, readdirSync, existsSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 
 const W = new URL('../web/src/', import.meta.url).pathname
@@ -134,7 +134,7 @@ say(`segment floor: ${FLOOR} markers`
 // labelled as resting on a reconstruction.
 const EXPERIMENTS: { prefix: string; reference: string; reconstructed: boolean }[] = [
   // Lab arrays: the sperm donor's own bulk array is the reference for his experiment.
-  { prefix: '52461', reference: '52461-00', reconstructed: false },
+  { prefix: 'S23', reference: 'S23-00', reconstructed: false },
   // Public arrays, GSE145984/GSE148488. The sperm donor's bulk gDNA is the reference and the
   // pMII products are his haploid meiotic products. These are 28,604-marker SUBSETS, so the
   // shipped 2,400-marker segment floor cannot be reached in them: the floor is lowered by
@@ -144,15 +144,30 @@ const EXPERIMENTS: { prefix: string; reference: string; reconstructed: boolean }
 ]
 
 const results: Record<string, unknown> = {}
+/**
+ * Lab experiment prefixes are pseudonyms in this file (S01, S02, ...). The map from pseudonym to
+ * the real five-digit prefix is audit/local/barcode-map.tsv on the machine holding the arrays and
+ * is never tracked. A lab filename is translated to its pseudonym before it is compared.
+ */
+const pseudonym = new Map<string, string>()
+{
+  const mapPath = new URL('./local/barcode-map.tsv', import.meta.url).pathname
+  if (existsSync(mapPath)) {
+    for (const line of readFileSync(mapPath, 'utf8').trim().split('\n').slice(1)) {
+      const [prefix, alias] = line.split('\t')
+      pseudonym.set(prefix, alias)
+    }
+  }
+}
 const byExperiment = (name: string): string =>
-  (name.startsWith('GSM') ? 'GSM47' : name.slice(0, 5))
+  (name.startsWith('GSM') ? 'GSM47' : pseudonym.get(name.slice(0, 5)) ?? name.slice(0, 5))
 
 const loaded: Loaded[] = []
 for (const f of files) loaded.push(await load(f))
 
-const experiment = EXPERIMENTS.find((e) => files.some((f) => f.startsWith(e.reference)))
+const experiment = EXPERIMENTS.find((e) => files.some((f) => (byExperiment(f) + f.slice(5)).startsWith(e.reference)))
 if (!experiment) throw new Error('no experiment with a declared reference array is present')
-const donor = loaded.find((l) => l.name.startsWith(experiment.reference))!
+const donor = loaded.find((l) => (byExperiment(l.name) + l.name.slice(5)).startsWith(experiment.reference))!
 say(`reference parent: ${donor.name} (call ${pct(donor.callRate, 1)}, het ${pct(donor.hetRate, 1)})`
   + `${experiment.reconstructed ? ' [RECONSTRUCTED]' : ' [measured]'}`)
 say(`scoped to experiment ${experiment.prefix}; arrays from other experiments are different `

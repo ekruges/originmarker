@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict'
 import {
   HAPLOID_MAX, DIPLOID_MIN, ONE_PARENT_HAPLOID_MAX, ONE_PARENT_DIPLOID_MIN, MIN_INFORMATIVE,
-  emptyHet, addOneParent, addTwoParent, hetCall,
+  SURVIVOR_MIN, emptyHet, addOneParent, addTwoParent, hetCall,
 } from './obligateHet.ts'
 import { ploidyOf } from './productTriage.ts'
 
@@ -116,6 +116,37 @@ const at = (fraction: number, n = 1000) => {
   assert.deepEqual([u.informative, u.het], [2, 1])
 }
 
+// --- 6. whose allele survives names the copy that went, two parents only -----------------------
+{
+  // Father AA, mother BB. A cell with both copies reads AB; one carrying the father's copy alone
+  // reads AA; the mother's alone, BB.
+  const t = emptyHet()
+  for (let i = 0; i < 300; i += 1) addTwoParent('AA', 'BB', i < 20 ? 'AB' : 'AA', t)
+  assert.deepEqual([t.informative, t.het, t.onlyA, t.onlyB], [300, 20, 280, 0])
+  const c = hetCall(t, 2)
+  assert.equal(c.ploidy, 'uniparental')
+  assert.equal(c.survivor, 'a', 'the first parent\'s allele alone makes that parent the survivor')
+  assert.ok(Math.abs(c.onlyA - 280 / 300) < 1e-9 && c.onlyB === 0)
+
+  // The measured margins on GSE148488 against Table S3: the survivor's share is 0.735 and up on
+  // every lost chromosome, and neither parent's share reaches 0.627 on any intact one. The floor
+  // sits inside that gap rather than on either edge of it.
+  assert.ok(SURVIVOR_MIN > 0.627 && SURVIVOR_MIN < 0.735, 'the floor sits in the measured gap')
+
+  // Uniparental with no survivor is what a chromosome the arrays are not measuring reads as, and
+  // it names nobody. Here the two homozygotes split 140 to 140.
+  const w = emptyHet()
+  for (let i = 0; i < 300; i += 1) addTwoParent('AA', 'BB', i < 20 ? 'AB' : i < 160 ? 'AA' : 'BB', w)
+  assert.equal(hetCall(w, 2).ploidy, 'uniparental')
+  assert.equal(hetCall(w, 2).survivor, undefined, 'neither allele clears the floor')
+
+  // One parent loaded: the other allele has no owner, so nothing is attributed.
+  const u = emptyHet()
+  for (let i = 0; i < 300; i += 1) addOneParent('AA', 'AA', u)
+  assert.deepEqual([u.onlyA, u.onlyB], [0, 0])
+  assert.equal(hetCall(u, 1).survivor, undefined)
+}
+
 console.log('obligateHet.check.ts: all assertions passed')
 
 // --- the reference parent must be bulk, measured externally on GSE19247 ------------------------
@@ -152,11 +183,11 @@ console.log('obligateHet.check.ts: all assertions passed')
   const BIPARENTAL = [0.0894, 0.0973]                   // his children, two parental genomes
 
   for (const v of ONE_GENOME) {
-    assert.equal(hetCall({ informative: 50_000, het: Math.round(50_000 * v) }, 1).ploidy,
+    assert.equal(hetCall({ ...emptyHet(), informative: 50_000, het: Math.round(50_000 * v) }, 1).ploidy,
       'uniparental', `${v} is a one-genome product and must call uniparental`)
   }
   for (const v of BIPARENTAL) {
-    assert.equal(hetCall({ informative: 50_000, het: Math.round(50_000 * v) }, 1).ploidy,
+    assert.equal(hetCall({ ...emptyHet(), informative: 50_000, het: Math.round(50_000 * v) }, 1).ploidy,
       'biparental', `${v} is a biparental child and must call biparental`)
   }
   // The regression this replaces: at the old 0.12 bound every one of those biparental children
