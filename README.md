@@ -9,7 +9,7 @@
 Builds a ranked, downloadable menu of candidate flanking SNP markers around a pathogenic variant,
 for PGT-M linkage and karyomapping. Syngamy then reads SNP arrays after an experiment and reports
 which parental genome is present, on which chromosomes, and across which regions within them.
-Progenitor builds a SNP array for a parent nobody genotyped, out of the haploid cells that parent
+Germline builds a SNP array for a parent nobody genotyped, out of the haploid cells that parent
 produced. It works out which of the two parents it built from the Y those cells carry, writes the
 array out as a file usable anywhere an array goes, and calls the parental origin of every input
 against it.
@@ -77,7 +77,7 @@ build`, and the `-b` is the typecheck: bare `tsc` has no inputs here and exits 0
 |---|---|
 | `originmarker/` | the library: panel building, array reading, the HMM, the report writer. Every module carries a self-check, run as `python -m originmarker.<module>` |
 | `app/` | FastAPI over that library. `app/main.py` is the only entry point |
-| `web/` | the SPA. Syngamy and Progenitor run entirely in the browser; nothing is uploaded |
+| `web/` | the SPA. Syngamy and Germline run entirely in the browser; nothing is uploaded |
 | `data/` | 23MB of bundled deCODE recombination maps, read from disk and never re-downloaded |
 | `tests/` | offline, against recorded API responses in `tests/fixtures/` |
 | `tools/` | one-off analysis scripts, kept because their numbers are cited in the docs |
@@ -89,7 +89,7 @@ build`, and the `-b` is the typecheck: bare `tsc` has no inputs here and exits 0
 
 Method, scope, data sources and limitations: [Documentation](https://originmarker.app/#/docs),
 [Syngamy](https://originmarker.app/#/syngamy-docs) and
-[Progenitor](https://originmarker.app/#/progenitor-docs).
+[Germline](https://originmarker.app/#/germline-docs).
 
 Version history and the bugs each release fixed: [CHANGELOG.md](CHANGELOG.md).
 

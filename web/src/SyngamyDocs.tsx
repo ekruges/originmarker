@@ -90,7 +90,7 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         </>
       }
       siblings={[
-        { label: 'Progenitor documentation', href: '#/progenitor-docs' },
+        { label: 'Germline documentation', href: '#/germline-docs' },
         { label: 'Panel documentation', href: '#/docs' },
       ]}
     >
@@ -821,13 +821,13 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         {/* --- 14 ------------------------------------------------------------------------ */}
         <Section id="inferred" title="When the donor array is reconstructed">
           <Text size="sm" mb={10}>
-            The donor here does not have to be an array anyone measured. Progenitor reconstructs a
+            The donor here does not have to be an array anyone measured. Germline reconstructs a
             parent&rsquo;s genotype from the haploid cells that parent produced and writes it out
             as an array file, which drops in here as the donor. That is the case an experiment
             with no array of the parent has, and it is the reason the file exists.
           </Text>
           <Text size="sm" mb={10}>
-            It does not have to arrive through a file picker. Progenitor&rsquo;s export list
+            It does not have to arrive through a file picker. Germline&rsquo;s export list
             carries a <b>Download and open in Syngamy</b> button, which saves the array and opens
             this page in a new tab with it already loaded as the donor. The file is passed
             between the two tabs in memory rather than through browser storage, so no copy of a
@@ -850,7 +850,7 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             against a measured array. The two must not be compared with each other. It also covers
             only the markers the products could establish, which is fewer than the array carries,
             and a fraction of its calls are heterozygous sites every product happened to agree on
-            and which it therefore asserts as homozygous. Progenitor reports that fraction as
+            and which it therefore asserts as homozygous. Germline reports that fraction as
             contamination and writes it into the file&rsquo;s own banner.
           </Text>
           <Text size="sm">

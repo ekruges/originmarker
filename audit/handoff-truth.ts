@@ -1,7 +1,7 @@
 /**
- * The Progenitor to Syngamy handoff, end to end, on real arrays.
+ * The Germline to Syngamy handoff, end to end, on real arrays.
  *
- * Progenitor writes a parent reconstructed from haploid meiotic products as an array file for
+ * Germline writes a parent reconstructed from haploid meiotic products as an array file for
  * Syngamy to load as the donor. It asserts only the sites its products agree on, so it is zero
  * percent heterozygous by construction. Zero heterozygosity in a fertilised genome is a finding; in
  * a reconstruction it is arithmetic, and the file's reconstruction mark is what tells the gates
@@ -79,7 +79,7 @@ for (const p of products) {
   for (const r of rowsOfText(textOf(p.gsm))()) ps.add(slot, r as never, band as never)
   ps.end(slot, band as never)
 }
-// The depth the module picks for itself, using no array of the parent. Same call Progenitor makes.
+// The depth the module picks for itself, using no array of the parent. Same call Germline makes.
 const chosen = ps.chooseM() as { mMin: number }
 const built = ps.build(chosen.mMin) as {
   genotype: Map<string, string>; mMin: number; contamination: number
@@ -102,7 +102,7 @@ const text = inferredArray.inferredArrayText({
   generatedAt: new Date(0).toISOString(),
   build: 'GRCh37',
 } as never) as string
-const path = join(tmpdir(), 'progenitor-inferred-paternal-handoff.probes')
+const path = join(tmpdir(), 'germline-inferred-paternal-handoff.probes')
 writeFileSync(path, text)
 console.log(`written: ${path}, ${(text.length / 1e6).toFixed(1)} MB`)
 console.log(`carries its own mark: ${inferredArray.inferredMark(text.slice(0, 4000))}`)

@@ -8,7 +8,7 @@
  * absence, turning a true log2 ratio of -0.40 into +2.18. Haploid products do not have that
  * failure, because one product reading A and another reading B PROVES the parent heterozygous.
  * That is why PLAN.txt names polar bodies as the correct substitute for a maternal array, and why
- * Progenitor scored 35 correct, 6 refused, 0 incorrect against a father it was never shown.
+ * Germline scored 35 correct, 6 refused, 0 incorrect against a father it was never shown.
  *
  * MIN_PRODUCTS is 5. Below that the method inverts and true offspring read as decisively absent,
  * so a group with four is not a group with nearly enough.

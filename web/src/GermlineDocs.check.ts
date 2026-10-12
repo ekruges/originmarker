@@ -1,4 +1,4 @@
-// Self-check for the Progenitor docs' structure, on the same terms as SyngamyDocs.check.ts.
+// Self-check for the Germline docs' structure, on the same terms as SyngamyDocs.check.ts.
 //
 // Section numbers are derived from SECTIONS order, so nothing can drift between a heading and
 // the nav. What remains checkable is that every nav entry has a section and every section a nav
@@ -9,7 +9,7 @@
 // whether a reconstructed reference is trusted, and a page asserting a floor the code does not
 // enforce is worse than a page that says nothing: it is a claim about the tool's behaviour that
 // a reader has no way to check. So the constants are imported and compared, not retyped.
-// Run: node src/ProgenitorDocs.check.ts
+// Run: node src/GermlineDocs.check.ts
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { CITATIONS } from './citations.ts'
@@ -17,9 +17,9 @@ import {
   MIN_ASCERTAINMENT, MIN_PRODUCTS, SAME_PARENT_MAX, DIFFERENT_PARENT_MIN,
 } from './inferredReference.ts'
 import { pct } from './parentage.ts'
-import { PROGENITOR_EXAMPLES } from './progenitorExamples.ts'
+import { GERMLINE_EXAMPLES } from './germlineExamples.ts'
 
-const src = readFileSync(new URL('./ProgenitorDocs.tsx', import.meta.url), 'utf8')
+const src = readFileSync(new URL('./GermlineDocs.tsx', import.meta.url), 'utf8')
 
 const nav = [...src.matchAll(/\{ id: '([\w-]+)', label: (?:'[^']+'|"[^"]+")(?:, group: '[^']+')? \}/g)].map((m) => m[1])
 const heads = [...src.matchAll(/<Section id="([\w-]+)" title="/g)].map((m) => m[1])
@@ -76,18 +76,18 @@ for (const [name, rendered] of [
 // character class runs past the closing quote and matches entities in the JSX below it.
 assert.ok(!/'[^'\n]*&[a-z]+;[^'\n]*'/.test(src),
   'an HTML entity inside a plain string renders literally: use the character')
-assert.equal(MIN_PRODUCTS, PROGENITOR_EXAMPLES.length,
+assert.equal(MIN_PRODUCTS, GERMLINE_EXAMPLES.length,
   'the bundled examples must reach the floor, or the positive case cannot complete')
 
 // Every documentation page links to the other two.
 for (const other of ['#/syngamy-docs', '#/docs']) {
   assert.ok(src.includes(`href: '${other}'`), `this page must link to ${other}`)
 }
-assert.ok(/const PREFIX = 'progenitor-docs'/.test(src), 'the anchor route has changed')
+assert.ok(/const PREFIX = 'germline-docs'/.test(src), 'the anchor route has changed')
 assert.ok(src.includes('docsHelpers(PREFIX, SECTIONS)'),
   'section numbering must come from the shell, bound to this page\'s own route')
 
-console.log(`ProgenitorDocs.check OK (${nav.length} sections, ${cited.length} citation markers, `
+console.log(`GermlineDocs.check OK (${nav.length} sections, ${cited.length} citation markers, `
   + 'nav == headings, cross-refs and citations resolve, thresholds match the code)')
 
 // EVERY SECTION BELONGS TO A PART. The nav and the body both render the part above the first

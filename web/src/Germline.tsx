@@ -32,11 +32,11 @@ import { int } from './fmt'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog, type LogLine } from './RunLog'
 import {
-  PROGENITOR_EXAMPLES, PROGENITOR_CITATION, loadProductExample,
-} from './progenitorExamples'
+  GERMLINE_EXAMPLES, GERMLINE_CITATION, loadProductExample,
+} from './germlineExamples'
 
 /**
- * Progenitor: reconstruct a parent's genotype from the haploid cells it produced.
+ * Germline: reconstruct a parent's genotype from the haploid cells it produced.
  *
  * The case this exists for is an experiment with no array of the parent. Each haploid product
  * carries one allele per locus, so where the parent is homozygous every product agrees and the
@@ -285,7 +285,7 @@ function OriginTable({ origins, side }: { origins: Origin[]; side: string }) {
   )
 }
 
-export function ProgenitorPage() {
+export function GermlinePage() {
   const [products, setProducts] = useState<Loaded[]>([])
   const [set, setSet] = useState<ProductSet | null>(null)
   const [state, setState] = useState<Stage0>('idle')
@@ -510,9 +510,9 @@ export function ProgenitorPage() {
 
   const loadExamples = async (): Promise<void> => {
     setExamples(true)
-    log('READ', `fetching ${PROGENITOR_EXAMPLES.length} public example products`)
+    log('READ', `fetching ${GERMLINE_EXAMPLES.length} public example products`)
     const files: File[] = []
-    for (const ex of PROGENITOR_EXAMPLES) {
+    for (const ex of GERMLINE_EXAMPLES) {
       try {
         files.push(await loadProductExample(ex))
       } catch (err) {
@@ -760,7 +760,7 @@ export function ProgenitorPage() {
   const exportItems = provenance ? [
     {
       label: 'The inferred array',
-      filename: `progenitor-inferred-${ref?.side || 'parent'}-${provenance.reportId}.probes`,
+      filename: `germline-inferred-${ref?.side || 'parent'}-${provenance.reportId}.probes`,
       mime: 'text/plain',
       hint: 'The reconstructed genotype as an array file, in the same four columns every other '
         + 'export in this family uses. Drop it into Syngamy as the donor to call parental origin '
@@ -780,7 +780,7 @@ export function ProgenitorPage() {
       }),
       after: (
         <HandoffButton
-          filename={`progenitor-inferred-${ref?.side || 'parent'}-${provenance.reportId}.probes`}
+          filename={`germline-inferred-${ref?.side || 'parent'}-${provenance.reportId}.probes`}
           text={() => inferredArrayText({
             genotype: ref!.stats.genotype,
             locus: (id) => set!.locus(id),
@@ -802,7 +802,7 @@ export function ProgenitorPage() {
     },
     {
       label: 'The report',
-      filename: `progenitor-report-${provenance.reportId}.pdf`,
+      filename: `germline-report-${provenance.reportId}.pdf`,
       mime: 'application/pdf',
       hint: 'Letter PDF in the same format as the Syngamy report. Every page states that the '
         + 'reference was inferred, so a page lifted out of context still says so.',
@@ -838,7 +838,7 @@ export function ProgenitorPage() {
     },
     {
       label: 'Pairwise concordance',
-      filename: `progenitor-concordance-${provenance.reportId}.csv`,
+      filename: `germline-concordance-${provenance.reportId}.csv`,
       mime: 'text/csv',
       hint: 'One row per pair of products, with the rate and whether they grouped together. '
         + 'The shape a plotting or clustering script wants.',
@@ -846,7 +846,7 @@ export function ProgenitorPage() {
     },
     {
       label: 'Concordance matrix',
-      filename: `progenitor-matrix-${provenance.reportId}.csv`,
+      filename: `germline-matrix-${provenance.reportId}.csv`,
       mime: 'text/csv',
       hint: 'The square matrix as printed, ordered by group. Loads with index_col=0 for a '
         + 'heatmap or a supplementary table.',
@@ -854,7 +854,7 @@ export function ProgenitorPage() {
     },
     {
       label: 'Per-sample results',
-      filename: `progenitor-samples-${provenance.reportId}.csv`,
+      filename: `germline-samples-${provenance.reportId}.csv`,
       mime: 'text/csv',
       hint: 'One row per array including the ones excluded, each with its reason, so the table '
         + 'accounts for every file submitted.',
@@ -862,7 +862,7 @@ export function ProgenitorPage() {
     },
     {
       label: 'Run manifest',
-      filename: `progenitor-run-${provenance.reportId}.json`,
+      filename: `germline-run-${provenance.reportId}.json`,
       mime: 'application/json',
       hint: 'The whole run as JSON: reference parameters, membership, every sample, every pair, '
         + 'and what was withheld. For a pipeline or a LIMS.',
@@ -880,7 +880,7 @@ export function ProgenitorPage() {
       {/* Braces, not a quoted attribute: a JSX attribute string is raw text and does not process
           escapes, so "\u2019" written there renders those six characters on the page. */}
       <FeatureHeader
-        name="Progenitor"
+        name="Germline"
         tagline={'builds a parent\u2019s SNP array from the cells it produced'}
       />
 
@@ -890,10 +890,10 @@ export function ProgenitorPage() {
           colours={TAG_COLOUR}
           onDownload={() => {
             const head = [
-              'Progenitor run log',
+              'Germline run log',
               `generated ${new Date().toISOString()}`,
               `url ${window.location.href}`,
-              examples ? `examples: ${PROGENITOR_CITATION}` : '',
+              examples ? `examples: ${GERMLINE_CITATION}` : '',
               '',
             ].filter(Boolean).join('\n')
             const body = lines.map((l) => `[${l.tag}] ${l.text}`).join('\n')
@@ -902,7 +902,7 @@ export function ProgenitorPage() {
             const a = document.createElement('a')
             a.href = url
             a.download =
-              `progenitor-runlog-${new Date().toISOString().slice(0, 19)
+              `germline-runlog-${new Date().toISOString().slice(0, 19)
                 .replace(/[:T]/g, '')}.txt`
             document.body.appendChild(a)
             a.click()

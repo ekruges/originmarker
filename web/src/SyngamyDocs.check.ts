@@ -56,12 +56,12 @@ assert.ok(src.includes('docsHelpers(PREFIX, SECTIONS)'),
 
 // Every documentation page links to the other two, in both directions.
 const panel = readFileSync(new URL('./DocsPage.tsx', import.meta.url), 'utf8')
-const prog = readFileSync(new URL('./ProgenitorDocs.tsx', import.meta.url), 'utf8')
-for (const [name, other] of [['the panel docs', '#/docs'], ['Progenitor', '#/progenitor-docs']]) {
+const prog = readFileSync(new URL('./GermlineDocs.tsx', import.meta.url), 'utf8')
+for (const [name, other] of [['the panel docs', '#/docs'], ['Germline', '#/germline-docs']]) {
   assert.ok(src.includes(`href: '${other}'`), `this page must link to ${name}`)
 }
 assert.ok(panel.includes("href: '#/syngamy-docs'"), 'the panel docs must link here')
-assert.ok(prog.includes("href: '#/syngamy-docs'"), 'the Progenitor docs must link here')
+assert.ok(prog.includes("href: '#/syngamy-docs'"), 'the Germline docs must link here')
 
 console.log(`SyngamyDocs.check OK (${nav.length} sections, ${cited.length} citation markers, `
   + 'nav == headings, cross-refs and citations resolve)')

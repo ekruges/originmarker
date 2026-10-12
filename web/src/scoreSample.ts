@@ -108,6 +108,13 @@ export const emptyParent = (): ParentAccum => ({
   gt: new Map(), called: 0, het: 0, markers: 0, sex: emptySex(),
 })
 
+/**
+ * Autosomes that must read both parents at the opposite-homozygote markers before any chromosome
+ * of the same genome is read as missing one. One would do in principle; two keeps a single noisy
+ * chromosome from admitting a uniparental genome.
+ */
+export const BIPARENTAL_AUTOSOMES_MIN = 2
+
 export function collectParentRow(r: ProbeRow, acc: ParentAccum): void {
   acc.gt.set(r.probesetId, r.genotype)
   // ON THE SAME PASS, because the alternative is a second read of a 790,000-row file to answer a
@@ -360,15 +367,32 @@ export async function scoreSample(input: {
   const twoBulk = !!mat && pat.heterozygosity >= PANEL_HET_FLOOR
     && mat.heterozygosity >= PANEL_HET_FLOOR
   const otherRole = soloRole === 'paternal' ? 'maternal' : 'paternal'
+  const two = mat !== null && mat !== undefined
   for (const c of result.chroms) {
-    const two = mat !== null && mat !== undefined
     const tally = two
       ? obligateByChrom.get(c.chrom) ?? emptyHet()
       : { ...emptyHet(), ...(hetByChrom.get(c.chrom) ?? {}) }
     const call = hetCall(tally, two ? 2 : 1)
     if (call.ploidy !== 'uncalled') c.contribution = call
-    if (!twoBulk || !knownBiparental(result.zygosity) || !isAutosome(c.chrom)
-      || c.verdict === 'not_measured' || call.ploidy !== 'uniparental' || !call.survivor) continue
+  }
+  // "ON A GENOME THAT CARRIES BOTH PARENTS ELSEWHERE" IS A CONDITION, AND IT IS MEASURED HERE
+  // RATHER THAN TAKEN FROM THE GENOME-LEVEL CLASS. A bulk array of the father loaded as a sample is
+  // diploid and androgenetic: every chromosome reads his allele alone, the zygosity gate passes it,
+  // and naming the maternal copy absent chromosome by chromosome put eight events on a genome that
+  // has none. The genome-level class is no gate either, in the other direction: a cell that has
+  // lost one parent's copy on half its chromosomes reads gynogenetic or androgenetic as a whole,
+  // and excluding it by class threw away thirteen correct calls on the Zuccaro cells. What
+  // separates the two is whether ANY autosome still reads both parents at these markers. An
+  // androgenetic genome cannot reach 45 percent heterozygous at opposite-homozygote markers on
+  // even one chromosome; a chaotic cell reads it on every chromosome it kept.
+  const bothParentsSomewhere = result.chroms
+    .filter((c) => isAutosome(c.chrom) && c.contribution?.ploidy === 'biparental').length
+    >= BIPARENTAL_AUTOSOMES_MIN
+  for (const c of result.chroms) {
+    const call = c.contribution
+    if (!twoBulk || !bothParentsSomewhere || !knownBiparental(result.zygosity)
+      || !isAutosome(c.chrom) || c.verdict === 'not_measured' || !call
+      || call.ploidy !== 'uniparental' || !call.survivor) continue
     // The first parental slot holds the array whose role is soloRole; the survivor's allele is
     // what remains, so the copy that is missing is the other parent's.
     const lost = call.survivor === 'a' ? otherRole : soloRole

@@ -20,14 +20,14 @@ export interface ProductExample {
   what: string
 }
 
-export const PROGENITOR_CITATION =
+export const GERMLINE_CITATION =
   'Zuccaro MV et al. Allele-specific chromosome removal after Cas9 cleavage in human embryos. '
   + 'Cell 2020;183(6):1650-1664. GEO GSE148488, Affymetrix Axiom, GRCh37.'
 
-export const PROGENITOR_STRIDE = 16
-export const PROGENITOR_MARKERS = 51_604
+export const GERMLINE_STRIDE = 16
+export const GERMLINE_MARKERS = 51_604
 
-export const PROGENITOR_EXAMPLES: ProductExample[] = [
+export const GERMLINE_EXAMPLES: ProductExample[] = [
   {
     gsm: 'GSM4774680',
     file: 'GSM4774680_pMII-1.subset.csv.gz',

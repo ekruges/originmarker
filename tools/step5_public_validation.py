@@ -2,7 +2,7 @@
 
 Steps 1 to 4 ran against unpublished arrays and are keyed to internal sample identifiers,
 so they are not in this repository. Their measurements are quoted in CHANGELOG.md and in
-the Progenitor documentation. This step and step 6 run entirely on public accessions.
+the Germline documentation. This step and step 6 run entirely on public accessions.
 
 Everything before this was validated against one real parental array. That is an existence
 proof, not a validation. Zuccaro et al. 2020 (GEO GSE148488, Cell 183:1650-1664) supply a

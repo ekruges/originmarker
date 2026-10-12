@@ -88,7 +88,7 @@ export function DocsSiblingLinks({ siblings }: { siblings: DocSibling[] }) {
   )
 }
 
-/** The section id in a hash like `#/progenitor-docs/membership`, or '' for the bare route. */
+/** The section id in a hash like `#/germline-docs/membership`, or '' for the bare route. */
 export function docsSectionFromHash(prefix: string, hash: string): string {
   const m = new RegExp(`^#/${prefix}/([\\w:.-]+)$`).exec(hash)
   return m ? m[1] : ''

@@ -19,9 +19,9 @@ import type { GenotypeSet } from './genotypes'
 import { DocsPage } from './DocsPage'
 import { DocsHome } from './DocsHome'
 import { SyngamyDocsPage } from './SyngamyDocs'
-import { ProgenitorDocsPage } from './ProgenitorDocs'
+import { GermlineDocsPage } from './GermlineDocs'
 import { SyngamyPage } from './Syngamy'
-import { ProgenitorPage } from './Progenitor'
+import { GermlinePage } from './Germline'
 import { TermsPage } from './TermsPage'
 import { Logo } from './Logo'
 
@@ -78,20 +78,22 @@ export default function App() {
   const esRef = useRef<EventSource | null>(null)
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
-  const route = useHashRoute()
+  const rawRoute = useHashRoute()
+  // Germline was Progenitor until 5.33.0. Every link and bookmark into the old name still lands.
+  const route = rawRoute.replace(/^#\/progenitor/, '#/germline')
   // The bare route is the index; '#/docs/<section>' stays the panel builder's own reference, so
   // every cross-reference and bookmark into it still lands where it did.
   const atDocsHome = route === '#/docs' || route === '#/docs/'
   const atDocs = route.startsWith('#/docs') && !atDocsHome
-  const atProgDocs = route.startsWith('#/progenitor-docs')
-  const atProgenitor = route.startsWith('#/progenitor') && !atProgDocs
+  const atProgDocs = route.startsWith('#/germline-docs')
+  const atGermline = route.startsWith('#/germline') && !atProgDocs
   const atSynDocs = route.startsWith('#/syngamy-docs')
   const atSyngamy = route.startsWith('#/syngamy') && !atSynDocs
   const atTerms = route.startsWith('#/terms')
   // Keyed on having no data, not on phase === 'idle': the hero must stay mounted while a
   // resolve is in flight, or the layout tears down mid-click.
   const atHome = !atDocs && !atDocsHome && !atSynDocs && !atProgDocs && !atTerms && !atSyngamy
-    && !atProgenitor && !resolved && !result
+    && !atGermline && !resolved && !result
 
   const stopWatch = () => {
     esRef.current?.close()
@@ -324,12 +326,12 @@ export default function App() {
               <Button variant="subtle" size="xs" component="a" href="#/syngamy">
                 Syngamy
               </Button>
-              <Button variant="subtle" size="xs" component="a" href="#/progenitor">
-                Progenitor
+              <Button variant="subtle" size="xs" component="a" href="#/germline">
+                Germline
               </Button>
               <Button
                 variant="subtle" size="xs" component="a"
-                href={atProgenitor || atProgDocs ? '#/progenitor-docs'
+                href={atGermline || atProgDocs ? '#/germline-docs'
                   : atSyngamy || atSynDocs ? '#/syngamy-docs' : '#/docs'}
               >
                 <span className="om-wide-only">Documentation</span>
@@ -361,9 +363,9 @@ export default function App() {
         ) : atSynDocs ? (
           <SyngamyDocsPage health={health} />
         ) : atProgDocs ? (
-          <ProgenitorDocsPage health={health} />
-        ) : atProgenitor ? (
-          <ProgenitorPage />
+          <GermlineDocsPage health={health} />
+        ) : atGermline ? (
+          <GermlinePage />
         ) : atSyngamy ? (
           <SyngamyPage health={health} />
         ) : atTerms ? (
@@ -406,8 +408,8 @@ export default function App() {
                   <Anchor href="#/syngamy" size="xs" c="dimmed">
                     Syngamy: parent of origin from arrays
                   </Anchor>
-                  <Anchor href="#/progenitor" size="xs" c="dimmed">
-                    Progenitor: build a parent’s SNP array from haploid cells
+                  <Anchor href="#/germline" size="xs" c="dimmed">
+                    Germline: build a parent’s SNP array from haploid cells
                   </Anchor>
                 </Group>
               </div>

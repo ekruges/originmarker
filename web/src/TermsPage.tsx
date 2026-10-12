@@ -19,7 +19,7 @@ export function TermsPage() {
           PCR primer pairs for genotyping them. <strong>Syngamy</strong> works in the other
           direction: given SNP array genotypes from an experiment that has already happened, it
           reports which parental genome is present in a sample and on which chromosomes.{' '}
-          <strong>Progenitor</strong> reconstructs a parent's genotype from SNP array genotypes
+          <strong>Germline</strong> reconstructs a parent's genotype from SNP array genotypes
           of several haploid cells that parent produced, when no array of the parent exists, and
           reports how much of that parent it recovered and how much of the result is wrong. All
           three are research and educational tools.
@@ -28,7 +28,7 @@ export function TermsPage() {
           <strong>No part of this is a clinical diagnostic, and none of it is medical
           advice.</strong>{' '}
           Nothing here diagnoses, and no output of any part is a diagnostic result. A genotype
-          Progenitor reconstructs is an inference from the cells you supplied, never a
+          Germline reconstructs is an inference from the cells you supplied, never a
           measurement of the parent, and it must not be used as one. The panel builder returns hypotheses to be validated, not
           results, and it cannot phase markers: that requires genotyping the family in a
           qualified genetics laboratory.
@@ -119,9 +119,9 @@ export function TermsPage() {
         <p>
           Three features take files: loading a carrier's own genotypes in the panel builder;
           Syngamy, which takes SNP array exports for a sperm donor, optionally an oocyte donor,
-          and one or more samples; and Progenitor, which takes one array export per haploid cell.
+          and one or more samples; and Germline, which takes one array export per haploid cell.
           These are the most identifying artefacts in this workflow. A whole-genome array
-          describes a person, and a set of them describes a family. Progenitor goes further: it
+          describes a person, and a set of them describes a family. Germline goes further: it
           derives a genotype for a person who supplied no array at all, so consent to analyse the
           cells is not by itself consent to reconstruct that parent, and establishing it is
           yours. It is partly for this reason that the reconstructed genotype is never written to
@@ -131,7 +131,7 @@ export function TermsPage() {
           <strong>Those files are read in your browser and are not transmitted.</strong> They
           are opened with the browser's own file API, parsed in the page, and held in memory
           only for as long as the page holds them: clearing the panel, clearing the Syngamy
-          file list, clearing the Progenitor product list, or reloading the tab discards them. There is no account, no server-side
+          file list, clearing the Germline product list, or reloading the tab discards them. There is no account, no server-side
           store, and no local database. <strong>No endpoint of this service accepts a genotype,
           and no request this page makes carries one.</strong> The report PDF is typeset in the
           browser for the same reason, so producing it requires no upload either.
@@ -192,7 +192,7 @@ export function TermsPage() {
           </li>
         </ul>
         <p>
-          The bundled example arrays for Syngamy and Progenitor are public GEO release files
+          The bundled example arrays for Syngamy and Germline are public GEO release files
           from{' '}
           <Anchor href="https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE148488" target="_blank" rel="noreferrer">
             GSE148488

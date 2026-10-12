@@ -4,7 +4,7 @@ import { Group, Text } from '@mantine/core'
 /**
  * The masthead and the file intake, shared by the features that have both.
  *
- * Syngamy and Progenitor are siblings rather than modes of one another, so each says its own
+ * Syngamy and Germline are siblings rather than modes of one another, so each says its own
  * name before anything else. They also take the same kind of file in the same way, and two
  * implementations of that would drift: one gained drag-and-drop and the other did not.
  */

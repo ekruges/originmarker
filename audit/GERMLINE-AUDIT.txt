@@ -1,5 +1,5 @@
 ================================================================================================
-PROGENITOR ACCURACY AUDIT
+GERMLINE ACCURACY AUDIT
 ================================================================================================
 
 Tool          OriginMarker 3.0.0 (Recombinase)
@@ -24,7 +24,7 @@ WHY THIS DATA
   and arrayed each one alone, and the series also carries bulk genomic DNA for the sperm donor
   and for the egg donors. So the material divides itself at the bench, before any statistic:
 
-    8 paternal pronuclei   haploid meiotic products of ONE man, which is what Progenitor takes
+    8 paternal pronuclei   haploid meiotic products of ONE man, which is what Germline takes
     2 sperm donor arrays   that same man, measured directly. Never given to the reconstruction,
                            used only to score it. This is the ground truth.
     7 maternal pronuclei   haploid, from the egg donors, unrelated to him
@@ -42,8 +42,8 @@ WHY THIS DATA
 HOW TO REPRODUCE
 
   1. Download the 19 supplementary files listed under SOURCES below from GEO.
-  2. node --experimental-strip-types --max-old-space-size=8192 audit/progenitor.ts <raw> <out>
-  3. node --experimental-strip-types audit/progenitor-report.ts <out>
+  2. node --experimental-strip-types --max-old-space-size=8192 audit/germline.ts <raw> <out>
+  3. node --experimental-strip-types audit/germline-report.ts <out>
 
   The harness drives web/src/ingest.ts, web/src/inferredReference.ts, web/src/productTriage.ts
   and web/src/parentage.ts, which is the same code the browser runs. Only the file plumbing

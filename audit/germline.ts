@@ -1,8 +1,8 @@
 /**
- * The Progenitor audit: reconstruct a man's genotype from his sons' pronuclei, then check the
+ * The Germline audit: reconstruct a man's genotype from his sons' pronuclei, then check the
  * reconstruction against his own array.
  *
- * Run: node --experimental-strip-types --max-old-space-size=8192 audit/progenitor.ts <raw> <out>
+ * Run: node --experimental-strip-types --max-old-space-size=8192 audit/germline.ts <raw> <out>
  *
  * This drives `web/src/ingest.ts`, `web/src/inferredReference.ts` and `web/src/parentage.ts`,
  * which is what the browser executes. Only the file plumbing differs: a gzipped file off disk
@@ -14,7 +14,7 @@
  * and arrayed each one alone, and the series also carries bulk genomic DNA for the sperm donor
  * and for the egg donors. So the material divides itself, at the bench:
  *
- *   8 paternal pronuclei   haploid meiotic products of ONE man, which is what Progenitor takes
+ *   8 paternal pronuclei   haploid meiotic products of ONE man, which is what Germline takes
  *   2 sperm donor arrays   that same man, measured directly. Never given to the reconstruction,
  *                          used only to score it. This is the ground truth.
  *   7 maternal pronuclei   haploid, from the egg donors, unrelated to him
@@ -737,7 +737,7 @@ const tally = {
   incorrect: cases.filter((c) => c.outcome === 'incorrect').length,
 }
 const out = {
-  tool: 'Progenitor',
+  tool: 'Germline',
   generated: new Date().toISOString(),
   data: {
     series: 'GEO GSE148488, Zuccaro et al. 2020, Cell 183(6):1650-1664',
@@ -758,7 +758,7 @@ const out = {
   belowFloor,
   cases,
 }
-writeFileSync(join(OUT, 'progenitor-results.json'), JSON.stringify(out, null, 1))
+writeFileSync(join(OUT, 'germline-results.json'), JSON.stringify(out, null, 1))
 console.error(`\n${tally.correct} correct, ${tally.refused} refused, ${tally.incorrect} incorrect`)
-console.error(`wrote ${join(OUT, 'progenitor-results.json')}`)
+console.error(`wrote ${join(OUT, 'germline-results.json')}`)
 if (tally.incorrect > 0) process.exitCode = 1

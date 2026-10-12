@@ -46,7 +46,7 @@ AUDIT FILES, AND WHAT EACH HOLDS
   AUDIT-4.1.txt          176 lines. The consolidated record: validated, not validated, confounds.
   AUDIT.txt              589 lines. The original panel-builder audit.
   BREAKPOINTS-AUDIT.txt  295 lines. Breakpoint accuracy, sections A-E, including GSE19247.
-  PROGENITOR-AUDIT.txt   449 lines.
+  GERMLINE-AUDIT.txt   449 lines.
   FORMATS.txt            598 lines. The three deposit shapes.
   regions/FINDINGS.txt   504 lines. Every confound, with the measurement that exposed it.
   features/README.txt    144 lines. Positional analysis, tracks, and the full-cohort result.

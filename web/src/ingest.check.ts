@@ -476,7 +476,7 @@ console.log('ingest.check.ts: all assertions passed')
 //
 // `parseRow` used to hand the raw field on, and only the two profiling accumulators stripped the
 // prefix. Every autosome test reads the bare form, so a chr-prefixed export profiled correctly
-// and then scored against an empty genome: Progenitor ingested zero markers and blamed the
+// and then scored against an empty genome: Germline ingested zero markers and blamed the
 // sample's ploidy for it. Normalising at the parser is what makes the two agree.
 {
   const m = headerMap('probeset_id\tchr\tposition\tgenotype')

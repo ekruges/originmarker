@@ -405,7 +405,7 @@ export interface Gate {
  * literature the gate is `report_only`, which is the honest verdict rather than a guess.
  */
 /**
- * `inferred` marks a reconstructed reference, Progenitor's output, rather than a measured array.
+ * `inferred` marks a reconstructed reference, Germline's output, rather than a measured array.
  * A reconstruction writes only the homozygous sites its haploid products agree on, so its
  * heterozygosity is zero by construction. On one, `het-to-hom asymmetry valid` and
  * `genome-wide LOH` are `report_only`; every other gate applies unchanged.
@@ -451,7 +451,7 @@ export function gates(p: SampleProfile, inferred = false): Gate[] {
     name: 'genome-wide LOH',
     value: p.hetRate,
     // NOT AN EXCLUSION ON A RECONSTRUCTED REFERENCE. A reconstruction asserts only homozygous
-    // sites, so this reads zero on every one of them, and excluding on it stopped the Progenitor
+    // sites, so this reads zero on every one of them, and excluding on it stopped the Germline
     // handoff before a single call was made. The signature it is looking for is a property of a
     // fertilised genome, and a reconstruction is not one.
     verdict: p.hetRate < 0.02 && !inferred ? 'exclude' : 'report_only',

@@ -1,17 +1,13 @@
 arrays with hand calls and both parents on disk: 31 of 31
-...............................
-
 TRUE PARENTS (31 arrays, 682 chromosomes)
   all mothers:            EXTRA 2, MISSED 29, WRONG parent 1, agree intact 475, agree parent 78, not scored 97
   without egg donor D:    MISSED 15, agree intact 185, agree parent 8, not scored 56
   chromosomes with a parent named from the alleles: 83
   of the agreed parents, the Mendelian channel agrees on 78 and declines on 0
-
 WRONG MOTHER (31 arrays, 682 chromosomes)
-  all mothers:            EXTRA 1, MISSED 74, agree intact 476, agree parent 34, not scored 97
-  without egg donor D:    MISSED 19, agree intact 185, agree parent 4, not scored 56
-  chromosomes with a parent named from the alleles: 37
-
+  all mothers:            MISSED 101, agree intact 477, agree parent 7, not scored 97
+  without egg donor D:    MISSED 23, agree intact 185, not scored 56
+  chromosomes with a parent named from the alleles: 9
 DISAGREEMENTS, true parents:
   MISSED        GSM4472413 chr 6  hand: monosomy 6 (pat)     alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage trophectoderm
   EXTRA         GSM4472423 chr12  hand: normal               alleles: paternal  AB 9.3%  father-only 7.3%  mother-only 83.5%  n 799  intensity none  mendel paternal  stage blastomere
@@ -45,6 +41,5 @@ DISAGREEMENTS, true parents:
   MISSED        GSM4552420 chr11  hand: monosomy 11 (pat)    alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage trophectoderm
   MISSED        GSM4552420 chr13  hand: monosomy 13 (mat)    alleles: -  AB 46.0%  father-only 48.1%  mother-only 5.9%  n 724  intensity none  mendel declined  stage trophectoderm
   MISSED        GSM4552420 chr15  hand: monosomy 15 (mat)    alleles: -  AB NaN%  father-only NaN%  mother-only NaN%  n -  intensity none  mendel declined  stage trophectoderm
-
 stage/zygosity of the scored arrays (per chromosome): blastomere/diploid 110, bulk/diploid 22, failed/diploid 132, failed/unknown 66, haploid/diploid 22, single-cell/diploid 154, trophectoderm/diploid 176
 

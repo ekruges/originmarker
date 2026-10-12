@@ -134,11 +134,13 @@ The shipped pipeline, both parents loaded, scored by `audit/zuccaro-table-s3.ts`
 | intact chromosome on those arrays (477) | a parent named on 2, both on one blastomere whose file copy number reads 0.8 to 0.9 there |
 | monosomy on the 4 arrays the stage inference refuses outright (23) | not reported: a refused array reports nothing, by design |
 | the Mendelian channel on the 78 | agrees on 78, declines on 0 |
-| a different egg donor as mother | 0 wrong parents named; the maternal-loss half is still found (34), the paternal-loss half is not |
+| a different egg donor as mother | a parent named on 9 chromosomes of 682, 0 of them wrong |
 
-The four refused arrays carry 23 of the 29 misses, and on every one of them the alleles read the
-loss as plainly as on the scored arrays (heterozygous share 7 to 18 percent, survivor 79 to 91
-percent). Whether a cell with eight to twelve monosomies should be refused as "no genome reads this
+A chromosome is read this way only on a genome where at least two autosomes still read both
+parents at these markers, which is what keeps a genome carrying one parent throughout, such as a
+parent's own array in the sample slot, from being read chromosome by chromosome. The four refused
+arrays carry 23 of the 29 misses, and on every one of them the alleles read the loss as plainly as
+on the scored arrays (heterozygous share 7 to 18 percent, survivor 79 to 91 percent). Whether a cell with eight to twelve monosomies should be refused as "no genome reads this
 way" or reported chromosome by chromosome is a decision the stage inference currently makes for
 the whole array, and it is left as it stands here. The one wrong parent and the two hand calls the
 alleles read as intact are listed in `audit/zuccaro-table-s3-results.txt`.
@@ -521,7 +523,7 @@ The harnesses emit the pooled figure today, which is the open item rather than a
 Every number above comes from a harness in `audit/`, each run against files on disk rather than
 against fixtures. The harnesses that carry a scored answer are `detection-truth`,
 `attribution-truth`, `detection-limit`, `handoff-truth`, `mole-truth`, `blastomere-truth`,
-`replicates`, `zygote-origin`, `parental-power`, `progenitor`, `meiotic-segregation`,
+`replicates`, `zygote-origin`, `parental-power`, `germline`, `meiotic-segregation`,
 `duplicate-truth`, `pgd-families`, `karyotype-truth`, `cellline-truth`, `mole-genotype`,
 `upd-premise`, `coverage`, `cytoscan-truth`, `gse21732-truth`, and the two on the second public
 series.

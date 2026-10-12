@@ -1,7 +1,7 @@
 /**
- * Hand a reconstructed array straight from Progenitor to Syngamy, in a new tab.
+ * Hand a reconstructed array straight from Germline to Syngamy, in a new tab.
  *
- * The two features are one workflow: Progenitor builds the array of a parent nobody genotyped,
+ * The two features are one workflow: Germline builds the array of a parent nobody genotyped,
  * and Syngamy is what you point that array at. Doing it by hand means downloading a 16MB file,
  * opening the other page and finding it again in a file picker, which is three steps of
  * clerical work between two halves of the same run.
@@ -44,7 +44,7 @@ export function sendToSyngamy(file: File, note: string): boolean {
   // with the URL directly is what a naive version does and it has a bad failure mode: the
   // target differs from the current page only by its hash, so a browser that blocks the popup
   // can fall back to navigating THIS tab to it. That looks like it worked, and it destroys the
-  // Progenitor run whose output was being handed over. Measured: with popups blocked,
+  // Germline run whose output was being handed over. Measured: with popups blocked,
   // window.open returned null AND the current tab navigated anyway. An empty target has no URL
   // to fall back to, so a blocked open stays blocked.
   const win = window.open('', '_blank')

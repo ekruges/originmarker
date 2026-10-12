@@ -93,7 +93,7 @@ const text = inferredArrayText({
 
 // --- 5. detection, which two features now depend on --------------------------------------------
 //
-// Syngamy states it on every artefact of a run made against such a file, and Progenitor REFUSES
+// Syngamy states it on every artefact of a run made against such a file, and Germline REFUSES
 // it as a product. The ploidy gate does reject the file as this module writes it, but only
 // because the export carries no BAF column and an undefined band lands on "borderline". That is
 // a column happening to be absent, not a reconstruction being recognised: on its genotypes the

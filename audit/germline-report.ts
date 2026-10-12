@@ -1,11 +1,11 @@
 /**
- * Turn the Progenitor audit's results into the record a reader checks.
+ * Turn the Germline audit's results into the record a reader checks.
  *
- * Run: node --experimental-strip-types audit/progenitor-report.ts <out-dir>
+ * Run: node --experimental-strip-types audit/germline-report.ts <out-dir>
  *
  * Same shape as AUDIT.txt: the tally first, then why this data can answer the question, then
  * every case with what the experiment says and what the tool said. Nothing here recomputes
- * anything; it only formats what `audit/progenitor.ts` measured.
+ * anything; it only formats what `audit/germline.ts` measured.
  */
 import { readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
@@ -19,7 +19,7 @@ const build = {
 }
 
 const OUT = process.argv[2] ?? 'out'
-const r = JSON.parse(readFileSync(join(OUT, 'progenitor-results.json'), 'utf8'))
+const r = JSON.parse(readFileSync(join(OUT, 'germline-results.json'), 'utf8'))
 
 const RULE = '='.repeat(96)
 const THIN = '-'.repeat(96)
@@ -30,7 +30,7 @@ const L: string[] = []
 const w = (s = ''): number => L.push(s)
 
 w(RULE)
-w('PROGENITOR ACCURACY AUDIT')
+w('GERMLINE ACCURACY AUDIT')
 w(RULE)
 w()
 w(`Tool          OriginMarker ${build.version} (${build.codename})`)
@@ -56,7 +56,7 @@ w('  Zuccaro et al. separated the two pronuclei of a fertilised human zygote by 
 w('  and arrayed each one alone, and the series also carries bulk genomic DNA for the sperm donor')
 w('  and for the egg donors. So the material divides itself at the bench, before any statistic:')
 w()
-w('    8 paternal pronuclei   haploid meiotic products of ONE man, which is what Progenitor takes')
+w('    8 paternal pronuclei   haploid meiotic products of ONE man, which is what Germline takes')
 w('    2 sperm donor arrays   that same man, measured directly. Never given to the reconstruction,')
 w('                           used only to score it. This is the ground truth.')
 w('    7 maternal pronuclei   haploid, from the egg donors, unrelated to him')
@@ -75,8 +75,8 @@ w()
 w('HOW TO REPRODUCE')
 w()
 w('  1. Download the 19 supplementary files listed under SOURCES below from GEO.')
-w('  2. node --experimental-strip-types --max-old-space-size=8192 audit/progenitor.ts <raw> <out>')
-w('  3. node --experimental-strip-types audit/progenitor-report.ts <out>')
+w('  2. node --experimental-strip-types --max-old-space-size=8192 audit/germline.ts <raw> <out>')
+w('  3. node --experimental-strip-types audit/germline-report.ts <out>')
 w()
 w('  The harness drives web/src/ingest.ts, web/src/inferredReference.ts, web/src/productTriage.ts')
 w('  and web/src/parentage.ts, which is the same code the browser runs. Only the file plumbing')
@@ -202,5 +202,5 @@ w('  Redistributed by NCBI GEO under its own terms. Nobody\'s patient data: publ
 w('  that study.')
 w()
 
-writeFileSync(join(OUT, 'PROGENITOR-AUDIT.txt'), L.join('\n'))
-console.log(`wrote ${join(OUT, 'PROGENITOR-AUDIT.txt')} (${L.length} lines)`)
+writeFileSync(join(OUT, 'GERMLINE-AUDIT.txt'), L.join('\n'))
+console.log(`wrote ${join(OUT, 'GERMLINE-AUDIT.txt')} (${L.length} lines)`)

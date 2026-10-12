@@ -175,7 +175,7 @@ sibling and cross-donor sharing, which fails for the mother because siblings can
 she is heterozygous: those markers are admitted as homozygous and read as maternal absence,
 turning a true log2(maternal/paternal) ratio of -0.40 into +2.18. Haploid products do not have
 that failure. One product reading A and another reading B PROVES the parent heterozygous, which
-is why PLAN.txt names polar bodies as the correct substitute and why Progenitor scored 35 correct,
+is why PLAN.txt names polar bodies as the correct substitute and why Germline scored 35 correct,
 6 refused and 0 incorrect against a father it was never shown.
 
 74 of the 884 arrays are haploid. MIN_PRODUCTS is 5, below which the method inverts.
@@ -191,7 +191,7 @@ is why PLAN.txt names polar bodies as the correct substitute and why Progenitor 
   Six groups clear the floor, covering 247 arrays. No group sits at three or four, so the corpus
   splits cleanly into groups with enough and groups with none.
 
-THE COUNT ABOVE IS AN UPPER BOUND, AND THE ONE GROUP ALREADY SORTED SHOWS WHY. Progenitor needs
+THE COUNT ABOVE IS AN UPPER BOUND, AND THE ONE GROUP ALREADY SORTED SHOWS WHY. Germline needs
 five products OF THE SAME PARENT, and a group holds products of both: polar bodies and oocytes on
 the maternal side, sperm and paternal pronuclei on the other. This census cannot tell them apart.
 In S20 the sorting has been done, against the EYS donor: the census counts 6 haploid arrays and

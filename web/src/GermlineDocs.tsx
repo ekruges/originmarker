@@ -9,11 +9,11 @@ import {
 import { HET_RATE_DIPLOID } from './ProductPanel'
 import { ABSENCE_MARGIN, CALL_RATE_FLOOR, HET_BAND_DIPLOID, pct } from './parentage'
 import {
-  PROGENITOR_CITATION, PROGENITOR_EXAMPLES, PROGENITOR_MARKERS, PROGENITOR_STRIDE,
-} from './progenitorExamples'
+  GERMLINE_CITATION, GERMLINE_EXAMPLES, GERMLINE_MARKERS, GERMLINE_STRIDE,
+} from './germlineExamples'
 
 /**
- * Progenitor's documentation, on the same furniture as the Syngamy and panel docs.
+ * Germline's documentation, on the same furniture as the Syngamy and panel docs.
  *
  * A reader arrives here holding files and one question: can a reference built without the
  * parent's array be trusted. So the page is organised around the error rather than the feature.
@@ -22,7 +22,7 @@ import {
  */
 
 const ORDER = Object.keys(CITATIONS)
-const PREFIX = 'progenitor-docs'
+const PREFIX = 'germline-docs'
 
 export const SECTIONS: DocSection[] = [
   { id: 'what', label: 'What this answers', group: 'Overview' },
@@ -51,7 +51,7 @@ export const SECTIONS: DocSection[] = [
 
 const { Section, SecRef } = docsHelpers(PREFIX, SECTIONS)
 
-export function progenitorSectionFromHash(hash: string): string {
+export function germlineSectionFromHash(hash: string): string {
   const m = new RegExp(`^#/${PREFIX}/([\\w:.-]+)$`).exec(hash)
   return m ? m[1] : ''
 }
@@ -88,13 +88,13 @@ const NumRow = ({ c }: { c: string[] }) => (
   </Table.Tr>
 )
 
-export function ProgenitorDocsPage({ health }: { health: Health | null }) {
+export function GermlineDocsPage({ health }: { health: Health | null }) {
   return (
     <DocsShell
       prefix={PREFIX}
       sections={SECTIONS}
       health={health}
-      title="Progenitor documentation"
+      title="Germline documentation"
       subtitle={
         <>
           Reconstructing a parent&rsquo;s genotype from the haploid cells that parent produced,
@@ -109,7 +109,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
       {/* --- 1 --------------------------------------------------------------------------- */}
       <Section id="what" title="What this answers">
         <Text size="sm" mb={10}>
-          You have several haploid cells from one parent and no array of the parent. Progenitor
+          You have several haploid cells from one parent and no array of the parent. Germline
           reconstructs that parent&rsquo;s genotype from the cells alone, then reports how much
           of the parent it recovered, how much of the result is wrong, and which of the submitted
           arrays actually belong to that parent.
@@ -148,7 +148,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
         </Text>
         <Paper withBorder p="sm" style={{ background: 'var(--om-zebra)' }}>
           <Text size="sm" style={{ lineHeight: 1.7 }}>
-            Parental origin was determined with OriginMarker (Progenitor,
+            Parental origin was determined with OriginMarker (Germline,
             v{health?.version ?? 'x.y.z'}), which reconstructs a parental genotype from
             haploid meiotic products and requires no array of either parent. SNP array genotypes
             for [N] [pronuclei / polar bodies / single sperm] were supplied as [platform] exports
@@ -695,7 +695,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
       <Section id="exports" title="Exports and the report">
         <Text size="sm" mb={10}>
           Six artefacts, all written in the browser, all named{' '}
-          <Code>progenitor-&lt;artefact&gt;-&lt;report id&gt;</Code> so a directory of them from
+          <Code>germline-&lt;artefact&gt;-&lt;report id&gt;</Code> so a directory of them from
           several runs stays sorted and attributable.
         </Text>
         <Wide>
@@ -713,7 +713,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
                   + 'Syngamy as the donor to call arrays this run never saw. It opens with a '
                   + 'banner saying it is not a measured array and carries a machine-readable '
                   + 'mark: Syngamy reads that mark and states it on every artefact of a run made '
-                  + 'against it, and Progenitor refuses the file as a product. The button under '
+                  + 'against it, and Germline refuses the file as a product. The button under '
                   + 'this row saves it and hands a copy straight to a new Syngamy tab.'],
                 ['report (PDF)', 'Letter, in the same format as the Syngamy report. Every page '
                   + 'states that the reference was inferred, so a page lifted out of context '
@@ -762,7 +762,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
       {/* --- 14 -------------------------------------------------------------------------- */}
       <Section id="examples" title="The bundled example data">
         <Text size="sm" mb={10}>
-          <b>Examples</b> loads {PROGENITOR_EXAMPLES.length} public paternal pronuclei from the
+          <b>Examples</b> loads {GERMLINE_EXAMPLES.length} public paternal pronuclei from the
           series the tool is validated against. They are a positive case on purpose: five products
           of one parent that pass every gate, group as one, reconstruct, and verify. Someone
           seeing the feature for the first time should see it work before they see it refuse.
@@ -777,7 +777,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {PROGENITOR_EXAMPLES.map((e) => (
+              {GERMLINE_EXAMPLES.map((e) => (
                 <Table.Tr key={e.gsm}>
                   <Table.Td className="om-mono" style={{ fontSize: 11 }}>{e.gsm}</Table.Td>
                   <Table.Td className="om-mono" style={{ fontSize: 11 }}>{e.label}</Table.Td>
@@ -788,7 +788,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
           </Table>
         </Wide>
         <Text size="sm" mb={10}>
-          They are subsets at every {PROGENITOR_STRIDE}th marker, {PROGENITOR_MARKERS.toLocaleString()}{' '}
+          They are subsets at every {GERMLINE_STRIDE}th marker, {GERMLINE_MARKERS.toLocaleString()}{' '}
           markers each, so the download stays under a megabyte. Every quantity the tool reports is
           a rate, so the subset gives the same answer as the full file: reconstructing from these
           gives 15.72% ascertainment and 2.33% contamination against 15.47% and 2.29% on the full
@@ -799,7 +799,7 @@ export function ProgenitorDocsPage({ health }: { health: Health | null }) {
           produces. That case is real and is documented in <SecRef id="membership" /> rather than
           staged here.
         </Text>
-        <Text size="xs" c="dimmed">{PROGENITOR_CITATION} <Ref id="zuccaro_2020" /></Text>
+        <Text size="xs" c="dimmed">{GERMLINE_CITATION} <Ref id="zuccaro_2020" /></Text>
       </Section>
 
       {/* --- 15 -------------------------------------------------------------------------- */}

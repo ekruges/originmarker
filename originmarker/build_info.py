@@ -149,10 +149,13 @@ RELEASES: tuple[Release, ...] = (
     Release("Monosomy",
             "One copy of a chromosome where there should be two. Whose copy survived is what the "
             "alleles say; whether one copy remains or two is what only the intensity can."),
+    Release("Gamete",
+            "The haploid cell a parent's genome is read back from, one meiotic product at a "
+            "time."),
 )
 
-VERSION = "5.32.0"
-CODENAME = "Monosomy"
+VERSION = "5.33.0"
+CODENAME = "Gamete"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

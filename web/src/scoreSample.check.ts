@@ -193,6 +193,22 @@ async function runWith(
   })
 }
 
+/** The same run on another set of sample rows, both parents loaded or not. */
+async function runRows(rows: ReturnType<typeof rowsOf>, withMother: boolean) {
+  const pat = indexOf(parentRows)
+  const mat = withMother ? indexOf(motherRows) : null
+  const acc = emptyCollected(pat, mat)
+  const byChrom = new Map(); const bafSums = emptyBafSums(); let first = ''
+  for (const row of rows) {
+    if (!first) first = row.probesetId
+    accumulate(row, byChrom); accumulateBaf(row, bafSums); collectRow(row, pat, mat, acc)
+  }
+  const profile = finishProfile('sample', byChrom, bafSums, first)
+  return scoreSample({
+    acc, profile, pat, mat, soloRole: 'paternal', sibs: [], sampleName: 'sample', log: () => {},
+  })
+}
+
 async function run(declaredStage?: 'failed', withMother = false) {
   const pat = indexOf(parentRows)
   const mat = withMother ? indexOf(motherRows) : null
@@ -329,6 +345,14 @@ async function run(declaredStage?: 'failed', withMother = false) {
     'and an absent parent at normal intensity is not a loss: it is the isodisomy the findings carry')
   assert.ok((two.oneParent ?? []).some((o) => o.where === `chr${ISODISOMY}`),
     'a chromosome the alleles flagged reaches the Mendelian channel like any detected event')
+
+  // AND NOT ON A GENOME THAT CARRIES ONE PARENT THROUGHOUT. The father's own array as the sample,
+  // both parents loaded: every autosome reads his allele alone, and no chromosome of it is missing
+  // a parent in any sense the row could carry. Found on the bundled example, where this put eight
+  // rows on the sperm donor's replicate array.
+  const himself = await runRows(parentRows, true)
+  assert.deepEqual(lostParentOf(himself), {},
+    `the father's own genome names no absent parent chromosome by chromosome, got ${JSON.stringify(lostParentOf(himself))}`)
 
   const rowFor = (r: Awaited<ReturnType<typeof run>>, chrom: string) =>
     (r.oneParent ?? []).find((o) => o.where === `chr${chrom}`)

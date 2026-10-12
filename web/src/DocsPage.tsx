@@ -169,7 +169,7 @@ export function DocsPage({ health }: { health: Health | null }) {
       navNote={`${build} · ${gnomad} · Ensembl ${ensembl}`}
       siblings={[
         { label: 'Syngamy documentation', href: '#/syngamy-docs' },
-        { label: 'Progenitor documentation', href: '#/progenitor-docs' },
+        { label: 'Germline documentation', href: '#/germline-docs' },
       ]}
     >
         <Section id="what" title="What this is">

@@ -2,7 +2,7 @@ import { Anchor, Text, Title } from '@mantine/core'
 import { REPO_URL, type DocSection } from './DocsShell'
 import { SECTIONS as PANEL } from './DocsPage'
 import { SECTIONS as SYNGAMY } from './SyngamyDocs'
-import { SECTIONS as PROGENITOR } from './ProgenitorDocs'
+import { SECTIONS as GERMLINE } from './GermlineDocs'
 import type { Health } from './api'
 
 /**
@@ -36,11 +36,11 @@ const MANUALS: Manual[] = [
     sections: SYNGAMY,
   },
   {
-    name: 'Progenitor',
-    prefix: 'progenitor-docs',
+    name: 'Germline',
+    prefix: 'germline-docs',
     summary: 'Reconstructs a parent’s genotype from that parent’s haploid products, such as '
       + 'sperm or pronuclei, for use as the parental array in Syngamy.',
-    sections: PROGENITOR,
+    sections: GERMLINE,
   },
 ]
 

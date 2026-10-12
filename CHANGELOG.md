@@ -9,6 +9,49 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.33.0 "Gamete"
+
+**Progenitor is now Germline.** The tool rebuilds a parent's genotype from that parent's haploid
+cells, and the old name said who the parent is rather than what the tool reads. Germline names
+the source: the germ cells, read one meiotic product at a time, and the parent's germline genome
+that comes back. Every route, page, PDF title, docs section, audit harness and record carries the
+new name; `#/progenitor` and `#/progenitor-docs` still open the right pages. The reconstruction
+mark inside an exported array file is unchanged, so a file written under the old name is still
+recognised as a reconstruction.
+
+**The allele count no longer runs on a genome that carries one parent throughout.** Found by
+running the bundled Syngamy example with both donors set: the father's own bulk array, loaded as
+a sample, is diploid and androgenetic, every chromosome reads his allele alone, and 5.32.0 put
+eight "maternal copy absent" rows on it. Each is true and all are empty. The condition the method
+rests on, a genome that carries both parents elsewhere, is now measured rather than assumed: at
+least two autosomes must read both parents at the opposite-homozygote markers before any
+chromosome of that genome is read as missing one. The genome-level class was tried first and
+rejected, because a cell that has lost one parent's copy on half its chromosomes reads
+gynogenetic or androgenetic as a whole, and excluding it by class threw away thirteen correct
+calls. An androgenetic genome cannot reach the biparental boundary on even one chromosome; a
+chaotic cell reaches it on every chromosome it kept. The Zuccaro comparison, rerun under this
+gate:
+
+| hand call, true parents loaded | the alleles, shipped pipeline |
+|---|---|
+| monosomy with a parent named, on the 27 arrays the tool scores (85) | same parent **78**, other parent **1**, declined 4, read as both copies present 2 |
+| intact chromosome on those arrays (477) | a parent named on 2, both on one blastomere whose file copy number reads 0.8 to 0.9 there |
+| monosomy on the 4 arrays the stage inference refuses outright (23) | not reported: a refused array reports nothing, by design |
+| the Mendelian channel on the 78 | agrees on 78, declines on 0 |
+| a different egg donor as mother | a parent named on 9 chromosomes of 682, 0 of them wrong; under 5.32.0 it was 37 |
+
+Unchanged from 5.32.0 on the true parents, and the wrong-mother arm now collapses as it should: with
+a mother who is not the mother, few chromosomes read both parents, so the condition fails and the
+genome is left alone.
+
+Exercised end to end on real arrays before release: the Germline example reconstruction in the
+browser, the handoff audit on eight pronuclei of GSE148488 (his own arrays present, the maternal
+pronuclei absent), the Germline accuracy audit (35 correct, 6 refused, 0 incorrect, unchanged),
+and the command line on a trophectoderm cell with both real parents (eight chromosomes named,
+each matching the hand karyotype).
+
+---
+
 ## 5.32.0 "Monosomy"
 
 **With both parents loaded, the alleles now find a whole-chromosome loss on a single cell that the

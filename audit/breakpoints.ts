@@ -130,7 +130,7 @@ say(`segment floor: ${FLOOR} markers`
 // audit whose whole purpose is to be believed.
 //
 // So the reference is stated per experiment. Where a real parent array exists it is used. Where
-// none does, the Progenitor-reconstructed array for that experiment is used and the run is
+// none does, the Germline-reconstructed array for that experiment is used and the run is
 // labelled as resting on a reconstruction.
 const EXPERIMENTS: { prefix: string; reference: string; reconstructed: boolean }[] = [
   // Lab arrays: the sperm donor's own bulk array is the reference for his experiment.

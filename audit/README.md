@@ -11,7 +11,7 @@ answer was established at the bench rather than by any statistic the tool comput
 | | correct | refused | incorrect |
 |---|---|---|---|
 | [Syngamy](AUDIT.txt) | 22 | 4 | **0** |
-| [Progenitor](PROGENITOR-AUDIT.txt) | 35 | 6 | **0** |
+| [Germline](GERMLINE-AUDIT.txt) (Progenitor before 5.33.0) | 35 | 6 | **0** |
 | [Breakpoints and gain origin](BREAKPOINTS-AUDIT.txt) | 3 of 4 parts | 1 blocked | **0** |
 | [Whole-chromosome losses against hand karyotypes](zuccaro-table-s3.ts) | 78 | 4, plus 23 on 4 arrays refused whole | **1** |
 
@@ -100,12 +100,12 @@ Research use only. Not a clinical diagnostic.
 
 ---
 
-# Progenitor
+# Germline
 
 A man's genotype reconstructed from eight of his sons' paternal pronuclei, then scored against
 his own array, which the reconstruction never saw.
 
-**[PROGENITOR-AUDIT.txt](PROGENITOR-AUDIT.txt)** is the record.
+**[GERMLINE-AUDIT.txt](GERMLINE-AUDIT.txt)** is the record.
 
 ## Result
 
@@ -141,8 +141,8 @@ a reconstruction that survives a sixteenth of this one is not leaning on density
 ## Reproducing it
 
 ```sh
-node --experimental-strip-types --max-old-space-size=8192 audit/progenitor.ts raw out
-node --experimental-strip-types audit/progenitor-report.ts out
+node --experimental-strip-types --max-old-space-size=8192 audit/germline.ts raw out
+node --experimental-strip-types audit/germline-report.ts out
 ```
 
 ## What it does not show

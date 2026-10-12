@@ -965,7 +965,7 @@ def to_pdf(result) -> bytes:
             state["y"] -= 9.6
     # --- methods ------------------------------------------------------------
     #
-    # Parity with the Syngamy and Progenitor reports: a paragraph written from the actual run
+    # Parity with the Syngamy and Germline reports: a paragraph written from the actual run
     # that a reader can lift into a manuscript, then the citation. Both are what turns a
     # downloaded table into something checkable by someone who was not here when it ran.
     state["y"] -= 8

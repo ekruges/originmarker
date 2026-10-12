@@ -3,7 +3,7 @@ import { DISCLAIMER, parseMark, type MarkGeometry } from './syngamyPdf.ts'
 import { pct } from './parentage.ts'
 import { int } from './fmt.ts'
 import { MIN_ASCERTAINMENT } from './inferredReference.ts'
-import { PROGENITOR_CITATION } from './progenitorExamples.ts'
+import { GERMLINE_CITATION } from './germlineExamples.ts'
 import type { RunProvenance, PairRate, SampleResult } from './inferredExports.ts'
 import type { Limit } from './InferredLimits.ts'
 
@@ -79,7 +79,7 @@ export async function buildInferredPdf(input: InferredReportInput): Promise<Blob
   const BOT = 88
   const p = input.provenance
   const pdf = new Pdf(LETTER)
-  pdf.setTitle('Progenitor')
+  pdf.setTitle('Germline')
   const logo = await mark(input.markSvg)
 
   let y = TOP
@@ -101,7 +101,7 @@ export async function buildInferredPdf(input: InferredReportInput): Promise<Blob
     }
     pdf.setFont('Helvetica', 6.5)
     pdf.setFillColor(GREY)
-    pdf.drawString(L, 26, `Progenitor | ${p.tool} | reconstructed reference `
+    pdf.drawString(L, 26, `Germline | ${p.tool} | reconstructed reference `
       + `| report ${p.reportId} `
       + `| generated ${p.generatedAt} | page ${page}`)
     pdf.setFillColor(INK)
@@ -207,10 +207,10 @@ export async function buildInferredPdf(input: InferredReportInput): Promise<Blob
       poly.map(([gx, gy]: [number, number]) => at(tx + sx * gx, ty + sy * gy))))
     pdf.setFillColor(INK)
     pdf.setFont('Helvetica-Bold', 14)
-    pdf.drawString(L + MARK + 8, y - 18, 'Progenitor')
+    pdf.drawString(L + MARK + 8, y - 18, 'Germline')
     y -= MARK + 4
   } else {
-    text('Progenitor', 14, 'Helvetica-Bold', 4)
+    text('Germline', 14, 'Helvetica-Bold', 4)
   }
 
   y -= 2
@@ -440,10 +440,10 @@ export async function buildInferredPdf(input: InferredReportInput): Promise<Blob
 
   // --- citation -----------------------------------------------------------------------------
   heading('Citation')
-  text(`${p.tool}. Progenitor: a parental genotype reconstructed from haploid meiotic products. `
+  text(`${p.tool}. Germline: a parental genotype reconstructed from haploid meiotic products. `
     + `Report ${p.reportId}, generated ${p.generatedAt}.`, 7.4, 'Helvetica', 2.4)
   if (input.fromExamples) {
-    text(`Example data: ${PROGENITOR_CITATION}`, 7.4, 'Helvetica', 2.4)
+    text(`Example data: ${GERMLINE_CITATION}`, 7.4, 'Helvetica', 2.4)
   }
   text('Zuccaro MV, Xu J, Mitchell C, et al. Allele-specific chromosome removal after Cas9 '
     + 'cleavage in human embryos. Cell 2020;183(6):1650-1664. doi:10.1016/j.cell.2020.10.025. '

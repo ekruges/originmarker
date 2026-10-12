@@ -279,7 +279,7 @@ interface Entry {
   maternal?: ParentageResult
   paired?: PairResult
   error?: string
-  /** This file is a genotype Progenitor reconstructed, not an array anyone measured. */
+  /** This file is a genotype Germline reconstructed, not an array anyone measured. */
   inferred?: boolean
 }
 
@@ -471,12 +471,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const patch = (id: string, d: Partial<Entry>) =>
     setEntries((p) => p.map((e) => (e.id === id ? { ...e, ...d } : e)))
 
-  // Opened from Progenitor with an array in hand. The reconstruction is passed across in
+  // Opened from Germline with an array in hand. The reconstruction is passed across in
   // memory rather than through storage or a file picker, and lands here as the donor.
   const [handoff, setHandoff] = useState(() => wantsHandoff(window.location.hash))
   useEffect(() => {
     const stop = receiveHandoff((file, note) => {
-      log('READ', `handed over from Progenitor: ${note}`)
+      log('READ', `handed over from Germline: ${note}`)
       setHandoff(false)
       void add([file], () => 'donor')
     })
@@ -506,7 +506,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     if (!fresh.length) return
     setEntries((prev) => [...prev, ...fresh])
 
-    // A reconstructed parent is a legitimate donor here and is the reason Progenitor writes one.
+    // A reconstructed parent is a legitimate donor here and is the reason Germline writes one.
     // It is not a measured array, and every artefact of this run has to say which it was, so the
     // mark is read before anything is profiled rather than trusted to the file name.
     for (const e of fresh) {
@@ -789,7 +789,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       {handoff && (
         <Alert color="blue" p="xs" mb={8}>
           <Text size="xs">
-            Waiting for the reconstructed array from Progenitor. If nothing arrives, the tab that
+            Waiting for the reconstructed array from Germline. If nothing arrives, the tab that
             opened this one was closed: save the array there and drop it in here as the donor.
           </Text>
         </Alert>
