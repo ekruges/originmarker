@@ -9,6 +9,17 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.33.1 "Gamete"
+
+The footer links to the repository on GitHub, beside Documentation and Terms.
+
+Also the dependency groups of 13 October: npm minor and patch (Mantine 9.7.1, vite 8.3.4, oxlint
+1.87.0, plugin-react 6.1.2, types/node 26.6.5) and pip minor and patch (fastapi 0.143.0, uvicorn
+0.54.0, anthropic 1.13.0, primer3-py 2.3.1). `tests/test_nl.py` checks the request shape against
+the installed SDK, and passed on 1.13.0 in CI before the merge.
+
+---
+
 ## 5.33.0 "Gamete"
 
 **Progenitor is now Germline.** The tool rebuilds a parent's genotype from that parent's haploid

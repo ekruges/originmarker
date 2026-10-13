@@ -639,6 +639,16 @@ export default function App() {
             <Anchor href="#/terms" size="xs" style={{ whiteSpace: 'nowrap' }}>
               Terms
             </Anchor>
+            <Text size="xs" c="dimmed" aria-hidden>|</Text>
+            <Anchor
+              href="https://github.com/ekruges/originmarker"
+              target="_blank"
+              rel="noopener"
+              size="xs"
+              style={{ whiteSpace: 'nowrap' }}
+            >
+              GitHub
+            </Anchor>
           </Group>
         </Group>
       </footer>

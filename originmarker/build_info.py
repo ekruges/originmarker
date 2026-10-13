@@ -154,7 +154,7 @@ RELEASES: tuple[Release, ...] = (
             "time."),
 )
 
-VERSION = "5.33.0"
+VERSION = "5.33.1"
 CODENAME = "Gamete"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
