@@ -16,9 +16,10 @@
  * read as missing one parent at normal intensity is reported here exactly as the page reports it,
  * a parental absence, and scored against a hand call of monosomy on the parent alone.
  *
- * Egg donor D (GSM4472408) is heterozygous at 0.3455 on an 82 percent call rate and is excluded as
- * a parental genotype by trio-calibration.ts. It is the mother of 18 of these 31 cells, so results
- * are reported with and without her.
+ * A mother over the diploid heterozygosity ceiling against the father (stage.parentOverCeiling,
+ * the rule the application and trio-calibration.ts apply) is reported separately: on this series
+ * that is egg donor D at 0.3455, mother of 18 of the 31 cells, so results are given with and
+ * without her children.
  *
  * Run: OM_TRIOS=<dir with GSM*.probes.gz and trio_manifest_full.csv> [OM_OUT=out.json] \
  *        node --experimental-strip-types --max-old-space-size=6144 audit/zuccaro-table-s3.ts
@@ -31,13 +32,13 @@ const W = new URL('../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const score = await import(`${W}scoreSample.ts`)
 const defects = await import(`${W}defects.ts`)
+const stage = await import(`${W}stage.ts`)
 
 const DIR = process.env.OM_TRIOS
 if (!DIR || !existsSync(DIR)) {
   console.log('zuccaro-table-s3: OM_TRIOS is not a readable directory. NOT RUN.')
   process.exit(0)
 }
-const EXCLUDED_MOTHER = 'GSM4472408'
 
 const fileOf = new Map<string, string>()
 for (const f of readdirSync(DIR)) {
@@ -122,9 +123,13 @@ interface Scored {
 const scored: Scored[] = []
 const samples = [...byGsm.keys()].filter((g) => fileOf.has(g) && parentsOf.has(g))
 console.log(`arrays with hand calls and both parents on disk: ${samples.length} of ${byGsm.size}`)
+const fatherHet = (parentIndex(parentsOf.get(samples[0])!.father) as { heterozygosity: number }).heterozygosity
+const overCeiling = new Set([...mothers].filter((m) => stage.parentOverCeiling(
+  (parentIndex(m) as { heterozygosity: number }).heterozygosity, fatherHet)))
+console.log(`mothers over the diploid ceiling against the father: ${[...overCeiling].join(', ') || 'none'}`)
 for (const gsm of samples) {
   const p = parentsOf.get(gsm)!
-  const wrongMother = [...mothers].find((m) => m !== p.mother && m !== EXCLUDED_MOTHER)!
+  const wrongMother = [...mothers].find((m) => m !== p.mother && !overCeiling.has(m))!
   for (const [arm, mother] of [['true', p.mother], ['wrong', wrongMother]] as const) {
     const res = await scoreWith(gsm, p.father, mother)
     const chroms = (res.chroms ?? []) as { chrom: string; lostParent?: string; aneuploidy?: string; contribution?: { fraction: number; onlyA: number; onlyB: number; informative: number } }[]
@@ -162,7 +167,7 @@ for (const arm of ['true', 'wrong'] as const) {
   const rows = scored.filter((r) => r.arm === arm)
   console.log(`\n${arm === 'true' ? 'TRUE PARENTS' : 'WRONG MOTHER'} (${new Set(rows.map((r) => r.gsm)).size} arrays, ${rows.length} chromosomes)`)
   console.log(`  all mothers:            ${fmt(tally(rows))}`)
-  console.log(`  without egg donor D:    ${fmt(tally(rows.filter((r) => r.mother !== EXCLUDED_MOTHER && parentsOf.get(r.gsm)!.mother !== EXCLUDED_MOTHER)))}`)
+  console.log(`  mothers under the ceiling: ${fmt(tally(rows.filter((r) => !overCeiling.has(r.mother) && !overCeiling.has(parentsOf.get(r.gsm)!.mother))))}`)
   const named = rows.filter((r) => r.lostParent).length
   console.log(`  chromosomes with a parent named from the alleles: ${named}`)
   if (arm === 'true') {

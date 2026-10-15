@@ -59,6 +59,13 @@ export interface IntegrityInput {
   totalAutosomes: number
   /** Total changes reported, which is what the reader will see listed. */
   events: number
+  /**
+   * Autosomes the alleles read as missing one parent's copy with no intensity verdict. Counted
+   * beside the changes and NOT in `affectedAutosomes`: the deviant-fraction bound protects the
+   * dosage channel's self-reference, which the allele count does not use, and a cell that has
+   * lost one parent's copy on half its chromosomes is exactly the cell the alleles were built for.
+   */
+  parentAbsent?: number
 }
 
 /**
@@ -71,10 +78,14 @@ export interface IntegrityInput {
  */
 export function assessIntegrity(input: IntegrityInput): IntegrityCall {
   const { stage, callRate, affectedAutosomes, totalAutosomes, events } = input
+  const parentAbsent = input.parentAbsent ?? 0
   const deviantFraction = totalAutosomes > 0 ? affectedAutosomes / totalAutosomes : NaN
   const measures = {
-    affectedAutosomes, totalAutosomes, deviantFraction, callRate, stage, events,
+    affectedAutosomes, totalAutosomes, deviantFraction, callRate, stage, events, parentAbsent,
   }
+  const byAlleles = parentAbsent
+    ? `; ${parentAbsent} chromosome${parentAbsent === 1 ? '' : 's'} missing one parent's copy by the alleles`
+    : ''
 
   if (stage === 'failed') {
     return {
@@ -119,11 +130,12 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
     }
   }
 
-  if (events > 0) {
+  if (events > 0 || parentAbsent > 0) {
     return {
       level: 'disturbed',
-      headline: `${events} change${events === 1 ? '' : 's'} on `
-        + `${affectedAutosomes} of ${totalAutosomes} autosomes`,
+      headline: (events > 0
+        ? `${events} change${events === 1 ? '' : 's'} on ${affectedAutosomes} of ${totalAutosomes} autosomes`
+        : 'No change by call rate or intensity') + byAlleles,
       why: 'Changes were found and the rest of the genome is undisturbed enough to measure them '
         + 'against, which is the condition every origin statistic here depends on.',
       limits: '',

@@ -300,7 +300,8 @@ interface OriginRow {
  * channel's answer for that interval stands.
  */
 function originRows(
-  result: { dosageCalls?: unknown[], oneParent?: unknown[] }, role: 'paternal' | 'maternal',
+  result: { dosageCalls?: unknown[], oneParent?: unknown[], chroms?: unknown[] },
+  role: 'paternal' | 'maternal',
 ): OriginRow[] {
   const byWhere = new Map<string, OriginRow>()
   for (const c of (result.dosageCalls ?? [])) {
@@ -330,6 +331,29 @@ function originRows(
       locus: g.where, kind: prior?.kind ?? 'genotype', channel: 'genotype',
       origin: named ?? prior?.origin ?? null,
       verdict: g.verdict, band: g.band, confidence: g.posterior, markers: g.markers, why: g.why,
+    })
+  }
+  // THE ALLELES, on whole chromosomes with both parents loaded: the parent whose copy is absent,
+  // or a mixed signal, with the counts the verdict rests on. The page and the PDF carry these; the
+  // command line printed only the channels that ran on top of them.
+  for (const c of (result.chroms ?? []) as {
+    chrom: string, lostParent?: string, mixed?: boolean,
+    contribution?: { fraction: number, onlyA: number, onlyB: number, informative: number },
+  }[]) {
+    if (!c.contribution || (!c.lostParent && !c.mixed)) continue
+    const k = c.contribution
+    const [father, mother] = role === 'paternal' ? [k.onlyA, k.onlyB] : [k.onlyB, k.onlyA]
+    const counts = `of ${k.informative} markers where the parents are opposite homozygotes, `
+      + `${(k.fraction * 100).toFixed(1)}% read both alleles, ${(father * 100).toFixed(1)}% the `
+      + `father's alone and ${(mother * 100).toFixed(1)}% the mother's alone`
+    byWhere.set(`chr${c.chrom} alleles`, {
+      locus: `chr${c.chrom}`, kind: 'whole chromosome', channel: 'alleles',
+      origin: c.lostParent ?? null, verdict: c.lostParent ? 'parent-absent' : 'mixed',
+      markers: k.informative,
+      why: c.lostParent
+        ? `the ${c.lostParent} copy is absent: ${counts}. Whether one copy remains or two is for `
+          + 'the intensity.'
+        : `mixed signal, not called: ${counts}. Between the boundaries with one parent dominant.`,
     })
   }
   return [...byWhere.values()]

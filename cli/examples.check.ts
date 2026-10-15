@@ -13,7 +13,7 @@ import assert from 'node:assert/strict'
 import { execFileSync } from 'node:child_process'
 import { readFileSync, existsSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
-import { EXAMPLES, EXAMPLE_MARKERS } from '../web/src/examples.ts'
+import { EXAMPLES, EXAMPLE_MARKERS, EXAMPLE_TRIO_MARKERS } from '../web/src/examples.ts'
 import {
   headerMap, parseRow, emptyBafSums, accumulateBaf, accumulate, finishProfile,
 } from '../web/src/ingest.ts'
@@ -81,8 +81,10 @@ const loaded = new Map<string, Loaded>()
 for (const e of EXAMPLES) {
   const l = load(e.file)
   loaded.set(e.gsm, l)
-  assert.equal(l.markers, EXAMPLE_MARKERS,
-    `${e.gsm}: ${l.markers} markers, but examples.ts advertises ${EXAMPLE_MARKERS}`)
+  // The trio for the allele count ships at every second marker, the rest at every eighth.
+  const advertised = e.file.includes('.half.') ? EXAMPLE_TRIO_MARKERS : EXAMPLE_MARKERS
+  assert.equal(l.markers, advertised,
+    `${e.gsm}: ${l.markers} markers, but examples.ts advertises ${advertised}`)
   assert.ok(l.gt.size > 50_000, `${e.gsm}: only ${l.gt.size} autosomal calls, which is not an array`)
 }
 

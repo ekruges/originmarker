@@ -638,6 +638,12 @@ export interface ChromResult {
    * obligateHet.SURVIVOR_MIN.
    */
   lostParent?: 'paternal' | 'maternal'
+  /**
+   * The alleles sit between the one-parent and two-parent boundaries with one parent's share at or
+   * over obligateHet.MIXED_SHARE: a mosaic, a partial loss or noise, not separable here. Reported
+   * with its counts and no parent named. Two bulk parents only.
+   */
+  mixed?: true
   /** Whose copy changed, where determinable. 'this' is the parent this result is scored against;
    *  'other' means their alleles survive on what is left, so the copy that went was the other
    *  parent's. Undefined where the sample carries none of this parent's genome anywhere. */

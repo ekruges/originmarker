@@ -2,7 +2,7 @@ import { type ReactNode } from 'react'
 import { Alert, Anchor, Code, List, Table, Text, Title } from '@mantine/core'
 import { CITATIONS, formatCitation } from './citations'
 import type { Health } from './api'
-import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, EXAMPLE_STRIDE } from './examples'
+import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, EXAMPLE_STRIDE, EXAMPLE_TRIO_MARKERS } from './examples'
 import { DocsShell, docsHelpers, docsSectionFromHash, type DocSection } from './DocsShell'
 
 /**
@@ -1992,7 +1992,10 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           </Text>
           <Text mb={8}>
             Each is a subset: every {ordinal(EXAMPLE_STRIDE)} marker, {int(EXAMPLE_MARKERS)} per
-            file, with the two columns this tool never reads dropped. <b>No value is rounded or
+            file, except the sperm donor, oocyte donor D and embryo C at every second marker,
+            {int(EXAMPLE_TRIO_MARKERS)} per file, because a per-chromosome allele count needs 200
+            informative markers and at an eighth no chromosome reaches it. The two columns this
+            tool never reads are dropped. <b>No value is rounded or
             altered</b>, and the calls below are the ones the full 825,657-marker files produce, so
             the demonstration is the real one at a tenth of the download.
           </Text>

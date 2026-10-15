@@ -218,6 +218,22 @@ export const panelScale = (panelHeterozygosity?: number): number => (
     : 1
 )
 
+/**
+ * Whether a PARENTAL array is too heterozygous to be one person's genotype, judged against the
+ * panel the other loaded parent defines.
+ *
+ * Measured on GSE148488: six egg donors and the sperm donor read 0.141 to 0.174 heterozygous at
+ * 94 to 98 percent call rate; the seventh donor reads 0.3455 at 82 percent, which is two people or
+ * a contaminated reaction, and anything read from her heterozygosity is read against alleles she
+ * does not transmit. The ceiling is MAX_DIPLOID_HET scaled by the panel, and the panel is the
+ * OTHER parent's heterozygosity, because a parent judged against its own figure cannot exceed it.
+ * With one parent loaded there is nothing to judge against, and this is false. The application
+ * reports it as a limit and withholds nothing: the array's homozygous calls still make markers
+ * informative, and the allele count reads only those.
+ */
+export const parentOverCeiling = (het: number, panelHet: number): boolean =>
+  Number.isFinite(het) && Number.isFinite(panelHet) && het > MAX_DIPLOID_HET * panelScale(panelHet)
+
 const BOUNDS: { stage: Stage, minHet: number, dropout: number, templates: string, floor: number }[] = [
   { stage: 'bulk', minHet: 0.158, dropout: 0.013, templates: '~10^6', floor: 100 },
   { stage: 'trophectoderm', minHet: 0.145, dropout: 0.050, templates: '10-20', floor: 100 },

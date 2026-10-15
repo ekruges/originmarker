@@ -25,10 +25,11 @@
  * unlike the lab corpus a result measured here can be committed and re-run. Point OM_TRIOS at a
  * directory of <GSM>.probes.gz plus trio_manifest_full.csv.
  *
- * GSM4472408, egg donor D, is EXCLUDED as a parental genotype: autosomal heterozygosity 0.3455 at
- * an 82.0 percent call rate against 0.141 to 0.174 at 94 to 98 percent for the other donors, which
- * is a mixed or contaminated sample. 30 of the 106 declared trios name it as mother and are
- * excluded with it.
+ * A declared parent over the diploid heterozygosity ceiling is EXCLUDED as a parental genotype,
+ * by the rule the application applies (stage.parentOverCeiling) rather than by name. On this
+ * series that is GSM4472408, egg donor D: 0.3455 heterozygous at an 82.0 percent call rate
+ * against 0.141 to 0.174 at 94 to 98 percent for the other donors, a mixed or contaminated
+ * sample. 30 of the 106 declared trios name it as mother and are excluded with it.
  *
  * Run: OM_TRIOS=<dir> node --experimental-strip-types audit/trio-calibration.ts [--q 0.1217]
  */
@@ -39,6 +40,7 @@ const W = new URL('../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const one = await import(`${W}oneParentOrigin.ts`)
 const both = await import(`${W}bothParentsOrigin.ts`)
+const stage = await import(`${W}stage.ts`)
 
 const DIR = process.env.OM_TRIOS
 if (!DIR || !existsSync(DIR)) {
@@ -49,8 +51,6 @@ if (!DIR || !existsSync(DIR)) {
   process.exit(0)
 }
 
-/** Excluded as a parental genotype. See the header. */
-const CONTAMINATED = new Set(['GSM4472408'])
 
 type AB = 'AA' | 'AB' | 'BB' | 'NC'
 interface Array_ { gt: Map<string, AB>; pos: Map<string, string>; het: number; callRate: number }
@@ -121,6 +121,17 @@ const recs = rows.slice(1).map((l) => {
   return Object.fromEntries(head.map((k, i) => [k, f[i] ?? ''])) as Record<string, string>
 })
 const present = (g: string) => existsSync(`${DIR}/${g}.probes.gz`)
+
+// EXCLUDED AS A PARENTAL GENOTYPE BY MEASUREMENT. Every array the manifest declares a parent is
+// read once, and one over the diploid ceiling against the cleanest of them is two people or a
+// contaminated reaction. See the header.
+const declaredParents = recs.filter((r) => r.role === 'parent' && present(r.gsm)).map((r) => r.gsm)
+const hetOf = new Map(declaredParents.map((g) => [g, load(g).het]))
+const panelHet = Math.min(...[...hetOf.values()].filter((h) => Number.isFinite(h)))
+const CONTAMINATED = new Set(declaredParents
+  .filter((g) => stage.parentOverCeiling(hetOf.get(g) as number, panelHet)))
+console.log(`parents over the diploid ceiling, excluded: ${[...CONTAMINATED]
+  .map((g) => `${g} at ${(hetOf.get(g) as number).toFixed(4)}`).join(', ') || 'none'}`)
 const firstUsable = (csv: string) =>
   csv.split(/[;| ]/).map((x) => x.trim()).filter((x) => x && !CONTAMINATED.has(x) && present(x))[0]
 

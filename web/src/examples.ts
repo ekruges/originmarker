@@ -3,8 +3,10 @@
  *
  * Every one is a GEO release file, from two series on the same Affymetrix Axiom platform:
  * GSE148488, an Egli lab study of human zygotes, and GSE290961, a later deposit from the same
- * laboratory that carries a second family. They are subsets at every eighth marker. No value is
- * rounded or altered.
+ * laboratory that carries a second family. They are subsets at every eighth marker, except the
+ * three arrays of the trio that demonstrates the allele count, which are at every second: a
+ * per-chromosome count needs 200 informative markers, and at an eighth no chromosome reaches it.
+ * No value is rounded or altered.
  *
  * WHAT THE SUBSET COSTS, since it is not nothing. Linkage, stage inference and whole-chromosome
  * events all survive it, because each uses either the whole genome or a whole chromosome. A
@@ -16,7 +18,7 @@ export interface Example {
   /** GEO sample accession, which is also the filename stem. */
   gsm: string
   file: string
-  role: 'donor' | 'sample'
+  role: 'donor' | 'oocyte' | 'sample'
   what: string
   expect: string
 }
@@ -31,11 +33,17 @@ export const EXAMPLE_CITATION =
   + 'no associated publication was confirmed for it.'
 export const EXAMPLE_STRIDE = 8
 export const EXAMPLE_MARKERS = 103_207
+/** The trio for the allele count: every second marker. */
+export const EXAMPLE_TRIO_STRIDE = 2
+export const EXAMPLE_TRIO_MARKERS = 412_828
+export const EXAMPLE_DENSITY = `Every eighth marker, ${EXAMPLE_MARKERS.toLocaleString('en-US')} per file, `
+  + `except the sperm donor, oocyte donor D and embryo C at every second, `
+  + `${EXAMPLE_TRIO_MARKERS.toLocaleString('en-US')} per file. Values unaltered.`
 
 export const EXAMPLES: Example[] = [
   {
     gsm: 'GSM4472397',
-    file: 'GSM4472397_sperm_DNA_71.subset.csv.gz',
+    file: 'GSM4472397_sperm_DNA_71.half.csv.gz',
     role: 'donor',
     what: 'sperm donor, bulk sperm DNA',
     expect: 'the paternal genome every sample below is measured against',
@@ -44,44 +52,68 @@ export const EXAMPLES: Example[] = [
     gsm: 'GSM4472409',
     file: 'GSM4472409_A8_45.subset.csv.gz',
     role: 'sample',
-    what: 'embryo A8, this donor\'s own zygote',
-    expect: 'unclear, and the refusal is the point. Its paternal absence of 9.88% sits under a '
-      + '10.91% ceiling, so the sperm donor\'s genome is there, but at a 53% call rate zygosity '
-      + 'is withheld and the androgenetic/biparental split cannot be made. Earlier versions '
-      + 'called it biparental on a heterozygous band that a call rate this low does not support',
+    what: 'embryo A8, a child of both donors',
+    expect: 'refused, and the refusal is the point. Both parents are there, 9.88% paternal and '
+      + '9.27% maternal absence under a 10.91% ceiling, but at a 53% call rate the array does not '
+      + 'resolve to any material, so nothing on it is reportable and no chromosome is read',
+  },
+  {
+    gsm: 'GSM4472408',
+    file: 'GSM4472408_donor_D.half.csv.gz',
+    role: 'oocyte',
+    what: 'oocyte donor D, the mother of embryo C below, loaded as the oocyte donor',
+    expect: 'her array is over the diploid heterozygosity ceiling against the sperm donor, 34.5% '
+      + 'heterozygous where one person reads 14 to 17%, and the run says so as a limit. Nothing is '
+      + 'withheld on that account: her homozygous calls still make markers informative, and the '
+      + 'allele count reads only those. Every sample here is read against both parents',
+  },
+  {
+    gsm: 'GSM4552385',
+    file: 'GSM4552385_embryoC_blastomere3.half.csv.gz',
+    role: 'sample',
+    what: 'embryo C, blastomere 3, a child of both donors, Cas9 injected at fertilisation',
+    expect: 'the case both parents exist for. The source study\'s hand karyotype records twelve '
+      + 'monosomies on this cell. At the markers where the parents are opposite homozygotes, '
+      + 'eleven of them read one parent\'s allele alone: the maternal copy absent on 1, 2, 4, 7, '
+      + '8, 17 and 20, the paternal on 5, 6, 10 and 19, each confirmed by the Mendelian channel. '
+      + 'Chromosome 22 has too few markers at this density. The intensity reaches none of the '
+      + 'eleven and flags 12 and 13 instead, where the file\'s copy number collapses to nothing '
+      + 'and the alleles still read both parents',
   },
   {
     gsm: 'GSM4472407',
     file: 'GSM4472407_donor_A_47.subset.csv.gz',
     role: 'sample',
-    what: 'oocyte donor A, unrelated to the sperm donor',
-    expect: 'no paternal contribution. 5.53% absence against a 0.72% ceiling, 7.7x over',
+    what: 'oocyte donor A, unrelated to both donors above',
+    expect: 'neither parent: 5.53% paternal absence against a 0.72% ceiling, and donor D is not '
+      + 'her either',
   },
   {
     gsm: 'GSM4472415',
     file: 'GSM4472415_donor_C_70.subset.csv.gz',
     role: 'sample',
-    what: 'oocyte donor C, unrelated to the sperm donor',
-    expect: 'no paternal contribution. 5.22% absence against a 1.07% ceiling, 4.9x over',
+    what: 'oocyte donor C, unrelated to the sperm donor and the mother of embryo 4',
+    expect: 'neither parent: 5.22% paternal absence against a 1.07% ceiling, and donor D is not '
+      + 'her either. As a sample she is the negative control; as the oocyte she is embryo 4\'s mother',
   },
   {
     gsm: 'GSM4472424',
     file: 'GSM4472424_embryo4_TE.subset.csv.gz',
     role: 'sample',
-    what: 'embryo 4, a trophectoderm biopsy, this donor\'s own child',
-    expect: 'a clean pass, and the only example here that is one. Confirmed as his child at a '
-      + '0.66% opposite-homozygote rate with a second parental contribution at 14.7% of 74,399 '
-      + 'informative markers, and no chromosomal change anywhere. Every other sample below is a '
-      + 'refusal or a negative, which made the set read as though the tool only ever says no',
+    what: 'embryo 4, a trophectoderm biopsy, the sperm donor\'s child by oocyte donor C',
+    expect: 'his child at a 0.66% opposite-homozygote rate with a second parental contribution at '
+      + '14.7% of 74,399 informative markers, and no chromosomal change anywhere. Its mother is '
+      + 'donor C, loaded here as a sample, so against donor D as the oocyte it reads unclear; make '
+      + 'donor C the oocyte and it is a clean pass against both parents',
   },
   {
     gsm: 'GSM8826446',
     file: 'GSM8826446_donor_bulk.subset.csv.gz',
     role: 'sample',
     what: 'a second family: bulk DNA of a different donor, from GSE290961',
-    expect: 'unrelated to the sperm donor above, as it should be. Load it as the donor instead and '
-      + 'the two samples below become its children. It is here so the set contains a second '
-      + 'family rather than one donor and a row of negatives',
+    expect: 'neither parent, as it should be: unrelated to both donors above. Load it as the sperm '
+      + 'donor instead and the two samples below become its children. It is here so the set '
+      + 'contains a second family rather than one donor and a row of negatives',
   },
   {
     gsm: 'GSM8826445',

@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict'
 import {
   HAPLOID_MAX, DIPLOID_MIN, ONE_PARENT_HAPLOID_MAX, ONE_PARENT_DIPLOID_MIN, MIN_INFORMATIVE,
-  SURVIVOR_MIN, emptyHet, addOneParent, addTwoParent, hetCall,
+  SURVIVOR_MIN, MIXED_SHARE, emptyHet, addOneParent, addTwoParent, hetCall,
 } from './obligateHet.ts'
 import { ploidyOf } from './productTriage.ts'
 
@@ -139,6 +139,10 @@ const at = (fraction: number, n = 1000) => {
   for (let i = 0; i < 300; i += 1) addTwoParent('AA', 'BB', i < 20 ? 'AB' : i < 160 ? 'AA' : 'BB', w)
   assert.equal(hetCall(w, 2).ploidy, 'uniparental')
   assert.equal(hetCall(w, 2).survivor, undefined, 'neither allele clears the floor')
+
+  // A mixed signal sits between the boundaries, so its share floor must sit above the two-parent
+  // diploid boundary or it would flag chromosomes the boundaries already call biparental.
+  assert.ok(MIXED_SHARE > DIPLOID_MIN && MIXED_SHARE < SURVIVOR_MIN, 'the mixed floor sits between the boundaries and the survivor floor')
 
   // One parent loaded: the other allele has no owner, so nothing is attributed.
   const u = emptyHet()

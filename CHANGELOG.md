@@ -9,6 +9,64 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.34.0 "Homologue"
+
+**The Mendelian channel is gated on both parents being seen, not on ploidy.** Its guard asked
+only whether the genome is diploid, and a diploid genome that carries one parent throughout
+passes that: a complete hydatidiform mole, or a parent's own array dropped into the sample slot.
+On either, every chromosome reads the loaded parent's copy present and the other's absent, which
+is true and says nothing about any interval. The guard now uses the same measured condition as
+the allele count, at least two autosomes reading both parents at the markers where the loaded
+parent is homozygous, and applies it only where the reference array is bulk, since against an
+amplified reference the per-chromosome reading does not separate and the gate would refuse at
+random.
+
+**A chromosome the alleles read as missing one parent is no longer scanned for absence segments
+inside it.** One event, one row. The copy-number scan already skipped whole chromosomes; the
+absence scan did not.
+
+**The command line prints the allele counts.** The page and the PDF carried them; `om origin`
+printed only the channels that ran on top of them. Each whole chromosome with an absent parent,
+or a mixed signal, now has its own row with the counts, under the channel name `alleles`.
+
+**The band between the boundaries is reported.** A chromosome with 200 or more informative
+markers, a heterozygous share between 0.20 and 0.45, and one parent's allele alone at 0.55 or
+more is now a MIXED row: the counts, no parent named, not counted as an event. Of the 30 such
+chromosomes on the Zuccaro cells, 13 clear the floor, 8 of them hand-called monosomies and 4
+hand-called normal, so it is a flag for a reader and not a call. Six of the hand-called losses
+the alleles do not reach sit exactly here.
+
+**A two-parent example ships.** The bundled set had no oocyte donor, so the allele count could not
+be seen on the site. Egg donor D and her blastomere embryo C, Cas9 injected at fertilisation and
+hand-karyotyped with twelve monosomies, are now in the set, with the sperm donor, at every second
+marker rather than every eighth: a per-chromosome count needs 200 informative markers and at an
+eighth no chromosome reaches it. Her array is over the diploid ceiling and the run says so, which
+is the rule below demonstrated on the material it was written for. The sample headline and badges
+count these chromosomes beside the changes the call rate and intensity found, as "missing one
+parent's copy by the alleles"; they stay out of the deviant-fraction bound, which protects the
+dosage channel's self-reference and nothing the alleles use.
+
+**Proved on the whole corpus before release.** Every harness the validation record cites, 27 in
+all, ran on 5.33.1 and on this build against the same files: the GSE148488 trios at full caps,
+the two blastomere series, the 13 moles, the GSE19247 sperm and blastomeres on both marker sets,
+the 12 PGD families, the cell lines and karyotyped series, the CytoScan arrays, the 884 lab arrays
+of all four folders, the trio calibration, the hand-karyotype comparison and the Germline audit.
+Every run exits 0 on both. 23 logs are identical. Four differ, each by the change above: the
+hand-karyotype comparison prints the counts on chromosomes it used to leave blank and names the
+mother over the ceiling by the rule rather than by accession, the trio calibration prints the
+excluded parent by the rule, the determinism arm's output grew by the new fields and is still
+identical on re-run, and the Germline audit differs only in its output path.
+
+**One rule for a parental array that is not one person.** Egg donor D of GSE148488 was excluded
+by name in the trio calibration and accepted by the hand-karyotype comparison. Both now apply
+`stage.parentOverCeiling`: a parental array over the diploid heterozygosity ceiling, scaled by the
+panel the other parent defines, is two people or a contaminated reaction. The application reports
+it as a limit on the run and withholds nothing, because the array's homozygous calls still make
+markers informative and the allele count reads only those. With one parent loaded there is
+nothing to judge against and the rule is silent.
+
+---
+
 ## 5.33.1 "Gamete"
 
 The footer links to the repository on GitHub, beside Documentation and Terms.

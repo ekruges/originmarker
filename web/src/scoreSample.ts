@@ -29,7 +29,10 @@ import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground,
   MIN_INFORMATIVE_DEFAULT, type DosageMarker, callLossOrigin,
 } from './gainOrigin.ts'
-import { addTwoParent, emptyHet, hetCall, type HetTally } from './obligateHet.ts'
+import {
+  addTwoParent, emptyHet, hetCall, type HetTally, MIN_INFORMATIVE, MIXED_SHARE, HAPLOID_MAX,
+  DIPLOID_MIN,
+} from './obligateHet.ts'
 import { originBlockedByClass, namedAParent } from './defects.ts'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin.ts'
 import { callOneParentOrigin } from './oneParentOrigin.ts'
@@ -47,7 +50,10 @@ import {
   LOH_SEGMENT_MARKERS,
 } from './abnormalities.ts'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted.ts'
-import { inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE } from './stage.ts'
+import {
+  inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
+  panelScale,
+} from './stage.ts'
 import { nullScale, calibratedZ, median, intensityDetects } from './intensityNull.ts'
 import { reconcileStage } from './declaredStage.ts'
 import { assessIntegrity } from './integrity.ts'
@@ -366,14 +372,34 @@ export async function scoreSample(input: {
   // readings is reported as unclear rather than resolved in favour of either.
   const twoBulk = !!mat && pat.heterozygosity >= PANEL_HET_FLOOR
     && mat.heterozygosity >= PANEL_HET_FLOOR
+  const bulkReference = pat.heterozygosity >= PANEL_HET_FLOOR
+    && (!mat || mat.heterozygosity >= PANEL_HET_FLOOR)
   const otherRole = soloRole === 'paternal' ? 'maternal' : 'paternal'
   const two = mat !== null && mat !== undefined
+  // A PARENTAL ARRAY OVER THE DIPLOID CEILING is reported, never withheld: its homozygous calls
+  // still make the opposite-homozygote markers informative, which is all the allele count reads,
+  // and what it cannot anchor is anything read from its heterozygosity. One rule for the
+  // application and the harnesses alike: see stage.parentOverCeiling.
+  if (parentHets.length === 2) {
+    const panelHet = Math.min(...parentHets)
+    for (const [p, role] of [[pat, soloRole], [mat as ParentIndex, otherRole]] as const) {
+      if (!parentOverCeiling(p.heterozygosity, panelHet)) continue
+      const text = `The ${role} array is ${pct(p.heterozygosity, 1)} heterozygous, over the `
+        + `${pct(MAX_DIPLOID_HET * panelScale(panelHet), 0)} a single diploid reaches on this `
+        + 'panel: two people or a contaminated reaction. Its homozygous calls still inform the '
+        + 'allele count; anything resting on its heterozygosity is provisional.'
+      result.limits.push(text)
+      log('WARN', text)
+    }
+  }
   for (const c of result.chroms) {
     const tally = two
       ? obligateByChrom.get(c.chrom) ?? emptyHet()
       : { ...emptyHet(), ...(hetByChrom.get(c.chrom) ?? {}) }
     const call = hetCall(tally, two ? 2 : 1)
-    if (call.ploidy !== 'uncalled') c.contribution = call
+    // Kept wherever the markers were enough, between the boundaries included, so the counts a
+    // reader checks by hand are the counts the verdict rests on.
+    if (call.informative >= MIN_INFORMATIVE) c.contribution = call
   }
   // "ON A GENOME THAT CARRIES BOTH PARENTS ELSEWHERE" IS A CONDITION, AND IT IS MEASURED HERE
   // RATHER THAN TAKEN FROM THE GENOME-LEVEL CLASS. A bulk array of the father loaded as a sample is
@@ -391,13 +417,29 @@ export async function scoreSample(input: {
   for (const c of result.chroms) {
     const call = c.contribution
     if (!twoBulk || !bothParentsSomewhere || !knownBiparental(result.zygosity)
-      || !isAutosome(c.chrom) || c.verdict === 'not_measured' || !call
-      || call.ploidy !== 'uniparental' || !call.survivor) continue
-    // The first parental slot holds the array whose role is soloRole; the survivor's allele is
-    // what remains, so the copy that is missing is the other parent's.
-    const lost = call.survivor === 'a' ? otherRole : soloRole
-    c.lostParent = lost
-    if (c.aneuploidy === 'loss') c.aneuploidyParent = lost === soloRole ? 'this' : 'other'
+      || !isAutosome(c.chrom) || c.verdict === 'not_measured' || !call) continue
+    if (call.ploidy === 'uniparental' && call.survivor) {
+      // The first parental slot holds the array whose role is soloRole; the survivor's allele is
+      // what remains, so the copy that is missing is the other parent's.
+      const lost = call.survivor === 'a' ? otherRole : soloRole
+      c.lostParent = lost
+      if (c.aneuploidy === 'loss') c.aneuploidyParent = lost === soloRole ? 'this' : 'other'
+    } else if (call.ploidy === 'uncalled' && call.fraction >= HAPLOID_MAX
+      && call.fraction < DIPLOID_MIN && Math.max(call.onlyA, call.onlyB) >= MIXED_SHARE) {
+      // BETWEEN THE BOUNDARIES WITH ONE PARENT DOMINANT is said out loud rather than passed over:
+      // six of the hand-called losses the alleles do not reach sit exactly here. See MIXED_SHARE.
+      c.mixed = true
+    }
+  }
+  for (const c of result.chroms) {
+    if (!c.mixed || !c.contribution) continue
+    const k = c.contribution
+    const [father, mother] = soloRole === 'paternal' ? [k.onlyA, k.onlyB] : [k.onlyB, k.onlyA]
+    log('WARN', `chr${c.chrom}: mixed signal, not called. Of ${k.informative} markers where the `
+      + `parents are opposite homozygotes, ${pct(k.fraction, 1)} read both alleles, `
+      + `${pct(father, 1)} the father's alone and ${pct(mother, 1)} the mother's alone: between `
+      + 'the boundaries with one parent dominant. A mosaic, a partial loss or noise, not '
+      + 'separable here.')
   }
   for (const c of result.chroms) {
     if (!c.lostParent || !c.contribution) continue
@@ -605,6 +647,7 @@ export async function scoreSample(input: {
   // A chromosome the alleles read as missing one parent is whole as well: a segment found inside
   // it would be the same absence described twice.
   const whole = new Set(result.chroms.filter((c) => c.aneuploidy || c.lostParent).map((c) => c.chrom))
+  const lostByAlleles = new Set(result.chroms.filter((c) => c.lostParent).map((c) => c.chrom))
   // LOSSES ONLY, for the run-of-homozygosity filter below. A chromosome at ONE copy reads
   // homozygous end to end because it is hemizygous, and that artefact has to go. A chromosome at
   // THREE copies has no such excuse: a trisomy that IS homozygous end to end is an isodisomic
@@ -664,7 +707,9 @@ export async function scoreSample(input: {
     .flatMap(([c, ms]) => scanCopyNumber(ms, externalNull(noCall, c), genomeLrr))
   result.segments = uninterpretable ? [] : [
     ...copy,
-    ...[...absenceByChrom].filter(([c]) => measured.has(c))
+    // A chromosome the alleles read as missing one parent is not scanned for an absence segment
+    // inside it: that would be the same absence described twice.
+    ...[...absenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
       .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))),
   ].sort((a, b) => b.score - a.score)
 
@@ -1219,7 +1264,15 @@ export async function scoreSample(input: {
   // and runs-of-homozygosity detectors above.
   // Nor on a genome whose ploidy was refused: `unknown` may be the one-parent case this guard
   // exists for. See knownBiparental.
-  const canAttribute = knownBiparental(result.zygosity)
+  // AND NOT ON A GENOME THAT CARRIES ONE PARENT THROUGHOUT, measured the same way as the allele
+  // count: at least two autosomes must read both parents at the markers where the loaded parent
+  // is homozygous. The zygosity gate alone passes a diploid androgenetic genome, which a complete
+  // mole is, and a parent's own array in the sample slot; on either, every chromosome reads the
+  // loaded parent's copy present and the other's absent, which is true and says nothing about any
+  // interval. Applied only where the reference is bulk, because against an amplified reference the
+  // per-chromosome reading does not separate (audit section E2) and the gate would refuse at
+  // random.
+  const canAttribute = knownBiparental(result.zygosity) && (!bulkReference || bothParentsSomewhere)
   // Also not gated on the parent count: this channel reads whether the LOADED parent's allele is
   // present, which a second parent neither supplies nor obstructs.
   // AND THE MENDELIAN CHANNEL DOES NOT RUN AT ALL WITH A WRONG PARENTAL SLOT. Unlike dosage, every
@@ -1377,6 +1430,7 @@ export async function scoreSample(input: {
       totalAutosomes: autosomes.length,
       events: (result.segments?.length ?? 0) + (result.findings?.length ?? 0)
         + autosomes.filter((c) => c.aneuploidy).length,
+      parentAbsent: autosomes.filter((c) => c.lostParent && !c.aneuploidy).length,
     })
     log(result.integrity.level === 'uninterpretable' ? 'WARN' : 'DONE',
       `${sampleName}: ${result.integrity.headline}`)

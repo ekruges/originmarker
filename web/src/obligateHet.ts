@@ -131,6 +131,16 @@ export const emptyHet = (): HetTally => ({ informative: 0, het: 0, onlyA: 0, onl
 export const SURVIVOR_MIN = 0.70
 
 /**
+ * One parent's share at which a chromosome reading BETWEEN the boundaries is reported as a mixed
+ * signal rather than passed over in silence. Measured on GSE148488 against Table S3: of the 30
+ * chromosomes with 200 or more informative markers and a heterozygous share between 0.20 and
+ * 0.45, 13 carry one parent's allele alone at 0.55 or more, and of those 8 are hand-called
+ * monosomies, 4 hand-called normal and 1 something else. Below it the two classes mix evenly. The
+ * row names no parent: it carries the counts and says it was not called.
+ */
+export const MIXED_SHARE = 0.55
+
+/**
  * One marker, with one parent known.
  *
  * Informative means that parent is homozygous there. A no-call in the sample contributes nothing

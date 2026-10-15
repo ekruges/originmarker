@@ -22,7 +22,7 @@ import type { ComparisonResult } from './comparison.ts'
 import type { Gate, SampleProfile } from './ingest.ts'
 import type { RunResult } from './runlength.ts'
 import { int, utc } from './fmt.ts'
-import { EXAMPLE_CITATION } from './examples.ts'
+import { EXAMPLE_CITATION, EXAMPLE_DENSITY } from './examples.ts'
 
 export const DISCLAIMER = 'Research use only. Parent of origin here is a statistical call from '
   + 'array genotypes and requires confirmation by an independent method in a qualified genetics '
@@ -338,8 +338,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ['Data handling:', 'every file was read in the browser that produced this report. No '
       + 'genotype was transmitted, and none is retained.'],
     ...(input.fromExamples
-      ? [['Example data:', `this run used the bundled public example files. ${EXAMPLE_CITATION}`
-          + ' Every eighth marker, values unaltered.'] as [string, string]]
+      ? [['Example data:', `this run used the bundled public example files. ${EXAMPLE_CITATION} `
+          + EXAMPLE_DENSITY] as [string, string]]
       : []),
   ])
 
@@ -371,8 +371,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       const g = r.gains.find((x) => x.where === `chr${chrom}`)
       return g && g.called ? ` (${g.origin})` : ''
     }
-    const whole = r.chroms.filter((c) => c.aneuploidy || c.lostParent)
-      .map((c) => `chr${c.chrom} ${c.aneuploidy ?? `${c.lostParent} copy absent`}`
+    const whole = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed)
+      .map((c) => `chr${c.chrom} ${c.aneuploidy ?? (c.lostParent ? `${c.lostParent} copy absent` : 'mixed signal')}`
         + `${c.aneuploidy === 'gain' ? originOf(c.chrom) : ''}`)
     const copy = r.segments.filter((sg) => sg.kind !== 'parental-absence')
       .map((sg) => `chr${sg.chrom} ${sg.kind === 'copy-gain' ? 'gain' : 'loss'} `
@@ -601,7 +601,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       heading('Sex chromosomes', 8.6)
       chromTable(sex, r.explainable)
     }
-    const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent)
+    const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed)
     if (aneu.length) {
       heading('Aneuploidy', 8.6)
       text('A chromosome that is not there cannot be genotyped, so a whole-chromosome change '
@@ -620,10 +620,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { head: 'Whose copy', w: 156 }],
         aneu.map((c) => [
           `chr${c.chrom}`,
-          { v: c.aneuploidy?.toUpperCase() ?? 'PARENT ABSENT', colour: WARN },
+          { v: c.aneuploidy?.toUpperCase() ?? (c.mixed ? 'MIXED' : 'PARENT ABSENT'), colour: WARN },
           `${c.callFraction.toFixed(2)}x`,
           `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2`,
-          c.lostParent ? (c.aneuploidy === 'gain'
+          c.mixed ? 'not called: between the boundaries, one parent dominant'
+            : c.lostParent ? (c.aneuploidy === 'gain'
             ? `no ${c.lostParent} copy: every copy is the other parent's, from the alleles`
             : `${c.lostParent} copy absent, from the alleles`)
             : c.aneuploidyParent === 'this' ? 'the parent scored against'

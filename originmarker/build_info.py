@@ -152,10 +152,13 @@ RELEASES: tuple[Release, ...] = (
     Release("Gamete",
             "The haploid cell a parent's genome is read back from, one meiotic product at a "
             "time."),
+    Release("Homologue",
+            "The partner chromosome a copy is measured against. Whose homologue remains is what "
+            "the alleles say; how many copies of it is what the intensity says."),
 )
 
-VERSION = "5.33.1"
-CODENAME = "Gamete"
+VERSION = "5.34.0"
+CODENAME = "Homologue"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

@@ -147,9 +147,12 @@ alleles read as intact are listed in `audit/zuccaro-table-s3-results.txt`.
 
 What the alleles cannot say is whether one copy remains or two: a monosomy and an isodisomy of the
 surviving parent read the same at these markers. The row therefore names the absent parent and
-leaves the copy number to the intensity, which on these cells mostly declines. Egg donor D is
-excluded as a parental genotype elsewhere in this record for her heterozygosity; she is the mother
-of 18 of the 31 cells here, and the figures are given with and without her.
+leaves the copy number to the intensity, which on these cells mostly declines. A chromosome with
+one parent's allele at 0.55 or more while the heterozygous share sits between the boundaries is
+reported as a mixed signal with its counts and no parent named. Egg donor D is over the diploid
+heterozygosity ceiling against the father, the one rule (`stage.parentOverCeiling`) the application
+and every harness here apply; she is the mother of 18 of the 31 cells, and the figures are given
+with and without her children.
 
 ### The panel builder keeps the markers that hold up
 

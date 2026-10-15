@@ -31,7 +31,7 @@ import {
 } from './segments'
 import type { Health } from './api'
 import { int, utc } from './fmt'
-import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, loadExample } from './examples'
+import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_DENSITY, loadExample } from './examples'
 import { analyseRuns, measureClustering, parseLocus, type RunResult } from './runlength'
 import type { GainAnnotation } from './parentage'
 import { type FeatureTrack } from './features'
@@ -116,7 +116,7 @@ function defectsForResult(r: ParentageResult) {
   // AND A CHROMOSOME THE ALLELES READ AS MISSING ONE PARENT, with no intensity verdict: that is a
   // parental absence rather than a copy loss, because one parent's allele alone is what a
   // monosomy and an isodisomy both read. See ChromResult.lostParent.
-  const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy || c.lostParent).map((c) => {
+  const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy || c.lostParent || c.mixed).map((c) => {
     const scored = (r.dosageCalls ?? []).find((d: { where: string }) => d.where === `chr${c.chrom}`)
     const other = r.role === 'paternal' ? 'maternal' : 'paternal'
     // THE MENDELIAN CHANNEL FIRST, measured at 0.920 on obvious whole-chromosome events against
@@ -133,7 +133,7 @@ function defectsForResult(r: ParentageResult) {
       : c.aneuploidy === 'gain' ? (c.lostParent === 'paternal' ? 'maternal' : 'paternal')
         : c.lostParent
     const conflict = !!(named && letters && named !== letters)
-    const origin = conflict ? 'unclear'
+    const origin = conflict || c.mixed ? 'unclear'
       : named ?? letters
       ?? (c.aneuploidyParent === 'this' ? r.role
         : c.aneuploidyParent === 'other' ? other
@@ -153,6 +153,12 @@ function defectsForResult(r: ParentageResult) {
       : ''
     const conflictWhy = conflict
       ? ` The allele count and the Mendelian channel name different parents, so no parent is named.`
+      : ''
+    const mixedWhy = c.mixed && k
+      ? ` Mixed signal, not called. Of ${int(k.informative)} markers where the parents are opposite `
+        + `homozygotes, ${pct(k.fraction, 1)} read both alleles, ${pct(father, 1)} the father's alone `
+        + `and ${pct(mother, 1)} the mother's alone: between the boundaries with one parent dominant. `
+        + 'A mosaic, a partial loss or noise, not separable here.'
       : ''
     return {
       chrom: c.chrom,
@@ -174,7 +180,7 @@ function defectsForResult(r: ParentageResult) {
         : `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
           + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest, neither of `
           + 'which reached a whole-chromosome verdict; the alleles did.')
-        + `${lettersWhy}${conflictWhy}`
+        + `${lettersWhy}${conflictWhy}${mixedWhy}`
         + `${named ? ` ${mendel?.why}` : ''}${scored?.why ? ` ${scored.why}` : ''}`,
     } as never
   })
@@ -1138,6 +1144,17 @@ function ResultCard({ entry, donorName, oocyteName }: {
               {r.segments.length} chromosomal change{r.segments.length === 1 ? '' : 's'}
             </Badge>
           )}
+          {r.chroms.some((c) => c.lostParent && !c.aneuploidy) && (
+            <Badge size="sm" variant="filled" color="orange">
+              {r.chroms.filter((c) => c.lostParent && !c.aneuploidy).length} missing one
+              parent's copy by the alleles
+            </Badge>
+          )}
+          {r.chroms.some((c) => c.mixed) && (
+            <Badge size="sm" variant="outline" color="orange">
+              {r.chroms.filter((c) => c.mixed).length} mixed signal
+            </Badge>
+          )}
           {m && (
             <Badge size="sm" variant="light" color="genomeBlue">both parents measured</Badge>
           )}
@@ -2038,8 +2055,7 @@ function RunInformation({ entries, startedAt, health, examples }: {
         ['Samples', String(samples.length)],
         ['Assembly', builds.join(', ')],
         ...(examples
-          ? [['Example data', `${EXAMPLE_CITATION} Every eighth marker, `
-              + `${int(EXAMPLE_MARKERS)} per file, values unaltered.`] as [string, ReactNode]]
+          ? [['Example data', `${EXAMPLE_CITATION} ${EXAMPLE_DENSITY}`] as [string, ReactNode]]
           : []),
       ]}
       />
