@@ -54,6 +54,14 @@ const ISODISOMY = '7'
 const SEGMENT = '9'
 const ISO_TRISOMY = '11'
 const MAT_LOST = '13'
+/** Biparental chromosomes carrying an extra copy: the paternal share moves to 0.64 or 0.36, which
+ *  is two thirds shrunk the way whole-genome amplification shrinks it, and the intensity rises. */
+const PAT_GAIN = '3'
+const MAT_GAIN = '4'
+/** The same shift with the intensity BELOW the cell's level, which an extra copy cannot do. */
+const IMBALANCE = '8'
+/** The same shift with the intensity only just above the cell's level: no extra copy is read. */
+const WEAK = '10'
 
 /**
  * One bulk parent and one biparental sample carrying three events.
@@ -120,8 +128,21 @@ function synthesise(): { parent: string; mother: string; sample: string } {
         sg = 2 * fromLoaded
         lrr -= 0.9
       }
-      sample.push([id, chrom, pos, lrr.toFixed(4),
-        sg === 1 ? 0.5 + (r() - 0.5) * 0.08 : sg === 0 ? 0.02 + r() * 0.02 : 0.96 + r() * 0.02,
+      // A GAIN IS A SHIFT OF THE ALLELE RATIO AT THE MARKERS WHERE THE PARENTS ARE OPPOSITE
+      // HOMOZYGOTES, which is the only place a cell with both parents shows whose copy is extra.
+      let baf = sg === 1 ? 0.5 + (r() - 0.5) * 0.08 : sg === 0 ? 0.02 + r() * 0.02 : 0.96 + r() * 0.02
+      const opposite = pg !== 1 && mg !== 1 && pg !== mg
+      if (opposite && (chrom === PAT_GAIN || chrom === MAT_GAIN || chrom === IMBALANCE || chrom === WEAK)) {
+        // The paternal allele is A where the father is AA, so a paternal share of 0.64 is a B
+        // allele frequency of 0.36 there and 0.64 where he is BB.
+        const paternalShare = chrom === MAT_GAIN ? 0.36 : 0.64
+        baf = (pg === 0 ? 1 - paternalShare : paternalShare) + (r() - 0.5) * 0.12
+        sg = 1
+      }
+      if (chrom === PAT_GAIN || chrom === MAT_GAIN) lrr += 0.3
+      else if (chrom === IMBALANCE) lrr -= 0.5
+      else if (chrom === WEAK) lrr += 0.05
+      sample.push([id, chrom, pos, lrr.toFixed(4), baf,
         '2.0', called ? String(sg) : '-1', '1'].join('\t'))
     }
   }
@@ -300,6 +321,11 @@ async function run(declaredStage?: 'failed', withMother = false) {
     'and no Mendelian origin rows. This is the one that shipped a named parent at posterior '
     + '0.79 on an array the tool had already said it could not read.')
   assert.deepEqual(r.gains ?? [], [], 'and no gain rows')
+  // WITH BOTH PARENTS LOADED, which is where the allele readings run at all. They are computed
+  // before the stage verdict is acted on, so each has to be cleared with the rest.
+  const both = await run('failed', true)
+  assert.deepEqual((both.chroms ?? []).filter((c) => c.mixed || c.alleleGain || c.lostParent).map((c) => c.chrom), [],
+    'a refused array carries no allele reading of any kind: absent parent, mixed signal or extra copy')
   assert.deepEqual(r.losses ?? [], [], 'and no loss rows')
 }
 
@@ -345,6 +371,26 @@ async function run(declaredStage?: 'failed', withMother = false) {
     'and an absent parent at normal intensity is not a loss: it is the isodisomy the findings carry')
   assert.ok((two.oneParent ?? []).some((o) => o.where === `chr${ISODISOMY}`),
     'a chromosome the alleles flagged reaches the Mendelian channel like any detected event')
+
+  // AN EXTRA COPY, AND WHOSE, FROM THE ALLELES. chr3 carries an extra paternal copy and chr4 an
+  // extra maternal one, both with the intensity up, so the direction test is the same as for the
+  // losses above: a rule that inverted the two would name both wrong while every other assertion
+  // here still passed. chr8 shifts the same way with the intensity DOWN, which an extra copy
+  // cannot do, and must name nobody.
+  const ag = (r: Awaited<ReturnType<typeof run>>, c: string) => (r.chroms ?? []).find((x) => x.chrom === c)?.alleleGain
+  assert.equal(ag(one, PAT_GAIN), undefined, 'with one parent loaded nothing is read from the shares')
+  assert.equal(ag(two, PAT_GAIN)?.verdict, 'gain', `chr${PAT_GAIN} carries an extra paternal copy. Got ${JSON.stringify(ag(two, PAT_GAIN))}`)
+  assert.equal(ag(two, PAT_GAIN)?.parent, 'paternal', 'and the extra copy is the father\'s')
+  assert.equal(ag(two, MAT_GAIN)?.verdict, 'gain', `chr${MAT_GAIN} carries an extra maternal copy. Got ${JSON.stringify(ag(two, MAT_GAIN))}`)
+  assert.equal(ag(two, MAT_GAIN)?.parent, 'maternal', 'and the extra copy is the mother\'s')
+  assert.equal(ag(two, IMBALANCE)?.verdict, 'imbalance', 'a share shift with the intensity below the cell is an imbalance')
+  assert.equal(ag(two, IMBALANCE)?.parent, undefined, 'and it names no parent')
+  assert.equal(ag(two, WEAK)?.verdict, 'imbalance', 'a shift with the intensity under the floor is not an extra copy')
+  assert.equal(ag(two, WEAK)?.parent, undefined, 'and names no parent either')
+  const called = (two.chroms ?? []).filter((c) => c.alleleGain && ['gain', 'imbalance'].includes(c.alleleGain.verdict))
+    .map((c) => c.chrom).sort()
+  assert.deepEqual(called, [PAT_GAIN, MAT_GAIN, IMBALANCE, WEAK].sort(),
+    `no other chromosome of this fixture is an allele gain or imbalance. Got chr${called.join(', chr')}`)
 
   // AND NOT ON A GENOME THAT CARRIES ONE PARENT THROUGHOUT. The father's own array as the sample,
   // both parents loaded: every autosome reads his allele alone, and no chromosome of it is missing

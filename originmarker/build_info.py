@@ -155,10 +155,14 @@ RELEASES: tuple[Release, ...] = (
     Release("Homologue",
             "The partner chromosome a copy is measured against. Whose homologue remains is what "
             "the alleles say; how many copies of it is what the intensity says."),
+    Release("Trisomy",
+            "Three copies of a chromosome where there should be two. Which parent supplied the "
+            "third is what the alleles say, and whether there is a third at all is what only the "
+            "intensity can confirm."),
 )
 
-VERSION = "5.34.0"
-CODENAME = "Homologue"
+VERSION = "5.35.0"
+CODENAME = "Trisomy"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

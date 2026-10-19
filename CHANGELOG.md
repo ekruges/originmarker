@@ -9,6 +9,77 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.35.0 "Trisomy"
+
+**With both parents loaded, the tool now names the parent who supplied an extra whole chromosome,
+from the alleles, without waiting for the call rate or the intensity to flag one.** The gain
+channel that existed named a parent only for a gain somebody else had detected, and judged it
+against the genome-wide median share. On an amplified single cell the detectors rarely fire: the
+shipped pipeline reported no gain row on any of the six Zuccaro cells carrying a hand-called gain.
+And the genome-wide centre is the wrong reference in a cell with several events: the median share of
+five of the 31 two-parent cells sits between 0.15 and 0.76, against 0.44 to 0.54 over the
+chromosomes the alleles call biparental.
+
+At markers where the parents are opposite homozygotes a euploid cell reads a paternal allele share
+of one half, an extra paternal copy raises it toward two thirds and an extra maternal copy lowers it
+toward one third. Each chromosome's median share is judged against the other biparental chromosomes
+of the same cell, whose median is the centre and whose median absolute deviation is the scale, so a
+noisy or chaotic cell earns a wide scale and refuses rather than over-calls. The bar is six of the
+cell's own spreads and a shift of 0.08, on 200 informative markers, with at least six other
+chromosomes to serve as the reference. The scale has a floor of 0.02, since the cleanest cells
+measure 0.005.
+
+**Intensity is a gate and never the detector, because allele ratios alone cannot tell an extra copy
+from a partial loss of the other parent.** An extra maternal copy in every cell and a paternal copy
+lost in half of them both put the maternal share at two thirds. Total copy number separates them,
+three against one and a half. A shift that clears the bar with the intensity at least +0.15 log2
+above the cell's own level is reported as an extra copy and names the parent. The same shift with
+less is an imbalance and names nobody. The floor is half of the weakest compression measured for
+one extra copy on any chemistry (58 percent of 0.585). It was fixed after seeing the real cells,
+which showed 13 chromosomes called gains with the intensity at +0.02 to +0.13, so the real-event
+numbers below are not independent evidence for that one constant.
+
+**Measured, in two arms that cannot carry the claim alone.**
+
+| arm | result |
+|---|---|
+| real events: the eight gains with a named parent that Zuccaro 2020 lists on the 31 cells with both parents arrayed | as shipped, 0 of 8 called, because two sit on a cell the stage inference refuses and the rest are arm-sized or in cells too chaotic to scale; read with the stage declared, the refused cell's two gains are called, **2 of 2 with the right parent**, the maternal trisomy 15 and the paternal 6q duplication |
+| gains built into real two-parent cells (one chromosome, one parent, the named parent's allele doubled and the intensity raised by 0.3, the rest of the cell untouched, built only into chromosomes that read euploid on the untouched cell) | 94 built over 18 cells: clean cells (scale under 0.03) **49 of 60 called, 49 of 49 with the right parent**; noisy cells 1 of 22; chaotic cells 0 of 12; **0 wrong parents in 94** |
+
+The same cells carry 12 chromosomes called gains or imbalances that the hand karyotype lists as
+normal. They are not counted as errors, because the authors tabulated the events they were looking
+for and that was losses. Sibling cells settle two of them: all four blastomeres of embryo B read
+maternal alleles over-represented on chromosome 16, and a sibling of the hand-called maternal
+trisomy 15 in embryo 1 reads maternal over-representation on chromosome 15 while its own hand call
+says normal.
+
+**What it does not do.** It does not say meiotic or mitotic, it does not resolve arms (an arm-sized
+duplication dilutes over its chromosome and mostly falls under the bar), and a clean cell detects a
+whole-chromosome extra copy about four times in five and a noisy one about one in twenty. It is a
+candidate with its numbers, capped at band C. It needs two bulk parental arrays and the same
+conditions as the allele count, and a refused array reports nothing.
+
+**Proved on the whole corpus before release.** The 27 steps the validation record cites ran on
+5.34.0 and on this build against the same files: the GSE148488 trios at full caps, both blastomere
+series, the 13 moles, the GSE19247 sperm and blastomeres on both marker sets, the 12 PGD families, the
+cell lines and karyotyped series, the CytoScan arrays, the 884 lab arrays of all four folders, the
+trio calibration, the hand-karyotype comparison and the Germline audit. Every run exits 0 on both.
+26 of the 27 logs are identical line for line over the whole log. The 27th, the stress audit,
+differs on one line: its determinism arm reports 21,469 bytes before and 27,835 now, because every
+chromosome carries its allele-gain record, and the result is identical on re-run. The chain started
+before two late edits, an explanatory string for a file with no intensity column and the page badge;
+neither touches scoring, and the pipeline self-checks pass on the final code.
+
+**A correction to 5.34.0.** The record said the alleles name the losses on the refused chaotic cells
+and that lifting the stage refusal would report them. It would not. With the stage declared, the
+genome-level zygosity of the two most affected cells still reads unknown and the allele count is
+gated on a diploid call, so 0 of the 23 losses are named, and the sample-level damaged verdict says
+no parent is named on such a cell. Three gates stand in the way, not one. The statistic is not what
+blocks them: on those cells the heterozygous share is 7 to 18 percent and the surviving parent's
+share 79 to 91 percent.
+
+---
+
 ## 5.34.0 "Homologue"
 
 **The Mendelian channel is gated on both parents being seen, not on ploidy.** Its guard asked

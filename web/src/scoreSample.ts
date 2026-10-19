@@ -26,7 +26,7 @@ import {
   scanChromosome, scanCopyNumber, externalNull, segmentCoords, type MarkerAbsence,
 } from './segments.ts'
 import {
-  paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground,
+  paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground, scanAlleleGains,
   MIN_INFORMATIVE_DEFAULT, type DosageMarker, callLossOrigin,
 } from './gainOrigin.ts'
 import {
@@ -431,6 +431,30 @@ export async function scoreSample(input: {
       c.mixed = true
     }
   }
+  // AN EXTRA CHROMOSOME, FROM THE SAME ALLELES. See gainOrigin.scanAlleleGains. It runs under the
+  // conditions the allele count runs under, and is judged against the cell's own biparental
+  // chromosomes, so a chaotic cell supplies a wide scale and refuses rather than over-calls.
+  if (twoBulk && bothParentsSomewhere && knownBiparental(result.zygosity)) {
+    const shares = result.chroms.filter((c) => isAutosome(c.chrom)).map((c) => {
+      const d = dosageByChrom.get(c.chrom) ?? []
+      return {
+        chrom: c.chrom,
+        share: d.length ? median(d.map((m) => m.patShare)) : NaN,
+        informative: d.length,
+        biparental: c.contribution?.ploidy === 'biparental' && c.verdict !== 'not_measured',
+        lrrShift: c.lrrShift,
+      }
+    })
+    for (const g of scanAlleleGains(shares)) {
+      const c = result.chroms.find((x) => x.chrom === g.chrom)
+      if (c) c.alleleGain = g
+    }
+    for (const c of result.chroms) {
+      const g = c.alleleGain
+      if (!g || (g.verdict !== 'gain' && g.verdict !== 'imbalance')) continue
+      log('WARN', `chr${c.chrom}: ${g.verdict === 'gain' ? `extra copy, ${g.parent}` : 'allele imbalance, no parent named'}. ${g.why}.`)
+    }
+  }
   for (const c of result.chroms) {
     if (!c.mixed || !c.contribution) continue
     const k = c.contribution
@@ -489,6 +513,10 @@ export async function scoreSample(input: {
       c.aneuploidy = undefined
       c.lostParent = undefined
       c.aneuploidyParent = undefined
+      // The mixed signal and the allele gain are findings of the same measurement the array has
+      // just been refused for, and leave with the rest.
+      c.mixed = undefined
+      c.alleleGain = undefined
     }
   }
 
@@ -1431,6 +1459,7 @@ export async function scoreSample(input: {
       events: (result.segments?.length ?? 0) + (result.findings?.length ?? 0)
         + autosomes.filter((c) => c.aneuploidy).length,
       parentAbsent: autosomes.filter((c) => c.lostParent && !c.aneuploidy).length,
+      gainByAlleles: autosomes.filter((c) => c.alleleGain?.verdict === 'gain' && c.aneuploidy !== 'gain').length,
     })
     log(result.integrity.level === 'uninterpretable' ? 'WARN' : 'DONE',
       `${sampleName}: ${result.integrity.headline}`)

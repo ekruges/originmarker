@@ -1,0 +1,39 @@
+REAL EVENTS, AS SHIPPED: chromosomes the hand karyotype reads as a gain or duplication, 31 cells
+  GSM4472403 chr 6 arm-sized  hand paternal | unscored         not called    z     - shift      - lrr -0.06 scale - stage single-cell  [del(6p)(pat),dup(6q)(pat)]
+  GSM4472403 chr18 arm-sized  hand maternal | none             not called    z  -4.3 shift -0.085 lrr  0.16 scale 0.020 stage single-cell  [dup18p (mat) FRA18E]
+  GSM4472422 chr 6 arm-sized  hand paternal | unscored         not called    z     - shift      - lrr     - scale - stage failed  [dup (6q)(pat)]
+  GSM4472422 chr15 whole      hand maternal | unscored         not called    z     - shift      - lrr     - scale - stage failed  [trisomy 15 (mat)]
+  GSM4472423 chr16 whole      hand maternal | none             not called    z  -1.3 shift -0.305 lrr  0.15 scale 0.240 stage blastomere  [Chr16 gain (mat), del 16q23.1-tel ]
+  GSM4552365 chr16 arm-sized  hand paternal | none             not called    z   0.7 shift  0.014 lrr -0.49 scale 0.020 stage trophectoderm  [dup 16q21-tel (pat) FRA16I]
+  GSM4552380 chr16 arm-sized  hand maternal | none             not called    z  -1.3 shift -0.033 lrr  0.27 scale 0.026 stage trophectoderm  [dup 16q23.1-tel (mat)*]
+  GSM4552382 chr 6 arm-sized  hand paternal | none             not called    z   1.1 shift  0.023 lrr  0.47 scale 0.020 stage single-cell  [dup(6q)(pat)]
+  summary: 8 events, called 0, right parent 0, wrong 0
+  hand-called monosomies with a parent: 108, named by the alleles 79, right parent 78, wrong 1
+  called gains and imbalances on chromosomes the hand karyotype lists as normal (not counted as errors, see header): 12
+    GSM4552369 chr 2 gain      paternal  z    6.6 shift  0.299 lrr  0.27
+    GSM4552369 chr 7 gain      maternal  z   -6.7 shift -0.226 lrr  0.18
+    GSM4552364 chr 8 gain      paternal  z    6.9 shift  0.137 lrr  0.25
+    GSM4552365 chr 9 imbalance -         z   -8.8 shift -0.177 lrr  0.03
+    GSM4552369 chr 9 gain      maternal  z  -10.6 shift -0.359 lrr  0.42
+    GSM4552369 chr11 gain      paternal  z    7.3 shift  0.333 lrr  0.17
+    GSM4552365 chr14 imbalance -         z    6.8 shift  0.136 lrr -0.34
+    GSM4552371 chr16 imbalance -         z   -8.7 shift -0.247 lrr  0.02
+    GSM4552372 chr16 gain      maternal  z   -7.0 shift -0.139 lrr  0.15
+    GSM4552374 chr16 imbalance -         z   -7.3 shift -0.200 lrr  0.13
+    GSM4552376 chr16 imbalance -         z   -6.6 shift -0.304 lrr  0.06
+    GSM4552365 chr22 imbalance -         z   13.4 shift  0.267 lrr -0.55
+
+the stage inference refuses 9 of 31 cells: GSM4472405, GSM4472409, GSM4472421, GSM4472422, GSM4552387, GSM4552388, GSM4552389, GSM4552418, GSM4552422
+.........
+
+REAL EVENTS ON THE REFUSED ARRAYS, STAGE DECLARED single-cell: chromosomes the hand karyotype reads as a gain or duplication, 9 cells
+  GSM4472422 chr 6 arm-sized  hand paternal | GAIN paternal    right parent  z  15.6 shift  0.312 lrr  0.45 scale 0.020 stage single-cell  [dup (6q)(pat)]
+  GSM4472422 chr15 whole      hand maternal | GAIN maternal    right parent  z  -6.8 shift -0.136 lrr  0.29 scale 0.020 stage single-cell  [trisomy 15 (mat)]
+  summary: 2 events, called 2, right parent 2, wrong 0
+  hand-called monosomies with a parent: 23, named by the alleles 0, right parent 0, wrong 0
+  called gains and imbalances on chromosomes the hand karyotype lists as normal (not counted as errors, see header): 4
+    GSM4552389 chr13 imbalance -         z  -12.1 shift -0.243 lrr -0.47
+    GSM4552388 chr15 gain      maternal  z   -6.2 shift -0.124 lrr  0.28
+    GSM4472422 chr21 imbalance -         z   -7.6 shift -0.152 lrr  0.10
+    GSM4552388 chr21 imbalance -         z   -7.2 shift -0.145 lrr  0.07
+

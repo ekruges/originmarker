@@ -29,6 +29,7 @@
  * is not. Do not restate the guarantee until there is a test behind it.
  */
 import { type ProbeRow } from './ingest.ts'
+import type { AlleleGain } from './gainOrigin.ts'
 import type { Finding } from './abnormalities.ts'
 import type { ComparisonResult } from './comparison.ts'
 import { type AB } from './informativity.ts'
@@ -644,6 +645,13 @@ export interface ChromResult {
    * with its counts and no parent named. Two bulk parents only.
    */
   mixed?: true
+  /**
+   * An extra whole chromosome, and whose, from the paternal share against the cell's own
+   * biparental chromosomes with intensity as a gate. See gainOrigin.scanAlleleGains. Two bulk
+   * parents only. Set on every autosome the scan judged, so a reader can see 'none' as well as
+   * 'gain'; only 'gain' and 'imbalance' are events.
+   */
+  alleleGain?: AlleleGain
   /** Whose copy changed, where determinable. 'this' is the parent this result is scored against;
    *  'other' means their alleles survive on what is left, so the copy that went was the other
    *  parent's. Undefined where the sample carries none of this parent's genome anywhere. */

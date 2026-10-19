@@ -339,7 +339,17 @@ function originRows(
   for (const c of (result.chroms ?? []) as {
     chrom: string, lostParent?: string, mixed?: boolean,
     contribution?: { fraction: number, onlyA: number, onlyB: number, informative: number },
+    alleleGain?: { verdict: string, parent?: string, why: string, informative: number },
   }[]) {
+    const ag = c.alleleGain
+    if (ag && (ag.verdict === 'gain' || ag.verdict === 'imbalance') && !c.lostParent) {
+      byWhere.set(`chr${c.chrom} gain`, {
+        locus: `chr${c.chrom}`, kind: 'whole chromosome', channel: 'alleles',
+        origin: ag.verdict === 'gain' ? ag.parent ?? null : null,
+        verdict: ag.verdict === 'gain' ? 'extra-copy' : 'imbalance',
+        markers: ag.informative, why: ag.why,
+      })
+    }
     if (!c.contribution || (!c.lostParent && !c.mixed)) continue
     const k = c.contribution
     const [father, mother] = role === 'paternal' ? [k.onlyA, k.onlyB] : [k.onlyB, k.onlyA]
@@ -518,7 +528,10 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       if (!rows.length) { process.stdout.write('  no chromosomal change found\n'); return }
       for (const r of rows) {
         process.stdout.write(`${r.locus}  ${r.kind}\n`)
-        process.stdout.write(`   ${r.origin ? `${r.origin.toUpperCase()} copy lost` : r.verdict}`
+        process.stdout.write(`   ${r.origin
+          ? (r.verdict === 'extra-copy' ? `${r.origin.toUpperCase()} supplied the extra copy`
+            : `${r.origin.toUpperCase()} copy lost`)
+          : r.verdict}`
           + `  [${r.channel}${r.band ? `, band ${r.band}` : ''}`
           + `${Number.isFinite(r.confidence) ? `, ${r.confidence!.toFixed(3)}` : ''}]\n`)
         process.stdout.write(`   ${r.why}\n\n`)

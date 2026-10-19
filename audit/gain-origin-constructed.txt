@@ -1,0 +1,10 @@
+merged 3 shards: 94 constructed gains over 18 cells
+
+CONSTRUCTED GAINS: one chromosome, one parent, built into a real two-parent cell
+  clean cells, own scale under 0.03              60 built: gain called   49 (82%), right parent 49 of 49, imbalance 0, none 11, unscored 0
+  noisy cells, own scale 0.03 to 0.10            22 built: gain called    1 (5%), right parent 1 of 1, imbalance 0, none 21, unscored 0
+  chaotic cells, own scale over 0.10             12 built: gain called    0 (0%), right parent 0 of 0, imbalance 0, none 12, unscored 0
+  ALL 94 built: gain called 50, right parent 50, WRONG parent 0
+  chromosomes not built into: 7 the hand karyotype lists an event on, 1 the untouched scan already calls, 6 that cannot be scored in that cell
+  chromosomes not built into: 8 the hand karyotype lists an event on, 0 the untouched scan already calls, 6 that cannot be scored in that cell
+  chromosomes not built into: 9 the hand karyotype lists an event on, 1 the untouched scan already calls, 8 that cannot be scored in that cell

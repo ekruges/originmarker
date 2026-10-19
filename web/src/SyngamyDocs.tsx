@@ -57,6 +57,7 @@ export const SECTIONS: DocSection[] = [
   { id: 'aneuploidy', label: 'Aneuploidy: whole chromosomes', group: 'Chromosomal changes' },
   { id: 'breakpoints', label: 'How precisely a breakpoint is placed', group: 'Chromosomal changes' },
   { id: 'gainorigin', label: 'Where an extra copy came from', group: 'Chromosomal changes' },
+  { id: 'alleleGain', label: 'An extra whole chromosome, from the alleles', group: 'Chromosomal changes' },
   { id: 'segments', label: 'Chromosomal change: segments', group: 'Chromosomal changes' },
   { id: 'contribution', label: 'One parent or two, per chromosome', group: 'Chromosomal changes' },
   { id: 'oneparent', label: 'Parental origin from one parent', group: 'Chromosomal changes' },
@@ -1308,6 +1309,12 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             ordinary. This is the same failure the segment scan solves with an external
             per-chromosome null, and it is solved the same way here.
           </Text>
+          <Text size="sm" mb={10}>
+            <b>With two bulk parents the tool also looks for an extra copy directly, without waiting
+            for the call rate or the intensity to flag one.</b> See the next section. On an
+            amplified single cell those detectors rarely fire, and the genome-wide centre used
+            above is the wrong reference in a cell with several events.
+          </Text>
           <Alert color="orange" p="xs">
             <Text size="xs">
               <b>Not validated on a true positive.</b> The band positions and marker requirements
@@ -1317,6 +1324,56 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
               been shown to fire correctly. The only array in the validation set carrying
               whole-chromosome gains is a 42% call-rate QC failure, and the tool refuses all five
               of its gains, which is the right answer but not a positive control.
+            </Text>
+          </Alert>
+        </Section>
+
+        <Section id="alleleGain" title="An extra whole chromosome, from the alleles">
+          <Text size="sm" mb={10}>
+            With both parents loaded, the same markers that name a missing copy name an extra one.
+            At a marker where the parents are homozygous for opposite alleles a euploid cell is one
+            of each, which is a paternal allele share of one half. An extra paternal copy raises
+            the share toward two thirds and an extra maternal copy lowers it toward one third. The
+            statistic is the median share over a chromosome&rsquo;s informative markers, judged
+            against the OTHER chromosomes of the same cell that read both parents: their median is
+            the centre and their median absolute deviation is the scale, so every cell is its own
+            null. A noisy or chaotic cell earns a wide scale and refuses rather than over-calls.
+            The scale has a floor, because the cleanest cells measure 0.005 and would otherwise
+            turn a 0.03 shift into a certainty.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Allele ratios alone cannot tell an extra copy from a partial loss of the other
+            parent.</b> An extra maternal copy in every cell and a paternal copy lost in half of
+            them both put the maternal share at two thirds. Total copy number separates them:
+            three copies against one and a half. So intensity is a gate here and never the
+            detector. A shift that clears the bar with the intensity at least +0.15 log2 above the
+            cell&rsquo;s own level, which is half of the weakest compression measured on any
+            chemistry for one extra copy, is reported as an <b>extra copy</b> and names the parent
+            who supplied it. The same shift with less intensity than that is reported as an
+            <b> imbalance</b> and names nobody: below the cell&rsquo;s level a partial loss of the
+            other parent fits, and between zero and +0.15 neither an extra copy nor a loss is
+            supported.
+          </Text>
+          <Text size="sm" mb={10}>
+            It needs two bulk parental arrays, a genome that reads both parents on at least six
+            other chromosomes, and 200 informative markers on the chromosome. It does not say
+            whether the extra copy is meiotic or mitotic, and it does not resolve arms: an
+            arm-sized duplication dilutes over its chromosome and often falls below the bar.
+          </Text>
+          <Alert color="orange" p="xs">
+            <Text size="xs">
+              <b>A candidate with its numbers, never a certainty.</b> Gains built into 18 real
+              two-parent cells, one chromosome and one parent at a time, were named with the right
+              parent 50 times in 50 and the wrong one never. A clean cell detected a whole-chromosome
+              extra copy 49 times in 60, a noisy one once in 22 and a chaotic one never, since a wide
+              scale is supposed to refuse. On real events the picture is thinner: the hand karyotype
+              of Zuccaro 2020 lists eight gains with a named parent on those cells, and the tool as
+              shipped calls none of them, because two sit on a cell the stage inference refuses and
+              the rest are arm-sized or in cells too chaotic to scale. With the stage declared the
+              two on the refused cell are called with the right parent. The same cells carry
+              chromosomes the scan calls that the hand karyotype lists as normal; the authors
+              tabulated losses, so those are not counted as errors, and two are settled by sibling
+              cells. It does not say whether an extra copy is meiotic or mitotic.
             </Text>
           </Alert>
         </Section>

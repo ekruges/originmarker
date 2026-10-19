@@ -141,8 +141,11 @@ parents at these markers, which is what keeps a genome carrying one parent throu
 parent's own array in the sample slot, from being read chromosome by chromosome. The four refused
 arrays carry 23 of the 29 misses, and on every one of them the alleles read the loss as plainly as
 on the scored arrays (heterozygous share 7 to 18 percent, survivor 79 to 91 percent). Whether a cell with eight to twelve monosomies should be refused as "no genome reads this
-way" or reported chromosome by chromosome is a decision the stage inference currently makes for
-the whole array, and it is left as it stands here. The one wrong parent and the two hand calls the
+way" or reported chromosome by chromosome is a decision three gates currently make, not one, and
+it is left as it stands here. The stage inference refuses the array. With the stage declared, so
+that it does not, the genome-level zygosity of the two most affected cells still reads unknown and
+the allele count is gated on a diploid call, so 0 of the 23 losses are named. And the sample-level
+damaged verdict says no parent is named on such a cell. The statistic is not what blocks them. The one wrong parent and the two hand calls the
 alleles read as intact are listed in `audit/zuccaro-table-s3-results.txt`.
 
 What the alleles cannot say is whether one copy remains or two: a monosomy and an isodisomy of the
@@ -153,6 +156,46 @@ reported as a mixed signal with its counts and no parent named. Egg donor D is o
 heterozygosity ceiling against the father, the one rule (`stage.parentOverCeiling`) the application
 and every harness here apply; she is the mother of 18 of the 31 cells, and the figures are given
 with and without her children.
+
+### Which parent supplied an extra whole chromosome
+
+With both parents loaded, the paternal allele share at the markers where the parents are opposite
+homozygotes is one half in a euploid cell, rises toward two thirds with an extra paternal copy and
+falls toward one third with an extra maternal one. Each chromosome's median share is judged against
+the other biparental chromosomes of the same cell, with intensity of at least +0.15 log2 as a gate,
+because a partial loss of the other parent shifts the share the same way. Two arms, since neither
+can carry the claim alone (`audit/gain-origin-truth.ts`).
+
+Real events. Zuccaro 2020 Table S3 lists eight gains or duplications with a named parent on the 31
+cells with both parents arrayed, five of them arm-sized:
+
+| | called | right parent | wrong parent |
+|---|---|---|---|
+| the eight, as shipped | 0 | 0 | 0 |
+| the refused cell's two, stage declared single-cell | 2 | 2 | 0 |
+
+Two of the eight sit on a cell the stage inference refuses and read nothing as shipped; the rest are
+arm-sized or in cells too chaotic to scale, and the whole-chromosome statistic does not resolve
+arms. Chromosomes the scan calls that the hand karyotype lists as normal number 12. They are not
+counted as errors, since the authors tabulated losses. Sibling cells settle two: all four
+blastomeres of one embryo read maternal over-representation on chromosome 16, and a sibling of the
+hand-called maternal trisomy 15 reads maternal over-representation on chromosome 15 while its own
+hand call says normal.
+
+Constructed gains. One chromosome and one parent at a time, the named parent's allele doubled and the
+intensity raised by 0.3 in a real two-parent cell, built only into chromosomes that read euploid on
+the untouched cell. The pipeline that ships is run on the result:
+
+| cell's own scale | built | gain called | right parent | wrong parent |
+|---|---|---|---|---|
+| clean, under 0.03 (12 cells) | 60 | 49 | 49 | 0 |
+| noisy, 0.03 to 0.10 (4 cells) | 22 | 1 | 1 | 0 |
+| chaotic, over 0.10 (2 cells) | 12 | 0 | 0 | 0 |
+
+The intensity floor was fixed after seeing the real cells, on the compression measured for one extra
+copy on two chemistries, so the real arm is not independent evidence for that one constant. The
+construction does not model a mosaic gain, a three-copy chromosome whose third copy is a duplicate
+of one homologue, or an isodisomic triplication, which reads as a loss at these markers.
 
 ### The panel builder keeps the markers that hold up
 

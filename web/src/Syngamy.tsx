@@ -116,7 +116,14 @@ function defectsForResult(r: ParentageResult) {
   // AND A CHROMOSOME THE ALLELES READ AS MISSING ONE PARENT, with no intensity verdict: that is a
   // parental absence rather than a copy loss, because one parent's allele alone is what a
   // monosomy and an isodisomy both read. See ChromResult.lostParent.
-  const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy || c.lostParent || c.mixed).map((c) => {
+  // AND AN EXTRA COPY OR AN IMBALANCE THE ALLELES FOUND: see ChromResult.alleleGain. A gain the
+  // intensity detector also flagged keeps its row, and the alleles supply the parent where they
+  // name one the dosage channel does not or name it better; where the two name different parents
+  // the row names nobody.
+  const alleleEvent = (c: { alleleGain?: { verdict: string } }) =>
+    c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance'
+  const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy || c.lostParent || c.mixed
+    || alleleEvent(c)).map((c) => {
     const scored = (r.dosageCalls ?? []).find((d: { where: string }) => d.where === `chr${c.chrom}`)
     const other = r.role === 'paternal' ? 'maternal' : 'paternal'
     // THE MENDELIAN CHANNEL FIRST, measured at 0.920 on obvious whole-chromosome events against
@@ -132,8 +139,15 @@ function defectsForResult(r: ParentageResult) {
     const letters = !c.lostParent ? null
       : c.aneuploidy === 'gain' ? (c.lostParent === 'paternal' ? 'maternal' : 'paternal')
         : c.lostParent
+    const ag = c.alleleGain
+    const gainParent = ag?.verdict === 'gain' ? ag.parent ?? null : null
+    const dosageParent = scored ? parentNamed(scored.verdict as DosageVerdict, r.role) : null
+    const gainConflict = !!(gainParent && c.aneuploidy === 'gain' && dosageParent
+      && dosageParent !== gainParent)
     const conflict = !!(named && letters && named !== letters)
-    const origin = conflict || c.mixed ? 'unclear'
+    const origin = conflict || c.mixed || gainConflict
+      || (ag?.verdict === 'imbalance' && !c.aneuploidy && !c.lostParent) ? 'unclear'
+      : gainParent && !letters ? gainParent
       : named ?? letters
       ?? (c.aneuploidyParent === 'this' ? r.role
         : c.aneuploidyParent === 'other' ? other
@@ -164,15 +178,19 @@ function defectsForResult(r: ParentageResult) {
       chrom: c.chrom,
       startBp: 0,
       endBp: chromEndOf(r, c.chrom),
-      kind: c.aneuploidy === 'gain' ? 'copy-gain' : c.aneuploidy === 'loss' ? 'copy-loss'
-        : 'parental-absence',
+      kind: c.aneuploidy === 'gain' || (!c.aneuploidy && !c.lostParent && gainParent) ? 'copy-gain'
+        : c.aneuploidy === 'loss' ? 'copy-loss'
+          : !c.aneuploidy && !c.lostParent && ag?.verdict === 'imbalance' ? 'whole-chromosome'
+            : 'parental-absence',
       locus: `chr${c.chrom}`,
       origin,
-      band: named ? mendel?.band : scored?.band,
-      confidence: named ? mendel?.posterior : scored?.confidence,
+      band: gainParent && !named ? 'C' : named ? mendel?.band : scored?.band,
+      confidence: named ? mendel?.posterior : gainParent ? undefined : scored?.confidence,
       inheritedMargin: (scored as { inheritedMargin?: number } | undefined)?.inheritedMargin,
       stage: r.stage?.stage,
-      why: (c.aneuploidy
+      why: (!c.aneuploidy && !c.lostParent && !c.mixed && ag
+        ? `${ag.why[0].toUpperCase()}${ag.why.slice(1)}.`
+        : c.aneuploidy
         ? `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
           + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest. An intact `
           + 'chromosome calls at 0.78x to 1.16x of its genome median and never leaves -0.79 to '
@@ -181,6 +199,8 @@ function defectsForResult(r: ParentageResult) {
           + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest, neither of `
           + 'which reached a whole-chromosome verdict; the alleles did.')
         + `${lettersWhy}${conflictWhy}${mixedWhy}`
+        + (c.aneuploidy === 'gain' && ag && alleleEvent(c) ? ` By the alleles: ${ag.why}.` : '')
+        + (gainConflict ? ' The alleles and the dosage channel name different parents, so no parent is named.' : '')
         + `${named ? ` ${mendel?.why}` : ''}${scored?.why ? ` ${scored.why}` : ''}`,
     } as never
   })
@@ -1153,6 +1173,17 @@ function ResultCard({ entry, donorName, oocyteName }: {
           {r.chroms.some((c) => c.mixed) && (
             <Badge size="sm" variant="outline" color="orange">
               {r.chroms.filter((c) => c.mixed).length} mixed signal
+            </Badge>
+          )}
+          {r.chroms.some((c) => c.alleleGain?.verdict === 'gain') && (
+            <Badge size="sm" variant="filled" color="orange">
+              {r.chroms.filter((c) => c.alleleGain?.verdict === 'gain').map((c) =>
+                `chr${c.chrom} extra copy, ${c.alleleGain!.parent}`).join(', ')}
+            </Badge>
+          )}
+          {r.chroms.some((c) => c.alleleGain?.verdict === 'imbalance') && (
+            <Badge size="sm" variant="outline" color="orange">
+              {r.chroms.filter((c) => c.alleleGain?.verdict === 'imbalance').length} allele imbalance
             </Badge>
           )}
           {m && (

@@ -45,6 +45,7 @@
  */
 import type { AB } from './informativity.ts'
 import { twoPointPosterior, bandOf, type Band } from './originPosterior.ts'
+import { mad, median as medianOf } from './intensityNull.ts'
 
 /**
  * Informative markers a window needs before a direction is reported.
@@ -488,4 +489,164 @@ export function callHomologue(
       + 'copy of the SAME homologue is bit-identical to one copy and cannot be detected in any '
       + 'channel this array carries, so this is not evidence of no gain',
   }
+}
+
+// --- whole-chromosome gain, from the alleles ---------------------------------------------------
+
+/**
+ * Which parent supplied an extra whole chromosome, read from the alleles at the markers where the
+ * parents are opposite homozygotes, with intensity as a gate and never as the detector.
+ *
+ * WHY THIS EXISTS BESIDE callGainOrigin. That function names a parent for a gain somebody ELSE
+ * detected, from call rate or intensity, and centres on the genome-wide median share. On an
+ * amplified single cell neither half holds. The detectors rarely fire: 0 gain rows on the six
+ * GSE148488 cells carrying hand-called gains, three of them on arrays the stage inference refuses.
+ * And the genome-wide centre is the wrong reference in a cell with several events: the median
+ * share of five of the 31 two-parent cells sits between 0.15 and 0.76, against 0.44 to 0.54 when
+ * taken over the chromosomes the alleles call biparental.
+ *
+ * THE STATISTIC. The median paternal share over a chromosome's informative markers, judged against
+ * the OTHER biparental chromosomes of the same cell: their median is the centre, their
+ * median-absolute-deviation the scale, so every cell is its own null and a noisy cell earns a wide
+ * scale and refuses rather than over-calls. The scale has a floor, because a very clean cell would
+ * otherwise turn a 0.01 shift into a certainty.
+ *
+ * AN EXTRA PATERNAL COPY READS +, AN EXTRA MATERNAL ONE -, and a partial loss of the other parent
+ * reads the SAME WAY: one parent over-represented. Allele ratios alone cannot separate them, since
+ * an extra maternal copy in every cell and a paternal copy lost in half of them both put the
+ * maternal share at two thirds. Total copy number separates them, three against one and a half,
+ * which is why intensity is a gate here: a shift that clears the bar with intensity BELOW the
+ * cell's own level is reported as an imbalance and names nobody.
+ *
+ * WHAT IS MEASURED AND WHAT IS NOT. On the 31 two-parent cells of GSE148488, the hand karyotype of
+ * Zuccaro 2020 lists eight whole-chromosome or arm gains with a named parent. The sign of the
+ * shift names the right parent on all of them. The whole-chromosome statistic clears the bar on
+ * the one clean whole-chromosome trisomy (chromosome 15, maternal) and on the large-arm
+ * duplication that dominates chromosome 6; the others are arm-sized and dilute over the
+ * chromosome, or sit in cells too chaotic to scale. The same cells carry chromosomes that clear the
+ * bar and that the hand karyotype lists as normal; sibling blastomeres share several, so some may
+ * be real gains the hand karyotype did not tabulate, and the hand calls cannot say which. So this
+ * channel reports a candidate with its numbers, capped at band C, and never a certainty.
+ *
+ * WHAT IT DOES NOT DO. It does not say meiotic or mitotic. It does not resolve arms. It needs two
+ * bulk parental arrays and a genome that reads both parents on enough chromosomes, the same
+ * conditions as the allele count.
+ */
+export const ALLELE_GAIN_Z = 6
+/** The smallest shift that is a gain however wide the cell's own scale is. A third of the 0.167
+ *  an extra copy moves a clean median, about half of what WGA leaves of it. */
+export const ALLELE_GAIN_SHIFT = 0.08
+export const ALLELE_GAIN_MIN_INFORMATIVE = 200
+/** Other biparental chromosomes a cell must have before it can be its own null. */
+export const ALLELE_GAIN_MIN_REFERENCE = 6
+/** Floor on the cell's own scale. The cleanest cells measure 0.005 and would otherwise read a
+ *  shift of 0.03 as six sigma. */
+export const ALLELE_GAIN_SCALE_FLOOR = 0.02
+/**
+ * Intensity relative to the cell's own level that an extra copy has to reach.
+ *
+ * One extra copy of two is log2(3/2) = +0.585. Compression is a property of the chemistry: +0.5547
+ * on one chip of GSE19247 and +0.3420 on the other, which is 58 percent of theoretical, so the
+ * weakest measured expectation is +0.34. Half of that, rounded down, is the floor: a shift in the
+ * allele share with the intensity under it is not an extra copy that any chemistry measured here
+ * would read. THIS CONSTANT WAS FIXED AFTER SEEING THE REAL CELLS, which showed 13 chromosomes
+ * called gains whose intensity sat at +0.02 to +0.13, four of them the same chromosome in cells of
+ * one mother whose own array is over the diploid ceiling. The justification is the compression
+ * measurement above and not those cells, but the real-event arm of audit/gain-origin-truth.ts is
+ * therefore not independent evidence for it. The constructed arm raises the intensity by +0.3 and
+ * is not affected.
+ */
+export const ALLELE_GAIN_LRR_MIN = 0.15
+
+export interface ChromShare {
+  chrom: string
+  /** Median paternal share over this chromosome's informative markers. */
+  share: number
+  informative: number
+  /** The heterozygous share at these markers read both parents, so the chromosome can be a
+   *  reference for the others and can itself carry a gain. */
+  biparental: boolean
+  /** Median log2R against the cell's own null centre. */
+  lrrShift: number
+}
+
+export interface AlleleGain {
+  chrom: string
+  /** 'gain' names a parent; 'imbalance' is a shift with intensity below the cell's level, which
+   *  is a partial loss of the other parent and not an extra copy; 'none' cleared nothing;
+   *  'unscored' had too little to be judged. */
+  verdict: 'gain' | 'imbalance' | 'none' | 'unscored'
+  /** The parent who supplied the extra copy. Only on 'gain'. */
+  parent?: 'paternal' | 'maternal'
+  shift: number
+  z: number
+  scale: number
+  centre: number
+  informative: number
+  lrrShift: number
+  why: string
+}
+
+export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
+  const out: AlleleGain[] = []
+  for (const c of chroms) {
+    const base = {
+      chrom: c.chrom, shift: NaN, z: NaN, scale: NaN, centre: NaN,
+      informative: c.informative, lrrShift: c.lrrShift,
+    }
+    if (c.informative < ALLELE_GAIN_MIN_INFORMATIVE || !Number.isFinite(c.share)) {
+      out.push({ ...base, verdict: 'unscored',
+        why: `${c.informative} informative markers is under the ${ALLELE_GAIN_MIN_INFORMATIVE} needed` })
+      continue
+    }
+    if (!c.biparental) {
+      out.push({ ...base, verdict: 'unscored',
+        why: 'this chromosome does not read both parents, so it is a loss question and not a gain one' })
+      continue
+    }
+    const ref = chroms.filter((o) => o.chrom !== c.chrom && o.biparental
+      && o.informative >= ALLELE_GAIN_MIN_INFORMATIVE && Number.isFinite(o.share))
+    if (ref.length < ALLELE_GAIN_MIN_REFERENCE) {
+      out.push({ ...base, verdict: 'unscored',
+        why: `${ref.length} other chromosomes read both parents, under the ${ALLELE_GAIN_MIN_REFERENCE} `
+          + 'this cell needs to serve as its own reference' })
+      continue
+    }
+    const shares = ref.map((o) => o.share)
+    const centre = medianOf(shares)
+    const scale = Math.max(mad(shares), ALLELE_GAIN_SCALE_FLOOR)
+    const shift = c.share - centre
+    const z = shift / scale
+    const m = { ...base, shift, z, scale, centre }
+    if (Math.abs(z) < ALLELE_GAIN_Z || Math.abs(shift) < ALLELE_GAIN_SHIFT) {
+      out.push({ ...m, verdict: 'none',
+        why: `the share sits ${shift >= 0 ? '+' : ''}${shift.toFixed(3)} from the cell's own centre, `
+          + `${z.toFixed(1)} of its own spreads` })
+      continue
+    }
+    const over = shift > 0 ? 'paternal' : 'maternal'
+    const other = shift > 0 ? 'maternal' : 'paternal'
+    const nums = `${over} alleles are over-represented by ${Math.abs(shift).toFixed(3)} against the `
+      + `${ref.length} other chromosomes of this cell (centre ${centre.toFixed(3)}, ${Math.abs(z).toFixed(1)} `
+      + `of their own spreads of ${scale.toFixed(3)})`
+    if (Number.isFinite(c.lrrShift) && c.lrrShift >= ALLELE_GAIN_LRR_MIN) {
+      out.push({ ...m, verdict: 'gain', parent: over,
+        why: `${nums}, and the intensity reads +${c.lrrShift.toFixed(2)} log2 from the `
+          + `cell's own level, so the ${over} parent supplied an extra copy. Candidate, not calibrated: `
+          + 'a partial loss of the other parent in a fraction of cells cannot be excluded from the alleles alone' })
+    } else {
+      const lrr = Number.isFinite(c.lrrShift) ? c.lrrShift : NaN
+      out.push({ ...m, verdict: 'imbalance',
+        why: !Number.isFinite(lrr)
+          ? `${nums}, but this file carries no intensity, so an extra copy cannot be told from a partial `
+            + `loss of the ${other} copy and no parent is named`
+          : lrr < 0
+          ? `${nums}, but the intensity reads ${lrr.toFixed(2)} log2 from the cell's own level, below it. `
+            + `An extra copy would read above. A partial loss of the ${other} copy fits, and no parent is named`
+          : `${nums}, but the intensity reads ${Number.isFinite(lrr) ? `+${lrr.toFixed(2)}` : 'nothing'} log2 from the `
+            + `cell's own level, under the +${ALLELE_GAIN_LRR_MIN.toFixed(2)} an extra copy reads on the weakest `
+            + 'chemistry measured. Neither an extra copy nor a loss is supported, and no parent is named' })
+    }
+  }
+  return out
 }

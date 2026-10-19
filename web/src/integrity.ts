@@ -66,6 +66,9 @@ export interface IntegrityInput {
    * lost one parent's copy on half its chromosomes is exactly the cell the alleles were built for.
    */
   parentAbsent?: number
+  /** Autosomes the alleles read as carrying an extra copy and the intensity detector did not
+   *  flag. Counted beside the changes, outside the deviant-fraction bound, for the same reason. */
+  gainByAlleles?: number
 }
 
 /**
@@ -79,13 +82,17 @@ export interface IntegrityInput {
 export function assessIntegrity(input: IntegrityInput): IntegrityCall {
   const { stage, callRate, affectedAutosomes, totalAutosomes, events } = input
   const parentAbsent = input.parentAbsent ?? 0
+  const gainByAlleles = input.gainByAlleles ?? 0
   const deviantFraction = totalAutosomes > 0 ? affectedAutosomes / totalAutosomes : NaN
   const measures = {
     affectedAutosomes, totalAutosomes, deviantFraction, callRate, stage, events, parentAbsent,
+    gainByAlleles,
   }
-  const byAlleles = parentAbsent
+  const byAlleles = (parentAbsent
     ? `; ${parentAbsent} chromosome${parentAbsent === 1 ? '' : 's'} missing one parent's copy by the alleles`
-    : ''
+    : '') + (gainByAlleles
+    ? `; ${gainByAlleles} chromosome${gainByAlleles === 1 ? '' : 's'} with an extra copy by the alleles`
+    : '')
 
   if (stage === 'failed') {
     return {
@@ -130,7 +137,7 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
     }
   }
 
-  if (events > 0 || parentAbsent > 0) {
+  if (events > 0 || parentAbsent > 0 || gainByAlleles > 0) {
     return {
       level: 'disturbed',
       headline: (events > 0

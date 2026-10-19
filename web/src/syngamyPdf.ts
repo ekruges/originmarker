@@ -371,8 +371,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       const g = r.gains.find((x) => x.where === `chr${chrom}`)
       return g && g.called ? ` (${g.origin})` : ''
     }
-    const whole = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed)
-      .map((c) => `chr${c.chrom} ${c.aneuploidy ?? (c.lostParent ? `${c.lostParent} copy absent` : 'mixed signal')}`
+    const whole = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed
+      || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance')
+      .map((c) => `chr${c.chrom} ${c.aneuploidy ?? (c.lostParent ? `${c.lostParent} copy absent`
+        : c.mixed ? 'mixed signal'
+          : c.alleleGain?.verdict === 'gain' ? `extra copy, ${c.alleleGain.parent}` : 'allele imbalance')}`
         + `${c.aneuploidy === 'gain' ? originOf(c.chrom) : ''}`)
     const copy = r.segments.filter((sg) => sg.kind !== 'parental-absence')
       .map((sg) => `chr${sg.chrom} ${sg.kind === 'copy-gain' ? 'gain' : 'loss'} `
@@ -601,7 +604,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       heading('Sex chromosomes', 8.6)
       chromTable(sex, r.explainable)
     }
-    const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed)
+    const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed
+      || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance')
     if (aneu.length) {
       heading('Aneuploidy', 8.6)
       text('A chromosome that is not there cannot be genotyped, so a whole-chromosome change '
@@ -612,7 +616,10 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'carries that parent elsewhere. With both parents loaded, a chromosome reading one '
         + 'parent\'s allele alone where the parents are opposite homozygotes is missing the other '
         + 'parent\'s copy; that row says PARENT ABSENT, because one remaining copy and two read the '
-        + 'same at those markers and only the intensity can separate them.',
+        + 'same at those markers and only the intensity can separate them. An extra copy is read '
+        + 'from the paternal share against the cell\'s own other chromosomes, with intensity as a '
+        + 'gate: a shift with intensity below the cell\'s level is an IMBALANCE and names no parent, '
+        + 'because a partial loss of the other parent reads the same way.',
       7.4, 'Helvetica', 2.4, GREY)
       table(
         [{ head: 'Chromosome', w: 92 }, { head: 'Change', w: 56 },
@@ -620,10 +627,16 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { head: 'Whose copy', w: 156 }],
         aneu.map((c) => [
           `chr${c.chrom}`,
-          { v: c.aneuploidy?.toUpperCase() ?? (c.mixed ? 'MIXED' : 'PARENT ABSENT'), colour: WARN },
+          { v: c.aneuploidy?.toUpperCase() ?? (c.mixed ? 'MIXED'
+            : c.lostParent ? 'PARENT ABSENT'
+              : c.alleleGain?.verdict === 'gain' ? 'GAIN (ALLELES)' : 'IMBALANCE'), colour: WARN },
           `${c.callFraction.toFixed(2)}x`,
           `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2`,
           c.mixed ? 'not called: between the boundaries, one parent dominant'
+            : !c.lostParent && !c.aneuploidy && c.alleleGain?.verdict === 'gain'
+              ? `${c.alleleGain.parent} supplied the extra copy, from the alleles`
+              : !c.lostParent && !c.aneuploidy && c.alleleGain?.verdict === 'imbalance'
+                ? 'not named: intensity below the cell\'s level'
             : c.lostParent ? (c.aneuploidy === 'gain'
             ? `no ${c.lostParent} copy: every copy is the other parent's, from the alleles`
             : `${c.lostParent} copy absent, from the alleles`)

@@ -13,6 +13,7 @@ answer was established at the bench rather than by any statistic the tool comput
 | [Syngamy](AUDIT.txt) | 22 | 4 | **0** |
 | [Germline](GERMLINE-AUDIT.txt) (Progenitor before 5.33.0) | 35 | 6 | **0** |
 | [Breakpoints and gain origin](BREAKPOINTS-AUDIT.txt) | 3 of 4 parts | 1 blocked | **0** |
+| [Extra whole chromosomes, real events and built gains](gain-origin-truth.ts) | 52 (50 built, 2 real) | 50 (44 built, 6 real, not called) | **0** |
 | [Whole-chromosome losses against hand karyotypes](zuccaro-table-s3.ts) | 78 | 4, plus 23 on 4 arrays refused whole | **1** |
 
 The third audit is newer and narrower. Three of its four parts run on the public arrays in this
