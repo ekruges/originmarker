@@ -1,6 +1,6 @@
 # OriginMarker runtime. panelbuilder/genetic_map are stdlib-only by design (urllib,
 # not requests) - everything below is the web/export/NL layer on top of them.
-fastapi==0.143.0
+fastapi==0.143.2
 uvicorn[standard]==0.54.0
 
 # app/exports.py
@@ -13,7 +13,7 @@ reportlab==5.0.1         # .pdf
 # output_config.format instead. _llm_intent returns before the call when ANTHROPIC_API_KEY
 # is unset, which it is in CI, so the signature is covered by tests/test_nl.py against the
 # installed SDK and the live call by RUN_LIVE=1 with a key.
-anthropic==1.13.0
+anthropic==1.15.0
 
 # tests: fastapi.testclient is a thin wrapper over httpx
 httpx==0.28.1
