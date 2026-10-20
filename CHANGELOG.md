@@ -9,6 +9,37 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.35.1 "Trisomy"
+
+**Three statements about gains were left stale by 5.35.0 and are corrected.** The documentation
+said a trisomic chromosome failing the mis-clustering gate was the right outcome "because gains are
+not called on this platform at all", which the allele scan had just stopped being true; the older
+dosage channel's notice said no confirmed gain with a known parent exists anywhere; and the
+breakpoints audit said the same in its own words. Each now says what it means: the dosage channel
+has still never fired on a confirmed gain and its notice stands for that channel, and what has been
+shown on real gains was shown by the allele scan, which is a different statistic on a different
+reference.
+
+**The allele share tested on a second platform and a second laboratory.** GSE60909 (Zamani Esteki
+et al. 2015, PMID 25983246) is Illumina HumanCytoSNP-12: day-4 blastomeres amplified by MDA, both
+parents of each family on the same chip, and a published per-cell answer key. Of the eight events
+the paper names a parent for, five move at all and the share names the right parent on all five.
+The three that do not move are two arm-sized duplications and one chromosome with 76 informative
+markers. Across the eight cells the paper reads as euploid on the autosomes, 176 chromosomes were
+judged and 2 reach the bar, one of them chromosome 20 in both cells of one embryo in opposite
+directions. One cell, E09_Bl347, carries an extra maternal chromosome 22 and an extra paternal
+chromosome 6, and the share separates them in opposite directions, -9.4 and +7.6, against the same
+18 reference chromosomes of that cell.
+
+**And the tool reports none of it.** On those cells the stage inference reads haploid or failed and
+the zygosity call returns unknown, so the scan is gated off on all 16 blastomeres of the family
+tested: 0 chromosomes scored. The statistic transfers to another chip and another laboratory; the
+pipeline does not read that chip. That is the same gating question the chaotic cells raise, now
+with a second body of data behind it. `audit/gain-origin-pgd.ts` runs the pipeline there and
+`audit/gain-origin-second-platform.txt` holds the table.
+
+---
+
 ## 5.35.0 "Trisomy"
 
 **With both parents loaded, the tool now names the parent who supplied an extra whole chromosome,

@@ -1,0 +1,43 @@
+THE ALLELE SHARE ON A SECOND PLATFORM AND A SECOND LABORATORY
+
+GEO GSE60909, Zamani Esteki et al. 2015 (Am J Hum Genet, PMID 25983246). Illumina
+HumanCytoSNP-12, day-4 blastomeres amplified by MDA, with the mother and father of each
+family on the same chip. Every other measurement in this repository is on Affymetrix Axiom.
+
+THE STATISTIC ONLY, NOT THE SHIPPED PIPELINE. The pipeline reports nothing at all on these
+cells: their heterozygosity reads haploid or failed to the stage inference and the zygosity
+call returns unknown, so the allele scan is gated off on every one of them (audit/
+gain-origin-pgd.ts, 16 blastomeres of PGD008, 0 chromosomes scored). What is scored below is
+the same arithmetic computed directly: the median paternal share at markers where the
+parents are opposite homozygotes, against the median and the median absolute deviation of
+the cell's own other chromosomes. It says the statistic transfers; it does not say the tool
+reads this platform, and the tool does not.
+
+The answer key is the paper's own, read from its tables, text and Figure S14. Only two of
+these origins are independently confirmed, both by STR typing on a sister cell: chromosome
+13 of E08_Bl346 and chromosome 22 of E09. The rest are the paper's haplarithmisis calls.
+
+WHAT THE PAPER NAMES A PARENT FOR
+  blastomere                chr paper                                   markers   het   shift       z    lrr  reading
+  E09_Bl347_PGD008C1         22 maternal extra, STR confirmed                90  0.34  -0.501    -9.4  +0.74  maternal CORRECT
+  E09_Bl361_PGD008C1         22 maternal extra, STR confirmed (sister)       76  0.66  -0.033    -1.6  +0.23  near zero
+  E09_Bl347_PGD008C1          6 paternal extra                              312  0.42  +0.392    +7.6  +0.19  paternal CORRECT
+  E04_Bl341_PGD004C2         16 paternal extra, with arm events             145  0.43  +0.113    +5.6  +0.78  paternal CORRECT
+  E01_Bl520_PGD014           17 paternal extra, 2 pat + 1 mat               153  0.43  +0.120    +3.5  +0.67  paternal CORRECT
+  E11_Bl091_PGD004C1          1 maternal extra                              350  0.49  -0.085    -2.3  +1.13  maternal CORRECT
+  E08_Bl346_PGD008C1         13 maternal extra of 13pter-q21.33 only        179  0.37  -0.006    -0.2  +0.35  near zero
+  E10_Bl348_PGD008C1          4 paternal duplication of 4qter (arm)         261  0.53  +0.019    +0.9  -0.02  near zero
+  of the 5 that move at all (|z| >= 2), the share points at the right parent 5.
+  The three that do not move are two arm-sized events, which dilute over a whole chromosome, and
+  one chromosome carrying 76 informative markers.
+
+  E09_Bl347 is the strongest single case in this repository: one cell with an extra MATERNAL
+  chromosome 22 and an extra PATERNAL chromosome 6, and the share separates them in opposite
+  directions, -9.4 and +7.6, against the same 18 reference chromosomes of that same cell.
+
+THE EIGHT CELLS THE PAPER READS AS EUPLOID ON THE AUTOSOMES
+  176 chromosomes judged across the eight cells, |z| >= 6 on 2:
+    E04_Bl112_PGD004C1       chr22  z -10.3  lrr +0.47  62 markers
+    E10_Bl515_PGD006         chr20  z -9.6  lrr +0.01  142 markers
+  chromosome 20 is flagged in both cells of embryo E10 and in opposite directions, which is
+  what a chip artefact looks like and what a real event does not.

@@ -165,11 +165,19 @@ gain. That is a false positive on a real euploid array, produced by the one desi
 module refuses to make. Recentring on the sample's own median removes it exactly: +0.0000.
 
 WHAT D STILL DOES NOT SHOW. The control above is constructed, and no confirmed BIOLOGICAL gain
-with a known parent exists in this material to check it against. An external review reached the
+with a known parent exists in THIS material to check it against. An external review reached the
 same limitation independently across 34 trio-usable arrays: every dosage event in that series is
-a LOSS. So the direction is shown to be recoverable and orientation-safe on real data, and has
-still never been checked against a real trisomy. A named parent stays provisional until one
-exists.
+a LOSS. So the direction of THIS channel is shown to be recoverable and orientation-safe on real
+data, and has still never been checked against a real trisomy. A named parent from this channel
+stays provisional.
+
+SUPERSEDED FOR THE QUESTION, NOT FOR THIS CHANNEL. 5.35.0 added a different statistic for the same
+question, the allele scan of gainOrigin.scanAlleleGains, which reads the share at
+opposite-homozygote markers against the cell's own other biparental chromosomes rather than
+against its genome-wide median, and which does not wait for another channel to detect the event.
+That one HAS been checked against real gains with a named parent, in two laboratories and on two
+platforms; audit/gain-origin-truth.ts and audit/gain-origin-pgd.ts hold the runs and
+docs/validation.md the numbers. Nothing in section D changes by it.
 
 
 E. A REAL TRISOMY, DETECTED                     PASS, AUC 0.9779 AND 0.9991

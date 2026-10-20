@@ -980,7 +980,10 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             13.0% and was reported <b>absent at 18.36%</b> on a sample whose genome-wide verdict is
             present. The gap between those is empty by a factor of 5.8. A genuinely trisomic
             chromosome also fails this gate, since its allelic ratios cluster at a third and two
-            thirds; that is the right outcome, because gains are not called on this platform at all.
+            thirds; that is the right outcome. A gain is not called from the allelic ratio of a
+            chromosome whose genotypes are not being measured, and the allele scan in{' '}
+            <SecRef id="alleleGain" /> reads the share at opposite-homozygote markers instead, which
+            this gate does not govern.
           </Text>
           <Text mb={8}>
             Every file is also put through six gates on load. They report; they do not silently drop
@@ -1317,13 +1320,13 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           </Text>
           <Alert color="orange" p="xs">
             <Text size="xs">
-              <b>Not validated on a true positive.</b> The band positions and marker requirements
-              are measured, but on constructed contrasts: no confirmed gain with an independently
-              known parent of origin exists in the material behind them. Every dosage event in that
-              material is a loss. This has therefore been shown to refuse correctly and has never
-              been shown to fire correctly. The only array in the validation set carrying
-              whole-chromosome gains is a 42% call-rate QC failure, and the tool refuses all five
-              of its gains, which is the right answer but not a positive control.
+              <b>This channel has still never fired on a confirmed gain.</b> Its band positions and
+              marker requirements are measured on constructed contrasts, and every dosage event in
+              the material behind them is a loss. The only array in that validation set carrying
+              whole-chromosome gains is a 42% call-rate QC failure, and the tool refuses all five of
+              its gains, which is the right answer but not a positive control. What has since been
+              shown on real gains was shown by the allele scan in <SecRef id="alleleGain" />, which
+              is a different statistic on a different reference, and says nothing about this one.
             </Text>
           </Alert>
         </Section>
@@ -1373,7 +1376,13 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
               two on the refused cell are called with the right parent. The same cells carry
               chromosomes the scan calls that the hand karyotype lists as normal; the authors
               tabulated losses, so those are not counted as errors, and two are settled by sibling
-              cells. It does not say whether an extra copy is meiotic or mitotic.
+              cells. On a second platform and a second laboratory, Illumina arrays of day-4
+              blastomeres with both parents, the share names the right parent on all five of the
+              published events that move at all, and in one cell separates an extra maternal
+              chromosome 22 from an extra paternal chromosome 6 in opposite directions. That was
+              computed from the arrays directly: the tool itself reports nothing on those cells,
+              because their heterozygosity reads haploid to the stage inference and the scan is
+              gated off. It does not say whether an extra copy is meiotic or mitotic.
             </Text>
           </Alert>
         </Section>

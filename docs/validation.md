@@ -197,6 +197,29 @@ copy on two chemistries, so the real arm is not independent evidence for that on
 construction does not model a mosaic gain, a three-copy chromosome whose third copy is a duplicate
 of one homologue, or an isodisomic triplication, which reads as a loss at these markers.
 
+### The same statistic on a second platform and a second laboratory
+
+Every other measurement here is on Affymetrix Axiom. GSE60909 (Zamani Esteki et al. 2015, PMID
+25983246) is Illumina HumanCytoSNP-12: day-4 blastomeres amplified by MDA, with both parents of
+each family on the same chip, and a published per-cell answer key. The share was computed directly
+rather than through the pipeline, which reports nothing on these cells at all: their heterozygosity
+reads haploid or failed to the stage inference and the zygosity call returns unknown, so the scan
+is gated off on every one of them. This tests the statistic, not the tool, and the distinction is
+the finding as much as the numbers are.
+
+Of the eight events the paper names a parent for, five move at all, and the share names the right
+parent on all five. The three that do not move are two arm-sized duplications, which dilute over a
+whole chromosome, and one chromosome carrying 76 informative markers. Across the eight cells the
+paper reads as euploid on the autosomes, 176 chromosomes were judged and 2 reach the bar; one of
+those is chromosome 20 in both cells of one embryo in opposite directions, which is what a chip
+artefact looks like.
+
+The single strongest case in this record is one cell, E09_Bl347, carrying an extra maternal
+chromosome 22 and an extra paternal chromosome 6. The share separates them in opposite directions
+against the same 18 reference chromosomes of that same cell: -9.4 and +7.6. Only the chromosome 22
+origin is independently confirmed, by STR typing of a sister cell. `audit/gain-origin-second-platform.txt`
+holds the table and `audit/gain-origin-pgd.ts` the pipeline run.
+
 ### The panel builder keeps the markers that hold up
 
 `informativity.ts` labels which markers can testify about an embryo's paternal contribution. The

@@ -23,6 +23,16 @@
  * accuracy and detection rate are reported by how clean the cell's own scale is, since a noisy
  * cell is supposed to refuse, and a refusal is not an error.
  *
+ * PARTIAL GAINS AND PARTIAL LOSSES. A biopsy of a mosaic embryo carries an extra copy in only some of
+ * its cells, and a partial loss of one parent shifts the allele share the same way an extra copy of
+ * the other does. Both are built the same way with a fraction f of cells: a gain scales the named
+ * parent's allele by 1 + f, a loss by 1 - f, and the intensity moves by 0.513 log2((2 +- f) / 2),
+ * which is the +0.3 of a full gain at f = 1 and the same compression for the rest. The partial
+ * losses are the test of the intensity gate. A partial loss that the scan calls a GAIN is an error,
+ * and the number that must be zero. The construction changes the allele ratios and the intensity and
+ * leaves the genotype calls alone, so a real partial loss, which also lowers the heterozygous share
+ * and may take the chromosome out of the biparental class, is more likely to be refused than this.
+ *
  * AND THE ARRAYS THE STAGE INFERENCE REFUSES. A cell with several gains reads far more heterozygous
  * than one diploid can, and the inference calls it "no genome reads this way" and withholds every
  * reading on it, the allele scan included. Four of the 31 cells are refused, and they hold the two
@@ -115,7 +125,7 @@ function parentIndex(gsm: string) {
   return idx as unknown as { gt: Map<string, string> }
 }
 
-type Build = { chrom: string; extra: 'paternal' | 'maternal' } | null
+type Build = { chrom: string; extra: 'paternal' | 'maternal'; kind: 'gain' | 'loss'; f: number } | null
 async function scoreWith(gsm: string, father: string, mother: string, build: Build = null, declared?: string) {
   const pat = parentIndex(father); const mat = parentIndex(mother)
   const acc = score.emptyCollected(pat as never, mat as never)
@@ -123,17 +133,21 @@ async function scoreWith(gsm: string, father: string, mother: string, build: Bui
   for (const r of rowsOf(fileOf.get(gsm)!)()) {
     if (build && r.chrom === build.chrom) {
       // THE CONSTRUCTION. At a marker where the parents are opposite homozygotes the named parent's
-      // allele intensity is doubled, which is what a third copy of that parent's chromosome does.
+      // allele intensity is scaled, doubled for a full gain, which is what a third copy of that
+      // parent's chromosome does, and reduced for a loss.
       // Elsewhere on the chromosome nothing changes the share, so only those markers are touched.
       const fa = pat.gt.get(r.probesetId); const mo = mat.gt.get(r.probesetId)
       if (r.baf !== null && ((fa === 'AA' && mo === 'BB') || (fa === 'BB' && mo === 'AA'))) {
         let A = 1 - r.baf; let B = r.baf
         const fatherAllele = fa === 'AA' ? 'A' : 'B'
         const doubled = build.extra === 'paternal' ? fatherAllele : (fatherAllele === 'A' ? 'B' : 'A')
-        if (doubled === 'A') A *= 2; else B *= 2
+        const mult = build.kind === 'gain' ? 1 + build.f : 1 - build.f
+        if (doubled === 'A') A *= mult; else B *= mult
         r.baf = B / (A + B)
       }
-      if (r.log2R !== null) r.log2R += 0.3
+      if (r.log2R !== null) {
+        r.log2R += 0.513 * Math.log2((build.kind === 'gain' ? 2 + build.f : 2 - build.f) / 2)
+      }
     }
     if (!first) first = r.probesetId
     ingest.accumulate(r as never, byChrom as never)
@@ -153,7 +167,10 @@ interface Chrom {
 }
 const gainOf = (c: Chrom | undefined) => c?.alleleGain
 
-interface BuiltRow { gsm: string; chrom: string; extra: string; verdict: string; parent?: string; scale: number }
+interface BuiltRow {
+  gsm: string; chrom: string; extra: string; verdict: string; parent?: string; scale: number
+  kind?: string; f?: number; z?: number; shift?: number; lrr?: number
+}
 function summariseBuilt(built: BuiltRow[]) {
   const classes: [string, (s: number) => boolean][] = [
     ['clean cells, own scale under 0.03', (s) => s < 0.03],
@@ -161,17 +178,25 @@ function summariseBuilt(built: BuiltRow[]) {
     ['chaotic cells, own scale over 0.10', (s) => s >= 0.10],
     ['no scale (too few biparental chromosomes)', (s) => !Number.isFinite(s)],
   ]
-  console.log('\nCONSTRUCTED GAINS: one chromosome, one parent, built into a real two-parent cell')
-  for (const [name, test] of classes) {
-    const b = built.filter((x) => test(x.scale))
-    if (!b.length) continue
-    const g = b.filter((x) => x.verdict === 'gain')
-    const right = g.filter((x) => x.parent === x.extra).length
-    console.log(`  ${name.padEnd(44)} ${String(b.length).padStart(4)} built: gain called ${String(g.length).padStart(4)} (${(100 * g.length / b.length).toFixed(0)}%), right parent ${right} of ${g.length}, `
-      + `imbalance ${b.filter((x) => x.verdict === 'imbalance').length}, none ${b.filter((x) => x.verdict === 'none').length}, unscored ${b.filter((x) => x.verdict === 'unscored').length}`)
+  const kinds = [...new Set(built.map((b) => `${b.kind ?? 'gain'}:${b.f ?? 1}`))].sort()
+  for (const k of kinds) {
+    const [kind, f] = k.split(':')
+    const all = built.filter((b) => `${b.kind ?? 'gain'}:${b.f ?? 1}` === k)
+    console.log(`\n${kind === 'gain' ? 'CONSTRUCTED GAINS' : 'CONSTRUCTED PARTIAL LOSSES'}, in ${(Number(f) * 100).toFixed(0)}% of cells: one chromosome, one parent, built into a real two-parent cell`)
+    for (const [name, test] of classes) {
+      const b = all.filter((x) => test(x.scale))
+      if (!b.length) continue
+      const g = b.filter((x) => x.verdict === 'gain')
+      const right = g.filter((x) => x.parent === x.extra).length
+      console.log(`  ${name.padEnd(44)} ${String(b.length).padStart(4)} built: gain called ${String(g.length).padStart(4)} (${(100 * g.length / b.length).toFixed(0)}%), `
+        + (kind === 'gain' ? `right parent ${right} of ${g.length}, ` : '')
+        + `imbalance ${b.filter((x) => x.verdict === 'imbalance').length}, none ${b.filter((x) => x.verdict === 'none').length}, unscored ${b.filter((x) => x.verdict === 'unscored').length}`)
+    }
+    const g = all.filter((x) => x.verdict === 'gain')
+    console.log(kind === 'gain'
+      ? `  ALL ${all.length} built: gain called ${g.length}, right parent ${g.filter((x) => x.parent === x.extra).length}, WRONG parent ${g.filter((x) => x.parent !== x.extra).length}`
+      : `  ALL ${all.length} built: called a GAIN ${g.length} (an error: it must be 0), imbalance ${all.filter((x) => x.verdict === 'imbalance').length}`)
   }
-  const all = built.filter((x) => x.verdict === 'gain')
-  console.log(`  ALL ${built.length} built: gain called ${all.length}, right parent ${all.filter((x) => x.parent === x.extra).length}, WRONG parent ${all.filter((x) => x.parent !== x.extra).length}`)
 }
 
 // --- real events ---------------------------------------------------------------------------------
@@ -187,6 +212,7 @@ async function realArm(title: string, declared?: string, only?: string[]) {
   const real: RealRow[] = []
   const losses: Loss[] = []
   const unlabelled: { gsm: string; chrom: string; verdict: string; parent?: string; z: number; shift: number; lrr: number }[] = []
+  const every: { gsm: string; chrom: string; hand: string; verdict: string; z?: number; shift?: number; lrr?: number; scale?: number; informative?: number }[] = []
   for (const gsm of (only ?? cells)) {
     const p = parentsOf.get(gsm)!
     const res = await scoreWith(gsm, p.father, p.mother, null, declared)
@@ -200,6 +226,7 @@ async function realArm(title: string, declared?: string, only?: string[]) {
     for (const c of chroms) {
       const hand = handOf.get(`${gsm}|${c.chrom}`) ?? ''
       const g = gainOf(c)
+      if (g) every.push({ gsm, chrom: c.chrom, hand, verdict: g.verdict, z: g.z, shift: g.shift, lrr: g.lrrShift, scale: g.scale, informative: (g as { informative?: number }).informative })
       const isGain = /tris|gain|dup/i.test(hand)
       const parent = /\(pat\)/.test(hand) ? 'paternal' : /\(mat\)/.test(hand) ? 'maternal' : undefined
       const mono = /^monosomy \d+ \((pat|mat)\)/.exec(hand)
@@ -231,7 +258,7 @@ async function realArm(title: string, declared?: string, only?: string[]) {
   for (const u of unlabelled.sort((a, b) => a.chrom.localeCompare(b.chrom, undefined, { numeric: true }))) {
     console.log(`    ${u.gsm} chr${u.chrom.padStart(2)} ${u.verdict.padEnd(9)} ${(u.parent ?? '-').padEnd(9)} z ${u.z.toFixed(1).padStart(6)} shift ${u.shift.toFixed(3).padStart(6)} lrr ${u.lrr.toFixed(2).padStart(5)}`)
   }
-  return { real, losses, unlabelled }
+  return { real, losses, unlabelled, every }
 }
 let realOut: Awaited<ReturnType<typeof realArm>> | null = null
 let declaredOut: Awaited<ReturnType<typeof realArm>> | null = null
@@ -243,10 +270,13 @@ if (REAL) {
   }
 }
 
-// --- constructed gains ---------------------------------------------------------------------------
-interface Built { gsm: string; chrom: string; extra: string; verdict: string; parent?: string; scale: number }
-const built: Built[] = []
-const skipped = { handEvent: 0, alreadyShifted: 0, unscorable: 0 }
+// --- constructed gains and partial losses --------------------------------------------------------
+const KINDS = (process.env.OM_KINDS ?? 'gain:1,gain:0.5,gain:0.3,loss:0.5,loss:0.3').split(',')
+  .map((k) => { const [kind, f] = k.split(':'); return { kind: kind as 'gain' | 'loss', f: Number(f) } })
+/** A cell wider than this detects nothing by construction, and building into it only costs runs. */
+const MAX_SCALE = Number(process.env.OM_MAXSCALE ?? 0.10)
+const built: BuiltRow[] = []
+const skipped = { handEvent: 0, alreadyShifted: 0, unscorable: 0, wideCell: 0 }
 if (CONSTRUCT) {
   for (const gsm of cells) {
     const p = parentsOf.get(gsm)!
@@ -259,22 +289,26 @@ if (CONSTRUCT) {
     const nat = (natural.chroms ?? []) as Chrom[]
     const ss = nat.map((x) => gainOf(x)?.scale).filter((x): x is number => Number.isFinite(x as number)).sort((a, b) => a - b)
     const scale = ss.length ? ss[ss.length >> 1] : NaN
+    if (Number.isFinite(scale) && scale >= MAX_SCALE) { skipped.wideCell += CHROMS.length; continue }
     for (const chrom of CHROMS) {
       const g0 = gainOf(nat.find((x) => x.chrom === chrom))
       if ((handOf.get(`${gsm}|${chrom}`) ?? '') !== 'normal') { skipped.handEvent += 1; continue }
       if (g0 && (g0.verdict === 'gain' || g0.verdict === 'imbalance')) { skipped.alreadyShifted += 1; continue }
       if (!g0 || g0.verdict === 'unscored') { skipped.unscorable += 1; continue }
-      for (const extra of ['paternal', 'maternal'] as const) {
-        const res = await scoreWith(gsm, p.father, p.mother, { chrom, extra })
-        const c = ((res.chroms ?? []) as Chrom[]).find((x) => x.chrom === chrom)
-        const g = gainOf(c)
-        built.push({ gsm, chrom, extra, verdict: g?.verdict ?? 'unscored', parent: g?.parent, scale })
-        process.stdout.write('+')
+      for (const { kind, f } of KINDS) {
+        for (const extra of ['paternal', 'maternal'] as const) {
+          const res = await scoreWith(gsm, p.father, p.mother, { chrom, extra, kind, f })
+          const c = ((res.chroms ?? []) as Chrom[]).find((x) => x.chrom === chrom)
+          const g = gainOf(c)
+          built.push({ gsm, chrom, extra, kind, f, verdict: g?.verdict ?? 'unscored', parent: g?.parent, scale,
+            z: g?.z, shift: g?.shift, lrr: g?.lrrShift })
+          process.stdout.write('+')
+        }
       }
     }
   }
   console.log()
-  console.log(`  chromosomes not built into: ${skipped.handEvent} the hand karyotype lists an event on, ${skipped.alreadyShifted} the untouched scan already calls, ${skipped.unscorable} that cannot be scored in that cell`)
+  console.log(`  chromosomes not built into: ${skipped.handEvent} the hand karyotype lists an event on, ${skipped.alreadyShifted} the untouched scan already calls, ${skipped.unscorable} that cannot be scored in that cell, ${skipped.wideCell} in cells wider than ${MAX_SCALE}`)
   summariseBuilt(built)
 }
 if (process.env.OM_OUT) writeFileSync(process.env.OM_OUT, JSON.stringify({ realOut, declaredOut, built, scaleOf: [...scaleOf] }, null, 1))
