@@ -193,9 +193,27 @@ the untouched cell. The pipeline that ships is run on the result:
 | chaotic, over 0.10 (2 cells) | 12 | 0 | 0 | 0 |
 
 The intensity floor was fixed after seeing the real cells, on the compression measured for one extra
-copy on two chemistries, so the real arm is not independent evidence for that one constant. The
-construction does not model a mosaic gain, a three-copy chromosome whose third copy is a duplicate
-of one homologue, or an isodisomic triplication, which reads as a loss at these markers.
+copy on two chemistries, so the real arm is not independent evidence for that one constant. It does
+not model a three-copy chromosome whose third copy is a duplicate of one homologue, or an isodisomic
+triplication, which reads as a loss at these markers.
+
+Mosaic gains and partial losses were built the same way, at cell fractions of 0.3 and 0.5
+(`audit/gain-origin-mosaic.txt`, 300 builds over 16 cells), and both results are limits rather than
+reassurance:
+
+| built | result |
+|---|---|
+| gains in 30% and 50% of cells | **0 of 120 detected.** At half the share should move +0.10 and moves +0.012: dropout has already spread these markers toward 0 and 1, so scaling one allele by 1.5 barely moves one reading 0.95. A full extra copy does move it. A mosaic gain is silent here |
+| partial losses in 30% of cells | 0 of 60 called a gain, which is right |
+| partial losses in 50% of cells | **3 of 60 called a gain**, each the other parent's. 34 were reported as an imbalance, which names nobody and is the intended outcome |
+
+The three are chromosome 3 of two cells whose untouched chromosome 3 already reads high: a 50
+percent loss removes 0.21 log2 and leaves it at +0.16 and +0.28, over the +0.15 floor. The floor is
+absolute and the per-chromosome intensity of an amplified cell is not. The construction is harsher
+than the biology in one way, since a real partial loss also removes the heterozygosity these markers
+are selected on and would often leave the biparental class first, and softer in another, since it
+leaves the genotype calls alone. So 3 in 60 is an upper bound on an otherwise undisturbed cell, not
+a rate for real mosaic embryos.
 
 ### The same statistic on a second platform and a second laboratory
 

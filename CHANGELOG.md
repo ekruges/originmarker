@@ -9,6 +9,35 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.35.2 "Trisomy"
+
+**Two measured limits of the allele gain scan, one of them a failure of its own gate.** Gains and
+partial losses were built into real two-parent cells at cell fractions of 0.3 and 0.5, 300 builds
+over 16 cells, and the shipped pipeline run on the result (`audit/gain-origin-mosaic.txt`).
+
+A mosaic gain is silent. 0 of 120 were detected. At a fraction of half the share should move +0.10
+and the measured median movement is +0.012: dropout has already spread these markers toward 0 and
+1, so scaling one allele by 1.5 barely moves a marker reading 0.95, while a full extra copy, which
+scales by 2, does move it. The channel reads a gain present in every cell and says nothing about
+one present in half of them, which is the commoner finding in a biopsy.
+
+And the intensity gate fails on 3 of 60 partial losses at half, which is exactly the error it
+exists to prevent. All three are chromosome 3 of two cells whose untouched chromosome 3 already
+reads high: a 50 percent loss removes 0.21 log2 and leaves the intensity at +0.16 and +0.28, over
+the +0.15 floor, so a partial loss of one parent is reported as an extra copy of the other. 8 of
+the 60 stay over the floor and 3 of those also clear the share bar. The floor is absolute and the
+per-chromosome intensity of an amplified cell is not. 34 of the 60 were reported as an imbalance,
+which names nobody and is the intended outcome.
+
+The construction is harsher than the biology in one way, since a real partial loss also removes the
+heterozygosity these markers are selected on and would often leave the biparental class first, and
+softer in another, since it leaves the genotype calls alone. So 3 in 60 is an upper bound on an
+otherwise undisturbed cell rather than a rate for real mosaic embryos. Both limits are now in the
+module, the documentation and the validation record. No threshold was moved to suit them: tuning a
+constant to the test that found it is how a measurement becomes a decoration.
+
+---
+
 ## 5.35.1 "Trisomy"
 
 **Three statements about gains were left stale by 5.35.0 and are corrected.** The documentation

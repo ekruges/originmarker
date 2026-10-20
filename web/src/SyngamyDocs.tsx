@@ -1382,7 +1382,14 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
               chromosome 22 from an extra paternal chromosome 6 in opposite directions. That was
               computed from the arrays directly: the tool itself reports nothing on those cells,
               because their heterozygosity reads haploid to the stage inference and the scan is
-              gated off. It does not say whether an extra copy is meiotic or mitotic.
+              gated off. It does not say whether an extra copy is meiotic or mitotic. And it reads
+              a full extra copy only: gains built into real cells at a cell fraction of 0.3 and 0.5
+              were detected 0 times in 120, because dropout has already spread these markers toward
+              0 and 1 and a half-strength shift does not move their median. Partial losses built the
+              same way were reported as an imbalance, which names nobody, 34 times in 60, and as an
+              extra copy of the other parent 3 times, which is the error the intensity gate exists
+              to prevent, on chromosomes that already read high before anything was built into
+              them.
             </Text>
           </Alert>
         </Section>

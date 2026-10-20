@@ -531,6 +531,21 @@ export function callHomologue(
  * WHAT IT DOES NOT DO. It does not say meiotic or mitotic. It does not resolve arms. It needs two
  * bulk parental arrays and a genome that reads both parents on enough chromosomes, the same
  * conditions as the allele count.
+ *
+ * AND IT READS A FULL EXTRA COPY ONLY, measured rather than argued. Gains built into real cells at
+ * a cell fraction of 0.3 and 0.5 are detected 0 times in 120: at half the share should move +0.10
+ * and the measured median movement is +0.012, because dropout has already spread these markers
+ * toward 0 and 1 and scaling one allele by 1.5 barely moves a marker reading 0.95. A full copy,
+ * which scales by 2, does move it. So a mosaic gain is silent here, and that is the commoner
+ * finding in an embryo biopsy.
+ *
+ * THE INTENSITY GATE IS AN ABSOLUTE FLOOR AND THE INTENSITY IT GATES IS NOT. On 60 partial losses
+ * built at half, 8 keep an intensity over the floor because the chromosome already read high in
+ * the untouched cell, and 3 of those also clear the share bar and are reported as an extra copy of
+ * the other parent. That is the error this gate exists to prevent, at 3 in 60 on a construction
+ * that does not model the heterozygosity a real partial loss also removes. See
+ * audit/gain-origin-mosaic.txt. A row from this channel is a candidate for that reason as much as
+ * for any other.
  */
 export const ALLELE_GAIN_Z = 6
 /** The smallest shift that is a gain however wide the cell's own scale is. A third of the 0.167

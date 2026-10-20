@@ -161,7 +161,7 @@ RELEASES: tuple[Release, ...] = (
             "intensity can confirm."),
 )
 
-VERSION = "5.35.1"
+VERSION = "5.35.2"
 CODENAME = "Trisomy"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
