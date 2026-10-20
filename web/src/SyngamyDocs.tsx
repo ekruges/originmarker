@@ -1349,13 +1349,28 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             parent.</b> An extra maternal copy in every cell and a paternal copy lost in half of
             them both put the maternal share at two thirds. Total copy number separates them:
             three copies against one and a half. So intensity is a gate here and never the
-            detector. A shift that clears the bar with the intensity at least +0.15 log2 above the
-            cell&rsquo;s own level, which is half of the weakest compression measured on any
-            chemistry for one extra copy, is reported as an <b>extra copy</b> and names the parent
-            who supplied it. The same shift with less intensity than that is reported as an
-            <b> imbalance</b> and names nobody: below the cell&rsquo;s level a partial loss of the
-            other parent fits, and between zero and +0.15 neither an extra copy nor a loss is
-            supported.
+            detector. A shift that clears the bar with the intensity at least two of that
+            cell&rsquo;s OWN intensity spreads above its own level is reported as an <b>extra
+            copy</b> and names the parent who supplied it. The bar is the cell&rsquo;s own spread
+            rather than a fixed log2 figure because per-chromosome intensity within one amplified
+            cell runs from 0.042 to 0.246, so any fixed figure is several spreads in a clean cell
+            and under one in a noisy one. The same shift with less intensity than that is reported
+            as an <b>imbalance</b> and names nobody: below the cell&rsquo;s level a partial loss of
+            the other parent fits, and in between neither an extra copy nor a loss is supported.
+          </Text>
+          <Text size="sm" mb={10}>
+            <b>Both numbers are also read together as a likelihood, which is reported beside the
+            verdict and does not decide it.</b> Six states over a grid of cell fraction and
+            chemistry compression, including the state that says this chromosome&rsquo;s intensity
+            is not measuring its copy number at all. It separates two statements the verdict above
+            treats as one. Which parent ends up over-represented, the <b>tilt</b>, rests on the
+            alleles. Whether that came from an extra copy or a missing one rests on the intensity,
+            which carries a per-chromosome baseline a single cell cannot measure. On cells the model
+            was not tuned on the tilt was wrong on 4 of the 287 rows it named and the direction on 1
+            of 121, so the direction is read as a call above a posterior of 0.995 and the parent is
+            never taken from the model. Where the thresholds above detect nothing, which is every
+            gain carried by a third of the cells, the tilt still names the over-represented parent
+            on about four rows in ten and is right on 96 percent of those.
           </Text>
           <Text size="sm" mb={10}>
             It needs two bulk parental arrays, a genome that reads both parents on at least six

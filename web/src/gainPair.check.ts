@@ -4,7 +4,10 @@
 // The constructed cases are the ones the threshold pair got wrong, and they are the reason this
 // function exists. Their numbers are the measured ones, not invented: see audit/gain-origin-mosaic.txt.
 import assert from 'node:assert/strict'
-import { callPair, FRACTION_GRID, COMPRESSION_GRID } from './gainOrigin.ts'
+import {
+  callPair, scanAlleleGains, FRACTION_GRID, COMPRESSION_GRID, PAIR_DIRECTION_P,
+  type ChromShare,
+} from './gainOrigin.ts'
 
 // --- 1. the textbook cases, with a clean cell's scales ------------------------------------------
 {
@@ -113,7 +116,53 @@ import { callPair, FRACTION_GRID, COMPRESSION_GRID } from './gainOrigin.ts'
   assert.ok(COMPRESSION_GRID[0] >= 0.5 && COMPRESSION_GRID[COMPRESSION_GRID.length - 1] <= 1.0,
     'the compression range is the 58% to 95% of theoretical measured across two chips')
   assert.equal(FRACTION_GRID[FRACTION_GRID.length - 1], 1.0, 'a whole-cell event has to be reachable')
+  // Not a range check. This number is the operating point the split chose on 10 cells and then
+  // measured on 9 it had not seen, and the error rate quoted beside every row that clears it is
+  // the one measured AT this value. Moving it without redoing that split makes the quoted rate a
+  // claim about a threshold nobody tested.
+  assert.equal(PAIR_DIRECTION_P, 0.995,
+    'the direction threshold is the one the pre-registered split picked and measured; changing it '
+    + 'means rerunning audit/gain-origin-split.ts and restating the held-out error in pairNote')
 }
 
-console.log('gainPair.check.ts: the pair recovers the trisomy the thresholds refused and rejects the '
-  + 'partial loss the floor accepted')
+// --- 7. WHAT THE ROW IS ALLOWED TO SAY ABOUT THE PAIR -------------------------------------------
+//
+// The note travels on every row, so a state that names no copy number must not pick up the
+// direction or parent language that only a copy-number state has earned.
+{
+  const ref = (chrom: number, share: number, lrrShift: number): ChromShare =>
+    ({ chrom: String(chrom), share, informative: 800, biparental: true, lrrShift })
+  const quiet = [1, 2, 4, 5, 6, 8, 9, 10].map((c, i) => ref(c, 0.5 + 0.004 * ((i % 3) - 1), 0.01 * ((i % 3) - 1)))
+  const scan = (ev: ChromShare) => scanAlleleGains([...quiet, ev]).find((x) => x.chrom === '3')!
+
+  const gain = scan(ref(3, 0.667, 0.33))
+  assert.equal(gain.verdict, 'gain', 'a full extra copy with the intensity to match is a gain')
+  assert.match(gain.why, /read as a call/, 'and its direction clears PAIR_DIRECTION_P')
+  assert.match(gain.why, /paternal side is the over-represented one/)
+  assert.match(gain.why, /parent is not taken from the model/,
+    'every row says where its parent did not come from')
+
+  const partial = scan(ref(3, 0.667, -0.12))
+  assert.equal(partial.verdict, 'imbalance', 'the same share with the intensity down names nobody')
+  assert.match(partial.why, /weighed evidence and not a call/,
+    `below PAIR_DIRECTION_P the direction is not a call. Got: ${partial.why.slice(-160)}`)
+
+  // The case that was wrong: intensity too weak to read either way, so the likelihood prefers the
+  // state that says the intensity is not measuring copy number. That is not a direction, and the
+  // row must not claim one.
+  const vague = scan(ref(3, 0.667, 0.04))
+  assert.equal(vague.verdict, 'imbalance')
+  assert.match(vague.why, /intensity is not measuring its copy number/)
+  for (const phrase of [/read as a call/, /weighed evidence and not a call/,
+    /over-represented one/, /parent is not taken from the model/]) {
+    assert.doesNotMatch(vague.why, phrase,
+      `a state naming no copy number must not carry ${phrase}. Got: ${vague.why.slice(-200)}`)
+  }
+
+  // A quiet chromosome says nothing about the pair at all.
+  assert.doesNotMatch(scan(ref(3, 0.5, 0.0)).why, /likelihood/,
+    'disomy adds no clause, or every normal row would carry one')
+}
+
+console.log('gainPair.check.ts: the pair recovers the trisomy the thresholds refused, rejects the '
+  + 'partial loss the floor accepted, and claims a direction only where it has one')

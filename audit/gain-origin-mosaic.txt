@@ -119,8 +119,20 @@ right tilt. So the direction is the fragile statement and the tilt is not, becau
 from the alleles. callPair reports it separately, as the posterior summed over the two states that
 agree on it, and gainPair.check.ts holds the three-baseline case that demonstrates the cancellation.
 
-STILL OPEN
+THE SPLIT
 
-The calling threshold is not set on held-out data and the likelihood decides nothing. Splitting
-the cells, never the chromosomes, is the next step, with the 16 real published events kept out of
-tuning entirely.
+Done on 840 builds over 19 cells, 10 to tuning and 9 held out, by accession. Both thresholds were
+picked on the tuning half by rules fixed beforehand and applied unchanged to the other half.
+
+  tilt at 0.75        named 287 of 450 held-out builds, wrong 4 (1.4%) against a 1 percent bar
+  direction at 0.995  named 121 of 450 held-out builds, wrong 1 (0.8%) against a 5 percent bar
+
+The direction is now read as a call at 0.995. The tilt missed its bar by 0.4 of a point and stays
+reported beside each row rather than deciding the parent. At a third of the cells, where the
+shipped thresholds detect nothing, the tilt is named on 77 of 180 held-out builds and right on 74.
+
+The tuning half had zero wrong tilts at 0.75 and the held-out half had four, so the tuning half
+alone would have reported a perfect tilt. That gap is what the split was for.
+
+audit/gain-origin-split-preregistration.txt holds the rules, both outcomes, and the single read of
+the real published events.

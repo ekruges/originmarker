@@ -9,6 +9,66 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.37.0 "Equational"
+
+**The pair of numbers behind every gain call is now read as a likelihood over six states, and a
+held-out split decides which of its two statements may be trusted.** 5.36.0 left the allele gain
+scan deciding on the share and the intensity separately, each against its own threshold, and
+recorded the cost: a real maternal trisomy left as an imbalance because its intensity was only 1.8
+of its cell's own spreads, and 0 of 120 constructed mosaic gains detected at all. The likelihood
+weighs the two together over a grid of cell fraction and the chemistry compression measured on two
+chips, with a sixth state for the case that matters most, which is that a chromosome's intensity is
+not measuring its copy number. That sixth state is the whole separation between the real trisomy,
+whose intensity sits 0.2 of a spread from what its share predicts for a gain, and the constructed
+half loss that the old absolute floor called a gain, which sits 1.1 away.
+
+**An extra copy from one parent and a missing copy from the other are the same tilt.** They move the
+allele share the same way, so the share alone fixes which parent ends up over-represented and only
+the intensity can say whether a copy was added or lost. The two are now reported as two statements
+rather than one, because they are not equally reliable: every one of the 22 wrong-direction calls
+over 300 constructed builds was on a chromosome whose own baseline intensity already sat between
++0.18 and +0.49, against -0.05 to +0.10 on every arm that never erred. Solving each arm for that
+baseline recovers the chip compression at 0.503, so the construction is honest about intensity.
+Within one cell an offset that size is not separable from a real copy number change by intensity
+alone and the cell's own intensity spread does not reveal it, which is why such a call can carry a
+posterior of 1.00 and why no threshold on the posterior reaches it. A wrong direction flips the
+named parent too, so the two errors cancel and the tilt survives: right on 262 of 267 named builds.
+
+**What the split permits, and what it refused.** 840 builds over 19 cells, thresholds picked on 10
+cells and applied unchanged to the 9 the model had not seen. The split, both threshold rules and the
+primary endpoint were committed before the held-out half was scored, in
+`audit/gain-origin-split-preregistration.txt`.
+
+| held out, at the thresholds picked on the other cells | named | wrong |
+|---|---|---|
+| the tilt, at 0.75 | 287 of 450 | 4, 1.4% against a 1% bar |
+| the direction, at 0.995 | 121 of 450 | 1, 0.8% against a 5% bar |
+
+The direction is now read as a call at a posterior of 0.995 and `PAIR_DIRECTION_P` pins that value,
+because the error rate quoted beside every row clearing it was measured there and nowhere else. The
+tilt failed its bar by 0.4 of a percentage point and is **not** promoted: the parent on a row still
+comes from the thresholds, and the tilt is reported beside it with its own posterior. The bar was
+fixed in advance so that a near miss could not be argued into a pass.
+
+**What this adds where the thresholds see nothing.** At a third of the cells the shipped thresholds
+detect 0 of 180 constructed events and the tilt is named on 77 of the 180 held-out builds, right on
+74. On the eight real hand-called gains and duplications the thresholds name 0 and the tilt names 3,
+right on all 3; three of the five not named are cells refused before any chromosome is scored. Three
+of three is not a rate, and is recorded because the pre-registration said that set would be read
+once and reported whatever it said.
+
+**The split also showed the tuning half was optimistic.** Zero wrong tilts at 0.75 on the cells the
+threshold was chosen on, four on the cells it was not. Reading the tuning half alone would have
+reported a perfect tilt, which is the whole reason for splitting by cell rather than by chromosome:
+chromosomes within one cell share the amplification, the dropout and the intensity baseline spread
+that drive the errors.
+
+`audit/gain-origin-split.ts` runs the rules rather than restating them, and refuses a directory
+holding more than one run, since shards cover disjoint cells and a repeated build means two code
+versions over the same arms reading as a larger sample than exists.
+
+---
+
 ## 5.36.0 "Mosaic"
 
 **The intensity gate on the allele gain scan is now the cell's own intensity spread, not an

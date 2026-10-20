@@ -162,10 +162,14 @@ RELEASES: tuple[Release, ...] = (
     Release("Mosaic",
             "A change carried by some cells of an embryo and not others, which moves every "
             "measurement part of the way and is the hardest thing on an array to be sure of."),
+    Release("Equational",
+            "The second meiotic division, which parts sister chromatids and leaves the "
+            "chromosome count unchanged. Two divisions reaching the same count, told apart by "
+            "what the alleles say and not by how much material is there."),
 )
 
-VERSION = "5.36.0"
-CODENAME = "Mosaic"
+VERSION = "5.37.0"
+CODENAME = "Equational"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

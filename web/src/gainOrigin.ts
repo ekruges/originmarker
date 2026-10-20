@@ -625,15 +625,20 @@ const pairNote = (p: PairCall | undefined): string => {
     ? 'that this chromosome\'s intensity is not measuring its copy number'
     : `${p.state.replace('-', ' of the ')} copy`
       + (p.fraction < 1 ? ` in about ${(p.fraction * 100).toFixed(0)}% of the cells` : '')
-  return `. Weighing the two numbers together as a likelihood prefers ${what}, at ${p.posterior.toFixed(2)} `
-    + `against ${p.runnerUp.replace('-', ' of the ')}`
-    + (p.tilt
-      ? `. The direction of that call rests on intensity, which carries a per-chromosome baseline a `
-        + `single cell cannot measure; the statement that the ${p.tilt} side is the over-represented `
-        + `one rests on the alleles and holds at ${p.tiltPosterior.toFixed(2)}`
-      : '')
-    + `; that model's calling threshold has not been set on held-out data, so it is reported and `
-    + 'does not decide this row'
+  const head = `. Weighing the two numbers together as a likelihood prefers ${what}, at `
+    + `${p.posterior.toFixed(2)} against ${p.runnerUp.replace('-', ' of the ')}`
+  // `unexplained` names no copy number, so it has neither a direction nor a parent to qualify.
+  if (!p.tilt) return head
+  return head
+    + `. The direction of that rests on intensity, which carries a per-chromosome baseline a single `
+    + `cell cannot measure; the statement that the ${p.tilt} side is the over-represented one rests `
+    + `on the alleles and holds at ${p.tiltPosterior.toFixed(2)}`
+    + (p.posterior >= PAIR_DIRECTION_P
+      ? `. At that posterior the extra-copy-against-missing-copy direction was wrong on 1 of the 121 `
+        + `rows it named in cells the model was not tuned on, so it is read as a call`
+      : `. Below ${PAIR_DIRECTION_P} that direction is weighed evidence and not a call`)
+    + '. The parent is not taken from the model either way: on those same cells its tilt was wrong '
+    + 'on 4 of the 287 rows it named, against the 1 percent bar fixed before that split'
 }
 
 export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
@@ -673,10 +678,10 @@ export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
     const lrrScale = lrrs.length >= ALLELE_GAIN_MIN_REFERENCE
       ? Math.max(mad(lrrs), ALLELE_GAIN_LRR_SCALE_FLOOR) : NaN
     const lrrZ = (c.lrrShift - lrrCentre) / lrrScale
-    // THE PAIR, REPORTED BESIDE THE VERDICT AND NOT YET DECIDING IT. The thresholds below are
-    // measured on constructed events; this is a model whose calling threshold has not been set on
-    // a held-out half, so it travels with every row as evidence a reader can weigh and is not
-    // allowed to overturn a verdict on its own. See callPair.
+    // THE PAIR, REPORTED BESIDE THE VERDICT AND NOT DECIDING IT. Its tilt was wrong on 1.4 percent
+    // of the rows it named in cells it was not tuned on, against the 1 percent bar fixed before
+    // that split, so it may not overturn the parent a verdict names. Only its extra-copy-against-
+    // missing-copy direction cleared its own bar, and only above PAIR_DIRECTION_P. See callPair.
     const pair = callPair(shift, c.lrrShift, scale, lrrScale) ?? undefined
     const m = { ...base, shift, z, scale, centre, lrrZ, pair }
     if (Math.abs(z) < ALLELE_GAIN_Z || Math.abs(shift) < ALLELE_GAIN_SHIFT) {
@@ -783,6 +788,16 @@ export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
  */
 export type PairState = 'disomy' | 'gain-paternal' | 'gain-maternal' | 'loss-paternal' | 'loss-maternal'
   | 'unexplained'
+
+/**
+ * The posterior at which the extra-copy-against-missing-copy direction is read as a call rather
+ * than as weighed evidence. Picked on 10 cells and then applied unchanged to 9 the model had not
+ * seen, where it was wrong on 1 of the 121 rows it named, against the 5 percent bar fixed before
+ * the split. The tilt has no such threshold: at the one its own rule picked it was wrong on 4 of
+ * 287 held-out rows, 1.4 percent against a 1 percent bar, so the parent is not taken from the model.
+ * audit/gain-origin-split-preregistration.txt holds both rules and both outcomes.
+ */
+export const PAIR_DIRECTION_P = 0.995
 
 /** The chemistry factor on one copy of intensity, over the range measured across two chips. */
 export const COMPRESSION_GRID = [0.55, 0.7, 0.85, 1.0]

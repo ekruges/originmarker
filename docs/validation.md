@@ -230,7 +230,50 @@ sit at +0.18 to +0.22. Under the old floor those three would have passed the int
 readily and were not called only because their share did not move. The intensity in that cell cannot
 confirm an extra copy, so the trisomy now leaves as an imbalance carrying both numbers and naming no
 parent. That discards a parent the share named clearly, which is the cost of deciding on either
-number alone; a likelihood over the pair is the resolution and is not built.
+number alone. A likelihood over the pair is the resolution and is measured below.
+
+#### The pair read as a likelihood, and what a held-out split says it may decide
+
+Six states over a grid of cell fraction and the chemistry compression measured on two chips:
+disomy, an extra copy from either parent, a copy lost from either parent, and the sixth state that
+makes the other five safe, which is that this chromosome's intensity is not measuring its copy
+number at all. The sixth is what separates the real trisomy 15 above, whose intensity sits 0.2 of a
+spread from what its share predicts for a gain, from the constructed half loss, which sits 1.1 away.
+
+Scored on 840 builds over 19 cells, six chromosomes across the size range. The thresholds were
+picked on 10 cells and applied unchanged to the 9 the model had not seen. Both rules, the split and
+the primary endpoint were fixed and committed before the held-out half was scored
+(`audit/gain-origin-split-preregistration.txt`).
+
+An extra copy from one parent and a missing copy from the other are the same **tilt**, and they move
+the allele share the same way. Only the intensity separates them, so the two statements are scored
+separately:
+
+| held out, at the thresholds picked on the other cells | named | right | wrong |
+|---|---|---|---|
+| which parent is over-represented (the tilt, at 0.75) | 287 of 450 | 283 | 4, 1.4% |
+| extra copy against missing copy (the direction, at 0.995) | 121 of 450 | 120 | 1, 0.8% |
+
+Against bars fixed beforehand of 1 percent for the tilt and 5 percent for the direction, the
+direction passed and the tilt failed by 0.4 of a point. So the direction is read as a call at a
+posterior of 0.995 and **the parent is not taken from the model**. The tilt stays reported beside
+each row with its own posterior.
+
+At a third of the cells, where the shipped thresholds detect nothing at all, the tilt is named on 77
+of 180 held-out builds and right on 74 of those 77. On the eight real hand-called gains the shipped
+thresholds name 0 and the tilt names 3, right on all 3; three of the five it does not name are cells
+refused before any chromosome is scored.
+
+**Why no threshold on the posterior fixes the direction.** Every one of the 22 wrong-direction calls
+in the earlier 300-build set was on a chromosome whose own baseline intensity already sat between
++0.18 and +0.49, against -0.05 to +0.10 on every arm that never erred. Solving each arm for that
+baseline also recovers the chip compression at 0.503, so the construction is honest about intensity.
+Within one cell a per-chromosome intensity offset of that size is not separable from a real copy
+number change by intensity alone, and the cell's own intensity spread does not reveal it, which is
+why such a call can carry a posterior of 1.00. The tilt comes from the alleles and is immune to it.
+
+**What the split itself showed.** The tuning half had zero wrong tilts at 0.75 and the held-out half
+had four. Reading the tuning half alone would have reported a perfect tilt.
 
 The construction is harsher than the biology in one way, since a real partial loss also removes the
 heterozygosity these markers are selected on and would often leave the biparental class first, and
@@ -615,6 +658,13 @@ The harnesses emit the pooled figure today, which is the open item rather than a
   neither identifies a mixture.
 - **A file without intensity shows no gains,** and a loss there cannot be told from isodisomy. The
   run states both.
+- **The pair likelihood does not name a parent.** On cells it was not tuned on its tilt was wrong on
+  4 of the 287 rows it named, 1.4 percent against a 1 percent bar fixed before the split, so the
+  parent on a row still comes from the thresholds. Only the extra-copy-against-missing-copy
+  direction is read as a call, at a posterior of 0.995, where it was wrong on 1 of 121.
+- **A mosaic gain is named by the likelihood and not by the shipped verdict.** At a third of the
+  cells the thresholds detect 0 of 180 and the likelihood names the over-represented parent on 77,
+  right on 74. That statement is reported beside the row, not in the verdict.
 - **Whole-chromosome sensitivity cannot be scored on the karyotyped GPL3718 single cells.** All 47
   listed monosomies sit under the call-rate floor.
 - **A sex chromosome constitution is reported only on material expected to be diploid**, and only

@@ -76,3 +76,76 @@ the parent on a row only if, on held-out cells, the tilt at T_tilt is wrong on n
 percent of named rows and is named on more builds than the shipped thresholds detect. The
 direction may be reported as a call only if its held-out error is under 5 percent. If either
 fails, that statement stays reported and not deciding, and this file records that it failed.
+
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE HELD-OUT HALF WAS SCORED
+
+Nothing above this line was changed. 840 constructed builds over 19 cells, six chromosomes across
+the size range, every cell in the trio set the hand karyotype covers and whose arrays are present.
+10 cells to tuning, 9 held out, assigned by accession as fixed above. Median cell share spread
+0.0242 on the tuning half against 0.0200 on the held-out half, so the halves are comparable.
+
+THRESHOLDS PICKED ON THE TUNING HALF, BY THE RULES ABOVE
+
+  T_tilt = 0.75   the lowest value at which no tilt was wrong on the tuning half
+  T_dir  = 0.995  the lowest value at which at most 5 percent of named rows had the wrong
+                  direction on the tuning half
+
+APPLIED UNCHANGED TO THE HELD-OUT HALF
+
+  tilt        named 287 of 450   right 283 of 287 (98.6%)   wrong 4 (1.4%)
+  direction   named 121 of 450   right 120 of 121 (99.2%)   wrong 1 (0.8%)
+
+PRIMARY ENDPOINT, held-out tilt by built fraction, against what the shipped thresholds detect
+
+                 tilt named     of those right    shipped detects
+  f = 0.3 gain   37 of 90          35 of 37        0 of 90
+  f = 0.3 loss   40 of 90          39 of 40        0 of 90
+  f = 0.5 gain   60 of 90          59 of 60        2 of 90
+  f = 0.5 loss   65 of 90          65 of 65        0 of 90
+  f = 1.0 gain   85 of 90          85 of 85       55 of 90
+
+At a third of the cells the shipped thresholds detect nothing at all and the likelihood names the
+over-represented parent on 77 of 180 builds, right on 74 of those 77. That is the number this
+split was run to produce.
+
+AGAINST THE TWO BARS FIXED BEFORE THE SPLIT
+
+  the tilt may decide the parent      NOT MET. 1.4 percent wrong against a 1 percent bar.
+  the direction may be read as a call MET.     0.8 percent wrong against a 5 percent bar.
+
+So the direction becomes a call at a posterior of 0.995 and the parent is not taken from the model.
+PAIR_DIRECTION_P in web/src/gainOrigin.ts is that threshold and gainPair.check.ts pins it, because
+the error rate quoted beside every row that clears it was measured at that value and nowhere else.
+
+The tilt failed by 0.4 of a percentage point, on 4 wrong rows out of 287. It is not promoted. The
+bar was fixed in advance precisely so that a near miss could not be argued into a pass, and moving
+it now would make every number above unfalsifiable. The tilt stays reported beside each row.
+
+WHAT THE SPLIT ITSELF SHOWED, which is the reason for doing it this way
+
+The tuning half had zero wrong tilts at 0.75 and the held-out half had four. The threshold the
+tuning half's own rule chose was therefore optimistic, and reading the tuning half alone would
+have reported a perfect tilt. At 0.995, the threshold the direction rule chose, the held-out tilt
+is wrong on 0 of 121. That value was available but was not what the pre-registered tilt rule
+selected, and it is recorded here rather than adopted.
+
+THE REAL PUBLISHED EVENTS, read once, after both halves were reported
+
+The 8 chromosomes the Zuccaro hand karyotypes call a gain or a duplication, at T_tilt = 0.75.
+
+  GSM4472403 chr18  maternal   shipped none      gain-maternal  0.997  tilt maternal  RIGHT
+  GSM4552365 chr16  paternal   shipped none      loss-maternal  0.862  tilt paternal  RIGHT
+  GSM4552382 chr 6  paternal   shipped none      gain-paternal  0.808  tilt paternal  RIGHT
+  GSM4472423 chr16  maternal   shipped none      unexplained    0.282  no tilt named
+  GSM4552380 chr16  maternal   shipped none      gain-maternal  0.438  tilt below 0.75, not named
+  GSM4472403 chr 6  paternal   shipped unscored  the cell is refused, nothing reaches the pair
+  GSM4472422 chr 6  paternal   shipped unscored  the cell is refused
+  GSM4472422 chr15  maternal   shipped unscored  the cell is refused
+
+The shipped thresholds name 0 of the 8. The pair names the tilt on 3 and is right on all 3. Three
+of the five it does not name are cells the stage gate refuses before any chromosome is scored, one
+reads unexplained in a cell whose own share spread is 0.24, and one sits below the threshold. Three
+right out of three is not evidence of a rate; it is recorded because the pre-registration said this
+set would be read once and reported whatever it said.

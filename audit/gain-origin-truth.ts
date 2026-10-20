@@ -220,6 +220,7 @@ function summariseBuilt(built: BuiltRow[]) {
 interface RealRow {
   gsm: string; chrom: string; hand: string; handParent?: string; arm: boolean
   verdict: string; parent?: string; z?: number; shift?: number; lrr?: number; scale?: number; stage: string
+  pairState?: string; pairP?: number; pairTilt?: string; pairTiltP?: number
 }
 interface Loss { gsm: string; chrom: string; hand: string; handParent: string; lost?: string }
 const scaleOf = new Map<string, number>()
@@ -250,7 +251,9 @@ async function realArm(title: string, declared?: string, only?: string[]) {
       if (mono) losses.push({ gsm, chrom: c.chrom, hand, handParent: mono[1] === 'pat' ? 'paternal' : 'maternal', lost: c.lostParent })
       if (isGain) {
         real.push({ gsm, chrom: c.chrom, hand, handParent: parent, arm: /dup|del/i.test(hand) && !/gain|tris/i.test(hand),
-          verdict: g?.verdict ?? 'unscored', parent: g?.parent, z: g?.z, shift: g?.shift, lrr: g?.lrrShift, scale: g?.scale, stage: stageName })
+          verdict: g?.verdict ?? 'unscored', parent: g?.parent, z: g?.z, shift: g?.shift, lrr: g?.lrrShift, scale: g?.scale, stage: stageName,
+          pairState: g?.pair?.state, pairP: g?.pair?.posterior,
+          pairTilt: g?.pair?.tilt ?? undefined, pairTiltP: g?.pair?.tiltPosterior })
       } else if (g && (g.verdict === 'gain' || g.verdict === 'imbalance') && hand === 'normal') {
         unlabelled.push({ gsm, chrom: c.chrom, verdict: g.verdict, parent: g.parent, z: g.z, shift: g.shift, lrr: g.lrrShift })
       }
