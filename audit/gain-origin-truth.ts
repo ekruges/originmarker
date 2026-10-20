@@ -163,13 +163,17 @@ async function scoreWith(gsm: string, father: string, mother: string, build: Bui
 
 interface Chrom {
   chrom: string; aneuploidy?: string; lostParent?: string
-  alleleGain?: { verdict: string; parent?: string; z: number; shift: number; scale: number; lrrShift: number }
+  alleleGain?: {
+    verdict: string; parent?: string; z: number; shift: number; scale: number; lrrShift: number
+    pair?: { state: string; posterior: number; fraction: number }
+  }
 }
 const gainOf = (c: Chrom | undefined) => c?.alleleGain
 
 interface BuiltRow {
   gsm: string; chrom: string; extra: string; verdict: string; parent?: string; scale: number
-  kind?: string; f?: number; z?: number; shift?: number; lrr?: number
+  kind?: string; f?: number; z?: number; shift?: number; lrr?: number; lrrZ?: number
+  pairState?: string; pairP?: number; pairF?: number; pairTilt?: string; pairTiltP?: number
 }
 function summariseBuilt(built: BuiltRow[]) {
   const classes: [string, (s: number) => boolean][] = [
@@ -196,6 +200,19 @@ function summariseBuilt(built: BuiltRow[]) {
     console.log(kind === 'gain'
       ? `  ALL ${all.length} built: gain called ${g.length}, right parent ${g.filter((x) => x.parent === x.extra).length}, WRONG parent ${g.filter((x) => x.parent !== x.extra).length}`
       : `  ALL ${all.length} built: called a GAIN ${g.length} (an error: it must be 0), imbalance ${all.filter((x) => x.verdict === 'imbalance').length}`)
+    // THE PAIR LIKELIHOOD ON THE SAME BUILDS, reported beside the shipped verdict and deciding
+    // nothing. The state it should reach is the one that was built.
+    const want = kind === 'gain' ? 'gain' : 'loss'
+    const scored = all.filter((x) => x.pairState)
+    const right = scored.filter((x) => x.pairState === `${want}-${x.extra}`)
+    const wrongParent = scored.filter((x) => x.pairState?.startsWith(want) && x.pairState !== `${want}-${x.extra}`)
+    const wrongKind = scored.filter((x) => x.pairState && !x.pairState.startsWith(want)
+      && x.pairState !== 'unexplained' && x.pairState !== 'disomy')
+    console.log(`    pair likelihood on the ${scored.length} scored: right state ${right.length}`
+      + `, right kind but wrong parent ${wrongParent.length}, WRONG KIND ${wrongKind.length}`
+      + `, unexplained ${scored.filter((x) => x.pairState === 'unexplained').length}`
+      + `, disomy ${scored.filter((x) => x.pairState === 'disomy').length}`
+      + (right.length ? `, median posterior when right ${right.map((x) => x.pairP ?? 0).sort((a, b) => a - b)[right.length >> 1].toFixed(2)}` : ''))
   }
 }
 
@@ -301,7 +318,9 @@ if (CONSTRUCT) {
           const c = ((res.chroms ?? []) as Chrom[]).find((x) => x.chrom === chrom)
           const g = gainOf(c)
           built.push({ gsm, chrom, extra, kind, f, verdict: g?.verdict ?? 'unscored', parent: g?.parent, scale,
-            z: g?.z, shift: g?.shift, lrr: g?.lrrShift })
+            z: g?.z, shift: g?.shift, lrr: g?.lrrShift, lrrZ: g?.lrrZ,
+            pairState: g?.pair?.state, pairP: g?.pair?.posterior, pairF: g?.pair?.fraction,
+            pairTilt: g?.pair?.tilt ?? undefined, pairTiltP: g?.pair?.tiltPosterior })
           process.stdout.write('+')
         }
       }

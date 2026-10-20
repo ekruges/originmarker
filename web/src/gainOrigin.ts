@@ -612,7 +612,28 @@ export interface AlleleGain {
   lrrShift: number
   /** The intensity against the same reference chromosomes, in units of their own spread. */
   lrrZ?: number
+  /** The pair read as a likelihood, reported beside the verdict. See callPair. */
+  pair?: PairCall
   why: string
+}
+
+/** One clause naming what the pair likelihood makes of the same two numbers, where it disagrees
+ *  with the verdict or adds a cell fraction the thresholds cannot see. Evidence, never a verdict. */
+const pairNote = (p: PairCall | undefined): string => {
+  if (!p || p.state === 'disomy') return ''
+  const what = p.state === 'unexplained'
+    ? 'that this chromosome\'s intensity is not measuring its copy number'
+    : `${p.state.replace('-', ' of the ')} copy`
+      + (p.fraction < 1 ? ` in about ${(p.fraction * 100).toFixed(0)}% of the cells` : '')
+  return `. Weighing the two numbers together as a likelihood prefers ${what}, at ${p.posterior.toFixed(2)} `
+    + `against ${p.runnerUp.replace('-', ' of the ')}`
+    + (p.tilt
+      ? `. The direction of that call rests on intensity, which carries a per-chromosome baseline a `
+        + `single cell cannot measure; the statement that the ${p.tilt} side is the over-represented `
+        + `one rests on the alleles and holds at ${p.tiltPosterior.toFixed(2)}`
+      : '')
+    + `; that model's calling threshold has not been set on held-out data, so it is reported and `
+    + 'does not decide this row'
 }
 
 export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
@@ -652,7 +673,12 @@ export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
     const lrrScale = lrrs.length >= ALLELE_GAIN_MIN_REFERENCE
       ? Math.max(mad(lrrs), ALLELE_GAIN_LRR_SCALE_FLOOR) : NaN
     const lrrZ = (c.lrrShift - lrrCentre) / lrrScale
-    const m = { ...base, shift, z, scale, centre, lrrZ }
+    // THE PAIR, REPORTED BESIDE THE VERDICT AND NOT YET DECIDING IT. The thresholds below are
+    // measured on constructed events; this is a model whose calling threshold has not been set on
+    // a held-out half, so it travels with every row as evidence a reader can weigh and is not
+    // allowed to overturn a verdict on its own. See callPair.
+    const pair = callPair(shift, c.lrrShift, scale, lrrScale) ?? undefined
+    const m = { ...base, shift, z, scale, centre, lrrZ, pair }
     if (Math.abs(z) < ALLELE_GAIN_Z || Math.abs(shift) < ALLELE_GAIN_SHIFT) {
       out.push({ ...m, verdict: 'none',
         why: `the share sits ${shift >= 0 ? '+' : ''}${shift.toFixed(3)} from the cell's own centre, `
@@ -670,7 +696,7 @@ export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
           + `from the cell's own level, ${lrrZ.toFixed(1)} of that cell's own intensity spreads of `
           + `${lrrScale.toFixed(2)}, so the ${over} parent supplied an extra copy. Candidate, not `
           + 'calibrated: a partial loss of the other parent in a fraction of cells cannot be excluded '
-          + 'from the alleles alone' })
+          + `from the alleles alone${pairNote(pair)}` })
     } else {
       const lrr = Number.isFinite(c.lrrShift) ? c.lrrShift : NaN
       out.push({ ...m, verdict: 'imbalance',
@@ -680,12 +706,158 @@ export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
           : lrrZ < 0
           ? `${nums}, but the intensity reads ${lrr.toFixed(2)} log2 from the cell's own level, `
             + `${lrrZ.toFixed(1)} of that cell's own intensity spreads, below it. An extra copy would read `
-            + `above. A partial loss of the ${other} copy fits, and no parent is named`
+            + `above. A partial loss of the ${other} copy fits, and no parent is named${pairNote(pair)}`
           : `${nums}, but the intensity reads ${lrr >= 0 ? '+' : ''}${lrr.toFixed(2)} log2, only `
             + `${lrrZ.toFixed(1)} of that cell's own intensity spreads of ${lrrScale.toFixed(2)}, under the `
             + `${ALLELE_GAIN_LRR_Z} an extra copy must clear. Neither an extra copy nor a loss is `
-            + 'supported, and no parent is named' })
+            + `supported, and no parent is named${pairNote(pair)}` })
     }
   }
   return out
+}
+
+// --- the pair, as a likelihood --------------------------------------------------------------
+
+/**
+ * Which of five states a chromosome is in, from the allele share and the intensity TOGETHER.
+ *
+ * WHY A PAIR AND NOT TWO THRESHOLDS. The share says a parent is over-represented and cannot say
+ * why: an extra copy of one parent and a partial loss of the other move it the same way and by the
+ * same amount. The intensity separates them by its SIGN. Deciding on each number alone throws away
+ * what their RELATIONSHIP carries, and that relationship is the stable part. Measured on 300 gains
+ * and partial losses built into real cells, the ratio of intensity to share shift is
+ *
+ *     gain    +2.04 at a cell fraction of 0.3, +1.96 at 0.5, +2.01 at 1.0
+ *     loss    -0.75 at 0.3, -0.97 at 0.5
+ *
+ * so it barely moves with the fraction, which is what makes it usable when the fraction is unknown.
+ * Both failures of the threshold pair come from ignoring it. A chromosome whose intensity sits a
+ * little above its cell is called an extra copy however small its share shift, until the bar is
+ * raised, and then a real trisomy whose intensity is only moderately raised is refused although its
+ * intensity is exactly what its share predicts.
+ *
+ * THE STATES AND THEIR PREDICTIONS. Writing d for the paternal share shift and l for the intensity
+ * against the cell's own level, at a cell fraction f:
+ *
+ *     disomy                 d = 0                     l = 0
+ *     extra paternal copy    d = +f / (2(2+f))         l = k log2((2+f)/2)
+ *     extra maternal copy    d = -f / (2(2+f))         l = k log2((2+f)/2)
+ *     paternal copy lost     d = -f / (2(2-f))         l = k log2((2-f)/2)
+ *     maternal copy lost     d = +f / (2(2-f))         l = k log2((2-f)/2)
+ *
+ * The share arithmetic is exact: a full extra copy puts the share at two thirds, which is a shift
+ * of one sixth, and that is what a full build measures (0.166 against 0.1667). The intensity
+ * carries a chemistry factor k, because one extra copy of two is log2(3/2) = 0.585 in theory and
+ * reads 0.5547 on one chip of GSE19247 and 0.3420 on another, 95 and 58 percent. k is not known for
+ * an unseen array, so it is marginalised over that measured range rather than assumed.
+ *
+ * AND A SIXTH STATE, WHICH IS WHAT MAKES THE OTHER FIVE SAFE. A chromosome whose intensity matches
+ * nothing its share predicts is not evidence for whichever of the five fits least badly. That case
+ * is real and common: a half loss of one parent on a chromosome whose intensity already read high
+ * leaves the intensity positive but far below what a gain of that share shift requires, and the
+ * five-state model then prefers the gain by default. `unexplained` lets the share move freely and
+ * draws the intensity from the cell's own intensity distribution rather than from any copy number,
+ * which is the hypothesis that this chromosome's intensity is not measuring its copy number. It
+ * wins exactly when no copy-number state fits, and it loses to a state whose prediction the
+ * intensity actually matches. On the two chromosomes that broke the threshold pair, the real
+ * maternal trisomy's intensity sits 0.2 of a spread from what its share predicts for a gain and the
+ * constructed half loss sits 1.1 away, which is the whole of the separation.
+ *
+ * WHICH OF THE TWO STATEMENTS TO TRUST. An extra copy from one parent and a missing copy from the
+ * other are the same tilt and move the share the same way, so only intensity tells them apart. Over
+ * 300 constructed builds the model names the state on 267 and the tilt is right on 262 of those,
+ * including 94 of 98 at a third of the cells, where the shipped thresholds detect nothing at all.
+ * Every one of the 22 calls that named the wrong one of gain and loss was on a chromosome whose own
+ * baseline intensity already sat between +0.18 and +0.49, against a range of -0.05 to +0.10 on every
+ * arm that never erred. A per-chromosome baseline offset of that size is not separable from a real
+ * copy-number change by intensity alone within one cell, and the cell's intensity spread does not
+ * reveal it, which is why a wrong call can carry a posterior of 1.00. The tilt comes from the
+ * alleles and is immune to it, so it is reported as its own number rather than folded into the
+ * state.
+ *
+ * WHAT THIS DOES NOT DO. It is a model, not a measurement of how often the model is right, and the
+ * posterior it returns is therefore not a calibrated probability. It assumes the two numbers are
+ * independent given the state, which they are not exactly. And it cannot see a third copy that
+ * duplicates a homologue already present, which moves neither number the way an extra parental copy
+ * does.
+ */
+export type PairState = 'disomy' | 'gain-paternal' | 'gain-maternal' | 'loss-paternal' | 'loss-maternal'
+  | 'unexplained'
+
+/** The chemistry factor on one copy of intensity, over the range measured across two chips. */
+export const COMPRESSION_GRID = [0.55, 0.7, 0.85, 1.0]
+/** Cell fractions considered. A whole-cell event is 1; below 0.1 nothing here can see anything. */
+export const FRACTION_GRID = [0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+
+/**
+ * Which parent ends up over-represented. An extra copy from one parent and a missing copy from the
+ * other are the same tilt, and they move the allele share the same way: only intensity separates
+ * them. Intensity carries a per-chromosome baseline that a single cell cannot measure, so the tilt
+ * is the more reliable of the two statements and is reported separately.
+ */
+const TILT: Record<PairState, 'paternal' | 'maternal' | null> = {
+  'disomy': null, 'unexplained': null,
+  'gain-paternal': 'paternal', 'loss-maternal': 'paternal',
+  'gain-maternal': 'maternal', 'loss-paternal': 'maternal',
+}
+
+export interface PairCall {
+  state: PairState
+  /** Posterior of the winning state under the model above. NOT calibrated: see the docstring. */
+  posterior: number
+  /** The runner-up, so a reader can see what it was weighed against. */
+  runnerUp: PairState
+  /** Cell fraction of the best fit, and the compression it assumed. */
+  fraction: number
+  compression: number
+  /** The over-represented parent, and the posterior summed over both states that agree on it. */
+  tilt: 'paternal' | 'maternal' | null
+  tiltPosterior: number
+}
+
+const NORMAL_LOG = (x: number, mu: number, sd: number): number => {
+  const z = (x - mu) / sd
+  return -0.5 * z * z - Math.log(sd)
+}
+
+export function callPair(
+  shift: number, lrr: number, shareScale: number, lrrScale: number,
+): PairCall | null {
+  if (![shift, lrr, shareScale, lrrScale].every((x) => Number.isFinite(x))) return null
+  if (shareScale <= 0 || lrrScale <= 0) return null
+  const best = new Map<PairState, { lp: number; f: number; k: number }>()
+  const consider = (s: PairState, d: number, l: number, f: number, k: number) => {
+    const lp = NORMAL_LOG(shift, d, shareScale) + NORMAL_LOG(lrr, l, lrrScale)
+    const cur = best.get(s)
+    if (!cur || lp > cur.lp) best.set(s, { lp, f, k })
+  }
+  consider('disomy', 0, 0, 0, 0)
+  // The share is free here, so it costs nothing to explain, and the intensity is drawn from the
+  // cell's own spread about its own centre rather than from a copy number.
+  consider('unexplained', shift, 0, 0, 0)
+  for (const f of FRACTION_GRID) {
+    const dGain = f / (2 * (2 + f))
+    const dLoss = f / (2 * (2 - f))
+    for (const k of COMPRESSION_GRID) {
+      const lGain = k * Math.log2((2 + f) / 2)
+      const lLoss = k * Math.log2((2 - f) / 2)
+      consider('gain-paternal', +dGain, lGain, f, k)
+      consider('gain-maternal', -dGain, lGain, f, k)
+      consider('loss-paternal', -dLoss, lLoss, f, k)
+      consider('loss-maternal', +dLoss, lLoss, f, k)
+    }
+  }
+  const rows = [...best.entries()]
+  const top = Math.max(...rows.map(([, v]) => v.lp))
+  const w = rows.map(([s, v]) => [s, Math.exp(v.lp - top)] as [PairState, number])
+  const sum = w.reduce((a, [, x]) => a + x, 0)
+  const sorted = w.map(([s, x]) => [s, x / sum] as [PairState, number]).sort((a, b) => b[1] - a[1])
+  const win = best.get(sorted[0][0])!
+  const tilt = TILT[sorted[0][0]]
+  return {
+    state: sorted[0][0], posterior: sorted[0][1], runnerUp: sorted[1][0],
+    fraction: win.f, compression: win.k,
+    tilt,
+    tiltPosterior: tilt ? sorted.reduce((a, [s, p]) => a + (TILT[s] === tilt ? p : 0), 0) : 0,
+  }
 }

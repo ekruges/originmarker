@@ -52,5 +52,75 @@ not move. So the intensity in that cell cannot confirm an extra copy, the old ga
 noise, and the trisomy now leaves as an imbalance carrying both numbers and naming no parent.
 
 That is a loss of information, not only of a false positive: the share names the parent clearly
-and the gate discards it. A likelihood over the pair, which would weigh a decisive share against
-a weak intensity instead of refusing on either alone, is the resolution and is not built.
+and the gate discards it. A likelihood over the pair, which weighs a decisive share against a
+weak intensity instead of refusing on either alone, is the resolution and is below.
+
+
+THE PAIR LIKELIHOOD ON ALL 300 CONSTRUCTED BUILDS
+
+Six states over a grid of cell fraction and chemistry compression, scored on the same builds the
+thresholds were scored on. Reported alongside each row, not deciding it.
+
+                         shipped thresholds              pair likelihood
+  built            detected  right parent     right state  wrong parent  wrong kind  unexplained
+  gain f=0.3  (60)    0 of 60           -              52             1           1            6
+  gain f=0.5  (60)    0 of 60           -              57             1           0            2
+  gain f=1.0  (60)   33 of 60     33 of 33              59             0           0            1
+  loss f=0.3  (60)   0 false gains                      30             1          13           16
+  loss f=0.5  (60)   0 false gains                      44             0           8            8
+
+The gain rows are the point. At a third of the cells the thresholds see nothing at all and the
+likelihood recovers the right state on 52 of 60, median posterior 0.88. At half, 57 of 60. The
+cost is the loss rows: 21 of the 120 partial losses are called a gain, an error the thresholds
+hold at zero.
+
+WHY A POSTERIOR THRESHOLD DOES NOT FIX THE LOSS ROWS
+
+                 gains kept (of 180)   losses called a gain
+  no threshold                   168                     21
+  p >= 0.80                      136                     13
+  p >= 0.95                      104                      7
+  p >= 0.99                       83                      4
+  p >= 0.999                      63                      2
+
+Five of the 22 wrong-direction calls carry a posterior at or above 0.99. The posterior trades
+sensitivity against them; it does not separate them. The reason is not the model.
+
+IT IS THE ARM'S OWN BASELINE INTENSITY, WHICH ONE CELL CANNOT MEASURE
+
+Each arm carries two builds at the same fraction, a gain and a loss, which solve together for the
+baseline intensity B the untouched chromosome already read and for the chip's compression k. The
+recovered k is 0.503, against the 0.55 to 1.0 grid, so the construction is honest about intensity.
+
+  arms that produced a wrong-direction call   B = -0.151 +0.178 +0.280 +0.351 +0.370 +0.400
+                                                  +0.406 +0.488
+  arms that never did              (22 arms)  B median +0.025, range -0.047 to +0.099
+
+The separation is total. A loss offset of k log2(1.7/2) = -0.13 on a chromosome already reading
++0.28 leaves it positive, and the five copy-number states then prefer the gain. The cell's own
+intensity spread does not reveal the offset, which is why such a call can carry a posterior of
+1.00 and why no threshold on that posterior reaches it. Within a single cell a per-chromosome
+intensity baseline is not separable from a real copy-number change by intensity alone.
+
+WHAT IS ROBUST TO IT: THE TILT
+
+An extra copy from one parent and a missing copy from the other are the same tilt and move the
+allele share the same way. A wrong direction therefore flips the named parent too, and the two
+errors cancel.
+
+  pair named a copy-number state on       267 of 300 builds
+  tilt right                              262 of 267
+    at f = 0.3                              94 of 98
+    at f = 0.5                             109 of 110
+    at f = 1.0                              59 of 59
+
+Only 2 of the 22 wrong-direction calls named the right parent, and 20 of those 22 still named the
+right tilt. So the direction is the fragile statement and the tilt is not, because the tilt comes
+from the alleles. callPair reports it separately, as the posterior summed over the two states that
+agree on it, and gainPair.check.ts holds the three-baseline case that demonstrates the cancellation.
+
+STILL OPEN
+
+The calling threshold is not set on held-out data and the likelihood decides nothing. Splitting
+the cells, never the chromosomes, is the next step, with the 16 real published events kept out of
+tuning entirely.

@@ -1,0 +1,78 @@
+PAIR LIKELIHOOD: THE SPLIT AND THE OPERATING POINT, FIXED BEFORE THE RESULTS
+
+This file is written and committed before the held-out half is scored. Everything in it is a
+decision about how to measure, made without knowing what the measurement will say. Anything
+changed after the numbers arrive is recorded as a change, with the reason, below the original.
+
+WHY A SPLIT IS NEEDED
+
+callPair weighs the allele share against the intensity over six states and returns a posterior.
+On 300 constructed builds across 16 cells it recovers mosaic gains the shipped thresholds cannot
+see at all, 52 of 60 at a third of the cells against 0 of 60, and it calls 21 of 120 partial
+losses a gain, an error the thresholds hold at zero. Both numbers come from the same builds that
+motivated the model, so neither is evidence about an unseen cell. Until a threshold is set on data
+the model has not been tuned on, the pair is reported beside each row and decides nothing.
+
+THE SPLIT
+
+By cell, never by chromosome. Chromosomes in one cell share that cell's amplification, its marker
+dropout and its intensity baseline spread, so a chromosome-level split leaks the thing that drives
+the errors. Cells are sorted by GSM accession and assigned by position: even to tuning, odd to
+held-out. No randomisation, no reshuffling, no reassignment after seeing a result.
+
+The real hand-called events are not constructed builds and are not in either half. They are read
+once, at the end, after both halves are reported, and they are never used to pick a threshold.
+
+A build enters neither half if the untouched cell already carries an event on that chromosome, if
+the hand karyotype lists one there, or if the arm cannot be scored at all. That rule is already in
+the harness and is not changed here.
+
+THE TWO STATEMENTS, SCORED SEPARATELY
+
+The tilt is which parent ends up over-represented. The direction is whether that came from an
+extra copy or a missing one. An extra copy from one parent and a missing copy from the other are
+the same tilt and move the allele share the same way, so the share alone fixes the tilt and only
+the intensity separates the direction. The intensity carries a per-chromosome baseline that one
+cell cannot measure. The two are therefore not one call and are not scored as one.
+
+  TILT      correct when the named over-represented parent matches the build
+  DIRECTION correct when gain versus loss matches the build
+
+A row counts as named when callPair returns a copy-number state. `disomy` and `unexplained` are
+refusals and count as not named, never as errors.
+
+THE RULES FOR PICKING THE TWO THRESHOLDS
+
+Both are chosen on the tuning half alone, by these rules, and then applied unchanged to the
+held-out half.
+
+  T_tilt   the lowest tilt posterior at which no tilt is wrong on the tuning half.
+           If no such value exists, the lowest at which at most 1 percent are wrong.
+  T_dir    the lowest state posterior at which at most 5 percent of named rows have the wrong
+           direction on the tuning half. Zero is not required because it is not reachable: a
+           wrong direction can carry a posterior of 1.00 when the arm's own baseline intensity
+           is offset, and that offset is not visible within one cell.
+
+Ties go to the higher threshold, which is the more conservative of two equal choices.
+
+THE PRIMARY ENDPOINT
+
+Tilt detection on held-out cells at a third of the cells: the share of builds at f = 0.3 whose
+tilt is both named at T_tilt and correct. The shipped thresholds detect nothing at that fraction,
+so this is the number that says whether the likelihood adds anything on cells it was not tuned on.
+
+SECONDARY, ALL ON HELD-OUT CELLS
+
+  tilt detection and tilt error at f = 0.5 and f = 1.0
+  direction detection and direction error at T_dir, by fraction and by gain against loss
+  the full curve of both, so the operating point can be read against what was available
+  whether the tuning and held-out halves differ in their cells' own share and intensity spreads,
+    which would mean the split is not comparing like with like
+
+WHAT WOULD MAKE THE PAIR DECIDE A ROW RATHER THAN BE REPORTED BESIDE IT
+
+Stated now so it is not decided by whatever the numbers turn out to be. The pair may take over
+the parent on a row only if, on held-out cells, the tilt at T_tilt is wrong on no more than 1
+percent of named rows and is named on more builds than the shipped thresholds detect. The
+direction may be reported as a call only if its held-out error is under 5 percent. If either
+fails, that statement stays reported and not deciding, and this file records that it failed.
