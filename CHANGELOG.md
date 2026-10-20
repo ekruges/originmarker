@@ -9,6 +9,29 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.37.1 "Equational"
+
+**Three figures describing the allele gain scan were left behind by 5.36.0 and are remeasured.**
+When 5.36.0 replaced the absolute +0.15 log2 intensity floor with two of the cell's own intensity
+spreads, the constructed-gain table in the validation record and the summary in the application
+were not rerun. Both still quoted 49 whole extra copies detected in 60 on clean cells, measured on
+94 builds over three chromosomes under the floor that no longer exists. Under the gate that ships,
+over 168 builds across six chromosomes and 19 cells, a clean cell detects one 93 times in 128 and a
+noisy cell twice in 40, with the right parent 95 times in 95 and the wrong one never. The old
+figure overstated clean-cell sensitivity by nine points, and the record now says so rather than
+quietly replacing it.
+
+The same two places described the intensity gate itself as an absolute +0.15 log2, which it has
+not been since 5.36.0, and described the constructed intensity as a flat +0.3 offset, which it has
+never been: a build moves the intensity by what the copy costs, 0.513 log2((2 + f)/2) for a gain
+and the sign reversed for a loss. Solving each arm back out of its two builds at one fraction
+recovers 0.503, which is that constant rather than a free one.
+
+No behaviour changes. Every number here was already being computed correctly; the prose describing
+it was not.
+
+---
+
 ## 5.37.0 "Equational"
 
 **The pair of numbers behind every gain call is now read as a likelihood over six states, and a

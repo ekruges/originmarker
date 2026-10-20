@@ -1380,11 +1380,12 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           </Text>
           <Alert color="orange" p="xs">
             <Text size="xs">
-              <b>A candidate with its numbers, never a certainty.</b> Gains built into 18 real
-              two-parent cells, one chromosome and one parent at a time, were named with the right
-              parent 50 times in 50 and the wrong one never. A clean cell detected a whole-chromosome
-              extra copy 49 times in 60, a noisy one once in 22 and a chaotic one never, since a wide
-              scale is supposed to refuse. On real events the picture is thinner: the hand karyotype
+              <b>A candidate with its numbers, never a certainty.</b> Whole extra copies built into
+              19 real two-parent cells, one chromosome and one parent at a time, were named with the
+              right parent 95 times in 95 and the wrong one never. A clean cell detected one 93
+              times in 128 and a noisy cell twice in 40, since a wide scale is supposed to refuse,
+              and cells wider than 0.10 are not built into at all. On real events the picture is
+              thinner: the hand karyotype
               of Zuccaro 2020 lists eight gains with a named parent on those cells, and the tool as
               shipped calls none of them, because two sit on a cell the stage inference refuses and
               the rest are arm-sized or in cells too chaotic to scale. With the stage declared the

@@ -162,8 +162,9 @@ with and without her children.
 With both parents loaded, the paternal allele share at the markers where the parents are opposite
 homozygotes is one half in a euploid cell, rises toward two thirds with an extra paternal copy and
 falls toward one third with an extra maternal one. Each chromosome's median share is judged against
-the other biparental chromosomes of the same cell, with intensity of at least +0.15 log2 as a gate,
-because a partial loss of the other parent shifts the share the same way. Two arms, since neither
+the other biparental chromosomes of the same cell, with the intensity gate set at two of that
+cell's own intensity spreads above its own level, because a partial loss of the other parent shifts
+the share the same way. Two arms, since neither
 can carry the claim alone (`audit/gain-origin-truth.ts`).
 
 Real events. Zuccaro 2020 Table S3 lists eight gains or duplications with a named parent on the 31
@@ -182,18 +183,25 @@ blastomeres of one embryo read maternal over-representation on chromosome 16, an
 hand-called maternal trisomy 15 reads maternal over-representation on chromosome 15 while its own
 hand call says normal.
 
-Constructed gains. One chromosome and one parent at a time, the named parent's allele doubled and the
-intensity raised by 0.3 in a real two-parent cell, built only into chromosomes that read euploid on
-the untouched cell. The pipeline that ships is run on the result:
+Constructed gains. One chromosome and one parent at a time in a real two-parent cell, built only
+into chromosomes that read euploid on the untouched cell. The named parent's allele is scaled by the
+copy it gains and the intensity is moved by what that copy costs, 0.513 log2((2 + f)/2) for a gain
+and the same for a loss with the sign reversed, rather than by a flat offset. Solving each arm back
+out of the two builds at one fraction recovers 0.503, which is that constant and not a free one. The pipeline that ships is run on the result:
 
 | cell's own scale | built | gain called | right parent | wrong parent |
 |---|---|---|---|---|
-| clean, under 0.03 (12 cells) | 60 | 49 | 49 | 0 |
-| noisy, 0.03 to 0.10 (4 cells) | 22 | 1 | 1 | 0 |
-| chaotic, over 0.10 (2 cells) | 12 | 0 | 0 | 0 |
+| clean, under 0.03 (15 cells) | 128 | 93 | 93 | 0 |
+| noisy, 0.03 to 0.10 (4 cells) | 40 | 2 | 2 | 0 |
+| chaotic, over 0.10 | not built into: a cell that wide detects nothing by construction | | | |
 
-The intensity floor was fixed after seeing the real cells, on the compression measured for one extra
-copy on two chemistries, so the real arm is not independent evidence for that one constant. It does
+Measured under the gate 5.37.0 ships, over six chromosomes spread across the size range. Through
+5.36.0 this table read 49 of 60 on clean cells, from 94 builds over three chromosomes scored under
+the absolute intensity floor that 5.36.0 replaced; the figure was not remeasured at the time and
+overstated clean-cell sensitivity by nine points.
+
+The intensity gate was set after seeing the real cells, on the compression measured for one extra
+copy on two chemistries, so the real arm is not independent evidence for it. It does
 not model a three-copy chromosome whose third copy is a duplicate of one homologue, or an isodisomic
 triplication, which reads as a loss at these markers.
 

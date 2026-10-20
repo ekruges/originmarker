@@ -168,7 +168,7 @@ RELEASES: tuple[Release, ...] = (
             "what the alleles say and not by how much material is there."),
 )
 
-VERSION = "5.37.0"
+VERSION = "5.37.1"
 CODENAME = "Equational"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
