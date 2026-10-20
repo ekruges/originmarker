@@ -1386,10 +1386,14 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
               a full extra copy only: gains built into real cells at a cell fraction of 0.3 and 0.5
               were detected 0 times in 120, because dropout has already spread these markers toward
               0 and 1 and a half-strength shift does not move their median. Partial losses built the
-              same way were reported as an imbalance, which names nobody, 34 times in 60, and as an
-              extra copy of the other parent 3 times, which is the error the intensity gate exists
-              to prevent, on chromosomes that already read high before anything was built into
-              them.
+              same way are reported as an imbalance, which names nobody, 37 times in 60, and as an
+              extra copy of the other parent <b>0</b> times. That last number was 3 while the
+              intensity bar was an absolute +0.15 log2, which is several spreads in a clean cell and
+              under one in a noisy one; it is now two of the cell&rsquo;s own intensity spreads. The
+              change costs sensitivity honestly: full constructed gains detected fall from 37 in 60
+              to 33, and one of the two real hand-called gains the tool could name now leaves as an
+              imbalance, because its cell&rsquo;s intensity cannot separate a real extra copy from
+              three untouched chromosomes reading almost as high.
             </Text>
           </Alert>
         </Section>

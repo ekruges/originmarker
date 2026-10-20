@@ -557,21 +557,32 @@ export const ALLELE_GAIN_MIN_REFERENCE = 6
 /** Floor on the cell's own scale. The cleanest cells measure 0.005 and would otherwise read a
  *  shift of 0.03 as six sigma. */
 export const ALLELE_GAIN_SCALE_FLOOR = 0.02
+/** The same floor for the intensity spread. The cleanest cell measured here is 0.042, so this binds
+ *  on nothing observed and exists so a cell with an implausibly tight intensity cannot manufacture a
+ *  large z from a small shift. */
+export const ALLELE_GAIN_LRR_SCALE_FLOOR = 0.04
 /**
- * Intensity relative to the cell's own level that an extra copy has to reach.
+ * How far above the cell's own intensity level an extra copy must read, in units of that cell's own
+ * intensity spread.
  *
- * One extra copy of two is log2(3/2) = +0.585. Compression is a property of the chemistry: +0.5547
- * on one chip of GSE19247 and +0.3420 on the other, which is 58 percent of theoretical, so the
- * weakest measured expectation is +0.34. Half of that, rounded down, is the floor: a shift in the
- * allele share with the intensity under it is not an extra copy that any chemistry measured here
- * would read. THIS CONSTANT WAS FIXED AFTER SEEING THE REAL CELLS, which showed 13 chromosomes
- * called gains whose intensity sat at +0.02 to +0.13, four of them the same chromosome in cells of
- * one mother whose own array is over the diploid ceiling. The justification is the compression
- * measurement above and not those cells, but the real-event arm of audit/gain-origin-truth.ts is
- * therefore not independent evidence for it. The constructed arm raises the intensity by +0.3 and
- * is not affected.
+ * AN ABSOLUTE FLOOR WAS WRONG AND THE REASON IS MEASURED. The rule this replaces required +0.15
+ * log2 whatever the cell. But a chromosome's log2R is far noisier than its allele share: over the
+ * 30 scorable GSE148488 cells the median absolute deviation of chromosome intensity WITHIN one
+ * cell runs 0.042 to 0.246, median 0.092, which is 4.9 times the same cell's share spread. A fixed
+ * floor is therefore several spreads in a clean cell and under one spread in a noisy one. Both
+ * cells that produced a false gain on a constructed partial loss sit at the noisy end, 0.146 and
+ * 0.093, and their chromosome 3 already read +0.29 and +0.46 before anything was built into it, so
+ * removing half a copy still left it over +0.15 and it was reported as an extra copy of the other
+ * parent (audit/gain-origin-mosaic.txt).
+ *
+ * SO THE BAR IS THE CELL'S OWN SPREAD, strict where the intensity is unreliable and sensitive where
+ * it is not. Two spreads is the conventional one-sided bar and is NOT fitted to the test that found
+ * the defect: in the median cell it is +0.18, close to the floor it replaces, while in the noisiest
+ * it is +0.29 and in the cleanest +0.08. It sits between the two expectations it has to separate,
+ * a full extra copy at +0.30 absolute, which is 3.3 spreads in a median cell, and a half loss at
+ * -0.21, which is -2.3.
  */
-export const ALLELE_GAIN_LRR_MIN = 0.15
+export const ALLELE_GAIN_LRR_Z = 2
 
 export interface ChromShare {
   chrom: string
@@ -599,6 +610,8 @@ export interface AlleleGain {
   centre: number
   informative: number
   lrrShift: number
+  /** The intensity against the same reference chromosomes, in units of their own spread. */
+  lrrZ?: number
   why: string
 }
 
@@ -632,7 +645,14 @@ export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
     const scale = Math.max(mad(shares), ALLELE_GAIN_SCALE_FLOOR)
     const shift = c.share - centre
     const z = shift / scale
-    const m = { ...base, shift, z, scale, centre }
+    // THE INTENSITY ON THE SAME TERMS AS THE SHARE: this chromosome against the same reference
+    // chromosomes of the same cell, in units of their own spread. See ALLELE_GAIN_LRR_Z.
+    const lrrs = ref.map((o) => o.lrrShift).filter((x) => Number.isFinite(x))
+    const lrrCentre = lrrs.length >= ALLELE_GAIN_MIN_REFERENCE ? medianOf(lrrs) : NaN
+    const lrrScale = lrrs.length >= ALLELE_GAIN_MIN_REFERENCE
+      ? Math.max(mad(lrrs), ALLELE_GAIN_LRR_SCALE_FLOOR) : NaN
+    const lrrZ = (c.lrrShift - lrrCentre) / lrrScale
+    const m = { ...base, shift, z, scale, centre, lrrZ }
     if (Math.abs(z) < ALLELE_GAIN_Z || Math.abs(shift) < ALLELE_GAIN_SHIFT) {
       out.push({ ...m, verdict: 'none',
         why: `the share sits ${shift >= 0 ? '+' : ''}${shift.toFixed(3)} from the cell's own centre, `
@@ -644,23 +664,27 @@ export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
     const nums = `${over} alleles are over-represented by ${Math.abs(shift).toFixed(3)} against the `
       + `${ref.length} other chromosomes of this cell (centre ${centre.toFixed(3)}, ${Math.abs(z).toFixed(1)} `
       + `of their own spreads of ${scale.toFixed(3)})`
-    if (Number.isFinite(c.lrrShift) && c.lrrShift >= ALLELE_GAIN_LRR_MIN) {
+    if (Number.isFinite(lrrZ) && lrrZ >= ALLELE_GAIN_LRR_Z) {
       out.push({ ...m, verdict: 'gain', parent: over,
-        why: `${nums}, and the intensity reads +${c.lrrShift.toFixed(2)} log2 from the `
-          + `cell's own level, so the ${over} parent supplied an extra copy. Candidate, not calibrated: `
-          + 'a partial loss of the other parent in a fraction of cells cannot be excluded from the alleles alone' })
+        why: `${nums}, and the intensity reads ${c.lrrShift >= 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 `
+          + `from the cell's own level, ${lrrZ.toFixed(1)} of that cell's own intensity spreads of `
+          + `${lrrScale.toFixed(2)}, so the ${over} parent supplied an extra copy. Candidate, not `
+          + 'calibrated: a partial loss of the other parent in a fraction of cells cannot be excluded '
+          + 'from the alleles alone' })
     } else {
       const lrr = Number.isFinite(c.lrrShift) ? c.lrrShift : NaN
       out.push({ ...m, verdict: 'imbalance',
-        why: !Number.isFinite(lrr)
-          ? `${nums}, but this file carries no intensity, so an extra copy cannot be told from a partial `
-            + `loss of the ${other} copy and no parent is named`
-          : lrr < 0
-          ? `${nums}, but the intensity reads ${lrr.toFixed(2)} log2 from the cell's own level, below it. `
-            + `An extra copy would read above. A partial loss of the ${other} copy fits, and no parent is named`
-          : `${nums}, but the intensity reads ${Number.isFinite(lrr) ? `+${lrr.toFixed(2)}` : 'nothing'} log2 from the `
-            + `cell's own level, under the +${ALLELE_GAIN_LRR_MIN.toFixed(2)} an extra copy reads on the weakest `
-            + 'chemistry measured. Neither an extra copy nor a loss is supported, and no parent is named' })
+        why: !Number.isFinite(lrr) || !Number.isFinite(lrrZ)
+          ? `${nums}, but this file carries no usable intensity, so an extra copy cannot be told from a `
+            + `partial loss of the ${other} copy and no parent is named`
+          : lrrZ < 0
+          ? `${nums}, but the intensity reads ${lrr.toFixed(2)} log2 from the cell's own level, `
+            + `${lrrZ.toFixed(1)} of that cell's own intensity spreads, below it. An extra copy would read `
+            + `above. A partial loss of the ${other} copy fits, and no parent is named`
+          : `${nums}, but the intensity reads ${lrr >= 0 ? '+' : ''}${lrr.toFixed(2)} log2, only `
+            + `${lrrZ.toFixed(1)} of that cell's own intensity spreads of ${lrrScale.toFixed(2)}, under the `
+            + `${ALLELE_GAIN_LRR_Z} an extra copy must clear. Neither an extra copy nor a loss is `
+            + 'supported, and no parent is named' })
     }
   }
   return out

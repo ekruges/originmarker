@@ -9,6 +9,45 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.36.0 "Mosaic"
+
+**The intensity gate on the allele gain scan is now the cell's own intensity spread, not an
+absolute number, and that removes a class of false call at a stated cost.** 5.35.2 recorded that 3
+of 60 constructed partial losses were reported as an extra copy of the other parent, which is the
+error the gate exists to prevent. The cause was measured: within one cell the median absolute
+deviation of chromosome intensity runs 0.042 to 0.246 over the 30 scorable cells, median 0.092,
+which is 4.9 times the same cell's share spread, so a fixed +0.15 floor is several spreads in a
+clean cell and under one in a noisy one. Both cells that failed sit at the noisy end and their
+chromosome 3 already read +0.29 and +0.46 before anything was built into it.
+
+The bar is now two of the cell's own intensity spreads, measured against the same reference
+chromosomes the share is measured against. Two is the conventional one-sided bar and is not fitted
+to the test that found the defect: in the median cell it works out at +0.18, close to the floor it
+replaces, while in the noisiest it is +0.29 and in the cleanest +0.08. The same 300 builds:
+
+| | absolute +0.15 | two of the cell's own spreads |
+|---|---|---|
+| partial losses at half called a gain | 3 of 60 | **0 of 60** |
+| full gains detected | 37 of 60 | 33 of 60 |
+| of those, right parent | 37 | 33 |
+| real hand-called gains named | 2 of 8 | 1 of 8 |
+
+**The real event it costs is reported rather than regretted.** The maternal trisomy 15 of
+GSM4472422 now leaves as an imbalance. Its share says maternal at 6.8 of that cell's own spreads
+and is not in doubt; its intensity reads +0.32 and cleared the old floor. But that cell's 19
+hand-normal chromosomes run -0.18 to +0.22, so +0.32 is 1.8 of its own spreads and three untouched
+chromosomes sit at +0.18 to +0.22. Under the old floor those three would have passed the intensity
+test as readily, and were not called only because their share did not move. The old gate had that
+trisomy right by luck.
+
+Discarding a parent the share named clearly is the cost of deciding on either number alone. A
+likelihood over the pair, which would weigh a decisive share against a weak intensity, is the
+resolution and is not built. The measurement that motivates it is in `audit/gain-origin-mosaic.txt`:
+a gain moves the intensity about twice its share shift and a loss about once, downward, and that
+ratio holds at every mosaic fraction.
+
+---
+
 ## 5.35.2 "Trisomy"
 
 **Two measured limits of the allele gain scan, one of them a failure of its own gate.** Gains and

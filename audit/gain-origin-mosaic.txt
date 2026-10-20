@@ -2,8 +2,8 @@ MOSAIC GAINS AND PARTIAL LOSSES, BUILT INTO REAL TWO-PARENT CELLS
 
 Each is one chromosome of one real cell, with the named parent's allele intensity scaled by
 1 + f for a gain and 1 - f for a loss at a cell fraction f, and the intensity moved by
-0.513 x log2((2 +- f) / 2). The rest of the cell is untouched. The shipped pipeline is run on
-the result. 16 cells, 300 builds.
+0.513 x log2((2 +- f) / 2). The rest of the cell is untouched, and a chromosome is built into
+only where the hand karyotype says normal and the untouched scan calls nothing. 16 cells.
 
 
 CONSTRUCTED GAINS, in 30% of cells: one chromosome, one parent, built into a real two-parent cell
@@ -17,9 +17,9 @@ CONSTRUCTED GAINS, in 50% of cells: one chromosome, one parent, built into a rea
   ALL 60 built: gain called 0, right parent 0, WRONG parent 0
 
 CONSTRUCTED GAINS, in 100% of cells: one chromosome, one parent, built into a real two-parent cell
-  clean cells, own scale under 0.03              44 built: gain called   36 (82%), right parent 36 of 36, imbalance 0, none 8, unscored 0
+  clean cells, own scale under 0.03              44 built: gain called   32 (73%), right parent 32 of 32, imbalance 4, none 8, unscored 0
   noisy cells, own scale 0.03 to 0.10            16 built: gain called    1 (6%), right parent 1 of 1, imbalance 0, none 15, unscored 0
-  ALL 60 built: gain called 37, right parent 37, WRONG parent 0
+  ALL 60 built: gain called 33, right parent 33, WRONG parent 0
 
 CONSTRUCTED PARTIAL LOSSES, in 30% of cells: one chromosome, one parent, built into a real two-parent cell
   clean cells, own scale under 0.03              44 built: gain called    0 (0%), imbalance 0, none 44, unscored 0
@@ -27,32 +27,30 @@ CONSTRUCTED PARTIAL LOSSES, in 30% of cells: one chromosome, one parent, built i
   ALL 60 built: called a GAIN 0 (an error: it must be 0), imbalance 0
 
 CONSTRUCTED PARTIAL LOSSES, in 50% of cells: one chromosome, one parent, built into a real two-parent cell
-  clean cells, own scale under 0.03              44 built: gain called    3 (7%), imbalance 33, none 8, unscored 0
+  clean cells, own scale under 0.03              44 built: gain called    0 (0%), imbalance 36, none 8, unscored 0
   noisy cells, own scale 0.03 to 0.10            16 built: gain called    0 (0%), imbalance 1, none 15, unscored 0
-  ALL 60 built: called a GAIN 3 (an error: it must be 0), imbalance 34
+  ALL 60 built: called a GAIN 0 (an error: it must be 0), imbalance 37
 
-WHAT THIS SHOWS, AND IT IS NOT ALL GOOD
+BEFORE AND AFTER THE INTENSITY GATE BECAME THE CELL'S OWN SPREAD (5.36.0)
 
-1. A MOSAIC GAIN IS NOT DETECTED AT ALL. At a cell fraction of 0.5 the share should move by
-   +0.10, and the measured median movement is +0.012. The reason is dropout: at these markers
-   an amplified cell's readings are already spread toward 0 and 1, and scaling one allele by
-   1.5 barely moves a marker already reading 0.95. A full extra copy, which scales by 2, does
-   move it. So this channel reads a gain present in every cell and says nothing about one
-   present in half of them, which is the commoner finding in an embryo biopsy.
+                                        absolute +0.15   two of the cell's own spreads
+  partial losses at half called a gain         3 of 60                        0 of 60
+  full gains detected                         37 of 60                       33 of 60
+  of those, right parent                            37                             33
+  mosaic gains at 0.3 and 0.5 detected         0 of 120                       0 of 120
+  real hand-called gains named                  2 of 8                         1 of 8
 
-2. THE INTENSITY GATE FAILS ON 3 OF 60 PARTIAL LOSSES AT HALF, and that is the error the gate
-   exists to prevent. All three are chromosome 3 of two cells whose untouched chromosome 3
-   already reads high: after a 50 percent loss removes 0.21 log2 the intensity still sits at
-   +0.16 and +0.28, over the +0.15 floor, so a partial loss of one parent is reported as an
-   extra copy of the other. 8 of the 60 stay over the floor and 3 of those also clear the
-   share bar. The floor is absolute and the per-chromosome intensity of an amplified cell is
-   not, which is the whole of the mechanism.
+THE REAL EVENT THAT WAS LOST, AND WHY THE OLD GATE HAD IT RIGHT BY LUCK.
 
-   The construction is harsher than the biology in one way and softer in another. A real
-   partial loss also lowers the heterozygous fraction at these markers, which would often take
-   the chromosome out of the biparental class before this scan sees it, and the construction
-   does not model that. It also leaves the genotype calls alone. So 3 in 60 is an upper bound
-   on a cell whose intensity is otherwise undisturbed, not a rate for real mosaic embryos.
+GSM4472422 carries a hand-called maternal trisomy 15. Its share says maternal at 6.8 of that
+cell's own share spreads, which is not in doubt. Its intensity reads +0.32 log2, which cleared
+the old absolute floor. But that cell's per-chromosome intensity is wide: its 19 hand-normal
+chromosomes run -0.18 to +0.22, so +0.32 is 1.8 of its own spreads and chromosomes 17, 19 and
+22 sit at +0.18 to +0.22 with nothing wrong with them. Under the old floor those three would
+have passed the intensity test as readily; they were not called only because their share did
+not move. So the intensity in that cell cannot confirm an extra copy, the old gate was passing
+noise, and the trisomy now leaves as an imbalance carrying both numbers and naming no parent.
 
-   34 of the 60 were reported as an imbalance, which names no parent and is the intended
-   outcome. 23 were not called at all.
+That is a loss of information, not only of a false positive: the share names the parent clearly
+and the gate discards it. A likelihood over the pair, which would weigh a decisive share against
+a weak intensity instead of refusing on either alone, is the resolution and is not built.

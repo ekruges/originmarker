@@ -207,13 +207,34 @@ reassurance:
 | partial losses in 30% of cells | 0 of 60 called a gain, which is right |
 | partial losses in 50% of cells | **3 of 60 called a gain**, each the other parent's. 34 were reported as an imbalance, which names nobody and is the intended outcome |
 
-The three are chromosome 3 of two cells whose untouched chromosome 3 already reads high: a 50
-percent loss removes 0.21 log2 and leaves it at +0.16 and +0.28, over the +0.15 floor. The floor is
-absolute and the per-chromosome intensity of an amplified cell is not. The construction is harsher
-than the biology in one way, since a real partial loss also removes the heterozygosity these markers
-are selected on and would often leave the biparental class first, and softer in another, since it
-leaves the genotype calls alone. So 3 in 60 is an upper bound on an otherwise undisturbed cell, not
-a rate for real mosaic embryos.
+The three were chromosome 3 of two cells whose untouched chromosome 3 already read high: a 50
+percent loss removes 0.21 log2 and left it at +0.16 and +0.28, over the +0.15 floor that was then
+shipped. The floor was absolute and the per-chromosome intensity of an amplified cell is not: within
+one cell the median absolute deviation of chromosome intensity runs 0.042 to 0.246 across the 30
+scorable cells, median 0.092, which is 4.9 times the same cell's share spread. 5.36.0 replaced the
+floor with two of the cell's own intensity spreads, and the same 300 builds then give:
+
+| | absolute +0.15 | two of the cell's own spreads |
+|---|---|---|
+| partial losses at half called a gain | 3 of 60 | **0 of 60** |
+| full gains detected | 37 of 60 | 33 of 60 |
+| of those, right parent | 37 | 33 |
+| mosaic gains at 0.3 and 0.5 | 0 of 120 | 0 of 120 |
+| real hand-called gains named | 2 of 8 | 1 of 8 |
+
+The real event it costs is the maternal trisomy 15 of GSM4472422, and the reason is worth stating
+rather than regretting. Its share says maternal at 6.8 of that cell's own spreads, which is not in
+doubt, and its intensity reads +0.32, which cleared the old floor. But that cell's 19 hand-normal
+chromosomes run -0.18 to +0.22, so +0.32 is 1.8 of its own spreads and three untouched chromosomes
+sit at +0.18 to +0.22. Under the old floor those three would have passed the intensity test as
+readily and were not called only because their share did not move. The intensity in that cell cannot
+confirm an extra copy, so the trisomy now leaves as an imbalance carrying both numbers and naming no
+parent. That discards a parent the share named clearly, which is the cost of deciding on either
+number alone; a likelihood over the pair is the resolution and is not built.
+
+The construction is harsher than the biology in one way, since a real partial loss also removes the
+heterozygosity these markers are selected on and would often leave the biparental class first, and
+softer in another, since it leaves the genotype calls alone.
 
 ### The same statistic on a second platform and a second laboratory
 

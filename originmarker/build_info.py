@@ -159,10 +159,13 @@ RELEASES: tuple[Release, ...] = (
             "Three copies of a chromosome where there should be two. Which parent supplied the "
             "third is what the alleles say, and whether there is a third at all is what only the "
             "intensity can confirm."),
+    Release("Mosaic",
+            "A change carried by some cells of an embryo and not others, which moves every "
+            "measurement part of the way and is the hardest thing on an array to be sure of."),
 )
 
-VERSION = "5.35.2"
-CODENAME = "Trisomy"
+VERSION = "5.36.0"
+CODENAME = "Mosaic"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
