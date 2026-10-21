@@ -139,6 +139,13 @@ export interface Segment {
   score: number
   /** The rate this was scored against, and where it came from. */
   nullRate: number
+  /** Which parent the change inside this window fell on, where the alleles reach it. Present only
+   *  on a segment with both parents loaded and enough informative markers inside the window. */
+  alleleGain?: import('./gainOrigin.ts').AlleleGain
+  /** On a 'parental-absence' segment, whose allele is the one missing. The scan is run once per
+   *  parent against that parent's own homozygous markers, so this is which run produced it, not an
+   *  inference. Absent where only one parent is loaded: it is then the loaded parent by definition. */
+  absentParent?: 'paternal' | 'maternal'
 }
 
 /**

@@ -585,7 +585,11 @@ export const ALLELE_GAIN_LRR_SCALE_FLOOR = 0.04
 export const ALLELE_GAIN_LRR_Z = 2
 
 export interface ChromShare {
+  /** The chromosome this sits on. Two entries sharing it are the same DNA and never serve as each
+   *  other's reference, which is what keeps a segment from being judged against its own chromosome. */
   chrom: string
+  /** How to name it in the output, where that is not just the chromosome: a segment says so. */
+  label?: string
   /** Median paternal share over this chromosome's informative markers. */
   share: number
   informative: number
@@ -641,11 +645,21 @@ const pairNote = (p: PairCall | undefined): string => {
     + 'on 4 of the 287 rows it named, against the 1 percent bar fixed before that split'
 }
 
-export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
+/**
+ * `refPool` supplies the cell's own null when the entries being scored are not themselves whole
+ * chromosomes. A segment is judged against the same biparental whole chromosomes a chromosome is
+ * judged against, so the two are measured on one scale, and segments never enter that pool: a
+ * region's own chromosome and its neighbouring regions are the DNA in question, not a reference
+ * for it.
+ */
+export function scanAlleleGains(
+  chroms: readonly ChromShare[], refPool?: readonly ChromShare[],
+): AlleleGain[] {
+  const pool = refPool ?? chroms
   const out: AlleleGain[] = []
   for (const c of chroms) {
     const base = {
-      chrom: c.chrom, shift: NaN, z: NaN, scale: NaN, centre: NaN,
+      chrom: c.label ?? c.chrom, shift: NaN, z: NaN, scale: NaN, centre: NaN,
       informative: c.informative, lrrShift: c.lrrShift,
     }
     if (c.informative < ALLELE_GAIN_MIN_INFORMATIVE || !Number.isFinite(c.share)) {
@@ -658,7 +672,7 @@ export function scanAlleleGains(chroms: readonly ChromShare[]): AlleleGain[] {
         why: 'this chromosome does not read both parents, so it is a loss question and not a gain one' })
       continue
     }
-    const ref = chroms.filter((o) => o.chrom !== c.chrom && o.biparental
+    const ref = pool.filter((o) => o.chrom !== c.chrom && o.biparental
       && o.informative >= ALLELE_GAIN_MIN_INFORMATIVE && Number.isFinite(o.share))
     if (ref.length < ALLELE_GAIN_MIN_REFERENCE) {
       out.push({ ...base, verdict: 'unscored',

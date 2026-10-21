@@ -27,6 +27,7 @@ import {
 } from './segments.ts'
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground, scanAlleleGains,
+  type ChromShare,
   MIN_INFORMATIVE_DEFAULT, type DosageMarker, callLossOrigin,
 } from './gainOrigin.ts'
 import {
@@ -159,6 +160,8 @@ export interface Collected {
   hetByChrom: Map<string, { informative: number; het: number }>
   selfMarkers: { chrom: string; pos: number; het: boolean }[]
   obligateByChrom: Map<string, HetTally>
+  matAbsenceByChrom: Map<string, MarkerAbsence[]>
+  matAbsenceTally: Map<string, [number, number]>
   absenceByChrom: Map<string, MarkerAbsence[]>
   cnByChrom: Map<string, { chrom: string; pos: number; called: boolean; log2R: number | null }[]>
   myGt: Map<string, string>
@@ -196,6 +199,8 @@ export function emptyCollected(pat: ParentIndex, mat?: ParentIndex | null): Coll
     // homozygous and OPPOSITE, where a biparental cell must read heterozygous. With one parent
     // `hetByChrom` is already the same tally in its one-parent form.
     obligateByChrom: new Map(),
+    matAbsenceByChrom: new Map(),
+    matAbsenceTally: new Map(),
     absenceByChrom: new Map(),
     // The copy-number channel: every marker on the array, called or not, with its intensity. A
     // region that is GONE stops producing calls, which the parental-absence indicator cannot see,
@@ -223,6 +228,7 @@ export function collectRow(
 ): void {
   const {
     t, tm, myGt, myBaf, markerPos, cnByChrom, selfMarkers, hetByChrom, obligateByChrom,
+    matAbsenceByChrom, matAbsenceTally,
     absenceByChrom, dosageByChrom,
   } = acc
   // On the same pass, for the same reason the parental arrays do it: a second read of an
@@ -273,6 +279,25 @@ export function collectRow(
       absent: r.genotype !== 'AB' && r.genotype !== fa })
     absenceByChrom.set(r.chrom, arr)
   }
+  // THE SAME QUESTION ASKED OF THE OTHER PARENT. The series above is gated on the FIRST parent
+  // being homozygous and asks whether that parent's allele is missing, so a deletion of the second
+  // parent's copy leaves it reading present at every marker and is never scanned for. On the
+  // hand-karyotyped cells that asymmetry showed as 11 of 17 paternal segmental events found and 0
+  // of 10 maternal. The mother is homozygous at a different set of markers than the father, so
+  // this cannot sit inside the gate above and carries its own null.
+  if (mat && isAutosome(r.chrom) && r.genotype !== 'NC') {
+    const mo = mat.gt.get(r.probesetId) ?? 'NC'
+    if (mo === 'AA' || mo === 'BB') {
+      const ma = matAbsenceByChrom.get(r.chrom) ?? []
+      const absent = r.genotype !== 'AB' && r.genotype !== mo
+      ma.push({ chrom: r.chrom, pos: r.pos, absent })
+      matAbsenceByChrom.set(r.chrom, ma)
+      const d = matAbsenceTally.get(r.chrom) ?? [0, 0]
+      d[0] += 1
+      if (absent) d[1] += 1
+      matAbsenceTally.set(r.chrom, d)
+    }
+  }
 }
 
 /**
@@ -309,6 +334,7 @@ export async function scoreSample(input: {
   const { acc, profile, pat, mat, soloRole, sibs, sampleName, log } = input
   const {
     t, myGt, myBaf, markerPos, cnByChrom, selfMarkers, hetByChrom, obligateByChrom,
+    matAbsenceByChrom, matAbsenceTally,
     absenceByChrom, dosageByChrom,
   } = acc
   // THE PANEL THE SAMPLE IS ON, from a parental array in a state to say so. An array that is
@@ -434,6 +460,7 @@ export async function scoreSample(input: {
   // AN EXTRA CHROMOSOME, FROM THE SAME ALLELES. See gainOrigin.scanAlleleGains. It runs under the
   // conditions the allele count runs under, and is judged against the cell's own biparental
   // chromosomes, so a chaotic cell supplies a wide scale and refuses rather than over-calls.
+  let chromShares: ChromShare[] = []
   if (twoBulk && bothParentsSomewhere && knownBiparental(result.zygosity)) {
     const shares = result.chroms.filter((c) => isAutosome(c.chrom)).map((c) => {
       const d = dosageByChrom.get(c.chrom) ?? []
@@ -445,6 +472,7 @@ export async function scoreSample(input: {
         lrrShift: c.lrrShift,
       }
     })
+    chromShares = shares
     for (const g of scanAlleleGains(shares)) {
       const c = result.chroms.find((x) => x.chrom === g.chrom)
       if (c) c.alleleGain = g
@@ -738,8 +766,44 @@ export async function scoreSample(input: {
     // A chromosome the alleles read as missing one parent is not scanned for an absence segment
     // inside it: that would be the same absence described twice.
     ...[...absenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
-      .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))),
+      .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))
+        .map((sg) => (mat ? { ...sg, absentParent: soloRole } : sg))),
+    // The same scan against the OTHER parent's own homozygous markers. Without it a deletion of
+    // that parent's copy is invisible: the first parent's allele reads present at every marker of
+    // it. Same statistic, same threshold, same null construction, different marker set.
+    ...(mat ? [...matAbsenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
+      .flatMap(([c, ms]) => scanChromosome(ms, externalNull(matAbsenceTally, c))
+        .map((sg) => ({ ...sg, absentParent: otherRole }))) : []),
   ].sort((a, b) => b.score - a.score)
+
+  // WHICH PARENT A SEGMENT'S CHANGE FELL ON. The same statistic as the whole-chromosome scan,
+  // computed over the informative markers that fall INSIDE the called window instead of across
+  // the chromosome, and judged against the same cell-own null of biparental whole chromosomes so
+  // that a segment and a chromosome are measured on one scale. A whole chromosome dilutes an
+  // arm-sized event across its full length, which is why an arm reads near zero there and can
+  // read plainly here.
+  if (chromShares.length) {
+    const segShares: ChromShare[] = result.segments.map((sg) => {
+      const inside = (dosageByChrom.get(sg.chrom) ?? [])
+        .filter((m) => m.pos >= sg.startBp && m.pos <= sg.endBp)
+      const lrrs = (cnByChrom.get(sg.chrom) ?? [])
+        .filter((m) => m.pos >= sg.startBp && m.pos <= sg.endBp && m.log2R !== null)
+        .map((m) => m.log2R as number)
+      return {
+        chrom: sg.chrom,
+        label: `${sg.chrom}:${(sg.startBp / 1e6).toFixed(1)}-${(sg.endBp / 1e6).toFixed(1)}Mb`,
+        share: inside.length ? median(inside.map((m) => m.patShare)) : NaN,
+        informative: inside.length,
+        biparental: true,
+        lrrShift: lrrs.length ? median(lrrs) - genomeLrr : NaN,
+      }
+    })
+    const byLabel = new Map(scanAlleleGains(segShares, chromShares).map((g) => [g.chrom, g]))
+    for (const sg of result.segments) {
+      const g = byLabel.get(`${sg.chrom}:${(sg.startBp / 1e6).toFixed(1)}-${(sg.endBp / 1e6).toFixed(1)}Mb`)
+      if (g && (g.verdict === 'gain' || g.verdict === 'imbalance')) sg.alleleGain = g
+    }
+  }
 
   // THE TAXONOMY'S CLASSES, run on the same pass and entering the same defect list.
   //
