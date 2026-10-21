@@ -109,9 +109,14 @@ const tally = (m: Map<string, { absent: boolean }[]>) => {
 const isDel = (h: string) => /del|monosomy|nullisomy/i.test(h) && !/^normal/i.test(h)
 const isNormal = (h: string) => /^normal/i.test(h.trim())
 
-function run(which: 'shipped' | 'opposite', minW: number, thr: number) {
-  let found = 0; let want = 0; let fp = 0; let normals = 0; let segFound = 0; let segWant = 0
+// --- the split and the rule, exactly as audit/segment-statistic-preregistration.txt fixes them ---
+const tune = new Set(cells.filter((_, i) => i % 2 === 0))
+const half = (gsm: string) => (tune.has(gsm) ? 'tune' : 'held')
+
+function run(which: 'shipped' | 'opposite', minW: number, thr: number, want: 'tune' | 'held' | 'all') {
+  let found = 0; let n = 0; let fp = 0; let normals = 0; let segFound = 0; let segWant = 0
   for (const gsm of cells) {
+    if (want !== 'all' && half(gsm) !== want) continue
     const s = byCell.get(gsm)!
     const A = which === 'shipped' ? s.pat : s.oppPat
     const B = which === 'shipped' ? s.mat : s.oppMat
@@ -123,22 +128,57 @@ function run(which: 'shipped' | 'opposite', minW: number, thr: number) {
         ...seg.scanChromosome(B.get(chrom) ?? [], seg.externalNull(nB as never, chrom), minW, thr),
       ]
       if (isDel(h)) {
-        want += 1; if (hits.length) found += 1
+        n += 1; if (hits.length) found += 1
         if (/del|dup/i.test(h)) { segWant += 1; if (hits.length) segFound += 1 }
       } else if (isNormal(h)) { normals += 1; if (hits.length) fp += 1 }
     }
   }
-  return { found, want, fp, normals, segFound, segWant }
+  return { found, n, fp, normals, segFound, segWant, rate: normals ? fp / normals : NaN }
 }
-console.log(`${'statistic'.padEnd(10)} ${'minWin'.padStart(7)} ${'LRT'.padStart(5)} `
-  + `${'all deletions'.padStart(15)} ${'segmental only'.padStart(16)} ${'on hand-normal'.padStart(16)}`)
-for (const which of ['shipped', 'opposite'] as const) {
-  for (const minW of which === 'opposite' ? [300, 150] : [2400]) {
-    for (const thr of [250, 150, 80]) {
-      const r = run(which, minW, thr)
-      console.log(`${which.padEnd(10)} ${minW.toString().padStart(7)} ${thr.toString().padStart(5)} `
-        + `${`${r.found} of ${r.want}`.padStart(15)} ${`${r.segFound} of ${r.segWant}`.padStart(16)} `
-        + `${`${r.fp} of ${r.normals}`.padStart(16)}`)
-    }
+
+const WIN = [2400, 1200, 600, 300, 150]
+const LRT = [250, 150, 80]
+console.log(`cells: ${cells.length} total, ${tune.size} tuning, ${cells.length - tune.size} held out`)
+const tA = run('shipped', 2400, 250, 'tune'); const hA = run('shipped', 2400, 250, 'held')
+console.log(`hand-called deletions: ${tA.n} on the tuning half, ${hA.n} on the held-out half`)
+console.log(`hand-normal chromosomes: ${tA.normals} tuning, ${hA.normals} held out\n`)
+
+console.log('TUNING HALF, the full grid. The cap is the shipped statistic at 2400/250 on this half.')
+console.log(`  cap = ${tA.fp} of ${tA.normals} = ${(100 * tA.rate).toFixed(2)}%\n`)
+console.log(`  ${'window'.padStart(7)} ${'LRT'.padStart(5)} ${'deletions found'.padStart(17)} ${'on hand-normal'.padStart(16)} ${'within cap'.padStart(11)}`)
+let best: { w: number; t: number; found: number } | null = null
+for (const w of WIN) {
+  for (const t of LRT) {
+    const r = run('opposite', w, t, 'tune')
+    const ok = r.rate <= tA.rate + 1e-12
+    console.log(`  ${w.toString().padStart(7)} ${t.toString().padStart(5)} ${`${r.found} of ${r.n}`.padStart(17)} `
+      + `${`${r.fp} of ${r.normals}`.padStart(16)} ${(ok ? 'yes' : 'no').padStart(11)}`)
+    if (!ok) continue
+    // most detections; ties to the higher threshold, then the larger window
+    if (!best || r.found > best.found
+      || (r.found === best.found && t > best.t)
+      || (r.found === best.found && t === best.t && w > best.w)) best = { w, t, found: r.found }
   }
+}
+if (!best) { console.log('\nNO POINT MET THE CAP. The shipped statistic stays.'); process.exit(0) }
+console.log(`\nTHE RULE PICKS window ${best.w}, LRT ${best.t}\n`)
+
+const hB = run('opposite', best.w, best.t, 'held')
+console.log('HELD-OUT HALF, cells neither statistic was tuned on')
+console.log(`  ${'statistic'.padEnd(26)} ${'deletions found'.padStart(17)} ${'segmental only'.padStart(16)} ${'on hand-normal'.padStart(16)}`)
+console.log(`  ${'shipped, at 2400/250'.padEnd(26)} ${`${hA.found} of ${hA.n}`.padStart(17)} ${`${hA.segFound} of ${hA.segWant}`.padStart(16)} ${`${hA.fp} of ${hA.normals}`.padStart(16)}`)
+console.log(`  ${`opposite, at ${best.w}/${best.t}`.padEnd(26)} ${`${hB.found} of ${hB.n}`.padStart(17)} ${`${hB.segFound} of ${hB.segWant}`.padStart(16)} ${`${hB.fp} of ${hB.normals}`.padStart(16)}`)
+
+console.log('\nAGAINST THE BAR FIXED BEFORE THE SPLIT')
+const moreFound = hB.found >= hA.found
+const noMoreFp = hB.fp <= hA.fp
+console.log(`  detects at least as many:        ${moreFound ? 'MET' : 'NOT MET'} (${hB.found} against ${hA.found})`)
+console.log(`  calls no more hand-normal:       ${noMoreFp ? 'MET' : 'NOT MET'} (${hB.fp} against ${hA.fp})`)
+console.log(`  VERDICT: ${moreFound && noMoreFp ? 'the opposite-homozygote statistic ships' : 'the shipped statistic stays'}`)
+
+console.log('\nHELD-OUT CURVE, so the chosen point can be read against what was available')
+console.log(`  ${'window'.padStart(7)} ${'LRT'.padStart(5)} ${'deletions found'.padStart(17)} ${'on hand-normal'.padStart(16)}`)
+for (const w of WIN) for (const t of LRT) {
+  const r = run('opposite', w, t, 'held')
+  console.log(`  ${w.toString().padStart(7)} ${t.toString().padStart(5)} ${`${r.found} of ${r.n}`.padStart(17)} ${`${r.fp} of ${r.normals}`.padStart(16)}`)
 }

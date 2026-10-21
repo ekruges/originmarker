@@ -72,3 +72,59 @@ records that it failed.
 
 Duplications are out of scope here. No absence scan can see a copy that is present twice, and that
 needs a different detector, measured separately.
+
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE HELD-OUT HALF WAS SCORED
+
+Nothing above this line was changed.
+
+31 cells, 16 tuning and 15 held out. The halves came out badly uneven in what matters: 50
+hand-called deletions on the tuning half against 102 on the held-out half, and 253 hand-normal
+chromosomes against 224. Splitting by cell cannot control for how many events each cell carries,
+and the secondary endpoint that asked whether the halves differ is the one that caught it.
+
+THE RULE PICKED window 150, LRT 80, which is the most aggressive point on the grid. That is a
+defect in the rule I wrote, not in the data. The cap was the shipped statistic's own rate on the
+tuning half, which is loose, and "detect the most subject to that cap" then walks to the corner.
+
+HELD OUT, at the point the rule picked
+
+                              deletions found   segmental only   on hand-normal
+  shipped, at 2400/250              76 of 102         12 of 14        12 of 224
+  opposite, at 150/80               85 of 102         13 of 14        13 of 224
+
+AGAINST THE BAR
+
+  detects at least as many          MET      85 against 76
+  calls no more hand-normal         NOT MET  13 against 12
+  so the shipped statistic stays.
+
+It failed by one chromosome. The bar was written to require both, precisely so that a near miss
+could not be argued into a pass, and this is a near miss.
+
+WHAT THE HELD-OUT CURVE SHOWS, RECORDED AND NOT ADOPTED
+
+  window 300, LRT 250    75 of 102 found    5 of 224 on hand-normal
+  shipped                76 of 102 found   12 of 224 on hand-normal
+
+That point finds one fewer deletion than the shipped statistic and calls less than half as many
+hand-normal chromosomes. It dominates on specificity at equal sensitivity. It is NOT adopted,
+because it is being read off the held-out half, and a point chosen that way carries none of the
+protection this file exists to provide. Recording it is the whole of what may honestly be done
+with it here.
+
+WHAT WOULD SETTLE IT
+
+Independent cells, not another pass over these 31. Two sets exist: GSE60909, Illumina
+HumanCytoSNP-12 with both parents and a published per-cell answer key, which is a second platform
+and a second laboratory; and the lab's own arrays where two bulk parents exist. A rule fixed in
+advance, tuned on these 31 and read once on those, would settle whether window 300 and LRT 250
+holds up. Until then the shipped statistic stays and the gain remains unproven.
+
+WHAT DID SHIP FROM THIS WORK, AND IS UNAFFECTED
+
+The absence scan now runs against both parents rather than one. That is a defect fix, not a
+statistic change, and was measured separately: maternal segmental detection went from 0 of 10 to 5
+of 10 on these same cells, with the share naming the depleted parent correctly on every event it
+reached.
