@@ -1,0 +1,74 @@
+THE SEGMENT STATISTIC: THE SPLIT AND THE OPERATING POINT, FIXED BEFORE THE RESULT
+
+Written and committed before the held-out half is scored. Everything here is a decision about how
+to measure, made without knowing what the measurement will say.
+
+WHAT IS BEING DECIDED
+
+The absence scan asks, at markers where ONE parent is homozygous, whether that parent's allele is
+missing. Where the other parent is heterozygous a lost copy still reads present about half the
+time, so the signal is diluted. The alternative asks the same question only at markers where BOTH
+parents are homozygous FOR OPPOSITE ALLELES, where a lost copy shows at every marker in the window.
+That set is roughly fifteen times smaller: about 1,034 markers per chromosome against about 16,000.
+
+Whether the undiluted signal pays for the marker count is the question. It is not settled by
+arithmetic: a power calculation written before any of this said the diluted set should win, and a
+first look at all 31 cells said the opposite. That first look chose its operating point on the same
+cells it then reported, which is why this file exists.
+
+THE DATA, WHICH IS REAL THROUGHOUT
+
+  arrays        GSE148488, Zuccaro et al. 2020. Affymetrix Axiom, 825,656 markers.
+                Amplified single cells and pronuclei, with both parents arrayed in bulk.
+  cells         the 31 that have both parents arrayed and a file on disk
+  truth         Zuccaro Table S3, the authors' own by-eye karyotype of every arrayed cell,
+                committed as audit/zuccaro-table-s3.tsv: 682 chromosome calls
+  no simulation anywhere in this. Every genotype is measured, every truth label is the published
+                hand reading of that same array.
+
+THE SPLIT
+
+By cell, never by chromosome: chromosomes in one cell share that cell's amplification and dropout.
+Cells sorted by GSM accession, assigned by position, even to tuning and odd to held out. No
+randomisation and no reassignment after seeing a result.
+
+THE RULE FOR PICKING THE OPERATING POINT
+
+Over the grid minWindow in {2400, 1200, 600, 300, 150} and LRT in {250, 150, 80}, on the TUNING
+half only:
+
+  pick the point that detects the most hand-called deletions, subject to calls on
+  chromosomes the hand karyotype reads as normal being no greater, as a share of the
+  normal chromosomes scored, than the shipped statistic produces on that same half at
+  its own shipped setting of 2400 and 250.
+
+Ties go to the higher threshold and then the larger window, which are the two more conservative
+choices.
+
+ON WHAT A CALL ON A HAND-NORMAL CHROMOSOME MEANS. It is not proven wrong. The authors tabulated the
+events they were looking for, which were losses, so a real event they did not tabulate would land
+here. It is used as a relative measure between two statistics scored on the same chromosomes of the
+same cells, which it can support, and not as an error rate, which it cannot.
+
+THE PRIMARY ENDPOINT
+
+Hand-called deletions detected on the HELD-OUT half by the new statistic at the point the rule
+picked, against the shipped statistic at its shipped setting on those same cells.
+
+SECONDARY, ALL ON HELD-OUT CELLS
+
+  segmental deletions only, which is the subset this work is about
+  calls on hand-normal chromosomes, both statistics
+  the full curve, so the chosen point can be read against what was available
+  whether the two halves differ in the number of hand-called events they carry
+
+THE BAR FOR SHIPPING IT
+
+The new statistic replaces the shipped one only if, on held-out cells, it detects AT LEAST as many
+hand-called deletions AND calls no more chromosomes the hand reads as normal. Better on one axis
+and worse on the other is not enough: that is a trade, and a trade should be made deliberately
+rather than inside a refactor. If it fails either test, the shipped statistic stays and this file
+records that it failed.
+
+Duplications are out of scope here. No absence scan can see a copy that is present twice, and that
+needs a different detector, measured separately.
