@@ -113,13 +113,14 @@ const isNormal = (h: string) => /^normal/i.test(h.trim())
 const tune = new Set(cells.filter((_, i) => i % 2 === 0))
 const half = (gsm: string) => (tune.has(gsm) ? 'tune' : 'held')
 
-function run(which: 'shipped' | 'opposite', minW: number, thr: number, want: 'tune' | 'held' | 'all') {
+function run(which: 'shipped' | 'opposite' | 'before', minW: number, thr: number, want: 'tune' | 'held' | 'all') {
   let found = 0; let n = 0; let fp = 0; let normals = 0; let segFound = 0; let segWant = 0
   for (const gsm of cells) {
     if (want !== 'all' && half(gsm) !== want) continue
     const s = byCell.get(gsm)!
-    const A = which === 'shipped' ? s.pat : s.oppPat
-    const B = which === 'shipped' ? s.mat : s.oppMat
+    // 'before' is the one-parent scan exactly as it stood before the symmetric change.
+    const A = which === 'opposite' ? s.oppPat : s.pat
+    const B = which === 'before' ? new Map<string, Abs[]>() : (which === 'shipped' ? s.mat : s.oppMat)
     const nA = tally(A); const nB = tally(B)
     for (const chrom of new Set([...A.keys(), ...B.keys()])) {
       const h = hand.get(`${gsm}|${chrom}`) ?? ''
@@ -182,3 +183,12 @@ for (const w of WIN) for (const t of LRT) {
   const r = run('opposite', w, t, 'held')
   console.log(`  ${w.toString().padStart(7)} ${t.toString().padStart(5)} ${`${r.found} of ${r.n}`.padStart(17)} ${`${r.fp} of ${r.normals}`.padStart(16)}`)
 }
+
+console.log('\n\nBEFORE AND AFTER THE SYMMETRIC SCAN, all 31 cells, shipped setting 2400/250')
+const bf = run('before', 2400, 250, 'all')
+const af = run('shipped', 2400, 250, 'all')
+console.log(`  ${'scan'.padEnd(26)} ${'deletions found'.padStart(17)} ${'segmental only'.padStart(16)} ${'on hand-normal'.padStart(16)}`)
+console.log(`  ${'one parent (before)'.padEnd(26)} ${`${bf.found} of ${bf.n}`.padStart(17)} ${`${bf.segFound} of ${bf.segWant}`.padStart(16)} ${`${bf.fp} of ${bf.normals}`.padStart(16)}`)
+console.log(`  ${'both parents (now)'.padEnd(26)} ${`${af.found} of ${af.n}`.padStart(17)} ${`${af.segFound} of ${af.segWant}`.padStart(16)} ${`${af.fp} of ${af.normals}`.padStart(16)}`)
+console.log(`\n  detections gained: ${af.found - bf.found}`)
+console.log(`  hand-normal calls gained: ${af.fp - bf.fp}`)

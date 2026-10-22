@@ -68,23 +68,24 @@ for (const line of manifest.slice(1)) {
 const LIMIT = Number(process.env.OM_CELLS ?? trios.length)
 const med = (xs: number[]) => xs.length ? xs.slice().sort((a, b) => a - b)[xs.length >> 1] : NaN
 
-const perCell: { gsm: string; rows: number; called: number; informative: number; perChrom: number[] }[] = []
+const perCell: { gsm: string; rows: number; called: number; informative: number; perChrom: number[]; aabb: number; bbaa: number }[] = []
 for (const t of trios.slice(0, LIMIT)) {
   const pat = parentIndex(t.father); const mat = parentIndex(t.mother)
-  let rows = 0; let called = 0
+  let rows = 0; let called = 0; let aabb = 0; let bbaa = 0
   const byChrom = new Map<string, number>()
   for (const r of rowsOf(fileOf.get(t.gsm)!)()) {
     rows += 1
     if (r.genotype === 'NC' || r.genotype === null) continue
     called += 1
     const fa = pat.gt.get(r.probesetId); const mo = mat.gt.get(r.probesetId)
-    if ((fa === 'AA' && mo === 'BB') || (fa === 'BB' && mo === 'AA')) {
-      byChrom.set(r.chrom, (byChrom.get(r.chrom) ?? 0) + 1)
-    }
+    // BOTH orientations are informative and both are counted. The share is flipped for the second
+    // so that it always means the paternal fraction; see paternalShare.
+    if (fa === 'AA' && mo === 'BB') { aabb += 1; byChrom.set(r.chrom, (byChrom.get(r.chrom) ?? 0) + 1) }
+    else if (fa === 'BB' && mo === 'AA') { bbaa += 1; byChrom.set(r.chrom, (byChrom.get(r.chrom) ?? 0) + 1) }
   }
   const autosomes = [...byChrom.entries()].filter(([c]) => /^\d+$/.test(c)).map(([, n]) => n)
   const informative = autosomes.reduce((a, b) => a + b, 0)
-  perCell.push({ gsm: t.gsm, rows, called, informative, perChrom: autosomes })
+  perCell.push({ gsm: t.gsm, rows, called, informative, perChrom: autosomes, aabb, bbaa })
   process.stdout.write('.')
 }
 console.log()
@@ -107,3 +108,9 @@ console.log(`  informative per chromosome      ${med(allChrom).toLocaleString()}
   + `range ${Math.min(...allChrom).toLocaleString()} to ${Math.max(...allChrom).toLocaleString()}`)
 const under = allChrom.filter((n) => n < 200).length
 console.log(`  chromosomes under the 200 floor ${under} of ${allChrom.length} (${pct(under, allChrom.length)})`)
+
+const A = perCell.map((c) => c.aabb); const B = perCell.map((c) => c.bbaa)
+console.log(`\n  father AA, mother BB            ${med(A).toLocaleString()} (median)`)
+console.log(`  father BB, mother AA            ${med(B).toLocaleString()} (median)`)
+console.log(`  both orientations are counted, and the second has its share flipped so that it`)
+console.log(`  always reads as the paternal fraction. Neither is being left out.`)
