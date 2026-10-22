@@ -40,6 +40,7 @@ const uniparental = await import(`${W}uniparentalOrigin.ts`)
 const obligate = await import(`${W}obligateHet.ts`)
 const segments = await import(`${W}segments.ts`)
 const inferredRef = await import(`${W}inferredReference.ts`)
+const inferredArray = await import(`${W}inferredArray.ts`)
 const features = await import(`${W}features.ts`)
 const dosage = await import(`${W}dosageOrigin.ts`)
 const post = await import(`${W}originPosterior.ts`)
@@ -763,15 +764,25 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     }
     const o = args.flags.get('out')
     if (o) {
-      const lines = ['probeset_id\tchr\tposition\tlog2R\tbaf\tcopy_number\tgenotype\tBestProbeset']
+      // THROUGH inferredArrayText AND NOT A LOCAL WRITER. A reconstructed parent is a file of
+      // homozygous calls belonging to an identifiable person, and the banner and INFERRED_MARK it
+      // carries are what stop it being re-imported as a measured array. A second writer here meant
+      // the command line wrote the file without them.
       const posOf = new Map<string, { chrom: string, pos: number }>()
       for (const l of loaded) for (const [p, v] of l.pos) if (!posOf.has(p)) posOf.set(p, v)
-      for (const [probe, g] of ref.genotype) {
-        const p = posOf.get(probe)
-        if (!p) continue
-        lines.push(`${probe}\t${p.chrom}\t${p.pos}\t\t\t2\t${g}\t1`)
-      }
-      writeFileSync(o, `${lines.join('\n')}\n`)
+      writeFileSync(o, inferredArray.inferredArrayText({
+        genotype: ref.genotype,
+        locus: (id: string) => posOf.get(id) ?? null,
+        products: biggest,
+        mMin,
+        contamination: ref.contamination,
+        spuriousAbsence: ref.spuriousAbsence,
+        hRetained: ref.hRetained,
+        side: args.flags.get('side') ?? '',
+        reportId: `om reconstruct ${biggest.length} products`,
+        generatedAt: new Date().toISOString(),
+        build: loaded[0]?.build ?? null,
+      }))
     }
     out({
       groups: named, used: biggest, mMin, markers: ref.markers, hRetained: ref.hRetained,

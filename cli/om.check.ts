@@ -13,6 +13,8 @@
 //   was not a parameter. The flag parsed, the run completed, and the number came out unchanged.
 //   Each one is asserted to actually move the answer.
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
+import * as inferredArray from '../web/src/inferredArray.ts'
 import {
   inferStage, QC_CALL_FLOOR, MAX_DIPLOID_HET, HAPLOID_MAX_HET, BULK_HETEROZYGOSITY,
   BAND_DIPLOID_CERTAIN,
@@ -140,6 +142,32 @@ const pairs = (n: number, f: (i: number) => [AB, AB]): [AB, AB][] =>
   assert.notEqual(none.verdict, 'known-parent-lost')
   assert.notEqual(none.verdict, 'other-parent-lost')
 }
+
+
+// --- A RECONSTRUCTED PARENT LEAVES THIS PROCESS MARKED, OR NOT AT ALL ----------------------------
+//
+// `om reconstruct --out` writes a file of homozygous calls belonging to an identifiable person.
+// inferredArrayText is what gives it the banner and INFERRED_MARK that stop it being re-imported
+// as a measured array, and it also carries the contamination figure a reader needs to interpret
+// anything built on it. The command line once hand-rolled its own header instead and wrote the
+// file with none of that, which no test caught because the writer was tested and the caller was
+// not. This asserts the caller.
+{
+  const src = readFileSync(new URL('./om.ts', import.meta.url), 'utf8')
+  assert.ok(src.includes('inferredArrayText('),
+    'om reconstruct must write through inferredArrayText, which marks the file')
+  assert.ok(!/probeset_id\\tchr\\tposition\\tlog2R/.test(src),
+    'a second, unmarked array writer has reappeared in the command line')
+  const text = inferredArray.inferredArrayText({
+    genotype: new Map([['AX-1', 'AA']]) as never,
+    locus: () => ({ chrom: '1', pos: 100 }),
+    products: ['p1', 'p2'], mMin: 2, contamination: 0.02, spuriousAbsence: 0.01,
+    hRetained: 0.17, side: 'maternal', reportId: 'test', generatedAt: 'now', build: null,
+  })
+  assert.ok(inferredArray.inferredMark(text.slice(0, inferredArray.MARK_BYTES)),
+    'the marked writer must produce a file its own detector finds')
+}
+
 
 console.log('om.check.ts: all assertions passed, including no-options equalling the shipped '
   + 'configuration on every branch, and every dial actually moving the answer')
