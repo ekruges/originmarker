@@ -23,6 +23,8 @@ import { headerMap, parseRow, accumulate, accumulateBaf, emptyBafSums, finishPro
 import { emptyParent, collectParentRow, finishParent, emptyCollected, collectRow, scoreSample } from './scoreSample.ts'
 import { mendelParent, runAlerts } from './defects.ts'
 import { buildReportPdf } from './syngamyPdf.ts'
+import { readFileSync } from 'node:fs'
+import { PANEL_HET_FLOOR } from './parentage.ts'
 
 /** A deterministic stream, so a failure is the code changing and never the draw changing. */
 function rng(seed: number): () => number {
@@ -632,4 +634,80 @@ console.log('scoreSample.check.ts: a rejected array reports nothing, a one-copy 
   assert.ok((ok.oneParent ?? []).length > 0,
     'a known biparental genome must still have its parents named, or this guard has silenced the '
     + 'channel outright rather than restricting it')
+}
+
+
+// --- A RECONSTRUCTED PARENT REACHES THE SCORER WITH ITS OWN PARAMETERS, OR NOT AT ALL -----------
+//
+// THE PATTERN THIS GUARDS, which is now three defects deep. In each case the CAPABILITY existed,
+// a test covered the FUNCTION, and the CALLER skipped it, so every test passed while the shipped
+// path did the wrong thing:
+//
+//   1. `om reconstruct --out` hand-rolled an array header instead of calling inferredArrayText,
+//      writing a reconstructed person's genotype with no banner and no mark (cli/om.check.ts).
+//   2. `scoreSample` called classify() without `spuriousAbsence`, so every sample scored against
+//      a reconstruction was judged by the ceiling calibrated for a measured array, even though
+//      parentage.check.ts section 16 covers that term and passes.
+//   3. `finishParent` derived parental heterozygosity from a reconstruction's own genotypes,
+//      which are homozygous at every marker, so it read 0.0% against a banner stating 17.332%.
+//      PANEL_HET_FLOOR then withheld the second-parent axis for the whole run. The guard was
+//      right; it was being fed a number that could not be anything but zero.
+//
+// So this asserts the SEAM rather than the three instances: anything that reduces a parental file
+// to a ParentIndex must be able to accept that file's banner, and the figures a reconstruction
+// states about itself must arrive at the two places that consume them. A fourth loader added
+// later without the banner argument fails here rather than shipping silently.
+{
+  const PARENT_SOURCES = ['../../cli/om.ts', '../../audit/lab-zygote-check.ts', './Syngamy.tsx']
+  for (const rel of PARENT_SOURCES) {
+    const src = readFileSync(new URL(rel, import.meta.url), 'utf8')
+    if (!src.includes('finishParent(')) continue
+    assert.ok(/parseInferredBanner\(/.test(src),
+      `${rel} builds a ParentIndex but never reads a reconstruction's banner, so a rebuilt `
+      + 'reference loaded there reports 0% parental heterozygosity and silently loses the '
+      + 'second-parent axis. Pass parseInferredBanner(head) as the third argument.')
+  }
+
+  // The scorer must pass BOTH figures on to the classifier. Named explicitly because they are
+  // separate omissions with opposite effects: the floor makes absence over-called, the
+  // heterozygosity makes everything keyed to it under-called.
+  const scorer = readFileSync(new URL('./scoreSample.ts', import.meta.url), 'utf8')
+  assert.ok(/spuriousAbsence: pat\.inferred\.spuriousAbsence/.test(scorer),
+    "scoreSample must hand the reference's own absence floor to classify()")
+  assert.ok(/inferredParent: true/.test(scorer),
+    'scoreSample must tell classify() the parent is reconstructed, or the zero-heterozygosity '
+    + 'limit misreports it as a monomorphic panel')
+
+  // THE SUBSTITUTION ITSELF, end to end: a banner-bearing parent must arrive at classify() with
+  // the banner's heterozygosity, and a measured one must be untouched.
+  const banner = {
+    hRetained: 0.17332, spuriousAbsence: 0.01374, contamination: 0.02749,
+    products: 6, side: 'maternal',
+  }
+  const acc = emptyParent()
+  // One homozygous row, which is all a reconstruction ever contains.
+  collectParentRow({
+    probesetId: 'AX-1', chrom: '1', pos: 1000, genotype: 'AA', baf: null, log2R: null,
+  } as never, acc as never)
+  const rebuilt = finishParent(acc as never, null, banner as never)
+  assert.equal(rebuilt.measuredHeterozygosity, 0,
+    'a reconstruction is homozygous by construction, so the file itself must read exactly zero')
+  assert.equal(rebuilt.heterozygosity, 0.17332,
+    'and the figure the reconstruction established must replace it')
+  assert.ok(rebuilt.heterozygosity >= PANEL_HET_FLOOR,
+    'which must clear PANEL_HET_FLOOR, or the second-parent axis stays withheld and the repair '
+    + 'has achieved nothing. The guard is not relaxed; it is given the true figure')
+
+  const measured = finishParent(acc as never, null)
+  assert.equal(measured.heterozygosity, 0,
+    'without a banner nothing is substituted: an unreadable reconstruction withholds rather than '
+    + 'guessing, and a measured array is unaffected')
+  assert.equal(measured.inferred, undefined, 'a measured array carries no banner')
+
+  // An unreadable banner must NOT quietly become a measured array.
+  const unreadable = finishParent(acc as never, null,
+    { ...banner, hRetained: NaN } as never)
+  assert.equal(unreadable.heterozygosity, 0,
+    'a banner without a usable heterozygosity leaves the measured zero in place')
+  assert.ok(unreadable.inferred, 'but the file is still known to be a reconstruction')
 }

@@ -43,6 +43,69 @@ export interface InferredArrayInput {
  *  callers pass the first few kilobytes of a file, not the whole thing. */
 export const inferredMark = (head: string): boolean => head.includes(INFERRED_MARK)
 
+/**
+ * What a reconstructed reference's banner declares about itself.
+ *
+ * THESE FIGURES CANNOT BE RECOVERED FROM THE GENOTYPES, which is why they are written down and
+ * why reading them back matters. The file is homozygous at every marker by construction, so an
+ * array-derived heterozygosity is exactly 0.0% however good the reconstruction was; the real
+ * figure is estimated from disagreement AMONG THE PRODUCTS at build time and exists nowhere else.
+ * A consumer that re-derives parental heterozygosity from the file gets zero and, if it gates on
+ * that, silently withholds every channel keyed to it.
+ */
+export interface InferredBanner {
+  /** The parent's own heterozygosity over retained markers: `Reference.hRetained`. */
+  hRetained: number
+  /** Absence a true haploid offspring reads through the reference's contamination alone. */
+  spuriousAbsence: number
+  /** Heterozygous sites asserted as homozygous. */
+  contamination: number
+  products: number
+  /** 'paternal', 'maternal', or '' when the products did not establish which. */
+  side: string
+}
+
+/** One '# label   value' banner line, by label prefix. Tolerates the run of spaces the writer
+ *  uses to align the column, and returns the remainder of the line. */
+const bannerField = (head: string, label: string): string | null => {
+  for (const line of head.split(String.fromCharCode(10))) {
+    if (!line.startsWith('#')) continue
+    const body = line.slice(1).trim()
+    if (!body.startsWith(label)) continue
+    return body.slice(label.length).trim()
+  }
+  return null
+}
+
+/** A leading percentage, as a fraction. The writer appends prose after the number. */
+const bannerPct = (head: string, label: string): number => {
+  const raw = bannerField(head, label)
+  if (raw === null) return NaN
+  const m = /^([0-9]*\.?[0-9]+)%/.exec(raw)
+  return m ? Number(m[1]) / 100 : NaN
+}
+
+/**
+ * Read back what `inferredArrayText` wrote, from the head of the file.
+ *
+ * Returns null when the text is not an inferred reference at all, so a caller can treat
+ * "measured array" and "reconstruction whose banner is unreadable" differently: the first needs
+ * no parameters and the second is a reconstruction whose parameters are missing, which is a
+ * reason to withhold rather than to proceed with defaults.
+ */
+export function parseInferredBanner(head: string): InferredBanner | null {
+  if (!inferredMark(head)) return null
+  const products = bannerField(head, 'products')
+  const n = products ? /^([0-9]+)/.exec(products) : null
+  return {
+    hRetained: bannerPct(head, 'parent heterozygosity'),
+    spuriousAbsence: bannerPct(head, 'spurious absence'),
+    contamination: bannerPct(head, 'contamination'),
+    products: n ? Number(n[1]) : NaN,
+    side: bannerField(head, 'side') ?? '',
+  }
+}
+
 /** How much of a file has to be read to answer. The banner is the first thing written, so this
  *  is generous by an order of magnitude and still costs one small read. */
 export const MARK_BYTES = 4096

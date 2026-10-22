@@ -244,6 +244,14 @@ const idOf = (path: string) => basename(path).replace(/_\d+\.CEL\.probes$/, '')
   .replace(/\.(probes|CEL\.txt\.gz|CEL\.txt|csv\.gz|txt\.gz)$/, '')
   .replace(/^(GSM\d+)_.*$/, '$1')
 
+/** The head of a file, which is where a reconstructed reference states what it is. Matches the
+ *  browser's `MARK_BYTES` window, after decompression so a gzipped reference reads the same. */
+function headOf(path: string): string {
+  const raw = readFileSync(path)
+  return (path.endsWith('.gz') ? gunzipSync(raw) : raw)
+    .toString('utf8', 0, inferredArray.MARK_BYTES)
+}
+
 /** The parent, through the accumulator the browser fills. Read once and reused across a cohort. */
 function loadParent(path: string) {
   const acc = score.emptyParent()
@@ -255,7 +263,15 @@ function loadParent(path: string) {
     score.collectParentRow(r as never, acc as never)
   }
   const profile = ingest.finishProfile(idOf(path), byChrom as never, bafSums as never, first)
-  return { id: idOf(path), profile, pat: score.finishParent(acc as never, profile.build.build) }
+  // A reconstructed reference states its own heterozygosity and absence floor in its banner,
+  // because neither is recoverable from genotypes that are homozygous at every marker. Read from
+  // the head of the file, the same bytes `isInferredFile` checks in the browser.
+  const banner = inferredArray.parseInferredBanner(headOf(path)) ?? undefined
+  return {
+    id: idOf(path),
+    profile,
+    pat: score.finishParent(acc as never, profile.build.build, banner),
+  }
 }
 
 /**

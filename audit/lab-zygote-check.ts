@@ -22,6 +22,7 @@ import { join } from 'node:path'
 const W = new URL('../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const score = await import(`${W}scoreSample.ts`)
+const inferredArray = await import(`${W}inferredArray.ts`)
 
 const DIR = process.env.OM_LAB
 const PAIRS = process.env.OM_PAIRS
@@ -51,6 +52,13 @@ function rowsOf(path: string) {
   if (!map) throw new Error(`${path}: header carries none of the columns this reader needs`)
   return function* () { for (let i = h + 1; i < ls.length; i += 1) { const r = ingest.parseRow(ls[i], map); if (r) yield r } }
 }
+/** The head of a parental file, where a reconstruction declares its own parameters. */
+function headOf(path: string): string {
+  const raw = readFileSync(path)
+  return (path.endsWith('.gz') ? gunzipSync(raw) : raw)
+    .toString('utf8', 0, inferredArray.MARK_BYTES)
+}
+
 const cache = new Map<string, unknown>()
 function parentIndex(bc: string) {
   const hit = cache.get(bc); if (hit) return hit
@@ -61,7 +69,14 @@ function parentIndex(bc: string) {
     ingest.accumulate(r as never, byChrom as never); ingest.accumulateBaf(r as never, bafSums as never)
     score.collectParentRow(r as never, acc as never)
   }
-  const idx = score.finishParent(acc as never, ingest.finishProfile(bc, byChrom as never, bafSums as never, first).build.build)
+  // Reconstructed references carry their heterozygosity and absence floor in the banner; the
+  // genotypes cannot supply either. Measured arrays return null here and are unaffected.
+  const banner = inferredArray.parseInferredBanner(headOf(fileOf.get(bc)!)) ?? undefined
+  const idx = score.finishParent(
+    acc as never,
+    ingest.finishProfile(bc, byChrom as never, bafSums as never, first).build.build,
+    banner as never,
+  )
   cache.set(bc, idx); return idx
 }
 

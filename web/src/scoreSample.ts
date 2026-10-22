@@ -40,6 +40,7 @@ import { callOneParentOrigin } from './oneParentOrigin.ts'
 import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin.ts'
 import { uniparentalOrigin } from './uniparentalOrigin.ts'
 import { accumulateSex, emptySex, sexCall, type SexCall, type SexTally } from './sexing.ts'
+import type { InferredBanner } from './inferredArray.ts'
 import { callSexChromosomes } from './sexChromosome.ts'
 import { reconcileParentSex } from './parentSanity.ts'
 import {
@@ -62,6 +63,14 @@ import { assessIntegrity } from './integrity.ts'
 /** One parent's array, reduced to what every channel below reads. */
 export interface ParentIndex {
   gt: Map<string, AB>
+  /**
+   * The parent's heterozygosity over called autosomal markers.
+   *
+   * ON A RECONSTRUCTED REFERENCE THIS CANNOT BE MEASURED FROM THE FILE, which is homozygous at
+   * every marker by construction and therefore reads exactly 0.0%. When `inferred` is set this
+   * carries the banner's `hRetained` instead, estimated from product disagreement at build time.
+   * `measuredHeterozygosity` keeps what the file itself says, so the substitution is visible.
+   */
   heterozygosity: number
   /** Called fraction of this array's autosomal markers. */
   callRate: number
@@ -71,6 +80,18 @@ export interface ParentIndex {
    * put the wrong file into: see parentSanity.ts.
    */
   sex: SexCall
+  /**
+   * This array's banner, when it is a reconstruction rather than a measurement.
+   *
+   * Present means every figure keyed to the reference's own imperfection is available: the
+   * absence floor it contributes and the parental heterozygosity the genotypes cannot show. A
+   * caller that leaves this unset on a reconstructed file is scoring against a parent whose
+   * heterozygosity reads zero, which withholds the second-parent axis for the whole run.
+   */
+  inferred?: InferredBanner
+  /** Heterozygosity as the FILE reads, before any banner substitution. Equal to
+   *  `heterozygosity` on a measured array; 0 on a reconstruction. */
+  measuredHeterozygosity: number
 }
 
 /** Where a run writes its narrative. The browser paints it, the command line prints it. */
@@ -137,15 +158,33 @@ export function collectParentRow(r: ProbeRow, acc: ParentAccum): void {
   }
 }
 
-/** Heterozygosity is autosomal and over CALLED markers: it is the array's own error scale. */
-export const finishParent = (acc: ParentAccum, build: string | null): ParentIndex => ({
-  gt: acc.gt,
-  heterozygosity: acc.called ? acc.het / acc.called : NaN,
-  // Whether this array is in a state to say anything about its panel: see PANEL_ANCHOR_CALL_RATE.
-  callRate: acc.markers ? acc.called / acc.markers : NaN,
-  build,
-  sex: sexCall(acc.sex),
-})
+/**
+ * Heterozygosity is autosomal and over CALLED markers: it is the array's own error scale.
+ *
+ * EXCEPT ON A RECONSTRUCTION, where that quantity is zero by construction and says nothing. Pass
+ * the file's banner and the parent's real heterozygosity comes from there instead. The guard in
+ * `parentage.classify` that withholds the second-parent axis below PANEL_HET_FLOOR is correct and
+ * is left alone: a reconstruction genuinely cannot supply that axis from its genotypes, and the
+ * repair is to give the guard the figure the reconstruction DID establish, not to relax it.
+ */
+export const finishParent = (
+  acc: ParentAccum, build: string | null, inferred?: InferredBanner,
+): ParentIndex => {
+  const measured = acc.called ? acc.het / acc.called : NaN
+  return {
+    gt: acc.gt,
+    // The banner only substitutes when it carries a usable figure; an unreadable banner leaves
+    // the measured zero in place, which withholds rather than guesses.
+    heterozygosity: inferred && Number.isFinite(inferred.hRetained) && inferred.hRetained > 0
+      ? inferred.hRetained : measured,
+    measuredHeterozygosity: measured,
+    // Whether this array is in a state to say anything about its panel: see PANEL_ANCHOR_CALL_RATE.
+    callRate: acc.markers ? acc.called / acc.markers : NaN,
+    build,
+    sex: sexCall(acc.sex),
+    ...(inferred ? { inferred } : {}),
+  }
+}
 
 /**
  * Everything one sample's rows accumulate into, in a single pass.
@@ -357,7 +396,29 @@ export async function scoreSample(input: {
   // BULK_SPREAD_MAX for the third condition, which classify checks itself.
   const bulkMaterial = stageAgreement.used.stage === 'bulk'
     && profile.callRate >= PANEL_ANCHOR_CALL_RATE
-  const result = classify(t, pat.heterozygosity, { role: soloRole, bulk: bulkMaterial })
+  // THE REFERENCE'S OWN FALSE ABSENCE GOES IN HERE. A reconstructed parent is homozygous at
+  // markers where she is really heterozygous, and a haploid product of hers carries the other
+  // allele at half of those, which reads as an opposite homozygote through no fault of the
+  // sample. `classify` has taken that floor since parentage.check.ts section 16 and this caller
+  // never supplied it, so every row scored against a reconstruction was judged by the ceiling
+  // calibrated for a MEASURED array. Zero for a measured parent, which contributes none.
+  const result = classify(t, pat.heterozygosity, {
+    role: soloRole,
+    bulk: bulkMaterial,
+    ...(pat.inferred && Number.isFinite(pat.inferred.spuriousAbsence)
+      ? { spuriousAbsence: pat.inferred.spuriousAbsence } : {}),
+    ...(pat.inferred ? { inferredParent: true } : {}),
+  })
+  // A reconstruction whose banner could not be read is NOT a measured array, and proceeding as
+  // though it were is the failure this whole path exists to stop. Say so where the operator reads.
+  if (pat.inferred && !Number.isFinite(pat.inferred.hRetained)) {
+    result.limits.push(
+      'The parental file is a reconstructed reference whose banner could not be read, so the '
+      + 'parent heterozygosity it established and the absence floor it contributes are both '
+      + 'unavailable. Every call here is scored as though the reference were measured, which it '
+      + 'is not. Rebuild the reference, or load the parent\'s own array.',
+    )
+  }
   // Stage from the array itself, since the dropout each stage carries is what every
   // downstream likelihood is parameterised by. Bundled into the result so every output
   // carries it, with the basis and the confounds attached to the number.

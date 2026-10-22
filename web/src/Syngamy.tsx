@@ -37,7 +37,7 @@ import type { GainAnnotation } from './parentage'
 import { type FeatureTrack } from './features'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
-import { isInferredFile } from './inferredArray'
+import { isInferredFile, parseInferredBanner, MARK_BYTES } from './inferredArray'
 import { receiveHandoff, wantsHandoff } from './handoff'
 import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
@@ -667,7 +667,21 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             + 'rather than producing a report of refusals')
           throw new Error(`parent array failed ${parentBlocked.length} gate(s)`)
         }
-        const idx = finishParent(pacc, profile.build.build)
+        // A RECONSTRUCTION CARRIES ITS OWN PARAMETERS AND THEY ARE NOT IN ITS GENOTYPES. The file
+        // is homozygous at every marker, so its measured heterozygosity is 0.0% whatever the
+        // reconstruction achieved, and the figure that matters was written to the banner at build
+        // time. Read it here, where the parent is indexed, so every channel downstream sees it.
+        const banner = e.inferred
+          ? parseInferredBanner(await e.file.slice(0, MARK_BYTES).text()) ?? undefined
+          : undefined
+        const idx = finishParent(pacc, profile.build.build, banner)
+        if (banner) {
+          log('WARN', `${what} is a RECONSTRUCTED reference: ${banner.products} products, `
+            + `${pct(banner.contamination, 3)} contamination. Its own heterozygosity of `
+            + `${pct(banner.hRetained, 3)} and absence floor of ${pct(banner.spuriousAbsence, 3)} `
+            + 'come from the banner, because a reconstruction reads 0% heterozygous by '
+            + 'construction. Every call below inherits that')
+        }
         log('DONE', `${what} indexed, ${int(idx.gt.size)} markers, `
           + `autosomal het ${pct(idx.heterozygosity, 3)}`)
         patch(e.id, { state: 'done', profile, gates: g })

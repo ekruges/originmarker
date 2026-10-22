@@ -911,6 +911,12 @@ export function classify(
   opts: {
     role?: 'paternal' | 'maternal'; spuriousAbsence?: number
     /**
+     * Whether the parental file is a reconstruction rather than a measurement. Changes only which
+     * diagnosis is printed when its heterozygosity reads zero, never a threshold: see the
+     * reconstruction branch below.
+     */
+    inferredParent?: boolean
+    /**
      * Whether the stage inference reads this material as bulk. Necessary for the bulk magnitude
      * floor, not sufficient: see BULK_SPREAD_MAX. Unset is treated as amplified.
      */
@@ -952,7 +958,26 @@ export function classify(
     Number.isFinite(parentHeterozygosity) && parentHeterozygosity >= PANEL_HET_FLOOR
       ? secondParentSignal(parentHeterozygosity) : NaN
 
-  if (Number.isFinite(parentHeterozygosity) && parentHeterozygosity < PANEL_HET_FLOOR) {
+  // A RECONSTRUCTION AT EXACTLY ZERO IS A DIFFERENT DIAGNOSIS FROM A MONOMORPHIC PANEL, and the
+  // message below sent the reader after the wrong one. A genotype rebuilt from haploid products
+  // is homozygous at every marker by construction, so it reads 0.0% however good it is; a
+  // variant callset reads a few per cent because its sites are rare. Telling the operator to
+  // restrict their file to common variants is sound advice for the second and useless for the
+  // first, where the figure exists and is simply not in the file. The guard itself is unchanged:
+  // the axis genuinely cannot be supplied from these genotypes.
+  const reconstructionAtZero = Number.isFinite(parentHeterozygosity)
+    && parentHeterozygosity === 0 && opts.inferredParent === true
+  if (reconstructionAtZero) {
+    limits.push(
+      'The parental file is a reconstructed reference and reads 0.0% heterozygous, which is what '
+      + 'a genotype rebuilt from haploid products reads by construction rather than a property of '
+      + 'the panel. The axis separating one parental contribution from two is derived from the '
+      + "parent's own heterozygosity, so it is withheld here and the genome is not split into "
+      + 'uniparental or biparental. THE FIGURE EXISTS: the reconstruction estimated it from '
+      + 'disagreement among the products and wrote it to the file banner. A reader of that '
+      + 'banner recovers this axis; absence is unaffected either way.',
+    )
+  } else if (Number.isFinite(parentHeterozygosity) && parentHeterozygosity < PANEL_HET_FLOOR) {
     limits.push(
       `The parent is heterozygous at ${pct(parentHeterozygosity, 1)} of called autosomal markers. `
       + 'Every rate here is calibrated on common-SNP arrays, where that figure runs 15 to 19%. A '
