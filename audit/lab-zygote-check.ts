@@ -37,8 +37,14 @@ const walk = (d: string) => {
   for (const e of readdirSync(d)) {
     const p = join(d, e)
     if (statSync(p).isDirectory()) { walk(p); continue }
-    const m = /(\d{4,6}-\d{2})/.exec(e)
-    if (m && /\.probes(\.txt)?(\.gz)?$/.test(e) && !fileOf.has(m[1])) fileOf.set(m[1], p)
+    // Two naming conventions in play: the lab's own barcodes, and the GEO series where the
+    // pronucleus name is in the filename (pMII-1, mMII-3). Both are the sample's identity.
+    const m = /(\d{4,6}-\d{2})/.exec(e) ?? /([pm]MII-\d+)/.exec(e)
+      ?? /_(donor_[A-D]|sperm_DNA)_/.exec(e)
+    // Two export conventions: the lab's converted '.probes' files, and GEO's own
+    // '.CEL.txt' which carries the same columns under different names. The reader keys on
+    // the header, not the extension, so both load; this only decides what to look at.
+    if (m && /\.(probes(\.txt)?|CEL\.txt)(\.gz)?$/.test(e) && !fileOf.has(m[1])) fileOf.set(m[1], p)
   }
 }
 walk(DIR)
