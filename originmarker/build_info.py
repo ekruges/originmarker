@@ -166,10 +166,14 @@ RELEASES: tuple[Release, ...] = (
             "The second meiotic division, which parts sister chromatids and leaves the "
             "chromosome count unchanged. Two divisions reaching the same count, told apart by "
             "what the alleles say and not by how much material is there."),
+    Release("Reductional",
+            "The first meiotic division, which parts the two homologues and halves the "
+            "chromosome count. Each parent contributed one of them, so which homologue has gone "
+            "is a question that has to be put to both and not only to the first."),
 )
 
-VERSION = "5.37.1"
-CODENAME = "Equational"
+VERSION = "5.38.0"
+CODENAME = "Reductional"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

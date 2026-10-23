@@ -9,6 +9,109 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.38.0 "Reductional"
+
+**The segmental absence scan asked only one parent's question, so a deletion of the other parent's
+copy was never looked for.** The scan reads markers where a parent is homozygous and asks whether
+that parent's allele is missing. It was gated on the first parent, which left a loss of the second
+parent's copy reading present at every marker in the window. On the 31 hand-karyotyped cells of
+GSE148488 that have both parents arrayed, that showed as 11 of 17 paternal segmental events found
+and **0 of 10 maternal**. The scan now runs a second time against the other parent's own
+homozygous markers, which is a different marker set of the same size, so the window minimum and
+the threshold carry over unchanged. Maternal segmental detection goes from 0 of 10 to **5 of 10**,
+and a segment now records which run produced it rather than leaving the parent to be inferred from
+context. A segment also carries what the alleles say inside its own window: a whole chromosome
+averages an arm-sized event over its full length, which is why an arm can read near zero there and
+plainly here. On the hand-called events the scan reaches, the window share names the depleted
+parent correctly on every one.
+
+**A reconstructed parent was being judged by the parameters of a measured array.** A genotype
+rebuilt from a parent's own haploid products is homozygous at every marker by construction, so two
+numbers that the rest of the pipeline reads off a parental file are wrong on such a file, in
+opposite directions.
+
+The first is the reference's own false absence. Where the real parent is heterozygous the rebuild
+calls her homozygous, and a true haploid product of hers carries the other allele at half of those,
+which reads as an opposite homozygote through no fault of the sample. `classify` has taken that
+floor as an argument since it was written, and `scoreSample` never supplied it, so every row scored
+against a reconstruction was judged against a ceiling calibrated for a measured array. It is now
+passed, from the reconstruction's own banner.
+
+The second is the parent's heterozygosity, which on a rebuild reads 0.0%. A guard withholds the
+second-parent expectation below `PANEL_HET_FLOOR` for exactly that reason and is right to: a
+nonzero rate against a zero expectation reads as biparental on no evidence. What was wrong is that
+the true figure is known, written on the file's own banner, and nothing read it. The banner is now
+parsed and threaded through the parent index, so a reconstruction carries its parameters wherever
+it goes, with the measured 0.0% kept beside the substituted figure so a reader can see which is
+which. A banner that cannot be read leaves the zero in place and withholds, rather than falling
+back to treating the file as measured: withholding on a reconstruction is right, guessing is not.
+
+Measured over 44 pairings, the two repairs push opposite ways. The absence floor moves one verdict;
+the heterozygosity moves five origin classes. All 26 rows scored against a measured reference are
+identical before and after, which is the control. Parent heterozygosity enters only
+`secondParentExpected` and never the absence term, so the second repair cannot move an absence
+verdict by construction.
+
+**`om reconstruct --out` wrote a rebuilt parent that was indistinguishable from a measured array.**
+`inferredArrayText` exists to give such a file its banner, its `INFERRED_MARK` and the
+contamination figure a reader needs to interpret anything built on it, and the mark is what stops
+the file being re-imported as though it had been measured. The command line hand-rolled its own
+header instead and wrote none of it. The writer was tested and the caller was not. The command line
+now writes through `inferredArrayText`, and a check asserts both that it does and that a second
+array writer has not reappeared.
+
+All three of these are the same defect shape: a capability exists, a test covers the function, and
+a caller skips it. The tests added here assert the seam rather than the instances. Every file that
+builds a parent index must also read the banner, found by grep, so a loader added later without it
+fails instead of shipping silently.
+
+**A second segmental statistic was pre-registered, measured, and did not ship.** The absence scan
+reads markers where one parent is homozygous, where a lost copy still reads present about half the
+time because the other parent may be heterozygous. The alternative reads only markers where both
+parents are homozygous for opposite alleles, where a lost copy shows at every marker, on a set
+roughly fifteen times smaller: about 1,034 markers per chromosome against about 16,000. Whether
+the undiluted signal pays for the marker count is not settled by arithmetic. A power calculation
+written in advance said the diluted set should win and a first look said the opposite, and that
+first look chose its operating point on the cells it then reported.
+
+The split, the rule for picking the operating point and the bar for shipping were committed before
+the held-out half was scored, in `audit/segment-statistic-preregistration.txt`. 31 cells, 16 tuning
+and 15 held out, truth from the authors' own by-eye karyotype of every arrayed cell.
+
+| held out, at the point the rule picked | deletions found | segmental only | on hand-normal |
+|---|---|---|---|
+| shipped, 2400/250 | 76 of 102 | 12 of 14 | 12 of 224 |
+| opposite-homozygote, 150/80 | 85 of 102 | 13 of 14 | 13 of 224 |
+
+The bar required at least as many deletions **and** no more chromosomes the hand karyotype reads as
+normal. It met the first and missed the second by one chromosome, so the shipped statistic stays.
+The bar was written to require both precisely so a near miss could not be argued into a pass, and
+this is a near miss. Two further things are recorded rather than acted on. The halves came out
+badly uneven in what matters, 50 hand-called deletions on the tuning half against 102 on the
+held-out half, which splitting by cell cannot control for and which the secondary endpoint asking
+whether the halves differ is what caught. And the rule picked the most aggressive point on the
+grid, because its cap was the shipped statistic's own rate on the loose tuning half, which is a
+defect in the rule rather than in the data. A point at window 300 and LRT 250 finds one fewer
+deletion than the shipped statistic while calling less than half as many hand-normal chromosomes,
+and is **not** adopted, because it is read off the held-out half and a point chosen that way
+carries none of the protection the pre-registration exists to provide. What would settle it is
+independent cells rather than another pass over these 31.
+
+**The calls reported on the laboratory's own sheets are now reproducible.** They were produced by a
+script that was never committed, so no one could re-derive them, a reviewer included.
+`audit/lab-zygote-check.ts` runs every array through `scoreSample` end to end with the parental
+arrays named at run time, and prints the genome-level class beside the stage and zygosity that gate
+it. It interprets nothing itself. Where a named parental array exists, the pipeline reproduces what
+was reported. Sixteen apparent disagreements traced to a wrong pairing in the re-derivation rather
+than to the original calls: the samples concerned read 4.1 to 10.6 percent opposite homozygotes
+against the array assigned to them as father, where a true product of that man reads 0.49 to 0.63.
+No sample is named in the harness; the pairing comes from a file supplied at run time and is not
+tracked. The harness also now recognises the public series' own sample names and `.CEL.txt`
+extension, which it did not, so the public cells were invisible to it and it silently scored a
+smaller set than it appeared to.
+
+---
+
 ## 5.37.1 "Equational"
 
 **Three figures describing the allele gain scan were left behind by 5.36.0 and are remeasured.**
