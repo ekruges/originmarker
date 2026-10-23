@@ -20,6 +20,7 @@
 // them without recalibrating on a verified-clean set would be trading a known bias for an
 // unknown one. They are flagged instead, and the recalibration is tracked as an open item.
 import assert from 'node:assert/strict'
+import { readFileSync, readdirSync } from 'node:fs'
 import {
   MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, externalNull,
   scanChromosome, scanCopyNumber,
@@ -133,7 +134,27 @@ const chrom = (n: number, from = -1, to = -1, rate = 0.11, bg = 0.005): MarkerAb
   }
 }
 
-console.log('segments.check.ts: all assertions passed')
+// --- EVERY SURFACE THAT LABELS A PARENTAL ABSENCE MUST READ WHOSE IT WAS -----------------------
+//
+// `absentParent` is which of the two absence runs produced the segment, so it is the parent the
+// label has to name. Three surfaces print that label and all three hardcoded or assumed the
+// loaded role, which was correct only while one run existed. This asserts the seam rather than
+// the three instances: a fourth surface added later fails here instead of shipping a label that
+// names the wrong parent on every segment the second run finds.
+{
+  const dir = new URL('./', import.meta.url)
+  const missing = readdirSync(dir)
+    .filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith('.check.ts'))
+    .filter((f) => {
+      const src = readFileSync(new URL(f, dir), 'utf8')
+      return src.includes('alleles absent') && !src.includes('absentParent')
+    })
+  assert.deepEqual(missing, [],
+    `these label a parental-absence segment without reading whose alleles are missing: ${missing}`)
+}
+
+console.log('segments.check.ts: all assertions passed, including that every surface labelling a '
+  + 'parental absence reads which run found it')
 
 // --- 7. copy number is a different indicator from parental absence -----------------------------
 //

@@ -146,6 +146,13 @@ export interface Segment {
    *  parent against that parent's own homozygous markers, so this is which run produced it, not an
    *  inference. Absent where only one parent is loaded: it is then the loaded parent by definition. */
   absentParent?: 'paternal' | 'maternal'
+  /** Set where the OTHER parent's run called an overlapping window on this chromosome. Both
+   *  parents' alleles cannot be the missing ones over one region: a single lost copy takes one
+   *  parent's alleles with it, and a region genuinely missing both copies is a copy loss, which
+   *  the intensity channel calls on its own. So this marks a region no parent may be named for,
+   *  measured rather than assumed: 18 overlapping pairs over 31 public cells, involving 35 of 69
+   *  parental-absence segments on 6 cells, and costing no hand-called event its parent. */
+  contested?: boolean
 }
 
 /**

@@ -333,5 +333,64 @@ const one = (where: string, verdict: string) => ({
     'a single-unit run must not imply a timing it never measured')
 }
 
+// --- WHICH RUN FOUND A PARENTAL-ABSENCE SEGMENT IS WHOSE ALLELES ARE MISSING --------------------
+//
+// The absence scan runs once per parent, over the markers where THAT parent is homozygous. The
+// run that produced a segment therefore names the parent by construction. While only one run
+// existed every segment belonged to the loaded parent and the display could assume it; the second
+// run names the other parent, and an assumed role is then wrong on every segment it finds.
+{
+  const absent = (p?: 'paternal' | 'maternal'): Segment => ({
+    ...seg('4', 1_000_000, 20_000_000), kind: 'parental-absence', absentParent: p,
+  } as unknown as Segment)
+  const w = whereOf(absent(), 1_000_000, 20_000_000)
+
+  // The maternal run on a paternally-loaded sample. This is the case the second run created.
+  const d = defectsFrom([absent('maternal')], [], [], [], 'paternal')[0]
+  assert.equal(d.origin, 'maternal', 'the run that found it names the parent, not the loaded role')
+  assert.equal(d.basis, 'two-parent', 'the second run exists only where both parents are loaded')
+  assert.equal(d.channel, 'genotype')
+  assert.ok(d.why.includes('by construction'), d.why)
+
+  // The allele share over the same window is a second statistic and should agree. Where it does,
+  // its calibrated confidence is the one a reader sees: the run itself produces no number.
+  const agreeing = { where: w, origin: 'maternal copy missing', why: 'share agrees',
+    called: true, confidence: 0.97, band: 'B' }
+  const ok = defectsFrom([absent('maternal')], [],
+    [agreeing as unknown as GainAnnotation], [], 'paternal')[0]
+  assert.equal(ok.origin, 'maternal')
+  assert.equal(ok.confidence, 0.97, 'the share channel supplies the number where it agrees')
+
+  // AND WHERE THEY DISAGREE, NEITHER IS PRINTED. Two readings of one region naming opposite
+  // parents is a conflict, and resolving it silently would put a confidence calibrated on
+  // agreeing runs beside a parent that half the evidence contradicts.
+  const against = { where: w, origin: 'paternal copy missing', why: 'share disagrees',
+    called: true, confidence: 0.97, band: 'B' }
+  const clash = defectsFrom([absent('maternal')], [],
+    [against as unknown as GainAnnotation], [], 'paternal')[0]
+  assert.equal(clash.origin, 'unclear', 'a disagreement names no parent')
+  assert.equal(clash.confidence, undefined, 'and carries no confidence')
+  assert.ok(clash.why.includes('disagree'), clash.why)
+
+  // A WINDOW BOTH RUNS CALLED NAMES NO PARENT, whatever else agrees with it. Both parents'
+  // alleles cannot be the missing ones over one region, so the region stands and the parent does
+  // not. Measured at 35 of 69 parental-absence segments over 31 public cells, on 6 of them.
+  const contested = { ...absent('maternal'), contested: true } as unknown as Segment
+  const c = defectsFrom([contested], [], [agreeing as unknown as GainAnnotation], [], 'paternal')[0]
+  assert.equal(c.origin, 'unclear', 'both runs called it, so neither parent is named')
+  assert.equal(c.confidence, undefined)
+  assert.ok(c.why.includes('BOTH parents'), c.why)
+  assert.equal(c.locus, 'chr4:1,000,000-20,000,000', 'and the region is still reported')
+
+  // One parent loaded: no second run exists, so the loaded role is the parent by definition and
+  // the old behaviour is unchanged.
+  const solo = defectsFrom([absent(undefined)], [], [], [], 'maternal')[0]
+  assert.equal(solo.origin, 'unclear', 'with no annotation and no run there is nothing to name')
+  const soloAnn = { where: w, origin: 'maternal copy missing', why: 'x', called: true }
+  assert.equal(defectsFrom([absent(undefined)], [],
+    [soloAnn as unknown as GainAnnotation], [], 'maternal')[0].origin, 'maternal')
+}
+
 console.log('defects.check.ts: all assertions passed, including a single-parent verdict read '
-  + 'against the parent actually loaded rather than assumed paternal')
+  + 'against the parent actually loaded rather than assumed paternal, and a parental-absence '
+  + 'segment named by the run that found it rather than by the loaded role')

@@ -92,14 +92,32 @@ const parentOf = (h: string) => (/\(\s*pat/i.test(h) ? 'paternal' : /\(\s*mat/i.
 let total = 0; let named = 0
 const rows: string[] = []
 const seen = new Map<string, { kinds: string[]; gain?: string; shift?: number; info?: number }>()
+// EVERY parental-absence segment, flat, because the two channels that name its parent are
+// independent and the question is whether they agree. `absentParent` is which of the two absence
+// runs produced the call, so it is the parent by construction. The allele share inside the window
+// is a separate statistic on the same region. Agreement is checkable; disagreement is a finding.
+const abs: { gsm: string; chrom: string; startBp: number; endBp: number; span: number;
+  absentParent?: string; contested?: boolean; shareParent?: string; shift?: number;
+  info?: number }[] = []
 for (const gsm of cells) {
   const p = parentsOf.get(gsm)!
   const res = await scoreWith(gsm, p.father, p.mother) as {
     segments?: { chrom: string; startBp: number; endBp: number; kind: string; spanBp: number;
+      absentParent?: string; contested?: boolean;
       alleleGain?: { verdict: string; parent?: string; informative: number; shift: number; z: number } }[]
   }
   for (const sg of res.segments ?? []) {
     total += 1
+    if (sg.kind === 'parental-absence') {
+      abs.push({
+        gsm, chrom: sg.chrom, startBp: sg.startBp, endBp: sg.endBp, span: sg.spanBp,
+        absentParent: sg.absentParent, contested: sg.contested,
+        shareParent: sg.alleleGain?.shift === undefined ? undefined
+          : (sg.alleleGain.shift < 0 ? 'paternal' : 'maternal'),
+        shift: sg.alleleGain?.shift,
+        info: sg.alleleGain?.informative,
+      })
+    }
     const key = `${gsm}|${sg.chrom}`
     const e = seen.get(key) ?? { kinds: [] }
     e.kinds.push(sg.kind)
@@ -133,3 +151,53 @@ for (const w of want.sort((a, b) => a.gsm.localeCompare(b.gsm))) {
 console.log(`\nsegment called where the hand says a PATERNAL segmental event: ${tally.pat[0]} of ${tally.pat[1]}`)
 console.log(`segment called where the hand says a MATERNAL segmental event: ${tally.mat[0]} of ${tally.mat[1]}`)
 console.log(`\n${total} segments called across ${cells.length} cells; the alleles reach ${named}`)
+
+// ---------------------------------------------------------------------------------------------
+console.log('\nPARENTAL-ABSENCE SEGMENTS: WHICH RUN FOUND IT, AND WHAT THE SHARE SAYS')
+const withParent = abs.filter((a) => a.absentParent)
+const both = abs.filter((a) => a.absentParent && a.shareParent)
+const agree = both.filter((a) => a.absentParent === a.shareParent)
+console.log(`  parental-absence segments:                 ${abs.length}`)
+console.log(`  carrying which run found them:             ${withParent.length}`)
+console.log(`    of those, paternal run:                  ${withParent.filter((a) => a.absentParent === 'paternal').length}`)
+console.log(`    of those, maternal run:                  ${withParent.filter((a) => a.absentParent === 'maternal').length}`)
+console.log(`  with BOTH a run and a window share:        ${both.length}`)
+console.log(`    the two channels agree:                  ${agree.length} of ${both.length}`)
+for (const a of both.filter((x) => x.absentParent !== x.shareParent)) {
+  console.log(`    DISAGREE ${a.gsm} chr${a.chrom} ${(a.span / 1e6).toFixed(1)}Mb  `
+    + `run says ${a.absentParent}, share says ${a.shareParent} (shift ${a.shift?.toFixed(3)}, n ${a.info})`)
+}
+
+// THE SAME REGION CALLED BY BOTH RUNS is not a biological event. One lost copy takes one parent's
+// alleles with it; both parents' alleles depleted over the same window is dropout or a copy loss,
+// and the copy-number scan handles a real copy loss on its own channel. Counted rather than
+// assumed, because nothing yet says it happens.
+let overlaps = 0
+for (let i = 0; i < abs.length; i += 1) {
+  for (let j = i + 1; j < abs.length; j += 1) {
+    const a = abs[i]; const b = abs[j]
+    if (a.gsm !== b.gsm || a.chrom !== b.chrom) continue
+    if (a.absentParent === b.absentParent) continue
+    if (a.startBp > b.endBp || b.startBp > a.endBp) continue
+    overlaps += 1
+    console.log(`    BOTH RUNS ${a.gsm} chr${a.chrom} `
+      + `${(a.startBp / 1e6).toFixed(1)}-${(a.endBp / 1e6).toFixed(1)}Mb ${a.absentParent} and `
+      + `${(b.startBp / 1e6).toFixed(1)}-${(b.endBp / 1e6).toFixed(1)}Mb ${b.absentParent}`)
+  }
+}
+console.log(`  one window called by BOTH runs:            ${overlaps}`)
+
+// WHAT THE WITHHOLDING COSTS. A flag that suppresses a parent is only honest if the number of
+// correct calls it suppresses is known. Counted against the hand karyotype, not asserted.
+const flagged = abs.filter((a) => a.contested)
+const flaggedCells = new Set(flagged.map((a) => a.gsm))
+const handCells = new Set(want.filter((w) => parentOf(w.hand)).map((w) => w.gsm))
+const detected = new Set(want.filter((w) => parentOf(w.hand) && seen.has(`${w.gsm}|${w.chrom}`))
+  .map((w) => `${w.gsm}|${w.chrom}`))
+const lost = [...detected].filter((k) => flagged.some((a) => `${a.gsm}|${a.chrom}` === k))
+console.log(`  segments marked contested:                 ${flagged.length} of ${abs.length}`)
+console.log(`    on how many cells:                       ${flaggedCells.size} of ${cells.length}`)
+console.log(`    of those cells, carrying a hand-called segmental event: `
+  + `${[...flaggedCells].filter((g) => handCells.has(g)).length}`)
+console.log(`    hand-called events that LOSE their parent to the flag:  ${lost.length}`)
+for (const k of lost) console.log(`      ${k}`)

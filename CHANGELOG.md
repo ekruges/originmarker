@@ -9,6 +9,69 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.39.0 "Hemizygous"
+
+**The second absence run named a parent that nothing showed.** 5.38.0 made the segmental absence
+scan run once per parent and recorded which run produced each segment, which is the parent by
+construction: the marker set is that parent's own homozygous genotypes. No surface read it. Three
+places labelled every parental-absence segment with the loaded parent's role, one of them with the
+literal string `paternal`, which was correct while one run existed and names the wrong parent on
+every segment the second run finds. That is the 5 of 10 maternal events the second run was added
+for. All three now read the segment's own field, and the defect list takes the parent from the run
+rather than inferring it.
+
+Over the 31 cells of GSE148488 that have both parents arrayed and a hand karyotype in Table S3:
+
+| | |
+|---|---|
+| parental-absence segments | 69 |
+| carrying which run found them | 69, being 43 paternal and 26 maternal |
+| also carrying a window allele share | 23 |
+| the two channels agree | 23 of 23 |
+
+The allele share inside the window is a separate statistic over the same region and reads a loss
+the same way round, so the two are directly comparable. They have never named opposite parents.
+Where they do, the row now names none: resolving a conflict silently would print a confidence
+calibrated on runs that had none beside a parent half the evidence contradicts. That rule is
+asserted by a self-check and by nothing else, since the case has not occurred.
+
+**A window that BOTH runs called names no parent, which is 35 of those 69 segments.** The two runs
+read different marker sets, so one region can clear the threshold in both, and that is not an
+event: a lost copy takes one parent's alleles with it. Both parents' alleles depleted over one
+window is either a region missing both copies, which the intensity channel already calls as a copy
+loss on its own evidence, or dropout wide enough to clear the window minimum of 2,400 markers.
+
+18 overlapping pairs occur, on 6 of the 31 cells, involving 35 of the 69 segments; one cell carries
+four of them and one segment is in two. The spans are nearly chromosome-length, which reads as a
+globally depleted genome rather than as located events. The region is kept and the parent is
+withheld, with a limit line naming both candidate causes. Nothing is filtered: detection is
+identical before and after at 11 of 17 paternal and 5 of 10 maternal hand-called segmental events,
+and no hand-called event loses its parent to the flag.
+
+Whether withholding the parent is the right response, or whether such a cell should have its
+segment calls withheld entirely, or whether the contested windows should be resolved by their
+intensity, is not settled here. All three fit the measurement. Choosing between them after seeing
+which six cells are affected is the mistake `audit/` exists to record, so the question is written
+up in `audit/CONSULT-segmental-parent-of-origin.md` rather than answered.
+
+**A seam test rather than three fixed instances.** Any file under `web/src` that carries the
+"alleles absent" label must also read `absentParent`, found by reading the sources. A fourth
+surface added later fails the suite instead of shipping a label that names the wrong parent on
+every segment the second run finds. This is the fourth defect of the shape where a capability
+exists, a test covers the function, and a caller skips it.
+
+**The trio manifest that every public audit depends on could not be rebuilt.** Five audits read
+`trio_manifest_full.csv` out of the array directory and nothing in the repository produced it: it
+was written once by hand and lived beside the arrays, so a reviewer could not reproduce any of
+them, and a machine without that copy could not run them at all. `audit/geo_trio_manifest.py`
+builds it from GEO's own `!Sample_source_name_ch1`, which the submitters filled in as "blastomere
+from gamete combination egg donor A and sperm donor" on every sample that has a donor, with the
+parental arrays identified by GEO's own supplementary filenames. It refuses a row it cannot source,
+which is the fifteen 2PN pronuclei whose source name carries no donor letter and which are not in
+Table S3 either. All 31 cells with a hand karyotype get both parents.
+
+---
+
 ## 5.38.1 "Reductional"
 
 **5.38.0 does not compile, and was tagged and pushed anyway, because neither gate that should have

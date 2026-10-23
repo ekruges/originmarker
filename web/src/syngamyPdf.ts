@@ -749,8 +749,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { head: 'Against', w: 44, right: true }, { head: 'Score', w: 40, right: true }],
         r.segments.map((sg) => [
           locus(sg.chrom, segmentCoords(sg).start, segmentCoords(sg).end),
+          // The parent is the run that found the segment, not a constant. See kindLabel.
           { v: sg.kind === 'copy-loss' ? 'DNA absent'
-            : sg.kind === 'copy-gain' ? 'extra copies' : 'paternal alleles absent',
+            : sg.kind === 'copy-gain' ? 'extra copies'
+              : sg.contested ? 'alleles absent, both parents'
+                : `${sg.absentParent ?? 'paternal'} alleles absent`,
           colour: sg.kind === 'parental-absence' ? INK : WARN },
           { v: segmentCoords(sg).interval,
             colour: segmentCoords(sg).localised ? GREY : WARN },

@@ -837,6 +837,34 @@ export async function scoreSample(input: {
       .flatMap(([c, ms]) => scanChromosome(ms, externalNull(matAbsenceTally, c))
         .map((sg): Segment => ({ ...sg, absentParent: otherRole }))) : []),
   ].sort((a, b) => b.score - a.score)
+  // A WINDOW CALLED BY BOTH RUNS NAMES NO PARENT. The two runs read different marker sets, so
+  // the same region can clear the threshold in both, and that is not an event: one lost copy
+  // takes one parent's alleles with it. Both depleted over one window is either a region missing
+  // both copies, which the intensity channel calls as a copy loss on its own, or dropout wide
+  // enough to clear the window minimum. Printing the pair would show a reader two contradictory
+  // findings on one region; dropping it would lose a real position. So the region is kept and the
+  // parent is withheld.
+  for (const a of result.segments) {
+    if (a.kind !== 'parental-absence' || !a.absentParent) continue
+    for (const b of result.segments) {
+      if (b === a || b.kind !== 'parental-absence' || !b.absentParent) continue
+      if (b.chrom !== a.chrom || b.absentParent === a.absentParent) continue
+      if (a.startBp > b.endBp || b.startBp > a.endBp) continue
+      a.contested = true
+      break
+    }
+  }
+  const contested = result.segments.filter((sg) => sg.contested)
+  if (contested.length) {
+    const where = [...new Set(contested.map((sg) => `chr${sg.chrom}`))].join(', ')
+    result.limits.push(
+      `On ${where} the absence scan called an overlapping region against BOTH parents. A single `
+      + 'lost copy takes one parent\'s alleles with it, so both cannot be the missing ones over '
+      + 'one window: either the region is missing both copies, which the intensity channel calls '
+      + 'as a copy loss on its own evidence, or dropout there is wide enough to clear the window '
+      + 'minimum. The regions are reported with no parent named.',
+    )
+  }
 
   // WHICH PARENT A SEGMENT'S CHANGE FELL ON. The same statistic as the whole-chromosome scan,
   // computed over the informative markers that fall INSIDE the called window instead of across

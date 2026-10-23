@@ -170,10 +170,14 @@ RELEASES: tuple[Release, ...] = (
             "The first meiotic division, which parts the two homologues and halves the "
             "chromosome count. Each parent contributed one of them, so which homologue has gone "
             "is a question that has to be put to both and not only to the first."),
+    Release("Hemizygous",
+            "One copy of a region where there should be two, so only one parent's alleles are "
+            "there to read. Which parent is a question each parent's own markers answer "
+            "separately, and a region that reads absent against both is answering neither."),
 )
 
-VERSION = "5.38.1"
-CODENAME = "Reductional"
+VERSION = "5.39.0"
+CODENAME = "Hemizygous"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

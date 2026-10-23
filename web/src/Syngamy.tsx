@@ -1494,10 +1494,16 @@ function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate
  */
 /** What each segment kind is, in one line, because they are different events and a reader must
  *  not read a copy loss as a parental one or the reverse. */
-const kindLabel = (k: SegmentKind, role: 'paternal' | 'maternal'): string => (
+// THE PARENT COMES FROM THE SEGMENT, NOT FROM THE LOADED ROLE. The absence scan runs once per
+// parent against that parent's own homozygous markers, so a segment carries which run found it.
+// Labelling every one with the loaded role was right while only one run existed and names the
+// wrong parent on every segment the second run finds. Falls back to the role, which is what a
+// single-parent run means by definition.
+const kindLabel = (k: SegmentKind, role: 'paternal' | 'maternal', sg?: Segment): string => (
   k === 'copy-loss' ? 'DNA absent'
     : k === 'copy-gain' ? 'extra copies'
-      : `${role} alleles absent`)
+      : sg?.contested ? 'alleles absent, both parents'
+        : `${sg?.absentParent ?? role} alleles absent`)
 
 /**
  * Where each extra copy came from, or why that cannot be said.
@@ -1598,15 +1604,17 @@ function SegmentCallout({ segments, role }: {
         cannot show this: a chromosome that is partly changed reads as neither present nor absent.
         Two different things are listed and the difference matters: <b>DNA absent</b> means the
         region is not there at all, read from the array no longer calling it with the intensity
-        agreeing, while <b>{role} alleles absent</b> means the DNA is present but came from the
-        other parent.
+        agreeing, while <b>alleles absent</b> means the DNA is present but came from the other
+        parent. Each row names the parent whose alleles are the missing ones, which is the run
+        that found it: the scan is performed once per parent, against that parent's own
+        homozygous markers.
       </Text>
       <div style={{ marginTop: 7, display: 'grid', gap: 3 }}>
         {segments.map((sg) => (
           <Text key={`${sg.chrom}:${sg.startBp}`} size="xs" ff="monospace">
             chr{sg.chrom}&nbsp;{int(sg.startBp)}&ndash;{int(sg.endBp)}
             {'  '}&middot;{'  '}{mb(sg.spanBp)}
-            {'  '}&middot;{'  '}{kindLabel(sg.kind, role)}
+            {'  '}&middot;{'  '}{kindLabel(sg.kind, role, sg)}
             {'  '}&middot;{'  '}{pct(sg.rate, 1)} against {pct(sg.nullRate, 1)}
           </Text>
         ))}

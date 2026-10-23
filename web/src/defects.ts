@@ -142,6 +142,20 @@ export function defectsFrom(
     const ann = byWhere.get(where)
     let origin: Defect['origin'] = ann?.origin?.startsWith('paternal') ? 'paternal'
       : ann?.origin?.startsWith('maternal') ? 'maternal' : 'unclear'
+    // WHOSE ALLELES ARE MISSING IS WHAT THE CALL ITSELF SAYS. The absence scan runs once per
+    // parent, over the markers where THAT parent is homozygous, so the run that produced a
+    // parental-absence segment names the parent by construction and not by inference. Set only
+    // where both parents are loaded, which is the only case the second run exists in.
+    //
+    // The annotation above is a separate statistic, the allele share inside the same window, and
+    // it reads a loss the same way round: the under-represented parent is the one that lost the
+    // copy. So the two are directly comparable and should agree. Where the share names the OTHER
+    // parent the two readings of one region are in conflict, and the row names no parent: picking
+    // one would hide a disagreement behind a confidence calibrated on runs that did not have one.
+    const byRun = sg.kind === 'parental-absence' && !sg.contested ? sg.absentParent : undefined
+    const conflict = !!byRun && origin !== 'unclear' && origin !== byRun
+    if (conflict || (sg.kind === 'parental-absence' && sg.contested)) origin = 'unclear'
+    else if (byRun) origin = byRun
     // A single-parent call names a parent where two-parent dosage could not, so it fills the gap
     // rather than overriding: two parents remain the stronger evidence where both were loaded.
     const one = byOne.get(where)
@@ -169,13 +183,30 @@ export function defectsFrom(
         : sg.kind === 'copy-loss' ? 'copy-loss' : 'parental-absence',
       interval: sg.refined ? co.interval : undefined,
       origin,
-      why: ann?.why ?? (usedDosage ? dose?.why : undefined) ?? one?.why
-        ?? 'No parental genotype was loaded for this run, so allele dosage cannot be oriented and '
-          + 'the parent is not determined. The position and its interval are unaffected.',
-      basis: ann ? 'two-parent'
+      why: sg.contested
+        ? 'The absence scan called an overlapping region on this chromosome against BOTH parents. '
+          + 'A single lost copy takes one parent\'s alleles with it, so both cannot be the missing '
+          + 'ones here: either both copies are gone, which the intensity channel calls as a copy '
+          + 'loss on its own evidence, or dropout over this window is wide enough to clear the '
+          + 'scan\'s minimum. The region stands and no parent is named for it.'
+        : conflict
+        ? `The run that found this segment reads ${byRun} alleles as the missing ones, and the `
+          + `allele share inside the same window reads ${byRun === 'paternal' ? 'maternal' : 'paternal'}'s. `
+          + 'Two readings of one region disagree, so no parent is named here. The region and its '
+          + 'interval stand: what is in doubt is whose copy it was.'
+        : byRun
+          ? `The absence scan is run once per parent, over the markers where that parent is `
+            + `homozygous. This segment came from the ${byRun} run, so the alleles missing here `
+            + `are ${byRun} by construction rather than by inference. Whether that parent is `
+            + `right is the same question as whether the segment is real.`
+            + (ann?.why ? ` The allele share inside the window agrees: ${ann.why}` : '')
+          : ann?.why ?? (usedDosage ? dose?.why : undefined) ?? one?.why
+            ?? 'No parental genotype was loaded for this run, so allele dosage cannot be oriented '
+              + 'and the parent is not determined. The position and its interval are unaffected.',
+      basis: (ann || byRun) ? 'two-parent'
         : usedDosage ? 'dosage'
           : (one && origin !== 'unclear') ? 'one-parent' : undefined,
-      channel: usedDosage ? 'dosage' : (one ? 'genotype' : undefined),
+      channel: usedDosage ? 'dosage' : (one || byRun) ? 'genotype' : undefined,
       // EVERY CHANNEL SUPPLIES ITS OWN CONFIDENCE, taken from whichever one actually produced the
       // origin above. Before this, only dosage did, so a two-parent genotype call, the strongest
       // evidence here, printed a bare parent name while a weak dosage call printed 0.62 beside it.
