@@ -38,6 +38,18 @@ echo "requirements, against the shipped code"
 # each test exercised a fixture the application never sees.
 run 'requirements audit' . audit/requirements.check.ts
 
+# TYPESCRIPT IS TYPE-CHECKED HERE, NOT ONLY AT DEPLOY TIME. The self-checks above run through
+# tsx, which strips types without checking them, so this script reported "all checks passed" on a
+# tree that does not compile. 5.38.0 was tagged and pushed in that state. compileall below has
+# covered the Python half since it was written; this is the other half.
+echo "typescript type-checks"
+if out=$(cd web && npx tsc -b 2>&1); then
+  printf '  ok   tsc -b\n'
+else
+  printf '%s\n' "$out" | sed 's/^/    /'
+  printf '  FAIL tsc -b\n'; fails=$((fails + 1))
+fi
+
 echo "python modules compile"
 if python3 -m compileall -q originmarker app tools >/dev/null 2>&1; then
   printf '  ok   compileall\n'

@@ -22,7 +22,20 @@ echo "deploying $want"
 if [ "${1:-}" != "--skip-checks" ]; then
   echo "== release metadata"; ./scripts/release-check.sh
   echo "== self-checks";      ./scripts/checks.sh | tail -2
-  echo "== build";            (cd web && npm run build >/dev/null 2>&1) && echo "  ok   vite build"
+  # A FAILING BUILD MUST STOP THE DEPLOY, and for one release this did not. `set -e` exempts a
+  # command that is followed by `&&`, so `npm run build && echo ok` printed nothing on failure and
+  # the script carried on to copy a tree that does not compile. 5.38.0 was tagged and pushed that
+  # way and was caught only by the Docker build on the far side, after the tarball had landed. The
+  # output is kept on failure for the same reason: it was discarded, so the error had to be
+  # reproduced by hand to find out what it was.
+  echo "== build"
+  if out=$(cd web && npm run build 2>&1); then
+    echo "  ok   vite build"
+  else
+    printf '%s\n' "$out" | sed 's/^/    /'
+    echo "  FAIL vite build, nothing was copied"
+    exit 1
+  fi
 fi
 
 # A DIRTY TREE IS A STOP, NOT A WARNING. The checks above run against the working tree, so an

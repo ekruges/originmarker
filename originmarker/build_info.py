@@ -172,7 +172,7 @@ RELEASES: tuple[Release, ...] = (
             "is a question that has to be put to both and not only to the first."),
 )
 
-VERSION = "5.38.0"
+VERSION = "5.38.1"
 CODENAME = "Reductional"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'

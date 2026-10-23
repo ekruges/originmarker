@@ -9,6 +9,32 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.38.1 "Reductional"
+
+**5.38.0 does not compile, and was tagged and pushed anyway, because neither gate that should have
+stopped it could.** The type error is small: the segmental absence scan attaches which parent a
+segment belongs to by spreading the segment and adding the field, and the two mapped branches
+widened that field to `string`, which `Segment` does not accept. Annotating the two callbacks with
+their return type fixes it. Nothing about what the scan measures changes, and no shipped number
+moves.
+
+What matters is why it got out. `scripts/checks.sh` ran every self-check through tsx, which strips
+types without checking them, so the suite reported "all checks passed" on a tree that does not
+build. It has type-checked the Python half with compileall since it was written and never the
+TypeScript half at all. That half is now checked there, and a reintroduced error fails the suite.
+
+`scripts/deploy.sh` did run the build, and could not fail on it. `set -e` exempts a command
+followed by `&&`, so `npm run build >/dev/null 2>&1 && echo ok` printed nothing on failure and the
+script continued to copy a non-compiling tree to the host, where the Docker build caught it after
+the tarball had landed. The build output was discarded too, so the error had to be reproduced by
+hand to find out what it was. The build is now a gate that exits non-zero and prints what went
+wrong, which is what every other check in that script already did.
+
+The tag `v5.38.0` is left where it is. It names a commit that does not build, and moving a pushed
+tag hides that rather than recording it.
+
+---
+
 ## 5.38.0 "Reductional"
 
 **The segmental absence scan asked only one parent's question, so a deletion of the other parent's

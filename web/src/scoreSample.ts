@@ -24,6 +24,7 @@ import {
 } from './parentage.ts'
 import {
   scanChromosome, scanCopyNumber, externalNull, segmentCoords, type MarkerAbsence,
+  type Segment,
 } from './segments.ts'
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground, scanAlleleGains,
@@ -828,13 +829,13 @@ export async function scoreSample(input: {
     // inside it: that would be the same absence described twice.
     ...[...absenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
       .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))
-        .map((sg) => (mat ? { ...sg, absentParent: soloRole } : sg))),
+        .map((sg): Segment => (mat ? { ...sg, absentParent: soloRole } : sg))),
     // The same scan against the OTHER parent's own homozygous markers. Without it a deletion of
     // that parent's copy is invisible: the first parent's allele reads present at every marker of
     // it. Same statistic, same threshold, same null construction, different marker set.
     ...(mat ? [...matAbsenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
       .flatMap(([c, ms]) => scanChromosome(ms, externalNull(matAbsenceTally, c))
-        .map((sg) => ({ ...sg, absentParent: otherRole }))) : []),
+        .map((sg): Segment => ({ ...sg, absentParent: otherRole }))) : []),
   ].sort((a, b) => b.score - a.score)
 
   // WHICH PARENT A SEGMENT'S CHANGE FELL ON. The same statistic as the whole-chromosome scan,
