@@ -9,6 +9,101 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.42.0 "Dyad"
+
+Six predictions fixed in advance, five held and one failed. The one that failed takes a shipped
+behaviour with it, and the statistic that replaced it is the first one here validated against
+material whose truth does not come from reading an array.
+
+**The spread statistic was named for the wrong sign, and the confound it could not see was real.**
+At the panel's 0.168 diploid rate across 22 autosomes, elevating chromosomes by 1.5x reaches a
+spread of at most 0.204 and by 2.0x at most 0.353, while driving chromosomes to hemizygous level
+reaches 0.538 at five of twenty-two. So a threshold of 0.50 documented as detecting a
+heterozygosity EXCESS is unreachable by any elevation a copy number can produce and is crossed by
+COLLAPSE. The constant's own derivation said so and was not read: half the chromosomes at one copy
+is the deficit branch, because a hemizygous chromosome has no heterozygotes left to call.
+
+That made the confound load-bearing. A monosomy collapses heterozygosity on its chromosome and so
+does a region that failed to amplify; one is a genome and the other is not. The spread is now
+computed only over chromosomes whose call rate is at or above 0.60, the floor the per-chromosome
+mis-clustering gate already uses, because a chromosome at one copy is still genotyped while one
+that did not amplify is not. No new constant.
+
+**Validated on four classes, two of them with truth that no array reading produced.**
+
+| class | arrays | reads localised |
+|---|---|---|
+| uniform diploid, truth structural | 5 bulk parental arrays, call rate 0.82 to 0.98 | **0 of 5** |
+| uniform hemizygous, truth by dissection | 15 MII pronuclei, one copy of every autosome | **0 of 15** |
+| normal genome, poor array | GSM4472421, hand-read 46,XX at call rate 0.67 | 0 |
+
+The pronuclei are the demonstration. The old unconditioned statistic read 0.982, 0.792, 0.774 and
+0.349 on four of them, so it would have called three dissected haploid products chaotic genomes.
+The conditioned statistic reads 0.251, 0.182, 0.228 and 0.100 on the same four. Across the 31
+hand-karyotyped cells it tracks the hand-called abnormal autosome share at r = 0.322 and the call
+rate at r = 0.023, so it is fourteen times more associated with real aneuploidy than with dropout,
+where the statistic it replaces was driven by dropout outright.
+
+**And on this corpus it admits nothing, so the refusal split of 5.41.0 is reverted in effect.**
+
+| cell | unconditioned | conditioned | hand karyotype |
+|---|---|---|---|
+| GSM4472409 | 0.778 | **0.181** | 12 monosomies, 10 nullisomies: 22 of 22 abnormal |
+| GSM4472405 | 0.689 | **0.128** | 8 monosomies against 13 normal autosomes |
+
+The pre-registration predicted the first and not the second. GSM4472409 has no normal majority to
+contrast against, so a high reading on it could only be dropout at a 0.53 call rate, and that
+held. GSM4472405 was predicted to survive because 8 of 21 is genuinely localised, and it does not:
+its spread came from chromosomes that are not being genotyped. So the one hand-called segmental
+deletion that 5.41.0 recovered was admitted for a reason that was dropout, not hemizygosity.
+0 of 9 refused cells are now admitted and segmental detection returns to 15 of 22. The gate stays,
+because it is correct and tested on four negative classes, and it fires on nothing here.
+
+What follows is that the three `del(6q)(pat)` events on cells the hand karyotype reads as near
+normal are blocked by `MAX_DIPLOID_HET` alone, and nothing else. That ceiling is derived for bulk
+material at 0.168 plus drop-in measured at 0.0525 and applied unchanged to amplified single cells
+reading 0.318 to 0.376.
+
+**Detection is now measured against coordinates rather than chromosome names.** Every figure this
+project has published joined a called segment to a hand-called event by chromosome, so a segment
+anywhere on a chromosome counted as detecting an event anywhere else on it.
+`audit/ucsc-hg19-cytoband.tsv` is the UCSC hg19 cytoBand track, and `audit/karyotype_regions.py`
+resolves all 28 of Table S3's segmental clauses to GRCh37 coordinates with none unparsed.
+
+| | any overlap | reciprocal overlap >= 0.5 |
+|---|---|---|
+| deletions | 15 of 22 | **14 of 22** |
+| duplications | 2 of 6 | **0 of 6** |
+
+No deletion was being counted by a chromosome join that position does not support, so that figure
+survives. The duplication figure does not: the one event previously reported as detected,
+`dup 16q21-tel (pat)` at 57.4 to 90.4 Mb, is matched by a segment at 46.5 to 62.3 Mb, a reciprocal
+overlap of 0.112. The other is 0.064. The absence channel detects no duplication at any meaningful
+overlap, which is what it should do, and the earlier "1 of 5" was an artefact of the join.
+
+**Three hypotheses about specific events were tested and all three failed.** They are recorded
+because each one was someone's best candidate.
+
+The three terminal `del 16q23.1-tel (mat)` misses were predicted to be a thin maternal marker set.
+The maternal-homozygous informative count on chr16 is **14,322 to 14,991 markers** against a floor
+of 2,400, six times over. Not a marker-count problem, and the three sibling cells still fail
+identically for a reason now unknown.
+
+The duplication reported by the absence channel was predicted to carry `absentParent: maternal`,
+on the mechanism that a paternal duplication puts BAF at one third and miscalls the mother's
+allele to absent. It reads **paternal**, and at 46.5 to 62.3 Mb it barely overlaps the duplication
+at all. Both channels are firing in the same wrong place rather than reading the real event
+backwards.
+
+A triploid was predicted to show an empty BAF half band. The refused cells read 17.3 to 24.1
+percent in the half band against 25.1 to 65.0 percent on euploid controls, which is depleted, but
+their one-third and two-third bands read 8.8 to 15.3 and 18.3 to 25.9 percent against controls at
+2.9 to 10.3, and roughly 46 percent of their heterozygous mass falls outside all three bands. That
+is smearing, not a one-third and two-third structure. No support for triploidy and no threshold is
+set on it.
+
+---
+
 ## 5.41.1 "Chimaera"
 
 **The segment grid's reachability is measured rather than inferred from a median, and both earlier

@@ -174,6 +174,11 @@ RELEASES: tuple[Release, ...] = (
             "One copy of a region where there should be two, so only one parent's alleles are "
             "there to read. Which parent is a question each parent's own markers answer "
             "separately, and a region that reads absent against both is answering neither."),
+    Release("Dyad",
+            "One chromosome of a pair with its two chromatids still joined, which is what a cell "
+            "carries between the two meiotic divisions. One copy where there should be two has no "
+            "heterozygous sites left to call, and a region that failed to amplify has none "
+            "either, which is the whole of the difficulty in telling them apart."),
     Release("Chimaera",
             "Two genomes in one body, which raises the heterozygous rate at every marker because "
             "two people differ everywhere. A genome whose own chromosomes are at the wrong number "
@@ -185,8 +190,8 @@ RELEASES: tuple[Release, ...] = (
             "naming a parent and both are right."),
 )
 
-VERSION = "5.41.1"
-CODENAME = "Chimaera"
+VERSION = "5.42.0"
+CODENAME = "Dyad"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
