@@ -9,6 +9,39 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.41.1 "Chimaera"
+
+**The segment grid's reachability is measured rather than inferred from a median, and both earlier
+statements about it were wrong.** `scanChromosome` returns nothing when a chromosome carries fewer
+markers than the window minimum, so a grid point above a chromosome's informative count is not a
+conservative setting but an absent one. Over 106 cells against their own two parents, 2,332
+chromosome-cells, the informative count per chromosome runs 105 to 2,660 around a median of 1,034:
+
+| window minimum | chromosomes it can scan at all |
+|---|---|
+| 2400 | 43 of 2,332, 1.84% |
+| 1200 | 854 of 2,332, 36.62% |
+| 600 | 1,953 of 2,332, 83.75% |
+| 300 | 2,273 of 2,332, 97.47% |
+| 150 | 2,320 of 2,332, 99.49% |
+
+An external review put the 2400 and 1200 rows at zero, from the median alone. The largest
+chromosomes carry up to 2,660 markers and do clear 2400, so it is 1.84 percent and not zero. My own
+note in 5.40.0 said both rows performed no scan, which is right for 2400 within rounding and wrong
+for 1200: a third of chromosomes were scanned there, which makes it a genuinely conservative
+setting rather than an absent one.
+
+What stands is that a grid whose two most conservative rows reach 1.84 and 36.62 percent of
+chromosomes is not five settings of one statistic, and the rule that searched it was choosing among
+points of very unequal coverage without that being recorded. Declaring the window as a fraction of
+a chromosome's informative markers would have made it visible in the specification.
+
+No behaviour changes. The census also records the informative set at 23,864 markers per cell on the
+autosomes, 3.41 percent of those called, split 12,192 where the father is AA and the mother BB and
+13,411 the other way round, both counted.
+
+---
+
 ## 5.41.0 "Chimaera"
 
 Four measurements fixed in advance in `audit/refusal-split-preregistration.txt` and run once. One

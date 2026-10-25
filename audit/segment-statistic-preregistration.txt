@@ -133,11 +133,32 @@ hand-normal chromosome because nothing was tested, and the table above should be
 reachable region of the new statistic against the shipped setting of the old one, not as two
 settings of one statistic.
 
-This is a defect in how the grid was specified. A window minimum above a chromosome's informative
-marker count is not a setting, and a grid that contains such a point is smaller than it appears.
-The exact count of chromosome-cells scannable at each grid window is being measured by
-audit/marker-census.ts and will be recorded here; the median alone establishes the direction and
-not the count.
+MEASURED, by audit/marker-census.ts over 106 cells each against its own two parents, 2,332
+chromosome-cells. The informative count per chromosome runs 105 to 2,660 with a median of 1,034,
+so the distribution and not the median decides this:
+
+  minWindow 2400   scannable on    43 of 2,332 chromosome-cells    1.84%
+  minWindow 1200   scannable on   854 of 2,332                    36.62%
+  minWindow  600   scannable on 1,953 of 2,332                    83.75%
+  minWindow  300   scannable on 2,273 of 2,332                    97.47%
+  minWindow  150   scannable on 2,320 of 2,332                    99.49%
+
+So the 2400 row is effectively empty, at 1.84 percent of chromosomes reachable, and the 1200 row
+is NOT empty: it scans a third of them. Two corrections follow.
+
+  The external review put both rows at zero windows, reasoning from the median of 1,034. The
+  largest chromosomes carry up to 2,660 informative markers and do clear 2400, so the figure is
+  1.84 percent rather than zero.
+
+  My own first note here said both rows "performed no scan at all". That is right for 2400 within
+  rounding and wrong for 1200, which performed a scan on 36.62 percent of chromosomes and is
+  therefore a genuinely conservative setting rather than an absent one.
+
+What stands regardless: a grid whose two most conservative rows reach 1.84 and 36.62 percent of
+the chromosomes is not five settings of one statistic, and the rule that searched it was choosing
+among points of very unequal coverage without that being stated. A window minimum declared as a
+fraction of a chromosome's informative markers, which is what the review's 3.3(c) asks for, would
+have made this visible in the specification rather than two releases later.
 
 WHAT DID SHIP FROM THIS WORK, AND IS UNAFFECTED
 
