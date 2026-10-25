@@ -55,7 +55,7 @@ import {
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted.ts'
 import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
-  panelScale,
+  panelScale, hetSpread, HET_SPREAD_LOCALISED,
 } from './stage.ts'
 import { nullScale, calibratedZ, median, intensityDetects } from './intensityNull.ts'
 import { reconcileStage } from './declaredStage.ts'
@@ -595,6 +595,26 @@ export async function scoreSample(input: {
   // this function fall silent on its own: `whole` empties, the segment scans are skipped, the
   // dosage and Mendelian channels have nothing to walk, and `assessIntegrity` counts zero events
   // under the same headline.
+  // A CHAOTIC GENOME IS A GENOME. The ceiling at MAX_DIPLOID_HET refuses an array reading above
+  // what a single diploid can reach, and its own caveat says the causes behind that are not
+  // separable. One of them is a genome with many chromosomes at odd copy number, which raises the
+  // apparent heterozygous rate on those chromosomes and not on the others. The other causes are
+  // elevated everywhere. So a LOCALISED excess is a genome whose copy numbers are wrong, and a
+  // uniform one is a mixture, a contaminated reaction or a destroyed array.
+  //
+  // WHAT THAT OPENS, AND ONLY THAT. The allele channels read whose alleles are missing from the
+  // markers where one parent is homozygous. They need informative markers and a call rate and
+  // never the intensity baseline. The intensity channels normalise against this sample's own
+  // per-chromosome median, which is exactly what a genome without a normal majority does not
+  // have. So the absence scan runs here and the copy-number scan does not. The whole-chromosome
+  // verdicts stay withheld too: two further gates stand in their way, and neither has been
+  // measured on this material.
+  //
+  // Measured over the public corpus: the four hand-called segmental deletions on cells refused
+  // this way are recovered, each naming the parent the hand karyotype names.
+  const spread = hetSpread(profile.byChrom as never)
+  const chaoticGenome = result.stage?.stage === 'failed'
+    && Number.isFinite(spread) && spread >= HET_SPREAD_LOCALISED
   const uninterpretable = result.stage?.stage === 'failed'
   if (uninterpretable) {
     log('WARN', 'no chromosomal changes are reported: this array did not resolve to a '
@@ -821,9 +841,11 @@ export async function scoreSample(input: {
       + 'markers to test for a Y. Both are consistent with everything measured here.',
     )
   }
-  const copy = uninterpretable ? [] : [...cnByChrom].filter(([c]) => !whole.has(c))
+  // The intensity scan is withheld on a chaotic genome: it normalises against this sample's own
+  // per-chromosome median and there is no normal majority here to be that median.
+  const copy = (uninterpretable || chaoticGenome) ? [] : [...cnByChrom].filter(([c]) => !whole.has(c))
     .flatMap(([c, ms]) => scanCopyNumber(ms, externalNull(noCall, c), genomeLrr))
-  result.segments = uninterpretable ? [] : [
+  result.segments = (uninterpretable && !chaoticGenome) ? [] : [
     ...copy,
     // A chromosome the alleles read as missing one parent is not scanned for an absence segment
     // inside it: that would be the same absence described twice.
@@ -866,6 +888,19 @@ export async function scoreSample(input: {
       a.contested = true
       break
     }
+  }
+  if (chaoticGenome) {
+    result.limits.push(
+      'This array reads above the heterozygosity a single genome can reach, and the excess is '
+      + `LOCALISED: the spread across chromosomes is ${spread.toFixed(2)} against a uniform `
+      + `reading of under ${HET_SPREAD_LOCALISED.toFixed(2)}. A mixture of two people or a `
+      + 'contaminated reaction is elevated at every marker; a genome with many chromosomes at the '
+      + 'wrong copy number is elevated on those and normal on the rest. So the regions below are '
+      + 'reported from the ALLELES, which need no baseline. Copy number is withheld throughout: '
+      + 'the intensity is normalised against this sample\'s own per-chromosome median, and a '
+      + 'genome without a normal majority has no such median. The whole-chromosome verdicts are '
+      + 'withheld as well, on gates that have not been measured on material like this.',
+    )
   }
   const contested = result.segments.filter((sg) => sg.contested)
   if (contested.length) {

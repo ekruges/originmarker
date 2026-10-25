@@ -113,6 +113,50 @@ export const QC_CALL_FLOOR = 0.40
  * Beyond it the array is two individuals mixed, a contaminated reaction, or a failure, and the
  * four arrays that prompted this read 0.53-0.56, which is over twice the maximum.
  */
+/**
+ * Per-chromosome heterozygosity spread, as a coefficient of variation, above which excess
+ * heterozygosity is LOCALISED rather than uniform.
+ *
+ * `MAX_DIPLOID_HET` refuses an array reading above the ceiling a single diploid can reach, and its
+ * own caveat says the four causes behind that are not separable from one another. One of them is:
+ * a genome with many chromosomes at odd copy number raises the apparent heterozygous rate, and it
+ * is a genome. The other three do not raise it the same way. Two individuals mixed, a contaminated
+ * reaction and a destroyed array are elevated at every marker on every chromosome, because two
+ * genomes differ everywhere; a chaotic genome is elevated on the chromosomes that are wrong and
+ * normal on the rest.
+ *
+ * Measured on the 31 cells of GSE148488 that carry a hand karyotype, against the authors' own
+ * reading. The two cells the hand calls chaotic aneuploid and the ceiling refuses read 0.69 and
+ * 0.78. The seven other refused cells read 0.014 to 0.155, and the two of those with the highest
+ * heterozygosity, 0.62 and 0.64, read the LOWEST spread at 0.014 and 0.028, which is the uniform
+ * signature. The gap between the two groups is more than fourfold and this value sits inside it,
+ * three times above the highest uniform cell. It is not fitted: any value in that gap gives the
+ * same answer on this corpus, which is also why the corpus cannot calibrate it any more finely.
+ * It awaits an out-of-sample cohort, like the segment threshold it sits beside.
+ */
+export const HET_SPREAD_LOCALISED = 0.50
+
+/**
+ * Coefficient of variation of the heterozygous rate across autosomes.
+ *
+ * NaN where fewer than five autosomes carry enough calls to measure, which is a refusal to report
+ * a spread rather than a spread of zero: a uniform reading and an unmeasurable one must not look
+ * alike to the caller, because one of them admits a sample and the other must not.
+ */
+export const hetSpread = (
+  byChrom: Map<string, { called: number; het: number }>,
+  minCalled = 500,
+): number => {
+  const rates = [...byChrom.entries()]
+    .filter(([c, v]) => /^\d+$/.test(c) && v.called >= minCalled)
+    .map(([, v]) => v.het / v.called)
+  if (rates.length < 5) return NaN
+  const mean = rates.reduce((a, b) => a + b, 0) / rates.length
+  if (!(mean > 0)) return NaN
+  const sd = Math.sqrt(rates.reduce((a, b) => a + (b - mean) ** 2, 0) / rates.length)
+  return sd / mean
+}
+
 export const MAX_DIPLOID_HET = 0.25
 
 /**

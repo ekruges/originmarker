@@ -118,7 +118,8 @@ const rOf = (a: [number, number], b: [number, number]) => {
 }
 
 const perCell: { gsm: string; stage: string; callRate: number; lost: string[];
-  notMeasured: number; segs: Seg[]; anns: Ann[] }[] = []
+  notMeasured: number; segs: Seg[]; anns: Ann[]
+  profileByChrom: Map<string, { called: number; het: number }> }[] = []
 for (const gsm of cells) {
   const p = parentsOf.get(gsm)!
   const { res, profile } = await scoreWith(gsm, p.father, p.mother)
@@ -130,6 +131,7 @@ for (const gsm of cells) {
     notMeasured: (res.chroms ?? []).filter((c) => c.verdict === 'not_measured').length,
     segs: res.segments ?? [],
     anns: [...(res.gains ?? []), ...(res.losses ?? [])],
+    profileByChrom: (profile as unknown as { byChrom: Map<string, { called: number; het: number }> }).byChrom,
   })
   process.stdout.write('.')
 }
@@ -196,6 +198,27 @@ console.log(`  parental-absence segments:           ${allAbs.length}`)
 console.log(`  marked contested under the new rule: ${allAbs.filter((s) => s.contested).length}`)
 
 // --- D and E -------------------------------------------------------------------------------
+// --- THE REGRESSION INVARIANT OF THE REFUSAL SPLIT ---------------------------------------------
+// Only cells the stage inference refuses may gain anything, the gain must be allele-based, and no
+// copy-number segment may appear on a genome whose intensity cannot be normalised.
+console.log('\nREGRESSION. WHAT THE REFUSAL SPLIT ADMITTED, AND WHAT IT MUST NOT HAVE')
+const stg = await import(`${W}stage.ts`)
+let admitted = 0; let copyOnChaotic = 0
+console.log(`${'cell'.padEnd(12)} ${'stage'.padEnd(14)} ${'spread'.padStart(7)} `
+  + `${'absence'.padStart(8)} ${'copy'.padStart(5)}  hand`)
+for (const c of perCell) {
+  const sp = stg.hetSpread(c.profileByChrom as never) as number
+  const chaotic = c.stage === 'failed' && Number.isFinite(sp) && sp >= stg.HET_SPREAD_LOCALISED
+  if (!chaotic && c.stage !== 'failed') continue
+  const abs = c.segs.filter((s) => s.kind === 'parental-absence').length
+  const cp = c.segs.filter((s) => s.kind !== 'parental-absence').length
+  if (chaotic) { admitted += 1; copyOnChaotic += cp }
+  console.log(`${c.gsm.padEnd(12)} ${c.stage.padEnd(14)} ${(Number.isFinite(sp) ? sp.toFixed(3) : 'NaN').padStart(7)} `
+    + `${String(abs).padStart(8)} ${String(cp).padStart(5)}  ${chaotic ? 'ADMITTED as a chaotic genome' : 'still refused'}`)
+}
+console.log(`\n  refused cells admitted as a chaotic genome: ${admitted}`)
+console.log(`  copy-number segments on them, which must be 0: ${copyOnChaotic}`)
+
 console.log('\nTEST D AND E. THE DENOMINATOR, AND BOTH CHANNELS AGAINST THE HAND LABEL')
 const segOf = new Map<string, Seg[]>()
 for (const c of perCell) {

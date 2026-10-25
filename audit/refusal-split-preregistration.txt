@@ -136,4 +136,169 @@ THE REGRESSION INVARIANT, BINDING ON ANY CHANGE THAT FOLLOWS
 ================================================================================================
 THE RESULT, WRITTEN AFTER THE TESTS WERE RUN
 
-Nothing above this line was changed.
+Nothing above this line was changed. Run by audit/refusal-split-baseline.ts.
+
+TEST H. CONFIRMED ON ALL THREE. THE PAIRING NO LONGER RESTS ON THE PAPER.
+
+  pronucleus   sperm_DNA   donor_A   donor_B   donor_C   donor_D
+  mMII-1          12.61%    12.00%     0.86%    10.42%    10.54%
+  mMII-6          12.49%    11.78%     0.57%    10.28%    10.70%
+  pMII-1           0.81%    11.69%    11.64%    11.59%    11.92%
+  pMII-6           0.73%    11.86%    11.75%    11.68%    11.77%
+
+Every maternal pronucleus reads 0.57 to 1.04 percent against donor B and 10.2 to 12.7 against
+every other array. Every paternal pronucleus that is a single pronucleus reads 0.73 to 0.85
+against the sperm donor and 11.6 to 12.0 against all four egg donors. One egg donor, donor B, and
+no other. H3 holds.
+
+One script artefact, recorded so the printed count is not misread: the cut for "is a parent" was
+written at 1 percent and mMII-3 reads 1.04, so the table prints "no parent" for it where the
+nearest alternative is 10.66. Twelve of the fifteen have exactly one parent, not the ten printed.
+The four genuinely without one are pMII-2 at 1.72 and the three poor arrays.
+
+TEST I. DID NOT REPRODUCE, WHICH IS WHAT THE PREDICTION SAID WOULD BE THE FINDING.
+
+  array    stage        callRate    het   scanned  FALSE segs
+  pMII-1   haploid          0.85  0.078        22           0
+  pMII-2   blastomere       0.78  0.121        22           2   chr1 48-227Mb LRT 4828
+                                                                chr1  0-48Mb  LRT 1840
+  pMII-3   haploid          0.85  0.096        22           0
+  pMII-4   haploid          0.85  0.076        22           0
+  pMII-6   haploid          0.83  0.090        22           0
+
+Two false segments over 110 chromosome scans, both of them the chr1 event on pMII-2 that
+segments.check.ts already records as real and as having been counted as noise when the threshold
+was fitted. So the scan finds it, in two pieces, at LRT 4828 and 1840.
+
+That contradicts the figure the application ships. The text says the five pronuclei "reach a
+maximum score of 139 over 110 chromosome scans" against a calling threshold of 250, and "False
+segments on those genomes: 0 of 110". A chromosome scoring 4828 cannot sit in a set whose maximum
+is 139. The two cannot both be true, and the reproducible one is this run.
+
+pMII-2 also stages as `blastomere` rather than `haploid`, at a heterozygosity of 0.121 where its
+four siblings read 0.076 to 0.096. That agrees with the independent finding that this tube is not
+a single pronucleus, and it is the reason the chr1 event is there to be found.
+
+THE HONEST BASELINE, therefore: 0 false parental-absence segments over 88 chromosome scans, on the
+four arrays that are single pronuclei. pMII-2 is excluded because it is not one, and its chr1
+event is a real finding rather than a false positive. The shipped figure is corrected to say this.
+
+TEST J. 2 FALSE SEGMENTS OVER 58 CHROMOSOME SCANS, BOTH ON ONE ARRAY, BOTH MARGINAL.
+
+  array    stage         callRate    het   scanned  FALSE segs
+  pMII-5   single-cell       0.56  0.329        21           0
+  pMII-7   single-cell       0.54  0.431        17           0
+  pMII-8   single-cell       0.59  0.250        20           2   chr11 0-12Mb  LRT 356
+                                                                chr1  0-28Mb  LRT 311
+
+This is the specificity cost of admitting poor material, measured on truth from the dissection
+rather than from the reading under test, and out of sample from the null the threshold was fitted
+on. Two of the three arrays produce nothing. The two false segments on the third clear the
+threshold of 250 by 61 and 106, against the real chr1 event on pMII-2 at 4828: a factor of
+thirteen between the weakest real call in this material and the strongest false one.
+
+What that does and does not license. It licenses the per-channel gate, because 2 in 58 is a cost
+that can be stated beside every call rather than hidden. It does NOT license a higher threshold
+for admitted material, which is the obvious next move: 356 and 311 are two numbers on one array,
+and a threshold placed above them would be a threshold fitted on two numbers. Recorded, not acted
+on.
+
+TEST K. PREDICTION HELD BY 0.014 AND THE REAL RESULT IS A THREE-WAY SPLIT, NOT A TWO-WAY ONE.
+
+K2 predicted the chaotic cells would read a higher spread than the cell the hand calls failed.
+They do, but GSM4552418 reads 0.028 against that cell's 0.014, which is not a separation worth
+anything. The ordering is technically as predicted and the prediction was looking at the wrong
+pair. What the nine refused cells actually show:
+
+  cell         callRate     het      CV   hand karyotype
+  GSM4472409       0.53   0.312   0.778   chaotic aneuploid
+  GSM4472405       0.58   0.279   0.689   chaotic aneuploidy
+  GSM4472422       0.76   0.316   0.155   45,XY,-5,-13,+15
+  GSM4552387       0.77   0.318   0.154   normal for other chromosomes
+  GSM4552389       0.76   0.345   0.135   monosomy 5
+  GSM4552388       0.74   0.376   0.133   normal for other chromosomes
+  GSM4472421       0.67   0.351   0.070   46,XX
+  GSM4552418       0.56   0.641   0.028   chr6p fragment only
+  GSM4552422       0.75   0.618   0.014   failed
+
+Three groups, and the hand karyotype agrees with all three:
+
+  LOCALISED, CV 0.69 to 0.78, het 0.28 to 0.31. Both hand-called chaotic aneuploid. A genome whose
+  copy numbers are wrong. The alleles are readable and the intensity baseline is not. This is the
+  group the split admits.
+
+  UNIFORM AND MILD, CV 0.07 to 0.16, het 0.32 to 0.38, call rate 0.67 to 0.77. Five cells, and the
+  hand karyotype calls two of them normal and one 46,XX. These are not mixtures and they are not
+  chaotic: they are amplified single cells whose drop-in carries them over a ceiling derived as
+  0.168 plus drop-in at 0.0525, which is 0.212. Refusing them is probably wrong, and it is a
+  question about MAX_DIPLOID_HET on amplified material rather than about this split. NOT touched
+  here. Recorded as the largest open item this measurement found.
+
+  UNIFORM AND SEVERE, CV 0.014 to 0.028, het 0.62 to 0.64, which is double the group above. One is
+  hand-called failed throughout and the other is a single surviving chromosome arm. Elevated at
+  every marker, which is the mixture and destroyed-array signature. Correctly refused.
+
+So the separator is the spread TOGETHER WITH the rate: the spread tells a localised genome from a
+uniform one, and the rate tells mild uniform excess from severe. The gap between the localised
+group and everything else is 0.155 to 0.689, more than fourfold, and HET_SPREAD_LOCALISED is
+pinned at 0.50 inside it. No value in that gap changes any answer on this corpus, which is also
+why this corpus cannot calibrate it more finely.
+
+Also visible in the full table, and not predicted: six cells the hand calls chaotic aneuploid are
+ALREADY accepted, reading CV 0.75 to 1.02 at heterozygosity 0.11 to 0.19. A chaotic genome is only
+refused when its heterozygosity happens to cross the ceiling. The refusal was never about the cell
+being chaotic; it was about where the chaos put one summary number.
+
+
+================================================================================================
+THE REGRESSION, AFTER THE SPLIT SHIPPED
+
+  cell         stage    spread  absence segs  copy segs  outcome
+  GSM4472405   failed    0.689            12          0  ADMITTED as a chaotic genome
+  GSM4472409   failed    0.778             0          0  ADMITTED, and produces nothing
+  GSM4472422   failed    0.155             0          0  still refused
+  GSM4552387   failed    0.154             0          0  still refused
+  GSM4552388   failed    0.133             0          0  still refused
+  GSM4552389   failed    0.135             0          0  still refused
+  GSM4472421   failed    0.070             0          0  still refused
+  GSM4552418   failed    0.028             0          0  still refused
+  GSM4552422   failed    0.014             0          0  still refused
+
+  refused cells admitted                                 2 of 9
+  copy-number segments on an admitted cell, must be 0    0
+  parental-absence segments over the corpus              69 to 81
+  contested segments                                     34, unchanged
+  segmental detection                                    15 of 22 to 16 of 22
+    paternal                                             10 of 14 to 11 of 14
+    maternal                                             5 of 8, unchanged
+
+THE INVARIANT HOLDS. No accepted cell changed: the contested count, the agreement count and every
+previously detected event are identical. Only refused cells gained, the gain is allele-based, and
+no copy-number segment appears on a genome whose intensity cannot be normalised.
+
+THE GAIN IS ONE EVENT, NOT FOUR, AND THE SHORTFALL IS INSTRUCTIVE. Declaring the stage by hand
+recovers all four hand-called del(6q)(pat) events on refused cells, each naming the right parent.
+The automatic rule recovers one. The other three are GSM4552387, GSM4552388 and GSM4552389, which
+read spreads of 0.133 to 0.154: their excess heterozygosity is UNIFORM, so the rule declines to
+call them chaotic genomes, and it is right to by its own definition. The hand karyotype calls two
+of them "normal for other chromosomes" and the third "monosomy 5".
+
+So three of the four events are not blocked by the chaotic-genome question at all. They are blocked
+by MAX_DIPLOID_HET, which is derived as the Axiom bulk rate of 0.168 plus drop-in at the highest
+rate measured, 0.0525, giving 0.212, and is applied unchanged to amplified single cells reading
+0.318 to 0.376 at call rates of 0.74 to 0.77. That ceiling exists for a reason the module
+documents: an array at 52 percent heterozygous and a 55 percent call rate was once classified as
+bulk genomic DNA and handed the most confident parameter set in the module. Raising it is therefore
+not a one-line change, and it is the largest open item this whole measurement produced.
+
+GSM4472409 IS ADMITTED AND REPORTS NOTHING, which is a second gate rather than a failure of this
+one. Its call rate is 0.53 and ten of its chromosomes carry a per-chromosome verdict of
+`not_measured`, which the scan requires. Admitting the cell does not manufacture calls on
+chromosomes whose genotypes are not measuring them, and that is the correct behaviour.
+
+WHAT THE TWELVE NEW SEGMENTS ON GSM4472405 ARE. One is the hand-called del(6q)(pat), named
+paternal, correctly. The other eleven are on a cell whose hand karyotype reads "chaotic
+aneuploidy", and Zuccaro tabulated the events they were looking for rather than every event, so
+there is no truth to score them against. They are not claimed as correct. What bounds them is
+Test J: 2 false parental-absence segments over 58 chromosome scans on poor material whose truth
+comes from dissection, both marginal at 356 and 311 against a real event at 4,828.

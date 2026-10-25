@@ -1457,12 +1457,27 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             more often than independence predicts on single cells and about twice as often on bulk.
           </Text>
           <Text mb={8}>
-            So the threshold comes from genomes known to carry nothing. Five paternal pronuclei of
-            the sperm donor, each a meiotic product of his and so present on every autosome, reach
-            a maximum score of 139 over 110 chromosome scans. The calling threshold is 250.
-            <b> False segments on those genomes: 0 of 110.</b> That threshold is fitted on the same
-            null it is evaluated against, so it awaits an out-of-sample clean cohort, and the score
-            is printed beside every segment so a marginal call reads as marginal.
+            So the threshold comes from genomes known to carry nothing: paternal pronuclei of the
+            sperm donor, each a meiotic product of his and so present on every autosome, with the
+            truth coming from the aspiration rather than from any reading of the array.
+            <b> False segments: 0 over 88 chromosome scans</b>, on the four arrays that are single
+            pronuclei. The calling threshold is 250.
+            <br /><br />
+            <b>Corrected.</b> This said 0 over 110 scans at a maximum score of 139, over five
+            arrays. The fifth, pMII-2, is not a single pronucleus: it stages as a blastomere at
+            12.1% heterozygous where its four siblings read 7.6 to 9.6, and it carries a real chr1
+            event that an external review measured independently. Rerun through the shipped
+            pipeline, that event scores 4,828 and 1,840 in two pieces, which cannot sit in a set
+            whose maximum is 139. It was being counted as noise inside the null the threshold was
+            fitted on, so the old figure was optimistic by an unknown margin and the new one
+            excludes the array rather than the event.
+            <br /><br />
+            Out of sample, on three poor products of the same donor at call rates of 0.54 to 0.59,
+            which the stage inference refuses and which a declared stage admits:{' '}
+            <b>2 false segments over 58 chromosome scans</b>, both on one of the three, scoring 356
+            and 311 against that real chr1 event at 4,828. The threshold is still fitted on the
+            clean null it is evaluated against, so it awaits an out-of-sample clean cohort, and the
+            score is printed beside every segment so a marginal call reads as marginal.
           </Text>
           <Title order={3} mt={14} mb={4}>The floor, and why a marker count is not a resolution</Title>
           <Text mb={8}>

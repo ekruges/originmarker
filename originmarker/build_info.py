@@ -174,14 +174,19 @@ RELEASES: tuple[Release, ...] = (
             "One copy of a region where there should be two, so only one parent's alleles are "
             "there to read. Which parent is a question each parent's own markers answer "
             "separately, and a region that reads absent against both is answering neither."),
+    Release("Chimaera",
+            "Two genomes in one body, which raises the heterozygous rate at every marker because "
+            "two people differ everywhere. A genome whose own chromosomes are at the wrong number "
+            "raises it on those and nowhere else, and that difference is the whole of how the two "
+            "are told apart."),
     Release("Nullisomy",
             "Both parental copies of a region gone, rather than one. Two absence scans, one per "
             "parent, both read it as missing, which is the one case where neither of them is "
             "naming a parent and both are right."),
 )
 
-VERSION = "5.40.0"
-CODENAME = "Nullisomy"
+VERSION = "5.41.0"
+CODENAME = "Chimaera"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

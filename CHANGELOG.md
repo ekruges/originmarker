@@ -9,6 +9,83 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.41.0 "Chimaera"
+
+Four measurements fixed in advance in `audit/refusal-split-preregistration.txt` and run once. One
+prediction held by a margin not worth having, one shipped figure failed to reproduce, and the
+change that follows recovers one event where a manual override recovers four.
+
+**A chaotic genome is a genome, and it was being refused as though it were a mixture.**
+`MAX_DIPLOID_HET` refuses an array reading above the ceiling a single diploid can reach, and its own
+caveat says the causes behind that are not separable from one another. They are separable by
+shape. Two individuals mixed, a contaminated reaction and a destroyed array are elevated at every
+marker, because two genomes differ everywhere. A genome with chromosomes at the wrong copy number
+is elevated on those and normal on the rest.
+
+Measured on the nine refused cells of GSE148488, against the authors' own karyotype:
+
+| | call rate | heterozygosity | spread | hand karyotype |
+|---|---|---|---|---|
+| GSM4472409 | 0.53 | 0.312 | **0.778** | chaotic aneuploid |
+| GSM4472405 | 0.58 | 0.279 | **0.689** | chaotic aneuploidy |
+| five cells | 0.67 to 0.77 | 0.316 to 0.376 | 0.070 to 0.155 | two read normal, one 46,XX |
+| GSM4552418 | 0.56 | 0.641 | 0.028 | chr6p fragment only |
+| GSM4552422 | 0.75 | 0.618 | 0.014 | failed |
+
+Three groups, and the hand karyotype agrees with all three. `HET_SPREAD_LOCALISED` is pinned at
+0.50, inside a gap running from 0.155 to 0.689, so no value in that gap changes an answer here,
+which is equally why this corpus cannot calibrate it more finely.
+
+On a genome whose excess is localised, the **allele** channels now run and the **intensity**
+channels do not. The absence scan reads whose alleles are missing from markers where one parent is
+homozygous, and needs informative markers and a call rate. The copy-number scan normalises against
+this sample's own per-chromosome median, and a genome without a normal majority has no such
+median. That is the laboratory's own request from 21 October, that knowing which one is which
+matters on cells carrying many gains and losses, and its own corollary about what log R normalises
+to, answered as one thing. The whole-chromosome verdicts stay withheld: two further gates stand in
+their way and neither has been measured on this material.
+
+**What it recovers, honestly.** Declaring the stage by hand recovers all four hand-called
+`del(6q)(pat)` events on refused cells, each naming the right parent. The automatic rule recovers
+**one**: segmental detection goes from 15 of 22 to 16 of 22, paternal 10 of 14 to 11 of 14. The
+other three cells read spreads of 0.133 to 0.154, so their excess is uniform and the rule declines
+to call them chaotic, correctly by its own definition. They are blocked by the ceiling itself,
+derived as 0.168 plus drop-in at 0.0525 for bulk material and applied unchanged to amplified single
+cells reading 0.318 to 0.376. That ceiling exists because an array at 52% heterozygous and a 55%
+call rate was once classified as bulk genomic DNA and handed the most confident parameter set in
+the module. Raising it is not a one-line change and it is the largest open item this work found.
+
+The invariant holds. No accepted cell changed: 34 contested segments, 23 of 23 channel agreement
+and every previously detected event are identical. Parental-absence segments go 69 to 81, all on
+one admitted cell, and copy-number segments on an admitted cell are 0 as required.
+
+**The shipped false-positive figure for the segment scan was wrong.** The application said five
+paternal pronuclei of the sperm donor "reach a maximum score of 139 over 110 chromosome scans" and
+"False segments on those genomes: 0 of 110". Rerun through the shipped pipeline it is 2 of 110, and
+both are the chr1 event on pMII-2 that `segments.check.ts` already records as real and as having
+been counted as noise when the threshold was fitted. It scores **4,828 and 1,840** in two pieces,
+which cannot sit in a set whose maximum is 139.
+
+pMII-2 also stages as a blastomere at 12.1% heterozygous where its four siblings read 7.6 to 9.6,
+agreeing with the independent finding that the tube is not a single pronucleus. The figure is
+corrected to **0 false segments over 88 chromosome scans**, on the four arrays that are single
+pronuclei, with the array excluded rather than the event.
+
+**And a specificity figure now exists for poor material, out of sample.** Three paternal products
+of the same donor at call rates of 0.54 to 0.59, which the stage inference refuses and a declared
+stage admits, give **2 false parental-absence segments over 58 chromosome scans**, both on one of
+the three, scoring 356 and 311 against that real event at 4,828. Their truth is the aspiration
+rather than a reading of the array, and they are out of sample from the null the threshold was
+fitted on. No threshold is raised on the strength of two numbers from one array.
+
+**The MZ pronuclei's parents no longer rest on the paper.** GEO names an egg donor for every sample
+in the series except these fifteen, so the pairing had been cited. Every maternal pronucleus reads
+0.57 to 1.04 percent against donor B and 10.2 to 12.7 against every other array; every paternal
+pronucleus that is a single pronucleus reads 0.73 to 0.85 against the sperm donor and 11.6 to 12.0
+against all four egg donors. One egg donor, and no other.
+
+---
+
 ## 5.40.0 "Nullisomy"
 
 Five tests fixed in advance in `audit/contested-flag-preregistration.txt` and run once, after an

@@ -17,7 +17,7 @@ import assert from 'node:assert/strict'
 import {
   inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, QC_CALL_FLOOR,
   BAND_DIPLOID_CERTAIN, MAX_DIPLOID_HET,
-  BULK_MAX_BAF_SD, stageFacts, amplificationWord,
+  BULK_MAX_BAF_SD, stageFacts, amplificationWord, hetSpread, HET_SPREAD_LOCALISED,
 } from './stage.ts'
 
 const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
@@ -304,6 +304,38 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   assert.equal(blind.amplified, null)
   assert.ok(Number.isNaN(blind.hetBafSd))
   assert.ok(amplificationWord(blind).includes('not measured'))
+}
+
+// --- A LOCALISED EXCESS IS A GENOME; A UNIFORM ONE IS NOT -------------------------------------
+//
+// MAX_DIPLOID_HET refuses an array above the ceiling a single diploid can reach, and its caveat
+// says the causes are not separable from each other. They are separable by SHAPE. A genome with
+// chromosomes at the wrong copy number is elevated on those and normal on the rest; a mixture of
+// two people, a contaminated reaction and a destroyed array are elevated everywhere, because two
+// genomes differ at every marker. The figures below are the measured ones from GSE148488.
+{
+  const chroms = (rates: number[]) => new Map(
+    rates.map((r, i) => [String(i + 1), { called: 10_000, het: Math.round(r * 10_000) }]),
+  )
+  // Fewer than five measurable autosomes is a refusal to report a spread, not a spread of zero.
+  assert.ok(Number.isNaN(hetSpread(chroms([0.1, 0.1, 0.1, 0.1]))))
+  assert.ok(Number.isNaN(hetSpread(new Map([['1', { called: 10, het: 1 }]]))),
+    'a chromosome under the call floor does not count toward the five')
+
+  // Uniform: every chromosome at the same elevated rate. This is the mixture signature, and the
+  // two measured cells with the highest heterozygosity read 0.014 and 0.028.
+  assert.ok(hetSpread(chroms(Array.from({ length: 22 }, () => 0.62))) < HET_SPREAD_LOCALISED)
+
+  // Localised: half the chromosomes near zero because they are at one copy, half at a diploid
+  // rate. The two measured chaotic cells the ceiling refuses read 0.69 and 0.78.
+  const half = Array.from({ length: 22 }, (_, i) => (i % 2 ? 0.30 : 0.01))
+  assert.ok(hetSpread(chroms(half)) >= HET_SPREAD_LOCALISED, String(hetSpread(chroms(half))))
+
+  // AND THE THRESHOLD SITS IN A MEASURED GAP, three times above the highest uniform cell and
+  // below the lowest localised one. Pinned so it cannot drift without this check failing.
+  assert.equal(HET_SPREAD_LOCALISED, 0.50)
+  assert.ok(0.155 < HET_SPREAD_LOCALISED && HET_SPREAD_LOCALISED < 0.689,
+    'the value must stay inside the gap the corpus measured')
 }
 
 console.log('stage.check.ts: all assertions passed, including quality gated before ploidy, '
