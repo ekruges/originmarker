@@ -114,25 +114,37 @@ export const QC_CALL_FLOOR = 0.40
  * four arrays that prompted this read 0.53-0.56, which is over twice the maximum.
  */
 /**
- * Per-chromosome heterozygosity spread, as a coefficient of variation, above which excess
- * heterozygosity is LOCALISED rather than uniform.
+ * Per-chromosome heterozygosity spread, as a coefficient of variation, above which the departure
+ * from a uniform genome is LOCALISED to some chromosomes rather than shared by all of them.
  *
- * `MAX_DIPLOID_HET` refuses an array reading above the ceiling a single diploid can reach, and its
- * own caveat says the four causes behind that are not separable from one another. One of them is:
- * a genome with many chromosomes at odd copy number raises the apparent heterozygous rate, and it
- * is a genome. The other three do not raise it the same way. Two individuals mixed, a contaminated
- * reaction and a destroyed array are elevated at every marker on every chromosome, because two
- * genomes differ everywhere; a chaotic genome is elevated on the chromosomes that are wrong and
- * normal on the rest.
+ * WHAT THIS ACTUALLY FIRES ON, CORRECTED. The first version of this comment said it detects a
+ * localised heterozygosity EXCESS. It does not, and the arithmetic says so without any
+ * measurement: at the panel's 0.168 diploid rate across 22 autosomes, elevating k chromosomes by
+ * 1.5x reaches a spread of at most 0.204 and by 2.0x at most 0.353, while driving k chromosomes to
+ * hemizygous level reaches 0.217 at k=1, 0.538 at k=5 and 0.988 at k=11. This threshold is
+ * unreachable by any elevation a copy number can produce and is crossed by COLLAPSE at five of
+ * twenty-two. The two cells it classifies read 0.69 and 0.78, far above anything elevation
+ * reaches. The constant's own derivation gave this away and was not read: half the chromosomes at
+ * one copy is the deficit branch, because a hemizygous chromosome has one haplotype and no
+ * heterozygotes to call.
+ *
+ * SO THE SIGN MATTERS AND THE CONFOUND IS REAL. A monosomy collapses heterozygosity on its
+ * chromosome and so does a region that did not amplify. One is a genome and the other is not, and
+ * a coefficient of variation is blind to the difference because it measures dispersion without
+ * regard to cause. The discriminator is where the markers went: a chromosome present at one copy
+ * is still genotyped at a normal rate, while a chromosome that failed to amplify loses its call
+ * rate along with its heterozygotes. So the spread is measured over chromosomes that are being
+ * genotyped and over no others; see `hetSpread`.
  *
  * Measured on the 31 cells of GSE148488 that carry a hand karyotype, against the authors' own
- * reading. The two cells the hand calls chaotic aneuploid and the ceiling refuses read 0.69 and
- * 0.78. The seven other refused cells read 0.014 to 0.155, and the two of those with the highest
- * heterozygosity, 0.62 and 0.64, read the LOWEST spread at 0.014 and 0.028, which is the uniform
- * signature. The gap between the two groups is more than fourfold and this value sits inside it,
- * three times above the highest uniform cell. It is not fitted: any value in that gap gives the
- * same answer on this corpus, which is also why the corpus cannot calibrate it any more finely.
- * It awaits an out-of-sample cohort, like the segment threshold it sits beside.
+ * reading. The two cells the ceiling refuses that the hand calls chaotic aneuploid read 0.69 and
+ * 0.78 on the unconditioned statistic. The seven other refused cells read 0.014 to 0.155, and the
+ * two with the highest heterozygosity, 0.62 and 0.64, read the LOWEST spread at 0.014 and 0.028,
+ * which is the uniform signature. The value sits inside that gap and is not fitted: any value in
+ * it gives the same answer on this corpus, which is equally why the corpus cannot calibrate it
+ * further. What the corpus has NOT established is the threshold's behaviour on the conditioned
+ * statistic, which excludes collapsed chromosomes and can therefore only lower a cell's reading.
+ * The direction is safe and the magnitude is not measured.
  */
 export const HET_SPREAD_LOCALISED = 0.50
 
@@ -144,11 +156,18 @@ export const HET_SPREAD_LOCALISED = 0.50
  * alike to the caller, because one of them admits a sample and the other must not.
  */
 export const hetSpread = (
-  byChrom: Map<string, { called: number; het: number }>,
+  byChrom: Map<string, { markers: number; called: number; het: number }>,
+  minCallRate = 0.60,
   minCalled = 500,
 ): number => {
+  // ONLY CHROMOSOMES THAT ARE BEING GENOTYPED. A chromosome whose call rate has collapsed has
+  // lost its heterozygotes to dropout, not to hemizygosity, and including it lets amplification
+  // failure masquerade as a genome with chromosomes at one copy. Those two want opposite
+  // treatment, which is the whole reason this statistic exists. The floor is the same 0.60 the
+  // per-chromosome mis-clustering gate uses for a collapsed call rate.
   const rates = [...byChrom.entries()]
-    .filter(([c, v]) => /^\d+$/.test(c) && v.called >= minCalled)
+    .filter(([c, v]) => /^\d+$/.test(c) && v.called >= minCalled
+      && v.markers > 0 && v.called / v.markers >= minCallRate)
     .map(([, v]) => v.het / v.called)
   if (rates.length < 5) return NaN
   const mean = rates.reduce((a, b) => a + b, 0) / rates.length

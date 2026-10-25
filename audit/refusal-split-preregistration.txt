@@ -302,3 +302,80 @@ aneuploidy", and Zuccaro tabulated the events they were looking for rather than 
 there is no truth to score them against. They are not claimed as correct. What bounds them is
 Test J: 2 false parental-absence segments over 58 chromosome scans on poor material whose truth
 comes from dissection, both marginal at 356 and 311 against a real event at 4,828.
+
+
+================================================================================================
+PHASE 2: THE CONDITIONED SPREAD, ON REAL MATERIAL WITH FOUR KINDS OF TRUTH
+
+Written before the run. The first version of this statistic was justified by arithmetic and by
+three cells agreeing with a hand karyotype, which is not a calibration. This is the calibration,
+and every class in it is real material whose truth comes from somewhere other than the statistic.
+
+WHAT CHANGED IN THE STATISTIC, AND WHY
+
+An external review showed by arithmetic that HET_SPREAD_LOCALISED at 0.50 is unreachable by any
+heterozygosity ELEVATION a copy number can produce: 1.5x on any number of chromosomes reaches at
+most 0.204 and 2.0x at most 0.353, while driving chromosomes to hemizygous level reaches 0.538 at
+five of twenty-two. Reproduced here independently. So the rule fires on COLLAPSE, and the name and
+derivation described the opposite sign.
+
+That makes the confound real: a monosomy collapses heterozygosity on its chromosome and so does a
+region that failed to amplify. The spread is now measured only over chromosomes whose call rate is
+at or above 0.60, the same floor the per-chromosome mis-clustering gate uses, because a chromosome
+present at one copy is still genotyped while one that did not amplify is not. No new constant.
+
+THE FOUR CLASSES, ALL REAL, NONE SIMULATED
+
+  UNIFORM DIPLOID, truth structural. The five bulk parental arrays of GSE148488: one sperm donor
+  and four egg donors, 22 diploid autosomes each at call rates 0.81 to 0.99.
+
+  UNIFORM HEMIZYGOUS, truth by dissection. The 15 MII pronuclei. Every autosome is at one copy
+  because the pronucleus was aspirated, not because anything read the array. Their collapse is
+  total and therefore NOT localised.
+
+  LOCALISED HEMIZYGOUS, truth from the authors' by-eye karyotype, and GRADED. The 31
+  hand-karyotyped cells carry 0 to 12 hand-called monosomies each plus 0 to 21 nullisomies, with
+  the balance read as normal. This is a dose, not a label.
+
+  NORMAL GENOME, POOR AMPLIFICATION, truth from the karyotype. GSM4472421 reads 46,XX with 22 of 22
+  autosomes normal, at a call rate of 0.67 and 35.1 percent heterozygous, and the ceiling refuses
+  it. Nothing about it is aneuploid. If the statistic fires here it is measuring dropout.
+
+THE PREDICTIONS
+
+  Q1. The five bulk diploid parents read a conditioned spread far below 0.50. If any clears it the
+      statistic is not measuring what it claims and nothing below matters.
+  Q2. The 15 pronuclei read below 0.50. Their hemizygosity is total, so there is no contrast
+      between chromosomes to find. A statistic that fires on uniform haploidy would call every
+      sperm cell a chaotic genome.
+  Q3. GSM4472421, hand-read 46,XX with no abnormal autosome, reads below 0.50.
+  Q4. GSM4472409 reads below 0.50 on the CONDITIONED statistic, having read 0.778 on the
+      unconditioned one. Its hand karyotype is 12 monosomies plus 10 nullisomies, which is 22 of
+      22 abnormal: there is no normal majority to contrast against, so a high spread on this cell
+      cannot be localisation and must be dropout at a call rate of 0.53. This is the sharpest
+      prediction here and the one most likely to fail.
+  Q5. GSM4472405 reads at or above 0.50 on the conditioned statistic. Its karyotype is 8
+      monosomies against 13 normal autosomes, which is genuinely localised, and it is the cell
+      that carries the one hand-called segmental deletion the refusal split recovered.
+  Q6. Across the 31 cells the conditioned spread rises with the hand-called count of monosomic and
+      nullisomic chromosomes expressed as a share of the autosomes still being genotyped, and does
+      so more strongly than it rises with falling call rate. Both associations are reported. If
+      the call-rate association is the stronger one the statistic is still measuring dropout and
+      the conditioning did not work.
+
+  FALSIFIED, AND WHAT THEN. Q1, Q2 or Q3 failing retires the statistic outright. Q4 failing means
+  the conditioning is too weak and the next step is the one-sided count the review proposed, a
+  tally of chromosomes at hemizygous heterozygosity with a normal call rate, against a binomial
+  null. Q5 failing means the refusal split admits nothing on this corpus and should be reverted
+  rather than kept for a single cell.
+
+TRIPLOIDY CANNOT BE TESTED ON THIS CORPUS
+
+The review proposes that the ceiling cannot see a triploid, that this material produces them, and
+that the BAF half band separates a triploid from a mixture. The first two are arguments I accept.
+The third needs a known triploid array and there is not one here: zero rows of the 682 in the
+truth table mention triploidy, and the published karyotypes are monosomies, nullisomies, segmental
+deletions and duplications. The band occupancy is measured anyway on the refused cells and on
+euploid controls, because an empty half band on a cell the ceiling refuses would be a finding; but
+no threshold is proposed and no cell is called triploid on it. A discriminator calibrated without
+a positive class is exactly the practice this directory exists to stop.

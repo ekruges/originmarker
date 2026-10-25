@@ -602,17 +602,26 @@ export async function scoreSample(input: {
   // elevated everywhere. So a LOCALISED excess is a genome whose copy numbers are wrong, and a
   // uniform one is a mixture, a contaminated reaction or a destroyed array.
   //
-  // WHAT THAT OPENS, AND ONLY THAT. The allele channels read whose alleles are missing from the
-  // markers where one parent is homozygous. They need informative markers and a call rate and
-  // never the intensity baseline. The intensity channels normalise against this sample's own
-  // per-chromosome median, which is exactly what a genome without a normal majority does not
-  // have. So the absence scan runs here and the copy-number scan does not. The whole-chromosome
-  // verdicts stay withheld too: two further gates stand in their way, and neither has been
-  // measured on this material.
+  // WHAT THAT OPENS, AND ONLY THAT. This said the allele channels "need informative markers and a
+  // call rate and never the intensity baseline", and that is false: the absence scan runs only on
+  // chromosomes in `measured`, whose verdict depends on `clustered`, which reads the per-chromosome
+  // extreme-BAF share, and BAF is intensity-derived. An external review traced it and the chain is
+  // absence scan -> measured -> verdict -> clustered -> BAF.
+  //
+  // THE TRUE DISTINCTION IS NARROWER AND IT IS STILL ENOUGH. The absence channel needs BAF
+  // readable PER CHROMOSOME; `clustered` is a within-chromosome share with no cross-chromosome
+  // normalisation, so a genome with no normal majority costs it nothing. The copy-number channel
+  // needs BAF and intensity COMPARABLE ACROSS chromosomes, because it normalises against this
+  // sample's own per-chromosome median, and a genome without a normal majority has no such median.
+  // That is what licenses gating them separately. "Never consults the intensity" does not.
+  //
+  // So the absence scan runs here and the copy-number scan does not. The whole-chromosome verdicts
+  // stay withheld too: two further gates stand in their way, and neither has been measured on this
+  // material.
   //
   // Measured over the public corpus: the four hand-called segmental deletions on cells refused
   // this way are recovered, each naming the parent the hand karyotype names.
-  const spread = hetSpread(profile.byChrom as never)
+  const spread = hetSpread(profile.byChrom)
   const chaoticGenome = result.stage?.stage === 'failed'
     && Number.isFinite(spread) && spread >= HET_SPREAD_LOCALISED
   const uninterpretable = result.stage?.stage === 'failed'
@@ -891,11 +900,15 @@ export async function scoreSample(input: {
   }
   if (chaoticGenome) {
     result.limits.push(
-      'This array reads above the heterozygosity a single genome can reach, and the excess is '
-      + `LOCALISED: the spread across chromosomes is ${spread.toFixed(2)} against a uniform `
-      + `reading of under ${HET_SPREAD_LOCALISED.toFixed(2)}. A mixture of two people or a `
-      + 'contaminated reaction is elevated at every marker; a genome with many chromosomes at the '
-      + 'wrong copy number is elevated on those and normal on the rest. So the regions below are '
+      'This array reads above the heterozygosity a single genome can reach, and the departure '
+      + `from a uniform genome is LOCALISED: the spread of heterozygosity across the chromosomes `
+      + `that are being genotyped is ${spread.toFixed(2)} against a uniform reading of under `
+      + `${HET_SPREAD_LOCALISED.toFixed(2)}. A mixture of two people or a contaminated reaction `
+      + 'raises the rate at every marker on every chromosome, because two genomes differ '
+      + 'everywhere. A genome with chromosomes at one copy has no heterozygotes to call on those '
+      + 'and a normal rate on the rest. Chromosomes whose call rate has collapsed are left out of '
+      + 'that measurement, because a region that failed to amplify loses its heterozygotes too '
+      + 'and is not evidence of a copy number. So the regions below are '
       + 'reported from the ALLELES, which need no baseline. Copy number is withheld throughout: '
       + 'the intensity is normalised against this sample\'s own per-chromosome median, and a '
       + 'genome without a normal majority has no such median. The whole-chromosome verdicts are '

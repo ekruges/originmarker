@@ -314,22 +314,52 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
 // two people, a contaminated reaction and a destroyed array are elevated everywhere, because two
 // genomes differ at every marker. The figures below are the measured ones from GSE148488.
 {
-  const chroms = (rates: number[]) => new Map(
-    rates.map((r, i) => [String(i + 1), { called: 10_000, het: Math.round(r * 10_000) }]),
+  // `callRate` defaults to 1, so a chromosome is fully genotyped unless a test says otherwise.
+  const chroms = (rates: number[], callRate = 1) => new Map(
+    rates.map((r, i) => [String(i + 1), {
+      markers: 10_000, called: Math.round(callRate * 10_000),
+      het: Math.round(r * callRate * 10_000),
+    }]),
   )
   // Fewer than five measurable autosomes is a refusal to report a spread, not a spread of zero.
   assert.ok(Number.isNaN(hetSpread(chroms([0.1, 0.1, 0.1, 0.1]))))
-  assert.ok(Number.isNaN(hetSpread(new Map([['1', { called: 10, het: 1 }]]))),
+  assert.ok(Number.isNaN(hetSpread(new Map([['1', { markers: 10_000, called: 10, het: 1 }]]))),
     'a chromosome under the call floor does not count toward the five')
+
+  // A CHROMOSOME WHOSE CALL RATE HAS COLLAPSED IS NOT IN THE STATISTIC. It has lost its
+  // heterozygotes to dropout rather than to hemizygosity, and letting it in is what lets
+  // amplification failure read as a genome with chromosomes at one copy.
+  const halfDropped = new Map([
+    ...chroms(Array.from({ length: 11 }, () => 0.168)),
+    ...[...chroms(Array.from({ length: 11 }, () => 0.002), 0.30)]
+      .map(([c, v]) => [String(Number(c) + 11), v] as [string, typeof v]),
+  ])
+  assert.ok(hetSpread(halfDropped) < HET_SPREAD_LOCALISED,
+    'eleven collapsed chromosomes must not read as eleven hemizygous ones')
+  // The same eleven at a NORMAL call rate are hemizygous, and must read as localised.
+  const halfHemizygous = new Map([
+    ...chroms(Array.from({ length: 11 }, () => 0.168)),
+    ...[...chroms(Array.from({ length: 11 }, () => 0.002))]
+      .map(([c, v]) => [String(Number(c) + 11), v] as [string, typeof v]),
+  ])
+  assert.ok(hetSpread(halfHemizygous) >= HET_SPREAD_LOCALISED,
+    String(hetSpread(halfHemizygous)))
+
+  // AND THE THRESHOLD IS UNREACHABLE BY ELEVATION, which is the correction this block records.
+  // Elevating any number of chromosomes by 2x, which is more than a copy number can do, cannot
+  // cross it; collapsing five of twenty-two does.
+  for (const k of [1, 3, 5, 8, 11, 16]) {
+    const lifted = Array.from({ length: 22 }, (_, i) => (i < k ? 0.336 : 0.168))
+    assert.ok(hetSpread(chroms(lifted)) < HET_SPREAD_LOCALISED,
+      `2x on ${k} chromosomes reads ${hetSpread(chroms(lifted)).toFixed(3)}`)
+  }
+  const collapsed5 = Array.from({ length: 22 }, (_, i) => (i < 5 ? 0.002 : 0.168))
+  assert.ok(hetSpread(chroms(collapsed5)) >= HET_SPREAD_LOCALISED,
+    `collapse on 5 reads ${hetSpread(chroms(collapsed5)).toFixed(3)}`)
 
   // Uniform: every chromosome at the same elevated rate. This is the mixture signature, and the
   // two measured cells with the highest heterozygosity read 0.014 and 0.028.
   assert.ok(hetSpread(chroms(Array.from({ length: 22 }, () => 0.62))) < HET_SPREAD_LOCALISED)
-
-  // Localised: half the chromosomes near zero because they are at one copy, half at a diploid
-  // rate. The two measured chaotic cells the ceiling refuses read 0.69 and 0.78.
-  const half = Array.from({ length: 22 }, (_, i) => (i % 2 ? 0.30 : 0.01))
-  assert.ok(hetSpread(chroms(half)) >= HET_SPREAD_LOCALISED, String(hetSpread(chroms(half))))
 
   // AND THE THRESHOLD SITS IN A MEASURED GAP, three times above the highest uniform cell and
   // below the lowest localised one. Pinned so it cannot drift without this check failing.
