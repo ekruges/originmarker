@@ -1,0 +1,139 @@
+SPLITTING THE REFUSAL: FOUR MEASUREMENTS, FIXED BEFORE THEY ARE RUN
+
+Committed before any of them is taken. A failed prediction is recorded here, not argued away.
+
+WHY THIS EXISTS
+
+`stage: 'failed'` is two verdicts sharing one string, and `scoreSample` keys `uninterpretable` on
+the string, which returns an empty segment list before any channel runs.
+
+  stage.ts:331  h > MAX_DIPLOID_HET, heterozygosity over 25%. Its own caveat says "two individuals
+                mixed, a contaminated reaction and a failed array are not distinguishable from each
+                other here". It omits a fourth cause that reads the same way: a genome with many
+                chromosomes at odd copy number, which raises the apparent heterozygous rate.
+  stage.ts:343  call < QC_CALL_FLOOR, call rate under 40%. An amplification failure. Unambiguous.
+
+All four cells refused on the public corpus call at 0.53 to 0.75, above the call floor, so every
+one of them is refused on heterozygosity. The hand karyotype calls three of them real biology,
+"chaotic aneuploid" and "chr6p fragment only", and one of them failed. The tool refuses all four
+identically and reports nothing about any of them.
+
+The laboratory's position is on the record, 21 October: "I think the ones that are chaotic, so
+there's a lot of aneuploidies, those are still important for biology ... knowing which one is
+which is still going to be important", and in the same breath, "see what log R actually is
+normalizing it to". Those are one request. The allele channels need informative markers and a
+call rate. The intensity channels need a stable normal majority to normalise against, which is
+exactly what a chaotic genome does not have. So the gate belongs per channel and not per cell.
+
+WHAT IS ALREADY KNOWN ABOUT THE SEGMENT SCAN'S NULL, AND WHY IT CANNOT CARRY THIS ON ITS OWN
+
+The shipped false-positive figure is 0 false segments over 110 chromosome scans on five paternal
+pronuclei of the sperm donor, maximum score 139 against a calling threshold of 250. The repository
+already records three problems with it, at segments.check.ts:8 and in the application text:
+
+  1. pMII-2 carries a real chr1 event that sat inside the null and was counted as noise. Every
+     false-positive rate derived from that set is optimistic by an unknown margin.
+  2. pMII-6 chr20 is flagged at 12x by the same check, so the number of affected arrays is not
+     established either.
+  3. The threshold is fitted on the same null it is evaluated against.
+
+So that figure is a baseline to reproduce, not a validated rate, and it says nothing about poor
+material, which is the population a gate change would admit.
+
+THE DATA
+
+  arrays   GSE148488, Zuccaro et al., Cell 2020;183(6):1650-1664
+  the MZ pronuclei: 8 maternal and 8 paternal single pronuclei aspirated from 2PN zygotes, with
+  the sperm donor and an egg donor both arrayed in bulk. The dissection label is the truth: a
+  paternal pronucleus carries the father's haploid genome and no maternal genome at all. That
+  truth comes from the aspiration and not from any by-eye reading of the array, so it is
+  independent of the karyotype table every other measurement here uses.
+
+--------------------------------------------------------------------------------------------------
+TEST H. THE PRONUCLEI'S PARENTS, READ FROM THE DATA RATHER THAN FROM THE PAPER
+
+GEO's `!Sample_source_name_ch1` names an egg donor for every sample except these fifteen, so
+audit/geo_trio_manifest.py gives them no row and the pairing has been taken from the paper. The
+opposite-homozygote rate can establish it without that.
+
+  H1. Each paternal pronucleus reads 0.2 to 0.8 percent against the sperm donor and 6.5 to 16.6
+      against every egg donor.
+  H2. Each maternal pronucleus reads 0.2 to 0.8 percent against exactly ONE egg donor and 6.5 to
+      16.6 against the others and against the sperm donor. That donor is the pairing.
+  H3. The donor so identified is donor B.
+
+  FALSIFIED IF: no egg donor reads as a parent of the maternal pronuclei, or more than one does.
+  Either would mean the pairing cannot be established from the arrays and must stay cited to the
+  paper.
+
+--------------------------------------------------------------------------------------------------
+TEST I. THE BASELINE, ON CLEAN MATERIAL WHOSE TRUTH IS THE DISSECTION
+
+Scored with ONE parent loaded, the sperm donor, on his own haploid products. His alleles are
+present on every autosome, so every parental-absence segment is false. Both parents cannot be
+loaded for this: with the mother loaded, every autosome reads as having lost her, which puts every
+chromosome into `lostByAlleles`, and the scan skips those by design. The measurement would be zero
+by construction and would mean nothing.
+
+  I1. On the five pronuclei the shipped null was fitted on, the false segment count reproduces at
+      or near 0 over about 110 chromosome scans.
+  I2. pMII-2 chr1 is the known real event. It is reported separately and not counted as noise,
+      which is the correction segments.check.ts already carries.
+
+  FALSIFIED IF: the count is materially above 0, which would mean the shipped figure does not
+  reproduce through the current pipeline and the discrepancy is the finding.
+
+--------------------------------------------------------------------------------------------------
+TEST J. THE MEASUREMENT THAT DECIDES THE GATE CHANGE: POOR MATERIAL, OUT OF SAMPLE
+
+pMII-5, pMII-7 and pMII-8 are haploid products of the same sperm donor at call rates of 0.54 to
+0.59, reading 6.30, 11.08 and 4.56 percent against him where a product reads 0.42 to 0.52. They
+are currently declined. They are NOT in the five the null was fitted on, so they are out of sample,
+and their truth is the dissection rather than a by-eye karyotype. A gate that admits poor material
+admits these, and every parental-absence segment on them against the sperm donor is false.
+
+  J1. The false segment count on these three, with the stage declared so they are admitted, is
+      reported per array and per chromosome scan. No prediction is made about its value: that
+      number is the point of the test and guessing it first would invite reading the result to
+      match.
+  J2. Whatever it is, it is the specificity cost of admitting poor material, measured on truth
+      that does not come from the same reading being tested. If it is high, the per-channel gate
+      ships with a quality condition on the allele channel too, and that condition is derived from
+      this measurement rather than chosen.
+
+  FALSIFIED IF: nothing. This test has a value, not a failure mode.
+
+--------------------------------------------------------------------------------------------------
+TEST K. WHETHER HETEROZYGOSITY SPREAD SEPARATES A CHAOTIC GENOME FROM A MIXTURE
+
+The four causes behind one verdict differ physically. A chaotic genome is elevated on the
+chromosomes at odd copy number and normal on the rest. Two individuals mixed, or a contaminated
+reaction, is elevated at every marker on every chromosome, because two genomes differ everywhere.
+So the SPREAD of heterozygosity across chromosomes should separate them where the genome-wide rate
+cannot. The same reasoning has been used once in this project, on uniform absence at CV 0.20
+reading as two genomes blended rather than as a parental absence.
+
+  K1. The coefficient of variation of per-chromosome heterozygosity is reported for every one of
+      the 31 cells, beside its stage, its call rate and its hand karyotype.
+  K2. The three cells the hand karyotype calls chaotic, GSM4472409, GSM4472405 and GSM4552418,
+      read a HIGHER CV than GSM4552422, which the hand calls failed throughout.
+
+  FALSIFIED IF: the CVs do not order that way, in which case heterozygosity spread is not the
+  separator and the taxonomy row stays as one row until a separator is found. No threshold is
+  proposed in this file: a threshold fitted on four cells would be a threshold fitted on four
+  cells.
+
+--------------------------------------------------------------------------------------------------
+THE REGRESSION INVARIANT, BINDING ON ANY CHANGE THAT FOLLOWS
+
+  Every cell the stage inference currently ACCEPTS produces identical output. Only cells currently
+  refused may gain anything. The standing figures that must not move: trio calibration 263 parents
+  named, 0 wrong, 45 refused; the germline audit 35 correct, 6 refused, 0 incorrect; whole-
+  chromosome agreement 78 with 1 wrong parent on the 31 cells. Segmental detection must go from
+  15 of 22 to 19 of 22 with no wrong parent, which is what declaring the stage already achieves on
+  the four events concerned.
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE TESTS WERE RUN
+
+Nothing above this line was changed.
