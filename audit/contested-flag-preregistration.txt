@@ -1,0 +1,150 @@
+THE CONTESTED FLAG AND THE LADDER: FIVE TESTS, WRITTEN BEFORE THEY ARE RUN
+
+Written after an external review of 5.39.0 and committed before any of the five measurements
+below is taken. Each test states what it expects and what would falsify it. A failed prediction is
+recorded here, not argued away and not used to widen the test.
+
+The review is audit/CONSULT-RESPONSE-segmental-parent-of-origin.md. Its headline claim is that the
+contested set is mostly real nullisomy, resting on both counts being six: six cells carry
+hand-called nullisomy or a failed karyotype, six cells carry contested pairs. The counts match.
+Checking the committed truth table against the measured run, the CELLS do not: the overlap is
+three of six, three of the contested cells carry zero nullisomic chromosomes and zero no-calls,
+and the cell the argument rests on, GSM4552418, nullisomic on 21 of 22 autosomes, produces no
+contested pair at all. So the question these tests answer first is not whether nullisomy explains
+the contested set. It is why a cell that is nullisomic almost everywhere produces nothing.
+
+THE DATA, UNCHANGED FROM THE PRE-REGISTRATION THESE TESTS FOLLOW
+
+  arrays  GSE148488, Zuccaro et al., Cell 2020;183(6):1650-1664
+  truth   Table S3, the authors' own by-eye karyotype, audit/zuccaro-table-s3.tsv, 682 calls
+  cells   the 31 with both parents arrayed and a file on disk
+  parents from GEO's own !Sample_source_name_ch1 via audit/geo_trio_manifest.py
+  no simulation. Every genotype measured, every truth label the published hand reading.
+
+--------------------------------------------------------------------------------------------------
+TEST A. WHY A CELL THAT IS NULLISOMIC ALMOST EVERYWHERE PRODUCES NO SEGMENT
+
+Two gates in scoreSample.ts could account for it, both deliberate and both documented:
+
+  line 598  `uninterpretable = result.stage?.stage === 'failed'`, and line 826 sets
+            `result.segments = []` when it holds. A cell with almost no DNA reads as failed
+            amplification on heterozygosity and call rate.
+  line 768  `lostByAlleles`, chromosomes the alleles already read as having lost a parent, which
+            the absence scan then skips: "a segment found inside it would be the same absence
+            described twice."
+
+  A1. GSM4552418 reaches the segment scan with `stage.stage === 'failed'`, so it is gated at
+      line 826 and returns zero segments of every kind.
+  A2. On the cells that DO carry nullisomy and are not gated, the nullisomic chromosomes are
+      absent from the scan because they are in `lostByAlleles`, not because the scan failed on
+      them.
+  A3. The three contested cells with zero hand-called nullisomy, GSM4552385, GSM4552386 and
+      GSM4552420, are not gated: they reach the scan, and their contested windows are therefore
+      not nullisomy under any reading of the hand karyotype.
+
+  FALSIFIED IF: GSM4552418 passes both gates and the scan simply returns nothing on it. That
+  would move the cause into the scan's window minimum or its null, which is a different repair
+  from a gate, and this file would say so.
+
+  WHAT IT DECIDES: whether nullisomy can reach the contested flag at all. If A1 and A2 hold, the
+  review's Section 0 is wrong by mechanism rather than by coincidence, and reporting
+  "both copies absent" on a contested window would be reporting it on the one population where
+  nullisomy has been excluded by construction.
+
+--------------------------------------------------------------------------------------------------
+TEST B. WHETHER THE CONFLICT BRANCH HAS EVER HAD THE CHANCE TO FIRE
+
+23 of 69 segments carry a window allele share. defects.ts joins the share to the segment on a
+string built from `segmentCoords(sg)` rounded to 0.1 Mb, so a share computed at edges that round
+differently never reaches the segment and the row goes `unclear` without the conflict test running.
+
+  B1. Of the 46 segments with no share on their own key, the number that have a share annotation
+      on the SAME CHROMOSOME at a different key is reported. If it is above zero the join is
+      lossy and "the branch has never fired" is partly an artefact of the key.
+  B2. If it is zero, no share was computed for those windows at all, and the branch is untested
+      because the second channel is silent rather than because the join dropped it.
+
+  FALSIFIED IF: neither, which cannot happen. This test has no failure mode, only an answer. It
+  is here because the answer changes what may be claimed about 23 of 23.
+
+--------------------------------------------------------------------------------------------------
+TEST C. RECIPROCAL OVERLAP IN PLACE OF BARE INTERSECTION
+
+The flag currently marks a pair contested on `!(a.startBp > b.endBp || b.startBp > a.endBp)`,
+which at near-chromosome spans is satisfied by any two events on one chromosome. The replacement
+is r = intersection / union >= 0.5, the conventional reciprocal-overlap criterion for calling two
+interval calls the same event, not tuned here and not to be tuned on these cells.
+
+The review names two false positives this would fix, GSM4472403 chr6 and GSM4472423 chr16. Neither
+can trip the flag: both are same-parent pairs and the loop requires opposite parents. So the
+prediction below comes from the measured pairs instead, computed on the window edges the run
+logged.
+
+  C1. 16 of the 18 pairs have r >= 0.5. The two below are GSM4552378 chr15 at 0.395 and
+      GSM4552380 chr8 at 0.228. Three segments recover a parent, not four: the maternal
+      0.2-135.0 Mb window on GSM4552380 chr8 is in a second pair at r = 0.668 and stays
+      contested. Contested segments fall from 35 of 69 to 32 of 69, pairs from 18 to 16.
+  C2. Detection is unchanged at 11 of 17 paternal and 5 of 10 maternal hand-called segmental
+      events. The rule redistributes parents among regions already called and calls nothing new.
+
+  MEASURED ON WHICH EDGES. C1 is computed on the scanning window edges, which is what the run
+  printed. The test itself uses `segmentCoords`, which returns refined marker-resolution edges
+  where refinement localised the event and window edges where it did not, because that is this
+  repository's own answer to what a segment's coordinates are. Refinement can move an edge, so the
+  two sub-threshold pairs may not be the same two. Both r values are printed per pair and whichever
+  set it is will be recorded here rather than reconciled.
+
+--------------------------------------------------------------------------------------------------
+TEST D. THE DENOMINATOR FOR AN ABSENCE SCAN
+
+An absence scan cannot see a copy that is present twice. 5 of the 27 hand-called segmental events
+are duplication-only, counted from the truth table:
+
+  GSM4552380 chr16  dup 16q23.1-tel (mat)*
+  GSM4552382 chr 6  dup(6q)(pat)
+  GSM4472422 chr 6  dup (6q)(pat)
+  GSM4552365 chr16  dup 16q21-tel (pat) FRA16I
+  GSM4472403 chr18  dup18p (mat) FRA18E
+
+  D1. Detection is re-denominated on the 22 deletion-bearing events. The reported figures become
+      a fraction of 22 and of its paternal and maternal parts, and the five above are accounted
+      for on whichever channel can see a duplication.
+  D2. GSM4552365 chr16 is reported as called. Its kinds are printed. If a `parental-absence`
+      segment is among them, an absence scan has fired on a duplication-only event and that is a
+      defect, recorded here with the kinds that produced it.
+
+  FALSIFIED IF: the 22 and the 5 do not sum to the 27 the table carries, which would mean the
+  classification of a row as duplication-only is wrong.
+
+--------------------------------------------------------------------------------------------------
+TEST E. THE RUN CHANNEL'S OWN ACCURACY, WHICH HAS NEVER BEEN PRINTED
+
+The ladder puts the run that found a segment above the window allele share, on the argument that
+the marker set makes the run definitional. The run's accuracy is assumed to be 1.0 and has never
+been scored against anything. The share's is quoted as correct on every event the scan reaches.
+
+  E1. On every detected hand-called segmental event where the hand names a parent, both channels
+      are scored against the hand label and both counts are printed.
+  E2. If the run is ever wrong where the share is right, the ladder is backwards and that single
+      event outweighs the 23 agreements. If both read the same, the ordering is untestable on this
+      corpus and is to be described as a convention with a stated rationale rather than as a
+      validated ordering.
+
+  FALSIFIED IF: nothing. Like B, this test has an answer rather than a failure mode, and it exists
+  because "correct by construction" is an argument and not a number.
+
+--------------------------------------------------------------------------------------------------
+WHAT IS NOT BEING DECIDED HERE
+
+The operating point of the segment statistic. The review argues that adopting an operating point
+and claiming its measured numbers are two separate acts, that a window derivable in advance from
+this project's own contrast work may be adopted without a second corpus, and that only the claim
+needs GSE60909. That argument is accepted as the better framing and is NOT acted on in this round:
+the derivation depends on a Kullback-Leibler orientation the review could not resolve from the
+record, which moves the admissible dropout from 43 percent to 76 percent, and on a null measured
+on different material. Both have to be settled against the original dilution measurement first.
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE TESTS WERE RUN
+
+Nothing above this line was changed.
