@@ -109,6 +109,17 @@ console.log(`  informative per chromosome      ${med(allChrom).toLocaleString()}
 const under = allChrom.filter((n) => n < 200).length
 console.log(`  chromosomes under the 200 floor ${under} of ${allChrom.length} (${pct(under, allChrom.length)})`)
 
+// WHICH WINDOW MINIMA THIS MARKER SET CAN BE SCANNED AT AT ALL. scanChromosome opens with
+// `if (n < minMarkers) return []`, so a window minimum above a chromosome's informative count is
+// not a conservative setting, it is no scan. The grid in the segment statistic pre-registration
+// ran the opposite-homozygote arm at 2400 and 1200 and this is what those rows could reach.
+console.log('\n  REACHABILITY OF THE SEGMENT GRID ON THIS MARKER SET')
+for (const w of [2400, 1200, 600, 300, 150]) {
+  const ok = allChrom.filter((n) => n >= w).length
+  console.log(`    minWindow ${String(w).padStart(4)}  scannable on ${String(ok).padStart(4)} of `
+    + `${allChrom.length} chromosome-cells (${pct(ok, allChrom.length)})`)
+}
+
 const A = perCell.map((c) => c.aabb); const B = perCell.map((c) => c.bbaa)
 console.log(`\n  father AA, mother BB            ${med(A).toLocaleString()} (median)`)
 console.log(`  father BB, mother AA            ${med(B).toLocaleString()} (median)`)

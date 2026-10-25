@@ -22,7 +22,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import {
-  MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, externalNull,
+  MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, RECIPROCAL_OVERLAP,
+  externalNull,
   scanChromosome, scanCopyNumber,
   type MarkerAbsence,
 } from './segments.ts'

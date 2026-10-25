@@ -147,15 +147,33 @@ export function defectsFrom(
     // parental-absence segment names the parent by construction and not by inference. Set only
     // where both parents are loaded, which is the only case the second run exists in.
     //
-    // The annotation above is a separate statistic, the allele share inside the same window, and
-    // it reads a loss the same way round: the under-represented parent is the one that lost the
-    // copy. So the two are directly comparable and should agree. Where the share names the OTHER
-    // parent the two readings of one region are in conflict, and the row names no parent: picking
-    // one would hide a disagreement behind a confidence calibrated on runs that did not have one.
+    // THE SECOND READING IS ON THE SEGMENT, NOT IN THE ANNOTATION MAP. The window allele share
+    // is `sg.alleleGain`, attached to the segment by the scan. The first version of this block
+    // compared the run against `ann` instead, which is keyed by a coordinate string rounded to
+    // 0.1 Mb, and that key matched a parental-absence segment 0 times in 69 over the 31 public
+    // cells: the two are built from different coordinates and never meet. So the conflict test
+    // was unreachable and the claim that the share corroborated the run was empty.
+    //
+    // The share reads a loss the same way round as the run, by the sign of the shift: the
+    // under-represented parent is the one whose copy went. That convention is scored against the
+    // hand karyotype on 11 events, right on 11. Where it names the OTHER parent the two readings
+    // of one region are in conflict and the row names no parent.
+    //
+    // NEITHER CHANNEL CARRIES A CALIBRATED PROBABILITY, so no confidence is attached to a parent
+    // named this way. The run has no error model: if the segment is real the marker set makes the
+    // parent follow. The share's own posterior is over the TILT, which is a different question
+    // from which parent is depleted, and borrowing it here would put a number on a claim it was
+    // not calibrated for.
     const byRun = sg.kind === 'parental-absence' && !sg.contested ? sg.absentParent : undefined
-    const conflict = !!byRun && origin !== 'unclear' && origin !== byRun
+    const share = sg.kind === 'parental-absence' && Number.isFinite(sg.alleleGain?.shift ?? NaN)
+      ? ((sg.alleleGain!.shift < 0) ? 'paternal' : 'maternal') : undefined
+    const conflict = !!byRun && !!share && share !== byRun
     if (conflict || (sg.kind === 'parental-absence' && sg.contested)) origin = 'unclear'
     else if (byRun) origin = byRun
+    // A parent named by the run takes no number from any other channel. A single-parent verdict's
+    // posterior belongs to the parent IT named, and attaching it to a parent named elsewhere would
+    // put a calibrated figure beside a claim it did not make.
+    const namedByRun = !conflict && !!byRun && origin === byRun
     // A single-parent call names a parent where two-parent dosage could not, so it fills the gap
     // rather than overriding: two parents remain the stronger evidence where both were loaded.
     const one = byOne.get(where)
@@ -183,23 +201,23 @@ export function defectsFrom(
         : sg.kind === 'copy-loss' ? 'copy-loss' : 'parental-absence',
       interval: sg.refined ? co.interval : undefined,
       origin,
-      why: sg.contested
+      why: conflict
+        ? `The run that found this segment reads ${byRun} alleles as the missing ones, and the `
+          + `allele share inside the same window reads ${share}'s. Two readings of one region `
+          + 'disagree, so no parent is named here. The region and its interval stand: what is in '
+          + 'doubt is whose copy it was.'
+        : sg.contested
         ? 'The absence scan called an overlapping region on this chromosome against BOTH parents. '
           + 'A single lost copy takes one parent\'s alleles with it, so both cannot be the missing '
           + 'ones here: either both copies are gone, which the intensity channel calls as a copy '
           + 'loss on its own evidence, or dropout over this window is wide enough to clear the '
           + 'scan\'s minimum. The region stands and no parent is named for it.'
-        : conflict
-        ? `The run that found this segment reads ${byRun} alleles as the missing ones, and the `
-          + `allele share inside the same window reads ${byRun === 'paternal' ? 'maternal' : 'paternal'}'s. `
-          + 'Two readings of one region disagree, so no parent is named here. The region and its '
-          + 'interval stand: what is in doubt is whose copy it was.'
         : byRun
           ? `The absence scan is run once per parent, over the markers where that parent is `
             + `homozygous. This segment came from the ${byRun} run, so the alleles missing here `
             + `are ${byRun} by construction rather than by inference. Whether that parent is `
             + `right is the same question as whether the segment is real.`
-            + (ann?.why ? ` The allele share inside the window agrees: ${ann.why}` : '')
+            + (share ? ' The allele share inside the window agrees.' : '')
           : ann?.why ?? (usedDosage ? dose?.why : undefined) ?? one?.why
             ?? 'No parental genotype was loaded for this run, so allele dosage cannot be oriented '
               + 'and the parent is not determined. The position and its interval are unaffected.',
@@ -211,12 +229,14 @@ export function defectsFrom(
       // origin above. Before this, only dosage did, so a two-parent genotype call, the strongest
       // evidence here, printed a bare parent name while a weak dosage call printed 0.62 beside it.
       // The formatting told a reader the opposite of the truth.
-      confidence: usedDosage ? dose?.confidence
-        : (ann && origin !== 'unclear') ? ann.confidence
-          : (one && origin !== 'unclear') ? one.posterior : undefined,
-      band: usedDosage ? dose?.band
-        : (ann && origin !== 'unclear') ? ann.band
-          : (one && origin !== 'unclear') ? one.band : undefined,
+      confidence: namedByRun ? undefined
+        : usedDosage ? dose?.confidence
+          : (ann && origin !== 'unclear') ? ann.confidence
+            : (one && origin !== 'unclear') ? one.posterior : undefined,
+      band: namedByRun ? undefined
+        : usedDosage ? dose?.band
+          : (ann && origin !== 'unclear') ? ann.band
+            : (one && origin !== 'unclear') ? one.band : undefined,
       limitedBy: usedDosage ? dose?.limitedBy : undefined,
       shift: dose && Number.isFinite(dose.shift) ? dose.shift : undefined,
       z: dose && Number.isFinite(dose.z) ? dose.z : undefined,

@@ -24,7 +24,7 @@ import {
 } from './parentage.ts'
 import {
   scanChromosome, scanCopyNumber, externalNull, segmentCoords, type MarkerAbsence,
-  type Segment,
+  type Segment, RECIPROCAL_OVERLAP,
 } from './segments.ts'
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground, scanAlleleGains,
@@ -844,12 +844,25 @@ export async function scoreSample(input: {
   // enough to clear the window minimum. Printing the pair would show a reader two contradictory
   // findings on one region; dropping it would lose a real position. So the region is kept and the
   // parent is withheld.
+  //
+  // THE TEST IS RECIPROCAL OVERLAP, NOT INTERSECTION. A bare intersection test was what shipped
+  // first, and at the near-chromosome window lengths this corpus produces, any two events on one
+  // chromosome intersect: one arm losing the father's copy and the other arm losing the mother's
+  // is two findings, and intersection collapses them into one contested region with no parent.
+  // The edges are `segmentCoords`, refined where refinement localised the event, which is this
+  // module's own answer to what a segment's coordinates are.
   for (const a of result.segments) {
     if (a.kind !== 'parental-absence' || !a.absentParent) continue
+    const ca = segmentCoords(a)
     for (const b of result.segments) {
       if (b === a || b.kind !== 'parental-absence' || !b.absentParent) continue
       if (b.chrom !== a.chrom || b.absentParent === a.absentParent) continue
-      if (a.startBp > b.endBp || b.startBp > a.endBp) continue
+      const cb = segmentCoords(b)
+      const inter = Math.min(ca.end, cb.end) - Math.max(ca.start, cb.start)
+      if (inter <= 0) continue
+      if (inter / (Math.max(ca.end, cb.end) - Math.min(ca.start, cb.start)) < RECIPROCAL_OVERLAP) {
+        continue
+      }
       a.contested = true
       break
     }

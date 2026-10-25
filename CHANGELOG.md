@@ -9,6 +9,100 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.40.0 "Nullisomy"
+
+Five tests fixed in advance in `audit/contested-flag-preregistration.txt` and run once, after an
+external review of 5.39.0. Two predictions were wrong and are recorded as wrong. The review's own
+headline claim does not survive either, and the mechanism that refutes it is in this repository's
+code rather than in the argument.
+
+**The window allele share was never reaching the defect list, so the conflict test could not
+fire.** 5.39.0 said that where the run and the share agree, the share supplies the confidence a
+reader sees. No share ever arrived. The defect list joined the share through an annotation map
+keyed on a coordinate string rounded to 0.1 Mb, and that key matched a parental-absence segment
+**0 times in 69** over the 31 public cells. The share is on the segment, as `alleleGain`, and
+nothing read it.
+
+It is read now. The share reaches the 23 of 69 segments that carry one, the conflict test is
+reachable, and it fires zero times: those 23 agree with the run 23 of 23. No confidence is
+attached to a parent named this way, by either channel. The run has no error model, because if the
+segment is real the marker set makes the parent follow; the share's own posterior is over the tilt,
+which is a different question from which parent is depleted. A parent named by the run also no
+longer borrows a number from a single-parent verdict that had named something else, which it could
+before.
+
+**Reciprocal overlap replaces bare intersection, and on this corpus it changes one segment.** The
+old test marked a pair contested on any interval intersection, which at near-chromosome window
+lengths is satisfied by any two events on one chromosome: one arm losing the father's copy and the
+other losing the mother's is two findings, not one contested region. The test is now reciprocal
+overlap at 0.5, the conventional criterion for calling two interval calls the same event, pinned
+as `RECIPROCAL_OVERLAP` and not fitted here.
+
+The prediction was that 16 of the 18 measured pairs would clear it and three segments would
+recover a parent. On the refined edges the test actually uses, 17 of 18 clear it and **one**
+segment recovers. Contested falls from 35 of 69 to 34. Refinement moves the two windows toward
+each other rather than apart: GSM4552378 chr15 reads 0.396 on the scanning-window edges and 0.984
+on the refined ones, and 13 of the 18 pairs sit at 0.98 or above once refined. The pre-registration
+named that risk before the run, which is why the failure is legible. The rule is kept: it is
+correct, and it earns its place against a case this corpus does not contain.
+
+**Detection was being reported on a denominator that included events the channel cannot see.** An
+absence scan cannot see a copy that is present twice, and 5 of the 27 hand-called segmental events
+are duplication-only. Every figure previously quoted as 16 of 27, 11 of 17 paternal and 5 of 10
+maternal, was computed over all 27 and counted one duplication as a hit.
+
+| segmental detection, corrected | |
+|---|---|
+| deletion-bearing events an absence scan can see | 22 |
+| detected | 15 of 22 |
+| paternal | 10 of 14 |
+| maternal | 5 of 8 |
+| duplication-only events | 5, of which 1 is reported |
+
+That one is a defect, recorded and not repaired here because it belongs to a different channel:
+GSM4552365 chr16, hand-called `dup 16q21-tel (pat)`, comes back with kinds
+`copy-loss,parental-absence`. An absence scan fired on a duplication and the copy-number channel
+called a loss where the hand reads a gain. The other four return nothing, which is correct.
+
+**The run channel has a number for the first time.** Its accuracy was assumed to be 1.0 and had
+never been scored against anything. On all 15 detected deletion-bearing events with a hand-named
+parent, the run names the parent the hand names: **15 of 15**. The share speaks on 11 of those and
+is right on 11. Neither channel is ever wrong, and neither is ever right where the other is wrong,
+so the ladder that puts the run above the share is untestable on this corpus. It is a convention
+adopted for a stated reason, not a validated ordering, and the documentation now says so.
+
+**Why a cell that is nullisomic on 21 of 22 autosomes produces no segment at all.** The review
+argued the contested set is mostly real nullisomy, on the grounds that six cells carry hand-called
+nullisomy or a failed karyotype and six carry contested pairs. The cell lists overlap on three.
+Measured:
+
+| cell | stage | call rate | segments | contested | not measured |
+|---|---|---|---|---|---|
+| GSM4552418 | failed | 0.56 | 0 | 0 | 21 |
+| GSM4472409 | failed | 0.53 | 0 | 0 | 10 |
+| GSM4552422 | failed | 0.75 | 0 | 0 | 21 |
+| GSM4552385 | blastomere | 0.80 | 4 | 4 | 0 |
+| GSM4552386 | blastomere | 0.77 | 4 | 4 | 0 |
+| GSM4552420 | trophectoderm | 0.70 | 7 | 6 | 0 |
+
+All three cells the argument depends on read stage `failed`, which returns an empty segment list
+before the scan runs. Nullisomy cannot reach the contested flag on them. The three contested cells
+the review did not list reach the scan on ordinary stages at call rates of 0.70 to 0.80, and the
+hand karyotype reads zero nullisomic chromosomes on any of them. So the contested windows are not
+nullisomy, and reporting them as nullisomy would report it on the one population where the hand
+reading excludes it. The prediction was right about the outcome and named the wrong one of two
+gates: on the failed cells the chromosomes are `not_measured` rather than in `lostByAlleles`.
+
+**Two of the five window settings in the segment statistic grid were empty rather than
+conservative.** `scanChromosome` returns `[]` when a chromosome carries fewer markers than the
+window minimum, and the opposite-homozygote set carries about 1,034 per chromosome at the median,
+so the rows at 2400 and 1200 performed no scan. They contributed no detection and no false call
+because nothing was tested. `audit/segment-statistic-preregistration.txt` records it, and the
+exact count of chromosomes scannable at each grid window is being measured rather than inferred
+from the median.
+
+---
+
 ## 5.39.0 "Hemizygous"
 
 **The second absence run named a parent that nothing showed.** 5.38.0 made the segmental absence

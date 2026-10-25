@@ -147,4 +147,111 @@ on different material. Both have to be settled against the original dilution mea
 ================================================================================================
 THE RESULT, WRITTEN AFTER THE TESTS WERE RUN
 
-Nothing above this line was changed.
+Nothing above this line was changed. Run on the 31 cells by audit/contested-flag-tests.ts.
+
+TEST A. CONFIRMED, AND THE MECHANISM IS THE STAGE GATE RATHER THAN lostByAlleles.
+
+  cell         stage          callRate  segs  absence contested  lostByAlleles  notMeasured
+  GSM4472409   failed             0.53     0        0         0              0           10
+  GSM4552378   trophectoderm      0.70     8        8         8              8            0
+  GSM4552380   trophectoderm      0.71     9        9         8              8            0
+  GSM4552382   single-cell        0.84     5        5         4              9            0
+  GSM4552385   blastomere         0.80     4        4         4             12            0
+  GSM4552386   blastomere         0.77     4        4         4             12            0
+  GSM4552418   failed             0.56     0        0         0              0           21
+  GSM4552420   trophectoderm      0.70     7        7         6              8            0
+  GSM4552422   failed             0.75     0        0         0              0           21
+
+A1 holds. GSM4552418 reads stage `failed` at a call rate of 0.56 and returns zero segments of
+every kind, gated at scoreSample.ts:826. So do the other two cells the review expected contested
+pairs on, GSM4472409 and GSM4552422, both also `failed`. All three carry 10 to 21 chromosomes the
+per-chromosome verdict already reads as not measured.
+
+A2 holds in substance and not in the mechanism predicted. On the gated cells the nullisomic
+chromosomes are not in `lostByAlleles` at all, they are `not_measured`: 21 of 22 on GSM4552418.
+`lostByAlleles` does the excluding on the cells that are NOT gated, 8 to 12 chromosomes each.
+The prediction named the wrong one of two gates and is recorded as such.
+
+A3 holds. GSM4552385, GSM4552386 and GSM4552420 reach the scan at call rates of 0.70 to 0.80, on
+stages that read blastomere and trophectoderm, and produce 4 to 7 contested segments each while
+the hand karyotype reads zero nullisomic chromosomes on any of them.
+
+WHAT TEST A DECIDES. Nullisomy cannot reach the contested flag on the cells the review's argument
+rests on, because `stage === 'failed'` returns an empty segment list before the scan runs. The
+coincidence of six and six was a coincidence: the cell lists overlap on three. Reporting a
+contested window as "both parental copies absent" would be reporting nullisomy on the one
+population where the hand karyotype excludes it.
+
+TEST B. THE CONFLICT TEST WAS UNREACHABLE, AND BY MORE THAN THE REVIEW SUPPOSED.
+
+  share annotation on the segment's own key            0 of 69
+  annotation on the SAME CHROMOSOME, different key     6
+  no annotation on that chromosome at all             63
+
+Not a rounding problem. The annotation map in defects.ts is keyed on a coordinate string and
+matched a parental-absence segment zero times in 69. The window allele share is on the segment, as
+`sg.alleleGain`, and defects.ts never read it. So the conflict branch could not fire, and 5.39.0's
+statement that the share supplies the confidence where the two agree was empty: no share ever
+arrived, and no confidence with it.
+
+Repaired by reading `sg.alleleGain` directly. The share is now present on the 23 of 69 segments
+that carry one, the conflict test is reachable, and it fires zero times, because those 23 agree
+with the run 23 of 23. Neither channel attaches a confidence: the run has no error model, and the
+share's own posterior is over the tilt, which is a different question from which parent is
+depleted. A parent named by the run now takes no number from any other channel either, which it
+could before through a single-parent verdict that had named something else.
+
+TEST C. PREDICTION WRONG IN THE DIRECTION THE FILE SAID TO WATCH.
+
+C1 predicted 16 of 18 pairs at or above the threshold and three segments recovering a parent, from
+r computed on the scanning-window edges. On the refined edges the test actually uses, 17 of 18 are
+above it and ONE segment recovers: contested falls from 35 of 69 to 34, not to 32.
+
+The reason is the one this file named in advance. Refinement moves the edges toward each other:
+GSM4552378 chr15 reads r = 0.396 on window edges and r = 0.984 on refined edges, so it is one
+region after all. 13 of the 18 pairs sit at r >= 0.98 once refined. The single pair that separates
+is GSM4552380 chr8, 0.2 to 135.0 Mb maternal against 4.6 to 35.4 Mb paternal, at 0.211.
+
+C2 holds. Detection is unchanged by the rule.
+
+So reciprocal overlap is the right test and it changes almost nothing on this corpus: the pairs
+here really are two runs describing one region, far more clearly on refined edges than on window
+edges. The rule earns its place against a case this corpus does not contain rather than against
+one it does, and that is what it is recorded as. The two same-parent pairs the review named as
+false positives, GSM4472403 chr6 and GSM4472423 chr16, cannot reach the flag under either test:
+the loop requires opposite parents.
+
+TEST D. CONFIRMED, AND ONE DEFECT FOUND.
+
+  hand-called segmental events                          27
+  deletion-bearing, which an absence scan can see       22
+  duplication-only, which it structurally cannot         5
+  detected, of the deletion-bearing                     15 of 22
+    paternal                                            10 of 14
+    maternal                                             5 of 8
+  detected, of the duplication-only                      1 of 5
+
+The 22 and the 5 sum to 27. Every figure previously reported as "16 of 27, 11 of 17 paternal and
+5 of 10 maternal" was computed on a denominator that included five events the channel cannot
+detect, and counted one of them as a hit. The correct figures are 15 of 22, 10 of 14 and 5 of 8.
+
+D2 found the defect it was written for. GSM4552365 chr16, hand-called `dup 16q21-tel (pat)
+FRA16I`, is reported with kinds `copy-loss,parental-absence`. An absence scan has fired on a
+duplication-only event, and the copy-number channel has called a loss where the hand reads a gain.
+The other four duplication-only events return nothing, which is the expected behaviour. This is
+recorded and not repaired here: it is a detection question on a different channel from the one
+these tests are about.
+
+TEST E. THE RUN CHANNEL NOW HAS A NUMBER.
+
+  the RUN channel     right 15, wrong 0, no parental-absence segment 0
+  the SHARE channel   right 11, wrong 0
+
+On all 15 detected deletion-bearing events with a hand-named parent, the run names the parent the
+hand names. The share speaks on 11 of the 15 and is right on all 11. Neither is ever wrong, and
+neither is ever right where the other is wrong.
+
+E2 therefore applies. The ladder's ordering is untestable on this corpus: there is no event that
+discriminates between the two channels. It is to be described as a convention adopted for a stated
+reason and not as a validated ordering. What has changed is that "correct by construction" is no
+longer only an argument: the run is 15 of 15 against an independent by-eye karyotype.

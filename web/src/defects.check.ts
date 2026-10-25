@@ -352,31 +352,39 @@ const one = (where: string, verdict: string) => ({
   assert.equal(d.channel, 'genotype')
   assert.ok(d.why.includes('by construction'), d.why)
 
-  // The allele share over the same window is a second statistic and should agree. Where it does,
-  // its calibrated confidence is the one a reader sees: the run itself produces no number.
-  const agreeing = { where: w, origin: 'maternal copy missing', why: 'share agrees',
-    called: true, confidence: 0.97, band: 'B' }
-  const ok = defectsFrom([absent('maternal')], [],
-    [agreeing as unknown as GainAnnotation], [], 'paternal')[0]
-  assert.equal(ok.origin, 'maternal')
-  assert.equal(ok.confidence, 0.97, 'the share channel supplies the number where it agrees')
+  // THE SHARE IS ON THE SEGMENT. It was read from the annotation map keyed on a coordinate
+  // string, which matched a parental-absence segment 0 times in 69 over the 31 public cells, so
+  // the conflict test could not fire and the corroboration claim was empty. `sg.alleleGain` is
+  // where the scan puts it. Negative shift means the paternal share is depleted; that convention
+  // is scored against the hand karyotype on 11 events, right on 11.
+  const withShare = (p: 'paternal' | 'maternal', shift: number): Segment => ({
+    ...absent(p), alleleGain: { shift, informative: 640, verdict: 'imbalance' },
+  } as unknown as Segment)
 
-  // AND WHERE THEY DISAGREE, NEITHER IS PRINTED. Two readings of one region naming opposite
-  // parents is a conflict, and resolving it silently would put a confidence calibrated on
-  // agreeing runs beside a parent that half the evidence contradicts.
-  const against = { where: w, origin: 'paternal copy missing', why: 'share disagrees',
-    called: true, confidence: 0.97, band: 'B' }
-  const clash = defectsFrom([absent('maternal')], [],
-    [against as unknown as GainAnnotation], [], 'paternal')[0]
+  const ok = defectsFrom([withShare('maternal', 0.47)], [], [], [], 'paternal')[0]
+  assert.equal(ok.origin, 'maternal', 'run and share agree')
+  assert.ok(ok.why.includes('share inside the window agrees'), ok.why)
+  assert.equal(ok.confidence, undefined,
+    'neither channel is calibrated for this question, so no number is attached')
+
+  // AND WHERE THEY DISAGREE, NEITHER IS PRINTED.
+  const clash = defectsFrom([withShare('maternal', -0.47)], [], [], [], 'paternal')[0]
   assert.equal(clash.origin, 'unclear', 'a disagreement names no parent')
   assert.equal(clash.confidence, undefined, 'and carries no confidence')
   assert.ok(clash.why.includes('disagree'), clash.why)
 
+  // A RUN-NAMED PARENT TAKES NO NUMBER FROM A CHANNEL THAT NAMED SOMETHING ELSE. A single-parent
+  // verdict's posterior belongs to the parent it named, not to this one.
+  const borrowed = defectsFrom([withShare('maternal', 0.47)], [], [],
+    [one(w, 'known-parent-lost')], 'paternal')[0]
+  assert.equal(borrowed.origin, 'maternal')
+  assert.equal(borrowed.confidence, undefined, 'no borrowed posterior')
+
   // A WINDOW BOTH RUNS CALLED NAMES NO PARENT, whatever else agrees with it. Both parents'
   // alleles cannot be the missing ones over one region, so the region stands and the parent does
   // not. Measured at 35 of 69 parental-absence segments over 31 public cells, on 6 of them.
-  const contested = { ...absent('maternal'), contested: true } as unknown as Segment
-  const c = defectsFrom([contested], [], [agreeing as unknown as GainAnnotation], [], 'paternal')[0]
+  const contested = { ...withShare('maternal', 0.47), contested: true } as unknown as Segment
+  const c = defectsFrom([contested], [], [], [], 'paternal')[0]
   assert.equal(c.origin, 'unclear', 'both runs called it, so neither parent is named')
   assert.equal(c.confidence, undefined)
   assert.ok(c.why.includes('BOTH parents'), c.why)

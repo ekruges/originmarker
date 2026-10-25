@@ -104,6 +104,17 @@ export const SEGMENT_LRT = 250
  */
 export const SEGMENT_LRR_SHIFT = 1.0
 
+/**
+ * Reciprocal overlap at which two opposite-parent absence windows are taken to describe ONE
+ * region rather than two.
+ *
+ * The conventional value for calling two interval calls the same event. It is NOT fitted here and
+ * must not be fitted on the cells this repository measures on: a bare intersection test was what
+ * shipped first, and at near-chromosome window lengths any two events on one chromosome intersect,
+ * so two genuinely separate events read as one contested region.
+ */
+export const RECIPROCAL_OVERLAP = 0.5
+
 export type SegmentKind =
   /** The PARENT's alleles are missing across this region, though the DNA is present. A deletion
    *  of their copy, or the region inherited from the other parent alone. */

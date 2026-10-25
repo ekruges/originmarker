@@ -122,6 +122,23 @@ and a second laboratory; and the lab's own arrays where two bulk parents exist. 
 advance, tuned on these 31 and read once on those, would settle whether window 300 and LRT 250
 holds up. Until then the shipped statistic stays and the gain remains unproven.
 
+ADDED AFTER AN EXTERNAL REVIEW: TWO OF THE GRID'S FIVE WINDOW SETTINGS WERE EMPTY, NOT
+CONSERVATIVE
+
+`scanChromosome` opens with `if (n < minMarkers) return []`, at segments.ts:250. The
+opposite-homozygote arm of the grid is scanned over that marker set, about 1,034 markers per
+chromosome at the median, so on most chromosomes the rows at minWindow 2400 and 1200 performed no
+scan at all rather than a conservative one. They contributed no detection and no call on a
+hand-normal chromosome because nothing was tested, and the table above should be read as the only
+reachable region of the new statistic against the shipped setting of the old one, not as two
+settings of one statistic.
+
+This is a defect in how the grid was specified. A window minimum above a chromosome's informative
+marker count is not a setting, and a grid that contains such a point is smaller than it appears.
+The exact count of chromosome-cells scannable at each grid window is being measured by
+audit/marker-census.ts and will be recorded here; the median alone establishes the direction and
+not the count.
+
 WHAT DID SHIP FROM THIS WORK, AND IS UNAFFECTED
 
 The absence scan now runs against both parents rather than one. That is a defect fix, not a
