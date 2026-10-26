@@ -1,0 +1,91 @@
+THE SEGMENT NULL'S BREAKDOWN, AND WHAT THE OBLIGATE SET CAN NAME WITHOUT IT
+
+Committed before the run. One pass, seven predictions, and the first three are an external review's
+rather than mine.
+
+THE DIAGNOSIS BEING TESTED
+
+`externalNull` (segments.ts:233) is the MEDIAN per-chromosome absence rate over the sample's other
+autosomes. Its own comment says a median is chosen so that several events cannot collectively raise
+the bar. A median's breakdown point is 50 percent. By the published karyotype, 8 of the 31 public
+cells carry 11 or more abnormal autosomes of 22, so on those the median IS an affected chromosome.
+
+`scanChromosome` then rejects before scoring: `if (rate <= nullRate) continue` (segments.ts:274),
+ahead of the likelihood ratio. So on a cell whose median absence rate sits at the level a real
+event produces, every window on every chromosome is discarded untested, whatever the marker count.
+
+A real single-parent loss does not drive absence to 1.0. At markers where the mother is homozygous
+and her copy is gone, the sample reads an opposite homozygote only where the father transmitted the
+other allele. The review puts that at about 0.100 from a fitted allele-frequency spectrum. An
+independent figure from this project agrees: paternal pronuclei read 11.6 to 12.0 percent against
+the egg donors, which is the same quantity measured on real arrays.
+
+If both halves hold, one defect explains three findings: chr16 finding nothing with 14,000 markers,
+the 35 contested windows, and the segments on 8 cells resting on a reference the sample cannot
+supply.
+
+A CORRECTION TO THE REVIEW, FOUND BEFORE RUNNING
+
+The review says the discriminator for a both-parents window already exists as the survivor share,
+and gives it as `max(onlyA, onlyB) / (onlyA + onlyB)`, which is 0.5 under symmetric dropout at any
+rate and 1.0 on a real single-parent loss. The symmetry argument is exact: the array cannot know
+which allele came from which parent, so dropout cannot be parent-specific.
+
+The shipped code does not compute that. `hetCall` uses `onlyA / informative`, a share of ALL
+informative markers, and `SURVIVOR_MIN = 0.70` is calibrated against THAT denominator: 595
+autosomes, 105 hand-called losses never under 0.735, 490 intact never reaching 0.627. The two
+differ wherever heterozygous calls survive, because `informative` includes them and
+`onlyA + onlyB` does not. The review's version is invariant to dropout; the shipped one is not.
+
+So the tally exists and the calibrated threshold belongs to a different quantity. Both are computed
+below and neither is assumed to be the better one.
+
+THE DATA
+
+  GSE148488, Zuccaro et al., Cell 2020;183(6):1650-1664. The 31 cells with both parents arrayed and
+  a by-eye karyotype in Table S3. Band coordinates from the UCSC hg19 cytoBand track. No simulation.
+
+THE PREDICTIONS
+
+Theirs, on the diagnosis:
+
+  P1. On GSM4472423, GSM4552385 and GSM4552386, `externalNull` for the MATERNAL run on chr16 is at
+      or above about 0.10, the rate a true maternal loss produces.
+  P2. On those cells the 16q23.1-tel window's maternal absence rate is near that same figure and
+      fails `rate <= nullRate`, so it is discarded before the likelihood ratio is computed.
+  P3. On the six contested cells both runs' nulls are raised, and the contested windows' two
+      absence rates are approximately EQUAL rather than both near the event rate.
+
+      THE FALSIFIER, AND IT IS THEIRS: if the contested windows are strongly asymmetric, the
+      dropout reading is wrong, their answer to the both-parents question falls, and so does the
+      case for replacing the null. Recorded, not rescued.
+
+Mine, on what can be named without the null:
+
+  S1. On the four cells carrying a hand-called `del(6q)(pat)` that the heterozygosity ceiling
+      refuses, chr6 reads a survivor share naming PATERNAL under at least one of the two
+      normalisations. These cells are refused and `contribution` is not cleared by the refusal, so
+      this is a parent call available today on an array the tool reports nothing for.
+  S2. Measured directly from the two parental arrays, with no spectrum assumed, the rate at which a
+      sample carrying one parent's allele alone reads an opposite homozygote against the other
+      parent is between 0.08 and 0.14.
+  S3. The opposite-homozygote marker count inside 16q23.1-tel is reported against
+      `MIN_INFORMATIVE = 200`. The review scales it to about 171 and flags the figure as an
+      estimate. This decides whether the obligate set can speak at window scale at all.
+  S4. The two normalisations part company on the contested windows. The review's reads near 0.5
+      there, by its symmetry argument. The shipped one reads low for an unrelated reason, because
+      surviving heterozygous calls sit in its denominator. If they do not part company, the
+      distinction does not matter and the shipped threshold can be reused.
+
+WHAT IS NOT BEING DECIDED HERE
+
+The replacement null. The review declines to propose one and gives the reason: on a cell with 15 of
+22 autosomes affected, no robust estimate of location over the sample's own chromosomes can work,
+so the replacement may have to be parent-referenced rather than within-sample. Candidates have
+different failure modes and the choice is a separate pre-registration scored against the
+595-autosome truth. Nothing is changed in this round on the strength of these numbers alone.
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE RUN
+
+Nothing above this line was changed.
