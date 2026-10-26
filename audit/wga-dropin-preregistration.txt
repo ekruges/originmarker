@@ -1,0 +1,84 @@
+DROP-IN ON AMPLIFIED SINGLE CELLS: THE MEASUREMENT THE DIPLOID CEILING IS MISSING
+
+Written and committed before the data is read. One measurement, one decision, and a hard stop
+after it: this closes the ceiling question or leaves it closed as it stands.
+
+THE QUESTION
+
+`MAX_DIPLOID_HET = 0.25` refuses an array reading above the heterozygosity a single diploid genome
+can reach. It is derived in stage.ts as this panel's measured diploid rate of 0.168 plus drop-in at
+the highest rate measured there, 0.0525 over 113 same-genome pairs, giving 0.212 and rounded up.
+
+Drop-in is a heterozygous call where the true genotype is homozygous. The 0.0525 figure was
+measured on BULK material. The ceiling is applied unchanged to amplified single cells, and drop-in
+on whole-genome-amplified material is a different process: chimeric amplicons and template
+switching create alleles that bulk hybridisation does not.
+
+Five cells of GSE148488 that the ceiling refuses read heterozygosity 0.318 to 0.376 at call rates
+0.67 to 0.77, and the authors' own karyotype reads two of them "normal for other chromosomes" and
+one "46,XX". If amplified single cells of a KNOWN diploid genome read in that same band, the
+ceiling is refusing normal genomes and three real hand-called deletions are being lost to it.
+
+THE MATERIAL, AND WHY IT ANSWERS THIS AND NOTHING ELSE
+
+GSE60909, Zamani Esteki et al., "Concurrent whole-genome haplotyping and copy number profiling of
+single cells". Illumina HumanCytoSNP-12, GPL13829, 164 samples. Genotype calls for every sample
+are in the series matrix itself, keyed by GEO accession.
+
+  20 single cells from Epstein-Barr virus transformed lymphoblastoid lines of two siblings,
+     S1 and S2, amplified by MDA (10) or PicoPlex (10), several hybridised twice.
+   4 multi-cell control DNA arrays from the same two siblings, `wga: -`, unamplified.
+
+A lymphoblastoid line from a healthy donor is diploid. So every one of those 20 single cells is an
+amplified array of a genome known to be diploid without anything having read the array to decide
+it, which is the property this corpus has never had. The multi-cell controls give the same
+genome unamplified, so drop-in can be measured against the truth rather than modelled.
+
+  THE CAVEAT, STATED BEFORE THE RESULT. The multi-cell control is blood and the single cells are
+  a transformed line of the same person. A line can acquire changes in culture, so a locus-level
+  disagreement is not automatically drop-in. A genome-wide rate is not sensitive to a handful of
+  culture-acquired events, and the hybridisation replicate pairs isolate hybridisation noise from
+  amplification noise within one amplified sample. Neither of those makes the line identical to
+  the blood and the write-up will say so.
+
+THE MEASUREMENTS
+
+  per single cell, against its own sibling's multi-cell control, over autosomes:
+    call rate
+    heterozygosity, the quantity the ceiling tests
+    DROP-IN     the share of calls reading AB where the control reads AA or BB
+    DROP-OUT    the share of calls reading homozygous where the control reads AB
+  reported per amplification chemistry and per hybridisation protocol, never pooled into one
+  number, because the chemistry is the thing that differs.
+
+THE PREDICTIONS
+
+  R1. The 20 amplified single cells read heterozygosity ABOVE 0.25 on a genome known to be
+      diploid. That is the whole question: if they do, the ceiling refuses normal amplified single
+      cells.
+  R2. Drop-in on amplified material exceeds 0.0525, the bulk figure the ceiling is built on, by
+      enough to account for the difference. Claude Science's arithmetic puts the requirement at
+      0.22 to 0.30 to reach heterozygosity of 0.32 to 0.38 at these call rates; that figure is
+      quoted and not assumed.
+  R3. MDA and PicoPlex differ. They are different chemistries and a single ceiling for both would
+      be the same mistake as a single ceiling for bulk and amplified.
+
+  FALSIFIED IF: the single cells read at or below 0.25. Then the ceiling is right for amplified
+  material, the five refused cells are not ordinary diploids, the three hand-called deletions on
+  them stay missed, and the ceiling question is closed against raising it. That outcome is as
+  useful as the other and is why this is worth one run.
+
+WHAT HAPPENS NEXT, FIXED NOW SO THE RESULT CANNOT CHOOSE IT
+
+  R1 and R2 hold      the ceiling is re-derived from the measured amplified drop-in, per stage,
+                      and the five cells are re-scored. No new free parameter: the ceiling stays
+                      `diploid rate + (1 - diploid rate) x drop-in` with a drop-in figure measured
+                      on the right material instead of the wrong one.
+  R1 fails            the ceiling stands unchanged and this file records that it was tested
+                      against known-diploid amplified single cells and survived.
+
+  Either way the gate work stops here. A platform difference is a confound in both directions and
+  is stated rather than corrected: CytoSNP-12 reads 0.301 to 0.316 heterozygous in bulk against
+  Axiom's 0.141 to 0.170, so a rate measured there does not transfer to an Axiom ceiling as a
+  number. What transfers is the RATIO of amplified drop-in to bulk drop-in, measured within one
+  platform, which is why both are measured here on the same arrays.
