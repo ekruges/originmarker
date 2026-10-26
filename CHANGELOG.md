@@ -9,6 +9,54 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.42.1 "Dyad"
+
+**The diploid heterozygosity ceiling was tested against twenty amplified arrays of a genome known
+to be diploid, and it stands.** No behaviour changes. This closes the largest open question in the
+project against the change it was expected to license.
+
+`MAX_DIPLOID_HET` is built on drop-in of 0.0525 measured on bulk material and applied unchanged to
+amplified single cells. Five cells of GSE148488 that it refuses read 0.318 to 0.376 heterozygous
+while the authors' karyotype reads two of them "normal for other chromosomes" and one "46,XX", and
+they carry three hand-called `del(6q)(pat)` deletions that are lost to the refusal. The hypothesis,
+from an external review and from this project, was that drop-in on whole-genome-amplified material
+is a different and larger process than on bulk.
+
+Measured on GSE60909: twenty single cells from Epstein-Barr-transformed lymphoblastoid lines of two
+siblings, amplified by MDA or PicoPlex, against multi-cell control DNA of the same two genomes
+unamplified. 279,998 autosomal probes.
+
+| chemistry | n | heterozygosity | drop-in | drop-out |
+|---|---|---|---|---|
+| MDA | 10 | 0.048 to 0.121 | **0.001 to 0.011** | 0.296 to 0.852 |
+| PicoPlex | 10 | 0.147 to 0.264 | 0.033 to 0.249 | 0.108 to 0.740 |
+| their own unamplified controls | 4 | **0.314 to 0.318** | | |
+
+**Amplification does not raise heterozygosity. It lowers it.** Every one of the twenty single cells
+reads below its own unamplified control of the same genome, MDA by a factor of three to six and
+PicoPlex by 1.2 to 2. The median amplified drop-in is 0.033, which is *lower* than the 0.0525 bulk
+figure the ceiling uses, a ratio of 0.62. Two of twenty read above 0.25, at 0.264 and 0.253.
+
+So the hypothesis fails in the direction that decides it. The five refused cells read 1.9 to 2.2
+times the bulk diploid rate of the panel they are on, and an amplified single cell of a diploid
+genome cannot reach twice its platform's baseline when amplification moves the rate downward. The
+ceiling is refusing them correctly and the three deletions stay missed with a reason on the record
+instead of an open question.
+
+What that leaves on the ceiling's own list of causes is two individuals mixed at an uneven ratio or
+a contaminated reaction. That agrees with the earlier finding that those cells carry roughly 46
+percent of their heterozygous mass outside all three expected BAF bands, and a by-eye karyotype
+reads relative copy number across chromosomes, which a low-level mixture does not disturb. Not
+pursued: the pre-registration fixed the stop here.
+
+**The panel scaling has a direct measurement now.** CytoSNP-12 bulk diploid DNA reads 0.314 to
+0.318 against Axiom's 0.168, so an Axiom ceiling applied to CytoSNP material would refuse four
+undamaged bulk genomes. `stage.ts` already says the ceiling must be scaled by the panel in use and
+why; these four arrays are what that rests on. What transfers between platforms is the ratio of
+amplified drop-in to bulk drop-in, 0.62, and not either rate.
+
+---
+
 ## 5.42.0 "Dyad"
 
 Six predictions fixed in advance, five held and one failed. The one that failed takes a shipped

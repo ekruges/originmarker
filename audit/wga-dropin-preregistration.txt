@@ -82,3 +82,75 @@ WHAT HAPPENS NEXT, FIXED NOW SO THE RESULT CANNOT CHOOSE IT
   Axiom's 0.141 to 0.170, so a rate measured there does not transfer to an Axiom ceiling as a
   number. What transfers is the RATIO of amplified drop-in to bulk drop-in, measured within one
   platform, which is why both are measured here on the same arrays.
+
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE DATA WAS READ
+
+Nothing above this line was changed. Run by audit/wga_dropin.py over 279,998 autosomal probes.
+
+R1 FAILED. R2 FAILED. R3 HELD, and the direction of the whole effect is the opposite of what the
+ceiling's logic is built to worry about.
+
+THE UNAMPLIFIED CONTROLS, which are the platform baseline
+
+  GSM1493591  S1 conventional   251,385 called   het 0.314
+  GSM1493590  S1 24h            242,196 called   het 0.318
+  GSM1493603  S2 conventional   250,956 called   het 0.314
+  GSM1493602  S2 24h            243,090 called   het 0.318
+
+CytoSNP-12 bulk diploid DNA reads 0.314 to 0.318. stage.ts already records this as the reason the
+ceiling must be scaled by the panel in use, and these four arrays are a direct measurement of it:
+an Axiom ceiling of 0.25 applied to CytoSNP material would refuse four undamaged bulk genomes.
+
+THE AMPLIFIED SINGLE CELLS, on a genome known diploid, against their own unamplified control
+
+  chemistry   n    heterozygosity   drop-in         drop-out
+  MDA        10    0.048 to 0.121   0.001 to 0.011  0.296 to 0.852
+  PicoPlex   10    0.147 to 0.264   0.033 to 0.249  0.108 to 0.740
+
+  single cells reading above 0.25:     2 of 20, at 0.264 and 0.253
+  amplified drop-in, median:           0.033
+  the bulk figure the ceiling uses:    0.0525
+  ratio of median amplified to bulk:   0.62x
+
+WHAT THIS SETTLES
+
+Amplification does not raise heterozygosity. It lowers it. Every one of the 20 single cells reads
+BELOW its own unamplified control of the same genome: MDA by a factor of three to six, PicoPlex by
+a factor of 1.2 to 2. Drop-out runs 0.30 to 0.85 and drop-in runs 0.001 to 0.249, and the median
+amplified drop-in is lower than the bulk figure the ceiling was built on, not higher.
+
+So the hypothesis fails in the direction that matters. The five refused cells of GSE148488 read
+0.318 to 0.376 on a panel whose bulk diploid rate is 0.168, which is 1.9 to 2.2 times the
+platform baseline. An amplified single cell of a diploid genome cannot reach twice its platform's
+bulk rate, because amplification moves the rate the other way. The ceiling stands, unchanged, and
+it has now been tested against twenty amplified arrays of a genome known to be diploid without
+anything having read an array to decide it.
+
+The three hand-called del(6q)(pat) events on those cells therefore stay missed, and the reason is
+on the record rather than open: they are on arrays the ceiling refuses, and this measurement says
+the ceiling is refusing them correctly.
+
+WHAT THAT IMPLIES ABOUT THOSE FIVE CELLS, STATED AND NOT ACTED ON
+
+The ceiling and the hand karyotype disagree about them. The karyotype reads two "normal for other
+chromosomes" and one "46,XX"; the ceiling reads not one genome. This measurement does not say
+which is right, but it removes the explanation that favoured the karyotype. What remains on the
+ceiling's side of the list is two individuals mixed at an uneven ratio, or a contaminated
+reaction, and a by-eye SNP-array karyotype reads relative copy number across chromosomes, which a
+low-level mixture does not disturb. That is consistent with the earlier finding that those cells
+are BAF-smeared with roughly 46 percent of heterozygous mass outside all three expected bands.
+
+Not pursued. The gate work stops here as this file fixed in advance.
+
+PLATFORM CONFOUND, AS STATED BEFORE THE RUN
+
+What was measured within one platform is the ratio of amplified drop-in to bulk drop-in, and it is
+0.62x. That is the quantity that transfers. The rates themselves do not: CytoSNP bulk reads 0.314
+and Axiom bulk 0.168, a factor of 1.87, and both figures are measured rather than assumed.
+
+ONE CAVEAT NOT RESOLVED. The controls are blood and the single cells are a transformed line of
+the same person, so a locus-level disagreement is not automatically drop-in. It does not touch the
+conclusion: the finding is that amplified heterozygosity is uniformly LOWER than its own control,
+and culture-acquired changes in a line cannot produce that on every one of twenty arrays.
