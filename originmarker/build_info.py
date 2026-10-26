@@ -174,6 +174,11 @@ RELEASES: tuple[Release, ...] = (
             "One copy of a region where there should be two, so only one parent's alleles are "
             "there to read. Which parent is a question each parent's own markers answer "
             "separately, and a region that reads absent against both is answering neither."),
+    Release("Asynapsis",
+            "Homologues that fail to pair, so neither has the partner it would be read against. "
+            "A chromosome judged by the median of its neighbours has the same difficulty once most "
+            "of them carry events: the reference it needs is not there, and nothing in the result "
+            "says so."),
     Release("Dyad",
             "One chromosome of a pair with its two chromatids still joined, which is what a cell "
             "carries between the two meiotic divisions. One copy where there should be two has no "
@@ -190,8 +195,8 @@ RELEASES: tuple[Release, ...] = (
             "naming a parent and both are right."),
 )
 
-VERSION = "5.42.1"
-CODENAME = "Dyad"
+VERSION = "5.43.0"
+CODENAME = "Asynapsis"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

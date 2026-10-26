@@ -24,7 +24,7 @@ import {
 } from './parentage.ts'
 import {
   scanChromosome, scanCopyNumber, externalNull, segmentCoords, type MarkerAbsence,
-  type Segment, RECIPROCAL_OVERLAP,
+  type Segment, RECIPROCAL_OVERLAP, canDetectLoss,
 } from './segments.ts'
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground, scanAlleleGains,
@@ -33,6 +33,7 @@ import {
 } from './gainOrigin.ts'
 import {
   addTwoParent, emptyHet, hetCall, type HetTally, MIN_INFORMATIVE, MIXED_SHARE, HAPLOID_MAX,
+  lossSignalRate,
   DIPLOID_MIN,
 } from './obligateHet.ts'
 import { originBlockedByClass, namedAParent } from './defects.ts'
@@ -914,6 +915,38 @@ export async function scoreSample(input: {
       + 'genome without a normal majority has no such median. The whole-chromosome verdicts are '
       + 'withheld as well, on gates that have not been measured on material like this.',
     )
+  }
+  // WHERE THE SCAN HAS GONE BLIND, SAY SO. The null each chromosome is scored against is the
+  // median absence rate over this sample's OTHER autosomes, which holds only while most of them
+  // are unaffected. Past that the bar rises toward the rate a real event produces and no window
+  // can clear the threshold, which is indistinguishable in the output from a chromosome that
+  // carries nothing. The rate a true single-parent loss produces is computed from the two
+  // parental arrays, so the test references the parents and not this sample's other chromosomes.
+  if (mat) {
+    // Whichever parent's loss is harder to see sets the bound, so the smaller of the two rates.
+    const lossRate = Math.min(
+      lossSignalRate(pat.gt, mat.gt),
+      lossSignalRate(mat.gt, pat.gt),
+    )
+    const blind: string[] = []
+    for (const c of result.chroms) {
+      if (!isAutosome(c.chrom) || !measured.has(c.chrom)) continue
+      const nPat = externalNull(t.byChrom, c.chrom)
+      const nMat = externalNull(matAbsenceTally, c.chrom)
+      const worst = Math.max(nPat, nMat)
+      if (!canDetectLoss(worst, lossRate)) blind.push(c.chrom)
+    }
+    if (blind.length) {
+      result.limits.push(
+        `The segment scan cannot detect a lost parental copy on ${blind.length} of the autosomes `
+        + `scanned here (chr${blind.join(', chr')}), so silence on them is not evidence of their `
+        + 'being intact. Each chromosome is scored against the median absence rate of this '
+        + "sample's OTHER chromosomes, and on a genome where most of them carry events that "
+        + `median is itself an affected chromosome. A true lost copy reads ${pct(lossRate, 1)} `
+        + 'here, and the bar on those chromosomes has risen far enough that no window of the '
+        + 'minimum size could clear the calling threshold even if the whole window were missing.',
+      )
+    }
   }
   const contested = result.segments.filter((sg) => sg.contested)
   if (contested.length) {

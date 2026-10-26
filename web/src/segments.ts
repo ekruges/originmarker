@@ -113,6 +113,40 @@ export const SEGMENT_LRR_SHIFT = 1.0
  * shipped first, and at near-chromosome window lengths any two events on one chromosome intersect,
  * so two genuinely separate events read as one contested region.
  */
+/**
+ * Whether a window of `markers` could clear `threshold` at all, given the null this chromosome
+ * is scored against and the rate a true single-parent loss actually produces.
+ *
+ * THE SCAN CAN GO BLIND WITHOUT SAYING SO, and that is what this exists to catch. The null is the
+ * median per-chromosome absence rate over the sample's OTHER autosomes (see `externalNull`), and a
+ * median tolerates a minority of affected chromosomes and not a majority. On a genome where most
+ * chromosomes carry events the median is itself an affected chromosome, the bar rises toward the
+ * event rate, and the likelihood ratio a real event can reach falls below the calling threshold.
+ * Nothing in the output distinguishes that from a chromosome with no event on it.
+ *
+ * Measured on GSE148488. A true single-parent loss reads an opposite homozygote at 0.1153 to
+ * 0.1244 against the parent whose copy went, computed over 650,000 markers from the two parental
+ * arrays with no spectrum assumed. At the null floor of 0.002 such an event scores 958 over 2,400
+ * markers, comfortably past the threshold of 250. At a null of 0.028 it scores 226 and is not
+ * called. The boundary is a null of 0.0253.
+ *
+ * Two of the three cells carrying a hand-called `del 16q23.1-tel (mat)` that this scan misses read
+ * a chr16 maternal null of 0.0280 and 0.0282, with the event present in the data at 0.1096 and
+ * 0.1145. They are not missed for want of markers, of which they have six times the minimum. They
+ * are missed because the bar rose past what the event can clear.
+ */
+export const canDetectLoss = (
+  nullRate: number,
+  eventRate: number,
+  markers = MIN_SEGMENT_MARKERS,
+  threshold = SEGMENT_LRT,
+): boolean => {
+  if (!(nullRate > 0) || !(eventRate > nullRate) || eventRate >= 1) return false
+  const kl = eventRate * Math.log(eventRate / nullRate)
+    + (1 - eventRate) * Math.log((1 - eventRate) / (1 - nullRate))
+  return markers * kl >= threshold
+}
+
 export const RECIPROCAL_OVERLAP = 0.5
 
 export type SegmentKind =

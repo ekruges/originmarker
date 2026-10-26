@@ -9,6 +9,77 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.43.0 "Asynapsis"
+
+**The segment scan can go blind on a chromosome and say nothing about it, and now it says so.**
+Seven predictions fixed in advance in `audit/null-breakdown-preregistration.txt`. Two of an
+external review's three failed, its diagnosis is right in substance and wrong in mechanism, and the
+arithmetic that replaces it is exact.
+
+Each chromosome is scored against `externalNull`, the median absence rate over this sample's other
+autosomes. A median holds while most of them are unaffected and not past that, and 8 of the 31
+public cells carry 11 or more abnormal autosomes of 22.
+
+A true single-parent loss does not drive absence to 1. Measured from the two parental genotypes
+alone, with no allele-frequency spectrum assumed: **0.1244** against the mother and **0.1153**
+against the father, over roughly 650,000 markers each. That agrees with the 11.6 to 12.0 percent
+dissected paternal pronuclei read against the egg donors, which is the same quantity measured
+independently on real single-parent material.
+
+Put together, the likelihood ratio a real loss can reach over the minimum window of 2,400 markers:
+
+| the null the chromosome is scored at | LRT a true loss reaches | clears the threshold of 250? |
+|---|---|---|
+| 0.0020, the floor | 958 | yes |
+| 0.0140 | 403 | yes |
+| 0.0280 | **226** | no |
+| 0.0605 | 67 | no |
+
+The boundary is a null of **0.0253**. Two of the three cells carrying a hand-called
+`del 16q23.1-tel (mat)` that this scan misses read chr16 maternal nulls of 0.0280 and 0.0282, with
+the event present at full strength, 0.1096 and 0.1145. They are scored and fall 24 short. Six times
+the marker floor cannot help, because the deficit is in the ratio rather than the count.
+
+`canDetectLoss` now asks that question per chromosome, and a limit line names every autosome where
+the answer is no. Silence on such a chromosome is no longer indistinguishable from a chromosome
+carrying nothing. `lossSignalRate` supplies the event rate from the two parental genotypes, so the
+test references the parents and not this sample's other chromosomes.
+
+**The review's own predictions.** Its P1 and P2 both failed: the null is raised seven to fourteen
+times the floor and nowhere near the 0.10 predicted, so the window rate exceeds it and nothing is
+discarded before scoring. The suppression is in the likelihood ratio, not in the pre-scoring gate.
+Its P3 held on all 17 contested windows: every one reads a ratio of 0.503 to 0.586 against 0.5 for
+perfect symmetry, with both absence rates at 0.096 to 0.234. Both parents depleted equally over the
+same window, with no exception, which no single lost copy produces. Those windows are dropout and
+the symmetry is the signature.
+
+The third missed chr16 event is **not** explained. Its null is 0.0140, inside the detectable range,
+and its window rate is 0.0355, a third of what a true loss produces. The signal itself is weak and
+the cause is open.
+
+**Two estimates the review flagged, now counted.** The opposite-homozygote markers inside
+16q23.1-tel are **245** against a floor of 200, not the 171 it scaled to, so the obligate set can
+speak at window scale on this event. And the two survivor-share normalisations differ by a factor
+of two to three on the refused cells: dividing by all informative markers gives 0.22 to 0.52 where
+dividing by `onlyA + onlyB` gives 0.59 to 0.92. The second is invariant to how many heterozygous
+calls survived and is the one that works on this material. It is not adopted, because
+`SURVIVOR_MIN` is calibrated against the first denominator and cannot be carried over.
+
+What that normalisation does show, on four cells the tool refuses and reports nothing for: the
+mother's allele alone predominates on chr6 on all four, so the father's copy is the missing one,
+which is the direction the hand karyotype gives on four of four.
+
+**Not changed:** the null itself. No robust estimate of location over the sample's own chromosomes
+survives past half of them being affected, so a replacement may have to stop referencing the sample
+altogether. That is a separate pre-registration scored against the 595-autosome truth.
+
+**A check that was never there.** `RECIPROCAL_OVERLAP` shipped in 5.40.0 with its value pinned by
+no test. The block asserting it was written, reported as passing, and never written to disk; the
+import line landed and the assertions did not. Both it and the new boundary are now in
+`segments.check.ts`, and each was confirmed to fail when the constant it guards is altered.
+
+---
+
 ## 5.42.1 "Dyad"
 
 **The diploid heterozygosity ceiling was tested against twenty amplified arrays of a genome known

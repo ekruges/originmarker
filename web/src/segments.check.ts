@@ -23,6 +23,7 @@ import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import {
   MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, RECIPROCAL_OVERLAP,
+  canDetectLoss,
   externalNull,
   scanChromosome, scanCopyNumber,
   type MarkerAbsence,
@@ -133,6 +134,49 @@ const chrom = (n: number, from = -1, to = -1, rate = 0.11, bg = 0.005): MarkerAb
   for (let i = 1; i < at.length; i += 1) {
     assert.ok(at[i] > at[i - 1], `a stronger event must score higher: ${at}`)
   }
+}
+
+// --- A SCAN THAT CANNOT SEE A REAL EVENT MUST NOT PASS FOR A CLEAN CHROMOSOME ------------------
+//
+// The null is the median absence rate over the sample's other autosomes, which holds only while
+// most of them are unaffected. Past that the bar rises toward the rate a true event produces and
+// no window can clear the threshold, which looks exactly like a chromosome carrying nothing.
+// Measured on GSE148488: a true single-parent loss reads 0.1153 to 0.1244 against the parent whose
+// copy went, and the three cells whose hand-called terminal deletion this scan misses read chr16
+// maternal nulls of 0.0140, 0.0280 and 0.0282.
+{
+  const EVENT = 0.1244
+  assert.ok(canDetectLoss(NULL_FLOOR, EVENT), 'a clean cell can see a real loss')
+  assert.ok(!canDetectLoss(0.0280, EVENT), 'null 0.0280 is past the blind boundary')
+  assert.ok(!canDetectLoss(0.0282, EVENT), 'null 0.0282 is past the blind boundary')
+  // The third cell reads a lower null and is NOT explained this way: its event signal is weak.
+  assert.ok(canDetectLoss(0.0140, EVENT), 'null 0.0140 is still inside the detectable range')
+  assert.ok(canDetectLoss(0.0250, EVENT) && !canDetectLoss(0.0256, EVENT),
+    'the boundary sits at a null of about 0.0253')
+  // A larger window buys range back, which is the only lever that moves no threshold.
+  assert.ok(canDetectLoss(0.0280, EVENT, 4_800), 'twice the window clears the same null')
+  assert.ok(!canDetectLoss(0, EVENT), 'a zero null is a refusal, not infinite power')
+  assert.ok(!canDetectLoss(0.20, EVENT), 'a null above the event rate can never detect it')
+}
+
+// --- TWO SEPARATE EVENTS ON ONE CHROMOSOME ARE NOT ONE CONTESTED REGION ------------------------
+//
+// The first version of the contested test was a bare intersection, which at the near-chromosome
+// window lengths this corpus produces is satisfied by any two events on one chromosome. One arm
+// losing the father's copy and the other losing the mother's is two findings; collapsing them
+// into one region with no parent loses both.
+{
+  assert.equal(RECIPROCAL_OVERLAP, 0.5)
+  const r = (a: [number, number], b: [number, number]) => {
+    const inter = Math.min(a[1], b[1]) - Math.max(a[0], b[0])
+    return inter <= 0 ? 0 : inter / (Math.max(a[1], b[1]) - Math.min(a[0], b[0]))
+  }
+  assert.ok(r([0, 50e6], [50e6, 100e6]) < RECIPROCAL_OVERLAP, 'abutting arms are two events')
+  assert.ok(r([0, 80.9e6], [0, 76.6e6]) >= RECIPROCAL_OVERLAP, 'near-identical windows are one')
+  // The two measured pairs that fall below on window edges, which is what the rule is for.
+  assert.ok(r([40.7e6, 100.8e6], [20.0e6, 72.6e6]) < RECIPROCAL_OVERLAP)
+  assert.ok(r([0.2e6, 135.0e6], [4.6e6, 35.4e6]) < RECIPROCAL_OVERLAP)
+  assert.ok(r([0.2e6, 135.0e6], [43.0e6, 137.9e6]) >= RECIPROCAL_OVERLAP)
 }
 
 // --- EVERY SURFACE THAT LABELS A PARENTAL ABSENCE MUST READ WHOSE IT WAS -----------------------

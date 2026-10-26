@@ -88,4 +88,99 @@ different failure modes and the choice is a separate pre-registration scored aga
 ================================================================================================
 THE RESULT, WRITTEN AFTER THE RUN
 
-Nothing above this line was changed.
+Nothing above this line was changed. NULL_FLOOR is 0.002.
+
+P1 FAILS. P2 FAILS. The diagnosis is right in substance and wrong in its mechanism.
+
+  cell         nullPat  nullMat  rateMat      n   rejected before scoring?
+  GSM4472423    0.0208   0.0140   0.0355   3912   no, it would be scored
+  GSM4552385    0.0144   0.0280   0.1096   4095   no, it would be scored
+  GSM4552386    0.0161   0.0282   0.1145   3590   no, it would be scored
+
+The null IS raised, seven to fourteen times the floor, and nowhere near the 0.10 P1 predicted. So
+the window rate exceeds it in all three cases and nothing is discarded by `rate <= nullRate`. The
+pre-scoring rejection is not what suppresses these events.
+
+WHAT SUPPRESSES THEM, with the arithmetic. The likelihood ratio a true loss can reach over the
+minimum window of 2,400 markers, against the null the chromosome is scored at, with the event rate
+measured below at 0.1244:
+
+  null     LRT at w=2400   clears 250?
+  0.0020             958   yes
+  0.0140             403   yes
+  0.0280             226   NO
+  0.0605              67   NO
+
+The boundary is a null of 0.0253. GSM4552385 and GSM4552386 read 0.0280 and 0.0282 with the event
+present in the data at 0.1096 and 0.1145, which is full strength. They are scored and fall short,
+by 226 against 250. Six times the marker floor cannot help, because the deficit is in the ratio and
+not in the count.
+
+GSM4472423 is NOT explained this way. Its null of 0.0140 is inside the detectable range and its
+window rate is 0.0355, a third of what a true maternal loss produces. The event signal itself is
+weak on that cell and the cause is still unknown.
+
+So one of the three misses stays open and two are now explained exactly.
+
+P3 HOLDS, 17 of 17.
+
+  every contested window reads a ratio of max to sum between 0.503 and 0.586, against 0.5 for
+  perfect symmetry, with both absence rates at 0.096 to 0.234
+
+Both parents' alleles are depleted to nearly the same degree over every contested window, on all
+six cells, with no exception. Those rates are at or above the event rate on both runs at once,
+which no single lost copy can produce. The review's reading is confirmed on real data: these are
+dropout, and the symmetry is the signature. The falsifier did not fire.
+
+S1 PARTLY HOLDS, and it separates the two normalisations.
+
+  cell          inf     het   onlyA   onlyB  shipped  review
+  GSM4472405   1545  0.4395  0.0447  0.5159    0.516   0.920
+  GSM4552387   1832  0.5895  0.0344  0.3761    0.376   0.916
+  GSM4552388   1646  0.6215  0.1549  0.2236    0.224   0.591
+  GSM4552389   1763  0.6064  0.0919  0.3018    0.302   0.767
+
+`onlyB` exceeds `onlyA` on all four, and B is the mother, so the father's copy is the missing one
+on every cell. That is the direction the hand karyotype gives, `del(6q)(pat)`, on four for four.
+
+The shipped normalisation names none of them: it divides by all informative markers, and these
+cells read 0.44 to 0.62 heterozygous, so the denominator is dominated by calls that survived. The
+review's normalisation divides by `onlyA + onlyB` and is therefore invariant to that: it reads
+0.920, 0.916, 0.767 and 0.591. So the correction found before the run matters, and the review's
+form is the one that works on this material. What it does NOT have is a threshold: SURVIVOR_MIN at
+0.70 is calibrated against the shipped denominator and cannot be carried across. Calibrating the
+review's form is a separate pre-registration.
+
+S2 HOLDS and the review's estimate was low by a fifth.
+
+  a lost maternal copy, read against the mother:  0.1244 over 667,850 markers
+  a lost paternal copy, read against the father:  0.1153 over 652,047 markers
+
+Computed from the two parental genotypes alone with no spectrum assumed. The review derived 0.100
+from a fitted Beta and flagged it; the measured figure is 0.115 to 0.124. It agrees with the 11.6
+to 12.0 percent that dissected paternal pronuclei read against the egg donors, which is the same
+quantity on real single-parent material and was measured independently.
+
+S3 HOLDS, and the review's estimate was low by a third.
+
+  chr16 whole:        937 opposite-homozygote markers
+  chr16 16q23.1-tel:  245  against MIN_INFORMATIVE 200, which is ENOUGH
+
+The review scaled it to about 171 and said to count it. Counted, it is 245, so the obligate set can
+speak at window scale on this event after all.
+
+S4 HOLDS. See S1: the two normalisations differ by a factor of two to three on exactly these cells.
+
+WHAT SHIPPED FROM THIS, AND WHAT DID NOT
+
+Shipped: `canDetectLoss`, which asks whether a window of the minimum size could clear the threshold
+at all given the null this chromosome is scored against and the rate a true loss produces, and a
+limit line naming every autosome where it cannot. Silence on such a chromosome is no longer
+indistinguishable from a chromosome carrying nothing. `lossSignalRate` computes the event rate per
+run from the two parental genotypes, so the test references the parents rather than this sample.
+
+NOT shipped: any change to the null itself. The review declines to propose a replacement and gives
+the reason, that no robust estimate of location over the sample's own chromosomes survives past
+half of them being affected, so the replacement may have to be parent-referenced. That is a
+separate pre-registration scored against the 595-autosome truth. Nor is the review's survivor-share
+normalisation adopted, for want of a threshold calibrated against it.

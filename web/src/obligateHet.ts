@@ -243,3 +243,38 @@ export function hetCall(t: HetTally, parents: 1 | 2): HetCall {
       + `${(hi * 100).toFixed(0)}% boundaries, which is neither`,
   }
 }
+
+
+/**
+ * The rate at which a sample that has lost ONE parent's copy reads an opposite homozygote against
+ * that parent, computed from the two parental genotypes alone.
+ *
+ * At a marker where the lost parent is homozygous, the sample carries only the other parent's
+ * transmitted allele, and that is the OPPOSITE allele exactly when the other parent transmitted
+ * it. A heterozygous other parent transmits either with probability one half; a homozygous one
+ * transmits what it has. So the rate is a sum over known genotype pairs with nothing assumed about
+ * the allele-frequency spectrum.
+ *
+ * This is what a real event looks like, and it is needed to ask whether a scan could detect one at
+ * all. Measured on GSE148488 it comes to 0.1244 against the mother and 0.1153 against the father
+ * over roughly 650,000 markers each, which agrees with the 11.6 to 12.0 percent that dissected
+ * paternal pronuclei read against the egg donors, a measurement of the same quantity on real
+ * single-parent material.
+ */
+export function lossSignalRate(
+  lost: Map<string, string>,
+  other: Map<string, string>,
+): number {
+  let n = 0
+  let opp = 0
+  for (const [id, lg] of lost) {
+    if (lg !== 'AA' && lg !== 'BB') continue
+    const og = other.get(id)
+    if (!og || og === 'NC') continue
+    const otherAllele = lg === 'AA' ? 'B' : 'A'
+    n += 1
+    if (og === 'AB') opp += 0.5
+    else if (og[0] === otherAllele) opp += 1
+  }
+  return n ? opp / n : NaN
+}
