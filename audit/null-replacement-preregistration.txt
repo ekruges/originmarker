@@ -1,0 +1,172 @@
+REPLACING THE SEGMENT NULL: THE DISTRIBUTION FIRST, THEN THE ESTIMATOR, THEN ONE READ
+
+Committed before any of it is measured. The order matters and is the point of this file: the
+estimator is derived from the shape of the distribution rather than chosen from a list, and the
+choice is then scored once against a bar fixed here.
+
+WHAT IS WRONG WITH THE NULL THAT SHIPS
+
+`externalNull` is the MEDIAN per-chromosome absence rate over the sample's other autosomes. 5.43.0
+established what that costs: a median holds while most autosomes are unaffected, 8 of the 31 public
+cells carry 11 or more abnormal of 22, and past that the bar rises until a true event cannot clear
+the calling threshold. Measured, over the minimum window, a true single-parent loss scores 958 at
+the null floor of 0.002 and 226 at a null of 0.028 against a threshold of 250. Two of the three
+cells whose hand-called terminal deletion the scan misses sit at 0.0280 and 0.0282.
+
+An external review declined to propose a replacement and gave the reason: on a cell with 15 of 22
+affected, no robust estimate of LOCATION over the sample's own chromosomes can work, so the
+replacement may have to stop referencing the sample. That is the open question here.
+
+STEP 1. THE SHAPE, MEASURED BEFORE ANY ESTIMATOR IS NAMED
+
+For every one of the 31 cells, both absence runs, every autosome: the per-chromosome absence rate,
+the informative marker count, and the hand karyotype's reading of that chromosome.
+
+  T1. The per-chromosome rates are BIMODAL on a cell carrying events, with a lower mode near the
+      floor on chromosomes the hand reads as intact and an upper mode near 0.115 to 0.124 on those
+      it reads as lost. That figure is the measured rate a true single-parent loss produces,
+      0.1244 against the mother and 0.1153 against the father, computed from the parental
+      genotypes alone.
+  T2. On the cells where the median fails, the chromosomes the hand reads as normal still sit at
+      the lower mode. If they do, a low quantile recovers the null and the problem is the choice of
+      estimator. If they do NOT, the whole genome's absence rate is raised and no within-sample
+      estimator can work, which is the review's suspicion and would decide this.
+  T3. The count of autosomes the hand reads as normal, per cell, is reported beside the rates. A
+      within-sample null needs some; GSM4472409 at 22 of 22 abnormal and GSM4552418 at 21 of 22
+      have none, and for those the honest answer is the blindness that 5.43.0 already reports.
+
+  FALSIFIED IF T1 fails: if the rates are unimodal or the upper mode is not near the measured event
+  rate, then the model of what a lost chromosome looks like is wrong, and nothing below should be
+  attempted until that is understood.
+
+STEP 2. THE ESTIMATOR, DERIVED FROM STEP 1 AND NOT BEFORE
+
+No candidate is named here, deliberately. What Step 1 shows about the shape determines the form:
+a bimodal distribution with a populated lower mode calls for a low-quantile or lower-mode
+estimator, and the quantile follows from how many autosomes are affected at worst rather than from
+a search. A distribution with no clean mode calls for a parent-referenced null, whose value is an
+error rate rather than a sample statistic. Writing the form down before looking is what produced
+the median.
+
+STEP 3. ONE READ, AGAINST A BAR FIXED NOW
+
+The truth is the authors' by-eye karyotype over the 595 autosomes of the 31 cells with both parents
+arrayed. Scored for the shipped median null and for whatever Step 2 derives:
+
+  hand-called losses detected
+  chromosomes the hand reads as normal that get a call
+  chromosomes where `canDetectLoss` says the scan is blind, which is the coverage endpoint
+
+THE OBJECTIVE, AND IT IS NOT LEXICOGRAPHIC. The segment statistic pre-registration in this
+directory used "maximise detections subject to a cap" and recorded that the rule walked to the
+corner of its grid, because a lexicographic rule sits on its constraint whenever the constraint is
+slack. One number instead:
+
+  detections  -  k x (calls on hand-normal chromosomes)
+
+with k = 2.0, committed here. The reason for that value and not 1: this tool's output is which
+parent lost a copy, on material heading toward clinical work, and a region named with a parent that
+is not there is acted on while a missed region is silent. An external review worked the same
+exchange rate over an earlier grid and found the breakeven between a conservative and an aggressive
+operating point at k = 1.25, so a k of 1 is not conservative enough to avoid the corner and 2.0 is
+inside the range where the conservative point wins on its own merits.
+
+COVERAGE IS REPORTED AS A THIRD ENDPOINT and not folded into the objective. Two operating points
+that scan different numbers of chromosomes are not comparable on raw detection counts, which is a
+defect the same review found in the earlier grid: coverage there ran from 1.84 to 99.49 percent
+across the settings being compared. Here both nulls scan the same chromosomes, so coverage is a
+check that they do rather than a term to be priced.
+
+THE BAR. The replacement ships only if it scores higher on the objective AND does not reduce the
+number of chromosomes scanned. Better on detections while calling more hand-normal chromosomes is
+a trade, and this file is where a trade gets refused rather than argued: the last bar in this
+directory was missed by one chromosome and the statistic did not ship.
+
+WHAT IS NOT IN SCOPE
+
+The survivor-share normalisation. An external review showed its own form, dividing by the count of
+single-parent-allele markers rather than by all informative markers, separates the refused cells
+where the shipped form does not, 0.59 to 0.92 against 0.22 to 0.52. It has no threshold calibrated
+against that denominator and calibrating one is a separate pre-registration. Nothing here depends
+on it.
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE RUN
+
+Nothing above this line was changed.
+
+T1 FAILS in the half that decides this, and the file said that stops the work. It does.
+
+  what the hand karyotype says            n     p10      median     p90
+  this parent's copy LOST               131  0.0429      0.0987  0.1152
+  the chromosome NORMAL                 954  0.0064      0.0210  0.0411
+  a loss of the OTHER parent            215  0.0043      0.0135  0.1765
+
+The upper mode is where it was predicted: a lost chromosome reads 0.0987 at the median against a
+measured event rate of 0.1153, so the model of what a loss looks like holds.
+
+The lower mode is not. A chromosome the hand reads as NORMAL reads 0.0210 at the median and 0.0411
+at the ninetieth percentile, against a floor of 0.002. Ten times the floor. And the blindness
+boundary established in 5.43.0 is a null of 0.0253, so an intact chromosome on this material sits
+at the edge of it before any event is involved. The two distributions nearly touch: lost at the
+tenth percentile is 0.0429 and normal at the ninetieth is 0.0411.
+
+T2 FAILS, and it fails in a way no estimator can repair.
+
+`normOnly` below is the median taken over ONLY the chromosomes the hand karyotype reads as normal:
+the best any within-sample null could do if it knew which they were.
+
+  cell         norm  abn   median   normOnly   blind on the median?
+  GSM4552374     20    2   0.0308     0.0287   BLIND
+  GSM4552389     20    2   0.0246     0.0244   BLIND
+  GSM4472422     18    4   0.0245     0.0240   BLIND
+  GSM4472401     19    3   0.0235     0.0200   BLIND
+  GSM4552386      9   13   0.0427     0.0230   BLIND
+  GSM4552385      9   13   0.0432     0.0215   BLIND
+  GSM4552420     10   12   0.0662     0.0793   BLIND
+  GSM4472405     13    9   0.1062     0.1417   BLIND
+
+Eight of the twenty cells with a usable median are blind, and look at the first four: twenty, twenty,
+eighteen and nineteen autosomes read normal by hand. On those cells the median IS a clean
+chromosome. The estimator is working correctly and the measurement is too noisy for it to matter.
+On GSM4552374, the cleanest of them at 20 normal against 2 abnormal, the oracle null is 0.0287 and
+the boundary is 0.0253: perfect knowledge of which chromosomes are intact still leaves it blind.
+
+And on GSM4472405 and GSM4552420 the hand-normal chromosomes themselves read 0.14 and 0.08. There
+is no clean population on those cells at all.
+
+T3 as predicted: GSM4472409, GSM4552418 and GSM4552422 carry zero hand-normal autosomes, and all
+three are correctly reported blind by 5.43.0.
+
+SO NO NULL IS SHIPPED, AND NONE SHOULD BE. The estimator was never the binding constraint. The
+contrast is: an intact chromosome reads 0.021 and a lost one reads 0.0987, a factor of 4.7, and
+over the minimum window of 2,400 markers that scores 188 against a calling threshold of 250.
+Replacing the median with any low quantile moves a number that was not what stopped the scan.
+
+WHERE THE LIMIT ACTUALLY IS, AND WHAT IT POINTS AT
+
+The diluted marker set cannot carry this. At the measured contrast a window needs about 4,800
+markers to clear the threshold, which scores 375, and an event occupying 18 percent of a chromosome
+does not contain 4,800 one-parent-homozygous markers; a 4,800-marker window placed over it would be
+half normal sequence and its rate would fall back toward the null.
+
+The opposite-homozygote set does carry it, and now the reason is arithmetic rather than a grid
+search. On markers where both parents are homozygous for opposite alleles a biparental sample is
+obligate heterozygous, so a lost copy reads absence near 1 rather than near 0.1:
+
+  set                       markers in 16q23.1-tel   event rate   LRT   clears 250?
+  one-parent-homozygous                      ~2,700       0.0987   188   no
+  opposite-homozygote                           245       0.70+    514   yes
+
+At an event rate of 0.80 against this null, 97 markers suffice. Counted directly, 16q23.1-tel
+carries 245 of them.
+
+This is the second independent route to the same place. `audit/segment-statistic-preregistration.txt`
+tested the opposite-homozygote statistic against a pre-registered bar and it failed by one
+chromosome, on a grid whose two most conservative window settings turned out to reach 1.84 and
+36.62 percent of chromosomes. An external review then argued the window floor should be DERIVED
+from contrast rather than searched. This measurement supplies the contrast, and the derived floor
+for the undiluted set is around a hundred markers rather than 2,400.
+
+So the next pre-registration is that statistic with a contrast-derived floor, scored against the
+595-autosome truth, and not another estimator for a null that was not the problem.

@@ -9,6 +9,55 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.43.1 "Asynapsis"
+
+**The segment null was never the binding constraint, and no replacement ships.** Three predictions
+fixed in `audit/null-replacement-preregistration.txt`, two failed, and the file said in advance
+that a failure of the first stops the work. No behaviour changes.
+
+The plan was to replace the median null with an estimator derived from the shape of the
+per-chromosome absence distribution. Measured against the authors' karyotype over the 31 cells:
+
+| what the hand karyotype says | n | median | p90 |
+|---|---|---|---|
+| this parent's copy lost | 131 | 0.0987 | 0.1152 |
+| the chromosome **normal** | 954 | **0.0210** | 0.0411 |
+
+The upper mode is where it was predicted, against a measured event rate of 0.1153. The lower mode
+is not. An intact chromosome on this material reads ten times the null floor, and the blindness
+boundary from 5.43.0 is 0.0253, so an untouched chromosome already sits at its edge.
+
+**And no estimator can repair that.** Taking the median over only the chromosomes the hand reads as
+normal, which is the best a within-sample null could do with oracle knowledge, leaves eight of the
+twenty usable cells blind. Four of those eight carry 18 to 21 normal autosomes of 22, so their
+median already *is* a clean chromosome. On the cleanest, 20 normal against 2 abnormal, the oracle
+null is 0.0287 against a boundary of 0.0253.
+
+The contrast is what binds: 0.021 against 0.0987, a factor of 4.7, scoring 188 over the minimum
+window of 2,400 markers against a threshold of 250. Replacing the median moves a number that was
+not stopping the scan.
+
+**Where the limit is, and it is the second route to the same place.** The diluted set needs about
+4,800 markers to clear at this contrast, and an event covering 18 percent of a chromosome does not
+contain that many one-parent-homozygous markers; a window that large placed over it would be half
+normal sequence. On markers where both parents are homozygous for opposite alleles a biparental
+sample is obligate heterozygous, so a lost copy reads absence near 1 instead of near 0.1:
+
+| marker set | markers in 16q23.1-tel | event rate | LRT | clears 250? |
+|---|---|---|---|---|
+| one-parent-homozygous | ~2,700 | 0.0987 | 188 | no |
+| opposite-homozygote | 245, counted | 0.70 or above | 514 | yes |
+
+At an event rate of 0.80 against this null, 97 markers suffice.
+
+`audit/segment-statistic-preregistration.txt` already tested that statistic and recorded it failing
+a bar by one chromosome, on a grid whose two most conservative settings later turned out to reach
+1.84 and 36.62 percent of chromosomes. An external review then argued its window floor should be
+derived from contrast rather than searched. This measurement supplies the contrast, and the derived
+floor is around a hundred markers rather than 2,400. That is the next pre-registration.
+
+---
+
 ## 5.43.0 "Asynapsis"
 
 **The segment scan can go blind on a chromosome and say nothing about it, and now it says so.**

@@ -195,7 +195,7 @@ RELEASES: tuple[Release, ...] = (
             "naming a parent and both are right."),
 )
 
-VERSION = "5.43.0"
+VERSION = "5.43.1"
 CODENAME = "Asynapsis"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
