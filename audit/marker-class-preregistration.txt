@@ -135,8 +135,22 @@ On the public corpus nothing comparable occurs.
 STEP 2: WHAT THE RIGHT DENOMINATOR IS, AND THE FIRST ANSWER WAS WRONG
 
 A fraction of the sample's median AUTOSOME was tried first and a regression on the public corpus
-refused chr22 of one cell for carrying 17 percent of what the median autosome carries. chr22 is
-simply a small chromosome. A count compared across chromosomes of different sizes cannot work.
+refused chr22 of one cell for carrying 17 percent of what the median autosome carries. That was
+read at the time as a false refusal on the grounds that chr22 is simply a small chromosome. It is
+not: that chromosome's own call rate is 0.354, so it is genuinely collapsed and the shipped rule
+refuses it as well. The reading was wrong and the conclusion drawn from it was right for a
+different reason, measured in audit/floor-regression.ts over 682 chromosomes of 31 samples:
+
+  refused by the shipped rule, floor plus the chromosome's own call rate      63
+    of those, with a call rate at or above 0.60                               0
+  refused by the discarded rule, a fraction of the sample's median autosome    1
+  collapsed chromosomes the shipped rule catches and the discarded rule passes 62
+    the worst call rate the discarded rule lets through                   0.214
+
+The discarded rule measures a sample against ITSELF. A sample whose every chromosome has collapsed
+has an equally collapsed median, so every chromosome clears the fraction. One cell of the series
+carries ten autosomes at call rates of 0.564 to 0.593 and the discarded rule passes all ten. That
+is the failure mode, and it is the opposite of refusing small chromosomes for being small.
 
 Three candidates measured per chromosome on the laboratory series:
 
@@ -178,3 +192,26 @@ Nothing scored moved. The 63 refusals cost no detection and no attribution, whic
 should do when it is refusing chromosomes that were not being measured. The parental-absence segment
 count and the contested count did move, 69 to 75 and 34 to 38, and those are the reciprocal-overlap
 and detectability changes of 5.43.0 rather than this floor.
+
+
+================================================================================
+STEP 3 RE-DERIVED UNDER THE SHIPPED FLOOR
+================================================================================
+
+The floor changed in step 2, so the chromosome set of the laboratory series had to be derived again
+under the shipped rule rather than under the absolute floor alone. It does not move:
+
+  chromosomes passing the absolute floor alone                               154
+  chromosomes passing the shipped rule, floor plus the chromosome's call rate 154
+  dropped by the call-rate condition                                           0
+
+  below ONE_PARENT_HAPLOID_MAX on the shipped parent-homozygous class   111 of 154   72.1%
+  below it on the parent-heterozygous class                              90 of 154   58.4%
+  thinnest chromosome by parent-heterozygous markers                   over 1,000
+
+So the external review's 111 of 154 reproduces exactly under the new floor, and the reading given
+for it stands: those 7 samples read heterozygosity of 0.040 to 0.064, which is haploid. They are
+single pronuclei, so calling their chromosomes uniparental is the correct answer rather than a
+misclassification, and 72.1 percent is the correct figure. The parent-heterozygous class is worse
+on this material at 58.4 percent, which is the same direction as its blindness to a sample carrying
+two haplotypes of one parent.

@@ -9,6 +9,31 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.44.5 "Achiasmate"
+
+The informative floor's control, and a correction to the reason it was changed.
+
+**The reason given for replacing the median-autosome floor was wrong.** 5.44.0 replaced a floor
+measured against a fraction of the sample's own median autosome, on the grounds that it had refused
+a chr22 carrying 17 percent of that median and chr22 is simply a small chromosome. That chromosome's
+own call rate is 0.354, so it is genuinely collapsed and the shipped rule refuses it too. The
+replacement was right for a different reason, now measured over 682 chromosomes of 31 samples: the
+discarded rule measures a sample against itself, so a sample whose every chromosome has collapsed
+has an equally collapsed median and every chromosome clears the fraction. One cell carries ten
+autosomes at call rates of 0.564 to 0.593 and the discarded rule passes all ten. The shipped rule
+refuses 63 chromosomes, none with a call rate at or above 0.60, and catches 62 collapsed
+chromosomes the discarded rule passes, down to a call rate of 0.214.
+
+**The laboratory series' chromosome set is unchanged by that floor.** Since the floor moved, the
+set had to be derived again under the shipped rule rather than the absolute floor alone: 154 of 154
+chromosomes pass both, nothing is dropped by the call-rate condition, and 111 of 154 at 72.1 percent
+reproduces exactly. The parent-heterozygous class gives 90 of 154 at 58.4 percent on the same
+chromosomes, which is the same direction as the blindness recorded in 5.44.4.
+
+Audit and documentation only. No shipped code changed and no emitted call moves.
+
+---
+
 ## 5.44.4 "Achiasmate"
 
 Two negative results, both measured on real arrays, both pinned so they cannot be re-attempted by

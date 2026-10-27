@@ -177,23 +177,39 @@ for (const [key, files] of [...series].sort()) {
   console.log(`  ${'pos'.padEnd(5)} ${'chr'.padStart(3)} ${'nHom'.padStart(7)} ${'nHet'.padStart(6)} `
     + `${'hetHom'.padStart(7)} ${'hetHet'.padStart(7)}  below the haploid max?`)
   let belowHom = 0; let belowHet = 0; let total = 0; const thin: string[] = []
+  let floorOnly = 0; const droppedByCallRate: string[] = []
   for (const f of kids) {
     const p = /-(\d{2})\.probes/.exec(f)?.[1] ?? '??'
-    type Acc = { nHom: number; hetHom: number; nHet: number; hetHet: number }
+    type Acc = { nHom: number; hetHom: number; nHet: number; hetHet: number
+      called: number; onArray: number }
     const by = new Map<string, Acc>()
     for (const r of rowsOf(join(DIR, f))()) {
       if (!/^\d+$/.test(r.chrom)) continue
       const sg = r.genotype
+      let pre = by.get(r.chrom)
+      if (!pre) { pre = { nHom: 0, hetHom: 0, nHet: 0, hetHet: 0, called: 0, onArray: 0 }
+        by.set(r.chrom, pre) }
+      pre.onArray += 1
       if (sg !== 'AA' && sg !== 'BB' && sg !== 'AB') continue
+      pre.called += 1
       const rg = R.gt.get(r.probesetId)
       if (!rg) continue
       let a = by.get(r.chrom)
-      if (!a) { a = { nHom: 0, hetHom: 0, nHet: 0, hetHet: 0 }; by.set(r.chrom, a) }
+      if (!a) { a = { nHom: 0, hetHom: 0, nHet: 0, hetHet: 0, called: 0, onArray: 0 }
+        by.set(r.chrom, a) }
       if (rg === 'AB') { a.nHet += 1; if (sg === 'AB') a.hetHet += 1 }
       else { a.nHom += 1; if (sg === 'AB') a.hetHom += 1 }
     }
     for (const [chrom, a] of [...by].sort((x, y) => Number(x[0]) - Number(y[0]))) {
-      if (a.nHom < (obl.MIN_INFORMATIVE as number)) continue
+      const cr = a.onArray ? a.called / a.onArray : NaN
+      if (a.nHom >= (obl.MIN_INFORMATIVE as number)) floorOnly += 1
+      if (!(obl.informativeEnough(a.nHom, cr) as boolean)) {
+        if (a.nHom >= (obl.MIN_INFORMATIVE as number)) {
+          droppedByCallRate.push(`pos ${p} chr${chrom}: ${a.nHom.toLocaleString()} informative, `
+            + `call rate ${cr.toFixed(3)}`)
+        }
+        continue
+      }
       total += 1
       const rh = a.hetHom / a.nHom; const rt = a.nHet ? a.hetHet / a.nHet : NaN
       const bh = rh < (obl.ONE_PARENT_HAPLOID_MAX as number)
@@ -205,6 +221,12 @@ for (const [key, files] of [...series].sort()) {
     }
   }
   console.log(`  chromosomes scored: ${total}`)
+  console.log(`  chromosomes passing the absolute floor alone:              ${floorOnly}`)
+  console.log(`  chromosomes passing the shipped rule (floor + call rate):  ${total}`)
+  if (droppedByCallRate.length) {
+    console.log(`  dropped by the call-rate condition, ${droppedByCallRate.length}:`)
+    for (const d of droppedByCallRate) console.log(`    ${d}`)
+  }
   console.log(`  below ONE_PARENT_HAPLOID_MAX on the shipped parent-HOM class: ${belowHom} of ${total}`
     + `  (${(100 * belowHom / Math.max(1, total)).toFixed(1)}%)`)
   console.log(`  below it on the parent-HET class:                             ${belowHet} of ${total}`

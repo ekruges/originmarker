@@ -108,8 +108,25 @@ if (existsSync(manifestPath)) {
 }
 console.log(`${pairs.length} samples, floor ${FLOOR} absolute, plus the chromosome's own call rate\n`)
 
+// The third arm is the DISCARDED rule: informative count against a fraction of the sample's own
+// median autosome. Its reference is the sample itself, so a sample whose every chromosome has
+// collapsed has an equally collapsed median and every chromosome passes. That is the failure mode,
+// and it is the opposite of refusing small chromosomes for being small.
+//
+// Two criteria, both measured here:
+//   1. the shipped rule refuses no chromosome whose own call rate is healthy
+//   2. the shipped rule catches collapsed chromosomes that the discarded rule lets through
+const MEDIAN_FRACTION = 0.20
+const HEALTHY = 0.60
+
 let refused = 0; let scored = 0
+let healthyRefusedNow = 0
+let refusedOld = 0; let healthyRefusedOld = 0
+const smallOld = new Map<string, number>()
 const hits: string[] = []
+const oldHits: string[] = []
+let caughtOnly = 0
+let worstLet = 1
 for (const p of pairs) {
   const refGt = new Map<string, string>()
   const src = fileOf.get(p.father) ?? join(DIR, p.father)
@@ -130,11 +147,26 @@ for (const p of pairs) {
     if (!rg || rg === 'AB') continue
     a.inf += 1
   }
+  const infs = [...by.values()].map((a) => a.inf).filter((n) => n >= FLOOR).sort((x, y) => x - y)
+  const median = infs.length ? infs[Math.floor(infs.length / 2)] : 0
   for (const [chrom, a] of by) {
     const was = a.inf >= FLOOR
     const cr = a.onArray > 0 ? a.called / a.onArray : NaN
     const now = obl.informativeEnough(a.inf, cr) as boolean
+    const oldRule = a.inf >= MEDIAN_FRACTION * median
     if (was) scored += 1
+    if (was && !oldRule) {
+      refusedOld += 1
+      oldHits.push(`${p.gsm.replace(/\.probes.*/, '')} chr${chrom}: ${a.inf} informative, `
+        + `${(100 * a.inf / Math.max(1, median)).toFixed(0)}% of the median ${median}, `
+        + `call rate ${cr.toFixed(3)}`)
+      if (cr >= HEALTHY) {
+        healthyRefusedOld += 1
+        smallOld.set(chrom, (smallOld.get(chrom) ?? 0) + 1)
+      }
+    }
+    if (was && !now && cr >= HEALTHY) healthyRefusedNow += 1
+    if (was && !now && oldRule) { caughtOnly += 1; if (cr < worstLet) worstLet = cr }
     if (was && !now) {
       refused += 1
       hits.push(`${p.gsm.replace(/\.probes.*/, '')} chr${chrom}: ${a.inf} informative, `
@@ -143,5 +175,31 @@ for (const p of pairs) {
   }
 }
 console.log(`chromosomes that passed the absolute floor:        ${scored}`)
-console.log(`of those, refused by the fractional floor:         ${refused}`)
+console.log(`refused by the SHIPPED rule (floor + call rate):   ${refused}`)
+console.log(`  of those, with a healthy call rate:             ${healthyRefusedNow}`)
+console.log(`refused by the DISCARDED rule (median fraction):   ${refusedOld}`)
+console.log(`  of those, with a healthy call rate:             ${healthyRefusedOld}`)
+if (smallOld.size) {
+  const by2 = [...smallOld.entries()].sort((a, b) => b[1] - a[1])
+  console.log(`  which chromosomes those were: `
+    + by2.map(([c, n]) => `chr${c} x${n}`).join(', '))
+}
+console.log()
+console.log(`collapsed, caught by the shipped rule only:        ${caughtOnly}`)
+console.log(`  worst call rate the discarded rule let through:  ${worstLet.toFixed(3)}`)
+console.log()
+if (healthyRefusedNow > 0) {
+  console.log(`FAIL criterion 1: the shipped rule refuses ${healthyRefusedNow} chromosome(s) with a `
+    + 'healthy call rate.')
+} else if (caughtOnly > 0) {
+  console.log('PASS: the shipped rule refuses nothing whose own call rate is healthy, and it catches')
+  console.log(`      ${caughtOnly} collapsed chromosome(s) the discarded rule passes, down to a call`)
+  console.log(`      rate of ${worstLet.toFixed(3)}. The discarded rule measures a collapsed sample`)
+  console.log('      against its own collapsed median, so it cannot see this.')
+} else {
+  console.log('INCONCLUSIVE: the two rules agree on this corpus.')
+}
+console.log('\nrefused by the DISCARDED rule, in full:')
+for (const h of oldHits) console.log(`  ${h}`)
+console.log('\nrefused by the shipped rule, in full:')
 for (const h of hits) console.log(`  ${h}`)
