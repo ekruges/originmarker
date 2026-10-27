@@ -9,6 +9,40 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.45.2 "Heterodisomy"
+
+**Reconstructing a missing parent needs independent EMBRYOS, not arrays, and nine of them.** 5.45.1
+pinned that a parent asserted only heterozygous contributes nothing to the two-parent tally, which
+is defined on opposite homozygotes. That objection names the fix rather than closing the question:
+the siblings prove more than heterozygosity. At a marker where the known parent is AA, a missing
+parent who is BB sends the other allele to every child, one who is AB to half, and one who is AA to
+none, so the vote fraction separates her three genotypes and BB is the genotype the tally consumes.
+
+Built and measured against a held-out maternal array. Voting by array, precision was 0.2038 and it
+FELL as the threshold rose, reaching 0.0656 at unanimity. A model running backwards has the wrong
+sample size: those 30 arrays are 8, 7, 10, 2, 1 and 2 cells of six embryos, and cells of one embryo
+carry the same genome, so unanimity across 30 arrays is unanimity across six transmissions. Voting
+by embryo instead, precision runs the right way, 0.1039 to 0.4985. Replacing the vote with a
+per-embryo likelihood gives 0.4805 at a median of 279 markers per chromosome.
+
+This is also why the het-only rebuild read 0.627: its threshold was derived from a sample size of 30
+when the effective one was six.
+
+The ceiling is arithmetic. At this panel's heterozygosity the prior odds at a known-parent-homozygous
+marker are 19.8 to 1 against the wanted genotype, and unanimity across n embryos cuts them by
+0.5^n: 0.7636 at six embryos, 0.9282 at eight, 0.9627 at nine. Nine are needed for 0.95. The public
+corpus holds exactly one family with a single unambiguous mother and more than one embryo, and it
+has six. The measured 0.4805 falls below even the six-embryo ceiling, by the mechanism measured
+earlier: drop-in belongs to the marker, so a bad probe reads heterozygous in every cell of every
+embryo, which both the vote and the likelihood assume cannot happen.
+
+So the reconstruction is built in the form that could work, and its requirement is stated as a
+number a laboratory can act on rather than as a guess. No material available here meets it.
+
+Audit only. No shipped code changed.
+
+---
+
 ## 5.45.1 "Heterodisomy"
 
 **Why a heterozygosity-only reconstruction of a missing parent cannot feed the two-parent channel,
