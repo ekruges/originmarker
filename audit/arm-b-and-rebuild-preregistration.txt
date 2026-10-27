@@ -1,0 +1,80 @@
+ARM B SCORED AS A CALLER, AND THE HET-ONLY REBUILD BUILT AND VALIDATED
+
+Committed before either is run. The previous round measured raw rates and called that a test of
+arm (b); it was not. A caller is scored on its verdicts. And the rebuild was deferred on an
+argument about the laboratory's material when it is buildable and testable on public data where the
+answer is known. Both are done here.
+
+PART 1. ARM B AS A CALLER, NOT A RATE
+
+The question the laboratory asks on a chaotic cell is whether a second parental contribution is
+present on a chromosome. That is two hypotheses, and both marker classes can carry it:
+
+  parent HOMOZYGOUS     two contributions  het = q(1 - ado) + d,  q = 0.1217
+  parent HETEROZYGOUS   two contributions  het = 0.5(1 - ado) + d
+  either class          one contribution   het = d
+
+The same decision rule is applied to both classes so the only difference is the marker set: a
+log-likelihood ratio per chromosome under those two predictions, called at the shipped posterior of
+0.95, refused below it. Scored against the authors' published karyotype over the 31 cells with both
+parents arrayed, with each parent taken as the loaded one in turn.
+
+  X1. The parent-HETEROZYGOUS class scores higher accuracy on the two-contribution class than the
+      parent-HOMOZYGOUS class does, because its prediction is 4.1 times larger and does not depend
+      on the drop-in parameter.
+  X2. Neither class reaches the 0.854 the shipped three-way caller achieves about the loaded
+      parent's own copy, because that figure rests on the exclusive-marker channel which neither of
+      these two hypotheses uses.
+  X3. The refusal rate is reported for both. A class that scores well by refusing most chromosomes
+      has not answered the question, and this is where that shows.
+
+  FALSIFIED IF X1 fails: the marker class is then not the answer to the one-parent asymmetry and
+  the matter is closed against it.
+
+PART 2. THE HET-ONLY REBUILD, BUILT AND VALIDATED ON PUBLIC DATA
+
+An external review's formulation: assert only that the missing parent is HETEROZYGOUS, never that
+she is homozygous. At a father-homozygous marker an embryo reading heterozygous proves she carries
+the other allele, because dropout removes alleles and cannot invent one. An embryo reading
+homozygous proves nothing and is discarded, so an embryo that lost her copy writes nothing in
+either direction and the rebuild cannot drift toward the father.
+
+The validation family is public and carries truth. GSE148488's egg donor D has 30 samples sharing
+one sperm donor and is herself arrayed as GSM4472408; egg donor B has 32 samples and four arrays of
+her own. So the mother can be rebuilt from her children using only the father, and scored against
+her actual genotypes.
+
+THE THRESHOLD IS DERIVED, NOT CHOSEN. k is the smallest integer whose contamination meets the
+figure the shipped Experiment-5 rebuilt mother carries on its own banner, 0.02749, under
+
+  contamination = (1-H) P(X_d >= k) / [ (1-H) P(X_d >= k) + H P(X_s >= k) ]
+  completeness  = P(X_s >= k),   X_d ~ Bin(n, 0.0435),   X_s ~ Bin(n, 0.5(1-ado)),   H = 0.168
+
+with drop-in at the measured 0.0435 and dropout inferred per sample. Both numbers are reported, and
+k must scale with n: a fixed k degrades as embryos are added, because drop-in accumulates with n
+exactly as signal does.
+
+  Y1. PRECISION. Of markers the rebuild asserts the mother is heterozygous at, the share she is
+      actually heterozygous at in her own array is at or above 1 - contamination for the derived k.
+  Y2. COMPLETENESS, reported beside it, because precision alone is gamed by raising k until the
+      marker set is empty. Expected to be the modelled P(X_s >= k).
+  Y3. LEAVE-ONE-OUT AT THE EMBRYO. A rebuild containing a sample scores that sample at inflated
+      agreement, which this project measured at 0.00 percent against 1.06. Siblings share events,
+      so all cells of one embryo are held out together.
+  Y4. THE DIRECTION THE CIRCULARITY WOULD SHOW. If the one-sided rule works, the rebuild's
+      precision does NOT fall as more aneuploid samples enter it, where a majority-vote rebuild
+      would. Measured by rebuilding from the cleanest half and from all of them and comparing.
+
+  FALSIFIED IF Y1 fails: the one-sided formulation does not deliver its predicted precision and the
+  review's answer to the circularity is wrong in practice whatever its logic.
+
+WHAT NEITHER PART SETTLES
+
+Whether the rebuild helps the laboratory. Its own material is three donors with no group reaching
+the floor of five products, measured in the previous round. These parts establish whether the
+method works, which is a separate question from whether there is anything to point it at.
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE RUNS
+
+Nothing above this line was changed.
