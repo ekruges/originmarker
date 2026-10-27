@@ -1,0 +1,94 @@
+THE OPPOSITE-HOMOZYGOTE SEGMENT STATISTIC: ITS FLOOR DERIVED FROM MEASURED CONTRAST
+
+Committed before the measurement. The rates come first, the floor follows from them, and the
+statistic is then scored once against a bar fixed here.
+
+A CORRECTION TO 5.43.1, WHICH THIS FILE EXISTS BECAUSE OF
+
+5.43.1 concluded that the opposite-homozygote set carries the events the diluted set cannot, and
+supported it with an arithmetic that put 245 markers at a likelihood ratio of 514. That used a null
+of 0.021, which is the measured rate an INTACT chromosome reads on the ONE-PARENT-HOMOZYGOUS set.
+It does not apply to the opposite-homozygote set and I carried it across without noticing.
+
+On the opposite-homozygote set a marker is obligate heterozygous on an intact biparental sample, so
+a single allele dropping out reads as that parent's allele being absent. At a per-allele dropout of
+d the apparent absence is 2d/(1+d), split between the parents:
+
+  d = 0.10   0.091 per parent        d = 0.30   0.231 per parent
+  d = 0.20   0.167 per parent        d = 0.50   0.333 per parent
+
+This project's own calibration says the same thing, measured on 595 autosomes: on intact
+chromosomes one parent's share never reached 0.627, and on lost chromosomes the survivor's share
+never fell below 0.735. So the real contrast on that set is not 0.021 against 0.90. It is somewhere
+between those two figures and whatever a clean cell reaches, and the floor it implies ranges over
+two orders of magnitude:
+
+  event 0.735 against null 0.627  ->  9,535 markers for a likelihood ratio of 250
+  event 0.800 against null 0.500  ->  1,297
+  event 0.900 against null 0.300  ->    315
+  event 0.950 against null 0.230  ->    206
+
+chr16 carries 937 such markers whole and 245 inside 16q23.1-tel. So whether the statistic reaches a
+16 Mb terminal event depends on the cell's dropout and not on a single fixed floor, which is
+exactly what 5.43.1 asserted without measuring.
+
+STEP 1. THE TWO RATES, MEASURED PER CELL AND PER CHROMOSOME
+
+For every one of the 31 cells with both parents arrayed, over markers where the father and mother
+are homozygous for OPPOSITE alleles, per autosome:
+
+  the share reading the father's allele alone
+  the share reading the mother's allele alone
+  the share still reading heterozygous
+  the informative count
+  the hand karyotype's reading of that chromosome
+  the cell's inferred dropout
+
+  U1. On chromosomes the hand reads as INTACT the per-parent share is bounded above by 0.627, the
+      figure this project measured on 490 such chromosomes, and it rises with the cell's dropout.
+  U2. On chromosomes the hand reads as having lost one parent's copy the survivor's share is at or
+      above 0.735, the figure measured on 105 such chromosomes.
+  U3. The two populations do not overlap on any cell. If they overlap, the statistic cannot
+      separate them at whole-chromosome scale either and nothing below is worth doing.
+
+STEP 2. THE FLOOR, DERIVED PER CELL AND NOT SEARCHED
+
+From the rates Step 1 measures, the markers a window needs to reach the calling threshold is
+N = threshold / KL(event || null), with both rates taken from that cell rather than from a table.
+This is the form an external review argued for and the reason it argued for it: a grid over a
+quantity that is derivable is how the earlier segment grid walked to its corner.
+
+No window minimum is proposed in this file. The floor is a function of the cell, and reporting that
+function is the deliverable even where its value is too large to be useful.
+
+STEP 3. ONE READ, AGAINST A BAR FIXED NOW
+
+Truth is the authors' by-eye karyotype over the 595 autosomes. Scored for the shipped statistic on
+the one-parent-homozygous set and for this one at its derived per-cell floor:
+
+  hand-called segmental deletions detected, positionally, at reciprocal overlap 0.5
+  chromosomes the hand reads as normal that receive a call
+  chromosomes where the derived floor exceeds the markers available, which is the coverage endpoint
+    and is reported rather than priced
+
+  objective, one number, k committed here at 2.0 for the reason given in
+  audit/null-replacement-preregistration.txt:
+
+      detections  -  2.0 x (calls on hand-normal chromosomes)
+
+THE BAR. It ships only if it scores higher on that objective AND scans at least as many
+chromosomes. The precedent in this directory is a statistic that missed a two-part bar by one
+chromosome and did not ship, and that is the standard here.
+
+WHAT WOULD MAKE THIS A NEGATIVE RESULT, WHICH IS A USEFUL OUTCOME
+
+If U1 shows the intact share rising with dropout to the point where the derived floor exceeds the
+markers available on the events being missed, then the allele channel cannot localise a segment on
+amplified single cells by any route, and the three missed terminal deletions are beyond it. That
+would close the segmental question for this channel rather than leaving it open, and it is the
+outcome the arithmetic above makes most likely.
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE RUN
+
+Nothing above this line was changed.
