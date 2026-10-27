@@ -1,0 +1,61 @@
+ARM (b): NAMING THE ABSENT PARENT WITH ONE PARENT ARRAY LOADED
+Written before the measurement runs. Committed first.
+
+WHY THE EARLIER ATTEMPT FAILED, AND WHAT CHANGED
+
+5.44.3 and 5.44.4 tried to SUBSTITUTE the parent-heterozygous call for the shipped parent-homozygous
+one, at the chromosome level, and it broke two self-checks. 5.44.4 measured why: a sample carrying
+two haplotypes of ONE parent reads 0.3408 and 0.3734 on the parent-heterozygous class against 0.3974
+for a biparental sample, so that class cannot tell a gynogenetic genome from a biparental one.
+
+That was read as a reason to abandon the class. It is not. It is a reason not to let it answer the
+SAMPLE-level question. The chromosome-level question is different, and the two statistics answer
+different halves of it.
+
+THE DECISION TABLE, WITH ONE PARENT ARRAY
+
+Two statistics, both computable from one parent:
+
+  A. whether the chromosome carries ONE or TWO contributions
+     `hetCallOneParent` on markers where the loaded parent is HETEROZYGOUS.
+     Two contributions read about half the loaded parent's heterozygosity; one reads drop-in.
+
+  B. whether the LOADED parent's copy is the one present
+     the opposite-homozygote rate at markers where the loaded parent is HOMOZYGOUS, counting
+     where the sample is homozygous for the other allele.
+     At a father-AA marker a sample can only read BB if the father's copy is absent: he cannot
+     transmit B. Measured on a series with a genotyped parent, 0.16 to 0.55 percent where his
+     genome is present and 9.68 to 10.74 percent where it is not.
+
+  contributions   loaded parent's copy   the chromosome is
+  two             present                normal, and no parent is named
+  one             present                the loaded parent's copy alone, so the OTHER is absent
+  one             absent                 the other parent's copy alone, so the LOADED one is absent
+
+WHY THE GYNOGENETIC BLINDNESS IS SAFE HERE. A gynogenetic genome reads two contributions and a
+present maternal copy on every chromosome, so this table calls every chromosome normal. That is the
+wrong SAMPLE-level answer and it is the existing zygosity call's job, which is unchanged. What it
+does not do is name a parent that is not absent. The blindness fails closed.
+
+WHAT IS MEASURED, AND THE PASS CRITERIA
+
+Public corpus, Table S3 as truth, ONLY THE FATHER LOADED, whole-chromosome losses only. Segmental
+events are excluded from this round: a whole-chromosome statistic applied to a `del 12p` covering 27
+percent of chr12 reads as near-intact, which already cost one measurement.
+
+  1. DIRECTION. Of the hand-called whole-chromosome losses carrying a parent label, the share the
+     table names correctly. The shipped one-parent channel names NONE of them, so anything above
+     zero is new, and the criterion is that the wrong calls are fewer than half the right ones.
+  2. FALSE NAMING. Of the chromosomes Table S3 reads as normal, the share this table names as
+     carrying an absent parent. The criterion is under 5 percent.
+  3. SEPARATION. The opposite-homozygote rate must separate present from absent with a gap, not a
+     chosen boundary. Both distributions are reported in full before any threshold is applied.
+
+If criterion 2 fails the table does not ship, whatever criterion 1 says: a false parental call is
+worse than no call, which is the whole reason the one-parent channel refuses today.
+
+WHAT WILL BE CHANGED IF IT PASSES
+
+`scoreSample.check.ts` asserts that a single-parent row must NOT carry a parent, which encodes the
+limitation this closes rather than a requirement. It will be changed to assert the measured
+behaviour instead, and only after these numbers exist.
