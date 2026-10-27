@@ -481,3 +481,223 @@ console.log(best.pr >= 0.95
   : `  FAIL criterion 1: ${best.pr.toFixed(4)} against the 0.95 the pre-registration set. `
     + `At this panel's allele frequencies ${need} independent embryos are needed and the corpus's `
     + 'one usable family has ' + embryos.length + '.')
+
+
+// ===========================================================================================
+// THE PRIOR, PER MARKER. With six embryos the likelihood ratio for BB against AB at an all-
+// heterozygous reading is 2^6, which is 64, and no statistic can do better: that is the whole
+// information the six independent transmissions carry. Beating prior odds of 19.8 to 1 by the
+// factor of 19 that a precision of 0.95 needs requires 2^n at or above 377, so nine embryos.
+//
+// Unless the prior is not 19.8 to 1. That figure is a genome-wide average under Hardy-Weinberg at
+// the panel's mean heterozygosity. Per marker it varies enormously: where the allele the known
+// parent lacks is common, the missing parent is far likelier to be homozygous for it, and six
+// embryos suffice. So the frequency of that allele is estimated per marker from the OTHER parent
+// arrays of the series, which are unrelated donors, with the family's own two arrays held out.
+// ===========================================================================================
+console.log('\n\nTHE PRIOR, PER MARKER, FROM UNRELATED DONORS')
+const panel = (process.env.OM_PANEL ?? '').split(/[,; ]+/).filter((x) => x && fileOf.has(x))
+  .filter((x) => x !== MOTHER && x !== father)
+if (!panel.length) { console.log('  OM_PANEL not set or empty. NOT RUN.'); process.exit(0) }
+console.log(`  ${panel.length} unrelated donor arrays, ${2 * panel.length} chromosomes, `
+  + `the family's own two held out`)
+
+// Count the B allele per marker across the panel.
+const bCount = new Map<string, number>()
+const aCount = new Map<string, number>()
+for (const g of panel) {
+  for (const [probe, v] of gtOf(g)) {
+    if (!faGt.has(probe)) continue
+    const b = v === 'BB' ? 2 : v === 'AB' ? 1 : 0
+    bCount.set(probe, (bCount.get(probe) ?? 0) + b)
+    aCount.set(probe, (aCount.get(probe) ?? 0) + (2 - b))
+  }
+}
+/** Frequency of the allele the known parent LACKS, which is the one the wanted genotype is for. */
+const lackFreq = (probe: string) => {
+  const fg = faGt.get(probe)
+  if (!fg || fg === 'AB') return NaN
+  const b = bCount.get(probe); const a = aCount.get(probe)
+  if (b === undefined || a === undefined || a + b === 0) return NaN
+  return fg === 'AA' ? b / (a + b) : a / (a + b)
+}
+
+const nEmb = embryos.length
+const lr = Math.pow(2, nEmb)
+console.log(`  likelihood ratio at an all-heterozygous reading over ${nEmb} embryos: ${lr}`)
+console.log(`\n  ${'min freq'.padStart(9)} ${'markers'.padStart(9)} ${'prior odds'.padStart(11)} `
+  + `${'predicted'.padStart(10)} ${'asserted'.padStart(9)} ${'PRECISION'.padStart(10)} `
+  + `${'per chrom'.padStart(10)}`)
+const chromOf3 = new Map<string, string>()
+for (const r of rowsOf(fileOf.get(father)!)()) {
+  if (/^\d+$/.test(r.chrom)) chromOf3.set(r.probesetId, r.chrom)
+}
+const unanimous = assertByEmbryo(nEmb)
+let passed: { f: number; pr: number; n: number; med: number } | undefined
+for (const minF of [0.10, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45]) {
+  const pool = [...faGt.keys()].filter((probe) => {
+    const f2 = lackFreq(probe)
+    return Number.isFinite(f2) && f2 >= minF
+  })
+  if (!pool.length) continue
+  // The mean prior odds over the pool, so the prediction is the pool's own and not the genome's.
+  let oddsSum = 0; let oddsN = 0
+  for (const probe of pool) {
+    const f2 = lackFreq(probe)
+    if (f2 <= 0 || f2 >= 1) continue
+    oddsSum += 2 * (1 - f2) / f2
+    oddsN += 1
+  }
+  const odds = oddsN ? oddsSum / oddsN : NaN
+  const predicted = lr / (lr + odds)
+  const keep = new Set([...unanimous].filter((x) => {
+    const f2 = lackFreq(x)
+    return Number.isFinite(f2) && f2 >= minF
+  }))
+  const s2 = gradeBB(keep)
+  const byC = new Map<string, number>()
+  for (const probe of keep) {
+    const c = chromOf3.get(probe)
+    if (c) byC.set(c, (byC.get(c) ?? 0) + 1)
+  }
+  const cs = [...byC.values()].sort((x, y) => x - y)
+  const med = cs.length ? cs[Math.floor(cs.length / 2)] : 0
+  console.log(`  ${minF.toFixed(2).padStart(9)} ${pool.length.toLocaleString().padStart(9)} `
+    + `${odds.toFixed(2).padStart(11)} ${predicted.toFixed(4).padStart(10)} `
+    + `${s2.asserted.toLocaleString().padStart(9)} ${s2.precision.toFixed(4).padStart(10)} `
+    + `${med.toLocaleString().padStart(10)}`)
+  if (s2.precision >= 0.95 && (!passed || s2.asserted > passed.n)) {
+    passed = { f: minF, pr: s2.precision, n: s2.asserted, med }
+  }
+}
+console.log(passed
+  ? `\n  PASS criterion 1: precision ${passed.pr.toFixed(4)} at a minimum allele frequency of `
+    + `${passed.f.toFixed(2)}, over ${passed.n.toLocaleString()} asserted markers, median `
+    + `${passed.med.toLocaleString()} per chromosome.`
+  : '\n  FAIL criterion 1 on every frequency band: six embryos do not carry enough even where the '
+    + 'prior is favourable.')
+
+
+// ===========================================================================================
+// WHICH ERROR IS IT. A precision of 0.65 against a predicted 0.97 means a source the prior does not
+// describe. The two candidates separate cleanly on what the missing parent REALLY reads at the
+// markers wrongly asserted:
+//
+//   she reads AB  -> the likelihood ratio of 2^6 is simply not enough, an INFORMATION limit, and
+//                    only more independent embryos help
+//   she reads the same genotype as the known parent -> she carries none of that allele, so no
+//                    embryo could have inherited it and every heterozygous call is ARTEFACT
+// ===========================================================================================
+console.log('\n\nWHICH ERROR IS IT, at a minimum allele frequency of 0.40')
+{
+  const keep = new Set([...unanimous].filter((x) => {
+    const f2 = lackFreq(x)
+    return Number.isFinite(f2) && f2 >= 0.40
+  }))
+  let wanted = 0; let herHet = 0; let sameAsKnown = 0; let uncalled = 0
+  for (const probe of keep) {
+    const t = moGt.get(probe)
+    if (!t) { uncalled += 1; continue }
+    const fg = faGt.get(probe)!
+    const want = fg === 'AA' ? 'BB' : 'AA'
+    if (t === want) wanted += 1
+    else if (t === 'AB') herHet += 1
+    else sameAsKnown += 1
+  }
+  const scored = wanted + herHet + sameAsKnown
+  console.log(`  ${scored.toLocaleString()} asserted markers she has a call for`)
+  console.log(`    she reads the wanted homozygote:      ${wanted.toLocaleString()} `
+    + `(${(100 * wanted / scored).toFixed(1)}%)`)
+  console.log(`    she reads HETEROZYGOUS:               ${herHet.toLocaleString()} `
+    + `(${(100 * herHet / scored).toFixed(1)}%)   information limit`)
+  console.log(`    she reads the SAME as the known parent: ${sameAsKnown.toLocaleString()} `
+    + `(${(100 * sameAsKnown / scored).toFixed(1)}%)   artefact, she carries none of that allele`)
+  // Under independence an all-heterozygous reading from a parent carrying none of the allele needs
+  // drop-in in every embryo, so its expected count is vanishing. The observed count is the measure
+  // of how far correlated drop-in departs from that.
+  const expected = scored * Math.pow(DROP_IN, embryos.length)
+  console.log(`\n  expected under independent drop-in: ${expected.toExponential(2)} markers`)
+  console.log(`  observed: ${sameAsKnown.toLocaleString()}`)
+  console.log(sameAsKnown > herHet
+    ? '  THE LIMIT IS ARTEFACT, not information: the dominant error comes from markers where she\n'
+      + '  carries none of the allele, which no number of embryos can fix and a probe filter can.'
+    : '  THE LIMIT IS INFORMATION: the dominant error is her reading heterozygous, which only more\n'
+      + '  independent embryos can resolve.')
+}
+
+
+// ===========================================================================================
+// BOTH PIECES AT ONCE. The two arms above each fixed one half and kept the other's flaw.
+//
+// The per-embryo likelihood used a genome-wide prior of 19.8 to 1 against the wanted genotype.
+// The per-marker prior used the hard vote, and "any cell reads AB" lets a ten-cell embryo collect a
+// drop-in: at a drop-in of 0.0435 an embryo that inherited nothing still votes yes with probability
+// 1 - (1 - 0.0435)^10, which is 0.36. That is why the realized likelihood ratio measured 3.7 where
+// 2^6 is 64.
+//
+// Combined: the likelihood weights each embryo by how many of its cells agree, and the prior is the
+// marker's own.
+// ===========================================================================================
+console.log('\n\nTHE PER-EMBRYO LIKELIHOOD WITH THE PER-MARKER PRIOR')
+const postPM = new Map<string, number>()
+for (const [probe, fg] of faGt) {
+  if (fg === 'AB') continue
+  const f2 = lackFreq(probe)
+  if (!Number.isFinite(f2) || f2 <= 0 || f2 >= 1) continue
+  // Hardy-Weinberg at this marker's own frequency for the allele the known parent lacks.
+  let lW = Math.log(f2 * f2)                 // she is homozygous for it: what the tally needs
+  let lH = Math.log(2 * f2 * (1 - f2))       // she is heterozygous
+  let lN = Math.log((1 - f2) * (1 - f2))     // she carries none of it
+  let seenE = 0
+  for (const e of embryos) {
+    const a = Math.min(0.95, Math.max(0.01, adoOf.get(e)!))
+    let l1 = 0; let l0 = 0; let called = 0
+    for (const g of cellsOf.get(e)!) {
+      const v = sample.get(g)!.gt.get(probe)
+      if (!v) continue
+      called += 1
+      if (v === 'AB') { l1 += Math.log(1 - a); l0 += Math.log(DROP_IN) }
+      else { l1 += Math.log(a); l0 += Math.log(1 - DROP_IN) }
+    }
+    if (!called) continue
+    seenE += 1
+    const m = Math.max(l1, l0)
+    lW += l1
+    lH += m + Math.log(0.5 * Math.exp(l1 - m) + 0.5 * Math.exp(l0 - m))
+    lN += l0
+  }
+  if (seenE < embryos.length) continue
+  const m = Math.max(lW, lH, lN)
+  const d2 = Math.exp(lW - m) + Math.exp(lH - m) + Math.exp(lN - m)
+  postPM.set(probe, Math.exp(lW - m) / d2)
+}
+console.log(`  ${postPM.size.toLocaleString()} markers scored with all ${embryos.length} embryos called`)
+console.log(`\n  ${'posterior'.padStart(10)} ${'asserted'.padStart(9)} ${'PRECISION'.padStart(10)} `
+  + `${'completeness'.padStart(12)} ${'per chrom'.padStart(10)} ${'autosomes'.padStart(10)}`)
+let bestPM: { th: number; pr: number; n: number; med: number; comp: number; chroms: number } | undefined
+for (const th of [0.5, 0.8, 0.9, 0.95, 0.97, 0.99, 0.995, 0.999]) {
+  const a = new Set<string>()
+  for (const [probe, v] of postPM) if (v >= th) a.add(probe)
+  const s2 = gradeBB(a)
+  if (!s2.asserted) continue
+  const byC = new Map<string, number>()
+  for (const probe of a) {
+    const c = chromOf3.get(probe)
+    if (c) byC.set(c, (byC.get(c) ?? 0) + 1)
+  }
+  const cs = [...byC.values()].sort((x, y) => x - y)
+  const med = cs.length ? cs[Math.floor(cs.length / 2)] : 0
+  console.log(`  ${th.toFixed(3).padStart(10)} ${s2.asserted.toLocaleString().padStart(9)} `
+    + `${s2.precision.toFixed(4).padStart(10)} ${s2.completeness.toFixed(4).padStart(12)} `
+    + `${med.toLocaleString().padStart(10)} ${String(byC.size).padStart(10)}`)
+  if (s2.precision >= 0.95 && (!bestPM || s2.asserted > bestPM.n)) {
+    bestPM = { th, pr: s2.precision, n: s2.asserted, med, comp: s2.completeness, chroms: byC.size }
+  }
+}
+console.log(bestPM
+  ? `\n  PASS criterion 1: precision ${bestPM.pr.toFixed(4)} at a posterior of ${bestPM.th}, over `
+    + `${bestPM.n.toLocaleString()} asserted markers across ${bestPM.chroms} autosomes, median `
+    + `${bestPM.med.toLocaleString()} per chromosome, completeness ${bestPM.comp.toFixed(4)}.`
+    + `\n  CRITERION 2: the opposite-homozygote channel runs on a median of 1,034 markers per `
+    + `chromosome and refuses under 200.`
+  : '\n  FAIL criterion 1 at every posterior.')

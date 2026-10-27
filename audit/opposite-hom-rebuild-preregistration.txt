@@ -111,3 +111,53 @@ SO STEP 4 IS BUILT, IN THE RIGHT FORM, AND ITS CONDITION IS STATED RATHER THAN G
 reconstruction asserts the genotype the two-parent tally consumes, its precision is governed by the
 count of independent embryos and not of arrays, and it needs nine of them from one couple against
 the six that exist. That is a condition a laboratory can meet; it is not met by any material here.
+
+
+================================================================================
+EVERY CONFIGURATION TRIED, AND THE TWO MECHANISMS THAT BOUND THEM
+================================================================================
+
+  formulation                                        precision  per chrom  note
+  het-only, vote by array                               0.6271          -  5.44.3
+  het-only, two-sided window from Mendel                0.6289          -  5.44.4
+  opposite-homozygote, vote by array                    0.2038        125  falls as u rises
+  opposite-homozygote, vote by embryo, unanimous        0.4985          -
+  per-embryo likelihood, genome-wide prior              0.4805        279
+  hard vote by embryo, per-marker prior                 0.6611        381
+  per-embryo likelihood, per-marker prior               0.7107         58  best
+
+The pre-registered criterion was 0.95. The best configuration reaches 0.7107, and at the posterior
+where it does so it yields 58 markers per chromosome against the 200 the channel refuses below. It
+fails both criteria at once.
+
+MECHANISM ONE, SIX EMBRYOS. The arrays are cells, not children: 8, 7, 10, 2, 1 and 2 cells of six
+embryos. A parent transmits to an embryo, so the information is six independent transmissions and
+the likelihood ratio for the wanted homozygote against the heterozygote at an all-heterozygous
+reading is 2^6, which is 64. Against genome-wide prior odds of 19.8 to 1 that gives 0.7636, and
+nine embryos are needed for 0.95. The corpus holds exactly one family with a single unambiguous
+mother and more than one embryo, and it has six. THIS IS WHY THE HET-ONLY REBUILD READ 0.627: its
+threshold was derived from a sample size of 30.
+
+MECHANISM TWO, CORRELATED DROP-IN WITHIN AN EMBRYO, which bounds it below even that. Conditioning on
+the marker's own allele frequency, estimated from ten unrelated donor arrays with the family's two
+held out, improves precision exactly as the prior argument says it should, 0.6017 at a minimum
+frequency of 0.10 to 0.6611 at 0.45. But it stops far short of the 0.9716 the prior predicts. The
+breakdown of the wrong calls says why: at a minimum frequency of 0.40, 32.9 percent of the asserted
+markers are ones where she reads HETEROZYGOUS and only 2.1 percent where she carries none of the
+allele. Prior odds of 1.87 with a ratio of 64 should leave 2.9 percent. The realized ratio is 3.7.
+
+An embryo that inherited nothing looks as though it did when drop-in reads heterozygous across its
+cells, and drop-in is a property of the marker, so it does. The hard vote makes this worst for a
+large embryo: at a drop-in of 0.0435, "any cell reads AB" has a ten-cell embryo voting yes with
+probability 0.36 having inherited nothing. Replacing the vote with a per-embryo likelihood recovers
+part of it, 0.7107, and no further, because the likelihood's own assumption that cells of one embryo
+are independent given its genotype is the assumption the correlation violates.
+
+SO THE PRE-REGISTERED CRITERION IS NOT REACHABLE ON THIS MATERIAL, and the two numbers a laboratory
+would need are now stated rather than guessed:
+
+  nine or more independent embryos from one couple, not nine or more arrays
+  and a per-probe drop-in estimate, since the residual error is correlated and not independent
+
+Below that, the one-array naming shipped in 5.45.0 is the better route and it works: 53 of 54 named
+rows correct against the published karyotype.

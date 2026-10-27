@@ -9,6 +9,38 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.45.3 "Heterodisomy"
+
+**The parent reconstruction reaches 0.7107 and no further, and both mechanisms that bound it are
+now measured.** Conditioning on each marker's own allele frequency, estimated from ten unrelated
+donor arrays with the family's own two held out, improves precision exactly as the prior argument
+says it should: 0.6017 at a minimum frequency of 0.10, rising to 0.6611 at 0.45. Combined with the
+per-embryo likelihood it reaches 0.7107, against a pre-registered criterion of 0.95 and at a yield
+of 58 markers per chromosome where the channel refuses below 200. Seven configurations have now been
+measured and recorded.
+
+The first bound is that six embryos carry six independent transmissions, so the likelihood ratio at
+an all-heterozygous reading is 2^6. Nine embryos are needed for 0.95, and the corpus holds one
+usable family with six.
+
+The second bound is tighter and is why conditioning on the prior does not close the gap. At a
+minimum allele frequency of 0.40 the prior odds are 1.87 to 1 and the ratio should be 64, which
+would leave 2.9 percent of asserted markers on a heterozygous parent. The measurement finds 32.9
+percent, so the realized ratio is 3.7. An embryo that inherited nothing looks as though it did
+whenever drop-in reads heterozygous across its cells, and drop-in belongs to the marker rather than
+the cell. The hard vote makes this worst for a large embryo: "any cell reads heterozygous" has a
+ten-cell embryo voting yes with probability 0.36 having inherited nothing. The per-embryo likelihood
+recovers part of that and stops, because its own assumption that an embryo's cells are independent
+given its genotype is the one the correlation violates.
+
+What a laboratory would need is therefore two numbers rather than one: nine or more independent
+embryos from a single couple, and a per-probe drop-in estimate. Below that the one-array naming
+shipped in 5.45.0 is the better route and it works.
+
+Audit only. No shipped code changed.
+
+---
+
 ## 5.45.2 "Heterodisomy"
 
 **Reconstructing a missing parent needs independent EMBRYOS, not arrays, and nine of them.** 5.45.1
