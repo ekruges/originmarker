@@ -78,3 +78,89 @@ method works, which is a separate question from whether there is anything to poi
 THE RESULT, WRITTEN AFTER THE RUNS
 
 Nothing above this line was changed.
+
+PART 1. X1 HOLDS, AND IT OVERTURNS THE PREVIOUS ROUND'S CONCLUSION.
+
+Same two-hypothesis rule on both marker classes, posterior 0.95, scored per chromosome against the
+published karyotype with each parent loaded in turn. 1,021 chromosome-observations per class.
+
+  class                  truth    right  wrong  refused   accuracy
+  parent-HOM (shipped)   one         50     52        1     0.4902
+  parent-HOM (shipped)   two        874     43        1     0.9531
+  parent-HOM (shipped)   BOTH       924     95        2     0.9068   answered 99.8%
+  parent-HET (excluded)  one         80     23        0     0.7767
+  parent-HET (excluded)  two        907     11        0     0.9880
+  parent-HET (excluded)  BOTH       987     34        0     0.9667   answered 100.0%
+
+The excluded class is better on BOTH truth classes. On the weak arm, which is the one-parent
+asymmetry this was about, accuracy goes from 0.4902 to 0.7767. On the chromosomes the hand reads as
+normal it goes from 0.9531 to 0.9880, so the false-call rate falls from 43 in 918 to 11 in 918.
+
+Against the objective fixed for this directory, detections minus twice the calls on hand-normal
+chromosomes at k = 2:
+
+  parent-HOM  924 - 2(43) = 838
+  parent-HET  987 - 2(11) = 965
+
+and the excluded class answers more chromosomes, not fewer. So it clears the two-term bar on both
+arms, which is the first statistic in this directory to do so.
+
+THE PREVIOUS ROUND CONCLUDED THE OPPOSITE AND WAS WRONG. It measured the raw rate distributions,
+found they overlap, and closed the question. A likelihood ratio over the same overlapping
+distributions does far better, because it uses the marker count as well as the rate. Measuring a
+separation is not the same as scoring a caller, and only the second answers the question.
+
+X2 HOLDS. Neither class reaches the 0.854 the shipped three-way caller achieves about the loaded
+parent's own copy, because that figure rests on the exclusive-marker channel which neither of these
+hypotheses uses. X3 HOLDS: refusals are 2 and 0, so nothing is bought by declining to answer.
+
+NOT SHIPPED HERE. Using this class means replacing a two-boundary rule with a likelihood ratio on a
+shipped verdict, and the measured boundaries overlap, which is why the ratio wins. That is a change
+to a shipped call and takes its own pre-registration rather than riding on this one.
+
+PART 2. Y1 FAILS, Y3 AND Y4 HOLD, AND THE MECHANISM IS MEASURED.
+
+Built and run on the public family where the mother is herself arrayed: 30 samples over 6 embryos,
+one father, mean dropout 0.144, derived k = 6.
+
+  modelled contamination 0.00803, so predicted precision   0.9920
+  MEASURED precision                                       0.6271   over 103,188 asserted markers
+  modelled completeness                                    0.9977
+  MEASURED completeness                                    0.3839   of 168,540 true het markers
+
+Y1 fails by 36 percentage points. Y3 holds: leaving each embryo out in turn gives 0.6024 to 0.6344,
+mean 0.6184, which is the all-in figure, so the hold-out is working and nothing is inflated by
+sibling leakage. Y4 holds: precision does NOT fall as samples enter, running 0.5454 at n = 4 to
+0.6271 at n = 30. The one-sided rule does avoid the majority-vote collapse, which was its purpose.
+
+WHY Y1 FAILS, measured rather than argued. The vote distribution at father-homozygous markers where
+the mother is truly HOMOZYGOUS, against what independent drop-in at 0.0435 predicts:
+
+  votes       observed   expected       ratio
+      5          7,967      2,618     3.0e+0
+      6          5,384        496     1.1e+1
+      8          3,084         10     3.0e+2
+     10          2,645          0     2.5e+4
+     12          2,836    6.4e-04     4.4e+6
+     14          2,654    2.2e-06     1.2e+9
+
+  six or more votes: 38,479 observed against 585 expected, a ratio of 66
+
+The observed count does not die away. It flattens at roughly 2,650 markers from ten votes through
+fourteen, where independence predicts a fall of nine orders of magnitude. So drop-in is a property
+of the MARKER and not of the embryo: a bad probe collects a vote from every sample, and no vote
+threshold can suppress what every sample agrees on.
+
+The external review's own caveat predicted exactly this and named the mechanism: the independence
+assumption is what the measured agreement excess of 1.24 to 1.42 violates in the haploid case, and
+whether the diploid analogue does so was unknown and measurable. It does, and by far more.
+
+A share of the 37 percent may be the REFERENCE being wrong rather than the rebuild: a marker where
+fourteen of thirty children read heterozygous and the mother reads homozygous is more likely her
+call being wrong than fourteen independent drop-ins. At roughly 2,650 markers per vote bin in the
+flat tail that accounts for part of it and not for the mid-range, where votes of six to nine
+contribute 14,862 against 584 expected.
+
+SO THE REBUILD IS BUILT, VALIDATED, AND DOES NOT WORK WELL ENOUGH. 0.627 precision is not a
+reference a parental call can rest on. The formulation is right, the circularity is genuinely
+closed by it, and the limit is the material rather than the logic.

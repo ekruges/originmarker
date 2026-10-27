@@ -9,6 +9,69 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.44.2 "Achiasmate"
+
+**Two findings, one of which reverses a conclusion this project published yesterday.** Seven
+predictions fixed in `audit/arm-b-and-rebuild-preregistration.txt`. No behaviour changes; both are
+records of what was measured.
+
+**The marker class the one-parent caller discards is substantially better, and 5.44.0 said it was
+not.** Same two-hypothesis rule applied to both classes, posterior 0.95, scored per chromosome
+against the published karyotype with each parent loaded in turn, 1,021 observations per class:
+
+| class | one contribution | two contributions | overall | answered |
+|---|---|---|---|---|
+| parent-homozygous, shipped | 50 of 102, **0.4902** | 874 of 917, 0.9531 | 0.9068 | 99.8% |
+| parent-heterozygous, excluded | 80 of 103, **0.7767** | 907 of 918, 0.9880 | **0.9667** | 100.0% |
+
+Better on both truth classes. The weak arm goes from 0.49 to 0.78, and the false calls on
+chromosomes the hand reads as normal fall from 43 in 918 to 11 in 918. Against this directory's
+objective of detections minus twice the false calls at k = 2, the excluded class scores 965 against
+838 and answers more chromosomes, so it clears the two-term bar on both arms. It is the first
+statistic here to do so.
+
+5.44.0 concluded the opposite. It measured the raw rate distributions, found they overlap, and
+closed the question. A likelihood ratio over the same overlapping distributions does far better,
+because it uses the marker count as well as the rate. **Measuring a separation is not scoring a
+caller**, and only the second answers the question that was asked. Not shipped here: using this
+class means replacing a two-boundary rule with a likelihood ratio on a shipped verdict, and that
+takes its own pre-registration.
+
+**And the het-only parent rebuild is built, validated on a family where the mother is arrayed, and
+does not work.** 30 samples over 6 embryos, one father, derived k = 6:
+
+```
+modelled precision     0.9920      MEASURED  0.6271   over 103,188 asserted markers
+modelled completeness  0.9977      MEASURED  0.3839   of 168,540 true het markers
+```
+
+The formulation is sound. Leaving each embryo out in turn gives 0.6024 to 0.6344 against an all-in
+0.6271, so the hold-out works and no sibling leakage inflates it. And precision does not fall as
+samples enter, 0.5454 at four against 0.6271 at thirty, so the one-sided rule does avoid the
+majority-vote collapse it was designed against.
+
+**The precision model is wrong because drop-in is a property of the marker, not of the embryo.** At
+father-homozygous markers where the mother is truly homozygous, against what independent drop-in
+predicts:
+
+| votes of 30 | observed | expected | ratio |
+|---|---|---|---|
+| 6 | 5,384 | 496 | 11 |
+| 10 | 2,645 | 0.11 | 2.5e4 |
+| 14 | 2,654 | 2.2e-6 | **1.2e9** |
+
+The count flattens at roughly 2,650 markers from ten votes through fourteen where independence
+predicts a nine-order fall. A bad probe collects a vote from every sample, so no vote threshold can
+suppress what every sample agrees on. An external review's own caveat named this mechanism and said
+it was unmeasured for the diploid case. It is measured now.
+
+Part of the 37 percent may be the reference rather than the rebuild: a marker where fourteen of
+thirty children read heterozygous and the mother reads homozygous is more likely her call being
+wrong. That accounts for the flat tail and not the mid-range, where six to nine votes contribute
+14,862 against 584 expected.
+
+---
+
 ## 5.44.1 "Achiasmate"
 
 **The identifier gate read the working tree, so a file staged after it ran was never checked, and
