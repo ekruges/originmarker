@@ -6,7 +6,7 @@
 // not, and a change that closes the gap would be silent otherwise.
 import assert from 'node:assert/strict'
 import {
-  informativeEnough, hetCallOneParent,
+  informativeEnough, hetCallOneParent, nameAbsentParent, ABSENT_PARENT_OPP_MIN,
   HAPLOID_MAX, DIPLOID_MIN, ONE_PARENT_HAPLOID_MAX, ONE_PARENT_DIPLOID_MIN, MIN_INFORMATIVE,
   SURVIVOR_MIN, MIXED_SHARE, emptyHet, addOneParent, addTwoParent, hetCall,
 } from './obligateHet.ts'
@@ -315,3 +315,45 @@ console.log('obligateHet.check.ts: all assertions passed')
 }
 
 console.log('obligateHet.check.ts: bulk-reference precondition and the one-parent blind spot pinned')
+
+// Arm (b): naming the absent parent with one array. The three rows of the decision table, then the
+// plateau that licenses the boundary, then the blindness failing closed.
+{
+  const N = 4_000
+  const OPP_N = 3_000
+  const one = Math.round(0.045 * N)   // one contribution, drop-in only
+  const two = Math.round(0.45 * N)    // two contributions at a 0.10 dropout
+
+  assert.equal(nameAbsentParent(two, N, 0, OPP_N, 0.10), undefined,
+    'two contributions means nothing is absent, whatever the opposite-homozygote rate')
+  assert.equal(nameAbsentParent(two, N, Math.round(0.12 * OPP_N), OPP_N, 0.10), undefined,
+    'and that holds when the loaded copy looks absent, which is what keeps a contaminated '
+    + 'reaction from being named')
+  assert.equal(nameAbsentParent(one, N, Math.round(0.005 * OPP_N), OPP_N, 0.10), 'other',
+    'one contribution with the loaded copy present means the OTHER parent is absent')
+  assert.equal(nameAbsentParent(one, N, Math.round(0.115 * OPP_N), OPP_N, 0.10), 'loaded',
+    'one contribution with the loaded copy absent means the LOADED parent is absent')
+  assert.equal(nameAbsentParent(one, N, Math.round(0.005 * OPP_N), 199, 0.10), undefined,
+    'under the opposite-homozygote floor nothing is named')
+
+  // THE PLATEAU. The measured medians are 0.57% where the loaded copy is present with the other
+  // parent gone, 2.46% where the chromosome is normal, and 11.57% where the loaded copy is absent.
+  // Every boundary from 1.5 to 6.0 percent gives the same answer on the corpus, so the constant
+  // sits inside a plateau rather than on a separating gap.
+  for (const b of [0.015, 0.02, 0.025, 0.03, 0.04, 0.05, 0.06]) {
+    assert.equal(nameAbsentParent(one, N, Math.round(0.0057 * OPP_N), OPP_N, 0.10, b), 'other',
+      `at a boundary of ${b} the median present-copy rate must still read present`)
+    assert.equal(nameAbsentParent(one, N, Math.round(0.1157 * OPP_N), OPP_N, 0.10, b), 'loaded',
+      `at a boundary of ${b} the median absent-copy rate must still read absent`)
+  }
+  assert.ok(ABSENT_PARENT_OPP_MIN >= 0.015 && ABSENT_PARENT_OPP_MIN <= 0.06,
+    'the shipped boundary must sit inside the measured plateau')
+
+  // THE BLINDNESS FAILS CLOSED. A genome carrying two haplotypes of the loaded parent reads 0.3408
+  // on the parent-heterozygous class, which is two contributions, and its opposite-homozygote rate
+  // against that parent is 0.55 percent, which reads present. Both roads lead to no name.
+  assert.equal(nameAbsentParent(Math.round(0.3408 * N), N, Math.round(0.0055 * OPP_N), OPP_N, 0.12),
+    undefined, 'a genome of one parent alone must never be named as missing a parent')
+}
+
+console.log('obligateHet.check.ts: arm (b) decision table and its plateau pinned')

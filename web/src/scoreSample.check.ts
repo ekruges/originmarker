@@ -428,9 +428,19 @@ async function run(declaredStage?: 'failed', withMother = false) {
   assert.ok(matGoneSolo, 'the single-parent run must still produce the row')
   assert.notEqual(matGoneSolo!.twoParents, true,
     'a single-parent row must not claim to be a two-parent one')
-  assert.equal(matGoneSolo!.parent, undefined,
-    'and it must not carry an explicit parent, since with one array the parent is derived from '
-    + 'the verdict and the role of the array that was loaded')
+  // AND IT NOW NAMES HER, from two statistics that need no second array: whether this region
+  // carries one contribution or two, and whether the copy that remains is the loaded father's.
+  // See nameAbsentParent. The direction has to be right, not merely present: if this reads
+  // paternal then every one-array run names the wrong parent on the commoner of the two cases.
+  assert.equal(matGoneSolo!.parent, 'maternal',
+    `chr${MAT_LOST} was built with the MOTHER's copy removed and only the father is loaded. Got `
+    + `${matGoneSolo!.parent}. Measured on 110 hand-called losses of the public corpus this names `
+    + '94 correctly and 1 wrongly; a flip here is that measurement inverted.')
+  assert.equal(matGoneSolo!.oneArrayNamed, true,
+    'and the row must say the name came from one array, since a reader cannot otherwise tell it '
+    + 'from a Mendelian call made against both parents')
+  assert.ok(/opposite homozygote/.test(matGoneSolo!.why ?? ''),
+    'the reason must state the evidence, so the call can be checked by hand')
 
   // A GAIN'S ROW IS TRUE AND ITS ORIGIN IS STILL WITHHELD, and the two are not in tension.
   // chr11 is an isodisomic trisomy: three copies from the father, none from the mother. The

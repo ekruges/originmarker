@@ -59,3 +59,69 @@ WHAT WILL BE CHANGED IF IT PASSES
 `scoreSample.check.ts` asserts that a single-parent row must NOT carry a parent, which encodes the
 limitation this closes rather than a requirement. It will be changed to assert the measured
 behaviour instead, and only after these numbers exist.
+
+
+================================================================================
+RESULT
+================================================================================
+
+CRITERION 1, DIRECTION. PASS. Over 594 chromosome-observations of the public corpus with only the
+father loaded, 89 of them hand-called whole-chromosome losses carrying a parent label:
+
+  named correctly              79
+  named wrongly                 1    GSM4552382 chr2, hand maternal, named paternal, opp 11.16%
+  not named, two contributions  9
+
+CRITERION 2, FALSE NAMING. PASS. Of 486 chromosomes the table reads as normal, 3 are named, which
+is 0.6 percent against the 5 the criterion allowed.
+
+CRITERION 3, SEPARATION. FAIL AS WRITTEN, and the criterion was the wrong test. The ranges overlap:
+chromosomes the hand reads as normal run to 60.81 percent. Those are one cell, GSM4552422, reading
+0.63 to 0.68 heterozygous on both marker classes across every autosome, which is two people or a
+contaminated reaction rather than a cell. `hetCallOneParent` reads two contributions on all of them,
+so the rule never names them. The criterion tested one statistic in isolation when the rule uses
+two, and the overlap it found is filtered by the other one.
+
+WHAT STANDS IN ITS PLACE is the boundary swept, which says whether the choice carries the result:
+
+  bound  right  wrong  unnamed  false  false%
+   1.5%     79      1        9      3    0.6%
+   2.0%     79      1        9      3    0.6%
+   2.5%     79      1        9      3    0.6%
+   3.0%     79      1        9      3    0.6%
+   4.0%     79      1        9      3    0.6%
+   5.0%     79      1        9      3    0.6%
+   6.0%     79      1        9      3    0.6%
+   8.0%     78      2        9      3    0.6%
+  10.0%     75      5        9      3    0.6%
+
+Identical across a four-fold range. The shipped constant sits in the middle of that plateau and
+`obligateHet.check.ts` pins it there. Leave one cell out, over the 13 cells carrying a labelled
+loss, the worst single cell is 89 percent correct.
+
+THE SEGMENTAL ARM, which the pre-registration excluded and which was then measured because the
+wiring computes inside a region rather than over a chromosome. All 22 hand-called deletions with a
+parent label resolved to coordinates through the cytoband track, 21 with a father in the manifest:
+
+  named correctly              15
+  named wrongly                 0
+  not named, two contributions  6
+
+The six unnamed include three cells reading 0.42 to 0.54 heterozygous inside the region, which is
+the same contamination signature, and the rule declines them.
+
+END TO END, THROUGH THE SHIPPED PIPELINE, 24 cells with only the father loaded:
+
+  named correctly        53
+  named wrongly           1
+  row raised, not named   4
+  no row raised at all   74
+  named on a chromosome the table reads as normal   3, all one cell
+
+The 74 are the event detector's coverage, not this rule's: arm (b) names a region something else
+raised. Before this round the pipeline named NONE of these with one array.
+
+WHAT CHANGED. `nameAbsentParent` in obligateHet.ts, called from the one-parent branch of
+scoreSample.ts, with `oneArrayNamed` on the row so a reader can tell it from a Mendelian call made
+against both parents. `scoreSample.check.ts` asserted that a one-array row must not carry a parent;
+it now asserts the measured direction, and that assertion was confirmed to fail when flipped.

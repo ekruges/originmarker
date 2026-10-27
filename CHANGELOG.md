@@ -9,6 +9,56 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.45.0 "Heterodisomy"
+
+**With one parent array the absent parent is now named.** Until this release a run holding a single
+parent raised the row and withheld the parent, because the only statistic consulted was
+heterozygosity that is missing, and missing heterozygosity is what dropout produces. Two statistics
+computed inside the region settle it without the second array. Markers where the loaded parent is
+heterozygous say whether one contribution is present or two. Markers where that parent is
+homozygous say whether the copy that remains is theirs: at a father-AA marker a sample reads BB
+only if his copy is absent, since he cannot transmit B.
+
+  contributions   loaded parent's copy   result
+  two             either                 nothing is named
+  one             present                the unloaded parent's copy is gone
+  one             absent                 the loaded parent's own copy is gone
+
+Measured against the published karyotype with only the father loaded. Over 89 hand-called
+whole-chromosome losses carrying a parent label, 79 named correctly and 1 wrongly. Over all 22
+hand-called deletions with a parent label, resolved to coordinates through the cytoband track, 15
+named correctly and 0 wrongly. Of 486 chromosomes the table reads as normal, 3 are named. End to
+end through the shipped pipeline on 24 cells, 53 named correctly and 1 wrongly, where before this
+release it named none of them.
+
+The boundary on the opposite-homozygote rate is not a separating gap and is not presented as one.
+The medians are 0.57 percent where the loaded copy is present with the other parent gone, 2.46
+percent where the chromosome is normal, and 11.57 percent where the loaded copy is absent, and the
+ranges overlap. Sweeping the boundary from 1.5 to 6.0 percent leaves the result identical at 79
+right, 1 wrong and 3 false, so the choice is not carrying the answer; 8 percent and above degrade
+it. The overlap comes from one cell reading 0.63 to 0.68 heterozygous on both marker classes across
+every autosome, which is two people or a contaminated reaction, and the first statistic reads two
+contributions on all of it so the rule declines to name it.
+
+**The blindness recorded in 5.44.4 fails closed here, which is why this wiring works where the
+substitution did not.** A genome carrying two haplotypes of one parent reads two contributions and
+a present copy, so it lands on the first row of the table and nothing is named. 5.44.3 tried to
+replace the sample-level call with the parent-heterozygous class and broke two self-checks; this
+adds a naming layer on regions another detector raised and leaves every existing call alone.
+`crossSurface.check.ts`, which the substitution could not pass, passes unchanged.
+
+`scoreSample.check.ts` asserted that a one-array row must NOT carry a parent. That encoded the
+limitation this release closes rather than a requirement, so it now asserts the measured direction
+instead, and the new assertion was confirmed to fail when the direction is flipped. Rows carry
+`oneArrayNamed` so a reader can tell a one-array name from a Mendelian call made against both
+parents, and the stated reason carries both marker counts and both rates.
+
+**What this does not do.** It names a parent on a region something else raised. On the same 24 cells
+74 hand-called labelled losses have no row raised at all, which is the event detector's coverage and
+is unchanged by this release.
+
+---
+
 ## 5.44.5 "Achiasmate"
 
 The informative floor's control, and a correction to the reason it was changed.

@@ -198,10 +198,15 @@ RELEASES: tuple[Release, ...] = (
             "Both parental copies of a region gone, rather than one. Two absence scans, one per "
             "parent, both read it as missing, which is the one case where neither of them is "
             "naming a parent and both are right."),
+    Release("Heterodisomy",
+            "Both homologues of ONE parent, rather than one from each. It is heterozygous wherever "
+            "a crossover separated them, so it reads like a biparental genome on the marker class "
+            "that counts heterozygosity, and like a single contribution on the class that asks "
+            "whose allele is present. The case a one-parent call has to decline."),
 )
 
-VERSION = "5.44.5"
-CODENAME = "Achiasmate"
+VERSION = "5.45.0"
+CODENAME = "Heterodisomy"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

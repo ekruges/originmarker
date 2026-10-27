@@ -32,7 +32,7 @@ import {
   MIN_INFORMATIVE_DEFAULT, type DosageMarker, callLossOrigin,
 } from './gainOrigin.ts'
 import {
-  addTwoParent, emptyHet, hetCall, type HetTally, MIXED_SHARE, HAPLOID_MAX,
+  addTwoParent, emptyHet, hetCall, type HetTally, MIXED_SHARE, HAPLOID_MAX, nameAbsentParent,
   lossSignalRate, informativeEnough,
   DIPLOID_MIN,
 } from './obligateHet.ts'
@@ -1629,6 +1629,20 @@ export async function scoreSample(input: {
       const ado = Number.isFinite(result.stage!.dropout) ? result.stage!.dropout : 0.308
       const c = callOneParentOrigin(pairs as never, ado)
       if (!mat) {
+        // ARM (b). With one array the parent used to be left unnamed, because the only statistic
+        // consulted was heterozygosity that is missing, and missing heterozygosity is what dropout
+        // produces. Two statistics computed INSIDE this region settle it without the second parent:
+        // whether one contribution is present or two, from markers where the loaded parent is
+        // heterozygous, and whether the copy that remains is the loaded parent's, from the
+        // opposite-homozygote rate at markers where that parent is homozygous. See nameAbsentParent.
+        let het = 0; let markers = 0; let opp = 0; let oppMarkers = 0
+        for (const [pg, gt] of pairs) {
+          if (pg === 'AB') { markers += 1; if (gt === 'AB') het += 1 } else if (gt !== 'AB') {
+            oppMarkers += 1; if (gt !== pg) opp += 1
+          }
+        }
+        const absent = nameAbsentParent(het, markers, opp, oppMarkers, ado)
+        const named = absent === 'loaded' ? soloRole : absent === 'other' ? otherRole : undefined
         return {
           where: sg.label,
           verdict: c.verdict,
@@ -1636,7 +1650,18 @@ export async function scoreSample(input: {
           band: c.band,
           markers: c.markers,
           exclusive: c.exclusive,
-          why: c.why,
+          why: named
+            ? `${c.why} With one array loaded the absent copy is named from the allele classes `
+              + `this region carries: ${markers.toLocaleString()} markers where the `
+              + `${soloRole} array is heterozygous read ${pct(het / Math.max(1, markers), 1)} `
+              + `heterozygous, which is one contribution, and `
+              + `${pct(opp / Math.max(1, oppMarkers), 2)} of ${oppMarkers.toLocaleString()} `
+              + `markers where it is homozygous carry the opposite homozygote, which is `
+              + `${absent === 'loaded' ? 'too high for its own copy to be present'
+                : 'too low for its own copy to be absent'}. So the ${named} copy is the absent one.`
+            : c.why,
+          parent: named,
+          oneArrayNamed: named ? true : undefined,
         }
       }
       const o = callOneParentOrigin(otherPairs as never, ado)

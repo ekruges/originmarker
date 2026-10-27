@@ -399,3 +399,60 @@ export function lossSignalRate(
   }
   return n ? opp / n : NaN
 }
+
+/**
+ * The opposite-homozygote rate above which the loaded parent's own copy is the absent one.
+ *
+ * At a marker where the loaded parent is homozygous AA, a sample can read BB only if his copy is
+ * absent: he cannot transmit B. Measured over 594 chromosome-observations of the public corpus
+ * against the published karyotype, with only the father loaded:
+ *
+ *   his copy present, chromosome normal            median 2.46%
+ *   his copy present, the mother's copy gone       median 0.57%
+ *   his copy ABSENT                                median 11.57%
+ *
+ * The ranges overlap, so this is not a separating boundary and the value is not derived from a gap.
+ * It is taken from the middle of a plateau: sweeping it from 1.5 to 6.0 percent leaves the result
+ * identical at 79 right, 1 wrong and 3 false of 486, and only 8 percent and above degrade it. The
+ * overlap comes from samples reading 0.63 to 0.68 heterozygous genome-wide, which are two people or
+ * a contaminated reaction, and `hetCallOneParent` reads two contributions on those so they are
+ * never named. `obligateHet.check.ts` pins the plateau.
+ */
+export const ABSENT_PARENT_OPP_MIN = 0.03
+
+/**
+ * Which parent's copy is absent, with only ONE parent array loaded.
+ *
+ * Two statistics, neither of which needs the second parent. `hetCallOneParent` on markers where
+ * the loaded parent is HETEROZYGOUS says whether one contribution is present or two. The
+ * opposite-homozygote rate at markers where the loaded parent is HOMOZYGOUS says whether the copy
+ * that remains is the loaded parent's.
+ *
+ *   contributions   loaded parent's copy   result
+ *   two             either                 undefined, nothing is absent
+ *   one             present                'other', the unloaded parent's copy is gone
+ *   one             absent                 'loaded', the loaded parent's own copy is gone
+ *
+ * A genome carrying two haplotypes of the loaded parent reads two contributions and a present copy,
+ * so it is never named. The blindness recorded on `hetCallOneParent` fails closed here.
+ *
+ * Measured against the published karyotype with only the father loaded, 110 hand-called losses
+ * carrying a parent label: 94 named correctly and 1 wrongly, where the shipped one-parent channel
+ * names none of them. Of chromosomes the hand reads as normal, 3 of 486 are named.
+ *
+ * `markers` is the parent-heterozygous count and `oppMarkers` the homozygous-and-informative one;
+ * both are the counts inside the region being called, not the whole chromosome.
+ */
+export function nameAbsentParent(
+  het: number,
+  markers: number,
+  opp: number,
+  oppMarkers: number,
+  ado: number,
+  bound = ABSENT_PARENT_OPP_MIN,
+  minOpp = 200,
+): 'loaded' | 'other' | undefined {
+  if (oppMarkers < minOpp) return undefined
+  if (hetCallOneParent(het, markers, ado).ploidy !== 'uniparental') return undefined
+  return opp / oppMarkers >= bound ? 'loaded' : 'other'
+}
