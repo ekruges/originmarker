@@ -92,3 +92,75 @@ outcome the arithmetic above makes most likely.
 THE RESULT, WRITTEN AFTER THE RUN
 
 Nothing above this line was changed.
+
+U1, U2 AND U3 ALL FAIL ON THE FIRST RUN, AND ONE OF THE FAILURES IS MINE.
+
+  hand reads     n     p10   median     p90     max
+  intact       470   0.100    0.203   0.329   0.853
+  lost         168   0.188    0.825   0.893   0.942
+
+Intact chromosomes reach 0.853 where this project's own calibration says they never reach 0.627,
+and lost ones fall to 0.151 where it says they never fall below 0.735. The populations overlap.
+
+The reason is a defect in the measurement and not in the statistic. The survivor share is a
+WHOLE-CHROMOSOME quantity, and I scored segmental events with it: a `del 12p (pat)` covers 27
+percent of chr12, so the share over the whole chromosome stays near intact, which is correct and
+makes the classification meaningless. The calibration figures come from a gated subset; mine came
+from every chromosome with 200 markers and no ploidy gate.
+
+Three cells show it plainly, all three hand-called `del 12p (pat)`: their whole-chromosome "lost"
+share reads 0.405, 0.333 and 0.330, barely above intact, which produced derived floors of 8,344,
+23,352 and 83,654 markers.
+
+MEASURED AGAIN, INSIDE THE HAND-CALLED REGION, WHICH IS WHERE IT BELONGS
+
+22 deletion-bearing clauses with coordinates from the UCSC cytoband track, both parents arrayed.
+The share reading the SURVIVING parent's allele alone inside the region, the same over the rest of
+that chromosome as the local null, and the floor those two imply.
+
+  the separation inside the region is wide on most:  share in 0.78 to 0.94
+                                                     share out 0.04 to 0.36
+  clauses whose derived floor fits the markers the region carries:  14 of 22
+
+WHAT IT REACHES, AND IT IS NOT THE SAME 14
+
+  the shipped diluted statistic, positionally      15 of 22
+  this one, at its derived per-region floor        14 of 22
+  both                                             11
+  this one only                                     3   GSM4472405 chr6, GSM4552388 chr6,
+                                                         GSM4552389 chr6
+  the shipped one only                              4   GSM4472423 chr8, and chr12 on
+                                                         GSM4552371, GSM4552374, GSM4552376
+  UNION                                            18 of 22
+
+The three it reaches alone are all `del(6q)(pat)` on cells the heterozygosity ceiling refuses, where
+the shipped scan reports nothing at all. The four the shipped one reaches alone are a chr8 event and
+the three `del 12p` clauses, all of which carry 219 to 245 opposite-homozygote markers against
+derived floors of 236 to 337: short by a factor of 1.1 to 1.5.
+
+The two chr16 events the shipped scan goes blind on are near misses here too. GSM4552385 carries
+206 markers against a floor of 248, and GSM4552386 carries 194 against 279. Both would clear at a
+threshold near 208 rather than 250, and the shipped statistic cannot reach them at any threshold
+because its null has risen past the boundary.
+
+THE BAR IS NOT MET AND NOTHING SHIPS, FOR A REASON I SHOULD HAVE SEEN WHEN WRITING THE BAR
+
+The bar requires a higher score on detections minus two times the calls on hand-normal
+chromosomes. **This run measured only the first term.** The share was computed inside regions the
+hand karyotype already names, so there is no measurement of how often it would call a region on a
+chromosome the hand reads as normal, and that is the term weighted at two. A statistic scored on
+its detections alone cannot clear a bar that prices its false calls, and I did not build the
+false-call arm into the run.
+
+So: 14 of 22 against 15, on a disjoint set, with the false-call rate unmeasured. The statistic does
+not replace the shipped one and is not shown to be safe as an addition.
+
+WHAT THIS LEAVES, STATED RATHER THAN ACTED ON
+
+The union of 18 of 22 is the most detection this corpus has shown, and it comes from two statistics
+that fail on different events for different reasons: the diluted one loses its null on chaotic
+cells, and the undiluted one runs out of markers on small regions. Combining them is a different
+proposition from replacing one with the other, and it needs its own bar with the false-call arm
+measured on hand-normal chromosomes by a scan that was not told where to look.
+
+That is the next pre-registration, and it is a scan rather than a lookup.

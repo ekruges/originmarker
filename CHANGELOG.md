@@ -9,6 +9,66 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.43.2 "Asynapsis"
+
+**The two segment statistics fail on different events, and together they reach 18 of 22.** Three
+predictions fixed in `audit/opposite-hom-floor-preregistration.txt`, all three failed on the first
+run because of a defect in my measurement, and the corrected run does not meet the bar either, for
+a reason that was in the bar when I wrote it. No behaviour changes.
+
+**A correction to 5.43.1 first.** It said the opposite-homozygote set carries the events the diluted
+set cannot, and supported that by putting 245 markers at a likelihood ratio of 514. The null in
+that arithmetic was 0.021, which is the intact rate on the **one-parent-homozygous** set. On the
+opposite-homozygote set a marker is obligate heterozygous, so a single allele dropping out reads as
+absence, and this project's own calibration has intact chromosomes reaching 0.627. The derived
+floor therefore spans about 200 markers to 9,500 depending on the cell, not a single figure.
+
+**The first run failed because the statistic was applied at the wrong scale.** The survivor share is
+a whole-chromosome quantity and I scored segmental events with it. A `del 12p (pat)` covers 27
+percent of chr12, so the chromosome-wide share stays near intact, which is correct and makes the
+classification meaningless: three such cells produced derived floors of 8,344, 23,352 and 83,654
+markers.
+
+**Measured inside the hand-called region, the separation is wide.** 22 deletion-bearing clauses with
+cytoband coordinates, the share reading the surviving parent's allele alone inside the region
+against the same over the rest of that chromosome:
+
+| | |
+|---|---|
+| share inside the region | 0.78 to 0.94 |
+| share over the rest of the chromosome | 0.04 to 0.36 |
+| clauses whose derived floor fits the markers available | **14 of 22** |
+
+**And it is not the same 14.**
+
+| | |
+|---|---|
+| the shipped diluted statistic | 15 of 22 |
+| this one, at its derived per-region floor | 14 of 22 |
+| both | 11 |
+| this one alone | **3**, all `del(6q)(pat)` on cells the ceiling refuses |
+| the shipped one alone | 4, a chr8 event and three `del 12p` clauses |
+| union | **18 of 22** |
+
+The three it reaches alone are on arrays where the shipped scan reports nothing whatever. The four
+it misses carry 219 to 245 markers against floors of 236 to 337, short by a factor of 1.1 to 1.5.
+And the two chr16 events the shipped scan goes blind on are near misses here: 206 markers against a
+floor of 248, and 194 against 279. Both clear at a threshold near 208 rather than 250, where the
+shipped statistic cannot reach them at any threshold because its null has risen past the boundary.
+
+**Nothing ships, and the reason is a fault in how I built the run.** The bar prices detections
+against calls on chromosomes the hand reads as normal, weighted at two. This run measured only
+detections: the share was computed inside regions the karyotype already names, so there is no
+measurement of how often the statistic would call a region on a normal chromosome. A statistic
+scored on half of a two-term bar cannot clear it.
+
+So the union of 18 of 22 is the most detection this corpus has shown, and it is a statement about
+two statistics rather than a result that can be adopted. Combining them is a different proposition
+from replacing one with the other, and it needs the false-call arm measured by a scan that was not
+told where to look. That is the next pre-registration.
+
+---
+
 ## 5.43.1 "Asynapsis"
 
 **The segment null was never the binding constraint, and no replacement ships.** Three predictions
