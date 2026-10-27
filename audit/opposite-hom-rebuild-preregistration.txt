@@ -269,3 +269,70 @@ roughly seventy-five embryos arrayed; at the 0.6 call rates of GSE148488 it take
 SO THE CRITERION IS NOT REACHABLE ON ANY PUBLIC MATERIAL, and the requirement is now a number
 rather than a guess: about thirty embryos CALLING at each marker from a single couple, which is
 fifty to seventy-five embryos arrayed. The largest single-couple set in GEO is fourteen.
+
+
+================================================================================
+LINKAGE TRIED, AND WHY IMPERFECT PHASING IS WORSE THAN NONE
+================================================================================
+
+Every configuration to this point treats each marker on its own, and pays a mixture penalty for it:
+the rival hypothesis is that the missing parent is HETEROZYGOUS, and marker by marker that rival
+sums over which embryos inherited which of her two haplotypes. Against the mixture the per-embryo
+likelihood ratio is 1.891. Against a parent carrying none of the allele it is 17.2.
+
+She has only two haplotypes, so the split of embryos between them is a property of a REGION and can
+be estimated from every marker in it. With the split known the rival stops being a mixture: one side
+reads P_IN and the other P_OUT, and heterozygous calls on the side that should not have them carry
+the 17.2.
+
+THE AFFINITY THAT CARRIES PHASE IS CO-HETEROZYGOSITY, NOT AGREEMENT. Two embryos sharing a maternal
+haplotype both read heterozygous at P_IN squared, 0.1299; across haplotypes at P_IN times P_OUT,
+0.0075, a 17-fold separation. Overall agreement runs the OTHER WAY and seeding on it picks the wrong
+pair: at a P_IN of 0.36 the both-homozygous case dominates, so opposite-haplotype pairs agree more
+often, 0.64 against 0.54.
+
+THE SPLIT WORKS, AND THE METHOD STILL GETS WORSE.
+
+  split quality at her 34,985 genuinely heterozygous markers
+    the richer side reads 0.2498 heterozygous, the poorer side 0.0254
+    a correct split gives 0.360 and 0.021
+    separation achieved 9.82-fold of the 17-fold available
+
+  phased precision 0.6084 at a posterior of 0.99, against 0.7006 unphased
+
+Back-solving the rich side, 0.360(1-q) + 0.021q = 0.2498 gives q = 0.325: a third of the embryos on
+that side belong on the other. The poorer side is contaminated 1.3 percent. Two causes were found
+and one was a bug of mine: two seeds on one side against one on the other made every embryo compare
+a mean over two against a mean over one, and the larger side won ties. Iterative reassignment on an
+equal footing moved separation from 9.40 to 9.82 and precision not at all.
+
+AND IMPERFECT PHASING IS ACTIVELY HARMFUL, which is the finding. A misassigned embryo that DID
+inherit the allele reads heterozygous at P_IN on the side that should be reading drop-in, and that is
+indistinguishable from the parent being homozygous for it. Split error MANUFACTURES the signal the
+test looks for, so the phased estimator is overconfident in proportion to its split error while the
+unphased mixture is merely weak. That is why 0.608 is worse than 0.701.
+
+THE ROOT, TRACED END TO END
+
+  blastomere call rate 0.41 and allele dropout 0.69, which are properties of MDA single blastomeres
+    -> a PAIR of embryos is jointly called at about 0.17 of markers
+    -> about 18 joint observations per pair per 400-marker window
+    -> co-heterozygosity counts of about 2.3 against 0.14, which overlap
+    -> a third of one side misassigned
+    -> split error manufactures the wanted signal, so phasing loses
+  and without phasing the mixture penalty caps the ratio at 1.891, so precision caps near 0.70.
+
+TWELVE CONFIGURATIONS. THE TWO REQUIREMENTS ARE EXACT AND NO PUBLIC SET MEETS BOTH
+
+  enough embryos      about thirty CALLING at each marker from one couple
+  enough call rate    at or above 0.6 per sample, or phasing cannot find the split
+
+  GSE60909   14 embryos, call rate 0.23 to 0.55   embryos yes, call rate no
+  GSE148488   6 embryos, call rate 0.57 to 0.78   call rate yes, embryos no
+  GSE76305    5 embryos per couple, with grandparents
+  GSE93353    one conceptus per couple
+
+The two datasets each hold one half of what the method needs. Material that holds both would be
+trophectoderm biopsies rather than single blastomeres, from a couple with roughly thirty arrayed
+embryos and one parent genotyped. That is a statement a laboratory can act on, and it is what this
+round delivers in place of a passing number.

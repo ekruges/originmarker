@@ -9,6 +9,44 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.45.6 "Heterodisomy"
+
+**Linkage tried, and imperfect phasing is worse than none.** Every earlier configuration treats each
+marker on its own and pays a mixture penalty: the rival hypothesis is that the missing parent is
+heterozygous, which marker by marker sums over which embryos inherited which of her two haplotypes,
+giving a per-embryo likelihood ratio of 1.891 where the ratio against a parent carrying none of the
+allele is 17.2. She has only two haplotypes, so the split of embryos between them is a property of a
+region and estimable from every marker in it.
+
+The affinity that carries phase is co-heterozygosity, not agreement. Two embryos sharing a maternal
+haplotype both read heterozygous at 0.1299 and across haplotypes at 0.0075, a 17-fold separation.
+Overall agreement runs the other way, because at a heterozygous rate of 0.36 the both-homozygous
+case dominates and opposite-haplotype pairs agree more often, 0.64 against 0.54, so seeding on least
+agreement picks the wrong pair.
+
+The split works and the method still gets worse: 9.82-fold separation of the 17 available, and
+precision 0.6084 against 0.7006 unphased. Back-solving the rates, a third of the richer side belongs
+on the other side. One cause was a bug of mine, two seeds on one side against one on the other so
+the larger side won every tie; fixing it moved separation from 9.40 to 9.82 and precision not at all.
+
+The finding is that imperfect phasing is actively harmful. A misassigned embryo that did inherit the
+allele reads heterozygous on the side that should be reading drop-in, which is indistinguishable
+from the parent being homozygous for it, so split error manufactures the signal the test looks for.
+The phased estimator is overconfident in proportion to its split error while the unphased mixture is
+merely weak.
+
+Twelve configurations are now recorded, and the root is traced end to end: a blastomere call rate of
+0.41 means a pair of embryos is jointly called at 0.17 of markers, about 18 joint observations per
+window, co-heterozygosity counts of 2.3 against 0.14 that overlap, a third of one side misassigned.
+The two requirements are exact and no public set meets both: about thirty embryos calling at each
+marker from one couple, and a call rate at or above 0.6 so phasing can find the split. GSE60909 has
+the embryos at a call rate of 0.23 to 0.55; GSE148488 has the call rate at six embryos. Each dataset
+holds one half.
+
+Audit only. No shipped code changed.
+
+---
+
 ## 5.45.5 "Heterodisomy"
 
 **Better public material found and run, three model errors fixed, and the reconstruction's
