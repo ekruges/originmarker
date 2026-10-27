@@ -1,0 +1,79 @@
+WHICH MARKER CLASS CARRIES ONE CONTRIBUTION AGAINST TWO, WITH ONE PARENT LOADED
+
+Committed before the run. Steps 1 and 2 of an external review's order, measured together because
+they need the same pass.
+
+THE CLAIM BEING TESTED
+
+`oneParentOrigin.ts` keeps markers where the loaded parent is HOMOZYGOUS and excludes the rest,
+and its docstring says a marker where that parent is heterozygous "cannot say anything at all".
+For the three-way copy question that is right: at a parent-heterozygous marker both loss
+hypotheses predict the same thing, so they cannot be separated from each other there.
+
+But the laboratory's question on a chaotic cell is narrower than three ways. It is whether a second
+parental contribution is present on this chromosome, which is two hypotheses, and at a
+parent-heterozygous marker those two separate on heterozygosity alone:
+
+  parent homozygous:    two contributions  het = q(1 - ado) + d,  q = 0.1217
+  parent heterozygous:  two contributions  het = 0.5(1 - ado) + d
+  either class:         one contribution   het = d
+
+So the signal is 4.1 times larger in the excluded class, and it no longer depends on the drop-in
+parameter, which an external review shows is measured on bulk material and reads 1.66 times higher
+on uniparental amplified arrays.
+
+An external review measured this on 175 chromosome observations against a bulk reference parent and
+reported a clean separation in the excluded class where the shipped class overlaps. That measurement
+was on a different experiment with truth labels the review assigned itself from the marker channels.
+This run repeats it where the truth is the authors' published by-eye karyotype.
+
+THE DATA
+
+GSE148488, the 31 cells with both parents arrayed and a karyotype in Table S3. Both parents are
+loaded, so the measurement runs twice per chromosome, once with each parent as the loaded one, and a
+chromosome contributes to the one-contribution class for the parent whose copy the hand says is
+gone and to the two-contribution class when the hand reads it normal. 595 autosomes.
+
+THE PREDICTIONS
+
+  V1. The parent-HETEROZYGOUS class separates one contribution from two with no overlap, and the
+      parent-HOMOZYGOUS class overlaps. This is the review's central claim and the reason to run.
+  V2. Their figures reproduce to within the difference between the two corpora: parent-homozygous
+      one-contribution reaching about 0.083 against two-contribution falling to about 0.034, so an
+      overlap; parent-heterozygous one-contribution bounded near 0.21 against two-contribution
+      above about 0.28.
+  V3. The shipped boundaries `ONE_PARENT_HAPLOID_MAX = 0.065` and `ONE_PARENT_DIPLOID_MIN = 0.085`
+      fall inside the parent-homozygous overlap, so a large share of chromosomes the hand reads as
+      normal are called uniparental by the shipped class.
+  V4. `MIN_INFORMATIVE = 200` admits chromosomes that are not being measured. At least one autosome
+      in this corpus passes it with an informative count an order of magnitude below its siblings
+      and reports a heterozygous rate outside any biological range. The review found one at 312
+      markers against a typical 4,000.
+
+  FALSIFIED IF V1 fails: if the excluded class does not separate better than the shipped one, the
+  review's answer to the 0.289 problem is wrong, the marker class is not the limit, and nothing is
+  changed on the strength of it.
+
+STEP 2, MEASURED IN THE SAME PASS
+
+The informative floor. Reported per chromosome: the informative count in each class, that count as a
+FRACTION of the same chromosome's called markers, and the heterozygous rate. The question is whether
+a fractional floor separates the chromosomes that are not being measured from the ones with extreme
+values, where an absolute floor of 200 does not. No threshold is proposed here; the distribution
+decides the form, as it did for the segment null.
+
+WHAT IS NOT IN SCOPE
+
+Any change to the three-way caller. The excluded class cannot separate the two loss hypotheses from
+each other and this file does not pretend otherwise. What it can do is answer the narrower question,
+and whether that is worth shipping as a second channel is decided after the separation is measured.
+
+The review's own warning is recorded: this class answers "is there a second contribution", not
+"whose". Two gynogenetic samples in its corpus read 0.341 and 0.373, indistinguishable from a
+biparental 0.397 on the mean alone. So a high reading in this class is not evidence of a paternal
+contribution, and anything built on it must say so.
+
+================================================================================================
+THE RESULT, WRITTEN AFTER THE RUN
+
+Nothing above this line was changed.
