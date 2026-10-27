@@ -204,3 +204,68 @@ What a laboratory would need, stated as three requirements rather than guessed:
 
 Below that, the one-array naming shipped in 5.45.0 is the better route, and it works: 53 of 54
 named rows correct against the published karyotype.
+
+
+================================================================================
+BETTER PUBLIC MATERIAL FOUND, RUN, AND THE REQUIREMENT NOW DERIVED
+================================================================================
+
+GSE148488 has one usable family with six embryos. GEO holds better: GSE60909 (Zamani Esteki 2015,
+PMID 25983246, Illumina, 298,563 markers after mapping) arrays both parents of couple PGD008
+alongside blastomeres of FOURTEEN embryos over two IVF cycles, mostly one blastomere each, so the
+clonality that wrecked the first attempt is almost absent. Eleven further families of the same
+series carry both parents and blastomeres, which is clean material for calibration. GSE76305 has
+five embryos per couple at best but carries parents AND grandparents, and GSE93353 is one conceptus
+per couple.
+
+THE MENDELIAN ANCHOR HOLDS ON IT, measured with the held-out array used for diagnosis only:
+
+  the missing parent reads           markers    called   blastomere reads AB
+  homozygous for the lacking allele   14,958     0.339                0.3057
+  heterozygous                        43,637     0.447                0.1362
+  the same as the known parent       103,913     0.562                0.0157
+
+A ratio of 2.24 against Mendel's 2.0. The vote carries information, and the call rate itself differs
+by class, which no earlier round accounted for.
+
+THREE MODEL ERRORS FOUND AND FIXED, each measured on the ELEVEN OTHER FAMILIES, nothing of PGD008:
+
+  1. drop-in was assumed 0.0435, measured on bulk Axiom arrays. On these MDA blastomeres it is
+     0.02087 over 3,995,030 observations.
+  2. the per-cell rates were derived from a dropout parameter inferred from a blastomere's own
+     heterozygosity. Measured directly over 5,651,612 observations they are 0.3604, 0.1498 and
+     0.0209, so the real allele dropout is near 0.69 and not the 0.474 inferred.
+  3. drop-in is per PROBE: of 167,680 probes with eight or more observations, 7,092 read 15 percent
+     or more heterozygous. Using a per-probe rate shrunk toward the global one lifted precision from
+     0.6438 to 0.7006.
+
+TEN CONFIGURATIONS, AND THE BEST IS 0.7006
+
+  precision 0.5870 at a posterior of 0.5, 216 markers per chromosome
+            0.7006 at 0.9,                 36
+            0.6906 at 0.95,                10
+
+THE REQUIREMENT, DERIVED FROM THE MEASURED RATES AND CHECKED AGAINST THE MEASUREMENT
+
+The hypothesis that competes is not that she carries none of the allele but that she is
+HETEROZYGOUS, which is a mixture: each embryo independently inherits or does not. Against that
+rival the per-embryo ratio is 1.891 per heterozygous reading and 0.790 per homozygous one, not the
+17.2 and 0.65 against the weaker rival. Comparing against the wrong rival predicts 580 markers per
+chromosome where the measurement gives 10, which is how the error was caught.
+
+  embryos calling   heterozygous needed   share of wanted markers   markers per chromosome
+                8                7 of 8                    0.0043                        4
+               12               8 of 12                    0.0306                       30
+               20              11 of 20                    0.0651                       63
+               30              13 of 30                    0.2575                      250
+               40              16 of 40                    0.3560                      346
+               60              21 of 60                    0.6145                      597
+
+At eight calling embryos the projection gives 4 markers per chromosome against the 10 measured, so
+the model and the measurement now agree. THIRTY CALLING EMBRYOS clears both bars at 250 markers per
+chromosome. This family's mean blastomere call rate is 0.41, so thirty calling at one marker takes
+roughly seventy-five embryos arrayed; at the 0.6 call rates of GSE148488 it takes about fifty.
+
+SO THE CRITERION IS NOT REACHABLE ON ANY PUBLIC MATERIAL, and the requirement is now a number
+rather than a guess: about thirty embryos CALLING at each marker from a single couple, which is
+fifty to seventy-five embryos arrayed. The largest single-couple set in GEO is fourteen.

@@ -9,6 +9,40 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.45.5 "Heterodisomy"
+
+**Better public material found and run, three model errors fixed, and the reconstruction's
+requirement now derived rather than guessed.** GSE148488 holds one usable family with six embryos.
+GSE60909 arrays both parents of a couple alongside blastomeres of fourteen embryos over two IVF
+cycles, mostly one blastomere each, with eleven further families carrying both parents and
+blastomeres for calibration.
+
+The Mendelian anchor holds on it: a blastomere reads heterozygous at 0.3057 where the missing parent
+is homozygous for the allele the known parent lacks, 0.1362 where she is heterozygous and 0.0157
+where she carries none, a ratio of 2.24 against Mendel's 2.0. The call rate also differs by class,
+0.339 against 0.562, which no earlier round accounted for.
+
+Three errors, each measured on the other eleven families and none on the family being reconstructed.
+Drop-in was assumed at 0.0435 from bulk Axiom arrays and is 0.02087 here over 3,995,030
+observations. The per-cell rates were derived from a dropout parameter inferred from a blastomere's
+own heterozygosity, and measured directly over 5,651,612 observations the real dropout is near 0.69
+rather than the 0.474 inferred. Drop-in is per probe: 7,092 of 167,680 probes read 15 percent or
+more heterozygous, and a per-probe rate shrunk toward the global one lifts precision from 0.6438 to
+0.7006.
+
+Ten configurations are now recorded and the best is 0.7006 against a pre-registered 0.95. The
+requirement follows from the measured rates. The hypothesis that competes is not that she carries
+none of the allele but that she is heterozygous, a mixture in which each embryo independently
+inherits or does not, so the per-embryo ratio is 1.891 and not 17.2. Comparing against the wrong
+rival predicted 580 markers per chromosome where the measurement gives 10, which is how it was
+caught. Thirty calling embryos clears both bars at 250 markers per chromosome, and at this
+material's call rate of 0.41 that is about seventy-five embryos arrayed, or about fifty at the call
+rates of GSE148488. The largest single-couple set in GEO is fourteen.
+
+Audit only. No shipped code changed.
+
+---
+
 ## 5.45.4 "Heterodisomy"
 
 **The probe filter that would close the reconstruction's gap needs material this corpus does not
