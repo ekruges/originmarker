@@ -1,0 +1,56 @@
+STEP 4, REFORMULATED: RECONSTRUCT THE MISSING PARENT'S OPPOSITE HOMOZYGOTES
+Written before the measurement runs. Committed first.
+
+WHY THE FIRST FORMULATION WAS THE WRONG HALF
+
+The het-only rebuild asserts that the missing parent is HETEROZYGOUS where enough diploid siblings
+read AB at a marker where the known parent is homozygous. It reached 0.627 precision, no vote rule
+improved it, and 5.45.1 pinned a reason prior to precision: the two-parent tally is defined on
+OPPOSITE HOMOZYGOTES, one parent AA and the other BB, so a parent asserted only heterozygous
+contributes zero informative markers.
+
+That objection names the fix. The siblings prove more than heterozygosity, and the stronger claim is
+the one the channel needs.
+
+WHAT THE SIBLINGS ACTUALLY DISTINGUISH
+
+At a marker where the known parent is AA, the missing parent is AA, AB or BB, and each sends a
+different share of B to her children:
+
+  her genotype   children truly AB   observed AB at dropout `a`
+  BB             all of them         1 - a
+  AB             half of them        0.5 (1 - a)
+  AA             none                drop-in only
+
+So the VOTE FRACTION separates the three, and near-unanimity is the signature of BB rather than an
+artefact. The two-sided window of 5.44.4 discarded the top of the vote range as contamination. It is
+where the usable markers are.
+
+At a measured dropout of 0.144 and 30 samples the three vote counts are Binomial(30, 0.856) with
+mean 25.7, Binomial(30, 0.428) with mean 12.8, and Binomial(30, 0.0435) with mean 1.3. The first two
+are about five standard deviations apart.
+
+WHAT IS MEASURED
+
+Only the known parent and the diploid siblings are used to build the reference. The missing parent's
+own array is held out and used solely to score.
+
+  1. PRECISION of the BB assertion, against her real array: of the markers asserted BB, the share
+     she genuinely reads BB. Criterion: at or above 0.95. A reference a parental call rests on
+     cannot carry the 37 percent error the het-only version did, and 0.95 is the point at which the
+     opposite-homozygote statistic's own measured separation, 0.17 to 0.85 percent against 6.5 to
+     16.6 percent, still holds with margin.
+  2. COMPLETENESS: of her true BB markers at known-parent-homozygous sites, the share recovered,
+     and the absolute count. The count is what matters: the opposite-homozygote channel runs on a
+     median of 1,034 markers per chromosome, so a reconstruction yielding a comparable count per
+     chromosome is usable even at low completeness.
+  3. THE THRESHOLD SWEPT, so it is clear whether the choice carries the result.
+  4. LEAVE ONE EMBRYO OUT, since drop-in was measured to be a property of the marker and therefore
+     correlated across siblings. A per-embryo split says whether one embryo carries the numbers.
+  5. THE CHANNEL FED. If precision clears 0.95, the reconstructed opposite homozygotes are passed
+     to `addTwoParent` and the resulting per-chromosome calls are scored against the published
+     karyotype, next to the same cells scored with her real array. That is the only result that
+     says whether step 4 produces a working reference rather than a good-looking table.
+
+FAILURE IS A RESULT. If precision does not clear 0.95 this is recorded as a third negative with its
+mechanism, and step 4 closes on the proof already pinned in 5.45.1.
