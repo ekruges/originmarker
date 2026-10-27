@@ -164,3 +164,81 @@ contribute 14,862 against 584 expected.
 SO THE REBUILD IS BUILT, VALIDATED, AND DOES NOT WORK WELL ENOUGH. 0.627 precision is not a
 reference a parental call can rest on. The formulation is right, the circularity is genuinely
 closed by it, and the limit is the material rather than the logic.
+
+
+================================================================================
+SECOND FIX ATTEMPTED AND MEASURED: THE TWO-SIDED WINDOW DOES NOT WORK EITHER
+================================================================================
+
+If drop-in is a property of the marker rather than of the embryo, a bad probe collects a vote from
+every sample, so near-unanimous votes should be artefact and Mendel bounds what a true marker can
+reach. A heterozygous mother transmits a given allele to about half her children, so her markers
+sit mid-range and never approach unanimity. At thirty children and a dropout of 0.144 the vote is
+Binomial(30, 0.428): mean 12.8, standard deviation 2.71, and an upper bound of 21 discards 0.0695
+percent of truly heterozygous markers. `deriveU(n, ado, discard)` in audit/rebuild-two-sided.ts
+derives that bound the same way `deriveK` derives the lower one.
+
+    rule             k    u  precision  completeness   asserted
+    one-sided        6    -     0.6271        0.3839    128,349
+    two-sided        6   21     0.6289        0.3757    125,180
+
+The derived bound buys 0.0018 of precision. Sweeping it across its whole range:
+
+     u  precision  completeness
+    12     0.6823        0.2928
+    14     0.6620        0.3288
+    16     0.6451        0.3522
+    18     0.6349        0.3659
+    20     0.6301        0.3735
+    21     0.6289        0.3757
+    24     0.6275        0.3800
+    30     0.6271        0.3839
+
+Precision rises only as the window closes far below what Mendel licenses, and completeness falls
+with it. Leave one embryo out, two-sided: mean precision 0.6200.
+
+So the false assertions are NOT concentrated at near-unanimous votes. They are spread across the
+vote range, in the same mid-range bins where a truly heterozygous mother also sits, which the
+earlier count already showed: votes of six to nine alone contribute 14,862 against 584 expected.
+The vote count carries no information that separates a truly heterozygous mother from a marker with
+correlated drop-in, because both populations are centred mid-range.
+
+CONCLUSION, from two independent fixes and a sweep across the full bound: the het-only rebuild
+cannot reach useful precision on this material by any vote rule. The best attainable is 0.68
+precision at 0.29 completeness, and that setting discards a large share of true markers. This is a
+limit of the material, not of the formulation.
+
+================================================================================
+WHY THE PARENT-HETEROZYGOUS CLASS CANNOT REPLACE THE SHIPPED ONE-PARENT CALL
+================================================================================
+
+The class scores better on the published karyotype, and `scoreSample.check.ts` and
+`crossSurface.check.ts` both failed when it was substituted. The question was whether those
+fixtures encode a real requirement or an artefact. They encode a real one, and it is the limitation
+the external review named in words.
+
+A sample carrying TWO haplotypes of ONE parent is heterozygous wherever a crossover separated them.
+It therefore reads high on the parent-heterozygous class and looks biparental while carrying no
+contribution from the other parent at all. Measured on real arrays of a series with a genotyped egg
+donor and no father (audit/gynogenetic-blind.ts), where the opposite-homozygote rate against her
+says which samples carry her genome:
+
+    pos   oppHom   het    parent-hom class  parent-het class  truth from the channels
+    10     0.55%  0.122   uncalled          biparental        carries her genome only
+    17     0.16%  0.101   uniparental       biparental        carries her genome only
+    12    10.53%  0.059   uniparental       uniparental       carries no genome of hers
+    13    10.74%  0.065   uniparental       uniparental       carries no genome of hers
+    14     9.68%  0.052   uniparental       uniparental       carries no genome of hers
+    16    10.71%  0.066   uniparental       uniparental       carries no genome of hers
+    19    10.73%  0.050   uniparental       uniparental       carries no genome of hers
+
+The parent-heterozygous fractions on the two samples carrying her genome alone are 0.3408 and
+0.3734, against 0.3974 for the biparental sample in the same series. The classes overlap, so no
+boundary on this statistic separates two haplotypes of one parent from one haplotype of each.
+
+The shipped class gets position 17 right and declines position 10. The replacement gets both wrong
+in the direction that matters: it asserts a second parental contribution that is not there.
+
+So the class answers a narrower question than the verdict needs, and it stays unwired. It carries
+its own assertions and this blindness is pinned in obligateHet.check.ts so a later reader cannot
+wire it in without the check refusing.

@@ -155,9 +155,22 @@ export const informativeEnough = (
  * 918 to 11. Against this project's objective, detections less twice the false calls at k = 2, the
  * excluded class scores 965 against 838 while answering more chromosomes.
  *
- * WHAT IT DOES NOT SAY. Whether the second contribution is the OTHER parent's. Two gynogenetic
- * samples carrying two maternal haplotypes read like a biparental sample on this statistic, so a
- * high reading is not evidence of a paternal contribution.
+ * WHAT IT DOES NOT SAY, AND WHY IT IS NOT THE VERDICT'S CALL. Whether the second contribution is
+ * the OTHER parent's. A sample carrying two haplotypes of ONE parent is heterozygous wherever a
+ * crossover separated them, so it reads high here while no second parent contributed. Measured on
+ * real arrays of a series with a genotyped egg donor and no father, by the opposite-homozygote rate
+ * against her:
+ *
+ *   opp-hom   this class   the shipped class   carries
+ *     0.55%   biparental   uncalled            her genome only
+ *     0.16%   biparental   uniparental         her genome only
+ *     2.35%   biparental   biparental          two parental genomes
+ *
+ * 0.3408 and 0.3734 against 0.3974, so the classes are separated by under 0.03 and no boundary
+ * divides them. The shipped call is right about the second row and declines the first; this one
+ * asserts a paternal contribution that is not there. So the verdict keeps the parent-homozygous
+ * call despite the table above, and this function answers only whether a SECOND HAPLOTYPE is
+ * present. `obligateHet.check.ts` pins the overlap so the substitution cannot be made silently.
  */
 export function hetCallOneParent(
   het: number,

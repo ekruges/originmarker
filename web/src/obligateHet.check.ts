@@ -286,4 +286,32 @@ console.log('obligateHet.check.ts: all assertions passed')
     'the boundaries must bracket the measured separation')
 }
 
-console.log('obligateHet.check.ts: bulk-reference precondition pinned')
+// The blind spot that keeps `hetCallOneParent` out of the ploidy verdict. A sample carrying two
+// haplotypes of ONE parent is heterozygous wherever a crossover separated them, so it reads high on
+// the parent-heterozygous class and looks biparental while no second parent contributed. Measured on
+// real arrays of a series with a genotyped egg donor and no father: two samples carrying her genome
+// alone read 0.3408 and 0.3734, against 0.3974 for the biparental sample in the same series.
+//
+// These assertions pin the overlap rather than a desired behaviour. If a later reader substitutes
+// this class for the shipped one-parent call, the first two lines are what goes wrong.
+{
+  const ONE_PARENT_TWO_HAPLOTYPES = [0.3408, 0.3734]   // carry the loaded parent's genome only
+  const TWO_PARENTS = 0.3974                           // one haplotype from each
+
+  for (const v of ONE_PARENT_TWO_HAPLOTYPES) {
+    assert.equal(hetCallOneParent(Math.round(110_000 * v), 110_000, 0.12).ploidy, 'biparental',
+      `${v} comes from one parent alone and this class still reads biparental: the blind spot`)
+  }
+  assert.equal(hetCallOneParent(Math.round(110_000 * TWO_PARENTS), 110_000, 0.12).ploidy,
+    'biparental', 'a genuinely biparental sample reads biparental too, which is the problem')
+  assert.ok(Math.max(...ONE_PARENT_TWO_HAPLOTYPES) < TWO_PARENTS
+    && TWO_PARENTS - Math.max(...ONE_PARENT_TWO_HAPLOTYPES) < 0.03,
+    'the two classes are separated by less than 0.03, so no boundary divides them')
+
+  // The shipped class, on the same two samples, is right about one and declines the other. That is
+  // the behaviour the verdict depends on and the reason the substitution was reverted.
+  assert.equal(hetCall({ ...emptyHet(), informative: 546_273, het: Math.round(546_273 * 0.0420) }, 1)
+    .ploidy, 'uniparental', 'the shipped class calls the one-parent sample correctly')
+}
+
+console.log('obligateHet.check.ts: bulk-reference precondition and the one-parent blind spot pinned')

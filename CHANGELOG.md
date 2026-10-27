@@ -9,6 +9,44 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.44.4 "Achiasmate"
+
+Two negative results, both measured on real arrays, both pinned so they cannot be re-attempted by
+accident.
+
+**The parent-heterozygous one-parent call stays out of the verdict, and now there is a measurement
+saying why.** 5.44.2 found that class scores better on the published karyotype, 0.9667 against
+0.9068, and 5.44.3 shipped it unwired because substituting it broke two self-checks. The open
+question was whether those checks encoded a real requirement. They did. A sample carrying two
+haplotypes of ONE parent is heterozygous wherever a crossover separated them, so it reads high on
+this class while no second parent contributed anything. On real arrays of a series with a genotyped
+egg donor and no father, the two samples carrying her genome alone read 0.3408 and 0.3734 against
+0.3974 for the biparental sample in the same series: under 0.03 of separation, so no boundary
+divides them. The shipped call gets one of those right and declines the other; the replacement calls
+both biparental, asserting a paternal contribution that does not exist. The better karyotype score
+comes from that corpus's one-contribution cases being monosomies, where a single haplotype reads low
+in both classes. `obligateHet.check.ts` now pins the overlap, so the substitution cannot be made
+without the check refusing.
+
+**The het-only parent rebuild cannot reach useful precision on this material, by any vote rule.**
+5.44.3 recorded 0.627 precision against a modelled 0.992 and diagnosed the cause: drop-in is a
+property of the marker rather than of the embryo, so a bad probe collects a vote from every sample
+and the observed count flattens where independence predicts a fall of nine orders of magnitude. The
+fix that follows from that diagnosis is a two-sided window, since a truly heterozygous mother
+transmits a given allele to about half her children and so cannot approach a unanimous vote. At
+thirty children and a dropout of 0.144 the vote is Binomial(30, 0.428) and an upper bound of 21
+discards 0.0695 percent of true markers. It buys 0.0018 of precision, 0.6271 to 0.6289. Sweeping the
+bound across its whole range tops out at 0.6823 precision for 0.2928 completeness, at a setting far
+tighter than Mendel licenses. The false assertions are spread across the vote range rather than
+concentrated at unanimity, in the same mid-range bins where a true maternal heterozygote sits, so
+the vote count carries no information that separates them. The formulation is sound and the limit is
+the material.
+
+Neither of these changes a single call the tool emits. The reason they are written down at this
+length is that both were close calls with a plausible wrong answer on the other side of them.
+
+---
+
 ## 5.44.3 "Achiasmate"
 
 **The reconstruction machinery is verified against a measured parent, and the better marker class
