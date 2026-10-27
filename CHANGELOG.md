@@ -9,6 +9,24 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.44.1 "Achiasmate"
+
+**The identifier gate read the working tree, so a file staged after it ran was never checked, and
+one got through.** A laboratory barcode in an audit script added in 5.44.0 passed the check,
+committed, and pushed. The gate fired on the next run, at deploy time, which is after the push.
+
+`git grep` without a revision searches the working tree. The gate now reads `--cached`, which is
+what is staged and therefore what is about to be committed, and the tracked-array check reads the
+index too. Verified by staging a file carrying a barcode and watching the gate refuse it.
+
+The barcode is redacted from that script and from every other file added in this round. The gate's
+own comment says why this class of failure is unrecoverable, and it is: the commit is in a public
+repository's history, and rewriting history does not un-publish. It is recorded here instead.
+
+No behaviour changes in the tool.
+
+---
+
 ## 5.44.0 "Achiasmate"
 
 **A chromosome that was barely genotyped no longer reports a parental-contribution call.** Four

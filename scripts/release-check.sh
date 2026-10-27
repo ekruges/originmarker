@@ -81,7 +81,7 @@ esac
 #
 # This is a gate rather than a note because the failure is unrecoverable: a public repository does
 # not forget, and rewriting history does not un-publish.
-arrays=$(git ls-files | grep -iE '\.(probes|cel)(\.|$)' || true)
+arrays=$(git ls-files --cached | grep -iE '\.(probes|cel)(\.|$)' || true)
 if [ -n "$arrays" ]; then
   say "ARRAY DATA IS TRACKED. These are read from disk at run time and never belong in the tree:"
   printf '%s\n' "$arrays" | sed 's/^/    /'
@@ -98,7 +98,12 @@ fi
 # what the audit narratives, result tables and scripts carried for two months while the guard above
 # looked only for filenames. A DOI (s41586-...), a coordinate range (60001-2699520) and a UUID all
 # fail one of the two boundaries, which is what makes the shape specific enough to enforce.
-ids=$(git grep -lE '[0-9]{4,6}-[0-9]{1,2}_[0-9]{1,3}|_chr[0-9]+[a-z]*_[A-Z][0-9]+__[0-9]+|[0-9]+_[A-Z][0-9]+-[0-9]+_[0-9]+[pq]X[pq]_[0-9]+|\bH[0-9]+_[0-9]+_X[pq]_[0-9]+|(^|[^0-9A-Za-z])[0-9]{5}-[0-9]{2}([^0-9]|$)|previewData[0-9]{5}' \
+# THE GATE READS THE INDEX, NOT THE WORKING TREE. `git grep` without a revision searches the
+# working tree, so a file added by `git add -A` after this script ran was never seen by it, and one
+# was: a lab barcode in an audit script passed the check, was committed and pushed, and the gate
+# only fired on the next run at deploy time. `--cached` searches what is staged, which is what is
+# about to be committed. Run this AFTER staging, which deploy.sh's dirty-tree stop already forces.
+ids=$(git grep --cached -lE '[0-9]{4,6}-[0-9]{1,2}_[0-9]{1,3}|_chr[0-9]+[a-z]*_[A-Z][0-9]+__[0-9]+|[0-9]+_[A-Z][0-9]+-[0-9]+_[0-9]+[pq]X[pq]_[0-9]+|\bH[0-9]+_[0-9]+_X[pq]_[0-9]+|(^|[^0-9A-Za-z])[0-9]{5}-[0-9]{2}([^0-9]|$)|previewData[0-9]{5}' \
   -- . ':!CHANGELOG.md' ':!scripts/release-check.sh' 2>/dev/null || true)
 if [ -n "$ids" ]; then
   say "A LAB SAMPLE IDENTIFIER APPEARS IN TRACKED FILES:"

@@ -9,7 +9,7 @@
  *       basis of its claim that only 7 of 18 are consistent with his paternity.
  *   W2  of the chromosomes of the confirmed children, how many fall below ONE_PARENT_HAPLOID_MAX
  *       in each marker class. The review reports 111 of 154 on the shipped class.
- *   W3  32477-14 chr21, which the review reports at 312 parent-heterozygous markers against a
+ *   W3  a sample of that series chr21, which the review reports at 312 parent-heterozygous markers against a
  *       typical 4,000, passing MIN_INFORMATIVE and reporting nonsense.
  *
  * No laboratory sample identifier is printed: samples are reported by position in the series.
