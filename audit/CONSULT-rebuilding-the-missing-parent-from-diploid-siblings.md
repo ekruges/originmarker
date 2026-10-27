@@ -209,3 +209,35 @@ one-sided formulation is the right design and it is recorded rather than impleme
 - The informative floor, which was real and is fixed.
 - The warning that this class answers "is there a second contribution" and not "whose". Nothing
   here contradicts it.
+
+
+## Step 3 completed as an analysis rather than a refusal
+
+The previous note closed step 3 on `om reconstruct` refusing the laboratory's material. That is a
+finding about the material and not about the method, so the method was run where a group of five or
+more products exists and the parent is herself arrayed.
+
+Seven maternal pronuclei of one egg donor, reconstructed with the shipped command:
+
+```
+1 parental group, 7 products, 533,823 markers retained
+parent heterozygosity   16.47%   against the platform's 16.8% bulk diploid rate
+contamination            0.723%  heterozygous sites asserted as homozygous
+spurious absence         0.361%  a true haploid offspring reads this against it for that reason
+```
+
+Scored three ways, all with the shipped relationship caller:
+
+| | opposite-homozygote rate | what the tool calls it |
+|---|---|---|
+| the rebuild against her own measured array | **0.0024** over 506,858 markers | this parent only, a duplicate or a haploid product |
+| a held-out product against a rebuild from the other six | **0.0071** over 469,951 | her product, staged haploid |
+| a PATERNAL pronucleus against her rebuild | **0.1117** over 466,384 | **unrelated** |
+
+Sixteenfold between a true product and a non-product, and the rebuild reads as the same person as
+the parent it was built to recover. Dropping to six products raised the contamination from 0.723 to
+1.619 percent, which is the direction the floor predicts.
+
+So the machinery works and is verified against a measured parent, with a hold-out and a negative
+control. What the laboratory's material cannot supply is five products of one parent, which is a
+separate fact and the one that blocks it there.

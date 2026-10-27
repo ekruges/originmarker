@@ -199,6 +199,9 @@ export interface Collected {
   tm: ReturnType<typeof emptyTally> | null
   dosageByChrom: Map<string, DosageMarker[]>
   hetByChrom: Map<string, { informative: number; het: number }>
+  /** The same tally at markers where the loaded parent is HETEROZYGOUS, which the one-parent
+   *  contribution call reads instead. See hetCallOneParent. */
+  parentHetByChrom: Map<string, { informative: number; het: number }>
   selfMarkers: { chrom: string; pos: number; het: boolean }[]
   obligateByChrom: Map<string, HetTally>
   matAbsenceByChrom: Map<string, MarkerAbsence[]>
@@ -234,6 +237,7 @@ export function emptyCollected(pat: ParentIndex, mat?: ParentIndex | null): Coll
     // product every one of these is amplification error, and a region running far above the
     // array's own rate carries the parent's OTHER homologue.
     hetByChrom: new Map(),
+    parentHetByChrom: new Map(),
     // Sample-only zygosity, for the classes that need no parent: LOH, runs, ploidy.
     selfMarkers: [],
     // Parental contribution per chromosome. With both parents this is the obligate set: both
@@ -268,7 +272,8 @@ export function collectRow(
   r: ProbeRow, pat: ParentIndex, mat: ParentIndex | null | undefined, acc: Collected,
 ): void {
   const {
-    t, tm, myGt, myBaf, markerPos, cnByChrom, selfMarkers, hetByChrom, obligateByChrom,
+    t, tm, myGt, myBaf, markerPos, cnByChrom, selfMarkers, hetByChrom,
+    obligateByChrom,
     matAbsenceByChrom, matAbsenceTally,
     absenceByChrom, dosageByChrom,
   } = acc
@@ -296,6 +301,14 @@ export function collectRow(
     if (r.genotype !== 'NC') {
       selfMarkers.push({ chrom: r.chrom, pos: r.pos, het: r.genotype === 'AB' })
     }
+  }
+  // THE CLASS THE ONE-PARENT CHANNEL EXCLUDES, which carries four times the signal for the
+  // question of whether a second contribution is present. See hetCallOneParent.
+  if (fa === 'AB' && r.genotype !== 'NC' && isAutosome(r.chrom)) {
+    const ph = acc.parentHetByChrom.get(r.chrom) ?? { informative: 0, het: 0 }
+    ph.informative += 1
+    if (r.genotype === 'AB') ph.het += 1
+    acc.parentHetByChrom.set(r.chrom, ph)
   }
   if ((fa === 'AA' || fa === 'BB') && r.genotype !== 'NC' && isAutosome(r.chrom)) {
     // The homologue channel: every heterozygous call here is error in a haploid.
@@ -374,7 +387,8 @@ export async function scoreSample(input: {
 }): Promise<ParentageResult> {
   const { acc, profile, pat, mat, soloRole, sibs, sampleName, log } = input
   const {
-    t, myGt, myBaf, markerPos, cnByChrom, selfMarkers, hetByChrom, obligateByChrom,
+    t, myGt, myBaf, markerPos, cnByChrom, selfMarkers, hetByChrom,
+    obligateByChrom,
     matAbsenceByChrom, matAbsenceTally,
     absenceByChrom, dosageByChrom,
   } = acc

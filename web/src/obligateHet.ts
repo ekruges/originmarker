@@ -126,6 +126,84 @@ export const informativeEnough = (
   collapse = 0.60,
 ): boolean => informative >= floor && (!Number.isFinite(callRate) || callRate >= collapse)
 
+/**
+ * One parental contribution against two, from the markers where the loaded parent is HETEROZYGOUS.
+ *
+ * `oneParentOrigin.ts` excludes that class, correctly for the three-way copy question: at such a
+ * marker both loss hypotheses predict the same thing, so they cannot be told apart there. For the
+ * narrower question of whether a second contribution is present, two hypotheses suffice and the
+ * excluded class carries far more signal:
+ *
+ *   parent homozygous    two contributions  het = q(1 - ado) + d,  q = 0.1217
+ *   parent heterozygous  two contributions  het = 0.5(1 - ado) + d
+ *   either class         one contribution   het = d
+ *
+ * Four times the prediction, and it does not depend on the drop-in parameter, which is measured on
+ * bulk material and reads 1.66 times higher on uniparental amplified arrays.
+ *
+ * WHY A LIKELIHOOD RATIO AND NOT A BOUNDARY. The two rate distributions OVERLAP on real material:
+ * over 1,021 chromosome-observations of GSE148488 against the authors' published karyotype, the
+ * one-contribution class runs to 0.4320 and the two-contribution class down to 0.1334. A pair of
+ * boundaries cannot separate them and a ratio can, because it reads the marker count as well as
+ * the rate. Measured, same rule applied to both classes at the shipped posterior:
+ *
+ *   class                  one contribution   two contributions   overall   answered
+ *   parent-homozygous        50 of 102 0.490   874 of 917 0.953    0.9068     99.8%
+ *   parent-heterozygous      80 of 103 0.777   907 of 918 0.988    0.9667    100.0%
+ *
+ * Better on both, and the calls on chromosomes the hand karyotype reads as normal fall from 43 in
+ * 918 to 11. Against this project's objective, detections less twice the false calls at k = 2, the
+ * excluded class scores 965 against 838 while answering more chromosomes.
+ *
+ * WHAT IT DOES NOT SAY. Whether the second contribution is the OTHER parent's. Two gynogenetic
+ * samples carrying two maternal haplotypes read like a biparental sample on this statistic, so a
+ * high reading is not evidence of a paternal contribution.
+ */
+export function hetCallOneParent(
+  het: number,
+  informative: number,
+  ado: number,
+  dropIn = 0.0435,
+  posterior = 0.95,
+  minMarkers = 50,
+): HetCall {
+  const fraction = informative ? het / informative : NaN
+  // `onlyA` and `onlyB` are not defined on this class: where the loaded parent is heterozygous
+  // there is no "that parent's allele alone" to count, because it carries both. They are NaN
+  // rather than zero so a reader cannot mistake an absent quantity for a measured one, and
+  // `provisional` is true because one parent defined the informative set.
+  const base = { fraction, informative, onlyA: NaN, onlyB: NaN, provisional: true }
+  if (informative < minMarkers) {
+    return { ...base, ploidy: 'uncalled',
+      why: `${informative} markers where the loaded parent is heterozygous is under the `
+        + `${minMarkers} this needs` }
+  }
+  const a = Number.isFinite(ado) ? Math.min(0.95, Math.max(0, ado)) : 0.3
+  const pTwo = Math.min(0.999, 0.5 * (1 - a) + dropIn)
+  const pOne = Math.max(1e-9, dropIn)
+  const lp = (p: number) => het * Math.log(p) + (informative - het) * Math.log(1 - p)
+  const l2 = lp(pTwo)
+  const l1 = lp(pOne)
+  const m = Math.max(l1, l2)
+  const post = Math.exp(l2 - m) / (Math.exp(l2 - m) + Math.exp(l1 - m))
+  const pct2 = (x: number) => `${(100 * x).toFixed(1)}%`
+  if (post >= posterior) {
+    return { ...base, ploidy: 'biparental',
+      why: `${pct2(fraction)} heterozygous over ${informative.toLocaleString()} markers where the `
+        + `loaded parent is heterozygous. Two contributions predict ${pct2(pTwo)} at this `
+        + `sample's dropout and one predicts ${pct2(pOne)}, which is drop-in alone` }
+  }
+  if (1 - post >= posterior) {
+    return { ...base, ploidy: 'uniparental',
+      why: `${pct2(fraction)} heterozygous over ${informative.toLocaleString()} markers where the `
+        + `loaded parent is heterozygous, against ${pct2(pTwo)} expected if a second parent had `
+        + 'contributed here' }
+  }
+  return { ...base, ploidy: 'uncalled',
+    why: `${pct2(fraction)} heterozygous sits between the two predictions, ${pct2(pOne)} and `
+      + `${pct2(pTwo)}, at a posterior of ${Math.max(post, 1 - post).toFixed(2)}` }
+}
+
 export type Ploidy2 = 'uniparental' | 'biparental' | 'uncalled'
 
 export interface HetTally {

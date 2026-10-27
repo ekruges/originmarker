@@ -9,6 +9,58 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.44.3 "Achiasmate"
+
+**The reconstruction machinery is verified against a measured parent, and the better marker class
+is implemented and tested without being wired into a verdict.** No behaviour changes.
+
+**The parent reconstruction, run where five or more products exist.** Earlier rounds closed this on
+`om reconstruct` refusing the laboratory's material, which is a fact about the material rather than
+about the method. Run on seven maternal pronuclei of one egg donor who is herself arrayed:
+
+| | opposite-homozygote rate | the shipped caller's reading |
+|---|---|---|
+| the rebuild against her own measured array | **0.0024** over 506,858 markers | this parent only, a duplicate or a haploid product |
+| a held-out product against a rebuild from the other six | **0.0071** over 469,951 | her product, staged haploid |
+| a paternal pronucleus against her rebuild | **0.1117** over 466,384 | **unrelated** |
+
+Sixteenfold between a true product and a non-product. The rebuild retains 533,823 markers at a
+parent heterozygosity of 16.47 percent against this platform's 16.8 percent bulk diploid rate, with
+contamination at 0.723 percent. Dropping to six products raised that to 1.619, which is the
+direction the floor predicts.
+
+**The marker class the one-parent channel discards is implemented as `hetCallOneParent`, with its
+measurement in the docstring and eight assertions on it.** Over 1,021 chromosome-observations
+against the authors' published karyotype, the same two-hypothesis rule on both classes:
+
+| class | one contribution | two contributions | overall |
+|---|---|---|---|
+| parent-homozygous | 0.490 | 0.953 | 0.9068 |
+| parent-heterozygous | **0.777** | **0.988** | **0.9667** |
+
+**It is not wired into the verdict, and the attempt is recorded.** Substituting it changed calls on
+the synthetic fixtures in ways two other self-checks depend on: `scoreSample.check.ts` lost a row a
+single-parent run must produce, and `crossSurface.check.ts` lost the parent on both events of a
+synthetic gynogenetic array. Falling back to the older class where the new one refuses did not fix
+it, so the new call changes verdicts rather than merely declining more often. The consumers need
+tracing before it can replace anything, and the two checks that caught it are the reason the
+attempt was reverted rather than shipped.
+
+**And the floor from 5.44.0 cost nothing measurable.** Its control had failed, with 63 of 682 public
+chromosomes losing their contribution call, so every scored figure was re-measured:
+
+```
+detection, deletion-bearing     15 of 22   unchanged   paternal 10 of 14, maternal 5 of 8
+attribution, the run channel    15 of 15   unchanged
+attribution, the window share   11 of 11   unchanged
+copy-number segments on an admitted cell   0   unchanged
+```
+
+Nothing scored moved. The refusals cost no detection and no attribution, which is what a gate
+refusing unmeasured chromosomes should do.
+
+---
+
 ## 5.44.2 "Achiasmate"
 
 **Two findings, one of which reverses a conclusion this project published yesterday.** Seven

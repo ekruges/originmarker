@@ -6,7 +6,7 @@
 // not, and a change that closes the gap would be silent otherwise.
 import assert from 'node:assert/strict'
 import {
-  informativeEnough,
+  informativeEnough, hetCallOneParent,
   HAPLOID_MAX, DIPLOID_MIN, ONE_PARENT_HAPLOID_MAX, ONE_PARENT_DIPLOID_MIN, MIN_INFORMATIVE,
   SURVIVOR_MIN, MIXED_SHARE, emptyHet, addOneParent, addTwoParent, hetCall,
 } from './obligateHet.ts'
@@ -174,6 +174,64 @@ const at = (fraction: number, n = 1000) => {
   // the sample's median autosome and refused chr22 of a public cell for carrying 17 percent of it.
   // chr22 is small; its call rate is normal.
   assert.ok(informativeEnough(3_632, 0.90), 'chr22 is small, not unmeasured')
+}
+
+// --- THE MARKER CLASS THE ONE-PARENT CHANNEL DISCARDS, AND WHY IT IS A RATIO ---------------------
+//
+// Measured over 1,021 chromosome-observations of GSE148488 against the authors' published
+// karyotype, with the same two-hypothesis rule applied to both classes at the shipped posterior:
+//
+//   parent-homozygous    one 50 of 102 = 0.490   two 874 of 917 = 0.953   overall 0.9068
+//   parent-heterozygous  one 80 of 103 = 0.777   two 907 of 918 = 0.988   overall 0.9667
+//
+// The excluded class is better on both, and the calls on chromosomes the hand reads as normal fall
+// from 43 in 918 to 11. The rate distributions OVERLAP, one contribution running to 0.4320 and two
+// down to 0.1334, which is why this is a likelihood ratio and not a pair of boundaries.
+//
+// NOT WIRED INTO THE VERDICT. Substituting it changed calls on the synthetic fixtures in ways two
+// other self-checks depend on, so the consumers need tracing first. The function and its
+// measurement live here until that is done.
+{
+  // A chromosome carrying two contributions at a typical dropout reads about half the markers
+  // heterozygous, and one contribution reads drop-in alone.
+  const two = hetCallOneParent(Math.round(0.45 * 4_000), 4_000, 0.15)
+  assert.equal(two.ploidy, 'biparental', two.why)
+  const one = hetCallOneParent(Math.round(0.045 * 4_000), 4_000, 0.15)
+  assert.equal(one.ploidy, 'uniparental', one.why)
+
+  // IT REFUSES BETWEEN THE TWO PREDICTIONS rather than guessing, which is what keeps the false
+  // calls at 11 in 918.
+  const mid = hetCallOneParent(Math.round(0.20 * 300), 300, 0.15)
+  assert.equal(mid.ploidy, 'uncalled', mid.why)
+
+  // Too few markers is a refusal, and the count is in the reason so a reader can check it.
+  const thin = hetCallOneParent(10, 20, 0.15)
+  assert.equal(thin.ploidy, 'uncalled')
+  assert.ok(thin.why.includes('20'), thin.why)
+
+  // THE SURVIVOR COUNTS ARE NOT DEFINED ON THIS CLASS and must not read as measured zeroes: where
+  // the loaded parent is heterozygous it carries both alleles, so "that parent's allele alone" has
+  // no meaning. NaN rather than 0.
+  assert.ok(Number.isNaN(two.onlyA) && Number.isNaN(two.onlyB))
+  assert.equal(two.provisional, true, 'one parent defined the informative set')
+
+  // AND DROPOUT MOVES THE BIPARENTAL PREDICTION, which is the whole reason this class is better:
+  // at heavy dropout a biparental chromosome reads far less heterozygous and must still be called.
+  // A 25 percent rate is biparental either way, because it is far closer to 0.5(1-ado) than to
+  // drop-in at any dropout, but it sits ON the prediction at heavy dropout and well below it on
+  // clean material, so the evidence is stronger there. That is the property, not the verdict.
+  const heavy = hetCallOneParent(Math.round(0.25 * 4_000), 4_000, 0.55)
+  const clean = hetCallOneParent(Math.round(0.25 * 4_000), 4_000, 0.02)
+  assert.equal(heavy.ploidy, 'biparental')
+  assert.equal(clean.ploidy, 'biparental')
+  // The prediction it was weighed against moves with the dropout, and the reason says so, which is
+  // what a reader checks by hand. 0.5(1-0.55) + drop-in is 26.8%; 0.5(1-0.02) + drop-in is 53.3%.
+  assert.ok(heavy.why.includes('26.8%'), heavy.why)
+  assert.ok(clean.why.includes('53.3%'), clean.why)
+  // And a rate at drop-in is uniparental whatever the dropout, since one contribution predicts it.
+  for (const ado of [0.02, 0.30, 0.55]) {
+    assert.equal(hetCallOneParent(Math.round(0.045 * 4_000), 4_000, ado).ploidy, 'uniparental')
+  }
 }
 
 console.log('obligateHet.check.ts: all assertions passed')

@@ -158,3 +158,23 @@ at the genome level already, and on the one accepted chaotic cell the refused ch
 chr16, chr17 and chr20, which are three of the four that produced self-contradictory contested
 segments. So the change is consistent with the rest of the pipeline and tightens the population
 that was producing contradictions. It is still a behaviour change the control did not anticipate.
+
+
+THE REST OF THE SUITE, RE-RUN ON THE PUBLIC CORPUS WITH THE FLOOR IN PLACE
+
+The control above failed: 63 of 682 chromosomes lose their contribution call. So every scored
+figure was re-measured to see what that cost.
+
+  figure                                    before      after
+  detection, deletion-bearing events        15 of 22    15 of 22
+    paternal                                10 of 14    10 of 14
+    maternal                                 5 of 8      5 of 8
+  attribution, the run channel              15 of 15    15 of 15
+  attribution, the window share             11 of 11    11 of 11
+  copy-number segments on an admitted cell         0           0
+  refused cells admitted as a chaotic genome       0           0
+
+Nothing scored moved. The 63 refusals cost no detection and no attribution, which is what a gate
+should do when it is refusing chromosomes that were not being measured. The parental-absence segment
+count and the contested count did move, 69 to 75 and 34 to 38, and those are the reciprocal-overlap
+and detectability changes of 5.43.0 rather than this floor.
