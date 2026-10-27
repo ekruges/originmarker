@@ -701,3 +701,108 @@ console.log(bestPM
     + `\n  CRITERION 2: the opposite-homozygote channel runs on a median of 1,034 markers per `
     + `chromosome and refuses under 200.`
   : '\n  FAIL criterion 1 at every posterior.')
+
+
+// ===========================================================================================
+// PER-PROBE DROP-IN, FROM THE OTHER FAMILIES. The residual error is an embryo looking as though it
+// inherited an allele when drop-in read heterozygous across its cells, and drop-in belongs to the
+// probe. So the probes it belongs to can be identified and removed, using material that says
+// nothing about the family being reconstructed.
+//
+// Where BOTH parents of another family are homozygous for the SAME allele, their child cannot be
+// heterozygous: every heterozygous call at such a marker is artefact. Counting those per probe over
+// the other families gives a drop-in rate per probe that is independent of this family entirely.
+// ===========================================================================================
+console.log('\n\nPER-PROBE DROP-IN, MEASURED ON THE OTHER FAMILIES')
+type Fam = { mother: string; father: string; kids: string[] }
+const others: Fam[] = []
+{
+  const byMother = new Map<string, { father: string; kids: string[] }>()
+  for (const line of manifest.slice(1)) {
+    const r = line.split(',')
+    const mo = at(r, 'mother_gsms')
+    const g = at(r, 'gsm')
+    if (!mo || mo.includes(';') || mo === MOTHER || !fileOf.has(g) || !fileOf.has(mo)) continue
+    const fa = at(r, 'father_gsms').split(/[; ]+/).filter((x) => fileOf.has(x))[0]
+    if (!fa) continue
+    const e = byMother.get(mo) ?? { father: fa, kids: [] }
+    e.kids.push(g)
+    byMother.set(mo, e)
+  }
+  for (const [mother, v] of byMother) others.push({ mother, father: v.father, kids: v.kids })
+}
+console.log(`  ${others.length} other families usable: `
+  + others.map((f) => `${f.kids.length} arrays`).join(', '))
+
+const dropObs = new Map<string, number>()
+const dropHet = new Map<string, number>()
+for (const f of others) {
+  const fa2 = gtOf(f.father)
+  const mo2 = gtOf(f.mother)
+  // Markers where both parents are the same homozygote: the child cannot genuinely be heterozygous.
+  const impossible = new Set<string>()
+  for (const [probe, g1] of fa2) {
+    if (g1 === 'AB') continue
+    if (mo2.get(probe) === g1) impossible.add(probe)
+  }
+  for (const k of f.kids) {
+    for (const [probe, v] of gtOf(k)) {
+      if (!impossible.has(probe)) continue
+      dropObs.set(probe, (dropObs.get(probe) ?? 0) + 1)
+      if (v === 'AB') dropHet.set(probe, (dropHet.get(probe) ?? 0) + 1)
+    }
+  }
+}
+const withObs = [...dropObs.values()]
+console.log(`  ${dropObs.size.toLocaleString()} probes observed, median `
+  + `${withObs.sort((a, b) => a - b)[Math.floor(withObs.length / 2)]} observations each`)
+let totObs = 0; let totHet = 0
+for (const [probe, n] of dropObs) { totObs += n; totHet += dropHet.get(probe) ?? 0 }
+console.log(`  overall drop-in ${(totHet / Math.max(1, totObs)).toFixed(5)} over `
+  + `${totObs.toLocaleString()} observations`)
+// How concentrated is it? If drop-in were a per-observation coin the bad-probe share would be tiny.
+let bad = 0; let scored2 = 0
+for (const [probe, n] of dropObs) {
+  if (n < 6) continue
+  scored2 += 1
+  if ((dropHet.get(probe) ?? 0) / n >= 0.20) bad += 1
+}
+console.log(`  probes with 6+ observations: ${scored2.toLocaleString()}, of which `
+  + `${bad.toLocaleString()} read 20% or more heterozygous (${(100 * bad / Math.max(1, scored2)).toFixed(2)}%)`)
+
+console.log('\n  THE FILTER APPLIED, per-embryo likelihood with the per-marker prior')
+console.log(`  ${'max drop-in'.padStart(11)} ${'posterior'.padStart(10)} ${'asserted'.padStart(9)} `
+  + `${'PRECISION'.padStart(10)} ${'per chrom'.padStart(10)} ${'autosomes'.padStart(10)}`)
+let win: { mx: number; th: number; pr: number; n: number; med: number; chroms: number } | undefined
+for (const maxDrop of [1.0, 0.20, 0.10, 0.05, 0.02]) {
+  const ok = (probe: string) => {
+    const n = dropObs.get(probe)
+    if (n === undefined || n < 6) return maxDrop >= 1
+    return (dropHet.get(probe) ?? 0) / n <= maxDrop
+  }
+  for (const th of [0.9, 0.95, 0.97]) {
+    const a = new Set<string>()
+    for (const [probe, v] of postPM) if (v >= th && ok(probe)) a.add(probe)
+    const s2 = gradeBB(a)
+    if (!s2.asserted) continue
+    const byC = new Map<string, number>()
+    for (const probe of a) {
+      const c = chromOf3.get(probe)
+      if (c) byC.set(c, (byC.get(c) ?? 0) + 1)
+    }
+    const cs = [...byC.values()].sort((x, y) => x - y)
+    const med = cs.length ? cs[Math.floor(cs.length / 2)] : 0
+    console.log(`  ${maxDrop.toFixed(2).padStart(11)} ${th.toFixed(2).padStart(10)} `
+      + `${s2.asserted.toLocaleString().padStart(9)} ${s2.precision.toFixed(4).padStart(10)} `
+      + `${med.toLocaleString().padStart(10)} ${String(byC.size).padStart(10)}`)
+    if (s2.precision >= 0.95 && med >= 200 && (!win || s2.asserted > win.n)) {
+      win = { mx: maxDrop, th, pr: s2.precision, n: s2.asserted, med, chroms: byC.size }
+    }
+  }
+}
+console.log(win
+  ? `\n  PASS BOTH CRITERIA: precision ${win.pr.toFixed(4)} at a drop-in ceiling of ${win.mx} and a `
+    + `posterior of ${win.th}, ${win.n.toLocaleString()} markers over ${win.chroms} autosomes, `
+    + `median ${win.med.toLocaleString()} per chromosome against the 200 the channel needs.`
+  : '\n  still short: the probe filter does not lift both precision and per-chromosome yield to '
+    + 'the pre-registered bars together.')

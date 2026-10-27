@@ -161,3 +161,46 @@ would need are now stated rather than guessed:
 
 Below that, the one-array naming shipped in 5.45.0 is the better route and it works: 53 of 54 named
 rows correct against the published karyotype.
+
+
+================================================================================
+THE EIGHTH CONFIGURATION, AND WHY THE CORPUS CANNOT SUPPLY WHAT IT NEEDS
+================================================================================
+
+The residual error is correlated drop-in, which belongs to the probe, so the probes can in principle
+be identified from material unrelated to the family being reconstructed: where both parents of
+ANOTHER family are homozygous for the same allele their child cannot be heterozygous, so every
+heterozygous call there is artefact.
+
+The corpus cannot supply it. There is exactly ONE other family with a single unambiguous mother, and
+the estimate it yields is 0.25154 heterozygous over 8,000,684 such observations, with 57.68 percent
+of probes reading 20 percent or more. That is not a probe artefact rate. It is the signature of the
+reference being wrong: those 20 arrays include gynogenetic, androgenetic, chaotic and two-person
+samples, whose genotypes bear no fixed relation to the two parents assigned to them, so the markers
+counted as impossible are not impossible.
+
+Applied anyway, the filter trades yield for precision without reaching either bar together:
+
+  max drop-in  posterior  asserted  precision  per chrom  autosomes
+         1.00       0.97     1,037     0.7107         58         22
+         0.10       0.97        25     0.8000          2         14
+         0.05       0.97        10     1.0000          1         10
+
+The 1.0000 is ten markers over ten autosomes, one per chromosome, which is not a reference.
+
+EIGHT CONFIGURATIONS, THREE MECHANISMS, AND THE CRITERION IS NOT REACHABLE HERE
+
+  1. six embryos, not thirty arrays, so the likelihood ratio is 2^6 and nine embryos are needed
+  2. correlated drop-in within an embryo, which collapses the realized ratio from 64 to 3.7
+  3. and the artefact reference that would fix (2) needs clean biparental siblings of another
+     couple, of which this corpus has one family and that family is not clean
+
+What a laboratory would need, stated as three requirements rather than guessed:
+
+  nine or more independent embryos from one couple, counted as embryos and not as arrays
+  a per-probe drop-in estimate from arrays confirmed biparental
+  and the marker's own allele frequency, which raises the bound from 0.7636 to 0.9716 at six
+    embryos and is the one ingredient already available
+
+Below that, the one-array naming shipped in 5.45.0 is the better route, and it works: 53 of 54
+named rows correct against the published karyotype.

@@ -205,7 +205,7 @@ RELEASES: tuple[Release, ...] = (
             "whose allele is present. The case a one-parent call has to decline."),
 )
 
-VERSION = "5.45.3"
+VERSION = "5.45.4"
 CODENAME = "Heterodisomy"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'

@@ -9,6 +9,33 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.45.4 "Heterodisomy"
+
+**The probe filter that would close the reconstruction's gap needs material this corpus does not
+have.** The residual error is correlated drop-in, which belongs to the probe, so the bad probes
+should be identifiable from another family: where both of its parents are homozygous for the same
+allele their child cannot be heterozygous, and every heterozygous call there is artefact.
+
+The corpus holds exactly one other family with an unambiguous single mother, and the estimate it
+gives is 0.25154 over 8,000,684 such observations, with 57.68 percent of probes reading 20 percent or
+more heterozygous. That is not a probe artefact rate; it is the reference being wrong. Those 20
+arrays include gynogenetic, androgenetic, chaotic and two-person samples, whose genotypes bear no
+fixed relation to the parents assigned to them, so the markers counted as impossible are not. Applied
+anyway the filter trades yield for precision without clearing both bars: 0.8000 on 25 markers, and
+1.0000 on ten markers spread over ten autosomes, which is one per chromosome and not a reference.
+
+That closes the reconstruction with eight configurations and three mechanisms recorded: six embryos
+rather than thirty arrays, correlated drop-in within an embryo collapsing the realized likelihood
+ratio from 64 to 3.7, and the artefact reference needed to fix the second being unavailable. What a
+laboratory would need is now three requirements with numbers attached rather than a guess: nine or
+more independent embryos from one couple counted as embryos, a per-probe drop-in estimate from
+arrays confirmed biparental, and the marker's own allele frequency, which is the one ingredient
+already in hand and which raises the bound from 0.7636 to 0.9716 at six embryos.
+
+Audit only. No shipped code changed.
+
+---
+
 ## 5.45.3 "Heterodisomy"
 
 **The parent reconstruction reaches 0.7107 and no further, and both mechanisms that bound it are
