@@ -174,6 +174,11 @@ RELEASES: tuple[Release, ...] = (
             "One copy of a region where there should be two, so only one parent's alleles are "
             "there to read. Which parent is a question each parent's own markers answer "
             "separately, and a region that reads absent against both is answering neither."),
+    Release("Achiasmate",
+            "A chromosome pair that formed no crossover, so the two homologues separate exactly as "
+            "they arrived. There is nothing in the result to say a crossover was looked for and "
+            "not found, which is the same silence a chromosome returns when it was barely "
+            "genotyped at all."),
     Release("Asynapsis",
             "Homologues that fail to pair, so neither has the partner it would be read against. "
             "A chromosome judged by the median of its neighbours has the same difficulty once most "
@@ -195,8 +200,8 @@ RELEASES: tuple[Release, ...] = (
             "naming a parent and both are right."),
 )
 
-VERSION = "5.43.2"
-CODENAME = "Asynapsis"
+VERSION = "5.44.0"
+CODENAME = "Achiasmate"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

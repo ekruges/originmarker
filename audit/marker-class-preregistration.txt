@@ -76,4 +76,85 @@ contribution, and anything built on it must say so.
 ================================================================================================
 THE RESULT, WRITTEN AFTER THE RUN
 
-Nothing above this line was changed.
+Nothing above this line was changed. Measured on both corpora: the public one where the truth is a
+published karyotype, and the laboratory series where the review took its figures.
+
+V1 FAILS. BOTH CLASSES OVERLAP ON THE PUBLIC CORPUS.
+
+  class                  truth     n      min   median      max
+  parent-HOM (shipped)   one     109   0.0208   0.0789   0.4606
+  parent-HOM (shipped)   two     954   0.0604   0.1141   0.6775
+                                       overlap 0.4003
+  parent-HET (excluded)  one     109   0.0743   0.1488   0.4320
+  parent-HET (excluded)  two     954   0.1334   0.3352   0.7460
+                                       overlap 0.2986
+
+The excluded class does separate BETTER: a ratio of medians of 2.25 against 1.45, which is the
+direction the review's mechanism predicts, since it reads 0.5(1-ado) where the shipped class reads
+q(1-ado). But neither class gives a clean boundary, and raising the informative floor to 1,000 in
+both classes changes nothing.
+
+V2 FAILS. The review reported parent-homozygous one-contribution reaching 0.0834 against
+two-contribution falling to 0.0343, and parent-heterozygous bounded at 0.2057 against 0.2849, a
+clean gap. Those do not reproduce. Its corpus was 175 chromosome-observations of a different
+experiment with truth labels it assigned itself from the marker channels; this is 1,063
+observations against the authors' published reading.
+
+V3 FAILS, AND IN THE OPPOSITE DIRECTION, on the public corpus. The review predicted that the
+shipped boundaries misclassify most biparental chromosomes. Measured here, 4 of 954 chromosomes the
+hand reads as normal fall below `ONE_PARENT_HAPLOID_MAX`, which is 0.4 percent, and 0 of 954 on the
+excluded class.
+
+BUT W1 AND W2 REPRODUCE EXACTLY ON THE LABORATORY SERIES, AND THE READING IS THE DIFFERENCE.
+
+The opposite-homozygote rate of every sample of that series against its measured reference array
+reproduces the review's figures to three decimals: 7 consistent at 0.0017 to 0.0075, 1 intermediate
+at 0.0263, 8 at 0.064 to 0.097, and 2 arrays with no usable DNA. And its 111 of 154 reproduces
+exactly: 72.1 percent of the chromosomes of the 7 consistent samples fall below the haploid maximum.
+
+That is not a defect. Those 7 samples read heterozygosity of 0.040 to 0.064, which is haploid: they
+are single pronuclei, not embryos. A haploid product has one genome, so calling its chromosomes
+uniparental is the correct answer and 72 percent is the correct figure. The 8 at 0.064 to 0.097 are
+haploid products of the OTHER parent, which is what this project already calls them. The review
+read a pronuclei experiment as an embryo experiment.
+
+On the parent-HET class the same 154 chromosomes give 90 of 154, so the excluded class is WORSE at
+recognising haploid material, which is the opposite of V1 again.
+
+V4 HOLDS, AND IT REPRODUCES TO FOUR DECIMALS.
+
+  the series median autosome carries 5,249 parent-heterozygous markers
+  one chromosome carries 312, which is 5.9 percent of that
+  it reports 0.5514 heterozygous on the parent-homozygous class and 0.7147 on the other
+  it clears the absolute floor of 200 with 1,605 informative markers
+
+The review's figures were 312, 0.5514 and 0.7147. Exact. Its siblings' same chromosome carries
+1,710 to 1,960, so the next-thinnest observation in the series sits at 32.6 percent of the median.
+On the public corpus nothing comparable occurs.
+
+STEP 2: WHAT THE RIGHT DENOMINATOR IS, AND THE FIRST ANSWER WAS WRONG
+
+A fraction of the sample's median AUTOSOME was tried first and a regression on the public corpus
+refused chr22 of one cell for carrying 17 percent of what the median autosome carries. chr22 is
+simply a small chromosome. A count compared across chromosomes of different sizes cannot work.
+
+Three candidates measured per chromosome on the laboratory series:
+
+  informative / called            min 0.7810   median 0.8185   the bad chromosome reads 0.7891
+  informative / markers on array  min 0.1377   median 0.7031   the bad chromosome reads 0.1377
+  called / markers on array       min 0.1745   median 0.8638   the bad chromosome reads 0.1745
+
+The informative share of called markers is unremarkable on it. The chromosome was barely genotyped:
+2,034 called of the 11,655 the array holds. The CALL RATE separates it with nothing between 0.175
+and 0.813, and `CALL_COLLAPSE = 0.60` already exists in parentage.ts for exactly this question, so
+the fix adds no constant.
+
+THE CONTROL FAILED, AND IS RECORDED RATHER THAN EXPLAINED AWAY.
+
+This file said the public corpus would be unaffected. It is not: 63 of 682 chromosomes lose their
+contribution call. Every one is on a cell whose chromosome call rate is 0.30 to 0.58, below the
+0.60 the project already defines as collapsed, and the cells are the degraded ones: two are refused
+at the genome level already, and on the one accepted chaotic cell the refused chromosomes are
+chr16, chr17 and chr20, which are three of the four that produced self-contradictory contested
+segments. So the change is consistent with the rest of the pipeline and tightens the population
+that was producing contradictions. It is still a behaviour change the control did not anticipate.

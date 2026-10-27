@@ -32,8 +32,8 @@ import {
   MIN_INFORMATIVE_DEFAULT, type DosageMarker, callLossOrigin,
 } from './gainOrigin.ts'
 import {
-  addTwoParent, emptyHet, hetCall, type HetTally, MIN_INFORMATIVE, MIXED_SHARE, HAPLOID_MAX,
-  lossSignalRate,
+  addTwoParent, emptyHet, hetCall, type HetTally, MIXED_SHARE, HAPLOID_MAX,
+  lossSignalRate, informativeEnough,
   DIPLOID_MIN,
 } from './obligateHet.ts'
 import { originBlockedByClass, namedAParent } from './defects.ts'
@@ -488,7 +488,15 @@ export async function scoreSample(input: {
     const call = hetCall(tally, two ? 2 : 1)
     // Kept wherever the markers were enough, between the boundaries included, so the counts a
     // reader checks by hand are the counts the verdict rests on.
-    if (call.informative >= MIN_INFORMATIVE) c.contribution = call
+    // A CHROMOSOME THAT WAS BARELY GENOTYPED IS NOT A CHROMOSOME WITH AN EXTREME VALUE, and the
+    // informative count cannot tell them apart. One chromosome of a laboratory series carries
+    // 1,605 informative markers, clears the absolute floor, and reports 55.1 percent heterozygous
+    // where its siblings read 0.07: it was called at 0.175 of the markers the array holds for it.
+    // The call rate separates that from everything else with nothing in between. See
+    // `informativeEnough`.
+    const stats = profile.byChrom.get(c.chrom)
+    const chromCallRate = stats && stats.markers > 0 ? stats.called / stats.markers : NaN
+    if (informativeEnough(call.informative, chromCallRate)) c.contribution = call
   }
   // "ON A GENOME THAT CARRIES BOTH PARENTS ELSEWHERE" IS A CONDITION, AND IT IS MEASURED HERE
   // RATHER THAN TAKEN FROM THE GENOME-LEVEL CLASS. A bulk array of the father loaded as a sample is

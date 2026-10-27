@@ -6,6 +6,7 @@
 // not, and a change that closes the gap would be silent otherwise.
 import assert from 'node:assert/strict'
 import {
+  informativeEnough,
   HAPLOID_MAX, DIPLOID_MIN, ONE_PARENT_HAPLOID_MAX, ONE_PARENT_DIPLOID_MIN, MIN_INFORMATIVE,
   SURVIVOR_MIN, MIXED_SHARE, emptyHet, addOneParent, addTwoParent, hetCall,
 } from './obligateHet.ts'
@@ -149,6 +150,30 @@ const at = (fraction: number, n = 1000) => {
   for (let i = 0; i < 300; i += 1) addOneParent('AA', 'AA', u)
   assert.deepEqual([u.onlyA, u.onlyB], [0, 0])
   assert.equal(hetCall(u, 1).survivor, undefined)
+}
+
+// --- A CHROMOSOME THAT WAS BARELY GENOTYPED MUST NOT REPORT A FRACTION --------------------------
+//
+// Measured on a laboratory series of 176 chromosome-observations. One chromosome was called at
+// 0.175 of the markers the array holds for it and reported 55.1 percent heterozygous where its
+// siblings read 0.07. Its informative count, 1,605, and its informative share of called markers,
+// 0.789, are both unremarkable: the count cannot catch it and the call rate can. The series median
+// call rate is 0.864, the fifth percentile 0.807, and nothing falls between 0.175 and 0.813.
+{
+  // The chromosome that must be refused, with its real numbers.
+  assert.ok(!informativeEnough(1_605, 0.175), 'called at 0.175 of the array is not measured')
+  // Its siblings, which must all be admitted.
+  for (const cr of [0.813, 0.824, 0.848, 0.849, 0.869, 0.879, 0.905]) {
+    assert.ok(informativeEnough(7_490, cr), `a call rate of ${cr} is fine`)
+  }
+  // The absolute floor still bites on its own, whatever the call rate.
+  assert.ok(!informativeEnough(199, 0.95), 'under the absolute floor is refused')
+  // No call rate available leaves the absolute floor as the only test, which is the old behaviour.
+  assert.ok(informativeEnough(1_605, NaN), 'an unmeasurable call rate falls back to the floor')
+  // AND IT MUST NOT PENALISE A SMALL CHROMOSOME. A first attempt compared the informative count to
+  // the sample's median autosome and refused chr22 of a public cell for carrying 17 percent of it.
+  // chr22 is small; its call rate is normal.
+  assert.ok(informativeEnough(3_632, 0.90), 'chr22 is small, not unmeasured')
 }
 
 console.log('obligateHet.check.ts: all assertions passed')

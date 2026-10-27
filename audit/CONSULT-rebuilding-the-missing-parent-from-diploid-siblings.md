@@ -133,3 +133,79 @@ Settled with pre-registered measurements, so not worth your effort:
   bulk 0.0525, measured on 20 single cells of a known diploid genome against unamplified controls.
 - Attribution, where an event is detected, is 15 of 15 against the published karyotype. Detection is
   15 of 22 deletions and 0 of 6 duplications, measured positionally.
+
+---
+
+# What the measurements said, added after the response
+
+Run on both corpora. The response's order was followed: step 1 first, then the floor, then whether
+Experiment 2 can be rebuilt at all.
+
+## Step 3 came back decisive, and it ends the plan for Experiment 2
+
+The shipped `om reconstruct` refuses, and the refusal is the finding. Run on the seven haploid
+products of the series that carry a genome which is not the measured parent's:
+
+```
+group 1 (4 products)   positions 03, 06, 10, 14
+group 2 (2 products)   positions 07, 18
+group 3 (1 product)    position 01
+```
+
+`groupByParent` finds three parents where the pairs file records one, which is the review's "at
+least three families are present", confirmed independently by the shipped grouping rather than by
+all-pairs rates. The largest group holds 4 products against a floor of 5.
+
+So Experiment 2 cannot have its egg donor rebuilt. Not because of the circularity, which the
+response solves, and not because of the floor, which the response derives. Because the material is
+three donors and no one of them has five products.
+
+**And Experiment 1 is in the same position.** Its four paternal products group together and the
+fifth sample sits alone, which also confirms this project's earlier finding that that sample matches
+nothing in the set:
+
+```
+group 1 (4 products)   and one product in a group of its own
+```
+
+Both experiments are **exactly one haploid product short**. That is the laboratory request, and it
+is far more specific than an array: one more product from the donor of a named group.
+
+## Step 1 did not reproduce, except where it did
+
+The marker-class claim fails on the public corpus, where the truth is the authors' published
+karyotype over 1,063 chromosome-observations rather than 175 with self-assigned labels. Both classes
+overlap. The excluded class does separate better, a ratio of medians of 2.25 against 1.45, which is
+the predicted direction, but neither gives a boundary.
+
+The figures on the laboratory series reproduce exactly, including 111 of 154. The reading differs:
+those seven samples read heterozygosity of 0.040 to 0.064, so they are single pronuclei. A haploid
+product has one genome, so calling its chromosomes uniparental is correct and 72 percent is the
+right answer. On the excluded class the same chromosomes give 90 of 154, which is worse.
+
+## Step 2 reproduced to four decimals and is fixed
+
+312 parent-heterozygous markers, 0.5514 and 0.7147, clearing the absolute floor. Exactly as
+reported.
+
+The denominator took two attempts. A fraction of the sample's median autosome refuses chr22 of a
+public cell for being chr22, so a count compared across chromosomes of different sizes cannot work.
+The chromosome's own call rate separates it with nothing between 0.175 and 0.813, and
+`CALL_COLLAPSE = 0.60` already existed for the same question, so the fix adds no constant.
+
+## Step 4 is not built, and the premise for it is gone
+
+The response said to build the het-only rebuild only if step 1 leaves a gap. Step 1 leaves a gap:
+the marker class is not the answer to 0.289. But step 3 says there is nothing in the laboratory's
+material to rebuild from, so the rebuild would have no input even if it were built. The
+one-sided formulation is the right design and it is recorded rather than implemented.
+
+## What of the response survives in full
+
+- The one-sided reformulation, asserting heterozygosity only. It is the correct answer to the
+  circularity and would be what gets built the moment a group reaches five products.
+- The demonstration that majority vote fails on Mendel alone, 35 to 48 percent of embryos, with no
+  events involved. That retires the route this project was going to take.
+- The informative floor, which was real and is fixed.
+- The warning that this class answers "is there a second contribution" and not "whose". Nothing
+  here contradicts it.

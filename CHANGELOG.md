@@ -9,6 +9,59 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.44.0 "Achiasmate"
+
+**A chromosome that was barely genotyped no longer reports a parental-contribution call.** Four
+predictions fixed in `audit/marker-class-preregistration.txt`; three failed and the fourth
+reproduced an external review's figures to four decimals. The control failed too and is recorded.
+
+The defect: one chromosome of a laboratory series was called at **2,034 of the 11,655 markers** the
+array holds for it, a call rate of 0.175, and reported **55.1 percent** heterozygous where its seven
+siblings read 0.07. It carries 1,605 informative markers, so it clears the absolute floor of 200
+comfortably, and its informative share of called markers is 0.789, which is the series median.
+Nothing about the count is unusual. The chromosome was not measured.
+
+The denominator took two attempts, and the first was wrong. A fraction of the sample's median
+autosome refuses chr22 of a public cell for carrying 17 percent of what the median autosome carries,
+and chr22 is simply a small chromosome: a count compared across chromosomes of different sizes
+cannot work. The chromosome's own call rate separates it with nothing at all between 0.175 and
+0.813, and `CALL_COLLAPSE = 0.60` already existed in `parentage.ts` for the same question, so this
+adds no constant.
+
+**The control failed.** The pre-registration said the public corpus would be unaffected. 63 of 682
+chromosomes lose their contribution call. Every one sits at a chromosome call rate of 0.30 to 0.58,
+below the 0.60 the project already calls collapsed, and the cells are the degraded ones: two are
+refused at the genome level already, and on the one accepted chaotic cell the refused chromosomes
+are chr16, chr17 and chr20, three of the four that produced self-contradictory contested segments.
+
+**The marker-class claim did not reproduce.** The review argued the one-parent caller discards the
+class that carries the signal, and measured a clean separation on 175 chromosome-observations with
+truth labels it assigned itself. On 1,063 observations against the authors' published karyotype both
+classes overlap:
+
+| class | one contribution | two contributions | |
+|---|---|---|---|
+| parent-homozygous, shipped | median 0.0789, max 0.4606 | median 0.1141, min 0.0604 | overlaps |
+| parent-heterozygous, excluded | median 0.1488, max 0.4320 | median 0.3352, min 0.1334 | overlaps |
+
+The excluded class separates better, a ratio of medians of 2.25 against 1.45, which is the direction
+its mechanism predicts. Neither gives a boundary. Its figure of 111 of 154 reproduces exactly on the
+laboratory series, and it is the correct answer rather than a defect: those seven samples read
+heterozygosity of 0.040 to 0.064, so they are single pronuclei, and a haploid product's chromosomes
+are uniparental.
+
+**And the reconstruction plan for the laboratory's own material is closed by its own grouping.**
+`om reconstruct` refuses both experiments, and the refusal is the finding. The products that carry a
+genome other than the measured parent's split into three groups of 4, 2 and 1 where the pairs file
+records one parent, which confirms independently that several donors are present. The other
+experiment's four products group together with a fifth alone.
+
+So **both experiments are exactly one haploid product short of the floor of five.** That is a
+specific request to the laboratory rather than a change to the software, and it is the most useful
+thing this round produced.
+
+---
+
 ## 5.43.2 "Asynapsis"
 
 **The two segment statistics fail on different events, and together they reach 18 of 22.** Three

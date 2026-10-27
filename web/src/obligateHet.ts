@@ -96,6 +96,36 @@ export const ONE_PARENT_DIPLOID_MIN = 0.085
  *  informative minimum was 304 with a median of 918 to 1,362, so this refuses the thin tail. */
 export const MIN_INFORMATIVE = 200
 
+/**
+ * Whether a chromosome is being genotyped well enough for its heterozygous fraction to mean
+ * anything.
+ *
+ * AN INFORMATIVE COUNT CANNOT TELL A THIN CHROMOSOME FROM A SMALL ONE, which is why this is a call
+ * rate and not a count. Measured on one laboratory series, 176 chromosome-observations over 8
+ * samples: one chromosome carries 2,034 called markers of the 11,655 the array holds for it, a
+ * call rate of 0.175, and reports 55.1 percent heterozygous against a median of 0.07 for its
+ * siblings. It clears the absolute floor of 200 with 1,605 informative markers, and its share of
+ * informative markers among those called is 0.789, which is the median for the series. Nothing
+ * about the informative count is unusual. The chromosome was barely genotyped.
+ *
+ * The call rate separates it with room to spare: 0.175 against a median of 0.864, a fifth
+ * percentile of 0.807, and nothing at all between 0.175 and 0.813.
+ *
+ * A first attempt used the informative count as a fraction of the sample's median autosome, and a
+ * regression on the public corpus refused chr22 of one cell for carrying 17 percent of what the
+ * median autosome carries. chr22 is simply a small chromosome. A count compared across
+ * chromosomes of different sizes cannot work, and the call rate needs no such comparison.
+ *
+ * The threshold is `CALL_COLLAPSE`, which the per-chromosome mis-clustering gate in parentage.ts
+ * already uses for the same question, so this adds no constant.
+ */
+export const informativeEnough = (
+  informative: number,
+  callRate: number,
+  floor = MIN_INFORMATIVE,
+  collapse = 0.60,
+): boolean => informative >= floor && (!Number.isFinite(callRate) || callRate >= collapse)
+
 export type Ploidy2 = 'uniparental' | 'biparental' | 'uncalled'
 
 export interface HetTally {
