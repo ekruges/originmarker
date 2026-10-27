@@ -242,3 +242,31 @@ in the direction that matters: it asserts a second parental contribution that is
 So the class answers a narrower question than the verdict needs, and it stays unwired. It carries
 its own assertions and this blindness is pinned in obligateHet.check.ts so a later reader cannot
 wire it in without the check refusing.
+
+
+================================================================================
+STEP 4 CLOSED. ITS CONDITION IS NOT TRIGGERED, AND IT COULD NOT HAVE SERVED
+================================================================================
+
+Step 4 was conditional: build the het-only rebuild ONLY IF step 1 leaves a gap. Step 1 now names
+the absent parent from one array, shipped in 5.45.0, 53 correct and 1 wrong end to end through the
+pipeline where it named none before. So the condition is not met.
+
+Had it been met, the rebuild could not have served, for a reason that is separate from its 0.627
+precision and prior to it. The two-parent tally is defined on OPPOSITE HOMOZYGOTES: `addTwoParent`
+returns unless one parent reads AA and the other BB. A reconstruction from diploid siblings can only
+assert that the missing parent is HETEROZYGOUS, because an embryo reading AB at a father-AA marker
+proves she carries B while AA proves nothing. An AB assertion is never an opposite homozygote with
+anything, so a het-only reference contributes ZERO informative markers to the channel it was built
+to supply. That is pinned in obligateHet.check.ts over every genotype combination.
+
+So step 4 has three findings and all three are negative:
+
+  1. the vote rule cannot reach useful precision: 0.627, and a two-sided window derived from Mendel
+     gives 0.6289, with the bound swept across its full range topping out at 0.6823 for 0.2928
+     completeness
+  2. the false assertions are spread across the vote range rather than concentrated at unanimity,
+     so no vote rule separates them
+  3. the output is the wrong KIND of reference for the channel regardless of its precision
+
+And the work it was meant to make possible is done another way.

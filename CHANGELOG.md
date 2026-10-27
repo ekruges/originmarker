@@ -9,6 +9,26 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.45.1 "Heterodisomy"
+
+**Why a heterozygosity-only reconstruction of a missing parent cannot feed the two-parent channel,
+pinned as a check.** The two-parent tally is defined on opposite homozygotes: one parent AA and the
+other BB. A reconstruction built from diploid siblings can only assert that the missing parent is
+heterozygous, because an embryo reading AB at a father-AA marker proves she carries B while AA
+proves nothing. An AB assertion is never an opposite homozygote with anything, so such a reference
+contributes zero informative markers to the channel it was built to supply. That is now asserted
+over every genotype combination, alongside a positive case showing the tally does count a real
+opposite homozygote.
+
+This is separate from, and prior to, the 0.627 precision recorded in 5.44.3 and 5.44.4. The
+reconstruction's problem is not only that it is imprecise but that its output is the wrong kind of
+reference. With the one-array naming shipped in 5.45.0 the work it was meant to make possible is
+done another way.
+
+Audit and checks only. No shipped code changed.
+
+---
+
 ## 5.45.0 "Heterodisomy"
 
 **With one parent array the absent parent is now named.** Until this release a run holding a single

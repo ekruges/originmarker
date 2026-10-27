@@ -357,3 +357,33 @@ console.log('obligateHet.check.ts: bulk-reference precondition and the one-paren
 }
 
 console.log('obligateHet.check.ts: arm (b) decision table and its plateau pinned')
+
+// WHY A HETEROZYGOSITY-ONLY RECONSTRUCTION CANNOT FEED THIS CHANNEL, which is separate from how
+// precise such a reconstruction is. The two-parent tally is defined on OPPOSITE HOMOZYGOTES: one
+// parent AA and the other BB. A reconstruction built from diploid siblings can only assert that the
+// missing parent is HETEROZYGOUS, because an embryo reading AB at a father-AA marker proves she
+// carries B while AA proves nothing. An AB assertion is never an opposite homozygote with anything,
+// so such a reference contributes no informative markers at all.
+{
+  const t = emptyHet()
+  for (const fa of ['AA', 'BB', 'AB'] as const) {
+    for (const sample of ['AA', 'BB', 'AB'] as const) {
+      addTwoParent(fa, 'AB', sample, t)   // the reconstructed parent, asserted heterozygous
+      addTwoParent('AB', fa, sample, t)   // and in the other slot
+    }
+  }
+  assert.equal(t.informative, 0,
+    'a parent asserted only as heterozygous contributes nothing to the two-parent tally, so a '
+    + 'heterozygosity-only reconstruction cannot feed this channel at any precision')
+
+  // And the channel does work on a real opposite homozygote, so the zero above is the assertion's
+  // doing rather than the tally being broken.
+  const live = emptyHet()
+  addTwoParent('AA', 'BB', 'AB', live)
+  addTwoParent('AA', 'BB', 'AA', live)
+  assert.equal(live.informative, 2, 'the tally counts opposite homozygotes')
+  assert.equal(live.het, 1, 'and separates the heterozygous call from the single-allele one')
+  assert.equal(live.onlyA, 1, 'and records which parent the surviving allele came from')
+}
+
+console.log('obligateHet.check.ts: a heterozygosity-only reconstruction cannot feed the two-parent tally')
