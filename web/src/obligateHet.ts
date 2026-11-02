@@ -127,6 +127,29 @@ export const informativeEnough = (
 ): boolean => informative >= floor && (!Number.isFinite(callRate) || callRate >= collapse)
 
 /**
+ * Why `informativeEnough` refused, in words, or undefined when it did not refuse.
+ *
+ * Kept beside the predicate so the explanation cannot drift from the rule. Before this the refusal
+ * was silent: the chromosome simply carried no contribution call and nothing anywhere said why,
+ * which is the single commonest unreadable result on a real run.
+ */
+export const whyNotInformative = (
+  informative: number,
+  callRate: number,
+  floor = MIN_INFORMATIVE,
+  collapse = 0.60,
+): string | undefined => {
+  if (informativeEnough(informative, callRate, floor, collapse)) return undefined
+  if (informative < floor) {
+    return `${informative.toLocaleString()} informative markers here is under the ${floor} a call `
+      + 'needs'
+  }
+  return `this chromosome was genotyped at ${(100 * callRate).toFixed(0)}% of its markers, under `
+    + `the ${(100 * collapse).toFixed(0)}% a call needs. An extreme value read off this few calls `
+    + 'is not a measurement'
+}
+
+/**
  * One parental contribution against two, from the markers where the loaded parent is HETEROZYGOUS.
  *
  * `oneParentOrigin.ts` excludes that class, correctly for the three-way copy question: at such a

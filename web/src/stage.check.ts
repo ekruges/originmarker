@@ -18,6 +18,7 @@ import {
   inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, QC_CALL_FLOOR,
   BAND_DIPLOID_CERTAIN, MAX_DIPLOID_HET,
   BULK_MAX_BAF_SD, stageFacts, amplificationWord, hetSpread, HET_SPREAD_LOCALISED,
+  stageDefaults,
 } from './stage.ts'
 
 const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
@@ -418,3 +419,34 @@ console.log('stage.check.ts: all assertions passed, including quality gated befo
   assert.equal(inferStage({ hetRate: 0.20, callRate: 0.30 }, { panelHeterozygosity: 0.31 }).stage,
     'failed', 'the call-rate floor is not a heterozygosity and does not move with the panel')
 }
+
+// PLOIDY IS A DIFFERENT QUESTION FROM MATERIAL, and until this it had no answer. `stage` says what
+// kind of sample an array is, so a diploid cell came back 'trophectoderm' and nothing anywhere said
+// it carried two genomes. These pin the word to each case inferStage already distinguishes.
+{
+  const call = (hetRate: number, callRate = 0.95) =>
+    inferStage({ hetRate, callRate } as never)
+
+  assert.equal(call(0.168).ploidy, 'diploid',
+    'bulk diploid heterozygosity is a diploid, and must say so rather than only naming the material')
+  assert.equal(call(0.13).ploidy, 'diploid', 'an amplified diploid is still a diploid')
+  assert.equal(call(0.02).ploidy, 'haploid', 'one chromatid carries one genome')
+  assert.equal(call(0.074).ploidy, 'haploid',
+    'a first polar body is a dyad and still one genome, however heterozygous it reads')
+  assert.equal(call(0.40).ploidy, 'not one genome',
+    'over the diploid ceiling is two people or a contaminated reaction, not a ploidy')
+  assert.equal(call(0.15, 0.2).ploidy, 'unknown',
+    'an amplification failure says nothing about how many genomes were there')
+  assert.equal(call(NaN).ploidy, 'unknown', 'no profile, no ploidy')
+
+  // A declared stage carries the same answer as an inferred one of the same name.
+  assert.equal(stageDefaults('trophectoderm').ploidy, 'diploid')
+  assert.equal(stageDefaults('haploid').ploidy, 'haploid')
+
+  // The one that matters to a reader: every stage that names real diploid material says diploid.
+  for (const s of ['bulk', 'trophectoderm', 'single-cell', 'blastomere'] as const) {
+    assert.equal(stageDefaults(s).ploidy, 'diploid', `${s} is diploid material`)
+  }
+}
+
+console.log('stage.check.ts: ploidy is reported separately from the material')

@@ -9,6 +9,32 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.46.0 "Euploidy"
+
+**A withheld call now says why it was withheld.** A chromosome whose markers or call rate were too
+thin simply carried no contribution, and nothing anywhere recorded the reason. On a real run that is
+the commonest result a reader cannot interpret. `whyNotInformative` now returns the reason in words
+and `ChromResult.contributionWithheld` carries it. The explanation lives beside the predicate it
+mirrors, and a check pins them to each other at every boundary so the two cannot drift into printing
+a reason for a call that was made, or none for one refused.
+
+Measured over 12 cells of the public corpus: 232 chromosomes carried a call and 50 were withheld, 32
+of them for a call rate under the floor and 18 for too few informative markers. All 50 now state
+which, where previously all 50 stated nothing.
+
+**A diploid cell now says it is diploid.** The stage axis names the MATERIAL an array came from:
+blastomere, trophectoderm, bulk, single-cell. It never named how many genomes were present, so a
+diploid cell was only ever described as a trophectoderm. `StageCall.ploidy` reports that separately,
+as haploid, diploid, not one genome, or unknown. Every branch of `inferStage` already distinguished
+these to reach its own answer; none of them said so.
+
+Nothing is reclassified by this. The same arrays reach the same stages, and the ploidy word states
+what the existing branch had already concluded. A first polar body still stages haploid and now also
+reads haploid in ploidy, which is the case most likely to look wrong and is not: a dyad is one
+genome however heterozygous it reads.
+
+---
+
 ## 5.45.6 "Heterodisomy"
 
 **Linkage tried, and imperfect phasing is worse than none.** Every earlier configuration treats each

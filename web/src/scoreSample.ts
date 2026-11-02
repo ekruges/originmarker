@@ -33,7 +33,7 @@ import {
 } from './gainOrigin.ts'
 import {
   addTwoParent, emptyHet, hetCall, type HetTally, MIXED_SHARE, HAPLOID_MAX, nameAbsentParent,
-  lossSignalRate, informativeEnough,
+  lossSignalRate, whyNotInformative,
   DIPLOID_MIN,
 } from './obligateHet.ts'
 import { originBlockedByClass, namedAParent } from './defects.ts'
@@ -510,7 +510,9 @@ export async function scoreSample(input: {
     // `informativeEnough`.
     const stats = profile.byChrom.get(c.chrom)
     const chromCallRate = stats && stats.markers > 0 ? stats.called / stats.markers : NaN
-    if (informativeEnough(call.informative, chromCallRate)) c.contribution = call
+    const withheld = whyNotInformative(call.informative, chromCallRate)
+    if (withheld) c.contributionWithheld = withheld
+    else c.contribution = call
   }
   // "ON A GENOME THAT CARRIES BOTH PARENTS ELSEWHERE" IS A CONDITION, AND IT IS MEASURED HERE
   // RATHER THAN TAKEN FROM THE GENOME-LEVEL CLASS. A bulk array of the father loaded as a sample is

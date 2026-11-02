@@ -203,10 +203,14 @@ RELEASES: tuple[Release, ...] = (
             "a crossover separated them, so it reads like a biparental genome on the marker class "
             "that counts heterozygosity, and like a single contribution on the class that asks "
             "whose allele is present. The case a one-parent call has to decline."),
+    Release("Euploidy",
+            "The right number of chromosomes. Naming it is a separate question from naming the "
+            "material an array came from, and until now only the material had a word: a diploid "
+            "cell was described as a trophectoderm and nothing said it carried two genomes."),
 )
 
-VERSION = "5.45.6"
-CODENAME = "Heterodisomy"
+VERSION = "5.46.0"
+CODENAME = "Euploidy"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

@@ -69,8 +69,17 @@ export type Stage =
   | 'failed'
   | 'unknown'
 
+/**
+ * How many genomes the array carries, which is a different question from what kind of material it
+ * is. `stage` answers the second: blastomere, trophectoderm, bulk. Nothing answered the first, so a
+ * diploid cell was only ever described by the material word.
+ */
+export type Ploidy = 'haploid' | 'diploid' | 'not one genome' | 'unknown'
+
 export interface StageCall {
   stage: Stage
+  /** How many genomes, separate from the material `stage` names. */
+  ploidy: Ploidy
   /** Expected allele dropout, used to parameterise downstream likelihoods. */
   dropout: number
   /** How the dropout figure was arrived at, which decides how much it can be trusted. */
@@ -316,6 +325,7 @@ export function stageDefaults(stage: Stage): StageCall {
   if (hit) {
     return {
       stage,
+      ploidy: 'diploid',
       dropout: hit.dropout,
       basis: 'stage-default',
       templates: hit.templates,
@@ -326,7 +336,8 @@ export function stageDefaults(stage: Stage): StageCall {
   }
   if (stage === 'haploid') {
     return {
-      stage, dropout: 0.02, basis: 'stage-default', templates: '1 chromatid', markerFloor: 200,
+      stage, ploidy: 'haploid', dropout: 0.02, basis: 'stage-default',
+      templates: '1 chromatid', markerFloor: 200,
       caveat: 'a heavily dropped-out or consanguineous diploid can also read this way',
       why: 'haploid parameters, from the shipped table',
     }
@@ -334,7 +345,9 @@ export function stageDefaults(stage: Stage): StageCall {
   // failed and unknown name the absence of a call, so they carry the most conservative dropout
   // measured on any stage rather than a figure that would flatter a likelihood.
   return {
-    stage, dropout: stage === 'failed' ? NaN : 0.308, basis: 'none',
+    // 'failed' here is a declared absence rather than the measured ceiling breach inferStage
+    // reports, so it claims nothing about how many genomes are present.
+    stage, ploidy: 'unknown', dropout: stage === 'failed' ? NaN : 0.308, basis: 'none',
     templates: stage === 'failed' ? 'not applicable' : 'unknown', markerFloor: 200,
     caveat: '', why: `${stage} carries no stage parameters`,
   }
@@ -386,14 +399,15 @@ export function inferStage(
 
   if (!Number.isFinite(h) || !Number.isFinite(call)) {
     return {
-      stage: 'unknown', dropout: 0.308, basis: 'none', templates: 'unknown', markerFloor: 200,
+      stage: 'unknown', ploidy: 'unknown', dropout: 0.308, basis: 'none', templates: 'unknown', markerFloor: 200,
       caveat: 'no usable profile',
       why: 'the array does not report a heterozygous rate and a call rate, so no stage is inferred',
     }
   }
   if (h > maxDiploid) {
     return {
-      stage: 'failed', dropout: NaN, basis: 'none', templates: 'not applicable', markerFloor: 200,
+      stage: 'failed', ploidy: 'not one genome', dropout: NaN, basis: 'none',
+      templates: 'not applicable', markerFloor: 200,
       caveat: 'two individuals mixed, a contaminated reaction and a failed array are not '
         + 'distinguishable from each other here, only from a genome',
       why: `${(h * 100).toFixed(1)}% heterozygous exceeds the `
@@ -404,7 +418,8 @@ export function inferStage(
   }
   if (call < callFloor) {
     return {
-      stage: 'failed', dropout: NaN, basis: 'none', templates: 'not applicable', markerFloor: 200,
+      stage: 'failed', ploidy: 'unknown', dropout: NaN, basis: 'none',
+      templates: 'not applicable', markerFloor: 200,
       caveat: 'amplification failure and haploid material are indistinguishable by heterozygosity',
       why: `call rate ${(call * 100).toFixed(1)}% is below the ${(callFloor * 100).toFixed(0)}% `
         + 'floor. This is an amplification failure rather than a stage: near-total dropout drives '
@@ -425,6 +440,7 @@ export function inferStage(
     const looksPB1 = h >= 0.055
     return {
       stage: 'haploid',
+      ploidy: 'haploid',
       // One chromatid has no heterozygote to drop, so the residual is genotyping error. A PB1's
       // heterozygosity is largely real, so no dropout is inferred from it either.
       dropout: 0.02,
@@ -458,6 +474,7 @@ export function inferStage(
   if (bandSaysDiploid && h <= haploidMax) {
     return {
       stage: hit.stage,
+      ploidy: 'diploid',
       // The shortfall formula is calibrated against a diploid's heterozygosity, and this sample
       // is diploid, so it applies. It saturates at the 0.6 ceiling here, which is the point.
       dropout: Math.min(0.6, Math.max(0.005, 1 - h / bulkHet)),
@@ -476,6 +493,7 @@ export function inferStage(
   const implied = Math.min(0.6, Math.max(0.005, 1 - h / bulkHet))
   return {
     stage: hit.stage,
+    ploidy: 'diploid',
     dropout: Math.max(implied, hit.dropout * 0.6),
     basis: 'heterozygosity-shortfall',
     templates: hit.templates,

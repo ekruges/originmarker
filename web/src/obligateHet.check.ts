@@ -6,7 +6,8 @@
 // not, and a change that closes the gap would be silent otherwise.
 import assert from 'node:assert/strict'
 import {
-  informativeEnough, hetCallOneParent, nameAbsentParent, ABSENT_PARENT_OPP_MIN,
+  informativeEnough, whyNotInformative, hetCallOneParent, nameAbsentParent,
+  ABSENT_PARENT_OPP_MIN,
   HAPLOID_MAX, DIPLOID_MIN, ONE_PARENT_HAPLOID_MAX, ONE_PARENT_DIPLOID_MIN, MIN_INFORMATIVE,
   SURVIVOR_MIN, MIXED_SHARE, emptyHet, addOneParent, addTwoParent, hetCall,
 } from './obligateHet.ts'
@@ -387,3 +388,32 @@ console.log('obligateHet.check.ts: arm (b) decision table and its plateau pinned
 }
 
 console.log('obligateHet.check.ts: a heterozygosity-only reconstruction cannot feed the two-parent tally')
+
+// A REFUSAL THAT SAYS NOTHING IS THE COMMONEST UNREADABLE RESULT ON A REAL RUN. Before this, a
+// chromosome too thin or too poorly called simply carried no contribution and nothing recorded why.
+{
+  assert.equal(whyNotInformative(5_000, 0.9), undefined,
+    'a chromosome that clears both conditions is not refused and carries no explanation')
+
+  const thin = whyNotInformative(120, 0.9)
+  assert.ok(thin && /120/.test(thin) && /200/.test(thin),
+    `a refusal on marker count must name the count and the floor. Got: ${thin}`)
+
+  const collapsed = whyNotInformative(5_000, 0.31)
+  assert.ok(collapsed && /31%/.test(collapsed) && /60%/.test(collapsed),
+    `a refusal on call rate must name the rate and the floor. Got: ${collapsed}`)
+
+  // The two reasons are different, because the fixes are different: one needs a denser panel and
+  // the other needs a better array.
+  assert.notEqual(thin, collapsed, 'the two refusals must not read the same')
+
+  // The explanation and the predicate have to agree at every boundary, which is why they live
+  // together. A drift here would print a reason for a call that was made, or none for one refused.
+  for (const [inf, cr] of [[199, 0.9], [200, 0.9], [5_000, 0.59], [5_000, 0.60],
+    [199, 0.59], [200, 0.60]] as const) {
+    assert.equal(whyNotInformative(inf, cr) === undefined, informativeEnough(inf, cr),
+      `the reason and the rule disagree at ${inf} markers and a call rate of ${cr}`)
+  }
+}
+
+console.log('obligateHet.check.ts: a withheld contribution states why')

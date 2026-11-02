@@ -632,6 +632,11 @@ export interface ChromResult {
    */
   contribution?: HetCall
   /**
+   * Why `contribution` is absent, when it is. Set whenever the markers or the call rate were too
+   * thin to support a call, so a reader is never left with a silent gap. See whyNotInformative.
+   */
+  contributionWithheld?: string
+  /**
    * The parent whose copy is gone, read from the alleles alone: at markers where the parents are
    * homozygous for opposite alleles this chromosome shows one parent's allele and nothing else.
    * Set only with two bulk parental arrays on a biparental genome, and it is what sets
