@@ -9,6 +9,65 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.47.0 "Obligate Crossover"
+
+**A refusal now says whether the array failed or the chromosome had nothing to read.** Both came
+back as a thin-markers or thin-call-rate sentence, and they call for opposite responses: one is
+fixed by rerunning the array and the other is fixed by nothing, because it is a property of the
+parents' genotypes or of that one chromosome. A reader could not tell which they had.
+
+Two separate splits, because the refusal has two branches.
+
+On the MARKER-COUNT branch the question is what the parents offered. `HetTally.offered` is the
+number of markers the parents make informative on a chromosome, counted before this sample's own
+calls are looked at, so it is an upper bound on what any array could return there. Under the floor,
+no array can do better and the refusal says so. Over it, with the sample returning far less, the
+array is what failed. The count changes no verdict: whether a call is made is still decided by what
+the sample returned, and a check pins that at every boundary.
+
+On the CALL-RATE branch the question is what the rest of the array managed, and this is the branch
+that fires in practice: 200 informative markers is a low floor against the ten thousand or so a
+chromosome offers, so a sample has to lose nearly everything before the marker count is what stops
+the call. A chromosome genotyped at 17% on an array that reached 95% is a failure confined to that
+chromosome. The same 17% on an array that reached 22% is the array. The comparison is against the
+array's own rate rather than a fixed threshold, because array chemistry varies between runs.
+
+**A chromosome the array failed on no longer disappears.** `chroms` excludes any chromosome under
+200 informative markers, and it should: a rate taken from forty markers is not a measurement and
+would widen every null the other chromosomes are read against. But the chromosome was leaving the
+REPORT along with the measurement. An autosome the array failed to genotype produced no row, no
+call and no reason anywhere, so a panel missing a chromosome looked exactly like a panel on which
+that chromosome was fine. This was the one case the previous release's reasons never reached, and it
+is the case that matters most, because a failed array is what produces it.
+
+`ParentageResult.unmeasured` carries those chromosomes with the same reasons. The web panel shows
+them as a "not measured" badge whose tooltip gives the reason per chromosome, and the unclear table
+labels them NOT MEASURED. On a synthetic array handed back with a fiftieth of one chromosome's
+markers, the refusal names the array and states both counts; on the same array untouched, nothing
+is reported unmeasured.
+
+**chrX is no longer blamed on the parents.** The opposite-homozygote channel counts autosomes only,
+so the offered count for a sex chromosome is zero by construction. Read through the new wording that
+became "the parents are opposite homozygotes at only 0 sites on this chromosome", which states as a
+fact about the family something that is a fact about which channel ran. Every withheld chrX in the
+laboratory and PCSK9 series carried it. A sex chromosome now says the channel does not apply to it
+and names the one that does.
+
+Measured over 459 arrays in seven corpora. 3,065 chromosomes were withheld and every one states a
+reason, as in 5.46.0; what changed is which reason. 2,469 of them are the collapsed-call-rate
+refusal, and that is the split that matters: 2,398 name the array and 71 name the chromosome alone.
+596 are sex chromosomes, which previously read as the parents offering nothing and now say the
+channel does not apply. A further 42 chromosomes had produced no row at all, in two of the seven
+corpora; they now say the parents offered markers this array did not read. Every stated call rate
+was re-derived from the array it describes and none disagreed, and no array changed stage.
+
+The marker-count split did not fire once: no autosome in any of the 459 reached the floor on the
+offered count. 200 informative markers is low against the ten thousand or so a chromosome offers,
+so a sample reaches the call-rate refusal long before it reaches that one. The branch is kept and
+checked because it is the honest answer where it applies, not because these corpora needed it.
+
+---
+
 ## 5.46.0 "Euploidy"
 
 **A withheld call now says why it was withheld.** A chromosome whose markers or call rate were too

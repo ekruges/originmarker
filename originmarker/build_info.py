@@ -207,10 +207,17 @@ RELEASES: tuple[Release, ...] = (
             "The right number of chromosomes. Naming it is a separate question from naming the "
             "material an array came from, and until now only the material had a word: a diploid "
             "cell was described as a trophectoderm and nothing said it carried two genomes."),
+    Release("Obligate Crossover",
+            "Every bivalent must have at least one, or the homologues do not segregate. The "
+            "crossover is not optional and it is not a property of the cell trying harder: either "
+            "the pairing made one available or it did not. The same split applies to a marker: a "
+            "chromosome where the parents are rarely opposite homozygotes offers nothing to read, "
+            "however good the array, and that is a different refusal from an array that was handed "
+            "thousands of such markers and returned ninety."),
 )
 
-VERSION = "5.46.0"
-CODENAME = "Euploidy"
+VERSION = "5.47.0"
+CODENAME = "Obligate Crossover"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

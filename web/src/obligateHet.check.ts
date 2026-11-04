@@ -416,4 +416,89 @@ console.log('obligateHet.check.ts: a heterozygosity-only reconstruction cannot f
   }
 }
 
+// "TOO FEW INFORMATIVE MARKERS" WAS ONE SENTENCE FOR TWO DIFFERENT PROBLEMS, which is the one
+// complaint a reader cannot act on. A chromosome where the parents are rarely opposite homozygotes
+// is a limit of the parents: rerunning the sample on a better array changes nothing. A chromosome
+// where the parents offer thousands of such markers and the sample returned ninety is an array
+// that failed, and rerunning it is exactly the fix. The count the parents offer is known before
+// the sample is read, so the two are separable.
+{
+  const structural = whyNotInformative(90, 0.9, { offered: 120 })
+  const noisy = whyNotInformative(90, 0.9, { offered: 4_000 })
+  assert.ok(structural && noisy, 'both are still refusals')
+  assert.notEqual(structural, noisy,
+    'a marker-poor chromosome and an array that failed on it must not read the same')
+  assert.ok(/120/.test(structural!) && /No array/.test(structural!),
+    `a structural refusal must name the offer and say a better array will not help. Got: ${structural}`)
+  assert.ok(/4,000/.test(noisy!) && /90/.test(noisy!) && /did not read/.test(noisy!),
+    `an array refusal must name both counts and blame the array. Got: ${noisy}`)
+
+  // The offer cannot change the VERDICT, only its wording. Whether a call is made is still decided
+  // by what the sample returned.
+  for (const offered of [0, 120, 4_000, 800_000]) {
+    assert.equal(whyNotInformative(5_000, 0.9, { offered }), undefined,
+      `an offered count of ${offered} must not refuse a chromosome that clears both conditions`)
+    assert.ok(whyNotInformative(90, 0.9, { offered }),
+      `an offered count of ${offered} must not rescue a chromosome with 90 informative markers`)
+  }
+
+  // A collapsed call rate is reported as a collapsed call rate whatever the parents offered: the
+  // chromosome was barely genotyped, and that is the thing to say about it.
+  assert.equal(whyNotInformative(5_000, 0.31, { offered: 50_000 }),
+    whyNotInformative(5_000, 0.31),
+    'the call-rate refusal does not change when the offer is known')
+
+  // Offered can never be below informative, since every informative marker was offered first.
+  const t = emptyHet()
+  for (let i = 0; i < 400; i += 1) {
+    addTwoParent('AA', 'BB', i < 150 ? 'NC' : i < 200 ? 'AB' : 'AA', t)
+    addTwoParent('AA', 'AA', 'AA', t)   // not opposite homozygotes: offered nothing
+  }
+  assert.equal(t.offered, 400, 'every opposite-homozygote marker is offered, no-calls included')
+  assert.equal(t.informative, 250, 'only the ones the sample called are informative')
+  assert.ok(t.offered >= t.informative, 'the offer is an upper bound on what can be informative')
+}
+console.log('obligateHet.check.ts: a marker-poor chromosome and a failed array give different reasons')
+
+// A COLLAPSED CALL RATE IS THE REFUSAL THAT ACTUALLY FIRES ON REAL ARRAYS, because 200 informative
+// markers is a low floor against the ten thousand or so a chromosome offers: the sample has to lose
+// almost everything before the marker count is what stops the call. So this is the branch that has
+// to say whose fault it is, and the chromosome's own rate cannot: 17 percent on an array that
+// reached 95 means one bad chromosome, and 17 percent on an array that reached 22 means a bad
+// array. The actions are a shrug and a rerun.
+{
+  const localised = whyNotInformative(5_000, 0.17, { genomeCallRate: 0.95 })
+  const wholeArray = whyNotInformative(5_000, 0.17, { genomeCallRate: 0.22 })
+  assert.ok(localised && wholeArray, 'both are refusals')
+  assert.notEqual(localised, wholeArray,
+    'one bad chromosome and one bad array must not read the same')
+  assert.ok(/confined to this chromosome/.test(localised!) && /95%/.test(localised!),
+    `a localised failure names the array's own rate and says it is confined. Got: ${localised}`)
+  assert.ok(/not good enough quality/.test(wholeArray!) && /rerun/.test(wholeArray!),
+    `a bad array says so and names the fix. Got: ${wholeArray}`)
+  assert.ok(!/rerun is what fixes/.test(localised!),
+    'and a localised failure must not send the reader off to rerun a perfectly good array')
+
+  // Without the array's rate the sentence is the one it always was, so an older caller that does
+  // not pass it is not given a claim nobody measured.
+  assert.equal(whyNotInformative(5_000, 0.17), whyNotInformative(5_000, 0.17, {}),
+    'the array-wide claim appears only when the array-wide rate is supplied')
+  assert.ok(!/array as a whole/.test(whyNotInformative(5_000, 0.17)!),
+    'and never otherwise')
+
+  // THE BOUNDARY IS THE SAME FLOOR BOTH RATES ARE JUDGED BY. An array sitting exactly at the floor
+  // is not a bad array, so it must read as the localised case.
+  assert.ok(/confined to this chromosome/.test(whyNotInformative(5_000, 0.17,
+    { genomeCallRate: 0.60 })!), 'an array exactly at the floor is not the thing that failed')
+  assert.ok(/not good enough quality/.test(whyNotInformative(5_000, 0.17,
+    { genomeCallRate: 0.59 })!), 'and one just under it is')
+
+  // A chromosome that clears both conditions is still not refused, whatever the array did.
+  for (const g of [0.1, 0.6, 0.99]) {
+    assert.equal(whyNotInformative(5_000, 0.9, { genomeCallRate: g }), undefined,
+      `an array-wide rate of ${g} must not refuse a chromosome that passes`)
+  }
+}
+console.log('obligateHet.check.ts: a collapsed chromosome says whether the array or the chromosome failed')
+
 console.log('obligateHet.check.ts: a withheld contribution states why')

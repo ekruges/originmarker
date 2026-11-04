@@ -721,3 +721,52 @@ console.log('scoreSample.check.ts: a rejected array reports nothing, a one-copy 
     'a banner without a usable heterozygosity leaves the measured zero in place')
   assert.ok(unreadable.inferred, 'but the file is still known to be a reconstruction')
 }
+
+// WHICH OF THE TWO CAUSES, decided on the pipeline rather than on the helper. Chromosome 3 is
+// handed back with almost every marker no-called while the parents' genotypes are left untouched,
+// so the markers are on offer and only the sample failed to read them. The refusal has to say that,
+// because the action it calls for is rerunning the array, and the other refusal's action is
+// accepting that nothing here is readable.
+{
+  const everyNth = 50
+  const blanked = rowsOf(sample).map((row, i) => (
+    row.chrom === '3' && i % everyNth !== 0 ? { ...row, genotype: 'NC' as const } : row))
+  const out = await runRows(blanked as never, true) as unknown as {
+    chroms: { chrom: string; contribution?: unknown; contributionWithheld?: string }[]
+    unmeasured: { chrom: string; why: string }[]
+  }
+  // It is not in `chroms`, and it must not be: 48 markers is not a measurement and its rate would
+  // widen the null every other chromosome is read against. It has to be somewhere, though.
+  assert.ok(!out.chroms.some((c) => c.chrom === '3'),
+    'a chromosome at a fiftieth of its markers stays out of the measurement list')
+  const three = out.unmeasured.find((u) => u.chrom === '3')
+  assert.ok(three, 'but it is reported as unmeasured rather than vanishing from the result')
+  const why = three!.why
+  assert.ok(why, 'and it says why')
+  assert.ok(/did not read them/.test(why!),
+    'the parents offered these markers and the sample lost them, so the array is what is named. '
+    + `Got: ${why}`)
+  assert.ok(!/No array can do better/.test(why!),
+    'and it must not tell the reader the parents are the limit when they are not')
+
+  // Both counts appear, because the gap between them is the evidence for the claim.
+  const nums = [...why!.matchAll(/([\d,]+)/g)].map((m) => Number(m[1].replace(/,/g, '')))
+  assert.ok(nums.length >= 2, `both the offer and the return are stated. Got: ${why}`)
+  assert.ok(Math.max(...nums) > 10 * Math.min(...nums.filter((n) => n > 0)),
+    `the offer must be far above what came back, or this is not the array's failure. Got: ${why}`)
+
+  // The untouched chromosomes are unaffected: this is a statement about chromosome 3 only.
+  const one = out.chroms.find((c) => c.chrom === '1')
+  assert.ok(one && !one.contributionWithheld,
+    'a chromosome the sample read normally still carries its call')
+  assert.equal(out.unmeasured.length, 1,
+    'and no other chromosome is reported unmeasured')
+
+  // A clean run reports nothing unmeasured, or the list would be noise on every array.
+  const clean = await runRows(rowsOf(sample) as never, true) as unknown as {
+    unmeasured: { chrom: string; why: string }[]
+  }
+  assert.equal(clean.unmeasured.length, 0,
+    'an array that genotyped every chromosome reports none unmeasured')
+}
+console.log('scoreSample.check.ts: a refusal names the array when the array is what failed')

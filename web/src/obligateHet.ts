@@ -136,17 +136,57 @@ export const informativeEnough = (
 export const whyNotInformative = (
   informative: number,
   callRate: number,
-  floor = MIN_INFORMATIVE,
-  collapse = 0.60,
+  opts: {
+    floor?: number
+    collapse?: number
+    /** Markers the PARENTS make informative here, whatever this sample returned. See HetTally. */
+    offered?: number
+    /**
+     * The call rate of the WHOLE array, which turns a collapsed chromosome into an actionable
+     * statement. A chromosome at 17 percent on an array that reached 95 percent is a failure
+     * confined to that chromosome; the same 17 percent on an array that reached 22 percent is the
+     * array, and a rerun is the only thing that fixes it. The chromosome figure alone cannot tell
+     * a reader which, and the two call for different work.
+     */
+    genomeCallRate?: number
+  } = {},
 ): string | undefined => {
+  const floor = opts.floor ?? MIN_INFORMATIVE
+  const collapse = opts.collapse ?? 0.60
+  const { offered, genomeCallRate: genome } = opts
   if (informativeEnough(informative, callRate, floor, collapse)) return undefined
   if (informative < floor) {
+    // WHICH OF TWO CAUSES, told apart by what the PARENTS offered here, which is known before this
+    // sample is read at all. A marker-poor chromosome and an array that failed on one call for
+    // opposite responses: the first is not fixed by a better array and the second is fixed by
+    // nothing else.
+    if (offered !== undefined && offered < floor) {
+      return `the parents are opposite homozygotes at only ${offered.toLocaleString()} sites on `
+        + `this chromosome, under the ${floor} a call needs. No array can do better here: this is `
+        + 'the parents\' genotypes, not this sample'
+    }
+    if (offered !== undefined && offered >= floor) {
+      return `the parents offer ${offered.toLocaleString()} informative sites on this chromosome `
+        + `and this sample returned ${informative.toLocaleString()}, under the ${floor} a call `
+        + 'needs. The markers are there; this array did not read them'
+    }
     return `${informative.toLocaleString()} informative markers here is under the ${floor} a call `
       + 'needs'
   }
-  return `this chromosome was genotyped at ${(100 * callRate).toFixed(0)}% of its markers, under `
-    + `the ${(100 * collapse).toFixed(0)}% a call needs. An extreme value read off this few calls `
-    + 'is not a measurement'
+  const head = `this chromosome was genotyped at ${(100 * callRate).toFixed(0)}% of its markers, `
+    + `under the ${(100 * collapse).toFixed(0)}% a call needs. An extreme value read off this few `
+    + 'calls is not a measurement'
+  if (genome === undefined || !Number.isFinite(genome)) return head
+  // THE SAME NUMBER MEANS DIFFERENT THINGS depending on what the rest of the array managed. The
+  // comparison is against the array's own call rate, not a fixed threshold, because array
+  // chemistry varies between runs and a rate that is poor for one platform is normal for another.
+  return genome >= collapse
+    ? `${head}. The array as a whole reached `
+      + `${(100 * genome).toFixed(0)}%, so this is confined to this chromosome rather than a `
+      + 'property of the array: rerunning the sample is unlikely to change it'
+    : `${head}. The array as a whole reached only `
+      + `${(100 * genome).toFixed(0)}%, under the same floor, so this is the array and not this `
+      + 'chromosome: it is not good enough quality to call from, and a rerun is what fixes it'
 }
 
 /**
@@ -243,6 +283,16 @@ export function hetCallOneParent(
 export type Ploidy2 = 'uniparental' | 'biparental' | 'uncalled'
 
 export interface HetTally {
+  /**
+   * Markers the PARENTS make informative on this chromosome, counted before the sample is looked
+   * at. This is fixed by the parents' genotypes: no array, however good, can produce more.
+   *
+   * It is what separates two refusals that otherwise read the same. Few informative markers
+   * because the parents are rarely opposite homozygotes here is a structural limit. Few because
+   * the parents offer plenty and this sample returned little is a quality problem with the array.
+   * The first cannot be fixed by rerunning; the second can.
+   */
+  offered: number
   /** Markers where the reference parent(s) made this marker informative and the sample called. */
   informative: number
   /** Of those, how many the sample called heterozygous. */
@@ -255,7 +305,7 @@ export interface HetTally {
   onlyB: number
 }
 
-export const emptyHet = (): HetTally => ({ informative: 0, het: 0, onlyA: 0, onlyB: 0 })
+export const emptyHet = (): HetTally => ({ offered: 0, informative: 0, het: 0, onlyA: 0, onlyB: 0 })
 
 /**
  * Share of informative markers reading ONE parent's allele alone before that parent is named the
@@ -305,6 +355,9 @@ export function addOneParent(parent: AB, sample: AB, t: HetTally): void {
 export function addTwoParent(a: AB, b: AB, sample: AB, t: HetTally): void {
   const oppositeHom = (a === 'AA' && b === 'BB') || (a === 'BB' && b === 'AA')
   if (!oppositeHom) return
+  // Counted before the sample's own call is considered, so a marker the sample failed to genotype
+  // still counts as one the parents offered.
+  t.offered += 1
   if (sample === 'NC') return
   t.informative += 1
   if (sample === 'AB') t.het += 1

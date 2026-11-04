@@ -198,7 +198,7 @@ export interface Collected {
   t: ReturnType<typeof emptyTally>
   tm: ReturnType<typeof emptyTally> | null
   dosageByChrom: Map<string, DosageMarker[]>
-  hetByChrom: Map<string, { informative: number; het: number }>
+  hetByChrom: Map<string, { offered: number; informative: number; het: number }>
   /** The same tally at markers where the loaded parent is HETEROZYGOUS, which the one-parent
    *  contribution call reads instead. See hetCallOneParent. */
   parentHetByChrom: Map<string, { informative: number; het: number }>
@@ -310,9 +310,25 @@ export function collectRow(
     if (r.genotype === 'AB') ph.het += 1
     acc.parentHetByChrom.set(r.chrom, ph)
   }
+  // MARKERS THE PARENTS OFFER, counted whether or not this sample managed to call them. The
+  // homologue block below requires a call, so the offered count has to be taken here as well or a
+  // chromosome the array failed on would report that the parents offered nothing. The two numbers
+  // together are what separates a marker-poor chromosome from an array that did not read one:
+  // `addTwoParent` counts the offer first and returns on a no-call. See whyNotInformative.
+  if ((fa === 'AA' || fa === 'BB') && r.genotype === 'NC' && isAutosome(r.chrom)) {
+    const h = hetByChrom.get(r.chrom) ?? { offered: 0, informative: 0, het: 0 }
+    h.offered += 1
+    hetByChrom.set(r.chrom, h)
+    if (mat) {
+      const ob = obligateByChrom.get(r.chrom) ?? emptyHet()
+      addTwoParent(fa, mat.gt.get(r.probesetId) ?? 'NC', 'NC', ob)
+      obligateByChrom.set(r.chrom, ob)
+    }
+  }
   if ((fa === 'AA' || fa === 'BB') && r.genotype !== 'NC' && isAutosome(r.chrom)) {
     // The homologue channel: every heterozygous call here is error in a haploid.
-    const h = hetByChrom.get(r.chrom) ?? { informative: 0, het: 0 }
+    const h = hetByChrom.get(r.chrom) ?? { offered: 0, informative: 0, het: 0 }
+    h.offered += 1
     h.informative += 1
     if (r.genotype === 'AB') h.het += 1
     hetByChrom.set(r.chrom, h)
@@ -510,9 +526,41 @@ export async function scoreSample(input: {
     // `informativeEnough`.
     const stats = profile.byChrom.get(c.chrom)
     const chromCallRate = stats && stats.markers > 0 ? stats.called / stats.markers : NaN
-    const withheld = whyNotInformative(call.informative, chromCallRate)
+    // A SEX CHROMOSOME IS NOT A CHROMOSOME WITH NO MARKERS ON IT. The opposite-homozygote channel
+    // counts autosomes only, so the offered count for chrX is zero by construction, and the
+    // offered-count wording would state as a fact about the parents something that is a fact about
+    // which channel ran. chrX is scored by callSexChromosomes, on intensity and heterozygosity,
+    // and saying so is the honest refusal.
+    const withheld = isAutosome(c.chrom)
+      ? whyNotInformative(call.informative, chromCallRate,
+        { offered: tally.offered, genomeCallRate: profile.callRate })
+      : 'the opposite-homozygote channel counts autosomes only, so it makes no call on a sex '
+        + 'chromosome whatever the array quality. chrX and chrY are scored separately, on '
+        + 'intensity and heterozygosity rather than on which parent\'s allele is present'
     if (withheld) c.contributionWithheld = withheld
     else c.contribution = call
+  }
+  // THE CHROMOSOMES THAT NEVER REACHED THE MEASUREMENT LIST. `chroms` excludes any chromosome under
+  // 200 informative markers, correctly: its rate is not a measurement and would widen every null
+  // taken from the spread of the others. But it was leaving the report as well as the measurement,
+  // so an autosome the array failed to genotype produced no row, no call and no reason, which is
+  // the one outcome a reader cannot distinguish from a chromosome that was fine. They are recorded
+  // here instead, with the same two-way reason the withheld chromosomes get.
+  const inChroms = new Set(result.chroms.map((c) => c.chrom))
+  for (const [chrom, tally] of [...hetByChrom].sort((a, b) => Number(a[0]) - Number(b[0]))) {
+    if (inChroms.has(chrom) || !isAutosome(chrom)) continue
+    const stats = profile.byChrom.get(chrom)
+    const cr = stats && stats.markers > 0 ? stats.called / stats.markers : NaN
+    result.unmeasured.push({
+      chrom,
+      why: whyNotInformative(tally.informative, cr,
+        { offered: tally.offered, genomeCallRate: profile.callRate })
+        // Reached only if the chromosome clears both conditions here yet was still excluded, which
+        // means the two tallies disagree. Said plainly rather than papered over.
+        ?? `${tally.informative.toLocaleString()} informative markers on this chromosome, which `
+          + 'clears the floor for a contribution call but not the one the per-chromosome '
+          + 'measurements need',
+    })
   }
   // "ON A GENOME THAT CARRIES BOTH PARENTS ELSEWHERE" IS A CONDITION, AND IT IS MEASURED HERE
   // RATHER THAN TAKEN FROM THE GENOME-LEVEL CLASS. A bulk array of the father loaded as a sample is
@@ -1165,7 +1213,7 @@ export async function scoreSample(input: {
         band: c.band,
       }
     }
-    const h = hetByChrom.get(chrom) ?? { informative: 0, het: 0 }
+    const h = hetByChrom.get(chrom) ?? { offered: 0, informative: 0, het: 0 }
     const background = externalHetBackground(hetByChrom, chrom)
     const c = callHomologue(
       h.informative ? h.het / h.informative : NaN, h.informative, background,

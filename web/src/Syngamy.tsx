@@ -165,6 +165,13 @@ function defectsForResult(r: ParentageResult) {
           + 'which did not reach a verdict on this chromosome: a monosomy and an isodisomy read '
           + 'the same at these markers.')
       : ''
+    // WHY THE ALLELE CHANNEL IS SILENT ON A ROW THAT EXISTS. The intensity channel can reach a
+    // verdict on a chromosome the alleles declined, and until now the row simply carried no allele
+    // sentence: a reader comparing the two channels could not tell a chromosome with nothing to
+    // read from one the array failed on. The refusal states which.
+    const withheldWhy = !k && c.contributionWithheld
+      ? ` The alleles reached no verdict here: ${c.contributionWithheld}.`
+      : ''
     const conflictWhy = conflict
       ? ` The allele count and the Mendelian channel name different parents, so no parent is named.`
       : ''
@@ -198,7 +205,7 @@ function defectsForResult(r: ParentageResult) {
         : `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
           + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest, neither of `
           + 'which reached a whole-chromosome verdict; the alleles did.')
-        + `${lettersWhy}${conflictWhy}${mixedWhy}`
+        + `${lettersWhy}${withheldWhy}${conflictWhy}${mixedWhy}`
         + (c.aneuploidy === 'gain' && ag && alleleEvent(c) ? ` By the alleles: ${ag.why}.` : '')
         + (gainConflict ? ' The alleles and the dosage channel name different parents, so no parent is named.' : '')
         + `${named ? ` ${mendel?.why}` : ''}${scored?.why ? ` ${scored.why}` : ''}`,
@@ -1187,6 +1194,21 @@ function ResultCard({ entry, donorName, oocyteName }: {
           {r.chroms.some((c) => c.mixed) && (
             <Badge size="sm" variant="outline" color="orange">
               {r.chroms.filter((c) => c.mixed).length} mixed signal
+            </Badge>
+          )}
+          {/* A CHROMOSOME WITH NO ROW IS THE ONE RESULT A READER CANNOT SEE. An array that failed to
+              genotype a chromosome left it out of `chroms` entirely, so the panel looked exactly
+              like a panel on which that chromosome was fine. The badge names them, and its tooltip
+              says for each whether the parents had nothing to offer there or the array did not read
+              what they offered: the first is a limit of the family, the second is fixed by a rerun. */}
+          {(r.unmeasured ?? []).length > 0 && (
+            <Badge
+              size="sm"
+              variant="outline"
+              color="genomeGrey"
+              title={r.unmeasured.map((u) => `chr${u.chrom}: ${u.why}`).join('\n')}
+            >
+              {r.unmeasured.length} not measured
             </Badge>
           )}
           {r.chroms.some((c) => c.alleleGain?.verdict === 'gain') && (

@@ -733,6 +733,17 @@ export interface ParentageResult {
   /** The cleanest chromosome. Near zero means some of the genome is untouched. */
   minChromRate: number
   chroms: ChromResult[]
+  /**
+   * AUTOSOMES THAT NEVER REACHED `chroms` AT ALL, with the reason in words.
+   *
+   * `chroms` is the measurement list, and a chromosome carrying under 200 informative markers is
+   * excluded from it because its rate is not a measurement and would corrupt every null derived
+   * from the spread of the others. Excluding it from the measurement is right; excluding it from
+   * the REPORT is not, and it was being dropped with nothing recorded anywhere. A chromosome the
+   * array failed to genotype is the result most worth stating plainly, and it was the one result
+   * that disappeared. Populated by `scoreSample`, which holds the counts the reason quotes.
+   */
+  unmeasured: { chrom: string; why: string }[]
   /** Where along a chromosome the parental genome is missing, rather than whether. Populated by
    *  the caller, which is the only place marker positions are in hand; see `segments.ts`. */
   segments: Segment[]
@@ -1411,7 +1422,7 @@ export function classify(
     losses: [],
     nonParentalRate, secondParentExpected, hetBand, homBand, homPinnedRate,
     noCallRate, hetFraction,
-    dispersion, minChromRate: minChrom, chroms, notes, limits,
+    dispersion, minChromRate: minChrom, chroms, unmeasured: [], notes, limits,
   }
 }
 
