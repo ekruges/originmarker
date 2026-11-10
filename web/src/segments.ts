@@ -105,6 +105,28 @@ export const SEGMENT_LRT = 250
 export const SEGMENT_LRR_SHIFT = 1.0
 
 /**
+ * The gain gate, as a fraction of the loss gate.
+ *
+ * THE TWO DIRECTIONS DO NOT CARRY THE SAME MAGNITUDE. A hemizygous loss is log2(1/2) = -1.0 and a
+ * third copy is log2(3/2) = +0.585. One gate for both therefore asks 1.71x as much of a gain as of
+ * a loss, which puts it ABOVE the event it exists to admit, and the constructed gain controls
+ * above cleared it only because the spliced donor block came from an array reading +1.60 to +1.95:
+ * amplification distortion, not a third copy.
+ *
+ * Gating each arm at the same FRACTION of its own expected magnitude is also what makes the gate
+ * independent of the per-cell scale. Whatever factor amplification imposes on a cell's deviations
+ * multiplies the expected loss and the expected gain alike, so it cancels out of the ratio and no
+ * per-cell estimate is required to keep the two arms consistent.
+ *
+ * Measured on the 93 hand-called regions: four gains carrying deviations of 0.815, 0.954, 0.994
+ * and 0.998 were refused by the symmetric gate, one of them a 145 Mb region holding 34,297
+ * markers. Admitting them costs nothing on the loss arm, which this does not touch.
+ */
+export const GAIN_SHIFT_FRACTION = Math.log2(3) - 1
+
+export const SEGMENT_GAIN_SHIFT = SEGMENT_LRR_SHIFT * GAIN_SHIFT_FRACTION
+
+/**
  * Reciprocal overlap at which two opposite-parent absence windows are taken to describe ONE
  * region rather than two.
  *
@@ -430,6 +452,7 @@ export function scanCopyNumber(
   minMarkers = MIN_SEGMENT_MARKERS,
   threshold = SEGMENT_LRT,
   shift = SEGMENT_LRR_SHIFT,
+  gainShift = shift * GAIN_SHIFT_FRACTION,
 ): Segment[] {
   const ms = [...markers].sort((a, b) => a.pos - b.pos)
   const hits = scanChromosome(
@@ -445,8 +468,11 @@ export function scanCopyNumber(
     const delta = inside[inside.length >> 1] - genomeLrr
     // Without this the scan reports regions the array merely failed on. Measured: the rejected
     // ones carry -0.72 to +0.38, the kept ones -0.97 to -1.94.
-    if (Math.abs(delta) < shift) continue
-    out.push({ ...h, kind: delta >= shift ? 'copy-gain' : 'copy-loss' })
+    //
+    // THE TWO ARMS ASK DIFFERENT MAGNITUDES, because the events are different sizes: see
+    // GAIN_SHIFT_FRACTION. A symmetric test here refused four real gains at 0.815 to 0.998.
+    if (delta >= gainShift) out.push({ ...h, kind: 'copy-gain' })
+    else if (delta <= -shift) out.push({ ...h, kind: 'copy-loss' })
   }
   return out
 }

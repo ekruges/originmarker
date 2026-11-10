@@ -1,0 +1,79 @@
+The gain gate: a correct fix that buys nothing, and the measurement that says why
+=================================================================================
+
+Run 9 November 2026 against 5.48.0 plus the asymmetric gain gate. Scored against
+audit/gain-gate-preregistration.txt, written before the change. Per-region tables carry
+laboratory barcodes and stay in audit/local/. Barcodes pseudonymised per audit/local/barcode-map.tsv.
+
+THE PREDICTIONS, SCORED
+-----------------------
+  P1  the four gains at 0.815, 0.954, 0.994 and 0.998 are recovered; gains reach 15 of 26.
+      FAILS. 0 of 4 recovered. Gains are 11 of 26, identical to the baseline.
+
+  P2  losses are exactly 44 of 67, unchanged.
+      HOLDS. 44 of 67, and every per-region row matches the baseline.
+
+  P3  the false arm stays at 2 segments or fewer across the 72 arrays with no hand call.
+      HOLDS. 1 segment on 1 array, chr2 20.6 to 24.6 Mb, a 4.0 Mb copy-gain. The same single
+      call as the baseline, so specificity is untouched as well as recall.
+
+  P4  at least 3 of the 4 recovered gains read a pole fraction above 0.60.
+      NOT APPLICABLE. Nothing was recovered.
+
+WHY P1 FAILED, AND WHY THE PREREGISTRATION WAS SCORING THE WRONG STAGE
+----------------------------------------------------------------------
+All four of those regions report a best reciprocal overlap of 0.00 after the change: the detector
+raised no segment anywhere near them, so no gate setting could have mattered.
+
+The cause attribution the baseline supplied is not a diagnosis. joy-dieter.ts classifies a miss as
+"under SEGMENT_LRR_SHIFT" when the deviation DIETER reports is below the constant. His number is
+measured over his own boundaries and says nothing about whether the scan nominated a window there.
+Four regions were filed against a gate that had never been offered them. The preregistration
+inherited that error, which is the honest reason P1 was wrong rather than unlucky.
+
+audit/joy-gain-miss-cause.ts measures the two stages apart. For every hand region it reports the
+best score any overlapping window can reach from the no-call channel with the threshold removed,
+beside the intensity deviation the detector itself measures inside.
+
+WHERE THE 93 REGIONS ARE ACTUALLY LOST
+--------------------------------------
+                                    gains (26)   losses (67)
+  never nominated, no-call < 250          8            3
+  nominated, lost on boundary overlap     7           20
+  rejected by the intensity gate          0            0
+  found at 0.5 reciprocal overlap        11           44
+
+The intensity gate rejects nothing in either direction. The asymmetric gate is still a defect
+worth removing, because a symmetric test asks 1.71x as much of a gain as of a loss and the
+constructed gain controls cleared it only on a donor block reading +1.60 to +1.95, but on this
+corpus it is a no-op and is reported as one.
+
+THE DETECTOR IS A DAMAGE DETECTOR, NOT A GAIN DETECTOR
+------------------------------------------------------
+                       no-call inside   the array's own null   intensity measured inside
+  the 11 gains found     0.738 to 0.988    0.355 to 0.425          +1.570 to +2.971
+  the 8 never nominated  0.395 to 0.578    0.326 to 0.447          +0.372 to +1.158
+
+Inside a found gain the array has stopped genotyping almost everything. Inside a gain it never
+sees, the no-call rate is barely over that array's own baseline, which is what a real third copy
+produces: an extra copy does not stop an array calling. Candidate windows are nominated on the
+no-call indicator, so the only regions ever offered to the gate are regions the array failed on.
+This is the same conclusion audit/joy-gain-recall-splits-by-pole-2026-11-08.txt reached from the
+homozygous poles, now located at the stage responsible for it.
+
+WHAT THIS MAKES AVAILABLE
+-------------------------
+7 of the 8 never-nominated gains carry an intensity deviation between 0.660 and 1.158, all above
+the 0.585 gain gate. The signal is present and measured; nothing reads it, because nothing
+nominates the window. Nominating gain candidates on intensity rather than no-call is therefore the
+change with the recall in it, and the existing scanner already takes a binary per-marker indicator
+against a rate null, so it needs a different indicator rather than new machinery.
+
+The specificity risk is specific and must be measured, not argued: the clean-window null reaches
+0.53 at 10 Mb against a gate of 0.585, over roughly 18,500 null windows per scan. The 72 arrays
+with no hand call are what that gets measured on, at the same bar.
+
+WHAT IS STILL NOT THIS
+----------------------
+Boundary overlap loses 7 gains and 20 losses, more than nomination loses in total. That is a
+scoring question and is to be reported as a rescoring in its own row, never folded into recall.

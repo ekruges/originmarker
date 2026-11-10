@@ -22,7 +22,8 @@
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import {
-  MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, RECIPROCAL_OVERLAP,
+  MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, SEGMENT_GAIN_SHIFT,
+  RECIPROCAL_OVERLAP,
   canDetectLoss,
   externalNull,
   scanChromosome, scanCopyNumber,
@@ -247,8 +248,19 @@ console.log('segments.check.ts: all assertions passed, including that every surf
   // The direction is read from the SIGN, so the two must never collapse onto each other.
   assert.equal(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, -1.9), 0.10, 0)[0].kind, 'copy-loss')
   // And a shift that does not clear the bar is neither, in either direction.
-  assert.deepEqual(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, 0.9), 0.10, 0), [])
+  // THE ARMS ARE NOT SYMMETRIC, and the previous version of this check asserted that they were.
+  // A hemizygous loss is log2(1/2) = 1.0 and a third copy is log2(3/2) = 0.585, so one gate for
+  // both refused real gains: four of the hand-called regions carry 0.815 to 0.998, one of them
+  // 145 Mb. A deviation of +0.9 is a gain and must be called.
+  const nearGain = scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, 0.9), 0.10, 0)
+  assert.equal(nearGain.length, 1, '+0.9 is over the gain gate and under the loss gate')
+  assert.equal(nearGain[0].kind, 'copy-gain')
+  // The same magnitude on the loss arm is still refused, because that gate is untouched. These two
+  // lines together are the whole of the change: one direction moved and the other did not.
   assert.deepEqual(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, -0.9), 0.10, 0), [])
+  // And the gain arm is a gate, not an opening. Below log2(3/2) it still refuses.
+  assert.deepEqual(scanCopyNumber(cn(40_000, 5_000, 14_999, 0.85, 0.4), 0.10, 0), [],
+    '+0.4 is under the gain gate')
 
   // A clean chromosome yields nothing in either direction.
   assert.deepEqual(scanCopyNumber(cn(40_000, -1, -1, 0, 0), 0.10, 0), [])
@@ -263,4 +275,9 @@ console.log('segments.check.ts: all assertions passed, including that every surf
   assert.equal(parental.length, 1)
   assert.equal(parental[0].kind, 'parental-absence')
   assert.equal(SEGMENT_LRR_SHIFT, 1.0)
+  // The gain gate is DERIVED from the loss gate, so the two cannot drift apart by editing one.
+  assert.ok(Math.abs(SEGMENT_GAIN_SHIFT - 0.5849625007211562) < 1e-12,
+    'the gain gate is the loss gate times log2(3/2)')
+  assert.ok(SEGMENT_GAIN_SHIFT < SEGMENT_LRR_SHIFT,
+    'a third copy is a smaller deviation than a lost copy, so its gate is lower')
 }
