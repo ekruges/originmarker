@@ -14,6 +14,13 @@
  * itself measures there. A score far under SEGMENT_LRT means the nomination channel is blind and no
  * gate setting can matter.
  *
+ * IT ALSO PROBES THE REPLACEMENT INDICATOR, before any of it is shipped. The scanner takes a
+ * binary per-marker flag against a rate null, so nominating on intensity needs a different flag
+ * and no new machinery: a marker counts when its log R sits above the quantile of this array's own
+ * autosomal distribution, which makes the null self-calibrating per array and introduces no
+ * absolute intensity threshold, since a cohort offset does not transfer between laboratories.
+ * Three quantiles are reported so the cut is chosen from the measurement rather than guessed.
+ *
  * Run: OM_DIR=<dir of .probes> OM_REGIONS=<regions-dieter.tsv> \
  *        node --experimental-strip-types audit/joy-gain-miss-cause.ts
  */
@@ -60,6 +67,11 @@ for (const f of files) {
     const ms = byChrom.get(h.chrom)
     if (!ms) { out.push([cell, h.chrom, h.kind, h.dev, 'NO MARKERS'].join('\t')); continue }
     const nul = segs.externalNull(noCall, h.chrom) as number
+    // This array's own autosomal log R distribution, so the cut is relative to the sample.
+    const allLrr = [...byChrom.values()].flat()
+      .map((m) => m.log2R).filter((x): x is number => x !== null).sort((x, y) => x - y)
+    const lrrQuantile = (pq: number): number =>
+      allLrr[Math.min(allLrr.length - 1, Math.floor(pq * allLrr.length))]
     const inside = ms.filter((m) => m.pos >= h.start && m.pos <= h.end)
     const ncIn = inside.length ? inside.filter((m) => !m.called).length / inside.length : NaN
     const ncChr = ms.filter((m) => !m.called).length / ms.length
@@ -83,13 +95,42 @@ for (const f of files) {
         bestSpan = `${(p.startBp / 1e6).toFixed(1)}-${(p.endBp / 1e6).toFixed(1)}`
       }
     }
+    // THE REPLACEMENT INDICATOR, probed at three cuts. Same scanner, same marker floor, same
+    // null machinery; only the flag and its rate change. Threshold dropped to zero again, so the
+    // score reported is what the channel can reach rather than whether it passed.
+    const probeHigh: string[] = []
+    for (const Q of [0.70, 0.80, 0.90]) {
+      const cut = lrrQuantile(Q)
+      const highByChrom = new Map<string, [number, number]>()
+      for (const [c, cms] of byChrom) {
+        const v = cms.filter((m) => m.log2R !== null)
+        highByChrom.set(c, [v.length, v.filter((m) => (m.log2R as number) > cut).length])
+      }
+      const hiNull = segs.externalNull(highByChrom, h.chrom) as number
+      const vIn = inside.filter((m) => m.log2R !== null)
+      const hiIn = vIn.length ? vIn.filter((m) => (m.log2R as number) > cut).length / vIn.length : NaN
+      const hits = segs.scanChromosome(
+        ms.map((m) => ({ chrom: m.chrom, pos: m.pos,
+          absent: m.log2R !== null && (m.log2R as number) > cut })),
+        hiNull, segs.MIN_SEGMENT_MARKERS, 0,
+      ) as { startBp: number; endBp: number; score: number }[]
+      let hiBest = 0
+      for (const t of hits) {
+        if (Math.min(t.endBp, h.end) - Math.max(t.startBp, h.start) <= 0) continue
+        if (t.score > hiBest) hiBest = t.score
+      }
+      probeHigh.push(hiIn.toFixed(3), hiNull.toFixed(4), hiBest.toFixed(0))
+    }
+
     out.push([cell, h.chrom, h.kind, h.dev.toFixed(3), ((h.end - h.start) / 1e6).toFixed(1),
       inside.length, ncIn.toFixed(3), ncChr.toFixed(3), nul.toFixed(4), delta.toFixed(3),
-      best.toFixed(0), bestSpan].join('\t'))
+      best.toFixed(0), bestSpan, ...probeHigh].join('\t'))
   }
 }
 const head = ['cell', 'chrom', 'kind', 'his_dev', 'mb', 'markers_in', 'nocall_in', 'nocall_chrom',
-  'null', 'our_delta', 'best_nocall_score', 'best_window_mb'].join('\t')
+  'null', 'our_delta', 'best_nocall_score', 'best_window_mb',
+  'hi70_in', 'hi70_null', 'hi70_score', 'hi80_in', 'hi80_null', 'hi80_score',
+  'hi90_in', 'hi90_null', 'hi90_score'].join('\t')
 const text = [head, ...out].join('\n') + '\n'
 if (process.env.OM_TSV) { writeFileSync(process.env.OM_TSV, text); console.log(`wrote ${process.env.OM_TSV}`) }
 else console.log(text)

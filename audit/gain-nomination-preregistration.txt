@@ -1,0 +1,72 @@
+Pre-registration: nominating gain candidates on intensity, and the specificity it must not cost
+================================================================================================
+
+Written 9 November 2026 against 5.48.0 plus the asymmetric gain gate, BEFORE the scan is changed.
+Baseline: audit/joy-dieter-baseline-2026-11-08.txt, re-confirmed today at gains 11 of 26, losses
+44 of 67, 1 false segment across the 72 arrays with no hand call.
+
+WHAT THE MEASUREMENT ESTABLISHED
+--------------------------------
+audit/gain-gate-result-2026-11-09.txt: candidate windows are nominated on the no-call indicator,
+which an extra copy barely moves. Inside the 11 gains the scan finds, the no-call rate is 0.738 to
+0.988 against an array null near 0.40. Inside the 8 it never nominates it is 0.395 to 0.578,
+barely over baseline. The intensity gate rejects nothing; nomination is the whole loss.
+
+Probed today at three cuts of this array's own autosomal log R distribution, with the scanner,
+null machinery and marker floor unchanged and only the per-marker flag replaced:
+
+  cut      gains nominated   of the 8 blind    losses nominated
+  q=0.70        25 of 26          7 of 8          0 of 67
+  q=0.80        24 of 26          6 of 8          0 of 67
+  q=0.90        24 of 26          6 of 8          0 of 67
+
+q=0.70 is chosen on that table. Zero losses nominated at any cut is structural rather than lucky:
+the flag counts markers whose intensity is HIGH, which a lost copy cannot produce.
+
+The 8th blind gain carries an intensity deviation of 0.372, under the 0.585 gain gate, so it has
+no signal for this channel to find and is not claimed. 7 of 8 is the ceiling from nomination.
+
+THE CHANGE
+----------
+A separate scan, nominated on intensity, emitting gains only. scanCopyNumber is not touched, so
+the loss arm is identical by construction and not by expectation. A marker counts when its log R
+exceeds the q=0.70 quantile of that sample's own autosomal distribution, which keeps the null
+self-calibrating per array and introduces no absolute intensity threshold, since a per-chromosome
+cohort offset is lab-specific and does not transfer. The null is the median high rate over the
+sample's OTHER autosomes, the same externalNull the no-call arm uses. A nominated window must then
+still clear the intensity gate at 0.585, which is not circular: the flag fires on a heavy upper
+tail, the gate asks that the MEDIAN moved. Windows reciprocally overlapping a segment the no-call
+arm already raised are dropped rather than reported twice.
+
+PREDICTIONS, FIXED NOW
+----------------------
+P1  gain recall reaches AT LEAST 15 of 26. Nomination reaches 7 more and all 7 carry deviations of
+    0.660 to 1.158, over the gate, but nomination is not a match: each window must also reach 0.5
+    reciprocal overlap with his boundaries, and boundary disagreement already costs 7 nominated
+    gains today. 15 is the bar; 18 is the ceiling if every one lands.
+    FAILS below 15 of 26.
+
+P2  losses are EXACTLY 44 of 67 and every per-region row is unchanged.
+    FAILS on any difference. scanCopyNumber is untouched, so a difference is a wiring bug.
+
+P3  the false arm stays at 2 segments or fewer across the 72 arrays with no hand call.
+    THIS IS THE REAL RISK AND IT IS NOT RHETORICAL. The clean-window null reaches 0.53 at 10 Mb
+    against a gate of 0.585, over roughly 18,500 null windows per scan, and this change is
+    precisely the removal of the requirement that kept noisy regions out. SHIPS at 2 or fewer.
+    DOES NOT SHIP at 3 or more, in which case the cut moves to q=0.80 or q=0.90, which cost one
+    blind gain each, and if neither holds the channel needs the allele evidence rather than a
+    tuned quantile.
+
+P4  the gains this recovers are the biology and not more damage. The newly found gains read a
+    homozygous-pole fraction ABOVE 0.60, the undamaged side of the 8 November split, where the 11
+    already found sit at a median of 0.340.
+    This does not gate the release. It is the test of whether the recall moved toward real third
+    copies, which is the entire point of the exercise.
+
+WHAT IS STILL NOT THIS, AND IS NOT CLAIMED
+------------------------------------------
+Boundary overlap costs 7 gains and 20 losses, more than nomination costs in total. It is a scoring
+question, to be reported as a rescoring in its own row and never folded into recall.
+
+No allele evidence is used. These cells have no parent arrayed, so the gain call rests on intensity
+alone and names no parent. Which parent supplied an extra copy remains unavailable here.
