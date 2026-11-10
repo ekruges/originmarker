@@ -99,3 +99,37 @@ The gain gate was symmetric. A hemizygous loss is log2(1/2) and a third copy is 
 gate asked 1.71x as much of a gain as of a loss and sat above the event it existed to admit. The
 constructed gain controls cleared it only because the spliced donor block read +1.60 to +1.95.
 Fixed, and on this corpus it rejects nothing either way: the gate was never what lost the gains.
+
+ADDENDUM, 10 NOVEMBER: THE HETEROZYGOSITY CEILING OVER-REFUSES, AND ITS OBVIOUS REPLACEMENT FAILS
+--------------------------------------------------------------------------------------------------
+All 8 refusals fire on one branch, h > MAX_DIPLOID_HET; none fires on the call-rate floor. Scored
+against 5.48.0's information ratio, which is independent of heterozygosity, they split:
+
+  no information, R 1.010 to 1.122      5 cells    12 of the 26 gains
+  calls informative, R 0.323 to 0.429   3 cells    11 of the 26 gains
+
+The second group is an over-refusal. One of those three reads R 0.323 while two cells that PASS
+read 0.305 and 0.330, so the information content does not separate them and heterozygosity alone is
+doing the refusing. The branch's own caveat states that a mixture, a contaminated reaction and a
+failed array cannot be told apart; 5.48.0 tells a failed array from a mixture, so that caveat is
+out of date.
+
+THE REPLACEMENT TESTED AND REJECTED. The scan's actual requirement is a normal majority, so the
+statistic measured was the share of autosomes whose median log R lies within a band of the genome
+median, with the majority threshold at 0.5 because that is what majority means. Against Zuccaro
+Table S3 at a band of 0.15 it refuses 12 of 12 cells published chaotic and admits 18 of 19 of the
+rest, the single error being a cell published 45,XY,-6 at exactly 0.500.
+
+On the hand-call corpus it fails in both directions. It would ADMIT the four cells reading R 1.082
+to 1.122, whose calls carry no information and whose intensity happens to be uniform, and REFUSE
+eight cells that scan today including one at R 0.220 and heterozygosity 0.136. Intensity
+concordance and genotype information are orthogonal: amplification swings per-chromosome intensity
+without copy number, and a dead array can read flat.
+
+Conjoining the two tests is defensible and recovers 1 of the 11, not 11: of the three
+informative-but-refused cells, one has a normal majority at 1.000 and two have none at 0.000.
+
+NOTHING SHIPPED. The finding is measured and stands. The replacement does not, and a rule that
+changes 12 of 21 verdicts on this corpus is not one to adopt against a deadline. What it needs is
+a band that scales with each array's own per-chromosome spread, which is circular on a chaotic
+genome, and that is the open question rather than a tuning exercise.
