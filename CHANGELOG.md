@@ -9,6 +9,68 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.49.0 "Unequal Exchange"
+
+**Segmental gains are now nominated on intensity, because the channel that finds losses cannot
+find them.** `scanCopyNumber` proposes a candidate window where the array STOPPED GENOTYPING and
+then asks the intensity to agree. A missing copy takes the DNA away and the array stops calling; an
+extra copy leaves every marker present. Measured inside hand-called gains that scan did find, the
+no-call rate runs 74% to 99% against an array baseline near 40%, which is amplification damage.
+Inside the gains it never proposed, 40% to 58%, barely over that baseline, which is what a third
+copy produces. Of 26 hand-called gains the no-call channel loses 8 to nomination and 0 to the
+intensity gate, so no gate setting could ever have reached them.
+
+`scanCopyGain` nominates on intensity instead: a marker counts when its log R exceeds the 0.70
+quantile of that sample's OWN autosomal distribution, and the null is the median rate over its
+other autosomes, the same `externalNull` the no-call arm uses. Taking the cut from the sample makes
+it self-calibrating and introduces no absolute intensity threshold, which matters because a
+per-chromosome cohort offset is real inside one laboratory and does not transfer between them
+(correlation -0.06 on this platform) and amplification scales each cell's deviations differently.
+It reaches 25 of 26 gains and 0 of 67 losses, the second by construction: a lost copy cannot read
+intensity-high. `scanCopyNumber` is not modified, so the loss arm cannot move.
+
+A region both channels see is reported once. The gain arm receives the no-call arm's segments and
+drops anything reciprocally overlapping them.
+
+**A segmental call can no longer claim less than a megabase.** `MIN_SEGMENT_MARKERS` assumes probes
+are evenly spread and this platform clusters them: at mean density the marker floor spans about
+8.7 Mb, and inside a cluster the same 2,400 markers fit into a tenth of one. Five such calls
+appeared, three of them at the SAME chr19 locus on three unrelated arrays, which is a property of
+the probe layout and not of any genome. `MIN_SEGMENT_SPAN_BP` applies to the span a call REPORTS,
+which is the refined interval rather than the window searched; gating the window instead left all
+five in place. The smallest hand-called region is 3.0 Mb, so 1 Mb costs no recall, and an invariant
+check pins that nothing either arm reports is under the floor.
+
+**The gain gate is no longer symmetric.** A hemizygous loss is log2(1/2) and a third copy is
+log2(3/2), so a single magnitude asked 1.71x as much of a gain as of a loss and sat above the event
+it existed to admit; the constructed gain controls cleared it only because the spliced donor block
+read +1.60 to +1.95. Each arm is now gated at the same fraction of its own expected magnitude,
+which also makes the gate independent of per-cell amplification scale, since that factor multiplies
+both expectations and cancels. On this corpus it rejects nothing in either direction.
+
+**A benchmark correction that matters more than any of the above.** The copy-number scan is
+withheld when `inferStage` returns 'failed', because it normalises against the sample's own
+per-chromosome median and a genome with no normal majority has none to offer. The audit harness
+called the scan unconditionally, so every recall figure recorded against one laboratory's hand
+calls was measured on a path this tool does not take on that material. 8 of the 21 cells carrying
+hand calls stage failed, and they hold 23 of the 26 hand-called gains and 23 of the 67 losses.
+Counted on what the tool actually does, gains are 1 of 26 rather than 11 and losses 32 of 67 rather
+than 44; on readable material, 1 of 3 gains and 32 of 44 losses. The gains question is not
+answerable on that corpus, and the disagreement is about which cells are readable.
+
+Specificity is therefore measured against Zuccaro 2020 Table S3, which publishes a per-chromosome
+karyotype for 31 arrayed cells, 477 autosomes of them read normal. Intensity nomination adds ONE
+disagreement on a cell not published chaotic, against a bar of one fixed before the run. When it
+does find a gain the material is intact: the four it recovered read homozygous-pole fractions of
+0.715 to 0.840 where the gains the old scan found sat at a median of 0.340.
+
+Separately recorded and NOT addressed here: 28 of the 30 baseline disagreements on that published
+set are on two cells Zuccaro hand-called chaotic aneuploid, where this tool's 'failed' stage does
+not fire. The tool and the published reading disagree about whether those two cells are readable
+and the tool is the permissive one.
+
+---
+
 ## 5.48.0 "Free Recombination"
 
 **A refusal can now say that the calls themselves carry no information, which is a different

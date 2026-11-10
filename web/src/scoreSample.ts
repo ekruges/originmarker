@@ -23,7 +23,8 @@ import {
   type ParentageResult,
 } from './parentage.ts'
 import {
-  scanChromosome, scanCopyNumber, externalNull, segmentCoords, type MarkerAbsence,
+  scanChromosome, scanCopyNumber, scanCopyGain, highLrrProfile, externalNull,
+  segmentCoords, type MarkerAbsence,
   type Segment, RECIPROCAL_OVERLAP, canDetectLoss,
 } from './segments.ts'
 import {
@@ -971,8 +972,25 @@ export async function scoreSample(input: {
   }
   // The intensity scan is withheld on a chaotic genome: it normalises against this sample's own
   // per-chromosome median and there is no normal majority here to be that median.
+  //
+  // TWO NOMINATION CHANNELS, because a gain and a loss do not announce themselves the same way.
+  // scanCopyNumber proposes a window where the array STOPPED GENOTYPING, which an extra copy does
+  // not do: measured inside hand-called gains the scan found, the no-call rate is 74% to 99%
+  // against an array baseline near 40%, which is amplification damage, while inside the gains it
+  // never proposed it is 40% to 58%, barely over baseline. Of 26 hand-called gains that channel
+  // loses 8 to nomination and 0 to the intensity gate, so a lower gate could never have reached
+  // them. scanCopyGain proposes on intensity instead and reaches 25 of the 26, and 0 of 67 losses,
+  // the second by construction since a lost copy cannot read intensity-high.
+  const gainProfile = highLrrProfile(cnByChrom)
   const copy = (uninterpretable || chaoticGenome) ? [] : [...cnByChrom].filter(([c]) => !whole.has(c))
-    .flatMap(([c, ms]) => scanCopyNumber(ms, externalNull(noCall, c), genomeLrr))
+    .flatMap(([c, ms]) => {
+      const byNoCall = scanCopyNumber(ms, externalNull(noCall, c), genomeLrr)
+      return [
+        ...byNoCall,
+        // `byNoCall` is passed so a region both channels see is reported once, not twice.
+        ...scanCopyGain(ms, externalNull(gainProfile.byChrom, c), genomeLrr, gainProfile, byNoCall),
+      ]
+    })
   result.segments = (uninterpretable && !chaoticGenome) ? [] : [
     ...copy,
     // A chromosome the alleles read as missing one parent is not scanned for an absence segment

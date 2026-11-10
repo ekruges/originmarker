@@ -221,10 +221,17 @@ RELEASES: tuple[Release, ...] = (
             "nothing there to measure. An array whose calls agree with a parent's at exactly the "
             "rate chance predicts is the same statement about genotypes rather than about "
             "distance, and a two-person mixture reads below that rate rather than at it."),
+    Release("Unequal Exchange",
+            "A crossover between misaligned repeats, which hands one chromatid a duplication and "
+            "the other the reciprocal deletion. The two products are one event and they do not "
+            "announce themselves alike: the deletion takes the DNA away and the array stops "
+            "calling there, while the duplication leaves every marker present and callable. A "
+            "scan that looks for where genotyping stopped therefore finds one of them and is "
+            "blind to the other, however it is thresholded."),
 )
 
-VERSION = "5.48.0"
-CODENAME = "Free Recombination"
+VERSION = "5.49.0"
+CODENAME = "Unequal Exchange"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
