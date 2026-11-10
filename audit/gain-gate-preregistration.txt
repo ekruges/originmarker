@@ -1,0 +1,56 @@
+Pre-registration: the gain gate's asymmetry, and what admitting it must not cost
+================================================================================
+
+Written 9 November 2026 against 5.48.0, BEFORE the change is made or measured. Scored against
+audit/joy-dieter-baseline-2026-11-08.txt, which is the fixed baseline: gains 11 of 26, losses
+44 of 67, 1 false segment across the 72 arrays with no hand call.
+
+THE DEFECT
+----------
+scanCopyNumber rejects a candidate window on |delta| < SEGMENT_LRR_SHIFT, one magnitude for both
+directions. The magnitudes are not symmetric. A hemizygous loss is log2(1/2) = -1.0 and a third
+copy is log2(3/2) = +0.585, so a single gate asks 1.71x as much of a gain as of a loss and sits
+above the event it exists to admit. The constructed gain controls in segments.ts passed it only
+because the spliced donor block came from an array reading +1.60 to +1.95, which is amplification
+distortion rather than a third copy.
+
+THE CHANGE
+----------
+The gain arm is gated at SEGMENT_LRR_SHIFT x log2(3/2), which is 0.585 while the loss gate is 1.0.
+The loss arm is not touched, so the ratio of gate to expected magnitude is the same in both
+directions and whatever per-cell scale factor the amplification imposes cancels out of that ratio.
+No per-cell estimation is introduced, because none is needed to make the two arms consistent.
+
+PREDICTIONS, FIXED NOW
+----------------------
+P1  The four gain misses the baseline attributes to this gate, at deviations 0.815, 0.954, 0.994
+    and 0.998, are all recovered. Gain recall goes from 11 of 26 to 15 of 26.
+    FAILS if fewer than 4 of those 4 are recovered.
+
+P2  Loss recall is EXACTLY 44 of 67, unchanged. The loss gate is untouched and the nomination
+    stage is untouched, so any movement at all is a bug in this change and not a result.
+    FAILS on any difference.
+
+P3  The false arm does not get materially worse. 1 segment across 72 arrays today.
+    SHIPS at 2 or fewer. DOES NOT SHIP at 3 or more, in which case the gate needs a companion
+    requirement rather than a lower number: the obvious candidate is a pole-collapse veto, since
+    audit/joy-gain-recall-splits-by-pole-2026-11-08.txt shows the damaged regions are separable.
+
+P4  The recovered gains are the biology rather than more damage. At least 3 of the 4 read a
+    homozygous-pole fraction above 0.60, which is the collapsed side of the split measured on
+    8 November, where the gains the tool already finds sit at a median of 0.340.
+    This one does not gate the release. It is the test of whether the change moves recall toward
+    real third copies or just lowers a bar.
+
+WHAT THIS CANNOT CLOSE, AND IS NOT CLAIMED TO
+---------------------------------------------
+The other 11 gain misses are not this gate. 6 are boundary disagreements, 4 of them within 0.06
+of the 0.5 reciprocal-overlap bar, which is a scoring question and is to be reported as a
+rescoring in its own row, never folded into recall. 2 are under MIN_SEGMENT_MARKERS at 3 Mb. 3 are
+unexplained by any gate and stay open. So the ceiling on this change is 15 of 26 and a claim above
+that from this commit alone is false.
+
+Candidate windows are still nominated on the no-call indicator, which carries almost no
+information about a real gain. That is why the 11 gains already found are mostly pole-collapsed
+material. This change does not fix the nomination channel; it stops the gate from rejecting what
+the nomination channel did manage to hand it.
