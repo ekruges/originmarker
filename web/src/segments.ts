@@ -171,6 +171,22 @@ export const canDetectLoss = (
 
 export const RECIPROCAL_OVERLAP = 0.5
 
+/**
+ * The reciprocal overlap of two intervals: the smaller of the two fractions each covers of the
+ * other, so neither a long interval swallowing a short one nor the reverse reads as agreement.
+ *
+ * The constant above has existed without this since the scan shipped, because the only code that
+ * needed the test lived in the audit harnesses. `scanCopyGain` needs it to recognise a region the
+ * no-call arm has already raised, so it belongs beside the threshold it is compared against.
+ */
+export const reciprocalOverlap = (
+  aStart: number, aEnd: number, bStart: number, bEnd: number,
+): number => {
+  const inter = Math.min(aEnd, bEnd) - Math.max(aStart, bStart)
+  if (inter <= 0) return 0
+  return Math.min(inter / Math.max(1, aEnd - aStart), inter / Math.max(1, bEnd - bStart))
+}
+
 export type SegmentKind =
   /** The PARENT's alleles are missing across this region, though the DNA is present. A deletion
    *  of their copy, or the region inherited from the other parent alone. */
@@ -445,6 +461,118 @@ export function scanChromosome(
  * behave on a real gain, and it does NOT establish a false-positive rate for gains in the wild,
  * because a spliced boundary is sharper than most biological ones.
  */
+/**
+ * The quantile of a sample's OWN autosomal log R at which a marker counts as intensity-high.
+ *
+ * Chosen on measurement, not taste. Probed at 0.70, 0.80 and 0.90 against 26 hand-called gains:
+ * nomination reaches 25, 24 and 24 of them, and 7, 6 and 6 of the eight the no-call channel never
+ * offers at all. 0.70 is the cut that reaches the most, and the cost of being wrong is one gain
+ * per step rather than a collapse.
+ *
+ * IT IS A QUANTILE OF THE SAMPLE AND NOT AN INTENSITY. An absolute log R cut cannot be shared:
+ * a per-chromosome cohort offset is real inside one laboratory and does not transfer between them
+ * (correlation -0.06 across labs on this platform), and amplification scales a cell's deviations
+ * by a factor that varies cell to cell. Taking the cut from the sample's own distribution makes
+ * the resulting rate self-calibrating, and the null is then the median rate over the sample's
+ * other autosomes exactly as the no-call arm does it.
+ */
+export const GAIN_NOMINATION_QUANTILE = 0.70
+
+/** A sample's intensity-high cut and the per-chromosome rates it produces, for `scanCopyGain`. */
+export interface HighLrrProfile {
+  /** The log R above which a marker counts, taken from this sample's own autosomes. */
+  cut: number
+  /** chromosome -> [markers with a log R, markers above the cut], for `externalNull`. */
+  byChrom: Map<string, [number, number]>
+}
+
+/**
+ * The cut and the per-chromosome high rates, derived once per sample.
+ *
+ * Both callers need the same numbers and neither should re-derive them: the cut is a property of
+ * the whole autosome set, so computing it per chromosome would make each chromosome's null depend
+ * on a different cut.
+ */
+export function highLrrProfile(
+  byChrom: ReadonlyMap<string, readonly { log2R: number | null }[]>,
+  quantile = GAIN_NOMINATION_QUANTILE,
+): HighLrrProfile {
+  const all: number[] = []
+  for (const ms of byChrom.values()) {
+    for (const m of ms) if (m.log2R !== null) all.push(m.log2R)
+  }
+  all.sort((a, b) => a - b)
+  const cut = all.length ? all[Math.min(all.length - 1, Math.floor(quantile * all.length))] : Infinity
+  const rates = new Map<string, [number, number]>()
+  for (const [c, ms] of byChrom) {
+    let n = 0
+    let hi = 0
+    for (const m of ms) {
+      if (m.log2R === null) continue
+      n += 1
+      if (m.log2R > cut) hi += 1
+    }
+    rates.set(c, [n, hi])
+  }
+  return { cut, byChrom: rates }
+}
+
+/**
+ * Segmental GAINS, nominated on intensity instead of on the no-call indicator.
+ *
+ * WHY THIS EXISTS SEPARATELY FROM `scanCopyNumber`. That function nominates every candidate from
+ * the no-call channel, which an extra copy barely moves: measured per-marker information about a
+ * real gain is 0.0003 to 0.009 there against 0.08 to 0.50 for intensity. Inside the gains the
+ * no-call scan does find, the array has stopped calling 74% to 99% of markers against an array
+ * baseline near 40%, which is amplification damage; inside the gains it never nominates the
+ * no-call rate is 40% to 58%, barely over that baseline, which is what a third copy produces.
+ * So the no-call arm is a damage detector and the gains that are real biology were never offered
+ * to the gate at all. Of 26 hand-called gains it loses 8 to nomination and 0 to the gate.
+ *
+ * Kept as its own function so `scanCopyNumber` is untouched and the LOSS arm is identical by
+ * construction rather than by measurement. The flag here counts markers whose intensity is HIGH,
+ * which a lost copy cannot produce: 0 of 67 hand-called losses are nominated by it at any cut
+ * tested, so the two arms cannot interfere.
+ *
+ * THE GATE STILL APPLIES AND IS NOT CIRCULAR. The flag fires on a heavy UPPER TAIL of log R; the
+ * gate asks that the window's MEDIAN moved by `gainShift`. A region whose tail is fat because the
+ * array is noisy there satisfies the first and fails the second.
+ *
+ * `already` are segments the no-call arm raised. A window reciprocally overlapping one of them is
+ * the same event seen twice and is dropped, not reported again.
+ */
+export function scanCopyGain(
+  markers: readonly { chrom: string; pos: number; log2R: number | null }[],
+  nullHighRate: number,
+  genomeLrr: number,
+  profile: HighLrrProfile,
+  already: readonly Segment[] = [],
+  minMarkers = MIN_SEGMENT_MARKERS,
+  threshold = SEGMENT_LRT,
+  gainShift = SEGMENT_LRR_SHIFT * GAIN_SHIFT_FRACTION,
+): Segment[] {
+  const ms = [...markers].sort((a, b) => a.pos - b.pos)
+  const hits = scanChromosome(
+    ms.map((m) => ({ chrom: m.chrom, pos: m.pos,
+      absent: m.log2R !== null && m.log2R > profile.cut })),
+    nullHighRate, minMarkers, threshold,
+  )
+  const out: Segment[] = []
+  for (const h of hits) {
+    const inside = ms.filter((m) => m.pos >= h.startBp && m.pos <= h.endBp && m.log2R !== null)
+      .map((m) => m.log2R as number)
+    if (!inside.length) continue
+    inside.sort((a, b) => a - b)
+    const delta = inside[inside.length >> 1] - genomeLrr
+    if (delta < gainShift) continue
+    const dup = already.some((s) => s.chrom === h.chrom && reciprocalOverlap(
+      h.startBp, h.endBp, s.startBp, s.endBp) >= RECIPROCAL_OVERLAP)
+    if (dup) continue
+    out.push({ ...h, kind: 'copy-gain' })
+  }
+  return out
+}
+
 export function scanCopyNumber(
   markers: readonly { chrom: string; pos: number; called: boolean; log2R: number | null }[],
   nullNoCall: number,

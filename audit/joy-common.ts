@@ -20,14 +20,52 @@ export type Loaded = {
   hetByChrom: Map<string, { pos: number; het: boolean }[]>
 }
 
-export function loadArray(path: string, id: string): Loaded {
+/** What a harness needs built. Everything is built by default, so no existing caller changes. */
+export type LoadNeed = {
+  /**
+   * Per-chromosome heterozygosity in position order. Costs a push per called marker plus a sort
+   * per chromosome, and the segment harnesses never read it.
+   */
+  hetByChrom?: boolean
+}
+
+/**
+ * One line at a time off the buffer, with `String.split('\n')` semantics exactly.
+ *
+ * WHY NOT `split`. A 200 MB array file split on newlines holds the fully decoded text AND all
+ * 825,656 line strings at once, roughly 400 MB of peak that the parse never needs more than one
+ * line of. That peak is why each shard wanted a 3.5 GB heap, and why 16 GB of RAM meant six
+ * parallel shards instead of twelve: it spends wall clock, not memory.
+ *
+ * The semantics are pinned in joy-common.check.ts rather than trusted, because an off-by-one here
+ * drops the last marker of every array silently, and every recorded baseline in this repository
+ * is read through this function.
+ */
+export const lineReader = (buf: Buffer): (() => string | null) => {
+  let at = 0
+  return () => {
+    if (at > buf.length) return null
+    // A file ending in a newline has one empty field after it, which is what `split` returns.
+    if (at === buf.length) { at += 1; return '' }
+    let end = buf.indexOf(10, at)
+    if (end < 0) end = buf.length
+    const s = buf.toString('utf8', at, end)
+    at = end + 1
+    return s
+  }
+}
+
+export function loadArray(path: string, id: string, need: LoadNeed = {}): Loaded {
   const raw = readFileSync(path)
-  const text = (path.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')
-  const lines = text.split('\n')
+  const buf = path.endsWith('.gz') ? gunzipSync(raw) : raw
+  const nextLine = lineReader(buf)
+  // Only the first 60 lines are held, which is where the header is looked for.
+  const head: string[] = []
+  for (let i = 0; i < 60; i += 1) { const l = nextLine(); if (l === null) break; head.push(l) }
   let h = -1
-  for (let i = 0; i < 60; i += 1) if (lines[i] && !lines[i].startsWith('#')) { h = i; break }
+  for (let i = 0; i < head.length; i += 1) if (head[i] && !head[i].startsWith('#')) { h = i; break }
   if (h < 0) throw new Error(`${path}: no header in the first 60 lines`)
-  const map = ingest.headerMap(lines[h])
+  const map = ingest.headerMap(head[h])
   if (!map) throw new Error(`${path}: header not recognised`)
 
   const markers: Marker[] = []
@@ -37,8 +75,12 @@ export function loadArray(path: string, id: string): Loaded {
   let first = ''
   let called = 0; let het = 0; let rows = 0
   const lrrs: number[] = []
-  for (let i = h + 1; i < lines.length; i += 1) {
-    const r = ingest.parseRow(lines[i], map)
+  // The rows already read while looking for the header, then the rest of the file streamed.
+  const buffered = head.slice(h + 1)
+  let bi = 0
+  const nextRow = (): string | null => (bi < buffered.length ? buffered[bi++] : nextLine())
+  for (let line = nextRow(); line !== null; line = nextRow()) {
+    const r = ingest.parseRow(line, map)
     if (!r) continue
     if (!first) first = r.probesetId
     ingest.accumulate(r as never, byChrom as never)
@@ -51,10 +93,11 @@ export function loadArray(path: string, id: string): Loaded {
     called += 1
     const isHet = r.genotype === 'AB'
     if (isHet) het += 1
+    if (need.hetByChrom === false) continue
     if (!/^\d+$/.test(r.chrom)) continue
-    const a = hetByChrom.get(r.chrom) ?? []
+    let a = hetByChrom.get(r.chrom)
+    if (!a) hetByChrom.set(r.chrom, a = [])
     a.push({ pos: r.pos, het: isHet })
-    hetByChrom.set(r.chrom, a)
   }
   for (const a of hetByChrom.values()) a.sort((x, y) => x.pos - y.pos)
   lrrs.sort((a, b) => a - b)
@@ -119,15 +162,29 @@ export const cellOf = (f: string): { embryo: string; cell: string } => {
  */
 export const scanSegments = (a: Loaded) => {
   const byChrom = new Map<string, Marker[]>()
+  // PUSH, NEVER SPREAD. Rebuilding the accumulated array once per marker is quadratic: at 825,656
+  // markers over 22 autosomes it is about 1.5e10 element copies and as many throwaway allocations,
+  // measured at 48 seconds against 0.041 for the same grouping done by push. That one line was the
+  // bulk of every benchmark run's wall clock, well past the scan it was feeding.
   for (const m of a.markers) {
+    if (m.chrom.charCodeAt(0) < 48 || m.chrom.charCodeAt(0) > 57) continue
     if (!/^\d+$/.test(m.chrom)) continue
-    byChrom.set(m.chrom, [...(byChrom.get(m.chrom) ?? []), m])
+    let arr = byChrom.get(m.chrom)
+    if (!arr) byChrom.set(m.chrom, arr = [])
+    arr.push(m)
   }
   const noCall = new Map<string, [number, number]>()
   for (const [c, ms] of byChrom) noCall.set(c, [ms.length, ms.filter((m) => !m.called).length])
   const out: ReturnType<typeof segs.scanCopyNumber> = []
+  // The intensity cut is a property of the whole autosome set, so it is taken once per sample.
+  const profile = segs.highLrrProfile(byChrom)
   for (const [c, ms] of byChrom) {
-    out.push(...segs.scanCopyNumber(ms, segs.externalNull(noCall, c) as number, a.genomeLrr))
+    // The no-call arm first, so the gain arm can recognise what it has already raised.
+    const noCallArm = segs.scanCopyNumber(
+      ms, segs.externalNull(noCall, c) as number, a.genomeLrr)
+    out.push(...noCallArm)
+    out.push(...segs.scanCopyGain(
+      ms, segs.externalNull(profile.byChrom, c) as number, a.genomeLrr, profile, noCallArm))
   }
   return out
 }

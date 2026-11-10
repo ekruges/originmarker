@@ -58,7 +58,9 @@ for (const f of files) {
   // The cell id is the leading accession-and-position, which is how his sheet names them.
   const cell = (/^(?:GSM\d+_)?([0-9]+-[0-9]+)/.exec(f)?.[1]) ?? f.replace(/\..*$/, '')
   try {
-    const a = loadArray(join(DIR, f), cell)
+    // This harness reads markers and the call rate. Per-chromosome heterozygosity costs a
+    // push per called marker plus a sort, and nothing here looks at it.
+    const a = loadArray(join(DIR, f), cell, { hetByChrom: false })
     const called = scanSegments(a)
     rows.push({ cell, called })
     rowProfile.set(cell, { callRate: a.callRate })

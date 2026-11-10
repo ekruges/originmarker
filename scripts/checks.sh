@@ -37,6 +37,7 @@ echo "requirements, against the shipped code"
 # features that were complete, documented and never wired, each passing its own unit tests because
 # each test exercised a fixture the application never sees.
 run 'requirements audit' . audit/requirements.check.ts
+run 'joy-common line reader' . audit/joy-common.check.ts
 
 # TYPESCRIPT IS TYPE-CHECKED HERE, NOT ONLY AT DEPLOY TIME. The self-checks above run through
 # tsx, which strips types without checking them, so this script reported "all checks passed" on a

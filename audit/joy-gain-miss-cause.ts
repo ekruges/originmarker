@@ -54,7 +54,7 @@ for (const f of files) {
   const cell = (/^(?:GSM\d+_)?([0-9]+-[0-9]+)/.exec(f)?.[1]) ?? f.replace(/\..*$/, '')
   const mine = hand.filter((h) => h.cell === cell)
   if (!mine.length) continue
-  const a = loadArray(join(DIR, f), cell)
+  const a = loadArray(join(DIR, f), cell, { hetByChrom: false })
   const byChrom = new Map<string, Marker[]>()
   for (const m of a.markers) {
     if (!/^\d+$/.test(m.chrom)) continue
