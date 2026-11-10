@@ -418,10 +418,9 @@ console.log('obligateHet.check.ts: a heterozygosity-only reconstruction cannot f
 
 // "TOO FEW INFORMATIVE MARKERS" WAS ONE SENTENCE FOR TWO DIFFERENT PROBLEMS, which is the one
 // complaint a reader cannot act on. A chromosome where the parents are rarely opposite homozygotes
-// is a limit of the parents: rerunning the sample on a better array changes nothing. A chromosome
-// where the parents offer thousands of such markers and the sample returned ninety is an array
-// that failed, and rerunning it is exactly the fix. The count the parents offer is known before
-// the sample is read, so the two are separable.
+// is a limit of the parents: no array does better on those markers. A chromosome where the parents
+// offer thousands of such markers and the sample returned ninety is an array that failed. The
+// count the parents offer is known before the sample is read, so the two are separable.
 {
   const structural = whyNotInformative(90, 0.9, { offered: 120 })
   const noisy = whyNotInformative(90, 0.9, { offered: 4_000 })
@@ -465,7 +464,9 @@ console.log('obligateHet.check.ts: a marker-poor chromosome and a failed array g
 // almost everything before the marker count is what stops the call. So this is the branch that has
 // to say whose fault it is, and the chromosome's own rate cannot: 17 percent on an array that
 // reached 95 means one bad chromosome, and 17 percent on an array that reached 22 means a bad
-// array. The actions are a shrug and a rerun.
+// array. The two call for different work, and neither of them is repeating the hybridisation:
+// replicate arrays of one amplification product reproduce the failure, so an array-wide collapse
+// is the material rather than the run.
 {
   const localised = whyNotInformative(5_000, 0.17, { genomeCallRate: 0.95 })
   const wholeArray = whyNotInformative(5_000, 0.17, { genomeCallRate: 0.22 })
@@ -474,10 +475,14 @@ console.log('obligateHet.check.ts: a marker-poor chromosome and a failed array g
     'one bad chromosome and one bad array must not read the same')
   assert.ok(/confined to this chromosome/.test(localised!) && /95%/.test(localised!),
     `a localised failure names the array's own rate and says it is confined. Got: ${localised}`)
-  assert.ok(/not good enough quality/.test(wholeArray!) && /rerun/.test(wholeArray!),
-    `a bad array says so and names the fix. Got: ${wholeArray}`)
-  assert.ok(!/rerun is what fixes/.test(localised!),
-    'and a localised failure must not send the reader off to rerun a perfectly good array')
+  assert.ok(/the array and not this chromosome/.test(wholeArray!),
+    `a bad array says it is the array. Got: ${wholeArray}`)
+  // The replicate evidence says the material failed, not the hybridisation, so the reason must
+  // not offer a rerun as the fix on either branch.
+  assert.ok(/unlikely to change it/.test(wholeArray!) && /the DNA that went on/.test(wholeArray!),
+    `a bad array names the material, not a rerun. Got: ${wholeArray}`)
+  assert.ok(!/rerun is what fixes/.test(localised!) && !/rerun is what fixes/.test(wholeArray!),
+    'neither branch may promise that repeating the run fixes it')
 
   // Without the array's rate the sentence is the one it always was, so an older caller that does
   // not pass it is not given a claim nobody measured.
@@ -490,7 +495,7 @@ console.log('obligateHet.check.ts: a marker-poor chromosome and a failed array g
   // is not a bad array, so it must read as the localised case.
   assert.ok(/confined to this chromosome/.test(whyNotInformative(5_000, 0.17,
     { genomeCallRate: 0.60 })!), 'an array exactly at the floor is not the thing that failed')
-  assert.ok(/not good enough quality/.test(whyNotInformative(5_000, 0.17,
+  assert.ok(/the array and not this chromosome/.test(whyNotInformative(5_000, 0.17,
     { genomeCallRate: 0.59 })!), 'and one just under it is')
 
   // A chromosome that clears both conditions is still not refused, whatever the array did.

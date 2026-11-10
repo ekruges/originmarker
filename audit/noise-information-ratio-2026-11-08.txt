@@ -1,0 +1,65 @@
+Information ratio R on the Axiom corpus: the run, and two predictions that failed
+=================================================================================
+
+Run 8 November 2026 against 5.47.0 / 47e48d4, harness audit/noise-information-ratio.ts.
+Per-array and per-autosome tables carry barcodes and stay in audit/local/.
+
+CORPUS. 112 Axiom arrays, every one on this machine's reach at 825,656 markers: the 21 hand-call
+arrays, the 72 with no hand call, and 19 from the e5 series. The consult response names a
+459-array census; that census is not reconstructible here, and the count is stated as 112 rather
+than borrowed. The other array families present are different platforms and the consult's own
+caveat forbids applying the cut to them until measured.
+
+REFERENCES, AND THE ONE WAY THIS RUN DEPARTS FROM THE CONSULT. R is measured against three
+reference arrays, one per barcode prefix, each the highest-call-rate array of its prefix, and a
+sample is only ever scored against prefixes that are not its own. The consult measured against
+unrelated BULK arrays. No bulk array exists in this corpus, so every reference here is itself a
+single cell carrying its own call errors, which inflates R for every sample. The run therefore
+reports R against the worst reference and against the best, and the difference is the size of
+that effect.
+
+THE RESULT. Against the best stranger:
+
+  informative       R < 0.30          73 arrays
+  unresolved        0.30 to 0.60      14 arrays
+  no information    R >= 0.60         25 arrays
+
+The gap the consult found reproduces. Sorted, R jumps 0.381 to 0.591 to 0.701 to 0.966, and the
+25 arrays above it run 0.966 to 1.135, which is the value a sample with no information about any
+genome takes by construction.
+
+PRE-REGISTERED PREDICTIONS, SCORED.
+
+  P1  every array at R >= 0.60 is already fully withheld by 5.47.0.
+      HOLDS. All 25 read heterozygosity 0.566 to 0.673, over the 0.25 diploid ceiling, so the
+      shipped path already refuses them in full. 7 of the 25 are also under the call-rate floor.
+
+  P2  arrays between 0.30 and 0.60 are at most 2% of the run and all under 0.50 call rate.
+      FAILS, on both halves. 14 of 112 is 12.5%, and their call rates run 0.441 to 0.947.
+      The cause is the reference substitution above: single-cell references raise R for every
+      sample, which pushes genuinely informative arrays up into the unresolved band. It does not
+      touch the 0.60 cut, because the gap below it is 0.21 wide.
+      CONSEQUENCE: the 0.60 branch is shippable on this corpus and the 0.30 band is not. R below
+      0.30 must not be reported as a positive statement of quality until bulk references exist.
+
+  P3  hetBafSd of the R >= 0.60 arrays lies below the median of informative amplified arrays.
+      HOLDS, and more sharply than predicted. Informative amplified arrays read 0.173 to 0.345,
+      median 0.245. The 25 failed arrays read 0.158 to 0.168. The two ranges do not overlap, and
+      the failures are the LOWER group. Any upper threshold on hetBafSd refuses good single cells
+      and passes every failed array, which is the consult's finding reproduced here.
+
+  P4  per platform, HumanCytoSNP-12. NOT APPLICABLE: no such array in this run.
+
+WHAT THE BRANCH BUYS. 31 arrays sit over the heterozygosity ceiling, and 5.47.0 refuses all 31
+with a reason that cannot say whether the array failed, the sample is a mixture, or the material
+was contaminated. R separates them: 25 carry no genotype information, and 6 still do, at R 0.222,
+0.256, 0.372, 0.378, 0.381 and 0.591. Those 6 are arrays the current reason describes no better
+than the 25.
+
+A mixture reads LOW on this statistic by construction, because a homozygous call in a mixture
+needs every contributor to carry that allele. So the new reason can say what the failure is not,
+which is the part the heterozygosity ceiling's own caveat says it cannot do.
+
+WHAT MUST NOT MOVE. The branch changes reason text only. It never touches the predicate that
+decides whether a call is made, so no chromosome moves between refused and called. A check pins
+that, as 5.47.0 did for the offered-count split.

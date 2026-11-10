@@ -1,0 +1,62 @@
+Gain recall splits by whether the array's homozygous BAF poles survived
+=======================================================================
+
+Run 8 November 2026 against 5.47.0 / 47e48d4. Harness audit/joy-pole-fraction.ts over the 21
+hand-call arrays. Per-region table, which carries barcodes, is audit/local/joy-pole-fraction-
+2026-11-08.tsv. Laboratory prefixes pseudonymised per audit/local/barcode-map.tsv.
+
+THE QUESTION. The gains benchmark reports 11 of 26. Consult A observed that ten of those eleven
+sit in cells carrying no hand-called loss at all, at log2R deviations of +1.61 to +2.83, and that
+a third copy is log2(3/2) = 0.585. It predicted the recall was agreement on amplification-distorted
+material rather than detection of a third copy, and gave a falsifiable test: the fraction of
+markers at a homozygous BAF pole, min(BAF, 1 - BAF) < 0.1, inside each hand region. Prediction,
+fixed before the run: found gains below 0.5, missed gains near 0.83.
+
+MEASURED.
+
+  found gains    n = 11    pole fraction median 0.340    range 0.176 to 0.844
+  missed gains   n = 15    pole fraction median 0.791    range 0.202 to 0.855
+
+The prediction holds. Split at 0.60:
+
+  gains on pole-INTACT regions      2 of 14     14%
+  gains on pole-COLLAPSED regions   9 of 12     75%
+
+At array level the same split is sharper. Every cell whose genome-wide pole fraction is under 0.22
+has near-complete gain recall, and every cell above 0.34 has almost none:
+
+  genome pole fraction under 0.22    5 cells     10 of 12 gains found
+  genome pole fraction over 0.34     4 cells      1 of 14 gains found
+
+WHAT THIS MEANS. The headline 11 of 26 is carried by five arrays whose BAF poles have collapsed.
+On arrays where the poles are intact, which is where a real third copy would be legible, the
+detector finds 2 of 14. The gate it clears on the collapsed arrays is a distortion signature, not
+a trisomy: SEGMENT_LRR_SHIFT is 1.0 and these regions read +1.61 to +2.83, while one extra of two
+copies predicts +0.585.
+
+So the gains gap is not mostly edge placement, which is what the 4 November slide says. Recall on
+the material where a gain is readable is 2 of 14.
+
+TWO EXCEPTIONS, both kept in the count above.
+  - Two found gains are pole-intact, at 0.731 and 0.844. The detector is not blind on this
+    material, only close to it.
+  - Two missed gains are pole-collapsed, at 0.202 and 0.225. Both are in the most collapsed cell
+    and both are small, 3 Mb and 15 Mb, so the marker floor explains them.
+
+LIMITATION OF THE RATIO COLUMN. The per-region table also reports pole fraction inside the region
+over the same array's genome-wide figure. That ratio is above 1 for every region, gains included,
+because the genome-wide baseline is itself dragged down by the array's own collapsed regions. The
+baseline that would make the ratio meaningful is disomic arms only. Read the absolute pole fraction
+inside the region, not the ratio.
+
+AN OBSERVATION, NOT A FINDING. All 67 hand-called losses read a pole fraction under 0.60, median
+near 0.10. A clean hemizygous loss leaves one chromosome and should read nearly every marker
+homozygous, so a pole fraction near 1.0. These regions carry a median log2R deviation near -1.4,
+beyond the -1.0 one of two copies predicts, so the likelier reading is that intensity has fallen
+far enough for the BAF estimate itself to become unstable. Not pursued here, and not quoted to
+anyone until it is.
+
+WHAT THIS DOES NOT SETTLE. Whether regions-dieter.tsv is a hand reading at all. Consult B found
+all 93 rows are an exact subset of the offline script's output, on a 1 Mb grid, reproducible by a
+threshold filter. Until that is answered with Dr Egli, every recall figure here, corrected or not,
+is the tool measured against a table of unknown provenance.

@@ -55,6 +55,9 @@ import {
 } from './abnormalities.ts'
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted.ts'
 import {
+  emptyHomTally, addHomozygous, informationRatio, whyNoInformation, type HomTally,
+} from './informationRatio.ts'
+import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
   panelScale, hetSpread, HET_SPREAD_LOCALISED,
 } from './stage.ts'
@@ -213,6 +216,15 @@ export interface Collected {
   markerPos: Map<string, { chrom: string; pos: number }>
   /** Chromosome Y of the SAMPLE. What one X means depends on it; see sexChromosome.ts. */
   sex: SexTally
+  /**
+   * Shared autosomal homozygotes against each MEASURED parent, for the information ratio.
+   *
+   * Null where that parent is a reconstruction: a reconstructed reference is homozygous at every
+   * marker by construction, and one built from this sample's own relatives agrees with it for a
+   * reason that is not array quality.
+   */
+  informationPat: HomTally | null
+  informationMat: HomTally | null
 }
 
 /**
@@ -258,6 +270,8 @@ export function emptyCollected(pat: ParentIndex, mat?: ParentIndex | null): Coll
     myBaf: new Map(),
     markerPos: new Map(),
     sex: emptySex(),
+    informationPat: pat.inferred ? null : emptyHomTally(),
+    informationMat: mat && !mat.inferred ? emptyHomTally() : null,
   }
 }
 
@@ -287,6 +301,14 @@ export function collectRow(
   const fa = pat.gt.get(r.probesetId) ?? 'NC'
   tallyRow(fa, r, t)
   if (tm && mat) tallyRow(mat.gt.get(r.probesetId) ?? 'NC', r, tm)
+  // Shared homozygotes, for the information ratio. On this pass because a second read of an
+  // 800,000-row file to count four numbers costs more than the counters do.
+  if (isAutosome(r.chrom)) {
+    if (acc.informationPat) addHomozygous(acc.informationPat, r.genotype, fa)
+    if (acc.informationMat && mat) {
+      addHomozygous(acc.informationMat, r.genotype, mat.gt.get(r.probesetId) ?? 'NC')
+    }
+  }
   // Only a marker where the parent is homozygous and the sample is called can say
   // anything about presence, which is the same informative set the rates use.
   if (isAutosome(r.chrom)) {
@@ -709,6 +731,30 @@ export async function scoreSample(input: {
       // just been refused for, and leave with the rest.
       c.mixed = undefined
       c.alleleGain = undefined
+    }
+  }
+  // WHETHER THE CALLS THEMSELVES SAY ANYTHING, which is the one thing the stage refusal cannot
+  // tell a reader. The ceiling it fires on cannot separate a mixture from a destroyed array; the
+  // information ratio can, because a mixture reads below 1 and noise reads at it.
+  //
+  // THE MOST FAVOURABLE PARENT DECIDES. Scored against each measured parent and judged on the
+  // LOWEST reading, so a second array that is itself poor cannot put this on a sample whose own
+  // calls are fine.
+  //
+  // REASONS ONLY. It goes to the array-level limits, so no chromosome moves between called and
+  // refused and every per-chromosome reason stands underneath unchanged.
+  {
+    const scored = ([[acc.informationPat, soloRole], [acc.informationMat, otherRole]] as const)
+      .flatMap(([tally, role]) => (tally ? [{ r: informationRatio(tally), role }] : []))
+      .filter(({ r }) => Number.isFinite(r))
+    if (scored.length) {
+      const best = scored.reduce((a, b) => (b.r < a.r ? b : a))
+      const why = whyNoInformation(best.r, `the ${best.role} array`)
+      if (why) {
+        const text = `${why[0].toUpperCase()}${why.slice(1)}.`
+        result.limits.push(text)
+        log('WARN', text)
+      }
     }
   }
 

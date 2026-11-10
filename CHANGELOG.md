@@ -9,6 +9,58 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.48.0 "Free Recombination"
+
+**A refusal can now say that the calls themselves carry no information, which is a different
+failure from a thin array and from a contaminated one.** 5.47.0 split the refusal by what the
+parents offered against what this array returned, and both branches still describe an array that
+read too little. Neither reaches the array that read plenty and read it wrongly. Those arrive at
+the heterozygosity ceiling, which refuses them in full and whose own wording concedes it cannot
+tell a chaotic genome from two people in one well.
+
+The statistic is an information ratio. Over markers where the sample and a reference are both
+called homozygous, R is the observed rate of opposite homozygotes divided by the rate independence
+predicts from the two arrays' own allele composition. Two arrays carrying real genotypes disagree
+far less often than chance, so R sits well below 1 even between strangers. R at 1 is the value a
+sample with no information about any genome takes by construction. A two-person mixture reads LOWER
+than a single genome rather than higher, because a homozygous call in a mixture requires every
+contributor to carry that allele, so the direction of the deviation says which failure it is. That
+is the part the heterozygosity ceiling cannot do, and it is why the reason is worth stating.
+
+`MAX_HET_BAF_SD` is not that statistic and the measurement says so. Across 112 Axiom arrays the 25
+with no information read a heterozygous-BAF spread of 0.158 to 0.168 while informative amplified
+arrays read 0.173 to 0.345. The ranges do not overlap and the FAILURES ARE THE LOWER GROUP, so any
+upper threshold on that spread refuses good single cells and passes every failed array.
+
+Measured over 112 Axiom arrays at 825,656 markers, each scored only against reference arrays from
+a different laboratory prefix. 73 read informative, 14 unresolved, 25 carry no information. Sorted,
+R steps 0.381, 0.591, 0.701, 0.966, and the 25 above that gap run 0.966 to 1.135. Of the 31 arrays
+over the heterozygosity ceiling, 25 carry no genotype information and 6 still do, at R from 0.222
+to 0.591; the previous reason described those 6 no better than the other 25.
+
+**One pre-registered prediction failed and only the half that survived ships.** The prediction was
+that at most 2% of arrays would land between the two cuts, all of them under a 0.50 call rate. 14
+of 112 landed there, 12.5%, at call rates to 0.947. The cause is the reference: the method wants
+unrelated BULK arrays and this corpus holds none, so every reference is a single cell carrying its
+own errors, which lifts R for every sample. It does not touch the upper cut, where the gap is 0.21
+wide. So the no-information branch ships and `INFORMATIVE_MAX` does not fire: R below 0.30 is not
+reported as a positive statement of array quality until bulk references exist. The failure is
+recorded in audit/noise-information-ratio-2026-11-08.txt rather than resolved by moving the bar.
+
+**A shipped sentence that was false is gone.** `whyNotInformative` told the reader that a rerun is
+what fixes a whole-array failure. Across 29 groups of replicate arrays in public data on this
+platform, not one group straddled these gates, and in one group the second run reproduced all 8
+collapsed chromosomes of the first. The limit is the amplified material, not the hybridisation, so
+the wording now says the array as a whole failed, that this is the array and not the chromosome,
+and that running the same product again is unlikely to change it.
+
+**Nothing is reclassified.** The branch writes to `result.limits` only. No predicate that decides
+whether a call is made is touched, no chromosome moves between refused and called, and no array
+changes stage. A check reads the shipped source and fails if that block ever writes anything other
+than a reason, which is the same pin 5.47.0 took for its offered-count split.
+
+---
+
 ## 5.47.0 "Obligate Crossover"
 
 **A refusal now says whether the array failed or the chromosome had nothing to read.** Both came

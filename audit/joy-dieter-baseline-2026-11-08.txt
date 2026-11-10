@@ -1,0 +1,92 @@
+THE GAINS SCOREBOARD, 8 NOVEMBER 2026
+=====================================
+The fixed baseline every later change to the segment detector is scored against. Same arrays,
+same bar, both arms. Produced by audit/joy-dieter.ts at version 5.47.0, commit 47e48d4, with no
+constant overridden.
+
+Per-region rows and the false-call detail carry laboratory barcodes and are therefore untracked:
+audit/local/joy-dieter-regions-2026-11-08.tsv and audit/local/joy-dieter-falsecalls-2026-11-08.txt.
+
+HOW IT WAS RUN
+--------------
+Dr Egli's manual calls, audit/local/features/regions-dieter.tsv: 93 regions over 21 cells, 26
+gains and 67 losses. The corpus is the 93 DIETER arrays on tesla at /opt/om/data/DIETER.
+
+The 21 arrays carrying a hand call and the 72 carrying none answer two different questions, so
+they were scanned as two sets of symlinks under /root/omsplit, the first in 3 shards and the
+second in 6. One process over all 93 was measured at about 1.6 minutes per array, which is two
+and a half hours; the split finishes in under an hour. Recall is merged from the per-shard tables
+by keeping the rows whose array that shard actually loaded, which recovers all 93 regions exactly
+once. The false-call counts are per-shard sums over disjoint arrays.
+
+Reciprocal overlap required for a match: 0.5. That is a choice, not a law, and four gain misses
+sit between 0.44 and 0.49.
+
+RECALL, AGAINST HIS CALLS
+-------------------------
+  gain   11 of 26
+  loss   44 of 67
+
+THE 15 GAIN MISSES, BY CAUSE
+----------------------------
+  under SEGMENT_LRR_SHIFT = 1.0        4    deviations 0.815, 0.954, 0.994, 0.998
+  boundary disagreement                6    best overlap 0.33, 0.35, 0.44, 0.47, 0.48, 0.49
+  under MIN_SEGMENT_MARKERS = 2,400    2    both 3 Mb, 1,569 and 1,326 markers in region
+  no gate explains it                  3    chr9 26 Mb, chr7 16 Mb, chr17 7 Mb
+
+The second row of that table is the one to read first. A 145 Mb gain carrying 34,297 markers is
+refused because its deviation is 0.998 against a gate of 1.0. A third copy is log2(3/2) = 0.585,
+so the gate sits above the biology it is meant to admit, and the constructed gain controls in
+segments.ts passed it only because the spliced donor block came from an array at +1.60 to +1.95.
+
+Four of the six boundary disagreements are within 0.06 of the bar. The detector saw those events
+and drew them differently; it did not miss them.
+
+THE 23 LOSS MISSES, BY CAUSE
+----------------------------
+  under SEGMENT_LRR_SHIFT = 1.0        2
+  boundary disagreement               13
+  under MIN_SEGMENT_MARKERS = 2,400    5
+  no gate explains it                  3
+
+FOUND AGAINST MISSED
+--------------------
+                       GAIN found        GAIN missed       LOSS found        LOSS missed
+  size, Mb             median 69         median 22         median 77         median 11
+  his log2R deviation  median 1.90       median 1.14       median 1.55       median 1.16
+  markers in region    median 22,063     median 6,440      median 24,677     median 6,076
+  sample call rate     median 0.547      median 0.547      median 0.616      median 0.616
+
+Call rate is identical in both groups to three decimals, in both directions. Array quality does
+not separate a found region from a missed one. Size does, and so does the deviation, and the two
+are not independent of each other.
+
+THE FALSE-CALL ARM
+------------------
+  72 arrays he called nothing on
+  1 segment raised, on 1 array: a 4.0 Mb copy-gain
+
+This is the specificity bar and it is not to be traded for recall. Every change scored against
+this file reports both arms.
+
+WHAT THIS CONFIRMS AND WHAT IT CORRECTS
+---------------------------------------
+Confirms, against what was presented on the 7 November call: gains 11 of 26, the found-against-
+missed size split of 69 Mb to 22 Mb, the marker split of about 22,000 to about 6,400, call rate
+not separating the two, and one false segment across the 72 quiet arrays.
+
+Corrects one statement made on that call. Losses were described as very good. Against these hand
+calls at 0.5 reciprocal overlap they are 44 of 67, and 13 of the 23 misses are boundary
+disagreements rather than absences. The 78 of 85 figure quoted in the same conversation is a
+different measurement: which parent supplied a missing chromosome, on the Zuccaro series, which
+says nothing about where a boundary lies. Both numbers are real and they are not about the same
+question.
+
+Also corrected: the deviations here are re-derived through the shipped scan, not taken from the
+offline 5 Mb-bin script that audit/STATE.txt warns about. Four gains sit under the 1.0 gate by
+both readings, which is the one figure the two agree on.
+
+WHAT IT IS NOT
+--------------
+His calls are a comparison, not a truth. Both readings come from the same arrays and neither was
+confirmed by dissection. A disagreement is reported as a disagreement.

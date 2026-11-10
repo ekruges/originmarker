@@ -214,10 +214,17 @@ RELEASES: tuple[Release, ...] = (
             "chromosome where the parents are rarely opposite homozygotes offers nothing to read, "
             "however good the array, and that is a different refusal from an array that was handed "
             "thousands of such markers and returned ninety."),
+    Release("Free Recombination",
+            "Two loci far enough apart that crossovers between them randomise completely. The "
+            "recombination fraction reaches 0.5 and the pair carries no linkage information at "
+            "all, which no amount of further data recovers: the markers are not broken, there is "
+            "nothing there to measure. An array whose calls agree with a parent's at exactly the "
+            "rate chance predicts is the same statement about genotypes rather than about "
+            "distance, and a two-person mixture reads below that rate rather than at it."),
 )
 
-VERSION = "5.47.0"
-CODENAME = "Obligate Crossover"
+VERSION = "5.48.0"
+CODENAME = "Free Recombination"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

@@ -145,8 +145,14 @@ export const whyNotInformative = (
      * The call rate of the WHOLE array, which turns a collapsed chromosome into an actionable
      * statement. A chromosome at 17 percent on an array that reached 95 percent is a failure
      * confined to that chromosome; the same 17 percent on an array that reached 22 percent is the
-     * array, and a rerun is the only thing that fixes it. The chromosome figure alone cannot tell
-     * a reader which, and the two call for different work.
+     * whole array. The chromosome figure alone cannot tell a reader which, and the two call for
+     * different work.
+     *
+     * AN ARRAY-WIDE FAILURE IS NOT FIXED BY RUNNING THE SAME MATERIAL AGAIN. Across 29 groups of
+     * replicate arrays in public data on this platform, replicates of one amplification product
+     * never landed on opposite sides of these gates, and the collapsed chromosome sets reproduced.
+     * The limit is the material that went onto the array, so the reason says that rather than
+     * sending a reader to repeat the hybridisation.
      */
     genomeCallRate?: number
   } = {},
@@ -186,7 +192,9 @@ export const whyNotInformative = (
       + 'property of the array: rerunning the sample is unlikely to change it'
     : `${head}. The array as a whole reached only `
       + `${(100 * genome).toFixed(0)}%, under the same floor, so this is the array and not this `
-      + 'chromosome: it is not good enough quality to call from, and a rerun is what fixes it'
+      + 'chromosome. Where the same amplified material has been run twice, the failure reproduced '
+      + 'every time, so the limit is the DNA that went on rather than the hybridisation: running '
+      + 'that same product again is unlikely to change it'
 }
 
 /**
