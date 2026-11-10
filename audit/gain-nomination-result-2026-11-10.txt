@@ -1,0 +1,101 @@
+Gains: intensity nomination works, and the 11 of 26 was never the product's number
+==================================================================================
+
+Run 9 and 10 November 2026. Scored against audit/gain-nomination-preregistration.txt, written
+before the code. Per-array tables carry barcodes and stay in audit/local/. Barcodes pseudonymised
+per audit/local/barcode-map.tsv.
+
+THE PREDICTIONS, SCORED
+-----------------------
+  P1  gain recall reaches at least 15 of 26.
+      HOLDS as measured, 16 of 26, and the measurement is void. See below: the harness was
+      scanning arrays the shipped tool refuses, so 15 of those 16 are calls the product never
+      makes. Counted on the product's own behaviour the number is 1 of 26.
+
+  P2  losses are exactly 44 of 67.
+      HOLDS on the same harness, and is void for the same reason. Product-faithful: 32 of 67.
+
+  P3  at most 2 false segments over the 72 arrays with no hand call.
+      FAILS on that arm, 15 segments, 14 of them on one array. On PUBLISHED truth it passes: see
+      the public arm below.
+
+  P4  the recovered gains are undamaged material.
+      HOLDS, 4 of 4, at homozygous-pole fractions of 0.715 to 0.840 where the 11 gains the old
+      scan found sat at a median of 0.340. This is the one prediction whose meaning survives
+      intact: when the intensity channel does find a gain, it is a third copy and not damage.
+
+THE FINDING THAT REFRAMES ALL OF IT
+-----------------------------------
+scoreSample withholds the copy-number scan entirely when inferStage returns 'failed', because the
+scan normalises against the sample's own per-chromosome median and a genome where most chromosomes
+are affected has no normal majority to be that median. The refusal is correct and it is load
+bearing.
+
+joy-common's scanSegments called the scan unconditionally. So every recall and false-call figure
+this project has recorded against these hand calls was measured on a code path the product does not
+take on this material.
+
+  8 of the 21 cells carrying hand calls stage as 'failed'.
+  23 of the 26 hand-called GAINS are on those 8 cells.
+  23 of the 67 hand-called LOSSES are on those 8 cells.
+
+So the scoreboard, counted on what the product actually does:
+
+                        old harness    product-faithful    on readable material
+  gain                  11 of 26        1 of 26             1 of 3
+  loss                  44 of 67       32 of 67            32 of 44
+
+The gains question cannot be answered on this corpus. It is not a threshold, it is not the
+nomination channel, and it is not boundary agreement. 23 of 26 hand-called gains sit on cells whose
+genomes are too distorted for this method's normalisation, and the tool already declines them by
+name. The disagreement with the hand calls is about what is readable, which is the same question
+5.46.0 and 5.48.0 were built to answer.
+
+WHAT THE INTENSITY ARM IS WORTH ANYWAY
+--------------------------------------
+Nominating on no-call cannot find a third copy: inside the gains the old scan found, the array had
+stopped calling 74% to 99% of markers against an array baseline near 40%, which is amplification
+damage; inside the gains it never nominated, 40% to 58%, barely over baseline, which is what an
+extra copy does. Of 26 gains the no-call channel loses 8 to nomination and 0 to the intensity gate.
+
+Nominating on intensity, at the 0.70 quantile of the sample's own autosomal log R, reaches 25 of 26
+gains and 0 of 67 losses, the latter by construction since a lost copy cannot read intensity-high.
+On readable material it takes gains from 0 of 3 to 1 of 3. That is a small number because readable
+material holds only 3 of these gains, not because the channel is weak.
+
+THE PUBLIC ARM, WHICH IS WHERE SPECIFICITY IS NOW MEASURED
+----------------------------------------------------------
+Zuccaro 2020 Table S3 publishes a per-chromosome karyotype for 31 arrayed cells; 477 autosomes read
+`normal`. A segmental call on one of those disagrees with a published, reviewed number rather than
+with a local table whose provenance is unsettled.
+
+                                 on normal chromosomes   of those, on cells
+                                                         published chaotic   on clean cells
+  gain nomination off                   30                      28                 2
+  gain nomination on                    34                      31                 3
+
+Intensity nomination adds ONE disagreement on a cell not published chaotic, against a
+pre-registered bar of one. It passes, at the bar. The two pre-existing ones are losses on a cell
+published 45,XY,-6.
+
+A SEPARATE DEFECT THIS SURFACED, NOT CAUSED BY THIS CHANGE
+----------------------------------------------------------
+28 of the 30 baseline disagreements are on two cells Zuccaro hand-called chaotic aneuploid. The
+tool's own 'failed' stage does not fire on them, so it scans and calls where the published reading
+says the genome is chaotic. Whatever the right answer is, the tool and the published hand reading
+disagree about whether those two cells are readable, and the tool is the permissive one. Untouched
+here and recorded for its own measurement.
+
+AND TWO DEFECTS FIXED ALONG THE WAY
+-----------------------------------
+A segmental call could claim less than a megabase. MIN_SEGMENT_MARKERS assumes even probe spacing
+and this platform clusters: at mean density the marker floor spans about 8.7 Mb, and inside a
+cluster the same count fits in a tenth of one. Five such calls appeared on the quiet arm, three at
+the SAME chr19 locus on three unrelated arrays. The floor now applies to the span a call REPORTS,
+which is the refined interval and not the window searched; gating the window left all three in
+place. Smallest hand-called region is 3.0 Mb, so 1 Mb costs no recall.
+
+The gain gate was symmetric. A hemizygous loss is log2(1/2) and a third copy is log2(3/2), so one
+gate asked 1.71x as much of a gain as of a loss and sat above the event it existed to admit. The
+constructed gain controls cleared it only because the spliced donor block read +1.60 to +1.95.
+Fixed, and on this corpus it rejects nothing either way: the gate was never what lost the gains.

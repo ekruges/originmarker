@@ -22,11 +22,12 @@
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync } from 'node:fs'
 import {
-  MIN_SEGMENT_MARKERS, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT, SEGMENT_GAIN_SHIFT,
+  MIN_SEGMENT_MARKERS, MIN_SEGMENT_SPAN_BP, NULL_FLOOR, SEGMENT_LRT, SEGMENT_LRR_SHIFT,
+  SEGMENT_GAIN_SHIFT,
   RECIPROCAL_OVERLAP,
   canDetectLoss,
   externalNull,
-  scanChromosome, scanCopyNumber,
+  scanChromosome, scanCopyNumber, segmentCoords,
   type MarkerAbsence,
 } from './segments.ts'
 
@@ -274,6 +275,37 @@ console.log('segments.check.ts: all assertions passed, including that every surf
     })), 0.005)
   assert.equal(parental.length, 1)
   assert.equal(parental[0].kind, 'parental-absence')
+  // A window too short to be a segmental event is refused on BOTH arms, whatever its intensity.
+  // At this platform's mean density the marker floor spans about 8.7 Mb, so a window holding it
+  // inside 1 Mb is a probe cluster. cn() lays markers 5 kb apart, so 2,400 of them span 12 Mb;
+  // the same count packed into 150 bp steps spans 0.36 Mb and must be refused.
+  // 20 bp apart, so all 40,000 markers span 0.8 Mb and NO window the scan can build reaches the
+  // floor. The identical event at the 5 kb spacing cn() uses is called above, so what this pins is
+  // the span requirement and not that the event is unfindable.
+  const dense = Array.from({ length: 40_000 }, (_, i) => ({
+    chrom: '9', pos: 1_000_000 + i * 20,
+    called: !(i >= 5_000 && i <= 14_999 && ((i * 7919) % 1000) < 850),
+    log2R: i >= 5_000 && i <= 14_999 ? 1.9 : 0,
+  }))
+  assert.ok((dense[dense.length - 1].pos - dense[0].pos) < MIN_SEGMENT_SPAN_BP,
+    'the dense fixture must be shorter than the floor for this to test anything')
+  assert.deepEqual(scanCopyNumber(dense, 0.10, 0), [],
+    'a window inside a probe cluster is not a segmental call at any intensity')
+
+  // THE INVARIANT, over every fixture above: nothing this scan reports claims less than the floor.
+  // Stated as a property because the span that matters is the REPORTED one, and a window of
+  // several megabases can refine down to a tenth of one.
+  for (const fixture of [
+    cn(40_000, 5_000, 14_999, 0.85, -1.9), cn(40_000, 5_000, 14_999, 0.85, 1.9),
+    cn(40_000, 5_000, 14_999, 0.85, 0.9), cn(40_000, 5_000, 14_999, 0.85, 0.4),
+    cn(40_000, -1, -1, 0, 0), dense,
+  ]) {
+    for (const sg of scanCopyNumber(fixture, 0.10, 0)) {
+      assert.ok(segmentCoords(sg).spanBp >= MIN_SEGMENT_SPAN_BP,
+        `reported a ${segmentCoords(sg).spanBp} bp segment, under the ${MIN_SEGMENT_SPAN_BP} floor`)
+    }
+  }
+
   assert.equal(SEGMENT_LRR_SHIFT, 1.0)
   // The gain gate is DERIVED from the loss gate, so the two cannot drift apart by editing one.
   assert.ok(Math.abs(SEGMENT_GAIN_SHIFT - 0.5849625007211562) < 1e-12,

@@ -161,6 +161,14 @@ export const cellOf = (f: string): { embryo: string; cell: string } => {
  * harness did exactly that and would have reported zero recall as if it were a measurement.
  */
 export const scanSegments = (a: Loaded) => {
+  // THE HARNESS MUST REFUSE WHAT THE PRODUCT REFUSES. scoreSample withholds the intensity scan
+  // entirely when inferStage returns 'failed', because the scan normalises against this sample's
+  // own per-chromosome median and a genome with no normal majority has none to offer. This
+  // harness called the scan unconditionally, so it charged the detector for segments the shipped
+  // tool would never report: on the 72 arrays with no hand call, three such calls on two arrays
+  // whose heterozygosity is 0.58 and 0.62, past the 0.50 a diploid genome can reach. One of those
+  // three is the single false call recorded in the 8 November gains baseline.
+  if ((stageMod.inferStage(a.profile as never) as { stage: string }).stage === 'failed') return []
   const byChrom = new Map<string, Marker[]>()
   // PUSH, NEVER SPREAD. Rebuilding the accumulated array once per marker is quadratic: at 825,656
   // markers over 22 autosomes it is about 1.5e10 element copies and as many throwaway allocations,
@@ -177,12 +185,17 @@ export const scanSegments = (a: Loaded) => {
   for (const [c, ms] of byChrom) noCall.set(c, [ms.length, ms.filter((m) => !m.called).length])
   const out: ReturnType<typeof segs.scanCopyNumber> = []
   // The intensity cut is a property of the whole autosome set, so it is taken once per sample.
-  const profile = segs.highLrrProfile(byChrom)
+  // OM_GAIN_Q sweeps the cut without a rebuild; unset it uses the shipped constant.
+  const profile = segs.highLrrProfile(byChrom,
+    process.env.OM_GAIN_Q ? Number(process.env.OM_GAIN_Q) : undefined)
   for (const [c, ms] of byChrom) {
     // The no-call arm first, so the gain arm can recognise what it has already raised.
     const noCallArm = segs.scanCopyNumber(
       ms, segs.externalNull(noCall, c) as number, a.genomeLrr)
     out.push(...noCallArm)
+    // OM_NO_GAIN_ARM measures what the detector did BEFORE intensity nomination, so a change in
+    // the disagreement count can be attributed to this arm rather than assumed.
+    if (process.env.OM_NO_GAIN_ARM) continue
     out.push(...segs.scanCopyGain(
       ms, segs.externalNull(profile.byChrom, c) as number, a.genomeLrr, profile, noCallArm))
   }

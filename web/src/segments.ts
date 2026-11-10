@@ -478,6 +478,23 @@ export function scanChromosome(
  */
 export const GAIN_NOMINATION_QUANTILE = 0.70
 
+/**
+ * Smallest span a SEGMENTAL call may claim, in base pairs.
+ *
+ * MIN_SEGMENT_MARKERS assumes probes are spread evenly and on this platform they are not. At the
+ * array's mean density, 825,656 markers over about 3,000 Mb, 2,400 markers span roughly 8.7 Mb.
+ * Inside a dense probe cluster the same 2,400 fit into a tenth of a megabase, which is 87 times
+ * mean density, so the marker floor is satisfied by a window far too small to be a segmental
+ * event. Measured on the 72 arrays with no hand call: five calls under 0.5 Mb, three of them at
+ * the SAME chr19 locus on three unrelated arrays, which is a property of the probe layout rather
+ * than of any genome.
+ *
+ * 1 Mb is set below the smallest event in the hand-call set, which is 3.0 Mb, rather than tuned
+ * to the artefacts: it leaves a factor of three before it could cost a real region, and any window
+ * holding the marker floor inside 1 Mb is at nine times mean density or more.
+ */
+export const MIN_SEGMENT_SPAN_BP = 1_000_000
+
 /** A sample's intensity-high cut and the per-chromosome rates it produces, for `scanCopyGain`. */
 export interface HighLrrProfile {
   /** The log R above which a marker counts, taken from this sample's own autosomes. */
@@ -563,6 +580,8 @@ export function scanCopyGain(
       .map((m) => m.log2R as number)
     if (!inside.length) continue
     inside.sort((a, b) => a - b)
+    // A segmental call has to span enough to be segmental, measured on what it reports.
+    if (segmentCoords(h).spanBp < MIN_SEGMENT_SPAN_BP) continue
     const delta = inside[inside.length >> 1] - genomeLrr
     if (delta < gainShift) continue
     const dup = already.some((s) => s.chrom === h.chrom && reciprocalOverlap(
@@ -597,6 +616,17 @@ export function scanCopyNumber(
     // Without this the scan reports regions the array merely failed on. Measured: the rejected
     // ones carry -0.72 to +0.38, the kept ones -0.97 to -1.94.
     //
+    // A segmental call has to span enough to be segmental: see MIN_SEGMENT_SPAN_BP. This arm needs
+    // the floor as much as the gain arm does, and for a reason created here: the dense-probe
+    // windows were always nominated and the old symmetric gate rejected them on intensity, so
+    // lowering the gain side to log2(3/2) is what let them through. Three such calls, at 0.1 Mb,
+    // 0.3 Mb and under 0.05 Mb, two of them at one chr19 locus.
+    //
+    // THE SPAN TESTED IS THE ONE REPORTED. Refinement narrows a window to marker-resolution edges
+    // and `segmentCoords` is what every caller prints, so a window of several megabases can claim
+    // a tenth of one. Gating the searched window instead of the claim left all three artefacts in
+    // place and looked like the floor having no effect.
+    if (segmentCoords(h).spanBp < MIN_SEGMENT_SPAN_BP) continue
     // THE TWO ARMS ASK DIFFERENT MAGNITUDES, because the events are different sizes: see
     // GAIN_SHIFT_FRACTION. A symmetric test here refused four real gains at 0.815 to 0.998.
     if (delta >= gainShift) out.push({ ...h, kind: 'copy-gain' })
