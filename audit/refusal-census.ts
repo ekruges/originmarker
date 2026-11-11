@@ -177,6 +177,22 @@ for (const gsm of cells) {
     }
   }
   for (const sg of (res.segments ?? [])) emit('made', '', 'segment', sg.chrom, sg, m)
+  // AND WHAT IT LEFT UNDECIDED. A chromosome whose contribution is 'uncalled' or withheld names no
+  // parent and is recorded nowhere as refused, so it is the refusal no gate admits to. Read off the
+  // product's own result, with the numbers its verdict was made on.
+  for (const c of (res.chroms ?? [])) {
+    if (!/^\d+$/.test(c.chrom)) continue
+    const k = c.contribution
+    const why = c.contributionWithheld
+    if (!why && k?.ploidy !== 'uncalled') continue
+    const tv = t.get(c.chrom) ?? ''
+    out.push(['undecided', gsm, stg, by, why ? 'contribution.withheld' : 'contribution.uncalled',
+      'contribution', c.chrom, why ? 'withheld' : 'uncalled', tv, kary,
+      /^monosomy/.test(tv) ? 'abnormal' : tv === 'normal' ? 'normal' : 'none',
+      tv === '' || tv === 'no call' ? 'unscorable' : 'undecided',
+      Number(k?.fraction ?? NaN).toFixed(3), Number(k?.informative ?? NaN).toFixed(0),
+      Number(k?.onlyA ?? NaN).toFixed(3), Number(k?.onlyB ?? NaN).toFixed(3)].join('\t'))
+  }
 }
 if (process.env.OM_TSV) writeFileSync(process.env.OM_TSV, out.join('\n') + '\n')
 console.log(`${out.length - 1} claims recorded${process.env.OM_TSV ? `, written to ${process.env.OM_TSV}` : ''}`)
