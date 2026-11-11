@@ -1,0 +1,68 @@
+Pre-registration: the heterozygosity ceiling, read against a parent-free answer key
+====================================================================================
+
+Written 10 November 2026 against commit cc8559b, BEFORE the stage logic is changed. The laboratory's
+material carries one parent, reconstructed from the children. So nothing here may depend on how many
+parents are loaded: the stage, every refusal of it and every intensity claim must come out the same
+with one reconstructed parent as with two measured ones.
+
+WHAT IS ALREADY MEASURED
+------------------------
+A founder panel's shared homozygotes stand in for a pair of parents that always agree (cc8559b). Over
+the 31 GSE148488 cells with a published Table S3 karyotype, each read against a panel built WITHOUT
+its own parents:
+
+  drop-in       r = 0.9983 against the drop-in read where both measured parents share a homozygote;
+                panel = 0.932 x parents + 0.0424. The offset is real heterozygosity at variants four or
+                five founders happen to lack.
+  information   the two arrays the parent-based ratio calls noise read 1.063 and 1.282 against the
+                panel; every other cell reads 0.318 or under both ways. Same verdict at the shipped
+                NO_INFORMATION_MIN on all 31.
+  stage         identical with two measured parents and with one father reconstructed from five of his
+                pronuclei, on all 31, because nothing in it reads a parent.
+
+THE CHANGE, FIXED NOW
+---------------------
+Only an array over the heterozygosity ceiling is touched, so no array the ladder accepts today can
+change. Over it, with the panel keys supplied, three outcomes, each a physical cause:
+
+  no-genotype-signal  the panel information ratio is at or over NO_INFORMATION_MIN: the calls carry
+                      nothing about any genome. Refused, as now, under its real cause.
+  second-genome       heterozygosity with drop-in removed, (h - d) / (1 - d), is still over the ceiling,
+                      with d the panel drop-in put on the parent scale by the line above. More
+                      heterozygous than one genome can be even after drop-in. Refused.
+  one genome          otherwise. The array gets a stage, read from the ladder at the heterozygosity it
+                      would show at the drop-in the boundaries were measured with (DROP_IN, 0.0435). It
+                      is marked as drop-in corrected, with d stated. Drop-in corrected heterozygosity
+                      does not separate one copy from two on this material (the consult: haploid
+                      pronuclei 0.002 to 0.014, diploid progeny from 0.015), so the haploid rung is not
+                      reachable this way: ploidy is diploid only where the BAF band says so, and
+                      unknown otherwise.
+
+On an array so marked, intensity claims (whole-chromosome copy number, the copy-number scan, the event
+list) are withheld under cause `no-intensity-reference`: a normal majority to normalise against has not
+been shown, and the localised-excess test that would show it reads 0.07 to 0.18 on every array over the
+ceiling, chaotic or not, against a threshold of 0.50, so it cannot. Allele claims run. Its label says
+which is which.
+
+Haploid products for a reconstruction: a product over the ceiling that comes out `one genome` with its
+drop-in-corrected heterozygosity in the haploid range is accepted, since the operator asserts it is
+haploid and the test is only whether the array contradicts that.
+
+PREDICTIONS
+-----------
+P1  GSM4552418 and GSM4552422 stay failed, now as no-genotype-signal.
+P2  The other seven arrays over the ceiling are no longer failed and carry their drop-in: GSM4472405,
+    GSM4472409, GSM4472421, GSM4472422, GSM4552387, GSM4552388, GSM4552389. None is second-genome.
+P3  1:1. Stage, its refusal and the drop-in stated are identical with two measured parents and with the
+    one reconstructed father, on all 31.
+P4  1:1. Every intensity claim is identical across the two, and none appears on the seven.
+P5  No array under the ceiling changes stage or any claim, against the census before this change.
+P6  Two measured parents: confirmed lost parents stay at or over 82, with no new wrong parent.
+P7  One reconstructed father, the laboratory's setting: the allele claims that now run on the seven are
+    scored against Table S3 and listed; contradicted is not to exceed confirmed.
+P8  GSM4774684, GSM4774686 and GSM4774687, paternal pronuclei refused today as not a genome, are
+    accepted as haploid products. GSM4774681, which reads as a blastomere UNDER the ceiling, is not
+    reached by this and is stated as a limit.
+
+A failed prediction is reported as a failure, and the change does not ship until it is understood.
