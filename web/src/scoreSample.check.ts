@@ -356,6 +356,14 @@ async function run(declaredStage?: 'failed', withMother = false) {
       'while the intensity claims stay withheld on the refused array')
     assert.ok(!(refused.refusals ?? []).some((x) => x.claim === 'lostParent'),
       'and a claim that stands is not recorded as refused')
+    // AND THE LABEL AGREES WITH THE RESULT. A banner telling the reader not to read parental calls,
+    // above parental calls the result is showing, is the contradiction that sends a reader back to ask
+    // which of the two to believe.
+    assert.equal(refused.integrity?.level, 'disturbed')
+    assert.ok(/which parent is read from the alleles/.test(refused.integrity?.headline ?? ''),
+      `the label says what stands. Got: ${refused.integrity?.headline}`)
+    assert.ok(!/Nothing on this sample is reportable/.test(refused.integrity?.limits ?? ''),
+      'and does not tell the reader to ignore the calls it is showing')
   }
 
   // AND EVERY ONE OF THOSE IS RECORDED, with what it would have said. The census scores refusals

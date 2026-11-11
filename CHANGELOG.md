@@ -9,6 +9,64 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.50.0 "Mismatch Repair"
+
+**Which parent's copy is gone is now read with the array's own measured drop-in removed, and a cell
+refused for drop-in keeps those calls.** This is the over-refusal the laboratory has raised
+repeatedly, and it had been "fixed" about eight times, each time by confirming a threshold was right
+on its own terms or by giving a refusal a better sentence. Nothing ever counted what the refusals threw
+away. This release counts it first, and then changes only what the count shows is wrong.
+
+**Every withheld claim is now a record.** Each refusal point writes the claim, the chromosome, the gate
+that fired, its cause, the numbers it fired on and the value it would have reported, before it clears
+anything. Causes come from a closed list of six physical failures: no template, no genotype signal, a
+second genome, no intensity reference, uninformative parents, a parent not loaded. Every gate that does
+not measure one of those is recorded as `proxy` with its name, so each can be scored and removed in
+turn. `inferStage` names which failed branch fired. A check pins every cleared field to a record
+written before it is cleared, and requires a cause and a measurement on each.
+
+`audit/refusal-census.ts` runs the shipped `scoreSample` on all 31 GSE148488 cells with a published
+Zuccaro 2020 Table S3 karyotype and both parents, and scores made and withheld claims by type and
+direction against it, wrong parent apart. It found two refusals. The heterozygosity ceiling refused 9
+of the 31 cells; on the five that are single genomes it withheld 13 abnormal claims the published
+karyotype confirms and 96 normal ones, to stop 2 errors, while its real catches sat on the two cells
+published chaotic and one near-empty array. And below it, a refusal no gate admitted to: 14
+published monosomies left undecided, because a lost parent was named only under a heterozygous
+fraction of 0.20, and drop-in puts heterozygous calls on a one-copy chromosome. On the 8 of those with
+counts the fraction read 0.211 to 0.402, while the lost parent's allele read 0.005 to 0.095 and the
+survivor's 0.57 to 0.78. The direction was never in doubt; the line was.
+
+**Drop-in is measured on each cell.** Where both measured parents carry the same homozygote the sample
+can only be that homozygote, so a heterozygous call there is drop-in (`answerKeys.ts`). It reads 0.0084
+on bulk DNA, 0.018 to 0.06 on most single cells and blastomeres, 0.10 to 0.16 on some trophectoderm,
+and 0.24 to 0.32 on the cells the ceiling refuses. `hetCall` removes it before applying the validated
+boundaries: (fraction - d) / (1 - d), and each one-parent share over (1 - d). The shares as read stay on
+the result beside the corrected ones, and the reason states the drop-in removed. On the material the
+boundaries were validated on the correction is negligible.
+
+**The heterozygosity ceiling no longer clears which-parent calls** where the information ratio against
+a measured parent says the calls carry genotype information. Drop-in raises heterozygosity without
+moving which parent's allele is present. A declared failure and a collapsed call rate still clear
+everything, and copy number, segments and the event list stay withheld on any refused array, since
+intensity is not corrected by any of this. The label on such a cell now says exactly that, rather than
+telling the reader to ignore the parental calls it shows.
+
+**Scored on the census, against a preregistration written before the code:** 82 confirmed lost parents
+against 78, none lost, none changed, no new wrong parent. The two refused-cell monosomies the census
+found are named, with the published parent. 2 new calls fall on chromosomes published normal, both on
+trophectoderm biopsies and both with intensity in the same direction, and are listed for adjudication
+in `audit/lost-parent-preregistration.txt`: on one cell the call reads a quarter of a full shift beside
+a published monosomy reading the full one, and on the other intensity is flat for all eleven of its
+confirmed monosomies too.
+
+**A rule was tried first and withdrawn.** A likelihood test against a floor measured at
+same-homozygote markers took confirmed calls from 78 to 20: that floor is a two-copy template's error
+and a lost chromosome is one copy, and it treated chromosomes as varying only by sampling. It never
+shipped. The correction that did ship was chosen after seeing that result, so its census score is not
+independent validation and is stated that way; it needs confirming on material it was not designed on.
+
+---
+
 ## 5.49.0 "Unequal Exchange"
 
 **Segmental gains are now nominated on intensity, because the channel that finds losses cannot

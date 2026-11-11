@@ -119,3 +119,32 @@ drop-in added.
 Because it was chosen after seeing this census, its score on the same census is NOT independent
 validation. It is reported as such, and it needs confirmation on material it was not designed on
 before the claim is made in public.
+
+RESULT OF THE DROP-IN CORRECTION
+--------------------------------
+Census over the same 31 published cells (not independent of the design: see above).
+
+  P1  2 of 4 named with the published parent: GSM4472422 chr5 and GSM4552389 chr5, both on cells the
+      heterozygosity ceiling refuses. GSM4472405 chr16 is not reached, because that cell's zygosity
+      reads unknown and gates the allele channel first. GSM4552364 chr16 comes out mixed, and its
+      published call is a loss of 16q only, so a whole-chromosome partial reading is the accurate one.
+  P2  2 of 4 trophectoderm monosomies named, both with the published parent (GSM4472413 chr6,
+      GSM4552420 chr15); 2 mixed.
+  P3  HOLDS. No new wrong parent. The one wrong parent is the baseline's, GSM4552382 chr2, on a cell
+      published chaotic.
+  P4  HOLDS. 82 confirmed against 78. No baseline call was lost and no named parent changed.
+  P5  HOLDS. No lost parent on GSM4552418 or GSM4552422, whose drop-in reads 0.66 and 0.62 and whose
+      calls the information ratio says carry nothing.
+  P6  HOLDS, 2 new calls on chromosomes published normal, both on trophectoderm biopsies, both with
+      intensity in the same direction, so both go to the adjudicate list:
+        GSM4472413 chr21, maternal, log R -0.200, on a cell whose published monosomy 6 reads -0.846:
+          a quarter of a full shift, which is what a loss in part of a biopsy reads.
+        GSM4552420 chr14, maternal, log R -0.046, on a chaotic cell where all eleven of its confirmed
+          monosomies also read between -0.107 and +0.280: intensity carries nothing on this cell, the
+          alleles are its only working channel, and this call rests on the same evidence as those.
+  P7  By construction.
+
+Overall: 6 new lost-parent calls, 4 confirmed and 2 for adjudication, none lost, none wrong. The
+refused cells that hold real monosomies now name them. On trophectoderm the correction names parents
+where the published reading is normal as often as where it is a monosomy, and that ambiguity is the
+material's, not the rule's; those calls are reported, and listed for adjudication.

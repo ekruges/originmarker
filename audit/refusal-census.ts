@@ -147,7 +147,8 @@ const brief = (v: any): string => (v === undefined ? '' : typeof v === 'object'
 
 const SHARDS = Number(process.env.OM_SHARDS ?? 1)
 const SHARD = Number(process.env.OM_SHARD ?? 0)
-const cells = [...truth.keys()].filter((g) => fileOf.has(g) && parentsOf.has(g)).sort()
+const only = process.env.OM_ONLY ? new Set(process.env.OM_ONLY.split(',')) : null
+const cells = [...truth.keys()].filter((g) => fileOf.has(g) && parentsOf.has(g) && (!only || only.has(g))).sort()
   .filter((_, i) => i % SHARDS === SHARD)
 console.log(`${cells.length} published cells with both parents on disk (shard ${SHARD} of ${SHARDS})`)
 
@@ -177,7 +178,9 @@ for (const gsm of cells) {
   const m = { heterozygosity: res.stage ? NaN : NaN, callRate: NaN }
   for (const c of (res.chroms ?? [])) {
     for (const claim of ['aneuploidy', 'lostParent', 'aneuploidyParent', 'alleleGain', 'mixed']) {
-      if (c[claim] !== undefined) emit('made', '', claim, c.chrom, c[claim], m)
+      // For a made claim the measurement columns carry the chromosome's own log R shift, so an
+      // allele call can be read against the intensity channel without a second run.
+      if (c[claim] !== undefined) emit('made', '', claim, c.chrom, c[claim], { heterozygosity: c.lrrShift, callRate: c.callFraction })
     }
   }
   for (const sg of (res.segments ?? [])) emit('made', '', 'segment', sg.chrom, sg, m)

@@ -69,6 +69,12 @@ export interface IntegrityInput {
   /** Autosomes the alleles read as carrying an extra copy and the intensity detector did not
    *  flag. Counted beside the changes, outside the deviant-fraction bound, for the same reason. */
   gainByAlleles?: number
+  /**
+   * The stage refusal fired on the heterozygosity ceiling, and this array's own genotype calls were
+   * shown to carry information, so the allele claims stood through it. The label must then say what
+   * stands and what does not, rather than tell the reader to ignore calls the result is showing.
+   */
+  allelesStand?: boolean
 }
 
 /**
@@ -93,6 +99,22 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
     : '') + (gainByAlleles
     ? `; ${gainByAlleles} chromosome${gainByAlleles === 1 ? '' : 's'} with an extra copy by the alleles`
     : '')
+
+  if (stage === 'failed' && input.allelesStand) {
+    return {
+      level: 'disturbed',
+      headline: 'HIGH DROP-IN: copy number is withheld; which parent is read from the alleles',
+      why: 'This array reads more heterozygous than one genome can, and the cause measured on it is '
+        + 'drop-in: heterozygous calls at markers where both parents carry the same homozygote, '
+        + 'where none can be real. Drop-in adds heterozygous calls without adding an absent '
+        + 'parent\'s allele, so which parent\'s copy is missing is read with this array\'s drop-in '
+        + 'removed, and its genotype calls carry information about the genome by the information '
+        + 'ratio. Intensity is not corrected by any of that.',
+      limits: 'Read the parent named on each chromosome, with the drop-in it was corrected for stated '
+        + 'beside it. Do not read copy number, segment positions or event counts from this sample.',
+      measures,
+    }
+  }
 
   if (stage === 'failed') {
     return {

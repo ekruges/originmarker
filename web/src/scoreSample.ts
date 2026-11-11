@@ -1936,6 +1936,7 @@ export async function scoreSample(input: {
         + autosomes.filter((c) => c.aneuploidy).length,
       parentAbsent: autosomes.filter((c) => c.lostParent && !c.aneuploidy).length,
       gainByAlleles: autosomes.filter((c) => c.alleleGain?.verdict === 'gain' && c.aneuploidy !== 'gain').length,
+      allelesStand: uninterpretable && alleleClaims.size > 0,
     })
     // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader nothing on the
     // sample is reportable, which is the same to the person reading it. Recorded as soft.

@@ -228,10 +228,17 @@ RELEASES: tuple[Release, ...] = (
             "calling there, while the duplication leaves every marker present and callable. A "
             "scan that looks for where genotyping stopped therefore finds one of them and is "
             "blind to the other, however it is thresholded."),
+    Release("Mismatch Repair",
+            "Where a crossover leaves two strands disagreeing, the cell does not guess which base is "
+            "right: it reads the strand it trusts and corrects the other against it. The same move "
+            "applies to an array. Where both parents carry the same homozygote the right answer is "
+            "known before the sample is read, so every disagreement there is this array's own error, "
+            "measured on it, and the calls that matter are read with that error removed rather than "
+            "against a line drawn once on other material."),
 )
 
-VERSION = "5.49.0"
-CODENAME = "Unequal Exchange"
+VERSION = "5.50.0"
+CODENAME = "Mismatch Repair"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
