@@ -66,3 +66,40 @@ P8  GSM4774684, GSM4774686 and GSM4774687, paternal pronuclei refused today as n
     reached by this and is stated as a limit.
 
 A failed prediction is reported as a failure, and the change does not ship until it is understood.
+
+RESULT
+------
+Census over the 31 published cells, two arms: both measured parents, and the father reconstructed
+from five of his pronuclei alone (the laboratory's configuration). Each cell read against a founder
+panel built without its own parents.
+
+  P1  HOLDS. GSM4552418 and GSM4552422 are failed as no-genotype-signal in both arms.
+  P2  HOLDS. The seven are staged, six as blastomere and GSM4552387 as single-cell, each with its
+      drop-in stated. None is second-genome.
+  P3  HOLDS. Stage and its refusal identical across the arms on 31 of 31.
+  P4  HOLDS. Whole-chromosome copy number identical across the arms, 19 calls each, none on the seven.
+  P5  HOLDS. On the 22 arrays under the ceiling, no stage and no claim changed in either arm.
+  P6  HOLDS. Two measured parents: 82 confirmed lost parents, 4 contradicted, 1 wrong parent, all as
+      before.
+  P7  HOLDS, narrowly. In the one-parent arm, 15 allele claims now stand on the seven that had none:
+      8 confirmed, 7 contradicted. They include the three hand-called del(6q)(pat) deletions that
+      5.42.1 recorded as lost to this refusal on 26 October, and both paternal monosomy 5s. Of the 7
+      contradicted, 5 are on GSM4472405, a cell published chaotic, and 2 are chr13 and chr15 on
+      embryo-1 biopsies (GSM4552387, GSM4552389), where the over-refusal consult found allele and
+      intensity channels agreeing against Table S3 on every sister biopsy: adjudicate, not counted.
+  P8  FAILS. GSM4774684 and GSM4774686 are no longer refused as not a genome, but the BAF band called
+      them diploid, and they are haploid by micromanipulation: drop-in fills the band exactly as it
+      inflates heterozygosity. Fixed before release, so a corrected array's ploidy is unknown however
+      its band reads; no claim reads the stage's ploidy, so P1 to P7 are unaffected. They are still
+      not accepted as haploid products for a reconstruction, because no test here separates one copy
+      from two under drop-in this heavy. On every haploid pronucleus the panel drop-in equals the
+      heterozygosity to within 0.011, which is what one copy should read and is the basis of a test
+      that could; it is not built. GSM4774687, a haploid pronucleus reading trophectoderm at 0.250,
+      and GSM4774681, reading blastomere at 0.121, sit under the ceiling and are not reached.
+
+KNOWN 1:1 GAP, PRE-EXISTING
+---------------------------
+The copy-number scan skips any chromosome already explained as a whole event, and a chromosome the
+alleles name as missing a parent counts as explained. Those names exist only with two measured
+parents, so copy-number segments can differ between the arms on exactly those chromosomes. Pinned in
+scoreSample.check.ts; not changed here.

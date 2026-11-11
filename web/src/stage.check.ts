@@ -479,10 +479,14 @@ console.log('stage.check.ts: ploidy is reported separately from the material')
   assert.equal(one.ploidy, 'unknown', 'how many copies is not separable once heavy drop-in is removed')
   assert.ok(/drop-in/.test(one.why), `and the reason names it: ${one.why}`)
 
-  // Where the BAF band says two copies, it is diploid, as for any array.
+  // AND THE BAF BAND DOES NOT RESCUE IT. Drop-in fills the band as it inflates heterozygosity: two
+  // haploid pronuclei of GSE148488 read it as diploid at drop-in of 0.30 and 0.43. So a corrected
+  // array is unknown in ploidy however its band reads, rather than wrongly called two copies.
   const banded = inferStage({ ...over, hetBand: 0.5, dropIn: 0.27, information: 0.1 })
-  assert.equal(banded.ploidy, 'diploid')
+  assert.equal(banded.ploidy, 'unknown', 'a band filled by drop-in is not evidence of two copies')
   assert.equal(banded.dropInCorrected, 0.27)
+  // While on an array that needed no correction the band still decides, as it always has.
+  assert.equal(inferStage({ hetRate: 0.09, callRate: 0.8, hetBand: 0.5 }).ploidy, 'diploid')
 
   // NOTHING ELSE MOVES. Without the keys the ceiling behaves as it always has, and an array under
   // the ceiling is staged identically with or without them.

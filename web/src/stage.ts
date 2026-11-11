@@ -494,7 +494,12 @@ export function inferStage(
   // the diploid line has intermediate signal at a large fraction of its markers, which one
   // template cannot produce, so it is diploid however few heterozygotes the caller kept. Without
   // this a blastomere at 0.40 dropout crosses the heterozygosity boundary and is called haploid.
-  const bandSaysDiploid = Number.isFinite(band as number) && (band as number) >= bandCertain
+  // NOT ON A DROP-IN CORRECTED ARRAY. Drop-in puts heterozygous calls at intermediate BAF, so it
+  // fills the band exactly as it inflates heterozygosity: on GSE148488 two paternal pronuclei, haploid
+  // by micromanipulation, read the band as diploid at drop-in of 0.30 and 0.43. A band is evidence of
+  // two copies only where drop-in is not supplying it.
+  const bandSaysDiploid = dropInCorrected === undefined
+    && Number.isFinite(band as number) && (band as number) >= bandCertain
 
   // DROP-IN CORRECTED HETEROZYGOSITY DOES NOT SEPARATE ONE COPY FROM TWO on this material: haploid
   // pronuclei read 0.002 to 0.014 with drop-in removed and diploid progeny from 0.015. So a corrected
@@ -561,9 +566,9 @@ export function inferStage(
   if (dropInCorrected !== undefined) {
     return {
       stage: hit.stage,
-      // Not called diploid on heterozygosity: see the haploid rung above. Only a BAF band at the
-      // diploid line says two copies, wherever on the ladder the array lands.
-      ploidy: bandSaysDiploid ? 'diploid' : 'unknown',
+      // Neither heterozygosity nor the BAF band says how many copies once drop-in is this heavy:
+      // drop-in corrupts both. Stated as unknown rather than guessed.
+      ploidy: 'unknown',
       dropInCorrected,
       dropout: Math.max(implied, hit.dropout * 0.6),
       basis: 'heterozygosity-shortfall',
