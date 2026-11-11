@@ -1,3 +1,6 @@
+<!-- CORRECTION, after sending: section 3c says the published-arm disagreements on chaotic cells
+     sit on "two cells". They sit on five cells before the gain arm and seven after; the count was
+     grouped by karyotype text, which is spelled two ways. The response caught it. -->
 <!-- Laboratory sample identifiers redacted: this file is tracked in a public repository.
      Cells of the laboratory series are pseudonymised per audit/local/barcode-map.tsv (S12, S13).
      GSM accessions are public GEO identifiers and are given as they are. -->

@@ -80,11 +80,12 @@ published 45,XY,-6.
 
 A SEPARATE DEFECT THIS SURFACED, NOT CAUSED BY THIS CHANGE
 ----------------------------------------------------------
-28 of the 30 baseline disagreements are on two cells Zuccaro hand-called chaotic aneuploid. The
-tool's own 'failed' stage does not fire on them, so it scans and calls where the published reading
-says the genome is chaotic. Whatever the right answer is, the tool and the published hand reading
-disagree about whether those two cells are readable, and the tool is the permissive one. Untouched
-here and recorded for its own measurement.
+28 of the 30 baseline disagreements are on FIVE cells Zuccaro hand-called chaotic aneuploid, and
+31 of 34 on seven once the gain arm runs. (First written as "two cells": the count was grouped by
+karyotype text, which the table spells two ways, not by cell. Caught by the over-refusal consult.)
+The tool's 'failed' stage does not fire on them. The consult found 25 of the 34 sit on chromosomes
+whose foreign-allele rate at same-homozygote markers is 4.0 to 9.7 times that cell's median, the
+signature of no template, so the tool's loss call may be the right one there. Untouched here.
 
 AND TWO DEFECTS FIXED ALONG THE WAY
 -----------------------------------

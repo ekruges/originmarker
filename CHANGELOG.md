@@ -65,9 +65,12 @@ does find a gain the material is intact: the four it recovered read homozygous-p
 0.715 to 0.840 where the gains the old scan found sat at a median of 0.340.
 
 Separately recorded and NOT addressed here: 28 of the 30 baseline disagreements on that published
-set are on two cells Zuccaro hand-called chaotic aneuploid, where this tool's 'failed' stage does
-not fire. The tool and the published reading disagree about whether those two cells are readable
-and the tool is the permissive one.
+set are on five cells Zuccaro hand-called chaotic aneuploid, and 31 of the 34 on seven once the gain
+arm runs, where this tool's 'failed' stage does not fire. (This entry first said "two cells": the
+count was grouped by the karyotype text, which is spelled two ways, and not by cell.) 25 of the 34
+sit on chromosomes whose foreign-allele rate at same-homozygote markers is 4.0 to 9.7 times the
+cell's median, the signature of a chromosome with no template, so the tool's loss call there may be
+right and the published "normal" wrong. Neither can be shown from this data.
 
 ---
 
