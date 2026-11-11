@@ -58,9 +58,23 @@ export const MIN_SAME_HOM = 10_000
  */
 export const PANEL_DROPIN_SLOPE = 0.932
 export const PANEL_DROPIN_INTERCEPT = 0.0424
-export const onParentScale = (panelDropIn: number): number =>
+
+/** How a panel's drop-in reading maps onto the parent-based one: panel = slope x parents + intercept. */
+export interface PanelCalibration { slope: number; intercept: number }
+
+/**
+ * THE CALIBRATION BELONGS TO THE PANEL, not to the code. The intercept is real heterozygosity at
+ * variants that panel's founders happen to share, so it depends on who the founders are and on the
+ * population being read. The shipped panel states its own in its header; the line above, measured
+ * on the validation panels, is the fallback for a panel that states none.
+ */
+export const DEFAULT_CALIBRATION: PanelCalibration = {
+  slope: PANEL_DROPIN_SLOPE, intercept: PANEL_DROPIN_INTERCEPT,
+}
+
+export const onParentScale = (panelDropIn: number, cal: PanelCalibration = DEFAULT_CALIBRATION): number =>
   Number.isFinite(panelDropIn)
-    ? Math.min(1, Math.max(0, (panelDropIn - PANEL_DROPIN_INTERCEPT) / PANEL_DROPIN_SLOPE))
+    ? Math.min(1, Math.max(0, (panelDropIn - cal.intercept) / cal.slope))
     : NaN
 
 /**
@@ -69,12 +83,21 @@ export const onParentScale = (panelDropIn: number): number =>
  * chromosome for its own checks. One parser for the browser and the command line, so the two cannot
  * read the same file differently.
  */
-export function parsePanel(text: string): Map<string, 'AA' | 'BB'> {
-  const out = new Map<string, 'AA' | 'BB'>()
+export type FounderPanel = Map<string, 'AA' | 'BB'> & { calibration?: PanelCalibration }
+
+export function parsePanel(text: string): FounderPanel {
+  const out: FounderPanel = new Map<string, 'AA' | 'BB'>()
   const lines = text.split('\n')
-  for (let i = 1; i < lines.length; i += 1) {
+  for (let i = 0; i < lines.length; i += 1) {
     const l = lines[i]
     if (!l) continue
+    // `# calibration slope=0.932 intercept=0.0645`: the panel's own line, measured on it.
+    if (l.startsWith('#')) {
+      const m = /slope=([0-9.]+)\s+intercept=([0-9.]+)/.exec(l)
+      if (m) out.calibration = { slope: Number(m[1]), intercept: Number(m[2]) }
+      continue
+    }
+    if (l.startsWith('probeset')) continue
     const tab = l.indexOf('\t')
     if (tab < 0) continue
     const allele = l.slice(l.lastIndexOf('\t') + 1).trim()
@@ -92,8 +115,8 @@ export const FOUNDER_PANEL_PATH = 'panel/founders.tsv.gz'
  * examples are, because a host may already have removed the gzip encoding in transit. Null on any
  * failure: without a panel the stage behaves exactly as it did before panels existed.
  */
-let panelPromise: Promise<Map<string, 'AA' | 'BB'> | null> | null = null
-export function loadFounderPanel(base = ''): Promise<Map<string, 'AA' | 'BB'> | null> {
+let panelPromise: Promise<FounderPanel | null> | null = null
+export function loadFounderPanel(base = ''): Promise<FounderPanel | null> {
   panelPromise ??= (async () => {
     try {
       const res = await fetch(base + FOUNDER_PANEL_PATH)

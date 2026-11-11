@@ -9,6 +9,67 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.51.0 "Linkage Equilibrium"
+
+**The heterozygosity ceiling now says which of three physical failures it found, with no parent
+needed, and an array that is one genome read badly is staged instead of refused.** The laboratory's
+material carries one parent, reconstructed from the children, so 5.50.0 reached none of it: its
+drop-in needed two measured parents, and the information ratio is off for a reconstructed one.
+
+**A founder panel is the parent-free answer key.** `web/public/panel/founders.tsv.gz` lists 393,204
+markers where four unrelated people, the sperm donor and egg donors A, B and C of the public series
+GSE148488, are all called the same homozygote. It enters the existing tallies as a pair of parents that
+always agree, so drop-in and the information ratio are read against it with the same arithmetic as
+against parents. The browser fetches it once and the command line reads the same file through one
+parser; `--panel` points at another, such as one a laboratory builds from its own bulk arrays and keeps
+private, and `--no-panel` scores without one. It holds no laboratory data. A panel carries its own
+calibration in its header, since the offset is a property of who its founders are.
+
+Validated 1:1 before anything used it, over the 31 GSE148488 cells with a published Table S3 karyotype,
+each read against a panel built WITHOUT its own parents: drop-in r = 0.9983 against the two-parent
+reading, panel = 0.932 x parents + 0.0424; the information ratio gives the same noise verdict on all 31.
+On every haploid paternal pronucleus the panel drop-in equals the heterozygosity to within 0.011,
+which is what one copy should read. The shipped panel's offset was measured on two unrelated
+laboratory bulk arrays, which read 0.074 and 0.071 against it.
+
+**Over the ceiling, three outcomes.** Calls whose information ratio against the panel is at or over
+NO_INFORMATION_MIN are refused as `no-genotype-signal`. Heterozygosity still over the ceiling with the
+panel drop-in removed is refused as `second-genome`. Otherwise the excess is drop-in on one genome: the
+array is staged at the heterozygosity it would show at the drop-in the rungs were measured with, and
+marked as drop-in corrected. Drop-in corrupts both heterozygosity and the BAF band, so a corrected
+array's ploidy is `unknown`; two haploid pronuclei read their band as diploid at drop-in of 0.30 and
+0.43. Nothing changes where no panel is loaded or an array is under the ceiling.
+
+On a corrected array the allele claims are read and copy number is not. Whole-chromosome copy number,
+the copy-number scan and the event list are withheld under `no-intensity-reference`: a normal majority
+to normalise against has not been shown, and the localised-excess test reads 0.07 to 0.18 on every
+array over the ceiling, chaotic or not, against its 0.50, so it cannot show one.
+
+**Against a preregistration** (`audit/drop-in-stage-preregistration.txt`), census over the 31 cells,
+both with two measured parents and with the father reconstructed from five of his pronuclei alone:
+stage and its refusal identical in both on 31 of 31; whole-chromosome copy number identical; on the 22
+arrays under the ceiling, no stage and no claim moved; two measured parents keep 82 confirmed lost
+parents and no new wrong parent. With the one reconstructed father, the laboratory's configuration, 15
+allele claims now stand on seven arrays that had none, 8 confirmed: among them the three hand-called
+del(6q)(pat) deletions 5.42.1 recorded as lost to this refusal, and both paternal monosomy 5s. Of the 7
+contradicted, 5 are on a cell published chaotic and 2 on embryo-1 biopsies where allele and intensity
+agree against Table S3 on every sister, and are listed for adjudication. One prediction failed: the
+drop-in pronuclei are no longer refused as not a genome, but no test here yet accepts them as haploid
+products for a reconstruction.
+
+**On the laboratory's 93 arrays,** with the shipped panel: the 67 under the ceiling are unchanged; of
+the 26 it refused, 22 are refused as no-genotype-signal at information ratios of 1.04 to 1.24, and 4
+are staged as one genome with drop-in of 0.19 to 0.53. One of those four reads an information ratio of
+0.565, under the 0.60 cut by 0.035, and is reported as borderline rather than moved past the line
+fixed in advance.
+
+**Known and not changed here.** The copy-number scan skips a chromosome the alleles name as missing a
+parent, which exists only with two measured parents, so copy-number segments can differ between one
+parent and two on exactly those chromosomes; a check pins that it is the only difference. And copy
+number on a drop-in array waits on a normal-majority test read from the alleles.
+
+---
+
 ## 5.50.0 "Mismatch Repair"
 
 **Which parent's copy is gone is now read with the array's own measured drop-in removed, and a cell

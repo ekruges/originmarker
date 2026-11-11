@@ -2,7 +2,7 @@
  * The answer key counts only markers whose right answer is known, and drop-in is what it says.
  */
 import assert from 'node:assert/strict'
-import { emptySameHom, addSameHom, dropIn, parsePanel } from './answerKeys.ts'
+import { emptySameHom, addSameHom, dropIn, parsePanel, onParentScale } from './answerKeys.ts'
 import { hetCall, emptyHet } from './obligateHet.ts'
 
 {
@@ -72,6 +72,13 @@ import { hetCall, emptyHet } from './obligateHet.ts'
 {
   const p = parsePanel('probeset\tchrom\tallele\nAX-1\t1\tA\nAX-2\t5\tB\nAX-3\t7\tN\n\nAX-4\tB\n')
   assert.deepEqual([...p], [['AX-1', 'AA'], ['AX-2', 'BB'], ['AX-4', 'BB']])
+  assert.equal(p.calibration, undefined, 'a panel that states no calibration falls back to the default')
+  // A panel carries its own calibration, because the intercept is a property of who its founders are.
+  const c = parsePanel('# calibration slope=0.932 intercept=0.065\nprobeset\tallele\nAX-1\tA\n')
+  assert.deepEqual(c.calibration, { slope: 0.932, intercept: 0.065 })
+  assert.equal(c.size, 1, 'and the comment is not a marker')
+  // An unrelated bulk diploid, true drop-in 0.008, reads 0.072 against this panel: back to 0.008.
+  assert.ok(Math.abs(onParentScale(0.0720, c.calibration) - 0.0080) < 0.0005)
 }
 
 console.log('  ok   answerKeys.check.ts')

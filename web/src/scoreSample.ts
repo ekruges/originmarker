@@ -61,6 +61,7 @@ import {
 } from './informationRatio.ts'
 import {
   emptySameHom, addSameHom, dropIn, MIN_SAME_HOM, onParentScale, type SameHomTally,
+  type PanelCalibration,
 } from './answerKeys.ts'
 import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
@@ -470,7 +471,8 @@ export async function scoreSample(input: {
   // THE PARENT-FREE ANSWER KEYS GO TO THE STAGE, and only those: the stage must come out the same
   // whatever parents are loaded, and a reading against the panel never sees one.
   const panelDropIn = acc.panelSameHom && acc.panelSameHom.n >= MIN_SAME_HOM
-    ? onParentScale(dropIn(acc.panelSameHom)) : NaN
+    ? onParentScale(dropIn(acc.panelSameHom), (acc.panel as { calibration?: PanelCalibration } | null)?.calibration)
+    : NaN
   const panelInformation = acc.informationPanel ? informationRatio(acc.informationPanel) : NaN
   const stageAgreement = reconcileStage(
     inferStage({ ...profile, dropIn: panelDropIn, information: panelInformation }, {

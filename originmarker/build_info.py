@@ -235,10 +235,16 @@ RELEASES: tuple[Release, ...] = (
             "known before the sample is read, so every disagreement there is this array's own error, "
             "measured on it, and the calls that matter are read with that error removed rather than "
             "against a line drawn once on other material."),
+    Release("Linkage Equilibrium",
+            "In unrelated people, alleles at one marker carry no information about who anyone's "
+            "parents are, because no shared pedigree ties them together. That is what lets a panel "
+            "of strangers stand where a family's parents are missing: where every one of them "
+            "carries the same allele on both chromosomes, a sample almost surely does too, so a "
+            "heterozygous call there is the array's error, measured without a single relative."),
 )
 
-VERSION = "5.50.0"
-CODENAME = "Mismatch Repair"
+VERSION = "5.51.0"
+CODENAME = "Linkage Equilibrium"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
