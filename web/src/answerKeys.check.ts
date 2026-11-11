@@ -81,4 +81,16 @@ import { hetCall, emptyHet } from './obligateHet.ts'
   assert.ok(Math.abs(onParentScale(0.0720, c.calibration) - 0.0080) < 0.0005)
 }
 
+// A FREQUENCY PANEL. Monomorphic where the frequency is exactly 0 or 1 among enough founders, and
+// every marker's frequency kept for the one-parent allele state.
+{
+  const f = parsePanel('# calibration slope=0.9 intercept=0.01\nprobeset\tfreqB\tn\n'
+    + 'AX-1\t0.000\t180\nAX-2\t1.000\t175\nAX-3\t0.000\t40\nAX-4\t0.370\t182\n')
+  assert.deepEqual([...f], [['AX-1', 'AA'], ['AX-2', 'BB']],
+    'monomorphic only where enough founders were called')
+  assert.equal(f.freqB?.get('AX-3'), 0, 'but every frequency is kept')
+  assert.equal(f.freqB?.get('AX-4'), 0.37)
+  assert.deepEqual(f.calibration, { slope: 0.9, intercept: 0.01 })
+}
+
 console.log('  ok   answerKeys.check.ts')

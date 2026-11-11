@@ -29,6 +29,7 @@
  * is not. Do not restate the guarantee until there is a test behind it.
  */
 import type { Refusal } from './refusals.ts'
+import type { ShareCall } from './oneParentState.ts'
 import { type ProbeRow } from './ingest.ts'
 import type { AlleleGain } from './gainOrigin.ts'
 import type { Finding } from './abnormalities.ts'
@@ -645,6 +646,9 @@ export interface ChromResult {
    * obligateHet.SURVIVOR_MIN.
    */
   lostParent?: 'paternal' | 'maternal'
+  /** The one-parent copy state, from the loaded parent and the founder panel's frequencies. See
+   *  oneParentState.ts. Present where the panel carries frequencies. */
+  copyState?: ShareCall
   /**
    * The alleles sit between the one-parent and two-parent boundaries with one parent's share at or
    * over obligateHet.MIXED_SHARE: a mosaic, a partial loss or noise, not separable here. Reported
@@ -728,6 +732,9 @@ export interface ParentageResult {
     /** How unevenly heterozygosity sits across the chromosomes: a localised excess is a genome with
      *  wrong copy numbers, a uniform one is drop-in, a mixture or a failed array. See hetSpread. */
     heterozygositySpread: number
+    /** The share of decided autosomes the one-parent copy state reads disomic: the normal-majority
+     *  test copy number is gated on. NaN without a frequency panel. */
+    disomicFraction?: number
   }
   spermType: SpermType
   genomeRate: number

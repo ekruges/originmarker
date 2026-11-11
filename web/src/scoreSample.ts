@@ -61,8 +61,12 @@ import {
 } from './informationRatio.ts'
 import {
   emptySameHom, addSameHom, dropIn, MIN_SAME_HOM, onParentScale, type SameHomTally,
-  type PanelCalibration,
+  type PanelCalibration, type FounderPanel,
 } from './answerKeys.ts'
+import {
+  emptyShareTally, addShare, shareCall, disomicFraction, NORMAL_MAJORITY_MIN,
+  type ShareTally, type ShareCall,
+} from './oneParentState.ts'
 import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
   panelScale, hetSpread, HET_SPREAD_LOCALISED,
@@ -243,6 +247,9 @@ export interface Collected {
   panel: ReadonlyMap<string, 'AA' | 'BB'> | null
   panelSameHom: SameHomTally | null
   informationPanel: HomTally | null
+  /** The one-parent copy-state tallies per autosome, where the panel carries founder frequencies.
+   *  See oneParentState.ts. */
+  shareByChrom: Map<string, ShareTally> | null
 }
 
 /**
@@ -296,6 +303,7 @@ export function emptyCollected(
     panel: panel ?? null,
     panelSameHom: panel ? emptySameHom() : null,
     informationPanel: panel ? emptyHomTally() : null,
+    shareByChrom: (panel as FounderPanel | null | undefined)?.freqB ? new Map() : null,
   }
 }
 
@@ -337,6 +345,15 @@ export function collectRow(
     if (g) {
       addSameHom(acc.panelSameHom!, r.genotype, g, g)
       addHomozygous(acc.informationPanel!, r.genotype, g)
+    }
+    // The one-parent copy state reads BAF, at no-calls too, against the founders' frequency.
+    if (acc.shareByChrom) {
+      const fq = (acc.panel as FounderPanel).freqB!.get(r.probesetId)
+      if (fq !== undefined) {
+        let st = acc.shareByChrom.get(r.chrom)
+        if (!st) acc.shareByChrom.set(r.chrom, st = emptyShareTally())
+        addShare(st, fa, r.baf, fq, g === fa)
+      }
     }
   }
   // Only a marker where the parent is homozygous and the sample is called can say
@@ -656,6 +673,35 @@ export async function scoreSample(input: {
       c.mixed = true
     }
   }
+  // WITH ONE PARENT, WHICH COPY IS GONE, FROM THAT PARENT AND THE POPULATION. The two-parent reading
+  // above needs markers where the parents are opposite homozygotes, so with one parent it never runs,
+  // and one parent, reconstructed from its products, is the laboratory's whole configuration. See
+  // oneParentState.ts: against a father rebuilt from five pronuclei it matched the measured father on
+  // 634 of 638 chromosomes, and against Table S3 it is 120 of 129 abnormal states with the rebuild,
+  // 121 with the measured father alone and 123 with both parents. The same guard as the two-parent
+  // reading: a genome must carry both parents somewhere before a chromosome can have lost one.
+  const shareCalls = new Map<string, ShareCall>()
+  if (acc.shareByChrom) {
+    for (const c of result.chroms) {
+      if (!isAutosome(c.chrom)) continue
+      const t = acc.shareByChrom.get(c.chrom)
+      if (!t) continue
+      const sc = shareCall(t)
+      shareCalls.set(c.chrom, sc)
+      c.copyState = sc
+    }
+  }
+  const disomic = disomicFraction([...shareCalls.values()])
+  if (!mat && [...shareCalls.values()].filter((x) => x.state === 'disomic').length >= BIPARENTAL_AUTOSOMES_MIN) {
+    for (const c of result.chroms) {
+      const sc = shareCalls.get(c.chrom)
+      if (!sc || c.verdict === 'not_measured') continue
+      const lost = sc.state === 'other-lost' ? otherRole : sc.state === 'parent-lost' ? soloRole : undefined
+      if (!lost) continue
+      c.lostParent = lost
+      if (c.aneuploidy === 'loss') c.aneuploidyParent = lost === soloRole ? 'this' : 'other'
+    }
+  }
   // AN EXTRA CHROMOSOME, FROM THE SAME ALLELES. See gainOrigin.scanAlleleGains. It runs under the
   // conditions the allele count runs under, and is judged against the cell's own biparental
   // chromosomes, so a chaotic cell supplies a wide scale and refuses rather than over-calls.
@@ -824,12 +870,20 @@ export async function scoreSample(input: {
   // array over the ceiling in GSE148488, chaotic or not, against 0.50. So it is withheld, recorded,
   // under its physical cause, until a normal majority can be shown from the alleles.
   const dropInCell = result.stage?.dropInCorrected !== undefined
-  const dropInMeasured = { dropIn: result.stage?.dropInCorrected ?? NaN, heterozygositySpread: spread }
-  if (dropInCell) {
+  const dropInMeasured = { dropIn: result.stage?.dropInCorrected ?? NaN, heterozygositySpread: spread,
+    disomicFraction: disomic }
+  // A NORMAL MAJORITY, SHOWN FROM THE ALLELES, IS WHAT COPY NUMBER NEEDS, on every array and not only
+  // on a drop-in one. The intensity is read against this array's own per-chromosome median, which is a
+  // normal chromosome only when most are. The disomic fraction asks that of the alleles directly: 0.000
+  // to 0.727 on cells published chaotic, 0.864 to 1.000 on the rest, 0 on arrays whose calls are noise.
+  // Where it cannot be computed, a drop-in array has shown none and every other array is read as before.
+  const normalMajority = Number.isFinite(disomic) ? disomic >= NORMAL_MAJORITY_MIN : !dropInCell
+  const intensityWithheld = !uninterpretable && !normalMajority
+  if (intensityWithheld) {
     for (const c of result.chroms) {
       for (const claim of ['aneuploidy', 'aneuploidyParent', 'alleleGain'] as const) {
         if (c[claim] === undefined) continue
-        result.refusals!.push({ claim, chrom: c.chrom, gate: 'stage.drop-in',
+        result.refusals!.push({ claim, chrom: c.chrom, gate: 'normal-majority',
           cause: 'no-intensity-reference', measured: dropInMeasured, withheld: c[claim] })
       }
       c.aneuploidy = undefined
@@ -1089,7 +1143,12 @@ export async function scoreSample(input: {
   // them. scanCopyGain proposes on intensity instead and reaches 25 of the 26, and 0 of 67 losses,
   // the second by construction since a lost copy cannot read intensity-high.
   const gainProfile = highLrrProfile(cnByChrom)
-  const scannedCopy = [...cnByChrom].filter(([c]) => !whole.has(c))
+  // THE COPY-NUMBER SCAN READS EVERY CHROMOSOME INTENSITY HAS NOT ALREADY CALLED WHOLE, whatever the
+  // alleles say. It used to skip one the alleles name as missing a parent too, and those names are what
+  // differ with how many parents are loaded, so the scan itself depended on the parents. A segment that
+  // restates an allele-named loss across most of the chromosome is dropped below, at reporting, not here.
+  const wholeByIntensity = new Set(result.chroms.filter((c) => c.aneuploidy).map((c) => c.chrom))
+  const scannedCopyRaw = [...cnByChrom].filter(([c]) => !wholeByIntensity.has(c))
     .flatMap(([c, ms]) => {
       const byNoCall = scanCopyNumber(ms, externalNull(noCall, c), genomeLrr)
       return [
@@ -1098,14 +1157,26 @@ export async function scoreSample(input: {
         ...scanCopyGain(ms, externalNull(gainProfile.byChrom, c), genomeLrr, gainProfile, byNoCall),
       ]
     })
+  // ONE EVENT, TWO LINES OF EVIDENCE. A copy loss covering 80% or more of a chromosome the alleles already
+  // name as missing a parent's copy is that same loss, so the chromosome row carries it and the segment
+  // is not printed a second time. A partial segment inside it is a different claim and stands.
+  const spanOf = (c: string): number => {
+    const ms = cnByChrom.get(c) ?? []
+    let lo = Infinity; let hi = -Infinity
+    for (const m of ms) { if (m.pos < lo) lo = m.pos; if (m.pos > hi) hi = m.pos }
+    return hi > lo ? hi - lo : NaN
+  }
+  const alleleLost = new Set(result.chroms.filter((c) => c.lostParent).map((c) => c.chrom))
+  const scannedCopy = scannedCopyRaw.filter((sg) => !(sg.kind === 'copy-loss' && alleleLost.has(sg.chrom)
+    && (sg.endBp - sg.startBp) >= 0.8 * spanOf(sg.chrom)))
   // RUN EVEN WHERE WITHHELD, and recorded rather than reported, so the census can score what the
   // withholding cost. Nothing below reads `scannedCopy` except through `copy`.
-  const copyWithheld = uninterpretable || chaoticGenome || dropInCell
+  const copyWithheld = uninterpretable || chaoticGenome || intensityWithheld
   const copy = copyWithheld ? [] : scannedCopy
   if (copyWithheld) {
     for (const sg of scannedCopy) {
-      result.refusals!.push(dropInCell && !uninterpretable
-        ? { claim: 'segment', chrom: sg.chrom, gate: 'stage.drop-in', cause: 'no-intensity-reference',
+      result.refusals!.push(intensityWithheld
+        ? { claim: 'segment', chrom: sg.chrom, gate: 'normal-majority', cause: 'no-intensity-reference',
           measured: dropInMeasured, withheld: sg }
         : { claim: 'segment', chrom: sg.chrom,
           gate: chaoticGenome ? 'copy-scan.chaotic-genome' : stageGate, cause: 'proxy',
@@ -2004,7 +2075,8 @@ export async function scoreSample(input: {
         + autosomes.filter((c) => c.aneuploidy).length,
       parentAbsent: autosomes.filter((c) => c.lostParent && !c.aneuploidy).length,
       gainByAlleles: autosomes.filter((c) => c.alleleGain?.verdict === 'gain' && c.aneuploidy !== 'gain').length,
-      allelesStand: (uninterpretable && alleleClaims.size > 0) || dropInCell,
+      allelesStand: (uninterpretable && alleleClaims.size > 0) || intensityWithheld,
+      disomicFraction: disomic,
     })
     // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader nothing on the
     // sample is reportable, which is the same to the person reading it. Recorded as soft.

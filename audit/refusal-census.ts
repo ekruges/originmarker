@@ -31,6 +31,7 @@ const W = new URL('../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const score = await import(`${W}scoreSample.ts`)
 const inferredArray = await import(`${W}inferredArray.ts`)
+const answerKeys = await import(`${W}answerKeys.ts`)
 
 /**
  * THE LABORATORY'S SETTING. OM_FATHER names a parent array, usually one reconstructed from the
@@ -51,14 +52,11 @@ const panelCache = new Map<string, Map<string, 'AA' | 'BB'>>()
 const PANEL_FILE = process.env.OM_PANEL_FILE
 function panelFor(mother: string): Map<string, 'AA' | 'BB'> | null {
   if (PANEL_FILE) {
+    // Read by the product's own parser, so the census reads a panel as the app does.
     if (!panelCache.has('file')) {
-      const m = new Map<string, 'AA' | 'BB'>()
-      for (const l of readFileSync(PANEL_FILE, 'utf8').split('\n').slice(1)) {
-        const c = l.split('\t')
-        const allele = c[c.length - 1]
-        if (c[0]) m.set(c[0], allele === 'A' ? 'AA' : 'BB')
-      }
-      panelCache.set('file', m)
+      const raw = readFileSync(PANEL_FILE)
+      panelCache.set('file', answerKeys.parsePanel(
+        (PANEL_FILE.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')) as never)
     }
     return panelCache.get('file')!
   }

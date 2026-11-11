@@ -1,0 +1,34 @@
+Pre-registration: the one-parent copy state, the normal-majority gate, and a parent-free copy scan
+====================================================================================================
+
+Written 11 November 2026, BEFORE any census of this code. The thresholds (no template at base 0.30,
+other copy lost under r 0.20, own copy lost over 0.75, normal majority at a disomic fraction of 0.80)
+are the parity consult's, chosen there on these same 31 cells. A score on them therefore checks this
+implementation, not the method; that is stated here so it cannot be read the other way later.
+
+Founder frequencies: GSE186441, 182 unrelated adults after quality and duplicate filtering,
+independent of every GSE148488 family. No rebuild mask yet (that is the Germline step).
+
+THREE ARMS over the 31 GSE148488 cells with a published Table S3 karyotype:
+  two     both measured parents
+  meas1   the measured father alone (one parent, measured)
+  recon1  the father rebuilt from five of his pronuclei, alone (the laboratory's configuration)
+
+PREDICTIONS
+-----------
+Q1  recon1 against meas1, the cost of reconstruction: their one-parent copy states agree on at least
+    620 of the informative autosomes (the consult reached 634 of 638 WITH a mask this has not got).
+Q2  The one-parent lost-parent calls in recon1 and meas1, against Table S3: no wrong parent beyond the
+    two chromosomes every configuration gets wrong, GSM4472405 chr4 and GSM4552382 chr2.
+Q3  two: lost-parent calls unchanged from 5.51.0, 82 confirmed and 1 wrong parent; the two-parent
+    reading is not touched.
+Q4  The normal-majority gate: the 12 cells published chaotic read a disomic fraction under 0.80 and
+    their copy number is withheld; of the 19 others at most one reads under 0.80.
+Q5  The published arm: claims contradicting a published-normal autosome fall from 34, because most sat
+    on chaotic cells whose copy number is now withheld.
+Q6  1:1 for the gate: the copy-number decision (withheld or read) is the same in recon1 and two on at
+    least 30 of 31 cells.
+Q7  Gains: recall of hand-called gains does not improve from this change, since the copy state cannot
+    see an extra copy. Reported, not a gate.
+
+A failed prediction is reported as a failure, and the change does not ship until it is understood.

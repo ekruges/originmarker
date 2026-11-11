@@ -83,11 +83,24 @@ export const onParentScale = (panelDropIn: number, cal: PanelCalibration = DEFAU
  * chromosome for its own checks. One parser for the browser and the command line, so the two cannot
  * read the same file differently.
  */
-export type FounderPanel = Map<string, 'AA' | 'BB'> & { calibration?: PanelCalibration }
+/**
+ * The panel as the stage reads it: markers where every founder is the same homozygote. A FREQUENCY
+ * panel also carries each marker's founder B-allele frequency, which the one-parent allele state needs
+ * (alleleState.ts); a panel of shared homozygotes alone has none.
+ */
+export type FounderPanel = Map<string, 'AA' | 'BB'> & {
+  calibration?: PanelCalibration
+  freqB?: Map<string, number>
+}
+
+/** Founders that must be called at a marker before a frequency of exactly 0 or 1 counts as
+ *  monomorphic. Under this a shared homozygote is a few people agreeing, not a population. */
+export const MIN_FOUNDERS_CALLED = 100
 
 export function parsePanel(text: string): FounderPanel {
   const out: FounderPanel = new Map<string, 'AA' | 'BB'>()
   const lines = text.split('\n')
+  let frequencies = false
   for (let i = 0; i < lines.length; i += 1) {
     const l = lines[i]
     if (!l) continue
@@ -97,9 +110,25 @@ export function parsePanel(text: string): FounderPanel {
       if (m) out.calibration = { slope: Number(m[1]), intercept: Number(m[2]) }
       continue
     }
-    if (l.startsWith('probeset')) continue
+    if (l.startsWith('probeset')) {
+      // `probeset  freqB  n` is a frequency panel; `probeset  allele` a panel of shared homozygotes.
+      frequencies = /\tfreqB\b/.test(l)
+      if (frequencies) out.freqB = new Map()
+      continue
+    }
     const tab = l.indexOf('\t')
     if (tab < 0) continue
+    if (frequencies) {
+      const [id, f, n] = l.split('\t')
+      const q = Number(f)
+      if (!Number.isFinite(q)) continue
+      out.freqB!.set(id, q)
+      if (Number(n) >= MIN_FOUNDERS_CALLED) {
+        if (q === 0) out.set(id, 'AA')
+        else if (q === 1) out.set(id, 'BB')
+      }
+      continue
+    }
     const allele = l.slice(l.lastIndexOf('\t') + 1).trim()
     if (allele === 'A') out.set(l.slice(0, tab), 'AA')
     else if (allele === 'B') out.set(l.slice(0, tab), 'BB')
