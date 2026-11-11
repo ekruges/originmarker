@@ -464,6 +464,7 @@ export async function scoreSample(input: {
       ? { spuriousAbsence: pat.inferred.spuriousAbsence } : {}),
     ...(pat.inferred ? { inferredParent: true } : {}),
   })
+  result.refusals = []
   // A reconstruction whose banner could not be read is NOT a measured array, and proceeding as
   // though it were is the failure this whole path exists to stop. Say so where the operator reads.
   if (pat.inferred && !Number.isFinite(pat.inferred.hRetained)) {
@@ -721,9 +722,21 @@ export async function scoreSample(input: {
   const chaoticGenome = result.stage?.stage === 'failed'
     && Number.isFinite(spread) && spread >= HET_SPREAD_LOCALISED
   const uninterpretable = result.stage?.stage === 'failed'
+  // THE NUMBERS EVERY STAGE REFUSAL FIRED ON, so each record carries its measurement.
+  const stageGate = `stage.${result.stage?.refusedBy ?? 'unknown'}`
+  const stageMeasured = { heterozygosity: profile.hetRate, callRate: profile.callRate }
   if (uninterpretable) {
     log('WARN', 'no chromosomal changes are reported: this array did not resolve to a '
       + `stage. ${result.stage.why}`)
+    // RECORDED BEFORE THEY ARE CLEARED, so the census can score what this gate threw away. Every
+    // field cleared below has its record here; refusals.check.ts pins the two lists to each other.
+    for (const c of result.chroms) {
+      for (const claim of ['aneuploidy', 'lostParent', 'aneuploidyParent', 'mixed', 'alleleGain'] as const) {
+        if (c[claim] === undefined) continue
+        result.refusals!.push({ claim, chrom: c.chrom, gate: stageGate, cause: 'proxy',
+          measured: stageMeasured, withheld: c[claim] })
+      }
+    }
     for (const c of result.chroms) {
       c.aneuploidy = undefined
       c.lostParent = undefined
@@ -806,6 +819,10 @@ export async function scoreSample(input: {
   // It is also where the statistic is least meaningful: the arrays that fail this way read 55 to 62
   // percent heterozygous, which is a mixed or contaminated sample rather than a genome, and they
   // read as unrelated to everyone including themselves.
+  if (uninterpretable) {
+    result.refusals!.push({ claim: 'relatedness', gate: stageGate, cause: 'proxy',
+      measured: stageMeasured })
+  }
   const rel = uninterpretable ? null : relate(
     { gt: pat.gt, pos: markerPos },
     { gt: myGt as Map<string, AB>, pos: markerPos },
@@ -982,7 +999,7 @@ export async function scoreSample(input: {
   // them. scanCopyGain proposes on intensity instead and reaches 25 of the 26, and 0 of 67 losses,
   // the second by construction since a lost copy cannot read intensity-high.
   const gainProfile = highLrrProfile(cnByChrom)
-  const copy = (uninterpretable || chaoticGenome) ? [] : [...cnByChrom].filter(([c]) => !whole.has(c))
+  const scannedCopy = [...cnByChrom].filter(([c]) => !whole.has(c))
     .flatMap(([c, ms]) => {
       const byNoCall = scanCopyNumber(ms, externalNull(noCall, c), genomeLrr)
       return [
@@ -991,7 +1008,18 @@ export async function scoreSample(input: {
         ...scanCopyGain(ms, externalNull(gainProfile.byChrom, c), genomeLrr, gainProfile, byNoCall),
       ]
     })
-  result.segments = (uninterpretable && !chaoticGenome) ? [] : [
+  // RUN EVEN WHERE WITHHELD, and recorded rather than reported, so the census can score what the
+  // withholding cost. Nothing below reads `scannedCopy` except through `copy`.
+  const copyWithheld = uninterpretable || chaoticGenome
+  const copy = copyWithheld ? [] : scannedCopy
+  if (copyWithheld) {
+    for (const sg of scannedCopy) {
+      result.refusals!.push({ claim: 'segment', chrom: sg.chrom,
+        gate: chaoticGenome ? 'copy-scan.chaotic-genome' : stageGate, cause: 'proxy',
+        measured: { ...stageMeasured, heterozygositySpread: spread }, withheld: sg })
+    }
+  }
+  const allSegments = [
     ...copy,
     // A chromosome the alleles read as missing one parent is not scanned for an absence segment
     // inside it: that would be the same absence described twice.
@@ -1005,6 +1033,16 @@ export async function scoreSample(input: {
       .flatMap(([c, ms]) => scanChromosome(ms, externalNull(matAbsenceTally, c))
         .map((sg): Segment => ({ ...sg, absentParent: otherRole }))) : []),
   ].sort((a, b) => b.score - a.score)
+  const segmentsWithheld = uninterpretable && !chaoticGenome
+  if (segmentsWithheld) {
+    // `copy` is already empty here and its segments already recorded, so these are the absence
+    // segments alone and nothing is counted twice.
+    for (const sg of allSegments) {
+      result.refusals!.push({ claim: 'segment', chrom: sg.chrom, gate: stageGate, cause: 'proxy',
+        measured: stageMeasured, withheld: sg })
+    }
+  }
+  result.segments = segmentsWithheld ? [] : allSegments
   // A WINDOW CALLED BY BOTH RUNS NAMES NO PARENT. The two runs read different marker sets, so
   // the same region can clear the threshold in both, and that is not an event: one lost copy
   // takes one parent's alleles with it. Both depleted over one window is either a region missing
@@ -1153,6 +1191,8 @@ export async function scoreSample(input: {
     // reading noise as biology. The event list stays empty, on the same condition and for the
     // same reason as the aneuploidy and segment scans above it.
     if (uninterpretable) {
+      result.refusals!.push({ claim: 'findings', gate: stageGate, cause: 'proxy',
+        measured: stageMeasured })
       result.findings = []
     } else {
     log('SCAN', 'looking for copy-neutral loss of heterozygosity')
@@ -1870,6 +1910,15 @@ export async function scoreSample(input: {
       parentAbsent: autosomes.filter((c) => c.lostParent && !c.aneuploidy).length,
       gainByAlleles: autosomes.filter((c) => c.alleleGain?.verdict === 'gain' && c.aneuploidy !== 'gain').length,
     })
+    // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader nothing on the
+    // sample is reportable, which is the same to the person reading it. Recorded as soft.
+    if (result.integrity.level !== 'intact') {
+      const m = result.integrity.measures
+      result.refusals!.push({ claim: 'sample', gate: `integrity.${result.integrity.level}`,
+        cause: 'proxy', soft: true,
+        measured: { callRate: m.callRate, deviantFraction: m.deviantFraction,
+          affectedAutosomes: m.affectedAutosomes, totalAutosomes: m.totalAutosomes } })
+    }
     log(result.integrity.level === 'uninterpretable' ? 'WARN' : 'DONE',
       `${sampleName}: ${result.integrity.headline}`)
   }

@@ -329,6 +329,28 @@ async function run(declaredStage?: 'failed', withMother = false) {
   assert.deepEqual((both.chroms ?? []).filter((c) => c.mixed || c.alleleGain || c.lostParent).map((c) => c.chrom), [],
     'a refused array carries no allele reading of any kind: absent parent, mixed signal or extra copy')
   assert.deepEqual(r.losses ?? [], [], 'and no loss rows')
+
+  // AND EVERY ONE OF THOSE IS RECORDED, with what it would have said. The census scores refusals
+  // against published truth from these records, so a cleared claim with no record is invisible.
+  const refs = r.refusals ?? []
+  assert.ok(refs.length > 0, 'a refused array records what it refused')
+  for (const x of refs) {
+    assert.ok(Object.keys(x.measured).length > 0, `a refusal of ${x.claim} carries no measurement`)
+  }
+  const lossRef = refs.find((x) => x.claim === 'aneuploidy' && x.chrom === ONE_COPY)
+  assert.equal(lossRef?.withheld, 'loss',
+    `chr${ONE_COPY} is reported as a loss when the array is read, so refusing the array must record `
+    + `that loss as withheld. Got ${JSON.stringify(lossRef)}.`)
+  assert.equal(lossRef?.gate, 'stage.declared', 'and name the gate that withheld it')
+  assert.ok(refs.some((x) => x.claim === 'sample' && x.soft),
+    'the uninterpretable label is recorded as a soft refusal of the whole sample')
+  const bothRefs = both.refusals ?? []
+  assert.ok(bothRefs.some((x) => x.claim === 'lostParent' || x.claim === 'alleleGain' || x.claim === 'mixed'),
+    'with both parents loaded the allele readings are computed, cleared, and recorded as withheld')
+  // AND A SAMPLE THAT IS READ CARRIES NO STAGE REFUSAL.
+  const read = await run()
+  assert.equal((read.refusals ?? []).filter((x) => x.gate.startsWith('stage.')).length, 0,
+    'an array that resolves to a stage must carry no stage refusal')
 }
 
 

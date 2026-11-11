@@ -80,6 +80,11 @@ export interface StageCall {
   stage: Stage
   /** How many genomes, separate from the material `stage` names. */
   ploidy: Ploidy
+  /**
+   * Which test refused the array, on a `failed` stage only. Carried so a refusal record can name
+   * the gate and its numbers without reading them back out of `why`.
+   */
+  refusedBy?: 'heterozygosity-ceiling' | 'call-floor' | 'declared'
   /** Expected allele dropout, used to parameterise downstream likelihoods. */
   dropout: number
   /** How the dropout figure was arrived at, which decides how much it can be trusted. */
@@ -350,6 +355,7 @@ export function stageDefaults(stage: Stage): StageCall {
     stage, ploidy: 'unknown', dropout: stage === 'failed' ? NaN : 0.308, basis: 'none',
     templates: stage === 'failed' ? 'not applicable' : 'unknown', markerFloor: 200,
     caveat: '', why: `${stage} carries no stage parameters`,
+    ...(stage === 'failed' ? { refusedBy: 'declared' as const } : {}),
   }
 }
 
@@ -407,7 +413,7 @@ export function inferStage(
   if (h > maxDiploid) {
     return {
       stage: 'failed', ploidy: 'not one genome', dropout: NaN, basis: 'none',
-      templates: 'not applicable', markerFloor: 200,
+      templates: 'not applicable', markerFloor: 200, refusedBy: 'heterozygosity-ceiling',
       caveat: 'two individuals mixed, a contaminated reaction and a failed array are not '
         + 'distinguishable from each other here, only from a genome',
       why: `${(h * 100).toFixed(1)}% heterozygous exceeds the `
@@ -419,7 +425,7 @@ export function inferStage(
   if (call < callFloor) {
     return {
       stage: 'failed', ploidy: 'unknown', dropout: NaN, basis: 'none',
-      templates: 'not applicable', markerFloor: 200,
+      templates: 'not applicable', markerFloor: 200, refusedBy: 'call-floor',
       caveat: 'amplification failure and haploid material are indistinguishable by heterozygosity',
       why: `call rate ${(call * 100).toFixed(1)}% is below the ${(callFloor * 100).toFixed(0)}% `
         + 'floor. This is an amplification failure rather than a stage: near-total dropout drives '

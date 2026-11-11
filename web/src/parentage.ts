@@ -28,6 +28,7 @@
  * layer IS pinned that way (`runlength.check.ts` loads the shared fixture); the parentage layer
  * is not. Do not restate the guarantee until there is a test behind it.
  */
+import type { Refusal } from './refusals.ts'
 import { type ProbeRow } from './ingest.ts'
 import type { AlleleGain } from './gainOrigin.ts'
 import type { Finding } from './abnormalities.ts'
@@ -711,6 +712,11 @@ export interface ParentageResult {
    * looks exactly like a clean one until something says otherwise.
    */
   integrity?: import('./integrity.ts').IntegrityCall
+  /**
+   * One record per withheld claim: the gate that fired, its physical cause or `proxy`, the numbers
+   * it fired on, and the value withheld. See refusals.ts. Present on every scored sample.
+   */
+  refusals?: Refusal[]
   spermType: SpermType
   genomeRate: number
   explainable: number
