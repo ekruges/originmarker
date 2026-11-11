@@ -46,3 +46,19 @@ export const dropIn = (t: SameHomTally): number => (t.n ? t.het / t.n : NaN)
 /** Same-homozygote markers needed before drop-in is a measurement. A cell carries hundreds of
  *  thousands; under this the parents barely overlap and the rate is not used. */
 export const MIN_SAME_HOM = 10_000
+
+/**
+ * Put a panel drop-in on the scale of the drop-in read between measured parents.
+ *
+ * The panel reads slightly HIGH: a founder panel's shared homozygote is occasionally a variant every
+ * founder lacks and the sample carries, so a real heterozygote is counted as drop-in. Measured over
+ * the 31 GSE148488 cells with a published karyotype, each against a panel of four or five unrelated
+ * founders built without its own parents: panel = 0.932 x parents + 0.0424, r = 0.9983. Inverted
+ * here, so a reading made with no parent at all is the reading two parents would have given.
+ */
+export const PANEL_DROPIN_SLOPE = 0.932
+export const PANEL_DROPIN_INTERCEPT = 0.0424
+export const onParentScale = (panelDropIn: number): number =>
+  Number.isFinite(panelDropIn)
+    ? Math.min(1, Math.max(0, (panelDropIn - PANEL_DROPIN_INTERCEPT) / PANEL_DROPIN_SLOPE))
+    : NaN

@@ -216,11 +216,14 @@ async function runWith(
   })
 }
 
-/** The same run on another set of sample rows, both parents loaded or not. */
-async function runRows(rows: ReturnType<typeof rowsOf>, withMother: boolean) {
+/** The same run on another set of sample rows, both parents loaded or not, with a panel or not. */
+async function runRows(
+  rows: ReturnType<typeof rowsOf>, withMother: boolean,
+  panel?: ReadonlyMap<string, 'AA' | 'BB'>,
+) {
   const pat = indexOf(parentRows)
   const mat = withMother ? indexOf(motherRows) : null
-  const acc = emptyCollected(pat, mat)
+  const acc = emptyCollected(pat, mat, panel)
   const byChrom = new Map(); const bafSums = emptyBafSums(); let first = ''
   for (const row of rows) {
     if (!first) first = row.probesetId
@@ -364,6 +367,61 @@ async function run(declaredStage?: 'failed', withMother = false) {
       `the label says what stands. Got: ${refused.integrity?.headline}`)
     assert.ok(!/Nothing on this sample is reportable/.test(refused.integrity?.limits ?? ''),
       'and does not tell the reader to ignore the calls it is showing')
+
+    // WITH A FOUNDER PANEL THE SAME ARRAY IS NOT REFUSED AT ALL. The panel stands in for parents that
+    // always agree; here it is the markers where this family's two parents share a homozygote, which
+    // is what an unrelated panel approximates. The stage removes the drop-in and finds one genome.
+    const panel = new Map<string, 'AA' | 'BB'>()
+    {
+      const mg = new Map(motherRows.map((r) => [r.probesetId, r.genotype]))
+      for (const r of parentRows) {
+        if ((r.genotype === 'AA' || r.genotype === 'BB') && mg.get(r.probesetId) === r.genotype
+          && /^\d+$/.test(r.chrom)) panel.set(r.probesetId, r.genotype)
+      }
+    }
+    const staged = await runRows(droppedIn as never, true, panel)
+    assert.notEqual(staged.stage?.stage, 'failed',
+      `with the panel, drop-in is removed and one genome is found. Got ${staged.stage?.why}`)
+    assert.ok(Number.isFinite(staged.stage?.dropInCorrected), 'and the drop-in removed is stated')
+    assert.deepEqual(Object.fromEntries((staged.chroms ?? []).filter((c) => c.lostParent)
+      .map((c) => [c.chrom, c.lostParent])), named, 'the same absent parents are named')
+    assert.deepEqual((staged.chroms ?? []).filter((c) => c.aneuploidy).map((c) => c.chrom), [],
+      'copy number is still not read: no normal majority has been shown')
+    // The claims that read a genome's copy number and need no parent. The extra-copy reading also
+    // passes an intensity gate, but it names a parent and exists only with two loaded, like lostParent,
+    // so it is a parent-of-origin claim and is not part of this comparison.
+    const intensityRefusals = (r: Awaited<ReturnType<typeof runRows>>) => (r.refusals ?? [])
+      .filter((x) => x.cause === 'no-intensity-reference' && (x.claim === 'aneuploidy' || x.claim === 'segment'))
+      .map((x) => `${x.claim}:${x.chrom}`).sort()
+    assert.ok(intensityRefusals(staged).includes(`aneuploidy:${ONE_COPY}`),
+      `and the loss it would have reported is recorded under its physical cause. Got `
+      + `${intensityRefusals(staged).join(' ')}`)
+
+    // 1:1. NOTHING ABOUT THE STAGE OR THE INTENSITY MAY DEPEND ON HOW MANY PARENTS ARE LOADED. The
+    // laboratory's material has one parent, so this is the property that makes the result usable there.
+    const oneParent = await runRows(droppedIn as never, false, panel)
+    assert.deepEqual(
+      { stage: oneParent.stage?.stage, ploidy: oneParent.stage?.ploidy, d: oneParent.stage?.dropInCorrected },
+      { stage: staged.stage?.stage, ploidy: staged.stage?.ploidy, d: staged.stage?.dropInCorrected },
+      'the stage is identical with one parent and with two')
+    const wholeRefusals = (r: Awaited<ReturnType<typeof runRows>>) =>
+      intensityRefusals(r).filter((x) => x.startsWith('aneuploidy:'))
+    assert.deepEqual(wholeRefusals(oneParent), wholeRefusals(staged),
+      'and so is every whole-chromosome copy-number claim withheld')
+    // ONE PARENT-DEPENDENCE THE PRODUCT ALREADY HAD, pinned exactly rather than scoped away. The copy-
+    // number scan skips a chromosome already explained as a whole event, and a chromosome the alleles
+    // name as missing a parent counts as explained; that name exists only with two parents loaded. So
+    // segment refusals may differ between the two runs, and ONLY on chromosomes the two-parent run names.
+    const segChroms = (r: Awaited<ReturnType<typeof runRows>>) =>
+      new Set(intensityRefusals(r).filter((x) => x.startsWith('segment:')).map((x) => x.split(':')[1]))
+    const namedByAlleles = new Set((staged.chroms ?? []).filter((c) => c.lostParent).map((c) => c.chrom))
+    const a = segChroms(staged); const b = segChroms(oneParent)
+    for (const c of new Set([...a, ...b])) {
+      if (a.has(c) === b.has(c)) continue
+      assert.ok(namedByAlleles.has(c),
+        `chr${c}: a segment refusal differs between one parent and two on a chromosome the alleles do `
+        + 'not name, so the copy-number scan depends on the parents for a reason not accounted for')
+    }
   }
 
   // AND EVERY ONE OF THOSE IS RECORDED, with what it would have said. The census scores refusals

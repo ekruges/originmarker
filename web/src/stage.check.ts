@@ -450,3 +450,51 @@ console.log('stage.check.ts: all assertions passed, including quality gated befo
 }
 
 console.log('stage.check.ts: ploidy is reported separately from the material')
+
+// ---------------------------------------------------------------- OVER THE CEILING, THE ANSWER KEYS SAY WHY
+//
+// Three physical causes put an array over the ceiling, and the panel answer keys separate them. Each
+// case below is one of them, and the last pins that nothing changes where the keys are absent or the
+// array was never over the ceiling.
+{
+  const over = { hetRate: 0.32, callRate: 0.75 }
+
+  // Calls at chance: refused, under its real cause.
+  const noise = inferStage({ ...over, dropIn: 0.27, information: 1.1 })
+  assert.equal(noise.stage, 'failed')
+  assert.equal(noise.refusedBy, 'no-genotype-signal')
+
+  // Still too heterozygous once drop-in is removed: a second genome, refused.
+  const two = inferStage({ hetRate: 0.45, callRate: 0.75, dropIn: 0.05, information: 0.1 })
+  assert.equal(two.stage, 'failed')
+  assert.equal(two.refusedBy, 'second-genome')
+  assert.equal(two.ploidy, 'not one genome')
+
+  // Excess drop-in: one genome, staged, with the drop-in stated, and NOT put on the haploid rung,
+  // because drop-in corrected heterozygosity does not separate one copy from two on this material.
+  const one = inferStage({ ...over, dropIn: 0.27, information: 0.1 })
+  assert.notEqual(one.stage, 'failed', `one genome with drop-in is staged. Got ${one.why}`)
+  assert.notEqual(one.stage, 'haploid')
+  assert.equal(one.dropInCorrected, 0.27)
+  assert.equal(one.ploidy, 'unknown', 'how many copies is not separable once heavy drop-in is removed')
+  assert.ok(/drop-in/.test(one.why), `and the reason names it: ${one.why}`)
+
+  // Where the BAF band says two copies, it is diploid, as for any array.
+  const banded = inferStage({ ...over, hetBand: 0.5, dropIn: 0.27, information: 0.1 })
+  assert.equal(banded.ploidy, 'diploid')
+  assert.equal(banded.dropInCorrected, 0.27)
+
+  // NOTHING ELSE MOVES. Without the keys the ceiling behaves as it always has, and an array under
+  // the ceiling is staged identically with or without them.
+  const bare = inferStage(over)
+  assert.equal(bare.stage, 'failed')
+  assert.equal(bare.refusedBy, 'heterozygosity-ceiling')
+  for (const p of [{ hetRate: 0.14, callRate: 0.85 }, { hetRate: 0.08, callRate: 0.84 },
+    { hetRate: 0.20, callRate: 0.60 }]) {
+    const a = inferStage(p)
+    const b = inferStage({ ...p, dropIn: 0.27, information: 0.1 })
+    assert.deepEqual(b, a, `an array under the ceiling is staged the same with the keys: ${JSON.stringify(p)}`)
+  }
+}
+
+console.log('stage.check.ts: over the ceiling, noise, a second genome and drop-in are told apart')

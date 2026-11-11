@@ -100,7 +100,7 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
     ? `; ${gainByAlleles} chromosome${gainByAlleles === 1 ? '' : 's'} with an extra copy by the alleles`
     : '')
 
-  if (stage === 'failed' && input.allelesStand) {
+  if (input.allelesStand) {
     return {
       level: 'disturbed',
       headline: 'HIGH DROP-IN: copy number is withheld; which parent is read from the alleles',

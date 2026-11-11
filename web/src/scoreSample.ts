@@ -59,7 +59,9 @@ import {
   emptyHomTally, addHomozygous, informationRatio, whyNoInformation, type HomTally,
   NO_INFORMATION_MIN,
 } from './informationRatio.ts'
-import { emptySameHom, addSameHom, dropIn, MIN_SAME_HOM, type SameHomTally } from './answerKeys.ts'
+import {
+  emptySameHom, addSameHom, dropIn, MIN_SAME_HOM, onParentScale, type SameHomTally,
+} from './answerKeys.ts'
 import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
   panelScale, hetSpread, HET_SPREAD_LOCALISED,
@@ -465,8 +467,13 @@ export async function scoreSample(input: {
     .filter((x): x is ParentIndex => !!x && x.callRate >= PANEL_ANCHOR_CALL_RATE)
     .map((x) => x.heterozygosity)
     .filter((x) => Number.isFinite(x) && x > 0)
+  // THE PARENT-FREE ANSWER KEYS GO TO THE STAGE, and only those: the stage must come out the same
+  // whatever parents are loaded, and a reading against the panel never sees one.
+  const panelDropIn = acc.panelSameHom && acc.panelSameHom.n >= MIN_SAME_HOM
+    ? onParentScale(dropIn(acc.panelSameHom)) : NaN
+  const panelInformation = acc.informationPanel ? informationRatio(acc.informationPanel) : NaN
   const stageAgreement = reconcileStage(
-    inferStage(profile, {
+    inferStage({ ...profile, dropIn: panelDropIn, information: panelInformation }, {
       panelHeterozygosity: parentHets.length ? Math.min(...parentHets) : undefined,
       ...input.stageOpts,
     }), input.declaredStage, stageDefaults,
@@ -768,6 +775,7 @@ export async function scoreSample(input: {
         .map((t) => (t ? informationRatio(t) : NaN)).filter((r) => Number.isFinite(r))),
       panel: acc.informationPanel ? informationRatio(acc.informationPanel) : NaN,
     },
+    heterozygositySpread: spread,
   }
   // DOES THIS CELL'S GENOTYPE CHANNEL WORK? The stage refusal fires on heterozygosity, which drop-in
   // raises without moving which parent's allele is present: on the cells it refuses in GSE148488 the
@@ -803,6 +811,27 @@ export async function scoreSample(input: {
       // The mixed signal and the allele gain are findings of the same measurement the array has
       // just been refused for, and leave with the rest.
       if (!alleleClaims.has('mixed')) c.mixed = undefined
+      c.alleleGain = undefined
+    }
+  }
+  // ONE GENOME WITH HEAVY DROP-IN: THE ALLELES ARE READ, THE INTENSITY IS NOT. The stage removed the
+  // drop-in and found one genome (stage.ts), so the allele claims stand: drop-in adds heterozygous
+  // calls without adding an absent parent's allele. Copy number is a different question. It is read
+  // against this array's own per-chromosome median, which needs a normal majority, and on arrays like
+  // this the test that would show one cannot: the localised-excess spread reads 0.07 to 0.18 on every
+  // array over the ceiling in GSE148488, chaotic or not, against 0.50. So it is withheld, recorded,
+  // under its physical cause, until a normal majority can be shown from the alleles.
+  const dropInCell = result.stage?.dropInCorrected !== undefined
+  const dropInMeasured = { dropIn: result.stage?.dropInCorrected ?? NaN, heterozygositySpread: spread }
+  if (dropInCell) {
+    for (const c of result.chroms) {
+      for (const claim of ['aneuploidy', 'aneuploidyParent', 'alleleGain'] as const) {
+        if (c[claim] === undefined) continue
+        result.refusals!.push({ claim, chrom: c.chrom, gate: 'stage.drop-in',
+          cause: 'no-intensity-reference', measured: dropInMeasured, withheld: c[claim] })
+      }
+      c.aneuploidy = undefined
+      c.aneuploidyParent = undefined
       c.alleleGain = undefined
     }
   }
@@ -1069,13 +1098,16 @@ export async function scoreSample(input: {
     })
   // RUN EVEN WHERE WITHHELD, and recorded rather than reported, so the census can score what the
   // withholding cost. Nothing below reads `scannedCopy` except through `copy`.
-  const copyWithheld = uninterpretable || chaoticGenome
+  const copyWithheld = uninterpretable || chaoticGenome || dropInCell
   const copy = copyWithheld ? [] : scannedCopy
   if (copyWithheld) {
     for (const sg of scannedCopy) {
-      result.refusals!.push({ claim: 'segment', chrom: sg.chrom,
-        gate: chaoticGenome ? 'copy-scan.chaotic-genome' : stageGate, cause: 'proxy',
-        measured: { ...stageMeasured, heterozygositySpread: spread }, withheld: sg })
+      result.refusals!.push(dropInCell && !uninterpretable
+        ? { claim: 'segment', chrom: sg.chrom, gate: 'stage.drop-in', cause: 'no-intensity-reference',
+          measured: dropInMeasured, withheld: sg }
+        : { claim: 'segment', chrom: sg.chrom,
+          gate: chaoticGenome ? 'copy-scan.chaotic-genome' : stageGate, cause: 'proxy',
+          measured: { ...stageMeasured, heterozygositySpread: spread }, withheld: sg })
     }
   }
   const allSegments = [
@@ -1249,9 +1281,11 @@ export async function scoreSample(input: {
     // that failed its own quality inference is not a conservative reading of weak data, it is
     // reading noise as biology. The event list stays empty, on the same condition and for the
     // same reason as the aneuploidy and segment scans above it.
-    if (uninterpretable) {
-      result.refusals!.push({ claim: 'findings', gate: stageGate, cause: 'proxy',
-        measured: stageMeasured })
+    if (uninterpretable || dropInCell) {
+      // On a drop-in array the copy-neutral detectors read heterozygosity runs, which drop-in fills
+      // in. No physical cause is established for withholding them, so this is recorded as a proxy.
+      result.refusals!.push({ claim: 'findings', gate: uninterpretable ? stageGate : 'stage.drop-in',
+        cause: 'proxy', measured: uninterpretable ? stageMeasured : dropInMeasured })
       result.findings = []
     } else {
     log('SCAN', 'looking for copy-neutral loss of heterozygosity')
@@ -1968,7 +2002,7 @@ export async function scoreSample(input: {
         + autosomes.filter((c) => c.aneuploidy).length,
       parentAbsent: autosomes.filter((c) => c.lostParent && !c.aneuploidy).length,
       gainByAlleles: autosomes.filter((c) => c.alleleGain?.verdict === 'gain' && c.aneuploidy !== 'gain').length,
-      allelesStand: uninterpretable && alleleClaims.size > 0,
+      allelesStand: (uninterpretable && alleleClaims.size > 0) || dropInCell,
     })
     // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader nothing on the
     // sample is reportable, which is the same to the person reading it. Recorded as soft.

@@ -725,6 +725,9 @@ export interface ParentageResult {
   answerKeys?: {
     dropIn: { parents: number; panel: number }
     information: { parents: number; panel: number }
+    /** How unevenly heterozygosity sits across the chromosomes: a localised excess is a genome with
+     *  wrong copy numbers, a uniform one is drop-in, a mixture or a failed array. See hetSpread. */
+    heterozygositySpread: number
   }
   spermType: SpermType
   genomeRate: number

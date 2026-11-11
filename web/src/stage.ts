@@ -59,6 +59,8 @@
  * heavily dropped-out diploid was still being called haploid after the quality gate.
  */
 import type { SampleProfile } from './ingest.ts'
+import { NO_INFORMATION_MIN } from './informationRatio.ts'
+import { DROP_IN } from './oneParentOrigin.ts'
 
 export type Stage =
   | 'bulk'
@@ -84,7 +86,13 @@ export interface StageCall {
    * Which test refused the array, on a `failed` stage only. Carried so a refusal record can name
    * the gate and its numbers without reading them back out of `why`.
    */
-  refusedBy?: 'heterozygosity-ceiling' | 'call-floor' | 'declared'
+  refusedBy?: 'heterozygosity-ceiling' | 'call-floor' | 'declared' | 'no-genotype-signal' | 'second-genome'
+  /**
+   * The drop-in, measured on this array against a founder panel, that was removed before it was
+   * staged. Present only on an array that read over the heterozygosity ceiling and came back under
+   * it with drop-in removed: one genome, whose excess heterozygosity is calls that cannot be real.
+   */
+  dropInCorrected?: number
   /** Expected allele dropout, used to parameterise downstream likelihoods. */
   dropout: number
   /** How the dropout figure was arrived at, which decides how much it can be trusted. */
@@ -368,7 +376,15 @@ export function stageDefaults(stage: Stage): StageCall {
  * heterozygosity alone, so call rate has to decide first.
  */
 export function inferStage(
-  profile: Pick<SampleProfile, 'hetRate' | 'callRate'> & { hetBand?: number, hetBafSd?: number },
+  profile: Pick<SampleProfile, 'hetRate' | 'callRate'> & {
+    hetBand?: number, hetBafSd?: number,
+    /**
+     * Parent-free answer keys, read against a founder panel (answerKeys.ts): this array's drop-in,
+     * on the scale of the drop-in read between measured parents, and its information ratio. Both
+     * optional, and with neither the ceiling behaves exactly as it always has.
+     */
+    dropIn?: number, information?: number,
+  },
   /**
    * The boundaries, so a caller that knows what it is doing can move them.
    *
@@ -386,8 +402,9 @@ export function inferStage(
     bulkMaxBafSd?: number,
   } = {},
 ): StageCall {
-  const h = profile.hetRate
+  let h = profile.hetRate
   const call = profile.callRate
+  let dropInCorrected: number | undefined
   const band = profile.hetBand
   const callFloor = opts.callFloor ?? QC_CALL_FLOOR
   // An explicit threshold from a caller is used as given; only the defaults follow the panel.
@@ -409,6 +426,46 @@ export function inferStage(
       caveat: 'no usable profile',
       why: 'the array does not report a heterozygous rate and a call rate, so no stage is inferred',
     }
+  }
+  // OVER THE CEILING, THE ANSWER KEYS SAY WHY, where they are supplied. Heterozygosity over what one
+  // genome can reach has three physical causes and they call for different answers. Calls that carry
+  // nothing are refused. Heterozygosity that is still too high once drop-in is removed is a second
+  // genome, refused. And heterozygosity that is excess DROP-IN, calls at markers where this array
+  // cannot be heterozygous, is one genome read badly, which is staged with the drop-in removed. On
+  // GSE148488 seven of the nine arrays the ceiling refuses are the third kind: drop-in of 0.24 to 0.32
+  // against the 0.02 typical of admitted arrays, single genomes whose allele calls agree with the
+  // published karyotype at 133 of 138.
+  if (h > maxDiploid && Number.isFinite(profile.information)
+    && (profile.information as number) >= NO_INFORMATION_MIN) {
+    return {
+      stage: 'failed', ploidy: 'unknown', dropout: NaN, basis: 'none',
+      templates: 'not applicable', markerFloor: 200, refusedBy: 'no-genotype-signal',
+      caveat: 'measured against a founder panel, so no parent is needed for it',
+      why: `${(h * 100).toFixed(1)}% heterozygous, and against markers where unrelated people all `
+        + 'carry the same homozygote this array\'s calls agree no better than chance would put them '
+        + `(information ratio ${(profile.information as number).toFixed(2)}, at or over `
+        + `${NO_INFORMATION_MIN.toFixed(2)}). The calls carry no information about any genome`,
+    }
+  }
+  if (h > maxDiploid && Number.isFinite(profile.dropIn)
+    && (profile.dropIn as number) > 0 && (profile.dropIn as number) < 1) {
+    const d = profile.dropIn as number
+    const corrected = Math.max(0, (h - d) / (1 - d))
+    if (corrected > maxDiploid) {
+      return {
+        stage: 'failed', ploidy: 'not one genome', dropout: NaN, basis: 'none',
+        templates: 'not applicable', markerFloor: 200, refusedBy: 'second-genome',
+        caveat: 'drop-in rules out an unrelated contaminant only at markers the panel covers, and a '
+          + 'second genome sharing alleles with this one, a relative, adds fewer heterozygotes',
+        why: `${(h * 100).toFixed(1)}% heterozygous, and ${(corrected * 100).toFixed(1)}% once this `
+          + `array's ${(d * 100).toFixed(1)}% drop-in is removed, still over the `
+          + `${(maxDiploid * 100).toFixed(0)}% one genome reaches. More than one genome is present`,
+      }
+    }
+    // ONE GENOME. Staged at the heterozygosity it would show at the drop-in the rungs were measured
+    // with, so the rungs need no second calibration.
+    dropInCorrected = d
+    h = corrected * (1 - DROP_IN) + DROP_IN
   }
   if (h > maxDiploid) {
     return {
@@ -439,7 +496,10 @@ export function inferStage(
   // this a blastomere at 0.40 dropout crosses the heterozygosity boundary and is called haploid.
   const bandSaysDiploid = Number.isFinite(band as number) && (band as number) >= bandCertain
 
-  if (h <= haploidMax && !bandSaysDiploid) {
+  // DROP-IN CORRECTED HETEROZYGOSITY DOES NOT SEPARATE ONE COPY FROM TWO on this material: haploid
+  // pronuclei read 0.002 to 0.014 with drop-in removed and diploid progeny from 0.015. So a corrected
+  // array does not reach the haploid rung on heterozygosity; only the BAF band can call its ploidy.
+  if (h <= haploidMax && !bandSaysDiploid && dropInCorrected === undefined) {
     // PB2, pronuclei and sperm carry one chromatid and are homozygous throughout. A FIRST polar
     // body carries a dyad and is genuinely heterozygous distal to each crossover, expected h about
     // 0.074, so the two are distinguished by where in the band the sample sits rather than lumped.
@@ -481,6 +541,7 @@ export function inferStage(
     return {
       stage: hit.stage,
       ploidy: 'diploid',
+      ...(dropInCorrected !== undefined ? { dropInCorrected } : {}),
       // The shortfall formula is calibrated against a diploid's heterozygosity, and this sample
       // is diploid, so it applies. It saturates at the 0.6 ceiling here, which is the point.
       dropout: Math.min(0.6, Math.max(0.005, 1 - h / bulkHet)),
@@ -497,6 +558,26 @@ export function inferStage(
     }
   }
   const implied = Math.min(0.6, Math.max(0.005, 1 - h / bulkHet))
+  if (dropInCorrected !== undefined) {
+    return {
+      stage: hit.stage,
+      // Not called diploid on heterozygosity: see the haploid rung above. Only a BAF band at the
+      // diploid line says two copies, wherever on the ladder the array lands.
+      ploidy: bandSaysDiploid ? 'diploid' : 'unknown',
+      dropInCorrected,
+      dropout: Math.max(implied, hit.dropout * 0.6),
+      basis: 'heterozygosity-shortfall',
+      templates: hit.templates,
+      markerFloor: hit.floor,
+      caveat: 'staged with drop-in removed. Copy number is not read from this array: whether it has a '
+        + 'normal majority to normalise against has not been shown',
+      why: `${(profile.hetRate * 100).toFixed(1)}% heterozygous as read, over the ceiling, but `
+        + `${(dropInCorrected * 100).toFixed(1)}% of calls at markers where it cannot be heterozygous `
+        + 'are heterozygous anyway: drop-in. With that removed it reads as one genome, placed at '
+        + `${hit.stage} with ${(implied * 100).toFixed(0)}% dropout. How many copies it carries is not `
+        + 'separable from its heterozygosity once drop-in this heavy is removed',
+    }
+  }
   return {
     stage: hit.stage,
     ploidy: 'diploid',
