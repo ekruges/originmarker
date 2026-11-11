@@ -63,3 +63,18 @@ P7  The 72 laboratory arrays with no hand call carry no parental arrays, so this
     them; unchanged by construction, and the segment arm is not touched.
 
 Any failure is reported as a failure and the change does not ship until it is understood.
+
+AMENDMENT, 10 NOVEMBER, BEFORE ANY REAL CELL WAS SCORED
+--------------------------------------------------------
+The rule as written compared the RARER parent's share against what a two-copy chromosome's rarer
+share reads. On error-free material two-copy chromosomes carry no one-parent calls, so that level is
+zero, equal to the floor, and the rule could never fire. The synthetic fixture in
+scoreSample.check.ts, which has no dropout, showed it: every loss it builds went unnamed.
+
+Amended: whether anything happened is decided on the DOMINANT parent's share, against the cell's
+two-copy chromosomes' dominant share (the median, over its biparental autosomes, of the larger
+one-parent share), rejected upward at E. Then lost if the rarer share is at the floor (not rejected
+upward at E), partial if it is not. This also keeps an extra copy out of `partial`, since a third
+copy barely moves the dominant side.
+
+No census row had been produced under the original rule. P1 to P7 stand unchanged.

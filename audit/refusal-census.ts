@@ -168,11 +168,16 @@ for (const gsm of cells) {
     out.push([kind, gsm, stg, by, gate, claim, chrom, brief(value), t.get(chrom) ?? '', kary, dir, sc,
       Number(measured?.heterozygosity ?? NaN).toFixed(3), Number(measured?.callRate ?? NaN).toFixed(3)].join('\t'))
   }
+  // ONE ROW PER CELL with what gates the allele channel, so a hidden gate shows up as a number.
+  const keys = (res.chroms ?? []).find((c: any) => c.alleleState)?.alleleState
+  out.push(['cell', gsm, stg, by, `zygosity=${res.zygosity}`, 'cell', '',
+    `floor=${keys ? keys.floor.toFixed(4) : 'none'} twoCopy=${keys ? keys.twoCopyMajority.toFixed(4) : 'none'}`,
+    '', kary, 'none', 'unscorable', '', ''].join('\t'))
   for (const r of (res.refusals ?? [])) emit(r.soft ? 'soft' : 'withheld', r.gate, r.claim, r.chrom ?? '', r.withheld, r.measured)
   // AND WHAT IT MADE, scored the same way, so over-refusal and over-calling sit side by side.
   const m = { heterozygosity: res.stage ? NaN : NaN, callRate: NaN }
   for (const c of (res.chroms ?? [])) {
-    for (const claim of ['aneuploidy', 'lostParent', 'aneuploidyParent', 'alleleGain']) {
+    for (const claim of ['aneuploidy', 'lostParent', 'aneuploidyParent', 'alleleGain', 'mixed']) {
       if (c[claim] !== undefined) emit('made', '', claim, c.chrom, c[claim], m)
     }
   }

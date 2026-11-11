@@ -29,6 +29,7 @@
  * is not. Do not restate the guarantee until there is a test behind it.
  */
 import type { Refusal } from './refusals.ts'
+import type { AlleleStateCall } from './answerKeys.ts'
 import { type ProbeRow } from './ingest.ts'
 import type { AlleleGain } from './gainOrigin.ts'
 import type { Finding } from './abnormalities.ts'
@@ -645,6 +646,9 @@ export interface ChromResult {
    * obligateHet.SURVIVOR_MIN.
    */
   lostParent?: 'paternal' | 'maternal'
+  /** The rarer parent's allele judged against this cell's answer keys: what lostParent and mixed are
+   *  decided on, with the two keys and the likelihood ratios. Two measured bulk parents only. */
+  alleleState?: AlleleStateCall
   /**
    * The alleles sit between the one-parent and two-parent boundaries with one parent's share at or
    * over obligateHet.MIXED_SHARE: a mosaic, a partial loss or noise, not separable here. Reported

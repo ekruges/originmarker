@@ -330,6 +330,34 @@ async function run(declaredStage?: 'failed', withMother = false) {
     'a refused array carries no allele reading of any kind: absent parent, mixed signal or extra copy')
   assert.deepEqual(r.losses ?? [], [], 'and no loss rows')
 
+  // A REFUSAL FOR DROP-IN IS NOT A REFUSAL OF THE ALLELES. The same genome with 30% of its
+  // homozygous calls turned heterozygous: drop-in on that scale is what the cells the heterozygosity
+  // ceiling refuses in GSE148488 carry, and it pushes this sample over the ceiling. It adds
+  // heterozygous calls; it does not add an absent parent's allele as a homozygote, so the parent
+  // whose copy is gone is still exactly as readable, and must still be named, correctly, on every
+  // chromosome the clean run names it on. The intensity claims stay withheld: that is a separate
+  // question this does not answer.
+  {
+    const dr = rng(20261110)
+    const droppedIn = rowsOf(sample).map((row) => (
+      /^\d+$/.test(row.chrom) && (row.genotype === 'AA' || row.genotype === 'BB') && dr() < 0.30
+        ? { ...row, genotype: 'AB' as const } : row))
+    const refused = await runRows(droppedIn as never, true)
+    assert.equal(refused.stage?.stage, 'failed',
+      `30% drop-in must take this sample over the heterozygosity ceiling, or this tests nothing. Got `
+      + `${refused.stage?.stage}: ${refused.stage?.why}`)
+    assert.equal(refused.stage?.refusedBy, 'heterozygosity-ceiling')
+    const named = Object.fromEntries((refused.chroms ?? []).filter((c) => c.lostParent)
+      .map((c) => [c.chrom, c.lostParent]))
+    assert.deepEqual(named,
+      { [ONE_COPY]: 'paternal', [ISODISOMY]: 'maternal', [ISO_TRISOMY]: 'maternal', [MAT_LOST]: 'maternal' },
+      `the alleles name the same absent parents through the drop-in. Got ${JSON.stringify(named)}`)
+    assert.deepEqual((refused.chroms ?? []).filter((c) => c.aneuploidy).map((c) => c.chrom), [],
+      'while the intensity claims stay withheld on the refused array')
+    assert.ok(!(refused.refusals ?? []).some((x) => x.claim === 'lostParent'),
+      'and a claim that stands is not recorded as refused')
+  }
+
   // AND EVERY ONE OF THOSE IS RECORDED, with what it would have said. The census scores refusals
   // against published truth from these records, so a cleared claim with no record is invisible.
   const refs = r.refusals ?? []

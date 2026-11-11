@@ -33,9 +33,8 @@ import {
   MIN_INFORMATIVE_DEFAULT, type DosageMarker, callLossOrigin,
 } from './gainOrigin.ts'
 import {
-  addTwoParent, emptyHet, hetCall, type HetTally, MIXED_SHARE, HAPLOID_MAX, nameAbsentParent,
+  addTwoParent, emptyHet, hetCall, type HetTally, nameAbsentParent,
   lossSignalRate, whyNotInformative,
-  DIPLOID_MIN,
 } from './obligateHet.ts'
 import { originBlockedByClass, namedAParent } from './defects.ts'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin.ts'
@@ -57,7 +56,11 @@ import {
 import { untransmittedPairs, impossibleRate, orientUntransmitted, callMechanism } from './untransmitted.ts'
 import {
   emptyHomTally, addHomozygous, informationRatio, whyNoInformation, type HomTally,
+  NO_INFORMATION_MIN,
 } from './informationRatio.ts'
+import {
+  emptySameHom, addSameHom, absentAlleleFloor, alleleState, MIN_SAME_HOM, type SameHomTally,
+} from './answerKeys.ts'
 import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
   panelScale, hetSpread, HET_SPREAD_LOCALISED,
@@ -226,6 +229,9 @@ export interface Collected {
    */
   informationPat: HomTally | null
   informationMat: HomTally | null
+  /** Markers where both MEASURED parents are the same homozygote: this cell's answer key for drop-in
+   *  and for an absent allele. Null unless both parents are measured arrays. See answerKeys.ts. */
+  sameHom: SameHomTally | null
 }
 
 /**
@@ -273,6 +279,7 @@ export function emptyCollected(pat: ParentIndex, mat?: ParentIndex | null): Coll
     sex: emptySex(),
     informationPat: pat.inferred ? null : emptyHomTally(),
     informationMat: mat && !mat.inferred ? emptyHomTally() : null,
+    sameHom: !pat.inferred && mat && !mat.inferred ? emptySameHom() : null,
   }
 }
 
@@ -309,6 +316,7 @@ export function collectRow(
     if (acc.informationMat && mat) {
       addHomozygous(acc.informationMat, r.genotype, mat.gt.get(r.probesetId) ?? 'NC')
     }
+    if (acc.sameHom && mat) addSameHom(acc.sameHom, r.genotype, fa, mat.gt.get(r.probesetId) ?? 'NC')
   }
   // Only a marker where the parent is homozygous and the sample is called can say
   // anything about presence, which is the same informative set the rates use.
@@ -599,20 +607,40 @@ export async function scoreSample(input: {
   const bothParentsSomewhere = result.chroms
     .filter((c) => isAutosome(c.chrom) && c.contribution?.ploidy === 'biparental').length
     >= BIPARENTAL_AUTOSOMES_MIN
+  // WHICH PARENT'S COPY IS GONE, JUDGED AGAINST THIS CELL'S OWN ANSWER KEYS. The rule used to be a
+  // heterozygous fraction under HAPLOID_MAX with a survivor over SURVIVOR_MIN, and drop-in defeats it:
+  // a genuine one-copy chromosome carries heterozygous calls it cannot really have, so on a cell with
+  // drop-in of 0.2 to 0.3 it read 0.21 to 0.40 and was left uncalled. 14 published monosomies over
+  // 31 GSE148488 cells sat there; on the 8 with counts the lost parent's allele read 0.005 to 0.095
+  // and the survivor's 0.57 to 0.78. Drop-in adds heterozygous calls; it does not add the absent
+  // parent's allele as a homozygote. So the test is on that allele, against two keys from this cell:
+  // the rate at which an allele absent from the template is called homozygous, measured where both
+  // parents are the same homozygote, and what a two-copy chromosome reads, from this cell's own
+  // biparental chromosomes. See answerKeys.alleleState.
+  const floor = acc.sameHom && acc.sameHom.n >= MIN_SAME_HOM ? absentAlleleFloor(acc.sameHom) : NaN
+  // What a two-copy chromosome's DOMINANT one-parent share reads on this cell: dropout puts
+  // one-parent calls on both sides of a two-copy chromosome, and this is the larger of the two.
+  const twoCopyShares = result.chroms
+    .filter((c) => isAutosome(c.chrom) && c.contribution?.ploidy === 'biparental'
+      && c.verdict !== 'not_measured')
+    .map((c) => Math.max(c.contribution!.onlyA, c.contribution!.onlyB))
+  const twoCopyLevel = twoCopyShares.length >= BIPARENTAL_AUTOSOMES_MIN ? median(twoCopyShares) : NaN
   for (const c of result.chroms) {
     const call = c.contribution
     if (!twoBulk || !bothParentsSomewhere || !knownBiparental(result.zygosity)
       || !isAutosome(c.chrom) || c.verdict === 'not_measured' || !call) continue
-    if (call.ploidy === 'uniparental' && call.survivor) {
-      // The first parental slot holds the array whose role is soloRole; the survivor's allele is
-      // what remains, so the copy that is missing is the other parent's.
-      const lost = call.survivor === 'a' ? otherRole : soloRole
+    const n = call.informative
+    const a = Math.round(call.onlyA * n)
+    const b = Math.round(call.onlyB * n)
+    const state = alleleState(Math.min(a, b), Math.max(a, b), n, floor, twoCopyLevel)
+    c.alleleState = state
+    if (state.state === 'lost') {
+      // The rarer allele is the absent parent's. The first parental slot holds the array whose role
+      // is soloRole, so a rarer 'a' is soloRole's copy gone and a rarer 'b' the other's.
+      const lost = a < b ? soloRole : otherRole
       c.lostParent = lost
       if (c.aneuploidy === 'loss') c.aneuploidyParent = lost === soloRole ? 'this' : 'other'
-    } else if (call.ploidy === 'uncalled' && call.fraction >= HAPLOID_MAX
-      && call.fraction < DIPLOID_MIN && Math.max(call.onlyA, call.onlyB) >= MIXED_SHARE) {
-      // BETWEEN THE BOUNDARIES WITH ONE PARENT DOMINANT is said out loud rather than passed over:
-      // six of the hand-called losses the alleles do not reach sit exactly here. See MIXED_SHARE.
+    } else if (state.state === 'partial') {
       c.mixed = true
     }
   }
@@ -725,6 +753,21 @@ export async function scoreSample(input: {
   // THE NUMBERS EVERY STAGE REFUSAL FIRED ON, so each record carries its measurement.
   const stageGate = `stage.${result.stage?.refusedBy ?? 'unknown'}`
   const stageMeasured = { heterozygosity: profile.hetRate, callRate: profile.callRate }
+  // DOES THIS CELL'S GENOTYPE CHANNEL WORK? The stage refusal fires on heterozygosity, which drop-in
+  // raises without moving which parent's allele is present: on the cells it refuses in GSE148488 the
+  // allele calls agree with the published karyotype at 133 of 138. The information ratio asks the
+  // question directly, against a measured parent, and is the test for a channel carrying nothing.
+  // Where it says the calls carry information, the allele claims stand through the stage refusal.
+  const genotypeSignal = (() => {
+    const rs = [acc.informationPat, acc.informationMat]
+      .map((t) => (t ? informationRatio(t) : NaN)).filter((r) => Number.isFinite(r))
+    return rs.length ? Math.min(...rs) < NO_INFORMATION_MIN : false
+  })()
+  // ONLY THE HETEROZYGOSITY CEILING. That branch is the proxy: drop-in trips it while the alleles
+  // are fine. A declared failure is the operator's instruction and a collapsed call rate is a
+  // different question, so both still clear every claim.
+  const alleleClaims = new Set<string>(
+    genotypeSignal && result.stage?.refusedBy === 'heterozygosity-ceiling' ? ['lostParent', 'mixed'] : [])
   if (uninterpretable) {
     log('WARN', 'no chromosomal changes are reported: this array did not resolve to a '
       + `stage. ${result.stage.why}`)
@@ -732,18 +775,18 @@ export async function scoreSample(input: {
     // field cleared below has its record here; refusals.check.ts pins the two lists to each other.
     for (const c of result.chroms) {
       for (const claim of ['aneuploidy', 'lostParent', 'aneuploidyParent', 'mixed', 'alleleGain'] as const) {
-        if (c[claim] === undefined) continue
+        if (c[claim] === undefined || alleleClaims.has(claim)) continue
         result.refusals!.push({ claim, chrom: c.chrom, gate: stageGate, cause: 'proxy',
           measured: stageMeasured, withheld: c[claim] })
       }
     }
     for (const c of result.chroms) {
       c.aneuploidy = undefined
-      c.lostParent = undefined
+      if (!alleleClaims.has('lostParent')) c.lostParent = undefined
       c.aneuploidyParent = undefined
       // The mixed signal and the allele gain are findings of the same measurement the array has
       // just been refused for, and leave with the rest.
-      c.mixed = undefined
+      if (!alleleClaims.has('mixed')) c.mixed = undefined
       c.alleleGain = undefined
     }
   }
