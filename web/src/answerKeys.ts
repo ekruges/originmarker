@@ -62,3 +62,51 @@ export const onParentScale = (panelDropIn: number): number =>
   Number.isFinite(panelDropIn)
     ? Math.min(1, Math.max(0, (panelDropIn - PANEL_DROPIN_INTERCEPT) / PANEL_DROPIN_SLOPE))
     : NaN
+
+/**
+ * A founder panel as shipped: a header, then one line per marker, its probeset and the allele every
+ * founder carries on both chromosomes. Any columns between are ignored, so the builder may carry the
+ * chromosome for its own checks. One parser for the browser and the command line, so the two cannot
+ * read the same file differently.
+ */
+export function parsePanel(text: string): Map<string, 'AA' | 'BB'> {
+  const out = new Map<string, 'AA' | 'BB'>()
+  const lines = text.split('\n')
+  for (let i = 1; i < lines.length; i += 1) {
+    const l = lines[i]
+    if (!l) continue
+    const tab = l.indexOf('\t')
+    if (tab < 0) continue
+    const allele = l.slice(l.lastIndexOf('\t') + 1).trim()
+    if (allele === 'A') out.set(l.slice(0, tab), 'AA')
+    else if (allele === 'B') out.set(l.slice(0, tab), 'BB')
+  }
+  return out
+}
+
+/** Where the shipped panel lives, relative to the site root and to the repository's web/public. */
+export const FOUNDER_PANEL_PATH = 'panel/founders.tsv.gz'
+
+/**
+ * The shipped panel, fetched once. Inflated from the magic number rather than the filename, as the
+ * examples are, because a host may already have removed the gzip encoding in transit. Null on any
+ * failure: without a panel the stage behaves exactly as it did before panels existed.
+ */
+let panelPromise: Promise<Map<string, 'AA' | 'BB'> | null> | null = null
+export function loadFounderPanel(base = ''): Promise<Map<string, 'AA' | 'BB'> | null> {
+  panelPromise ??= (async () => {
+    try {
+      const res = await fetch(base + FOUNDER_PANEL_PATH)
+      if (!res.ok) return null
+      let blob = await res.blob()
+      const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer())
+      if (head[0] === 0x1f && head[1] === 0x8b) {
+        blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob()
+      }
+      return parsePanel(await blob.text())
+    } catch {
+      return null
+    }
+  })()
+  return panelPromise
+}

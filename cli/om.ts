@@ -27,8 +27,8 @@
  *
  * Run any command with --help for its own flags, or --json for machine-readable output.
  */
-import { readFileSync, writeFileSync, readdirSync, statSync } from 'node:fs'
-import { join, basename } from 'node:path'
+import { readFileSync, writeFileSync, readdirSync, statSync, existsSync } from 'node:fs'
+import { join, basename, dirname } from 'node:path'
 import { gunzipSync } from 'node:zlib'
 
 const W = new URL('../web/src/', import.meta.url).pathname
@@ -41,6 +41,7 @@ const obligate = await import(`${W}obligateHet.ts`)
 const segments = await import(`${W}segments.ts`)
 const inferredRef = await import(`${W}inferredReference.ts`)
 const inferredArray = await import(`${W}inferredArray.ts`)
+const answerKeys = await import(`${W}answerKeys.ts`)
 const features = await import(`${W}features.ts`)
 const dosage = await import(`${W}dosageOrigin.ts`)
 const post = await import(`${W}originPosterior.ts`)
@@ -252,6 +253,21 @@ function headOf(path: string): string {
     .toString('utf8', 0, inferredArray.MARK_BYTES)
 }
 
+/**
+ * The founder panel the browser fetches, read off disk from the same file. `--panel F` points at
+ * another, such as one a laboratory builds from its own bulk arrays and keeps private, and
+ * `--no-panel` scores without one, exactly as before panels existed.
+ */
+let panelCache: Map<string, 'AA' | 'BB'> | null | undefined
+function founderPanel(): Map<string, 'AA' | 'BB'> | null {
+  if (panelCache !== undefined) return panelCache
+  if (args.bools.has('no-panel')) return (panelCache = null)
+  const path = args.flags.get('panel') ?? join(dirname(W.replace(/\/$/, '')), 'public', answerKeys.FOUNDER_PANEL_PATH)
+  if (!existsSync(path)) return (panelCache = null)
+  const raw = readFileSync(path)
+  return (panelCache = answerKeys.parsePanel((path.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')))
+}
+
 /** The parent, through the accumulator the browser fills. Read once and reused across a cohort. */
 function loadParent(path: string) {
   const acc = score.emptyParent()
@@ -288,7 +304,7 @@ async function scoreWithParent(
   other?: ReturnType<typeof loadParent>,
 ) {
   const mat = other ? other.pat : null
-  const acc = score.emptyCollected(parent.pat as never, mat as never)
+  const acc = score.emptyCollected(parent.pat as never, mat as never, founderPanel() as never)
   const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
   for (const r of readRows(samplePath)()) {
     if (!first) first = r.probesetId

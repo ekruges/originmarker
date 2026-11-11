@@ -46,7 +46,22 @@ const PANEL_DIR = process.env.OM_PANEL_DIR
 const MOTHER_LETTER: Record<string, string> = { GSM4472407: 'A', GSM4472417: 'B', GSM4472418: 'B',
   GSM4472419: 'B', GSM4472420: 'B', GSM4472415: 'C', GSM4472416: 'C', GSM4472408: 'D' }
 const panelCache = new Map<string, Map<string, 'AA' | 'BB'>>()
+/** OM_PANEL_FILE, where set, is one panel for every cell: the shipped one, used to check that the
+ *  decisions it makes match those of the per-family panels it was validated with. */
+const PANEL_FILE = process.env.OM_PANEL_FILE
 function panelFor(mother: string): Map<string, 'AA' | 'BB'> | null {
+  if (PANEL_FILE) {
+    if (!panelCache.has('file')) {
+      const m = new Map<string, 'AA' | 'BB'>()
+      for (const l of readFileSync(PANEL_FILE, 'utf8').split('\n').slice(1)) {
+        const c = l.split('\t')
+        const allele = c[c.length - 1]
+        if (c[0]) m.set(c[0], allele === 'A' ? 'AA' : 'BB')
+      }
+      panelCache.set('file', m)
+    }
+    return panelCache.get('file')!
+  }
   const letter = MOTHER_LETTER[mother]
   if (!PANEL_DIR || !letter) return null
   if (!panelCache.has(letter)) {

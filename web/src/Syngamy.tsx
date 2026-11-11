@@ -3,6 +3,7 @@ import {
   collectParentRow, collectRow, emptyCollected, emptyParent, finishParent, scoreSample,
   type ParentIndex,
 } from './scoreSample'
+import { loadFounderPanel } from './answerKeys'
 import { syngamyTable } from './syngamyTable'
 import { ParentalBalancePanel } from './ParentalBalancePanel'
 import type { BalanceSample, PairedSample } from './parentalBalance'
@@ -748,7 +749,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // ONE IMPLEMENTATION OF THE ANSWER, in scoreSample.ts, which the command line and the
           // cross-surface check also call. What is left here is what only a browser has to do:
           // read a File, paint progress, and hold React state.
-          const acc = emptyCollected(pat, mat)
+          // The founder panel, the parent-free answer key: with it the stage tells drop-in from a
+          // second genome from noise on any material, with or without a parent. Null if it cannot
+          // be fetched, which leaves the stage exactly as it was before panels.
+          const acc = emptyCollected(pat, mat, await loadFounderPanel())
           const { profile, gates: g } = await profileFile(
             s.file, (r) => collectRow(r, pat, mat, acc), bar(s.id, s.file.size), log,
           )

@@ -2,7 +2,7 @@
  * The answer key counts only markers whose right answer is known, and drop-in is what it says.
  */
 import assert from 'node:assert/strict'
-import { emptySameHom, addSameHom, dropIn } from './answerKeys.ts'
+import { emptySameHom, addSameHom, dropIn, parsePanel } from './answerKeys.ts'
 import { hetCall, emptyHet } from './obligateHet.ts'
 
 {
@@ -65,6 +65,13 @@ import { hetCall, emptyHet } from './obligateHet.ts'
   }
   assert.deepEqual(viaPanel, viaParents)
   assert.deepEqual(viaPanel, { n: 4, het: 1, wrong: 1 })
+}
+
+// THE SHIPPED PANEL'S FORMAT, read by one parser in the browser and on the command line. Extra
+// columns are ignored, a line without a recognised allele is skipped, and the header is not a marker.
+{
+  const p = parsePanel('probeset\tchrom\tallele\nAX-1\t1\tA\nAX-2\t5\tB\nAX-3\t7\tN\n\nAX-4\tB\n')
+  assert.deepEqual([...p], [['AX-1', 'AA'], ['AX-2', 'BB'], ['AX-4', 'BB']])
 }
 
 console.log('  ok   answerKeys.check.ts')
