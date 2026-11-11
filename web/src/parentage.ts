@@ -717,6 +717,15 @@ export interface ParentageResult {
    * it fired on, and the value withheld. See refusals.ts. Present on every scored sample.
    */
   refusals?: Refusal[]
+  /**
+   * The cell's answer keys: drop-in, and whether its calls carry information, each read against the
+   * measured parents where both are loaded and against the founder panel where one is supplied. NaN
+   * where that reference is absent. See answerKeys.ts.
+   */
+  answerKeys?: {
+    dropIn: { parents: number; panel: number }
+    information: { parents: number; panel: number }
+  }
   spermType: SpermType
   genomeRate: number
   explainable: number

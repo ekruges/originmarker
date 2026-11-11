@@ -30,6 +30,35 @@ import { lineReader } from './joy-common.ts'
 const W = new URL('../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const score = await import(`${W}scoreSample.ts`)
+const inferredArray = await import(`${W}inferredArray.ts`)
+
+/**
+ * THE LABORATORY'S SETTING. OM_FATHER names a parent array, usually one reconstructed from the
+ * children, and the cell is scored against it ALONE, with no mother: the configuration every
+ * laboratory run actually has. Unset, both measured parents are loaded, which is the reference the
+ * one-parent result is compared against.
+ *
+ * OM_PANEL_DIR holds founder panels, panel-val-<mother>.tsv, built WITHOUT the cell's own parents,
+ * so the parent-free answer keys read against it owe nothing to the family.
+ */
+const FATHER = process.env.OM_FATHER
+const PANEL_DIR = process.env.OM_PANEL_DIR
+const MOTHER_LETTER: Record<string, string> = { GSM4472407: 'A', GSM4472417: 'B', GSM4472418: 'B',
+  GSM4472419: 'B', GSM4472420: 'B', GSM4472415: 'C', GSM4472416: 'C', GSM4472408: 'D' }
+const panelCache = new Map<string, Map<string, 'AA' | 'BB'>>()
+function panelFor(mother: string): Map<string, 'AA' | 'BB'> | null {
+  const letter = MOTHER_LETTER[mother]
+  if (!PANEL_DIR || !letter) return null
+  if (!panelCache.has(letter)) {
+    const m = new Map<string, 'AA' | 'BB'>()
+    for (const l of readFileSync(join(PANEL_DIR, `panel-val-${letter}.tsv`), 'utf8').split('\n').slice(1)) {
+      const [id, , allele] = l.split('\t')
+      if (id) m.set(id, allele === 'A' ? 'AA' : 'BB')
+    }
+    panelCache.set(letter, m)
+  }
+  return panelCache.get(letter)!
+}
 
 const DIR = process.env.OM_TRIOS
 if (!DIR || !existsSync(DIR)) { console.log('refusal-census: OM_TRIOS not readable. NOT RUN.'); process.exit(0) }
@@ -75,23 +104,32 @@ function* rowsOf(path: string) {
 }
 const parentCache = new Map<string, unknown>()
 function parentIndex(gsm: string) {
-  if (parentCache.has(gsm)) return parentCache.get(gsm)
+  return parentAt(fileOf.get(gsm)!)
+}
+/** A parent array from a path, reconstructed or measured, read as cli/om.ts loadParent reads it:
+ *  the banner at the head of a reconstructed file is what marks it as one. */
+function parentAt(path: string) {
+  if (parentCache.has(path)) return parentCache.get(path)
   const acc = score.emptyParent()
   const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
-  for (const r of rowsOf(fileOf.get(gsm)!)) {
+  const raw = readFileSync(path)
+  const banner = inferredArray.parseInferredBanner(
+    (path.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8', 0, inferredArray.MARK_BYTES)) ?? undefined
+  for (const r of rowsOf(path)) {
     if (!first) first = r.probesetId
     ingest.accumulate(r as never, byChrom as never)
     ingest.accumulateBaf(r as never, bafSums as never)
     score.collectParentRow(r as never, acc as never)
   }
   const idx = score.finishParent(acc as never,
-    ingest.finishProfile(gsm, byChrom as never, bafSums as never, first).build.build)
-  parentCache.set(gsm, idx)
+    ingest.finishProfile(path, byChrom as never, bafSums as never, first).build.build, banner)
+  parentCache.set(path, idx)
   return idx
 }
 async function scoreCell(gsm: string, father: string, mother: string) {
-  const pat = parentIndex(father); const mat = parentIndex(mother)
-  const acc = score.emptyCollected(pat as never, mat as never)
+  const pat = FATHER ? parentAt(FATHER) : parentIndex(father)
+  const mat = FATHER ? null : parentIndex(mother)
+  const acc = score.emptyCollected(pat as never, mat as never, panelFor(mother) as never)
   const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
   for (const r of rowsOf(fileOf.get(gsm)!)) {
     if (!first) first = r.probesetId
@@ -170,9 +208,12 @@ for (const gsm of cells) {
       Number(measured?.heterozygosity ?? NaN).toFixed(3), Number(measured?.callRate ?? NaN).toFixed(3)].join('\t'))
   }
   // ONE ROW PER CELL with what gates the allele channel, so a hidden gate shows up as a number.
-  const d = (res.chroms ?? []).find((c: any) => c.contribution)?.contribution?.dropIn
+  const k = res.answerKeys
+  const f = (x: number) => (Number.isFinite(x) ? x.toFixed(4) : 'none')
   out.push(['cell', gsm, stg, by, `zygosity=${res.zygosity}`, 'cell', '',
-    `dropIn=${Number.isFinite(d) ? d.toFixed(4) : 'none'}`, '', kary, 'none', 'unscorable', '', ''].join('\t'))
+    `dropIn parents=${f(k?.dropIn.parents)} panel=${f(k?.dropIn.panel)} `
+      + `information parents=${f(k?.information.parents)} panel=${f(k?.information.panel)}`,
+    '', kary, 'none', 'unscorable', '', ''].join('\t'))
   for (const r of (res.refusals ?? [])) emit(r.soft ? 'soft' : 'withheld', r.gate, r.claim, r.chrom ?? '', r.withheld, r.measured)
   // AND WHAT IT MADE, scored the same way, so over-refusal and over-calling sit side by side.
   const m = { heterozygosity: res.stage ? NaN : NaN, callRate: NaN }

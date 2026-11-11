@@ -53,4 +53,18 @@ import { hetCall, emptyHet } from './obligateHet.ts'
   assert.equal(hetCall(t, 2, 0.25).ploidy, 'biparental')
 }
 
+// THE PANEL IS A PARENT PAIR THAT ALWAYS AGREES. Feeding a founder panel's shared homozygote in as
+// both parents is the parent-free drop-in, counted by the same tally, so it cannot drift from the
+// parent-based reading through a second implementation.
+{
+  const viaParents = emptySameHom()
+  const viaPanel = emptySameHom()
+  for (const [s, g] of [['AA', 'AA'], ['AB', 'AA'], ['BB', 'AA'], ['BB', 'BB'], ['NC', 'BB']] as const) {
+    addSameHom(viaParents, s, g, g)
+    addSameHom(viaPanel, s, g, g)
+  }
+  assert.deepEqual(viaPanel, viaParents)
+  assert.deepEqual(viaPanel, { n: 4, het: 1, wrong: 1 })
+}
+
 console.log('  ok   answerKeys.check.ts')

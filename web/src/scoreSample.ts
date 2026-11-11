@@ -231,6 +231,15 @@ export interface Collected {
   /** Markers where both MEASURED parents are the same homozygote: this cell's answer key for drop-in
    *  and for an absent allele. Null unless both parents are measured arrays. See answerKeys.ts. */
   sameHom: SameHomTally | null
+  /**
+   * The parent-free answer key. A panel of unrelated founders' shared homozygotes stands in for a
+   * pair of parents that always agree: drop-in is counted where the panel says the sample can only
+   * be one homozygote, and the information ratio is taken against the panel as the reference. So
+   * both answer keys exist with no parent loaded, or with one reconstructed from the children.
+   */
+  panel: ReadonlyMap<string, 'AA' | 'BB'> | null
+  panelSameHom: SameHomTally | null
+  informationPanel: HomTally | null
 }
 
 /**
@@ -239,7 +248,9 @@ export interface Collected {
  * The parent's assembly is stamped on the tallies here, so the pseudoautosomal boundaries are the
  * right ones. It is known before the sample streams and is the same across one experiment.
  */
-export function emptyCollected(pat: ParentIndex, mat?: ParentIndex | null): Collected {
+export function emptyCollected(
+  pat: ParentIndex, mat?: ParentIndex | null, panel?: ReadonlyMap<string, 'AA' | 'BB'> | null,
+): Collected {
   const t = emptyTally()
   const tm = mat ? emptyTally() : null
   t.build = pat.build
@@ -279,6 +290,9 @@ export function emptyCollected(pat: ParentIndex, mat?: ParentIndex | null): Coll
     informationPat: pat.inferred ? null : emptyHomTally(),
     informationMat: mat && !mat.inferred ? emptyHomTally() : null,
     sameHom: !pat.inferred && mat && !mat.inferred ? emptySameHom() : null,
+    panel: panel ?? null,
+    panelSameHom: panel ? emptySameHom() : null,
+    informationPanel: panel ? emptyHomTally() : null,
   }
 }
 
@@ -316,6 +330,11 @@ export function collectRow(
       addHomozygous(acc.informationMat, r.genotype, mat.gt.get(r.probesetId) ?? 'NC')
     }
     if (acc.sameHom && mat) addSameHom(acc.sameHom, r.genotype, fa, mat.gt.get(r.probesetId) ?? 'NC')
+    const g = acc.panel?.get(r.probesetId)
+    if (g) {
+      addSameHom(acc.panelSameHom!, r.genotype, g, g)
+      addHomozygous(acc.informationPanel!, r.genotype, g)
+    }
   }
   // Only a marker where the parent is homozygous and the sample is called can say
   // anything about presence, which is the same informative set the rates use.
@@ -737,6 +756,19 @@ export async function scoreSample(input: {
   // THE NUMBERS EVERY STAGE REFUSAL FIRED ON, so each record carries its measurement.
   const stageGate = `stage.${result.stage?.refusedBy ?? 'unknown'}`
   const stageMeasured = { heterozygosity: profile.hetRate, callRate: profile.callRate }
+  // THE ANSWER KEYS, reported whatever uses them, so the parent-free and parent-based readings can be
+  // set side by side on any cell that has both.
+  result.answerKeys = {
+    dropIn: {
+      parents: acc.sameHom && acc.sameHom.n >= MIN_SAME_HOM ? dropIn(acc.sameHom) : NaN,
+      panel: acc.panelSameHom && acc.panelSameHom.n >= MIN_SAME_HOM ? dropIn(acc.panelSameHom) : NaN,
+    },
+    information: {
+      parents: ((rs: number[]) => (rs.length ? Math.min(...rs) : NaN))([acc.informationPat, acc.informationMat]
+        .map((t) => (t ? informationRatio(t) : NaN)).filter((r) => Number.isFinite(r))),
+      panel: acc.informationPanel ? informationRatio(acc.informationPanel) : NaN,
+    },
+  }
   // DOES THIS CELL'S GENOTYPE CHANNEL WORK? The stage refusal fires on heterozygosity, which drop-in
   // raises without moving which parent's allele is present: on the cells it refuses in GSE148488 the
   // allele calls agree with the published karyotype at 133 of 138. The information ratio asks the
