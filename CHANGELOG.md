@@ -9,6 +9,89 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.52.0 "Haplotype Block"
+
+**One parent, rebuilt from the children, now gives what two measured parents give.** The laboratory's
+material never has both parents arrayed. It has one, reconstructed from that parent's haploid products,
+and until now the claims that needed two parents were simply absent there. Measured over the 31 cells of
+GSE148488 with a published Zuccaro 2020 Table S3 karyotype, against both measured parents and against the
+father rebuilt from his eight pronuclei alone (audit/one-parent-state-result-2026-11-11.txt):
+
+| | two measured parents | one rebuilt father |
+|---|---|---|
+| stage | | identical, 31 of 31 |
+| copy-number calls, made or withheld | | identical on all 15 cells carrying any |
+| which parent a lost chromosome came from, confirmed | 82 | 90 |
+| wrong parent | 1 | 2, the same two chromosomes every configuration gets wrong |
+| any claim on a published-normal autosome | 45 | 25 |
+
+**Which copy is gone, from one parent.** `oneParentState.ts`: at markers where the parent is homozygous,
+the share of the allele the parent lacks, read once where no founder carries it (the drop-in baseline)
+and once where it is common, and scaled per chromosome. A disomic chromosome reads near 0.5, one that
+lost the other parent's copy near 0, one that lost this parent's near 1. Drop-in raises both readings and
+cancels. With one parent it now sets `lostParent`, under the guard the two-parent reading uses. It cannot
+see an extra copy: gains still need intensity.
+
+**Copy number needs a normal majority, shown from the alleles.** Intensity is read against the array's
+own per-chromosome median, which is a normal chromosome only when most are. The share of decided
+autosomes the copy state reads disomic is that test, and below 0.80 copy number is withheld under
+`no-intensity-reference`, with the allele claims kept. It reads 0.000 to 0.727 on the 12 cells published
+chaotic and 0.909 or more on the 17 published readable and not chaotic; the two published failures read
+0. Claims contradicting a published-normal autosome fall from 57 to 45 with two parents, all of it
+intensity claims on chaotic cells.
+
+**The copy-number scan no longer depends on how many parents are loaded.** It skipped chromosomes the
+alleles named as missing a parent, and that name exists only with two. It scans every chromosome, and a
+whole-chromosome loss it restates is reported once.
+
+**Germline admits a product on its alleles, not its heterozygosity.** Drop-in on an amplified haploid
+product raises its heterozygous calls without adding the other parent's alleles, so the ploidy gate set
+such products aside. Every member of the group is now judged against a rebuild from the others, and every
+other array against the group's, by the same allele share: under 0.20 is a product, over 0.75 the other
+parent, between or with no allele contrast refused. The gate still decides who enters the pair table,
+since a diploid there splits a group, but what it set aside comes back in here. All eight paternal
+pronuclei of GSE148488 are admitted (r -0.107 to 0.012), where five were usable before. A group of four
+can start a build, since four is what leave-one-out already judges a five-product group's members
+against; the build itself still needs five. `om reconstruct` follows the same rule: the stage sorts
+instead of refusing, `--allow-diploid` is gone, and a frequency panel is required.
+
+**And masks the stretches it cannot see.** With n products, 2 x 0.5^n of any region where the parent is
+heterozygous is carried identically by all of them, so the products agree and the rebuild calls the
+parent homozygous there, wrongly, for every child at once. Before this the five-product rebuild read the
+father's chr15 lost in eight normal cells. Per 5 Mb window, product disagreement over founder
+heterozygosity, against the genome's median of that ratio; under 0.6 the window is masked. Against the
+father's own array, the share of the rebuild's homozygous calls where he is heterozygous falls from 3.25%
+(five pronuclei, unmasked) to 2.08%. The rebuild's own contamination figure, a model that treats markers
+as independent, understates both by about a point.
+
+On the laboratory's series S23, with no parent loaded, the rebuild finds six products of one parent and
+eight of the other, and refuses four. Its rebuilt father matches the measured sperm donor's array, which
+was not used, at 99.46%. Against the laboratory's sample sheet, all fourteen calls agree; of the four
+refused, two are recorded there as having no usable DNA, and two as paternal, one from a zygote noted as
+a poor egg.
+
+**A new founder panel.** `web/public/panel/founders-gse186441.tsv.gz` holds B allele frequencies of 182
+unrelated adults of GSE186441 (constitutional blood DNA, Axiom UK Biobank, after quality and duplicate
+filtering): pooled frequencies only, no one's genotype. It replaces `founders.tsv.gz`, under a new name
+because the CDN caches by name. Monomorphic markers, the drop-in key, are those at frequency 0 or 1 with
+100 or more founders called. Its calibration, in its header, is panel = 1.040 x parents + 0.0626, fitted
+over the 29 GSE148488 cells whose calls carry information (r 0.973). The panel's built-in offset on
+unamplified arrays is 0.017 and 0.036 for the laboratory's two bulks and 0.020 to 0.046 for the GSE148488
+donors, so the calibration carries over. On the laboratory's 95 arrays the stage is unchanged on 92. Two
+drop-in-corrected cells change rung, and S12-56, whose information ratio sat 0.035 under
+NO_INFORMATION_MIN, now sits 0.008 over it and is refused as `no-genotype-signal`. GEO places no
+restriction on reuse; a claim on the submitter's own record was not checked.
+
+**A reconstructed parent no longer scales the stage ceiling.** Its heterozygosity is an estimate that
+moves with which products went in: 15.5% from five pronuclei, 19.3% from eight, for a man whose array
+reads 16.7%. Scaling by it moved one cell's rung between one parent and two.
+
+Known limits. Which parent lost a chromosome is claimed on published-normal chromosomes 9 times against
+4 with two parents; three are on one cell at a drop-in of 0.12, just under the 0.20 bar. The mask is
+measured on one father; a mother rebuilt from polar bodies is a different problem and is untested.
+
+---
+
 ## 5.51.0 "Linkage Equilibrium"
 
 **The heterozygosity ceiling now says which of three physical failures it found, with no parent

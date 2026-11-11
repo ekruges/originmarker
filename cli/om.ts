@@ -705,22 +705,25 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
   reconstruct() {
     const paths = args.positional
     if (paths.length < 2) die('usage: om reconstruct <product>... [--group-only] [--out F] [--json]')
+    const panel = founderPanel() as (Map<string, 'AA' | 'BB'> & { freqB?: Map<string, number> }) | null
+    const freqB = panel?.freqB
+    if (!freqB && !args.bools.has('group-only')) {
+      die('a reconstruction judges each product by its alleles against founder frequencies, and '
+        + 'no frequency panel is loaded. Pass --panel with a panel of `probeset freqB n` rows')
+    }
+    const monomorphic = (id: string, g: 'AA' | 'BB'): boolean => panel?.get(id) === g
     // full, not screened: the sort needs marker POSITIONS, and a screening load does not
     // populate them. Loading them without it silently fed zero markers to every product,
     // which put four products of one father into four separate groups.
     const loaded = paths.map((p) => load(p, num('stride', 1), true))
-    for (const l of loaded) {
-      const s = stageMod.inferStage(l.profile, stageOpts())
-      if (s.stage === 'failed') die(`${l.id} is not a genome: ${s.why}`)
-      if (s.stage !== 'haploid' && !args.bools.has('allow-diploid')) {
-        die(`${l.id} stages as ${s.stage}, not haploid. A reconstruction takes HAPLOID products `
-          + 'of one parent; a diploid compared with a haploid has a different expected rate '
-          + 'entirely and bridges unrelated groups. Pass --allow-diploid to override')
-      }
-    }
-    // Sorting first, because a group holds both parents' products and mixing them is garbage.
+    // The stage sorts, it does not refuse. Only arrays staging haploid go into the pair table,
+    // because a diploid compared with a haploid has a different expected rate entirely and bridges
+    // unrelated groups. Every other array is judged afterwards on its alleles against the group,
+    // which is how a haploid product that drop-in made heterozygous comes back in.
+    const stages = loaded.map((l) => stageMod.inferStage(l.profile, stageOpts()))
+    const seed = loaded.map((_, i) => i).filter((i) => stages[i].stage === 'haploid')
     const ps = new inferredRef.ProductSet()
-    const slots = loaded.map((l) => {
+    for (const l of loaded) {
       const slot = ps.begin(l.id)
       const band = { inBand: 0, total: 0 }
       for (const [probe, p] of l.pos) {
@@ -730,46 +733,49 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
         } as never, band)
       }
       ps.end(slot, band)
-      return slot
-    })
+    }
     const rates = new Map<string, { shared: number, opposite: number, rate: number }>()
     const rateOf = (a: number, b: number) => {
       const k = a < b ? `${a}:${b}` : `${b}:${a}`
       const hit = rates.get(k)
       if (hit) return hit
-      const v = ps.opposite(slots[a], slots[b]) as { shared: number, opposite: number, rate: number }
+      const v = ps.opposite(seed[a], seed[b]) as { shared: number, opposite: number, rate: number }
       rates.set(k, v)
       return v
     }
-    for (const [k, v] of [...rates]) void k, v
-    for (let a = 0; a < loaded.length; a += 1) {
-      for (let b = a + 1; b < loaded.length; b += 1) {
+    for (let a = 0; a < seed.length; a += 1) {
+      for (let b = a + 1; b < seed.length; b += 1) {
         const v = rateOf(a, b)
         if (!Number.isFinite(v.rate) || v.shared < 1_000) {
-          die(`${loaded[a].id} and ${loaded[b].id} share only ${v.shared} called markers, which `
-            + 'is too few to say whether they came from the same parent')
+          die(`${loaded[seed[a]].id} and ${loaded[seed[b]].id} share only ${v.shared} called markers, `
+            + 'which is too few to say whether they came from the same parent')
         }
       }
     }
-    const groups = inferredRef.groupByParent(loaded.length, (a: number, b: number) => rateOf(a, b).rate)
-    const named = groups.map((g: number[]) => g.map((i) => loaded[i].id))
+    const groups = inferredRef.groupByParent(seed.length, (a: number, b: number) => rateOf(a, b).rate)
+    const named = groups.map((g: number[]) => g.map((i) => loaded[seed[i]].id))
     const minProducts = num('min-products', inferredRef.MIN_PRODUCTS)
+    const setAside = loaded.filter((_, i) => !seed.includes(i))
+      .map((l) => ({ id: l.id, stage: stages[loaded.indexOf(l)].stage }))
 
     if (args.bools.has('group-only')) {
       const detail = []
-      for (let a = 0; a < loaded.length; a += 1) {
-        for (let b = a + 1; b < loaded.length; b += 1) {
+      for (let a = 0; a < seed.length; a += 1) {
+        for (let b = a + 1; b < seed.length; b += 1) {
           const v = rateOf(a, b)
-          detail.push({ a: loaded[a].id, b: loaded[b].id, rate: v.rate, shared: v.shared,
+          detail.push({ a: loaded[seed[a]].id, b: loaded[seed[b]].id, rate: v.rate, shared: v.shared,
             kinship: inferredRef.kinship(v.rate) })
         }
       }
-      out({ groups: named, minProducts, pairs: detail }, () => {
+      out({ groups: named, minProducts, pairs: detail, setAside }, () => {
         named.forEach((g, i) => process.stdout.write(
           `group ${i + 1} (${g.length} product${g.length === 1 ? '' : 's'})`
           + `${g.length >= minProducts ? '' : `, under the ${minProducts} a reconstruction needs`}`
           + `: ${g.join(', ')}\n`,
         ))
+        for (const x of setAside) {
+          process.stdout.write(`not grouped, stages ${x.stage}: ${x.id} (judged on its alleles at build)\n`)
+        }
         if (args.bools.has('pairs')) {
           process.stdout.write('\npairwise opposite-homozygote rate, the evidence for the split\n')
           for (const d of detail) {
@@ -781,18 +787,29 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       return
     }
     const biggest = named.reduce((a, b) => (b.length > a.length ? b : a), [] as string[])
-    if (biggest.length < minProducts) {
-      die(`the largest single-parent group has ${biggest.length} product(s), under the `
-        + `${minProducts} this needs. Below that the method inverts and true offspring read as `
-        + `decisively absent. Groups found: ${named.map((g) => g.length).join(', ')}`)
+    if (biggest.length < inferredRef.MIN_SEED) {
+      die(`the largest single-parent group of haploid-staged arrays has ${biggest.length} product(s); `
+        + `judging the others needs ${inferredRef.MIN_SEED}. Groups found: `
+        + `${named.map((g) => g.length).join(', ') || 'none'}`)
     }
-    const keep = new Set(biggest)
-    const exclude = loaded.filter((l) => !keep.has(l.id)).map((l) => l.id)
+    const others = ps.ids.filter((id) => !biggest.includes(id))
+    const seedM = (ps.chooseM(others) as { mMin: number }).mMin
+    const judged = inferredRef.judgeProducts(ps, biggest, others, seedM, freqB!, monomorphic)
+    const accepted = judged.filter((j) => j.verdict === 'product').map((j) => j.id)
+    const verdictLines = () => judged.map((j) => `  ${j.id.padEnd(28)} ${j.verdict.padEnd(16)} `
+      + `r ${Number.isFinite(j.call.r) ? j.call.r.toFixed(3) : 'n/a'}  base ${Number.isFinite(j.call.base)
+        ? j.call.base.toFixed(3) : 'n/a'}  against ${j.against}\n`).join('')
+    if (accepted.length < minProducts) {
+      process.stderr.write(verdictLines())
+      die(`${accepted.length} array(s) read as products of this parent, under the ${minProducts} this `
+        + 'needs. Below that the method inverts and true offspring read as decisively absent')
+    }
+    const exclude = ps.ids.filter((id) => !accepted.includes(id))
     const pick = ps.chooseM(exclude) as { mMin: number }
     const mMin = num('m-min', pick.mMin)
-    const ref = ps.build(mMin, exclude) as {
+    const ref = ps.build(mMin, exclude, undefined, freqB) as {
       genotype: Map<string, AB>, markers: number, hRetained: number, contamination: number,
-      spuriousAbsence: number, nProducts: number, meanM: number
+      spuriousAbsence: number, nProducts: number, meanM: number, masked: number
     }
     const o = args.flags.get('out')
     if (o) {
@@ -805,26 +822,30 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       writeFileSync(o, inferredArray.inferredArrayText({
         genotype: ref.genotype,
         locus: (id: string) => posOf.get(id) ?? null,
-        products: biggest,
+        products: accepted,
         mMin,
         contamination: ref.contamination,
         spuriousAbsence: ref.spuriousAbsence,
         hRetained: ref.hRetained,
         side: args.flags.get('side') ?? '',
-        reportId: `om reconstruct ${biggest.length} products`,
+        reportId: `om reconstruct ${accepted.length} products`,
         generatedAt: new Date().toISOString(),
         build: loaded[0]?.build ?? null,
       }))
     }
     out({
-      groups: named, used: biggest, mMin, markers: ref.markers, hRetained: ref.hRetained,
-      contamination: ref.contamination, spuriousAbsence: ref.spuriousAbsence, written: o ?? null,
+      groups: named, seed: biggest, used: accepted, judged, mMin, markers: ref.markers,
+      masked: ref.masked, hRetained: ref.hRetained, contamination: ref.contamination,
+      spuriousAbsence: ref.spuriousAbsence, written: o ?? null,
     }, () => {
-      process.stdout.write(`${named.length} parental group(s): `
+      process.stdout.write(`${named.length} parental group(s) among haploid-staged arrays: `
         + `${named.map((g) => g.length).join(', ')} product(s)\n`)
-      process.stdout.write(`reconstructed from ${biggest.length}: ${biggest.join(', ')}\n\n`)
+      process.stdout.write(`every array judged on its alleles against the group of ${biggest.length}:\n`)
+      process.stdout.write(verdictLines())
+      process.stdout.write(`\nreconstructed from ${accepted.length}: ${accepted.join(', ')}\n\n`)
       process.stdout.write(`  m minimum        ${mMin}\n`)
       process.stdout.write(`  markers          ${ref.markers}\n`)
+      process.stdout.write(`  masked           ${ref.masked} in windows where every product carries one haplotype\n`)
       process.stdout.write(`  parent het       ${pct(ref.hRetained, 2)}\n`)
       process.stdout.write(`  contamination    ${pct(ref.contamination, 3)} of the reference is a `
         + 'heterozygous site mistaken for homozygous\n')

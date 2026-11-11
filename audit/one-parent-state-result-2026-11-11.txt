@@ -1,0 +1,139 @@
+One parent, rebuilt from the children, against two measured parents
+====================================================================
+
+Run 11 November 2026 on tesla. Scored against audit/one-parent-state-preregistration.txt (Q1 to Q7)
+and audit/germline-acceptance-preregistration.txt (G1 to G5), both written before the runs. The 31
+GSE148488 cells with a published Zuccaro 2020 Table S3 karyotype; founder frequencies GSE186441.
+
+ARMS
+  two      both measured parents
+  meas1    the measured father alone
+  recon1   the father rebuilt from five pronuclei, no mask (the 5.51.0 rebuild)
+  recon8   the father rebuilt by this release: all eight pronuclei admitted on their alleles, uniform
+           windows masked
+
+THE UNMASKED RUN (Q1 to Q7)
+---------------------------
+Q1  recon1 against meas1, one-parent copy states: 661 of 682 informative autosomes. HOLDS (bar 620).
+    15 of the 21 disagreements are the same kind: measured father disomic, rebuild "father's copy
+    lost", on a published-normal chromosome. 8 are chr15, on 8 different cells; 2 are chr1. One
+    stretch of the rebuild, wrong the same way for every child: the blind spot the mask exists for.
+Q2  Wrong parent, recon1 and meas1: the two pre-existing chromosomes only. HOLDS.
+Q3  two: lostParent 82 confirmed, 1 wrong parent (GSM4552382 chr2), unchanged. HOLDS.
+Q4  Disomic fraction under 0.80 on all 12 cells published chaotic, every arm. Of the other 19, two
+    read under: GSM4552418 and GSM4552422, at 0.000. FAILS AS WORDED (bar: at most one). Both are
+    cells the paper itself publishes as failed ("failed", "chr6p fragment only"), and both are the
+    two arrays whose calls are noise (R 1.05 and 1.37). The prediction should have counted them with
+    the failures. Of the 17 published readable and not chaotic, none reads under 0.80; lowest 0.909.
+Q5  Claims contradicting a published-normal autosome. The bar named 34, which was another harness's
+    count (segments only, audit/joy-public-specificity.ts). On this census's own count the 5.51.0
+    baseline is 57 (two parents, same panel). Now:
+        two 45      meas1 33      recon1 56      recon8 25
+    The fall in two (57 to 45) is all intensity claims now withheld on chaotic cells: aneuploidy 10
+    to 0, copy gain 3 to 2, allele gain 4 to 3. HOLDS against the like-for-like baseline; FAILS
+    against the literal 34.
+Q6  The copy-number decision, read or withheld, recon1 against two: the same on 31 of 31 cells, and
+    every copy-number row (whole-chromosome and segmental, made or withheld) identical on all 15
+    cells that carry any, in every arm. HOLDS. First scored 28 of 31: the scorer counted allele-gain
+    refusals as copy-number decisions, and allele gain exists only with two parents.
+Q7  Gains: not measurable here (Table S3 carries no hand-called gains on the laboratory's terms).
+    Reported with the laboratory run.
+
+THE REBUILD (G1 to G5)
+----------------------
+G1  All 8 pronuclei admitted. HOLDS. 4 stage haploid and form the group (r -0.020 to 0.012 against
+    the others); the other 4, set aside by heterozygosity, read r -0.107 to 0.009 against the group,
+    base 0.069 to 0.260: drop-in raises the base and leaves the contrast at zero.
+G2  Contamination 1.067%, under 2.286%. HOLDS. 386,291 markers, 22,494 masked.
+G3  recon8 against meas1: 677 of 682. HOLDS (bar 630). Disomic-to-father-lost disagreements on
+    published-normal chromosomes: 0, from 15. HOLDS (bar 4).
+G4  Wrong parent: the two pre-existing chromosomes. HOLDS.
+G5  Copy-number decision unchanged: every copy-number row identical to two parents on 15 of 15
+    cells. HOLDS.
+
+WHERE ONE REBUILT PARENT NOW STANDS AGAINST TWO MEASURED ONES
+-------------------------------------------------------------
+                                           two    meas1   recon8
+  copy-number rows identical to two        -      15/15   15/15
+  lostParent confirmed                     82     91      90
+  lostParent wrong parent                  1      2       2
+  lostParent on a published-normal chrom   4      8       9
+  any claim on a published-normal chrom    45     33      25
+  disomic fraction gate, chaotic caught    12/12  12/12   12/12
+
+The one parent calls MORE confirmed losses than two parents (90 against 82): the two-parent reading
+needs opposite-homozygote markers and the one-parent copy state does not. It says fewer wrong things
+on normal chromosomes overall (25 against 45). Its remaining cost is lostParent on published-normal
+chromosomes, 9 against 4: three are on GSM4472413 (45,XY,-6, trio drop-in 0.12), r 0.162 and 0.180
+on chr13 and chr15, under the 0.20 bar at a base of 0.16.
+
+AGAINST THE PERSON, NOT THE MODEL
+---------------------------------
+The rebuild's contamination is a model figure. Against the measured array of the same man
+(GSM4472397), the share of the rebuild's homozygous calls where he is heterozygous:
+
+                                    model     measured
+  5 pronuclei, no mask (5.51.0)     2.286%    3.249%
+  8 pronuclei, masked (this)        1.067%    2.081%
+
+The mask and the three admitted products take a third off the measured error. The model figure
+understates it by about one point in both: it treats markers as independent, and the error comes in
+haplotype stretches.
+
+THE SHIPPED PANEL, AS SHIPPED
+-----------------------------
+web/public/panel/founders-gse186441.tsv.gz, with the calibration in its header (slope 1.040,
+intercept 0.0626, from the 29 cells above whose calls carry information, r 0.973). The runs above
+used the default calibration; rerun with the file as it ships:
+
+  stage, two against recon8          30 of 31, then 31 of 31 once a reconstructed parent stopped
+                                     scaling the ceiling (see below)
+  stage, two-parent arm, default
+    calibration against shipped      27 of 31: four drop-in-corrected cells change rung
+                                     (single-cell, trophectoderm, blastomere); ploidy stays unknown
+  copy-number rows, two against
+    recon8                           15 of 15 identical
+  every claim count above            unchanged
+
+THE ONE STAGE DIFFERENCE. GSM4472405 read blastomere with two parents and trophectoderm against the
+eight-pronucleus rebuild. The stage scales its heterozygosity ceiling by the loaded parent's
+heterozygosity, and a reconstruction states an estimate from product disagreement: 15.5% from five
+pronuclei, 19.3% from eight, for a man whose array reads 16.7%. That raised the ceiling by 1.15. A
+reconstructed parent no longer scales it. Rerun: 31 of 31.
+
+THE LABORATORY'S 95 ARRAYS (93 cells and two bulks), stage with the shipped panel against 5.51.0's:
+92 unchanged. Three move, all among the four the drop-in branch stages:
+  S12-05   single-cell to blastomere    drop-in 0.191 to 0.241
+  S12-60   blastomere to single-cell    drop-in 0.420 to 0.401
+  S12-56   blastomere to refused        information ratio 0.565 to 0.608, over NO_INFORMATION_MIN
+           as no-genotype-signal
+S12-56 sat 0.035 under the bar and now sits 0.008 over it: between the staged arrays (at most 0.327)
+and the noise (1.04 and over), the one array the bar does not separate with room. It carries no hand
+call. The panel's built-in offset, read on unamplified arrays: the laboratory's two bulks 0.017 and
+0.036, the GSE148488 donors 0.020 to 0.046, so a calibration measured on GSE148488 cells applies to
+the laboratory's within that spread. Egg donor D reads 0.265 and is not used for anything here.
+
+THE LABORATORY'S OWN PRODUCTS, NO PARENT LOADED
+-----------------------------------------------
+om reconstruct over the 18 cells of series S23, with the shipped panel and nothing else:
+
+  group of 6 haploid-staged        S23-02, -04, -05, -09, -11, -13     product, r -0.007 to 0.011
+  against the group                S23-01, -03, -06, -07, -08, -10,    not this parent,
+                                   -14, -18                            r 0.930 to 0.953
+                                   S23-12, -15                         refused, base 0.381, 0.450
+                                   S23-16                              refused, r 0.627
+                                   S23-17                              refused, r 0.354
+
+Rebuilt from the six: 473,850 markers, 22,927 masked. Against the measured sperm donor S23-00, which
+was not loaded: 99.46% agree, 0.520% where he is heterozygous, 0.021% opposite homozygote.
+
+Against the laboratory's sample sheet ("Maternal/Paternal" column), checked after the run:
+  the 6 products                   all P
+  the 8 not this parent            all M
+  S23-12, -15                      UNC; the sheet records no usable DNA and no gDNA
+  S23-16                           P, from a zygote noted as a poor egg, karyotype "23XY?"
+  S23-17                           P, "23X"
+No call contradicts the sheet. S23-17 is the open one: the sheet calls it a paternal product and
+its alleles read the other parent's at 0.354 of a disomic chromosome's rate, which a haploid
+product of this father cannot do. A second genome in the sample, or a mislabel, is the question
+for the laboratory.

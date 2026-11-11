@@ -491,9 +491,17 @@ export async function scoreSample(input: {
     ? onParentScale(dropIn(acc.panelSameHom), (acc.panel as { calibration?: PanelCalibration } | null)?.calibration)
     : NaN
   const panelInformation = acc.informationPanel ? informationRatio(acc.informationPanel) : NaN
+  // A RECONSTRUCTED PARENT DOES NOT SCALE THE STAGE. Its heterozygosity is an estimate from product
+  // disagreement over the markers its depth retained, and it moves with which products went in: one
+  // father reads 15.5% rebuilt from five of his pronuclei and 19.3% from all eight, which raised the
+  // ceiling by 1.15 and moved a cell's rung. A measured array's heterozygosity is the platform's.
+  const stageAnchors = [pat, mat]
+    .filter((x): x is ParentIndex => !!x && !x.inferred && x.callRate >= PANEL_ANCHOR_CALL_RATE)
+    .map((x) => x.heterozygosity)
+    .filter((x) => Number.isFinite(x) && x > 0)
   const stageAgreement = reconcileStage(
     inferStage({ ...profile, dropIn: panelDropIn, information: panelInformation }, {
-      panelHeterozygosity: parentHets.length ? Math.min(...parentHets) : undefined,
+      panelHeterozygosity: stageAnchors.length ? Math.min(...stageAnchors) : undefined,
       ...input.stageOpts,
     }), input.declaredStage, stageDefaults,
   )
@@ -824,6 +832,7 @@ export async function scoreSample(input: {
       panel: acc.informationPanel ? informationRatio(acc.informationPanel) : NaN,
     },
     heterozygositySpread: spread,
+    disomicFraction: disomic,
   }
   // DOES THIS CELL'S GENOTYPE CHANNEL WORK? The stage refusal fires on heterozygosity, which drop-in
   // raises without moving which parent's allele is present: on the cells it refuses in GSE148488 the

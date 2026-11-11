@@ -1,0 +1,26 @@
+Pre-registration: product acceptance by alleles, and the uniform-window mask
+=============================================================================
+
+Written 11 November 2026, BEFORE the rebuild below is run. The bars are the parity consult's section 6
+P1 and P2 (CONSULT-RESPONSE-one-parent-parity.md), whose thresholds were chosen on these same cells;
+a score here checks this implementation, not the method.
+
+What changed. A product is admitted by its alleles, judged against a rebuild from the OTHER members
+(r under 0.20, base at most 0.30), not by heterozygosity, so drop-in no longer refuses a haploid
+product. Arrays outside the haploid-staged group are judged against the group's rebuild. The rebuild
+masks 5 Mb windows whose product disagreement over founder heterozygosity is under 0.6 of the
+genome median. Founder frequencies: GSE186441, 182 adults.
+
+Run: om reconstruct over the 8 GSE148488 paternal pronuclei (GSM4774680 to GSM4774687), then the
+recon1 arm of audit/refusal-census.ts against that rebuild.
+
+G1  All 8 pronuclei are admitted (verdict 'product'), each against the other 7 or the group.
+G2  The rebuild's contamination is under 2.286%, the five-product rebuild's.
+G3  recon1 against meas1: the one-parent copy states agree on at least 630 of the informative
+    autosomes, and the disomic-to-parent-lost disagreements on published-normal chromosomes, 15 in
+    the unmasked run (8 of them chr15), fall to at most 4.
+G4  Wrong parent stays at the two pre-existing chromosomes (GSM4472405 chr4, GSM4552382 chr2).
+G5  The copy-number decision (read or withheld) is unchanged from the unmasked run: the mask touches
+    only the reference, and the gate reads the disomic fraction, so at most one cell moves.
+
+A failed prediction is reported as a failure.

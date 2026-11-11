@@ -7,7 +7,7 @@
 import assert from 'node:assert/strict'
 import {
   ProductSet, groupByParent, kinship, pAgree, MIN_ASCERTAINMENT, MIN_PRODUCTS,
-  SAME_PARENT_MAX, DIFFERENT_PARENT_MIN,
+  SAME_PARENT_MAX, DIFFERENT_PARENT_MIN, judgeProducts, UNIFORM_WINDOW_BP,
 } from './inferredReference.ts'
 import type { ProbeRow } from './ingest.ts'
 import type { AB } from './informativity.ts'
@@ -237,3 +237,77 @@ assert.equal(kinship(0.115), 'ambiguous')      // the gap is 0.18 points wide, s
 }
 
 console.log('inferredReference.check.ts OK')
+
+// --- the uniform-window mask and the product test ----------------------------------------------
+//
+// Twenty 5 Mb windows, each holding 60 sites where the parent P is heterozygous (founder q 0.5), 60
+// where P is AA and the population is not (q 0.6, where another genome shows itself), and 60 where
+// everyone is AA (q 0, the drop-in baseline). In window 19 every product drew the same haplotype, so
+// the products agree at P's heterozygous sites and an unmasked rebuild calls them AA.
+{
+  const u = (a: number, b: number): number => {
+    let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x7f4a7c15, 0xc2b2ae35)
+    h = Math.imul(h ^ (h >>> 15), 0x2c1b3c6d)
+    return ((h ^ (h >>> 13)) >>> 0) / 4294967296
+  }
+  type Site = { id: string; pos: number; kind: 'het' | 'poly' | 'mono'; w: number; j: number }
+  const sites: Site[] = []
+  for (let w = 0; w < 20; w += 1) {
+    for (let j = 0; j < 180; j += 1) {
+      sites.push({ id: `w${w}m${j}`, pos: w * UNIFORM_WINDOW_BP + j * 10_000, w, j,
+        kind: j < 60 ? 'het' : j < 120 ? 'poly' : 'mono' })
+    }
+  }
+  const freqB = new Map(sites.map((x) => [x.id, x.kind === 'het' ? 0.5 : x.kind === 'poly' ? 0.6 : 0]))
+  const mono = (id: string, g: 'AA' | 'BB'): boolean => freqB.get(id) === 0 && g === 'AA'
+  const ps = new ProductSet()
+  const feed = (name: string, call: (x: Site) => AB): void => {
+    const slot = ps.begin(name)
+    const baf = { inBand: 0, total: 0 }
+    for (const x of sites) {
+      ps.add(slot, { probesetId: x.id, chrom: '1', pos: x.pos, log2R: null, baf: null,
+        copyNumber: null, genotype: call(x), bestProbeset: true }, baf)
+    }
+    ps.end(slot, baf)
+  }
+  const ofP = (k: number) => (x: Site): AB => x.kind !== 'het' ? 'AA'
+    : x.w === 19 ? 'AA' : u(x.w * 1000 + x.j, k) < 0.5 ? 'AA' : 'BB'
+  for (let k = 0; k < 5; k += 1) feed(`p${k}`, ofP(k))
+  // A product of P whose amplification made a quarter of its calls heterozygous.
+  feed('dropIn', (x) => u(x.w * 1000 + x.j, 77) < 0.25 ? 'AB' : ofP(9)(x))
+  // A product of the other parent: carries the population's B wherever it is common.
+  feed('other', (x) => x.kind === 'mono' ? 'AA' : u(x.w * 1000 + x.j, 88) < (x.kind === 'poly' ? 0.6 : 0.5) ? 'BB' : 'AA')
+  // A diploid child of P and the other parent: heterozygous where the other parent gave B.
+  feed('child', (x) => {
+    const fromP = ofP(11)(x) === 'BB'
+    const fromO = x.kind !== 'mono' && u(x.w * 1000 + x.j, 99) < (x.kind === 'poly' ? 0.6 : 0.5)
+    return fromP && fromO ? 'BB' : fromP || fromO ? 'AB' : 'AA'
+  })
+  const members = ['p0', 'p1', 'p2', 'p3', 'p4']
+  const outside = ['dropIn', 'other', 'child']
+
+  // The mask finds the one uniform window and nothing else, with no parent to look at.
+  const plain = ps.build(4, outside)
+  const masked = ps.build(4, outside, undefined, freqB)
+  assert.equal(plain.masked, 0, 'no frequencies, no mask')
+  assert.equal(plain.genotype.get('w19m0'), 'AA', 'unmasked, the uniform window asserts a homozygote at a het site')
+  assert.equal(masked.masked, 180, 'every agreed marker in window 19 is masked')
+  assert.equal(masked.genotype.has('w19m0'), false)
+  assert.equal(masked.genotype.has('w19m100'), false)
+  assert.equal(masked.genotype.get('w18m100'), 'AA', 'the windows either side are untouched')
+  assert.equal(masked.markers, plain.markers - 180)
+
+  // Every member against the others, every outsider against the group.
+  const judged = new Map(judgeProducts(ps, members, outside, 4, freqB, mono).map((j) => [j.id, j]))
+  for (const m of members) {
+    assert.equal(judged.get(m)!.verdict, 'product', `${m} is a product of P, judged against the others`)
+    assert.equal(judged.get(m)!.against, 'the others')
+  }
+  assert.equal(judged.get('dropIn')!.verdict, 'product', 'drop-in raises the baseline and leaves r near zero')
+  assert.ok(judged.get('dropIn')!.call.base > 0.1, 'and the baseline does carry the drop-in')
+  assert.equal(judged.get('other')!.verdict, 'not this parent', 'the other parent reads P absent')
+  assert.equal(judged.get('child')!.verdict, 'refused', 'a diploid offspring reads disomic, not a product')
+  assert.equal(judged.get('child')!.call.state, 'disomic')
+  assert.ok(Math.abs(judged.get('child')!.call.r - 0.5) < 0.1, `child r ${judged.get('child')!.call.r}`)
+  console.log('  mask and product test OK')
+}

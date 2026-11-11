@@ -26,6 +26,7 @@
 import { isAutosome } from './parentage.ts'
 import type { AB } from './informativity.ts'
 import type { ProbeRow } from './ingest.ts'
+import { emptyShareTally, addShare, shareCall, type ShareCall } from './oneParentState.ts'
 
 /** Allele codes. 0 means the product said nothing usable here. */
 const NONE = 0
@@ -92,6 +93,9 @@ export interface ReferenceStats {
   spuriousAbsence: number
   meanM: number
   excluded: string[]
+  /** Markers dropped because their window is one where every product carries the same haplotype.
+   *  Zero when no founder frequencies were given, and then no window is masked. */
+  masked: number
 }
 
 /** A reconstructed genotype, plus everything a reader needs to judge it. */
@@ -118,6 +122,9 @@ export class ProductSet {
   readonly called: number[] = []
   readonly hetCalls: number[] = []
   readonly band: number[] = []
+  /** 1 where a product called the marker heterozygous. Never evidence for the reconstruction, which
+   *  reads `alleles` alone; read only by `productAgainst`, where a diploid shows itself by them. */
+  private hets: Uint8Array[] = []
 
   private grow(need: number): void {
     if (need <= this.capacity) return
@@ -126,6 +133,9 @@ export class ProductSet {
       const wider = new Uint8Array(next)
       wider.set(this.alleles[i])
       this.alleles[i] = wider
+      const h = new Uint8Array(next)
+      h.set(this.hets[i])
+      this.hets[i] = h
     }
     this.capacity = next
   }
@@ -134,6 +144,7 @@ export class ProductSet {
   begin(id: string): number {
     this.ids.push(id)
     this.alleles.push(new Uint8Array(this.capacity))
+    this.hets.push(new Uint8Array(this.capacity))
     this.called.push(0)
     this.hetCalls.push(0)
     this.band.push(NaN)
@@ -153,8 +164,8 @@ export class ProductSet {
     }
     if (row.genotype === 'NC') return
     this.called[slot] += 1
-    if (row.genotype === 'AB') { this.hetCalls[slot] += 1; return }
-    if (row.genotype !== 'AA' && row.genotype !== 'BB') return
+    if (row.genotype === 'AB') this.hetCalls[slot] += 1
+    else if (row.genotype !== 'AA' && row.genotype !== 'BB') return
     let i = this.index.get(row.probesetId)
     if (i === undefined) {
       i = this.index.size
@@ -164,7 +175,8 @@ export class ProductSet {
       this.probeId.push(row.probesetId)
       this.grow(i + 1)
     }
-    this.alleles[slot][i] = row.genotype === 'AA' ? A : B
+    if (row.genotype === 'AB') this.hets[slot][i] = 1
+    else this.alleles[slot][i] = row.genotype === 'AA' ? A : B
   }
 
   /** Close a product once its file has streamed. */
@@ -174,11 +186,11 @@ export class ProductSet {
 
   get size(): number { return this.ids.length }
 
-  /** Distinct markers any product called homozygous, which is what every pass walks. */
+  /** Distinct markers any product called, which is what every pass walks. A marker only ever called
+   *  heterozygous has no allele code anywhere, so every reconstruction pass skips it. */
   get markerCount(): number { return this.index.size }
 
-  /** Where a probe sits, for writing the reference out. Empty for a probe never seen homozygous
-   *  in any product, which is also a probe the reference has no call at. */
+  /** Where a probe sits, for writing the reference out. Empty for a probe no product called. */
   locus(id: string): { chrom: string; pos: number } | null {
     const i = this.index.get(id)
     return i === undefined ? null : { chrom: this.chrom[i], pos: this.pos[i] }
@@ -222,8 +234,12 @@ export class ProductSet {
     return surviving && detect > 0 ? (disagreed / surviving) / (detect / surviving) : NaN
   }
 
-  build(mMin: number, exclude: readonly string[] = [], hPrior?: number): Reference {
+  build(
+    mMin: number, exclude: readonly string[] = [], hPrior?: number,
+    freqB?: ReadonlyMap<string, number>,
+  ): Reference {
     const use = this.keep(exclude)
+    const masked = freqB ? this.uniformWindows(use, freqB) : null
     const n = this.index.size
     const genotype = new Map<string, AB>()
     let mSum = 0
@@ -234,6 +250,7 @@ export class ProductSet {
     // used to be a SECOND full pass over every probe with a map lookup per probe to find these
     // again; they are free to record here and the pass is over the kept markers alone.
     const keptM: number[] = []
+    let maskedN = 0
 
     for (let i = 0; i < n; i += 1) {
       let m = 0
@@ -250,6 +267,7 @@ export class ProductSet {
       surviving += 1
       detect += 1 - pAgree(m)
       if (mixed) { disagreed += 1; continue }
+      if (masked && masked.has(this.windowOf(i))) { maskedN += 1; continue }
       genotype.set(this.probeId[i], first === A ? 'AA' : 'BB')
       keptM.push(m)
       mSum += m
@@ -284,7 +302,98 @@ export class ProductSet {
       spuriousAbsence: contamination / 2,
       meanM: genotype.size ? mSum / genotype.size : NaN,
       excluded: [...exclude],
+      masked: maskedN,
     }
+  }
+
+  /** The 5 Mb window a marker sits in, as `chrom:index`. */
+  private windowOf(i: number): string {
+    return `${this.chrom[i]}:${Math.floor(this.pos[i] / UNIFORM_WINDOW_BP)}`
+  }
+
+  /**
+   * Windows where every product carries the same haplotype, which the reconstruction cannot see.
+   *
+   * WHY. With n products, 2 x 0.5^n of any stretch where the parent is heterozygous is expected to be
+   * carried identically by all of them: 6.25% at five products. There the products agree, so the
+   * reconstruction asserts a homozygote at the parent's heterozygous sites, and every true offspring
+   * reads the parent's allele absent there. The parity consult measured 5 Mb windows of a five-product
+   * rebuild whose contamination against the real father reached 0.15 against 0.019 genome-wide, and a
+   * published maternal monosomy read wrongly because of one.
+   *
+   * THE TEST NEEDS NO PARENT. Per window, how often the products disagree, over how heterozygous the
+   * founders are there, relative to the genome's median of that ratio. A window where the parent is
+   * heterozygous and the products happened to split reads near the median; one where they all drew
+   * the same homozygous haplotype reads near zero. Under UNIFORM_RELATIVE_MAX of the median it is
+   * masked: the reference makes no claim there. Measured: at 0.6 it flags 42 of 533 windows and catches
+   * all 21 whose disagreement, against the real father, is under 0.35 of what it should be.
+   */
+  uniformWindows(use: readonly number[], freqB: ReadonlyMap<string, number>): Set<string> {
+    const n = this.index.size
+    const seen = new Map<string, { markers: number; disagreed: number; het: number }>()
+    for (let i = 0; i < n; i += 1) {
+      const q = freqB.get(this.probeId[i])
+      if (q === undefined || q <= 0 || q >= 1) continue
+      let m = 0
+      let first = NONE
+      let mixed = false
+      for (const p of use) {
+        const v = this.alleles[p][i]
+        if (v === NONE) continue
+        m += 1
+        if (first === NONE) first = v
+        else if (v !== first) mixed = true
+      }
+      if (m < 2) continue
+      const w = this.windowOf(i)
+      let t = seen.get(w)
+      if (!t) seen.set(w, t = { markers: 0, disagreed: 0, het: 0 })
+      t.markers += 1
+      if (mixed) t.disagreed += 1
+      t.het += 2 * q * (1 - q)
+    }
+    const ratio = new Map<string, number>()
+    for (const [w, t] of seen) {
+      if (t.markers < UNIFORM_MIN_MARKERS || t.het <= 0) continue
+      ratio.set(w, (t.disagreed / t.markers) / (t.het / t.markers))
+    }
+    const sorted = [...ratio.values()].sort((a, b) => a - b)
+    const median = sorted.length ? sorted[sorted.length >> 1] : NaN
+    const out = new Set<string>()
+    if (!(median > 0)) return out
+    for (const [w, r] of ratio) if (r < UNIFORM_RELATIVE_MAX * median) out.add(w)
+    return out
+  }
+
+  /**
+   * How one product reads against a reference built from the OTHERS: the one-parent copy state taken
+   * over its whole genome, from its own homozygous calls.
+   *
+   * WHY THIS AND NOT HETEROZYGOSITY. A haploid product of the parent carries that parent's alleles
+   * alone, so against a reference of the parent the allele the parent lacks appears only by error,
+   * whatever its drop-in. Heterozygosity cannot say that: drop-in raises it, and three of the eight
+   * paternal pronuclei of GSE148488, haploid by micromanipulation, read 0.25 to 0.43 heterozygous and
+   * were refused as not a genome. Read this way the consult found all eight at 0.061 to 0.125, every
+   * diploid offspring at 0.355 or more, products of the other parent at 0.962 or more, and arrays of
+   * noise reading no allele contrast at all.
+   */
+  productAgainst(slot: number, ref: Reference, freqB: ReadonlyMap<string, number>,
+    monomorphic: (id: string, g: 'AA' | 'BB') => boolean): ShareCall {
+    const t = emptyShareTally()
+    const alleles = this.alleles[slot]
+    const hets = this.hets[slot]
+    for (let i = 0; i < this.index.size; i += 1) {
+      const v = alleles[i]
+      if (v === NONE && !hets[i]) continue
+      const id = this.probeId[i]
+      const g = ref.genotype.get(id)
+      if (g !== 'AA' && g !== 'BB') continue
+      // A call is read as the B allele frequency it stands for: 0 or 1 homozygous, 0.5 heterozygous.
+      // The heterozygous calls carry the test: a diploid offspring is heterozygous wherever its
+      // other parent gave the other allele, and that is r near 0.5 where a product reads near 0.
+      addShare(t, g, v === NONE ? 0.5 : v === B ? 1 : 0, freqB.get(id), monomorphic(id, g))
+    }
+    return shareCall(t)
   }
 
   /**
@@ -350,6 +459,67 @@ export class ProductSet {
  * So a per-pair label is not evidence of group membership. Grouping uses all-pairs consistency
  * instead, which turns that one misread pair into no group-level error at all.
  */
+/** The window, in base pairs, over which the reconstruction's uniform stretches are found. */
+export const UNIFORM_WINDOW_BP = 5_000_000
+/** Markers a window needs before its disagreement is a measurement. */
+export const UNIFORM_MIN_MARKERS = 50
+/** A window disagreeing at under this share of the genome's median ratio is masked. */
+export const UNIFORM_RELATIVE_MAX = 0.6
+
+/** Products a haploid-staged group needs before it can judge the arrays outside it. One under the
+ *  build floor: the depth leave-one-out already judges every member of a group at the floor. */
+export const MIN_SEED = MIN_PRODUCTS - 1
+
+export type ProductVerdict = 'product' | 'not this parent' | 'refused'
+
+export interface JudgedProduct {
+  id: string
+  verdict: ProductVerdict
+  call: ShareCall
+  /** Judged against a rebuild from the group without it, or, for an array outside the group,
+   *  against the group's whole rebuild. */
+  against: 'the others' | 'the group'
+}
+
+const verdictOf = (c: ShareCall): ProductVerdict =>
+  c.state === 'other-lost' ? 'product' : c.state === 'parent-lost' ? 'not this parent' : 'refused'
+
+/**
+ * Which arrays are products of the parent a group was built from. Each member is judged against a
+ * reference built from the OTHER members; each candidate, an array outside the group, against the
+ * whole group's. A product is one when it reads the other parent's copy absent across its genome
+ * (the copy state's `other-lost`, r under 0.20); not this parent's when it reads the parent's own
+ * absent (`parent-lost`, over 0.75); refused otherwise, which is a diploid, a mixture, or calls with
+ * no allele contrast (`no-template`).
+ *
+ * WHY CANDIDATES. The ploidy triage refuses on heterozygosity, which drop-in raises on a true haploid
+ * product. The test here does not move with drop-in, so a product the triage set aside comes back in
+ * on its alleles. Grouping still runs on the triaged products alone: a diploid admitted to the pair
+ * table splits one parent's group in two.
+ */
+export function judgeProducts(
+  ps: ProductSet, members: readonly string[], candidates: readonly string[], mMin: number,
+  freqB: ReadonlyMap<string, number>, monomorphic: (id: string, g: 'AA' | 'BB') => boolean,
+): JudgedProduct[] {
+  const inGroup = new Set(members)
+  const outside = ps.ids.filter((id) => !inGroup.has(id))
+  const slot = (id: string): number => ps.ids.indexOf(id)
+  const out: JudgedProduct[] = []
+  for (const id of members) {
+    const ref = ps.build(Math.min(mMin, members.length - 1), [...outside, id], undefined, freqB)
+    const call = ps.productAgainst(slot(id), ref, freqB, monomorphic)
+    out.push({ id, verdict: verdictOf(call), call, against: 'the others' })
+  }
+  if (candidates.length) {
+    const ref = ps.build(mMin, outside, undefined, freqB)
+    for (const id of candidates) {
+      const call = ps.productAgainst(slot(id), ref, freqB, monomorphic)
+      out.push({ id, verdict: verdictOf(call), call, against: 'the group' })
+    }
+  }
+  return out
+}
+
 export const SAME_PARENT_MAX = 0.105
 export const DIFFERENT_PARENT_MIN = 0.125
 

@@ -143,7 +143,7 @@ export function parsePanel(text: string): FounderPanel {
  * a 404 included: on the release that first shipped it, the URL answered 404 from cache for minutes
  * after the file was live, and the app would have fallen back to no panel. A new name is a new entry.
  */
-export const FOUNDER_PANEL_PATH = 'panel/founders.tsv.gz'
+export const FOUNDER_PANEL_PATH = 'panel/founders-gse186441.tsv.gz'
 
 /**
  * The shipped panel, fetched once. Inflated from the magic number rather than the filename, as the

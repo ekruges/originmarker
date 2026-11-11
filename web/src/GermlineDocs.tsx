@@ -4,7 +4,7 @@ import type { Health } from './api'
 import { DocsShell, docsHelpers, type DocSection } from './DocsShell'
 import { LIMITS } from './InferredLimits'
 import {
-  MIN_ASCERTAINMENT, MIN_PRODUCTS, SAME_PARENT_MAX, DIFFERENT_PARENT_MIN, pAgree,
+  MIN_ASCERTAINMENT, MIN_PRODUCTS, MIN_SEED, SAME_PARENT_MAX, DIFFERENT_PARENT_MIN, pAgree,
 } from './inferredReference'
 import { HET_RATE_DIPLOID } from './ProductPanel'
 import { ABSENCE_MARGIN, CALL_RATE_FLOOR, HET_BAND_DIPLOID, pct } from './parentage'
@@ -410,6 +410,15 @@ export function GermlineDocsPage({ health }: { health: Health | null }) {
           product set aside is still listed with its reason, and still appears in the per-sample
           export, so the table accounts for every file submitted.
         </Text>
+        <Text size="sm" mt={10}>
+          Set aside is not the last word. The ploidy gate decides only who enters the pair table,
+          because a diploid there splits one parent&rsquo;s group. At build every array outside the
+          group is judged again on its alleles (<SecRef id="verify" />), and one that reads as a
+          product of this parent goes in. Drop-in on an amplified haploid product raises its
+          heterozygous calls without adding the other parent&rsquo;s alleles, so this gate sets such
+          a product aside and the allele test brings it back: the paternal pronuclei of GSE148488
+          set aside for reading 25% to 44% heterozygous are, on their alleles, every one admitted.
+        </Text>
       </Section>
 
       {/* --- 7 --------------------------------------------------------------------------- */}
@@ -583,6 +592,20 @@ export function GermlineDocsPage({ health }: { health: Health | null }) {
       {/* --- 9 --------------------------------------------------------------------------- */}
       <Section id="contamination" title="Contamination, and the absence it adds">
         <Text size="sm" mb={10}>
+          <b>Where every product carries the same haplotype the reconstruction is blind</b>, and it
+          is blind in stretches, not at scattered markers: with n products, 2 &times; 0.5
+          <sup>n</sup> of any region where the parent is heterozygous is expected to be carried
+          identically by all of them, 6.25% at five. There the products agree, the reference calls
+          the parent homozygous, and every true offspring reads the parent&rsquo;s allele absent.
+          These stretches are found with no parent: per 5 Mb window, how often the products
+          disagree, over how heterozygous unrelated founders are there, against the genome&rsquo;s
+          median of that ratio. A window under 0.6 of the median is masked and the reference makes
+          no claim in it. On the GSE148488 father it masks 22,494 markers, and the one-parent copy
+          state against the masked reconstruction agrees with the measured father on 677 of 682
+          chromosomes, where the unmasked one wrongly read the father&rsquo;s chr15 lost in eight
+          normal cells.
+        </Text>
+        <Text size="sm" mb={10}>
           <b>Contamination</b> is the fraction of the reference that is a heterozygous site
           mistaken for a homozygous one. It is computed per marker from that marker&rsquo;s own m
           and then averaged, because a marker seen by ten products is far safer than one seen by
@@ -627,6 +650,19 @@ export function GermlineDocsPage({ health }: { health: Health | null }) {
       {/* --- 10 -------------------------------------------------------------------------- */}
       <Section id="verify" title="Leave-one-out verification">
         <Text size="sm" mb={10}>
+          <b>Who is a product is decided on alleles, before anything is built.</b> Each member of
+          the group is judged against a reconstruction from the others, and every other array
+          against the whole group&rsquo;s. At markers where that reconstruction is homozygous, the
+          test reads how often the array carries the allele this parent lacks, once where no
+          unrelated founder carries it and once where it is common (GSE186441, 182 adults), and
+          scales the difference. A product of this parent reads near 0, a diploid offspring near
+          0.5, a product of the other parent near 1. Under 0.20 is admitted; over 0.75 is the other
+          parent; between, or an array whose calls show no allele contrast at all, is refused.
+          Drop-in raises both readings together and cancels. On the eight paternal pronuclei of
+          GSE148488 it reads &minus;0.107 to 0.012, admitting all eight, and the reference built from
+          them is 1.07% contaminated, against 2.29% from five of them.
+        </Text>
+        <Text size="sm" mb={10}>
           Every product in the chosen group is scored against a reference built <i>without</i> it.
           A product scored against a reference that contains it reads exactly zero absence, which
           is a bias the size of the whole signal, so the exclusion has to be real rather than
@@ -656,6 +692,11 @@ export function GermlineDocsPage({ health }: { health: Health | null }) {
         <Text size="sm" mb={10}>
           Below {MIN_PRODUCTS} products the tool declines to build at all. This is a hard refusal
           and not a warning, because the failure mode below it is not a weak answer.
+        </Text>
+        <Text size="sm" mb={10}>
+          A group of {MIN_SEED} can start one. That is the size leave-one-out already judges every
+          member of a five-product group against, so it judges an outside array as firmly; what it
+          admits must still bring the build to {MIN_PRODUCTS}.
         </Text>
         <Text size="sm" mb={10}>
           At three products and fewer, every true offspring tested inverted to a decisive

@@ -184,14 +184,14 @@ const parentRows = rowsOf(parent)
 const motherRows = rowsOf(mother)
 const sampleRows = rowsOf(sample)
 
-function indexOf(rows: ReturnType<typeof rowsOf>) {
+function indexOf(rows: ReturnType<typeof rowsOf>, inferred?: Parameters<typeof finishParent>[2]) {
   const pacc = emptyParent()
   const byChrom = new Map(); const bafSums = emptyBafSums(); let first = ''
   for (const row of rows) {
     if (!first) first = row.probesetId
     accumulate(row, byChrom); accumulateBaf(row, bafSums); collectParentRow(row, pacc)
   }
-  return finishParent(pacc, finishProfile('p', byChrom, bafSums, first).build.build)
+  return finishParent(pacc, finishProfile('p', byChrom, bafSums, first).build.build, inferred)
 }
 
 /** Any array in the parental slot, under any declared role. The slot check is about this pair. */
@@ -219,9 +219,9 @@ async function runWith(
 /** The same run on another set of sample rows, both parents loaded or not, with a panel or not. */
 async function runRows(
   rows: ReturnType<typeof rowsOf>, withMother: boolean,
-  panel?: ReadonlyMap<string, 'AA' | 'BB'>,
+  panel?: ReadonlyMap<string, 'AA' | 'BB'>, inferred?: Parameters<typeof finishParent>[2],
 ) {
-  const pat = indexOf(parentRows)
+  const pat = indexOf(parentRows, inferred)
   const mat = withMother ? indexOf(motherRows) : null
   const acc = emptyCollected(pat, mat, panel)
   const byChrom = new Map(); const bafSums = emptyBafSums(); let first = ''
@@ -404,24 +404,25 @@ async function run(declaredStage?: 'failed', withMother = false) {
       { stage: oneParent.stage?.stage, ploidy: oneParent.stage?.ploidy, d: oneParent.stage?.dropInCorrected },
       { stage: staged.stage?.stage, ploidy: staged.stage?.ploidy, d: staged.stage?.dropInCorrected },
       'the stage is identical with one parent and with two')
+    // And with that parent reconstructed, whose banner states a heterozygosity no measured array
+    // gave: a rebuild's estimate moves with its products and must not move the ceiling.
+    const rebuilt = await runRows(droppedIn as never, false, panel, {
+      hRetained: 0.30, spuriousAbsence: 0.005, contamination: 0.01, products: 8, side: 'paternal' })
+    assert.deepEqual(
+      { stage: rebuilt.stage?.stage, ploidy: rebuilt.stage?.ploidy, d: rebuilt.stage?.dropInCorrected },
+      { stage: staged.stage?.stage, ploidy: staged.stage?.ploidy, d: staged.stage?.dropInCorrected },
+      'a reconstructed parent\'s heterozygosity scaled the stage ceiling')
     const wholeRefusals = (r: Awaited<ReturnType<typeof runRows>>) =>
       intensityRefusals(r).filter((x) => x.startsWith('aneuploidy:'))
     assert.deepEqual(wholeRefusals(oneParent), wholeRefusals(staged),
       'and so is every whole-chromosome copy-number claim withheld')
-    // ONE PARENT-DEPENDENCE THE PRODUCT ALREADY HAD, pinned exactly rather than scoped away. The copy-
-    // number scan skips a chromosome already explained as a whole event, and a chromosome the alleles
-    // name as missing a parent counts as explained; that name exists only with two parents loaded. So
-    // segment refusals may differ between the two runs, and ONLY on chromosomes the two-parent run names.
-    const segChroms = (r: Awaited<ReturnType<typeof runRows>>) =>
-      new Set(intensityRefusals(r).filter((x) => x.startsWith('segment:')).map((x) => x.split(':')[1]))
-    const namedByAlleles = new Set((staged.chroms ?? []).filter((c) => c.lostParent).map((c) => c.chrom))
-    const a = segChroms(staged); const b = segChroms(oneParent)
-    for (const c of new Set([...a, ...b])) {
-      if (a.has(c) === b.has(c)) continue
-      assert.ok(namedByAlleles.has(c),
-        `chr${c}: a segment refusal differs between one parent and two on a chromosome the alleles do `
-        + 'not name, so the copy-number scan depends on the parents for a reason not accounted for')
-    }
+    // And every segment refusal. The copy-number scan once skipped a chromosome the alleles named as
+    // missing a parent, a name that exists only with two parents loaded, so segments differed between
+    // the runs. It scans every chromosome now and reports a restated whole loss once.
+    const segRefusals = (r: Awaited<ReturnType<typeof runRows>>) =>
+      intensityRefusals(r).filter((x) => x.startsWith('segment:'))
+    assert.deepEqual(segRefusals(oneParent), segRefusals(staged),
+      'a segment refusal differs between one parent and two: the copy-number scan depends on the parents')
   }
 
   // AND EVERY ONE OF THOSE IS RECORDED, with what it would have said. The census scores refusals

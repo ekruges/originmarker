@@ -6,8 +6,9 @@ import {
   type ChromStats, type ProbeRow, type SampleProfile,
 } from './ingest'
 import {
-  ProductSet, groupByParent, kinship, MIN_ASCERTAINMENT, MIN_PRODUCTS,
+  ProductSet, groupByParent, kinship, judgeProducts, MIN_ASCERTAINMENT, MIN_PRODUCTS, MIN_SEED,
 } from './inferredReference'
+import { loadFounderPanel } from './answerKeys'
 import {
   emptySex, accumulateSex, sexCall, paternalGroup, type SexCall,
 } from './sexing'
@@ -192,9 +193,9 @@ function GroupRoster({ groups, names, paternal, yBearing, built }: {
                 : paternal === null
                   ? 'which parent this is was not established'
                   : 'no product here carries a Y'}
-              {g.length >= MIN_PRODUCTS
-                ? `. Clears the ${MIN_PRODUCTS}-product floor.`
-                : `. Under the ${MIN_PRODUCTS}-product floor, so it cannot be reconstructed.`}
+              {g.length >= MIN_SEED
+                ? `. Enough to judge the other arrays and build from ${MIN_PRODUCTS} or more.`
+                : `. Under the ${MIN_SEED} products a reconstruction starts from.`}
             </div>
           </div>
         )
@@ -304,6 +305,9 @@ export function GermlinePage() {
     setLines((p) => [...p.slice(-499), { tag, text }])
   const [ref, setRef] = useState<{
     group: number
+    /** The arrays the reference was built from: the group's members and outsiders that read as
+     *  products of this parent on their alleles. */
+    used: string[]
     stats: ReturnType<ProductSet['build']>
     ratios: Map<number, number>
     members: Scored[]
@@ -473,9 +477,9 @@ export function GermlinePage() {
           + `${i === pat ? ', THE FATHER' : ''}: ${names.join(', ')}`)
         log('GROUP', `  group ${i + 1} Y-bearing: `
           + (ys.length ? `${ys.join(', ')} (${ys.length} of ${grp.length})` : 'none'))
-        log('GROUP', `  group ${i + 1} ${grp.length >= MIN_PRODUCTS
-          ? `clears the ${MIN_PRODUCTS}-product floor and can be reconstructed`
-          : `is under the ${MIN_PRODUCTS}-product floor and cannot be reconstructed`}`)
+        log('GROUP', `  group ${i + 1} ${grp.length >= MIN_SEED
+          ? `can start a reconstruction; every other array is judged against it at build`
+          : `is under the ${MIN_SEED} products a reconstruction starts from`}`)
       })
       if (g.length > 1) {
         log('WARN', `${g.length} parent groups. A reference built from all of these would be `
@@ -497,9 +501,9 @@ export function GermlinePage() {
               + 'still holds; only the naming is withheld.')
       }
       setAnalysis({ groups: g, usableIds: usable.map((u) => u.id), paternal: pat })
-      const bi = g.findIndex((x) => x.length >= MIN_PRODUCTS)
+      const bi = g.findIndex((x) => x.length >= MIN_SEED)
       log(bi < 0 ? 'WARN' : 'DONE', bi < 0
-        ? `no group reaches the ${MIN_PRODUCTS} products this method needs; nothing can be built`
+        ? `no group reaches the ${MIN_SEED} products a reconstruction starts from; nothing can be built`
         : `ready to reconstruct group ${bi + 1}`)
     } finally {
       setBuilding(false)
@@ -547,13 +551,44 @@ export function GermlinePage() {
     if (!set) return
     setBuilding(true)
     try {
-      const chosen = gs[gi].map((i) => usable[i])
-      const keep = new Set(chosen.map((c) => products.find((p) => p.id === c.id)!.name))
-      const drop = set.ids.filter((id) => !keep.has(id))
+      const seed = gs[gi].map((i) => usable[i].name)
       const side = pat === null ? '' : gi === pat ? 'paternal' : 'maternal'
-      log('BUILD', `reconstructing group ${gi + 1}, ${chosen.length} products`
+      log('BUILD', `reconstructing from group ${gi + 1}, ${seed.length} products`
         + `${side ? ` (the ${side} parent)` : ' (which parent is not established)'}`)
-      log('BUILD', `products in: ${chosen.map((c) => c.name).join(', ')}`)
+
+      // EVERY ARRAY IS JUDGED ON ITS ALLELES, the group's own members against the others and every
+      // other array against the group, before anything is built. See judgeProducts: a haploid
+      // product the triage set aside for drop-in heterozygosity comes back in here, and a member
+      // that is not one goes out. Without founder frequencies the group is used as it stands.
+      setBusyName('judging every array against the group')
+      await breathe()
+      const panel = await loadFounderPanel()
+      const freqB = panel?.freqB
+      let used = seed
+      if (freqB) {
+        const others = set.ids.filter((id) => !seed.includes(id))
+        const judged = judgeProducts(set, seed, others, set.chooseM(others).mMin, freqB,
+          (id, g) => panel.get(id) === g)
+        for (const j of judged) {
+          log(j.verdict === 'product' ? 'GATE' : 'WARN', `${j.id}: ${j.verdict}, r `
+            + `${Number.isFinite(j.call.r) ? j.call.r.toFixed(3) : 'n/a'} at base `
+            + `${Number.isFinite(j.call.base) ? j.call.base.toFixed(3) : 'n/a'}, against ${j.against}`)
+        }
+        used = judged.filter((j) => j.verdict === 'product').map((j) => j.id)
+      } else {
+        log('WARN', 'no founder frequencies loaded, so the arrays are not judged on their alleles '
+          + 'and the group is built as it stands, with no window masked')
+      }
+      if (used.length < MIN_PRODUCTS) {
+        log('WARN', `${used.length} arrays read as products of this parent, under the `
+          + `${MIN_PRODUCTS} this method needs. Below that true offspring read as decisively absent. `
+          + 'Nothing is built.')
+        return
+      }
+      const keep = new Set(used)
+      const chosen = used
+      const drop = set.ids.filter((id) => !keep.has(id))
+      log('BUILD', `products in: ${used.join(', ')}`)
       log('BUILD', `${drop.length} of ${set.ids.length} loaded arrays excluded from the build`)
 
       // The depth ladder, one rung at a time so the bar moves and the log shows the trade the
@@ -578,16 +613,20 @@ export function GermlinePage() {
       setBusyName(`building the reference over ${int(set.markerCount)} markers`)
       setPctDone(0)
       await breathe()
-      const full = set.build(mMin, drop)
+      const full = set.build(mMin, drop, undefined, freqB)
       setPctDone(100)
       log('BUILD', `${int(full.markers)} markers retained of ${int(set.markerCount)}, `
         + `mean ${full.meanM.toFixed(1)} products per marker`)
+      if (freqB) {
+        log('BUILD', `${int(full.masked)} markers masked, in 5 Mb windows where every product `
+          + 'carries the same haplotype and the reconstruction cannot see the parent there')
+      }
       log('BUILD', `parent heterozygosity over those markers ${pct(full.hRetained, 3)}`)
       log('BUILD', `contamination ${pct(full.contamination, 3)}: heterozygous sites every `
         + 'product happened to agree on, so the reference asserts them as homozygous')
       log('BUILD', `a true haploid offspring therefore reads ${pct(full.spuriousAbsence, 3)} `
         + 'absence against this reference for that reason alone')
-      setRef({ group: gi, stats: full, ratios, members: [], origins: [], side })
+      setRef({ group: gi, used, stats: full, ratios, members: [], origins: [], side })
       log('DONE', `reference built. ${products.length} arrays are ready to be called against it`)
     } finally {
       setBuilding(false)
@@ -609,16 +648,16 @@ export function GermlinePage() {
     if (!set || !ref) return
     setBuilding(true)
     try {
-      const gi = ref.group
-      const chosen = groups[gi].map((i) => usable[i])
-      const keep = new Set(chosen.map((c) => products.find((p) => p.id === c.id)!.name))
+      const chosen = ref.used
+      const keep = new Set(chosen)
       const drop = set.ids.filter((id) => !keep.has(id))
+      const freqB = (await loadFounderPanel())?.freqB
       const { mMin, side } = { mMin: ref.stats.mMin, side: ref.side }
       const other = side === 'paternal' ? 'maternal' : 'paternal'
       const full = ref.stats
       const scored: Scored[] = []
       const called: Origin[] = []
-      const inGroup = new Set(chosen.map((c) => c.id))
+      const inGroup = keep
       log('CALL', `scoring ${products.length} arrays against the reference. Each is streamed `
         + 'again: the absence rate needs B-allele frequencies, which the in-memory allele codes '
         + 'do not carry.')
@@ -629,7 +668,7 @@ export function GermlinePage() {
       // because a fused or half-failed zygote is the case this is most often asked about and
       // silently dropping it answers nothing.
       for (const [n, load] of products.entries()) {
-        const mine = inGroup.has(load.id)
+        const mine = inGroup.has(load.name)
         setBusyName(`calling ${load.name}  (${n + 1} of ${products.length})`)
         setPctDone(0)
         await breathe()
@@ -637,7 +676,7 @@ export function GermlinePage() {
         // bias the size of the whole signal, so a member is scored leave-one-out. n-1 products
         // cannot reach a threshold of n, so that build sits one below the chosen depth.
         const ref1 = mine
-          ? set.build(Math.min(mMin, chosen.length - 1), [...drop, load.name]) : full
+          ? set.build(Math.min(mMin, chosen.length - 1), [...drop, load.name], undefined, freqB) : full
         if (mine) {
           log('CALL', `  ${load.name} is in the reference, so it is scored against one rebuilt `
             + `without it: m >= ${Math.min(mMin, chosen.length - 1)}, `
@@ -695,7 +734,7 @@ export function GermlinePage() {
   const verdict = ref
     ? `${decided} of ${ref.origins.length} arrays called`
     : groups.length > 1 ? `${groups.length} parent groups, not one`
-      : biggest >= MIN_PRODUCTS ? 'One parent, enough products to reconstruct'
+      : biggest >= MIN_SEED ? 'One parent, enough products to start a reconstruction'
         : `One parent, but only ${biggest} usable product${biggest === 1 ? '' : 's'}`
 
   const sub = ref
@@ -709,12 +748,12 @@ export function GermlinePage() {
     : groups.length > 1
       ? 'These arrays do not all come from the same parent. A single reference would be built '
         + 'from two people, so a group has to be chosen before anything is reconstructed.'
-      : biggest >= MIN_PRODUCTS
+      : biggest >= MIN_SEED
         ? 'Every pair agrees at the rate two products of one parent do.'
         : `Below ${MIN_PRODUCTS} products the method inverts: true offspring read as decisively `
           + 'absent rather than uncalled. Nothing is built.'
 
-  const chosenNames = ref ? groups[ref.group].map((i) => usable[i].name) : []
+  const chosenNames = ref ? ref.used : []
   const provenance: RunProvenance | null = ref ? {
     tool: 'OriginMarker',
     generatedAt: utc(new Date().toISOString()),
@@ -1133,23 +1172,23 @@ export function GermlinePage() {
         <Stage
           n={4}
           title="Reconstruction"
-          state={ref ? 'ok' : biggest >= MIN_PRODUCTS ? 'pending' : 'blocked'}
+          state={ref ? 'ok' : biggest >= MIN_SEED ? 'pending' : 'blocked'}
           badges={ref ? [`m ≥ ${ref.stats.mMin}`,
             `${pct(ref.stats.contamination, 2)} contamination`] : []}
           headline={ref
             ? `Built from ${ref.stats.nProducts} products, and `
               + `${ref.members.filter((m) => m.verdict === 'parent_genome_present').length} of `
               + `${ref.members.length} verify against a reference built without them`
-            : biggest >= MIN_PRODUCTS
+            : biggest >= MIN_SEED
               ? 'Choose which parent to reconstruct'
-              : `No group has the ${MIN_PRODUCTS} products this method needs`}
+              : `No group has the ${MIN_SEED} products a reconstruction starts from`}
           defaultOpen
         >
           {/* Step two, and it only exists once step one has found a group worth building. One
               button per buildable group, because with more than one that IS the decision. */}
-          {biggest >= MIN_PRODUCTS && !ref && (
+          {biggest >= MIN_SEED && !ref && (
             <Group gap={8} mt={8}>
-              {groups.filter((g) => g.length >= MIN_PRODUCTS).map((g) => {
+              {groups.filter((g) => g.length >= MIN_SEED).map((g) => {
                 const i = groups.indexOf(g)
                 const side = analysis?.paternal === null ? ''
                   : i === analysis?.paternal ? 'paternal' : 'maternal'
@@ -1163,7 +1202,7 @@ export function GermlinePage() {
                     onClick={() => void buildFor(i)}
                   >
                     Build the {side || 'group '}
-                    {side ? ' array' : `${i + 1} array`} from {g.length} products
+                    {side ? ' array' : `${i + 1} array`} from this group of {g.length}
                   </Button>
                 )
               })}
@@ -1171,7 +1210,7 @@ export function GermlinePage() {
           )}
           {ref && (
             <ReferenceBlock
-              group={groups[ref.group].map((i) => usable[i].name)}
+              group={ref.used}
               mMin={ref.stats.mMin}
               markers={ref.stats.markers}
               meanM={ref.stats.meanM}

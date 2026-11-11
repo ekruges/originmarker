@@ -241,10 +241,15 @@ RELEASES: tuple[Release, ...] = (
             "of strangers stand where a family's parents are missing: where every one of them "
             "carries the same allele on both chromosomes, a sample almost surely does too, so a "
             "heterozygous call there is the array's error, measured without a single relative."),
+    Release("Haplotype Block",
+            "Recombination is rare enough that a chromosome passes to a child in long stretches, "
+            "each copied whole from one of the parent's two homologues. Two of a parent's gametes "
+            "carry the same stretch half the time, and all of a handful of them some of the time, "
+            "and there a parent rebuilt from its gametes cannot see that it had two."),
 )
 
-VERSION = "5.51.0"
-CODENAME = "Linkage Equilibrium"
+VERSION = "5.52.0"
+CODENAME = "Haplotype Block"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

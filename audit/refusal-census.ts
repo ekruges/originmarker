@@ -223,10 +223,16 @@ for (const gsm of cells) {
   // ONE ROW PER CELL with what gates the allele channel, so a hidden gate shows up as a number.
   const k = res.answerKeys
   const f = (x: number) => (Number.isFinite(x) ? x.toFixed(4) : 'none')
+  for (const c of (res.chroms ?? [])) {
+    if (!c.copyState) continue
+    const cs = c.copyState
+    out.push(['state', gsm, stg, by, '', 'copyState', c.chrom, cs.state, t.get(c.chrom) ?? '', kary,
+      'none', 'unscorable', Number.isFinite(cs.r) ? cs.r.toFixed(3) : 'nan', Number.isFinite(cs.base) ? cs.base.toFixed(3) : 'nan'].join('\t'))
+  }
   out.push(['cell', gsm, stg, by, `zygosity=${res.zygosity}`, 'cell', '',
     `dropIn parents=${f(k?.dropIn.parents)} panel=${f(k?.dropIn.panel)} `
       + `information parents=${f(k?.information.parents)} panel=${f(k?.information.panel)} `
-      + `spread=${f(k?.heterozygositySpread)} het=${f(res.stage ? (res as any).profileHet ?? NaN : NaN)}`,
+      + `spread=${f(k?.heterozygositySpread)} disomic=${f(k?.disomicFraction ?? NaN)}`,
     '', kary, 'none', 'unscorable', '', ''].join('\t'))
   for (const r of (res.refusals ?? [])) emit(r.soft ? 'soft' : 'withheld', r.gate, r.claim, r.chrom ?? '', r.withheld, r.measured)
   // AND WHAT IT MADE, scored the same way, so over-refusal and over-calling sit side by side.
