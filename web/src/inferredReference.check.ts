@@ -7,8 +7,9 @@
 import assert from 'node:assert/strict'
 import {
   ProductSet, groupByParent, kinship, pAgree, MIN_ASCERTAINMENT, MIN_PRODUCTS,
-  SAME_PARENT_MAX, DIFFERENT_PARENT_MIN, judgeProducts, UNIFORM_WINDOW_BP,
+  SAME_PARENT_MAX, DIFFERENT_PARENT_MIN, judgeProducts, productVerdict, UNIFORM_WINDOW_BP,
 } from './inferredReference.ts'
+import type { ShareCall } from './oneParentState.ts'
 import type { ProbeRow } from './ingest.ts'
 import type { AB } from './informativity.ts'
 
@@ -242,8 +243,9 @@ console.log('inferredReference.check.ts OK')
 //
 // Twenty 5 Mb windows, each holding 60 sites where the parent P is heterozygous (founder q 0.5), 60
 // where P is AA and the population is not (q 0.6, where another genome shows itself), and 60 where
-// everyone is AA (q 0, the drop-in baseline). In window 19 every product drew the same haplotype, so
-// the products agree at P's heterozygous sites and an unmasked rebuild calls them AA.
+// everyone is AA (q 0, the drop-in baseline), interleaved. Every product drew the same haplotype over
+// window 19 and the last third of window 18, so the products agree at P's heterozygous sites there
+// and an unmasked rebuild calls them AA. The stretch does not start on a window boundary.
 {
   const u = (a: number, b: number): number => {
     let h = Math.imul(a ^ 0x9e3779b9, 0x85ebca6b) ^ Math.imul(b + 0x7f4a7c15, 0xc2b2ae35)
@@ -255,7 +257,7 @@ console.log('inferredReference.check.ts OK')
   for (let w = 0; w < 20; w += 1) {
     for (let j = 0; j < 180; j += 1) {
       sites.push({ id: `w${w}m${j}`, pos: w * UNIFORM_WINDOW_BP + j * 10_000, w, j,
-        kind: j < 60 ? 'het' : j < 120 ? 'poly' : 'mono' })
+        kind: j % 3 === 0 ? 'het' : j % 3 === 1 ? 'poly' : 'mono' })
     }
   }
   const freqB = new Map(sites.map((x) => [x.id, x.kind === 'het' ? 0.5 : x.kind === 'poly' ? 0.6 : 0]))
@@ -270,8 +272,9 @@ console.log('inferredReference.check.ts OK')
     }
     ps.end(slot, baf)
   }
+  const uniform = (x: Site): boolean => x.w === 19 || (x.w === 18 && x.j >= 120)
   const ofP = (k: number) => (x: Site): AB => x.kind !== 'het' ? 'AA'
-    : x.w === 19 ? 'AA' : u(x.w * 1000 + x.j, k) < 0.5 ? 'AA' : 'BB'
+    : uniform(x) ? 'AA' : u(x.w * 1000 + x.j, k) < 0.5 ? 'AA' : 'BB'
   for (let k = 0; k < 5; k += 1) feed(`p${k}`, ofP(k))
   // A product of P whose amplification made a quarter of its calls heterozygous.
   feed('dropIn', (x) => u(x.w * 1000 + x.j, 77) < 0.25 ? 'AB' : ofP(9)(x))
@@ -286,16 +289,25 @@ console.log('inferredReference.check.ts OK')
   const members = ['p0', 'p1', 'p2', 'p3', 'p4']
   const outside = ['dropIn', 'other', 'child']
 
-  // The mask finds the one uniform window and nothing else, with no parent to look at.
+  // The mask finds the uniform window with no parent to look at, and follows the stretch to its end.
   const plain = ps.build(4, outside)
   const masked = ps.build(4, outside, undefined, freqB)
+  const windows = ps.uniformWindows([0, 1, 2, 3, 4], freqB)
+  assert.deepEqual([...windows], ['1:19'], 'only the wholly uniform window reads uniform')
   assert.equal(plain.masked, 0, 'no frequencies, no mask')
   assert.equal(plain.genotype.get('w19m0'), 'AA', 'unmasked, the uniform window asserts a homozygote at a het site')
-  assert.equal(masked.masked, 180, 'every agreed marker in window 19 is masked')
+  assert.equal(plain.genotype.get('w18m150'), 'AA', 'and so does the part of window 18 the stretch reaches')
   assert.equal(masked.genotype.has('w19m0'), false)
   assert.equal(masked.genotype.has('w19m100'), false)
-  assert.equal(masked.genotype.get('w18m100'), 'AA', 'the windows either side are untouched')
-  assert.equal(masked.markers, plain.markers - 180)
+  for (let j = 120; j < 180; j += 1) {
+    assert.equal(masked.genotype.has(`w18m${j}`), false, `w18m${j} is inside the stretch and must be masked`)
+  }
+  // Outside the stretch the mask leaves the rebuild alone, but for the one disagreement it lets
+  // through: so within ten markers of the edge, nothing the unmasked rebuild kept is dropped.
+  const before = (b: typeof plain) => Array.from({ length: 110 }, (_, j) => `w18m${j}`).filter((id) => b.genotype.has(id))
+  assert.deepEqual(before(masked), before(plain), 'the mask overshot the end of the stretch')
+  assert.equal(masked.genotype.get('w17m100'), 'AA', 'the windows past the stretch are untouched')
+  assert.ok(masked.masked >= 240 && masked.masked <= 270, `masked ${masked.masked}`)
 
   // Every member against the others, every outsider against the group.
   const judged = new Map(judgeProducts(ps, members, outside, 4, freqB, mono).map((j) => [j.id, j]))
@@ -310,4 +322,27 @@ console.log('inferredReference.check.ts OK')
   assert.equal(judged.get('child')!.call.state, 'disomic')
   assert.ok(Math.abs(judged.get('child')!.call.r - 0.5) < 0.1, `child r ${judged.get('child')!.call.r}`)
   console.log('  mask and product test OK')
+}
+
+// --- no chromosome of a product reads as if this parent's copy were missing ---------------------
+{
+  const call = (state: ShareCall['state'], r = 0): ShareCall => ({ state, base: 0.05, r, n1: 500, n2: 500 })
+  const underBar = call('other-lost', 0.15)
+  const times = (n: number, c: ShareCall) => Array.from({ length: n }, () => c)
+  // GSM4472405's shape: 7 one copy, 8 no template, 5 disomic, and its highest chromosome at 0.70,
+  // under the 0.75 call but inside the range a chromosome missing this parent reads.
+  const chaotic = [...times(7, call('other-lost')), ...times(8, call('no-template', 0.9)),
+    ...times(4, call('disomic', 0.5)), call('disomic', 0.70), ...times(2, call('disomic', 0.45))]
+  assert.equal(productVerdict(underBar, chaotic).verdict, 'refused', 'a chaotic diploid averaged under the bar')
+  assert.equal(productVerdict(underBar, chaotic).parentAbsent, 1)
+  // A product rebuilt against four siblings: five chromosomes lifted by rebuild error, the worst to
+  // 0.626, and a chromosome it lacks reading no template at any r. Still a product.
+  const lifted = [...times(16, call('other-lost')), ...times(4, call('disomic', 0.3)), call('disomic', 0.626),
+    call('no-template', 0.9)]
+  assert.equal(productVerdict(underBar, lifted).verdict, 'product')
+  // Too few markers to read any chromosome alone, as on a marker subset: the genome stands.
+  assert.equal(productVerdict(underBar, times(22, call('undecided', NaN))).verdict, 'product')
+  assert.equal(productVerdict(call('parent-lost', 0.95), lifted).verdict, 'not this parent')
+  assert.equal(productVerdict(call('disomic', 0.5), lifted).verdict, 'refused')
+  console.log('  product verdict reads chromosomes OK')
 }

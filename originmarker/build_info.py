@@ -248,7 +248,7 @@ RELEASES: tuple[Release, ...] = (
             "and there a parent rebuilt from its gametes cannot see that it had two."),
 )
 
-VERSION = "5.52.0"
+VERSION = "5.52.1"
 CODENAME = "Haplotype Block"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'

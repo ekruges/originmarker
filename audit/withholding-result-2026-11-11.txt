@@ -1,0 +1,147 @@
+Withhold arrays, rebuild, compare with the measured parent
+==========================================================
+
+Run 11 November 2026 on tesla. Scored against audit/withholding-preregistration.txt, written before
+any part was run. Founder panel: the shipped founders-gse186441.tsv.gz. Laboratory cells are
+pseudonymised (S23 = the series whose sperm donor's bulk array is S23-00).
+
+THREE FAULTS IN 5.52.0, FOUND BY THIS RUN AND FIXED BEFORE THE FINAL SCORE
+--------------------------------------------------------------------------
+1. Copy number withheld from every haploid product. Found by the smoke run of the part C scorer on
+   S23-07, before any part was scored (see the preregistration's addendum). The normal-majority test
+   counted disomic chromosomes only. Now the commonest copy state's share (normalFraction).
+2. The mask stopped at window boundaries. Found in part C's first pass (S23-02: parental-absence
+   segments on chr1 and chr11 against a rebuild from its five siblings, none against S23-00). The
+   stretch ran 20 to 65 Mb on chr1; windows 25 to 60 Mb were masked and the ends were not. Now two
+   grids offset half a window, and each masked run widened to the second marker where the products
+   disagree (uniformMask).
+3. A chaotic diploid admitted as a product. Found in part A's first pass (A3): GSM4472405 admitted in
+   78 of 163 rebuilds. First fixed by requiring one copy on 80% of stated chromosomes; part A's second
+   pass showed that refusing real products from small groups (A1 83 of 792, A2 66 of 512; on S23 two
+   of 36), since rebuild error from four siblings put real products as low as 0.52 one-copy, under the
+   chaotic cell's highest 0.58. Replaced by: no chromosome may read at or over PARENT_LOST_LOW 0.675,
+   the 5% quantile of where a chromosome missing the parent's copy reads on Table S3 (productVerdict).
+   Chosen after that pass, on a threshold measured before it. Over the same cases a withheld
+   product's highest chromosome reads at most 0.626 (527 cases) and GSM4472405's at least 0.702 (102).
+The first pass of every part ran 5.52.0 with fault 1 fixed; the second, faults 1 to 3 with the share
+rule; part A's third pass, the shipped rule.
+
+THE MASK, MEASURED ON WITHHELD PRODUCTS
+---------------------------------------
+Each product of a parent scored against a rebuild from all its siblings; windows (5 Mb, at least 100
+markers) where it reads its father's allele absent over 5%, and the rebuilds' homozygous calls where the
+measured father is heterozygous:
+
+                              no mask   5.52.0    edges     edges and half grid (shipped)
+  S23, 6 against 5   windows     136       10        3        1
+                     wrong       2.016%    0.911%   0.873%   0.844%
+  GSE148488, 8 vs 7  windows     537      421      420      404
+                     wrong       3.482%    2.727%   2.719%   2.620%
+  markers masked, S23 / GSE148488 per rebuild: 5.52.0 45,643 / 37,484; shipped 52,104 / 44,365.
+
+The GSE148488 windows left are mostly its drop-in products' own genotype errors. The eight-pronucleus
+rebuild against GSM4472397: 2.081% wrong under 5.52.0's mask, 1.997% under the shipped one.
+
+A. PRODUCTS WITHHELD (every subset of 4 or more of the paternal products as the group)
+-------------------------------------------------------------------------------------
+                                       pass 1 (5.52.0 mask)   pass 2 (share rule)   pass 3 (shipped)
+  GSE148488, 163 subsets
+  A1  members refused                    28 of 792             83 of 792             24 of 792
+  A2  withheld products refused          23 of 512             66 of 512             21 of 512
+  A3  non-products admitted              GSM4472405 in 78,     none                  none
+                                         GSM4472409 in 2
+  A4  mask not below unmasked            0 of 93               0 of 93               0 of 93
+  S23, 22 subsets
+  A1                                     0 of 96               0 of 96               0 of 96
+  A2                                     0 of 36               2 of 36               0 of 36
+  A3  (8 sheet-maternal: not this parent in every subset; 4 unsettled: refused in every subset)
+                                         none                  none                  none
+  A4                                     0 of 7                0 of 7                0 of 7
+
+Every GSE148488 refusal of a real product in passes 1 and 2 falls in a group where two or three of the
+members are its three heavy drop-in pronuclei (84, 86, 87, at 25% to 43% heterozygous): over the 54
+subsets with none or one of them, pass 2 refuses 1 member and 1 withheld product. Those three never
+stage haploid, so the shipped command cannot start a group with them: they are judged from outside a
+clean group, where every pass admits them. A1 and A2 as worded ("every member, every subset") fail in
+passes 1 and 2; the failures are refusals, not wrong admissions. In pass 3 the same holds with none
+left over: over the 54 subsets with none or one of them, 0 members and 0 withheld products refused,
+and S23 admits every member and every withheld product in every subset. A1 and A2 as worded still fail
+on GSE148488, all 45 refusals in groups the shipped command cannot form; A3 and A4 hold everywhere.
+
+B. ONE-PARENT COPY STATE AGAINST WITHHELD REBUILDS (GSE148488; 24 rebuilds and the measured father)
+------------------------------------------------------------------------------------------------
+Scored on the second pass's code; B builds from fixed subsets, so the product verdict does not enter.
+  B1  agreement with the measured father, every masked rebuild: 644 of 651 to 677 of 682. HOLDS (630).
+  B2  wrong parent: only GSM4472405 chr4 and GSM4552382 chr2, in every rebuild but one
+      five-product rebuild, which does not call the first at all. HOLDS.
+  B3  published-normal chromosomes read lost where the measured father reads disomic: 0 to 3 on 21 of
+      22 masked rebuilds, 6 on one (80, 81, 82, 83, 86, 87). FAILS on that one (bar 4).
+  B4  copy-number decision the measured father's on 31 of 31, every rebuild. HOLDS.
+  B5  paternal pronuclei reading one copy, against rebuilds without them: 0.64 to 1.00; the measured
+      father itself gives 0.864. Maternal pronuclei reading the father's copy absent: 0.974 to 0.987.
+      FAILS AS WORDED (bar 95%): the bar was set without measuring the measured father, and the
+      pronuclei carry real aneuploidy and four of them heavy drop-in, which no rebuild can remove.
+  B6  unmasked against masked: eight pronuclei 675 against 677; the 5.51.0 five, 661 against 675, and
+      published-normal chromosomes read lost 10 against 1.
+
+C. EACH S23 CELL WITHHELD, THE REBUILD AUTOMATIC (om reconstruct over the other 17)
+---------------------------------------------------------------------------------
+                                                   first pass (5.52.0 mask)   final
+  C1  rebuild used exactly the other paternal products   18 of 18             18 of 18   HOLDS
+  C2  stage, ploidy, drop-in correction identical         18 of 18             18 of 18   HOLDS
+  C3  every copy-number row identical                     18 of 18             18 of 18   HOLDS
+  C4  copy states agree (bar 97%)                         383/396 96.7% FAILS  387/396 97.7% HOLDS
+
+Every remaining difference is on a paternal product scored against a rebuild from its five siblings
+(S23-05 chr19, S23-09 chr8 and 21, S23-11 chr17, S23-13 chr8, 13 and 18, at r 0.206 to 0.331 where the
+measured father reads one copy), and on S23-16 (chr17, chr22). Three of those products also carry one
+parental-absence segment each (S23-09 chr8, S23-11 chr12, S23-13 chr8) and read "disturbed" where the
+measured father gives "intact". This is the limit of rebuilding from five: a stretch the withheld product
+alone carries, too short to fill half a window, which no sibling's array can show. It arises only for a
+product withheld from its own parent's rebuild. On diploid offspring the rebuild is not worse than the
+measured father: over the 31 Zuccaro cells it gives 32 parental-absence segments against the measured
+father's 51.
+
+Found along the way, for the laboratory: S23-14's chr4 copy loss at 0.07 to 42.0 Mb is reported against
+the rebuild exactly as against S23-00 (the sheet: segmental loss chr4 5.8 to 38); under 5.52.0 as shipped
+it was withheld. S23-16 and S23-17, recorded on the sheet as paternal pronuclei, stage diploid against
+both parents and read two copies on nearly every chromosome.
+
+THE ZUCCARO CENSUS ON THE FINAL CODE
+------------------------------------
+  two measured parents against 5.52.0: identical on stage, every copy-number row, all 682 copy states
+  and every claim count. The fixes change nothing there.
+  the eight-pronucleus rebuild (final) against two parents: stage 31 of 31, copy-number rows 15 of 15.
+  lostParent with the rebuild: 90 confirmed, 2 wrong parent (the two pre-existing), 9 on
+  published-normal chromosomes; 25 claims of any kind on published-normal autosomes, against 45 with
+  two measured parents.
+
+D. THE GERMLINE PAGE (dev build, public example products, in a browser)
+-----------------------------------------------------------------------
+  D1  five products loaded and grouped; at build each was judged against the other four (r -0.025 to
+      0.005, every one 'product'; one copy per chromosome reads n/a, since a 51,605-marker subset is
+      too sparse to read a chromosome alone, and the genome stands), 6,243 markers masked and stated in
+      the log. HOLDS.
+  D2  parental origin called for 5 of 5, each against a rebuild without itself, at 0.03x to 0.06x the
+      absence ceiling; the only console errors are the local API health check, which the dev build has
+      no server for. HOLDS. (Run on 5.52.0 first: same verdicts, 3,931 masked.)
+
+THE LAST STAND-IN GATES (after the above, same day)
+---------------------------------------------------
+Detectors on drop-in arrays. Run on the 31 Zuccaro cells with the detectors switched on there: the 7
+drop-in cells gave 4 findings and none on a chromosome published normal; the 24 others gave 8 and one.
+All 4 drop-in findings, and 6 of the others, were a UPD or isodisomy on a chromosome published monosomic
+or deleted, on cells whose copy number is withheld (GSM4472409 chr3, 8, 10, 14; GSM4552380 chr1 twice,
+chr4; GSM4552367 chr11, 19; GSM4552364 chr6): a one-copy chromosome reads homozygous end to end, and
+without copy number nothing marks it as a loss. Copy-neutral classes now go where copy number goes;
+rerun, those 10 are withheld under no-intensity-reference and nothing else moves. Left made, with copy
+number read: GSM4472412 chr6, a segmental UPD where the paper has a paternal 6q deletion (its allele scan
+finds the father's alleles absent there, and the intensity scan does not see the loss on this bulk
+material), and GSM4552365 chr8, on a chromosome published normal. Both were in 5.52.0.
+
+The noise bar at a half. No decision moves on the laboratory's 95 arrays (largest staged ratio 0.327)
+or the Zuccaro cells (0.418). S12-56, 0.565 and 0.608 on the two panels, is refused on both.
+
+The census on the final code: every claim count identical to 5.52.0; one rebuilt father against two
+measured parents, stage 31 of 31 and copy-number rows 15 of 15. Every withheld claim on the 31 cells now
+carries a physical cause: no-intensity-reference (381 rows), no-genotype-signal (20), baf-displaced (7).

@@ -444,7 +444,8 @@ export function inferStage(
       why: `${(h * 100).toFixed(1)}% heterozygous, and against markers where unrelated people all `
         + 'carry the same homozygote this array\'s calls agree no better than chance would put them '
         + `(information ratio ${(profile.information as number).toFixed(2)}, at or over `
-        + `${NO_INFORMATION_MIN.toFixed(2)}). The calls carry no information about any genome`,
+        + `${NO_INFORMATION_MIN.toFixed(2)}): about ${Math.round(Math.min(1, profile.information as number) * 100)}% `
+        + 'of its homozygous calls are random, more noise than genome, so nothing read from them stands',
     }
   }
   if (h > maxDiploid && Number.isFinite(profile.dropIn)

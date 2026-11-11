@@ -600,10 +600,14 @@ export function GermlineDocsPage({ health }: { health: Health | null }) {
           These stretches are found with no parent: per 5 Mb window, how often the products
           disagree, over how heterozygous unrelated founders are there, against the genome&rsquo;s
           median of that ratio. A window under 0.6 of the median is masked and the reference makes
-          no claim in it. On the GSE148488 father it masks 22,494 markers, and the one-parent copy
-          state against the masked reconstruction agrees with the measured father on 677 of 682
-          chromosomes, where the unmasked one wrongly read the father&rsquo;s chr15 lost in eight
-          normal cells.
+          no claim in it. The test runs on two grids, the second shifted half a window, and from
+          each masked run the mask walks outward to where the products start disagreeing, since a
+          stretch has no reason to begin on a window boundary. On the GSE148488 father the one-parent
+          copy state against the masked reconstruction agrees with the measured father on 677 of
+          682 chromosomes, where the unmasked one wrongly read the father&rsquo;s chr15 lost in
+          eight normal cells. Scoring each product of the laboratory series S23 against a rebuild
+          from the other five, windows where it reads its father&rsquo;s allele absent number 136
+          unmasked, 10 with whole windows only, and 1 with both grids and the walked edges.
         </Text>
         <Text size="sm" mb={10}>
           <b>Contamination</b> is the fraction of the reference that is a heterozygous site
@@ -658,7 +662,11 @@ export function GermlineDocsPage({ health }: { health: Health | null }) {
           scales the difference. A product of this parent reads near 0, a diploid offspring near
           0.5, a product of the other parent near 1. Under 0.20 is admitted; over 0.75 is the other
           parent; between, or an array whose calls show no allele contrast at all, is refused.
-          Drop-in raises both readings together and cancels. On the eight paternal pronuclei of
+          Drop-in raises both readings together and cancels. The figure is also read chromosome by
+          chromosome, because over the genome it is an average: a chaotic diploid offspring of
+          GSE148488 averaged under 0.20. A product carries only this parent&rsquo;s chromosomes, so
+          none of them may read in the range where a chromosome missing this parent&rsquo;s copy
+          reads, from 0.675. On the eight paternal pronuclei of
           GSE148488 it reads &minus;0.107 to 0.012, admitting all eight, and the reference built from
           them is 1.07% contaminated, against 2.29% from five of them.
         </Text>

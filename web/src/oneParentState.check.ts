@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict'
 import {
-  emptyShareTally, addShare, shareCall, disomicFraction, MIN_SHARE_MARKERS,
+  emptyShareTally, addShare, shareCall, normalFraction, MIN_SHARE_MARKERS,
 } from './oneParentState.ts'
 
 // A synthetic chromosome: P is AA throughout; S1 markers (q = 0) and S2 markers (q = 0.6). `other`
@@ -54,13 +54,25 @@ assert.ok(Math.abs(chrom('present', 0).r - chrom('present', 0.25).r) < 0.02)
   assert.equal(shareCall(nt).state, 'no-template')
 }
 
-// THE NORMAL-MAJORITY TEST: undecided chromosomes do not count, and a genome reading no template
-// everywhere is 0, so an array whose calls are noise cannot pass it.
-assert.equal(disomicFraction([chrom('present', 0.1), chrom('present', 0.1), chrom('other-lost', 0.1)]), 2 / 3)
+// THE NORMAL-MAJORITY TEST: the commonest copy state's share. Undecided chromosomes do not count, and
+// a genome reading no template everywhere is 0, so an array whose calls are noise cannot pass it.
+assert.equal(normalFraction([chrom('present', 0.1), chrom('present', 0.1), chrom('other-lost', 0.1)]), 2 / 3)
 {
   const nt = emptyShareTally()
   for (let i = 0; i < 300; i += 1) { addShare(nt, 'AA', 0.45, 0, true); addShare(nt, 'AA', 0.45, 0.6, false) }
-  assert.equal(disomicFraction([shareCall(nt), shareCall(nt), shareCall(nt)]), 0)
+  assert.equal(normalFraction([shareCall(nt), shareCall(nt), shareCall(nt)]), 0)
+}
+// A haploid product reads one copy everywhere, of either parent, and that IS its normal majority.
+{
+  const one = Array.from({ length: 22 }, () => chrom('other-lost', 0.1))
+  assert.equal(normalFraction(one), 1, 'a product of this parent: every chromosome one copy')
+  const other = Array.from({ length: 22 }, () => chrom('parent-lost', 0.1))
+  assert.equal(other[0].state, 'parent-lost')
+  assert.equal(normalFraction(other), 1, 'a product of the other parent')
+  // Fifteen disomic and eight single, as the cell of GSE148488 staged haploid but chaotic reads.
+  const mixed = [...Array.from({ length: 15 }, () => chrom('present', 0.1)),
+    ...Array.from({ length: 4 }, () => chrom('other-lost', 0.1)), ...Array.from({ length: 4 }, () => chrom('parent-lost', 0.1))]
+  assert.ok(normalFraction(mixed) < 0.80, 'a chaotic genome shows no majority whichever state it leans to')
 }
 
 console.log('  ok   oneParentState.check.ts')

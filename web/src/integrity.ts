@@ -76,7 +76,7 @@ export interface IntegrityInput {
    */
   allelesStand?: boolean
   /** The disomic fraction the copy-number gate was decided on, for the label. */
-  disomicFraction?: number
+  normalFraction?: number
 }
 
 /**
@@ -102,13 +102,13 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
     ? `; ${gainByAlleles} chromosome${gainByAlleles === 1 ? '' : 's'} with an extra copy by the alleles`
     : '')
 
-  if (input.allelesStand && stage !== 'failed' && Number.isFinite(input.disomicFraction)
-    && (input.disomicFraction as number) < 0.80) {
+  if (input.allelesStand && stage !== 'failed' && Number.isFinite(input.normalFraction)
+    && (input.normalFraction as number) < 0.80) {
     return {
       level: 'disturbed',
       headline: 'NO NORMAL MAJORITY: copy number is withheld; which parent is read from the alleles',
-      why: `The alleles read ${((input.disomicFraction as number) * 100).toFixed(0)}% of this genome's `
-        + 'autosomes as carrying both parents\' copies, under the 80% at which most chromosomes are '
+      why: `The alleles read ${((input.normalFraction as number) * 100).toFixed(0)}% of this genome's `
+        + 'autosomes in its commonest copy state, under the 80% at which most chromosomes are '
         + 'normal. Copy number is read against this array\'s own per-chromosome median, which is only '
         + 'a normal chromosome when most are, so it is not read here. Which parent\'s copy each '
         + 'chromosome lacks is read from the alleles, which need no such reference.',

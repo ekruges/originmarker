@@ -572,7 +572,8 @@ export function GermlinePage() {
         for (const j of judged) {
           log(j.verdict === 'product' ? 'GATE' : 'WARN', `${j.id}: ${j.verdict}, r `
             + `${Number.isFinite(j.call.r) ? j.call.r.toFixed(3) : 'n/a'} at base `
-            + `${Number.isFinite(j.call.base) ? j.call.base.toFixed(3) : 'n/a'}, against ${j.against}`)
+            + `${Number.isFinite(j.call.base) ? j.call.base.toFixed(3) : 'n/a'}, ${j.parentAbsent} `
+            + `chromosome${j.parentAbsent === 1 ? '' : 's'} reading this parent's copy missing, against ${j.against}`)
         }
         used = judged.filter((j) => j.verdict === 'product').map((j) => j.id)
       } else {

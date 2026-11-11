@@ -43,7 +43,7 @@ const refOf = (rand: () => number): AB[] =>
   const r = informationRatio(t)
   assert.ok(Math.abs(r - 1) < 0.04, `independent calls read about 1, got ${r}`)
   assert.equal(informationBand(r), 'no-information')
-  assert.ok(whyNoInformation(r, 'the father')?.includes('no information about any genome'))
+  assert.ok(whyNoInformation(r, 'the father')?.includes('mostly noise'))
 }
 
 // A MIXTURE READS LOW, which is the claim the shipped reason makes in words. Two contributors: a
@@ -142,3 +142,20 @@ const refOf = (rand: () => number): AB[] =>
 
 console.log('informationRatio.check.ts: the scale, a mixture, a flipped coding, the bands, '
   + 'and that the branch changes reasons only')
+
+// R IS THE SHARE OF RANDOM CALLS. A sample whose homozygous calls are a fraction f drawn at random,
+// and otherwise the reference's own, reads R = f: the bar at a half is "more noise than genome".
+{
+  for (const f of [0.1, 0.3, 0.5, 0.6, 0.9]) {
+    const rand = rng(Math.round(f * 1000) + 7); const ref = refOf(rand)
+    const t = emptyHomTally()
+    for (const g of ref) {
+      const s: AB = rand() < f ? (rand() < 0.62 ? 'AA' : 'BB') : g
+      addHomozygous(t, s, g)
+    }
+    const r = informationRatio(t)
+    assert.ok(Math.abs(r - f) < 0.03, `a sample ${f} random reads R ${r.toFixed(3)}`)
+  }
+  assert.equal(informationBand(0.49), 'unresolved', 'under half random, the genome still outweighs the noise')
+  assert.equal(informationBand(0.5), 'no-information')
+}

@@ -69,6 +69,13 @@ export const NO_TEMPLATE_BASE = 0.30
 /** r under which the other parent's copy is gone, and over which P's is. */
 export const OTHER_LOST_MAX = 0.20
 export const PARENT_LOST_MIN = 0.75
+/**
+ * The low end of where a chromosome missing P's copy reads: the 5% quantile of r over the 59 such
+ * chromosomes of Zuccaro 2020 Table S3 (median 0.888, 95% at 0.962), measured by the parity consult.
+ * PARENT_LOST_MIN is the call, set high so a disomic chromosome is never called lost; this is the
+ * range, for a test that asks whether ANY chromosome could be one.
+ */
+export const PARENT_LOST_LOW = 0.675
 
 export type CopyState = 'disomic' | 'other-lost' | 'parent-lost' | 'no-template' | 'undecided'
 
@@ -95,15 +102,23 @@ export function shareCall(t: ShareTally): ShareCall {
 }
 
 /**
- * The share of decided autosomes that read disomic: the normal-majority test, from the alleles. On
- * GSE148488 against the rebuilt father it reads 0.000 to 0.727 on cells published chaotic and 0.864
- * to 1.000 on the rest, and 0 on arrays whose calls are noise, which read no template throughout. So it
- * fails closed, where the two-parent version passed those arrays at 0.91 and 0.96.
+ * The share of decided autosomes in the genome's most common copy state: the normal-majority test,
+ * from the alleles. Intensity is read against the array's own per-chromosome median, which is a normal
+ * chromosome only when most chromosomes share one state. That state is two copies in a diploid and one
+ * in a haploid product, whichever parent it came from, so all three count and the commonest decides.
+ * No template is never a state a majority can share: an array whose calls are noise reads it
+ * throughout and scores 0, so the test fails closed.
+ *
+ * Counting disomy alone withheld copy number from every haploid product, which reads one copy on every
+ * chromosome. On GSE148488 the cells published chaotic read 0.000 to 0.727 and the rest 0.909 or more
+ * either way; one of them, staged haploid, is 15 chromosomes disomic and 8 single, 0.682.
  */
-export function disomicFraction(calls: readonly ShareCall[]): number {
+export function normalFraction(calls: readonly ShareCall[]): number {
   const decided = calls.filter((c) => c.state !== 'undecided')
-  return decided.length ? decided.filter((c) => c.state === 'disomic').length / decided.length : NaN
+  if (!decided.length) return NaN
+  const n = (s: CopyState) => decided.filter((c) => c.state === s).length
+  return Math.max(n('disomic'), n('other-lost'), n('parent-lost')) / decided.length
 }
 
-/** Disomic fraction at or over which a normal majority is shown and copy number can be read. */
+/** Normal fraction at or over which a normal majority is shown and copy number can be read. */
 export const NORMAL_MAJORITY_MIN = 0.80

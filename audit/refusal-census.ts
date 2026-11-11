@@ -232,7 +232,7 @@ for (const gsm of cells) {
   out.push(['cell', gsm, stg, by, `zygosity=${res.zygosity}`, 'cell', '',
     `dropIn parents=${f(k?.dropIn.parents)} panel=${f(k?.dropIn.panel)} `
       + `information parents=${f(k?.information.parents)} panel=${f(k?.information.panel)} `
-      + `spread=${f(k?.heterozygositySpread)} disomic=${f(k?.disomicFraction ?? NaN)}`,
+      + `spread=${f(k?.heterozygositySpread)} normal=${f(k?.normalFraction ?? NaN)}`,
     '', kary, 'none', 'unscorable', '', ''].join('\t'))
   for (const r of (res.refusals ?? [])) emit(r.soft ? 'soft' : 'withheld', r.gate, r.claim, r.chrom ?? '', r.withheld, r.measured)
   // AND WHAT IT MADE, scored the same way, so over-refusal and over-calling sit side by side.

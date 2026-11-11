@@ -732,9 +732,9 @@ export interface ParentageResult {
     /** How unevenly heterozygosity sits across the chromosomes: a localised excess is a genome with
      *  wrong copy numbers, a uniform one is drop-in, a mixture or a failed array. See hetSpread. */
     heterozygositySpread: number
-    /** The share of decided autosomes the one-parent copy state reads disomic: the normal-majority
-     *  test copy number is gated on. NaN without a frequency panel. */
-    disomicFraction?: number
+    /** The share of decided autosomes in the one-parent copy state's commonest state: the
+     *  normal-majority test copy number is gated on. NaN without a frequency panel. */
+    normalFraction?: number
   }
   spermType: SpermType
   genomeRate: number

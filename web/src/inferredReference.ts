@@ -26,7 +26,9 @@
 import { isAutosome } from './parentage.ts'
 import type { AB } from './informativity.ts'
 import type { ProbeRow } from './ingest.ts'
-import { emptyShareTally, addShare, shareCall, type ShareCall } from './oneParentState.ts'
+import {
+  emptyShareTally, addShare, shareCall, PARENT_LOST_LOW, type ShareCall, type ShareTally,
+} from './oneParentState.ts'
 
 /** Allele codes. 0 means the product said nothing usable here. */
 const NONE = 0
@@ -239,7 +241,7 @@ export class ProductSet {
     freqB?: ReadonlyMap<string, number>,
   ): Reference {
     const use = this.keep(exclude)
-    const masked = freqB ? this.uniformWindows(use, freqB) : null
+    const masked = freqB ? this.uniformMask(use, freqB) : null
     const n = this.index.size
     const genotype = new Map<string, AB>()
     let mSum = 0
@@ -267,7 +269,7 @@ export class ProductSet {
       surviving += 1
       detect += 1 - pAgree(m)
       if (mixed) { disagreed += 1; continue }
-      if (masked && masked.has(this.windowOf(i))) { maskedN += 1; continue }
+      if (masked && masked[i]) { maskedN += 1; continue }
       genotype.set(this.probeId[i], first === A ? 'AA' : 'BB')
       keptM.push(m)
       mSum += m
@@ -306,11 +308,6 @@ export class ProductSet {
     }
   }
 
-  /** The 5 Mb window a marker sits in, as `chrom:index`. */
-  private windowOf(i: number): string {
-    return `${this.chrom[i]}:${Math.floor(this.pos[i] / UNIFORM_WINDOW_BP)}`
-  }
-
   /**
    * Windows where every product carries the same haplotype, which the reconstruction cannot see.
    *
@@ -328,7 +325,7 @@ export class ProductSet {
    * masked: the reference makes no claim there. Measured: at 0.6 it flags 42 of 533 windows and catches
    * all 21 whose disagreement, against the real father, is under 0.35 of what it should be.
    */
-  uniformWindows(use: readonly number[], freqB: ReadonlyMap<string, number>): Set<string> {
+  uniformWindows(use: readonly number[], freqB: ReadonlyMap<string, number>, offset = 0): Set<string> {
     const n = this.index.size
     const seen = new Map<string, { markers: number; disagreed: number; het: number }>()
     for (let i = 0; i < n; i += 1) {
@@ -345,7 +342,7 @@ export class ProductSet {
         else if (v !== first) mixed = true
       }
       if (m < 2) continue
-      const w = this.windowOf(i)
+      const w = `${this.chrom[i]}:${Math.floor((this.pos[i] - offset) / UNIFORM_WINDOW_BP)}`
       let t = seen.get(w)
       if (!t) seen.set(w, t = { markers: 0, disagreed: 0, het: 0 })
       t.markers += 1
@@ -366,6 +363,99 @@ export class ProductSet {
   }
 
   /**
+   * The markers to mask: every uniform window, and the part of each neighbouring window the same
+   * stretch reaches into.
+   *
+   * WHY THE EDGES. A stretch every product carries identically has no reason to start or end on a
+   * window boundary, and the window it only partly fills reads diluted, over the bar. Measured on
+   * S23-02 against a rebuild from the other five: chr1 windows 25 to 60 Mb masked, and the stretch's
+   * ends at 20 to 25 and 60 to 65 Mb left in, where that product read its father's allele absent at
+   * 0.09 and was given two parental-absence segments the measured father does not give it.
+   *
+   * THE EDGE IS WHERE THE PRODUCTS START DISAGREEING. Inside the stretch they agree at every marker;
+   * past it they disagree at most sites where the parent is heterozygous. So from each run of masked
+   * windows the mask walks outward over the markers that can disagree and stops at the EDGE_STOP-th
+   * that does. One is allowed through, since a single genotype error disagrees anywhere.
+   */
+  uniformMask(use: readonly number[], freqB: ReadonlyMap<string, number>,
+    offsets: readonly number[] = UNIFORM_OFFSETS): Uint8Array {
+    const n = this.index.size
+    const out = new Uint8Array(n)
+    // Each grid's uniform windows as intervals, merged per chromosome where they touch.
+    const runs = new Map<string, [number, number][]>()
+    for (const off of offsets) {
+      for (const w of this.uniformWindows(use, freqB, off)) {
+        const at = w.lastIndexOf(':')
+        const c = w.slice(0, at)
+        const lo = Number(w.slice(at + 1)) * UNIFORM_WINDOW_BP + off
+        if (!runs.has(c)) runs.set(c, [])
+        runs.get(c)!.push([lo, lo + UNIFORM_WINDOW_BP])
+      }
+    }
+    if (!runs.size) return out
+    for (const [c, rs] of runs) {
+      rs.sort((a, b) => a[0] - b[0])
+      const merged: [number, number][] = []
+      for (const r of rs) {
+        const last = merged[merged.length - 1]
+        if (last && r[0] <= last[1]) last[1] = Math.max(last[1], r[1])
+        else merged.push([r[0], r[1]])
+      }
+      runs.set(c, merged)
+    }
+    // Per chromosome, the markers that can disagree, in position order, with whether they do.
+    const informative = new Map<string, { pos: number; mixed: boolean }[]>()
+    for (let i = 0; i < n; i += 1) {
+      const q = freqB.get(this.probeId[i])
+      if (q === undefined || q <= 0 || q >= 1) continue
+      let m = 0
+      let first = NONE
+      let mixed = false
+      for (const p of use) {
+        const v = this.alleles[p][i]
+        if (v === NONE) continue
+        m += 1
+        if (first === NONE) first = v
+        else if (v !== first) mixed = true
+      }
+      if (m < 2) continue
+      const c = this.chrom[i]
+      if (!informative.has(c)) informative.set(c, [])
+      informative.get(c)!.push({ pos: this.pos[i], mixed })
+    }
+    // Each run, widened to where the stretch ends.
+    const spans = new Map<string, [number, number][]>()
+    for (const [c, list] of informative) {
+      list.sort((a, b) => a.pos - b.pos)
+      for (const [runLo, runHi] of runs.get(c) ?? []) {
+        let lo = runLo
+        let hi = runHi
+        let seen = 0
+        for (let x = list.length - 1; x >= 0 && seen < EDGE_STOP; x -= 1) {
+          if (list[x].pos >= lo) continue
+          if (list[x].mixed) seen += 1
+          lo = list[x].pos + (seen === EDGE_STOP ? 1 : 0)
+        }
+        seen = 0
+        for (let x = 0; x < list.length && seen < EDGE_STOP; x += 1) {
+          if (list[x].pos < hi) continue
+          if (list[x].mixed) seen += 1
+          hi = seen === EDGE_STOP ? list[x].pos : list[x].pos + 1
+        }
+        if (!spans.has(c)) spans.set(c, [])
+        spans.get(c)!.push([lo, hi])
+      }
+    }
+    for (let i = 0; i < n; i += 1) {
+      const sp = spans.get(this.chrom[i])
+      if (!sp) continue
+      const p = this.pos[i]
+      for (const [lo, hi] of sp) if (p >= lo && p < hi) { out[i] = 1; break }
+    }
+    return out
+  }
+
+  /**
    * How one product reads against a reference built from the OTHERS: the one-parent copy state taken
    * over its whole genome, from its own homozygous calls.
    *
@@ -376,10 +466,14 @@ export class ProductSet {
    * were refused as not a genome. Read this way the consult found all eight at 0.061 to 0.125, every
    * diploid offspring at 0.355 or more, products of the other parent at 0.962 or more, and arrays of
    * noise reading no allele contrast at all.
+   *
+   * Read per chromosome as well as over the genome, because the genome-wide figure is an average a
+   * mixed genome can land under the bar: see productVerdict.
    */
   productAgainst(slot: number, ref: Reference, freqB: ReadonlyMap<string, number>,
-    monomorphic: (id: string, g: 'AA' | 'BB') => boolean): ShareCall {
+    monomorphic: (id: string, g: 'AA' | 'BB') => boolean): { genome: ShareCall; chromosomes: ShareCall[] } {
     const t = emptyShareTally()
+    const byChrom = new Map<string, ShareTally>()
     const alleles = this.alleles[slot]
     const hets = this.hets[slot]
     for (let i = 0; i < this.index.size; i += 1) {
@@ -391,9 +485,15 @@ export class ProductSet {
       // A call is read as the B allele frequency it stands for: 0 or 1 homozygous, 0.5 heterozygous.
       // The heterozygous calls carry the test: a diploid offspring is heterozygous wherever its
       // other parent gave the other allele, and that is r near 0.5 where a product reads near 0.
-      addShare(t, g, v === NONE ? 0.5 : v === B ? 1 : 0, freqB.get(id), monomorphic(id, g))
+      const y = v === NONE ? 0.5 : v === B ? 1 : 0
+      const q = freqB.get(id)
+      const mono = monomorphic(id, g)
+      addShare(t, g, y, q, mono)
+      let c = byChrom.get(this.chrom[i])
+      if (!c) byChrom.set(this.chrom[i], c = emptyShareTally())
+      addShare(c, g, y, q, mono)
     }
-    return shareCall(t)
+    return { genome: shareCall(t), chromosomes: [...byChrom.values()].map(shareCall) }
   }
 
   /**
@@ -465,6 +565,17 @@ export const UNIFORM_WINDOW_BP = 5_000_000
 export const UNIFORM_MIN_MARKERS = 50
 /** A window disagreeing at under this share of the genome's median ratio is masked. */
 export const UNIFORM_RELATIVE_MAX = 0.6
+/** Disagreeing markers past a masked run's edge at which the mask stops widening: one error is
+ *  let through, the second disagreement is the stretch's end. */
+export const EDGE_STOP = 2
+/**
+ * Window grids the uniform test runs on, by start offset in base pairs. Two, the second shifted half a
+ * window, so a stretch a boundary splits in two still fills most of a window on the other grid. Each
+ * product of a parent scored against a rebuild from the others, windows where it reads that parent's
+ * allele absent over 5%: S23, 3 on one grid and 1 on two; GSE148488, 420 and 404, the rest there being
+ * its drop-in products' own errors. It masks 10 to 17% more markers.
+ */
+export const UNIFORM_OFFSETS: readonly number[] = [0, UNIFORM_WINDOW_BP / 2]
 
 /** Products a haploid-staged group needs before it can judge the arrays outside it. One under the
  *  build floor: the depth leave-one-out already judges every member of a group at the floor. */
@@ -476,19 +587,46 @@ export interface JudgedProduct {
   id: string
   verdict: ProductVerdict
   call: ShareCall
+  /** Chromosomes reading in the range where one missing this parent's copy reads. */
+  parentAbsent: number
   /** Judged against a rebuild from the group without it, or, for an array outside the group,
    *  against the group's whole rebuild. */
   against: 'the others' | 'the group'
 }
 
-const verdictOf = (c: ShareCall): ProductVerdict =>
-  c.state === 'other-lost' ? 'product' : c.state === 'parent-lost' ? 'not this parent' : 'refused'
+/**
+ * A product reads this parent's copy alone over its genome, AND no chromosome of it reads as if this
+ * parent's copy were missing.
+ *
+ * WHY BOTH. The genome-wide figure is an average, and a chromosome with no template has no allele
+ * contrast, so it reads near zero like a product's. A chaotic diploid offspring of GSE148488
+ * (GSM4472405: 7 chromosomes one copy, 8 no template, 5 disomic, 2 missing this parent) averaged
+ * under 0.20 and was admitted as a product in 78 of 163 rebuilds.
+ *
+ * WHY THIS TEST OF THE CHROMOSOMES. A product of the parent carries only the parent's chromosomes, so
+ * none can read in the range where a chromosome lacking the parent's copy reads (PARENT_LOST_LOW, the
+ * 5% quantile of that range measured on Table S3). Rebuild error lifts a product's chromosomes, but not
+ * that far: over every rebuild from four to seven of the GSE148488 father's pronuclei, and from four or
+ * five of S23's, the highest chromosome of a withheld product read 0.626, and of GSM4472405 0.702 or
+ * more. A share-of-chromosomes test was tried first and dropped: rebuild error from four products put
+ * real products as low as 0.52 one-copy, under the chaotic cell's 0.58. Where no chromosome carries
+ * enough markers to be read alone, as on a marker subset, the genome stands.
+ */
+export function productVerdict(genome: ShareCall, chromosomes: readonly ShareCall[]):
+{ verdict: ProductVerdict; parentAbsent: number } {
+  const parentAbsent = chromosomes.filter((c) => c.state !== 'undecided' && c.state !== 'no-template'
+    && c.r >= PARENT_LOST_LOW).length
+  const verdict: ProductVerdict = genome.state === 'other-lost'
+    ? (parentAbsent === 0 ? 'product' : 'refused')
+    : genome.state === 'parent-lost' ? 'not this parent' : 'refused'
+  return { verdict, parentAbsent }
+}
 
 /**
  * Which arrays are products of the parent a group was built from. Each member is judged against a
  * reference built from the OTHER members; each candidate, an array outside the group, against the
  * whole group's. A product is one when it reads the other parent's copy absent across its genome
- * (the copy state's `other-lost`, r under 0.20); not this parent's when it reads the parent's own
+ * (the copy state's `other-lost`, r under 0.20) and no chromosome reads its copy missing (productVerdict); not this parent's when it reads the parent's own
  * absent (`parent-lost`, over 0.75); refused otherwise, which is a diploid, a mixture, or calls with
  * no allele contrast (`no-template`).
  *
@@ -507,14 +645,14 @@ export function judgeProducts(
   const out: JudgedProduct[] = []
   for (const id of members) {
     const ref = ps.build(Math.min(mMin, members.length - 1), [...outside, id], undefined, freqB)
-    const call = ps.productAgainst(slot(id), ref, freqB, monomorphic)
-    out.push({ id, verdict: verdictOf(call), call, against: 'the others' })
+    const { genome, chromosomes } = ps.productAgainst(slot(id), ref, freqB, monomorphic)
+    out.push({ id, ...productVerdict(genome, chromosomes), call: genome, against: 'the others' })
   }
   if (candidates.length) {
     const ref = ps.build(mMin, outside, undefined, freqB)
     for (const id of candidates) {
-      const call = ps.productAgainst(slot(id), ref, freqB, monomorphic)
-      out.push({ id, verdict: verdictOf(call), call, against: 'the group' })
+      const { genome, chromosomes } = ps.productAgainst(slot(id), ref, freqB, monomorphic)
+      out.push({ id, ...productVerdict(genome, chromosomes), call: genome, against: 'the group' })
     }
   }
   return out

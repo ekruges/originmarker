@@ -40,15 +40,20 @@ const src = readFileSync(new URL('./scoreSample.ts', import.meta.url), 'utf8')
   for (const p of pushes) {
     assert.ok(/cause:/.test(p), `a refusal record without a cause: {${p.trim().slice(0, 80)}}`)
     assert.ok(/measured:/.test(p), `a refusal record without its measurement: {${p.trim().slice(0, 80)}}`)
-    const cause = /cause: '([a-z-]+)'/.exec(p)?.[1]
-    assert.ok(cause === 'proxy' || (cause && isPhysical(cause)),
-      `cause '${cause}' is neither physical nor 'proxy'. The closed list: ${PHYSICAL_CAUSES.join(', ')}`)
+    // A literal, or `stageCause`, the stage's own cause, typed to the same closed list.
+    const expr = /cause: ([^,\n]+)/.exec(p)?.[1] ?? ''
+    const literals = [...expr.matchAll(/'([a-z-]+)'/g)].map((m) => m[1])
+    assert.ok(literals.length || /\bstageCause\b/.test(expr), `a cause that is neither a name nor stageCause: ${expr}`)
+    for (const cause of literals) {
+      assert.ok(cause === 'proxy' || isPhysical(cause),
+        `cause '${cause}' is neither physical nor 'proxy'. The closed list: ${PHYSICAL_CAUSES.join(', ')}`)
+    }
   }
 }
 
 // 3. THE LIST IS CLOSED. Adding a cause is a decision about what counts as a physical failure,
 // and it should show up here as one, not slip in through a string.
 assert.deepEqual([...PHYSICAL_CAUSES], ['no-template', 'no-genotype-signal', 'second-genome',
-  'no-intensity-reference', 'parents-uninformative', 'parent-not-loaded'])
+  'no-intensity-reference', 'parents-uninformative', 'parent-not-loaded', 'baf-displaced'])
 
 console.log('  ok   refusals.check.ts')

@@ -63,8 +63,9 @@ import {
   emptySameHom, addSameHom, dropIn, MIN_SAME_HOM, onParentScale, type SameHomTally,
   type PanelCalibration, type FounderPanel,
 } from './answerKeys.ts'
+import type { PhysicalCause } from './refusals.ts'
 import {
-  emptyShareTally, addShare, shareCall, disomicFraction, NORMAL_MAJORITY_MIN,
+  emptyShareTally, addShare, shareCall, normalFraction, NORMAL_MAJORITY_MIN,
   type ShareTally, type ShareCall,
 } from './oneParentState.ts'
 import {
@@ -699,7 +700,7 @@ export async function scoreSample(input: {
       c.copyState = sc
     }
   }
-  const disomic = disomicFraction([...shareCalls.values()])
+  const normal = normalFraction([...shareCalls.values()])
   if (!mat && [...shareCalls.values()].filter((x) => x.state === 'disomic').length >= BIPARENTAL_AUTOSOMES_MIN) {
     for (const c of result.chroms) {
       const sc = shareCalls.get(c.chrom)
@@ -818,6 +819,10 @@ export async function scoreSample(input: {
   const uninterpretable = result.stage?.stage === 'failed'
   // THE NUMBERS EVERY STAGE REFUSAL FIRED ON, so each record carries its measurement.
   const stageGate = `stage.${result.stage?.refusedBy ?? 'unknown'}`
+  // A STAGE THAT NAMED A PHYSICAL FAILURE is that failure for every claim it clears. The ceiling, a
+  // declared failure and the call-rate floor name none, and stay proxies.
+  const stageCause: PhysicalCause | 'proxy' = result.stage?.refusedBy === 'no-genotype-signal'
+    || result.stage?.refusedBy === 'second-genome' ? result.stage.refusedBy : 'proxy'
   const stageMeasured = { heterozygosity: profile.hetRate, callRate: profile.callRate }
   // THE ANSWER KEYS, reported whatever uses them, so the parent-free and parent-based readings can be
   // set side by side on any cell that has both.
@@ -832,7 +837,7 @@ export async function scoreSample(input: {
       panel: acc.informationPanel ? informationRatio(acc.informationPanel) : NaN,
     },
     heterozygositySpread: spread,
-    disomicFraction: disomic,
+    normalFraction: normal,
   }
   // DOES THIS CELL'S GENOTYPE CHANNEL WORK? The stage refusal fires on heterozygosity, which drop-in
   // raises without moving which parent's allele is present: on the cells it refuses in GSE148488 the
@@ -857,7 +862,7 @@ export async function scoreSample(input: {
     for (const c of result.chroms) {
       for (const claim of ['aneuploidy', 'lostParent', 'aneuploidyParent', 'mixed', 'alleleGain'] as const) {
         if (c[claim] === undefined || alleleClaims.has(claim)) continue
-        result.refusals!.push({ claim, chrom: c.chrom, gate: stageGate, cause: 'proxy',
+        result.refusals!.push({ claim, chrom: c.chrom, gate: stageGate, cause: stageCause,
           measured: stageMeasured, withheld: c[claim] })
       }
     }
@@ -880,13 +885,13 @@ export async function scoreSample(input: {
   // under its physical cause, until a normal majority can be shown from the alleles.
   const dropInCell = result.stage?.dropInCorrected !== undefined
   const dropInMeasured = { dropIn: result.stage?.dropInCorrected ?? NaN, heterozygositySpread: spread,
-    disomicFraction: disomic }
+    normalFraction: normal }
   // A NORMAL MAJORITY, SHOWN FROM THE ALLELES, IS WHAT COPY NUMBER NEEDS, on every array and not only
   // on a drop-in one. The intensity is read against this array's own per-chromosome median, which is a
   // normal chromosome only when most are. The disomic fraction asks that of the alleles directly: 0.000
   // to 0.727 on cells published chaotic, 0.864 to 1.000 on the rest, 0 on arrays whose calls are noise.
   // Where it cannot be computed, a drop-in array has shown none and every other array is read as before.
-  const normalMajority = Number.isFinite(disomic) ? disomic >= NORMAL_MAJORITY_MIN : !dropInCell
+  const normalMajority = Number.isFinite(normal) ? normal >= NORMAL_MAJORITY_MIN : !dropInCell
   const intensityWithheld = !uninterpretable && !normalMajority
   if (intensityWithheld) {
     for (const c of result.chroms) {
@@ -973,7 +978,7 @@ export async function scoreSample(input: {
   // percent heterozygous, which is a mixed or contaminated sample rather than a genome, and they
   // read as unrelated to everyone including themselves.
   if (uninterpretable) {
-    result.refusals!.push({ claim: 'relatedness', gate: stageGate, cause: 'proxy',
+    result.refusals!.push({ claim: 'relatedness', gate: stageGate, cause: stageCause,
       measured: stageMeasured })
   }
   const rel = uninterpretable ? null : relate(
@@ -1188,7 +1193,7 @@ export async function scoreSample(input: {
         ? { claim: 'segment', chrom: sg.chrom, gate: 'normal-majority', cause: 'no-intensity-reference',
           measured: dropInMeasured, withheld: sg }
         : { claim: 'segment', chrom: sg.chrom,
-          gate: chaoticGenome ? 'copy-scan.chaotic-genome' : stageGate, cause: 'proxy',
+          gate: chaoticGenome ? 'copy-scan.chaotic-genome' : stageGate, cause: chaoticGenome ? 'proxy' : stageCause,
           measured: { ...stageMeasured, heterozygositySpread: spread }, withheld: sg })
     }
   }
@@ -1211,7 +1216,7 @@ export async function scoreSample(input: {
     // `copy` is already empty here and its segments already recorded, so these are the absence
     // segments alone and nothing is counted twice.
     for (const sg of allSegments) {
-      result.refusals!.push({ claim: 'segment', chrom: sg.chrom, gate: stageGate, cause: 'proxy',
+      result.refusals!.push({ claim: 'segment', chrom: sg.chrom, gate: stageGate, cause: stageCause,
         measured: stageMeasured, withheld: sg })
     }
   }
@@ -1363,11 +1368,14 @@ export async function scoreSample(input: {
     // that failed its own quality inference is not a conservative reading of weak data, it is
     // reading noise as biology. The event list stays empty, on the same condition and for the
     // same reason as the aneuploidy and segment scans above it.
-    if (uninterpretable || dropInCell) {
-      // On a drop-in array the copy-neutral detectors read heterozygosity runs, which drop-in fills
-      // in. No physical cause is established for withholding them, so this is recorded as a proxy.
-      result.refusals!.push({ claim: 'findings', gate: uninterpretable ? stageGate : 'stage.drop-in',
-        cause: 'proxy', measured: uninterpretable ? stageMeasured : dropInMeasured })
+    //
+    // A DROP-IN ARRAY IS READING A GENOME, and its detectors run, each judged on what drop-in does to
+    // it. Drop-in only ever adds heterozygous calls, so it can break a run of homozygosity and never
+    // make one: a run or a depleted stretch found through it is there despite it. What drop-in does
+    // corrupt is the B allele frequency, which triploidy reads, so that one is withheld under its
+    // physical cause; and the complex-genome count reads copy number, so it goes where copy number goes.
+    if (uninterpretable) {
+      result.refusals!.push({ claim: 'findings', gate: stageGate, cause: stageCause, measured: stageMeasured })
       result.findings = []
     } else {
     log('SCAN', 'looking for copy-neutral loss of heterozygosity')
@@ -1408,18 +1416,47 @@ export async function scoreSample(input: {
     ]
     log('SCAN', `runs of homozygosity and ploidy over ${selfMarkers.length} called markers`)
     await breathe()
-    const tri = detectTriploidy([...myBaf.values()])
-    if (tri) findings.push(tri)
+    if (dropInCell) {
+      result.refusals!.push({ claim: 'triploidy', gate: 'stage.drop-in', cause: 'baf-displaced',
+        measured: dropInMeasured })
+    } else {
+      const tri = detectTriploidy([...myBaf.values()])
+      if (tri) findings.push(tri)
+    }
     // A genome with too little undisturbed remainder cannot self-reference, which blocks
-    // every origin call on the array rather than only on the affected chromosomes.
-    const deviant = new Set([...whole, ...result.segments.map((sg) => sg.chrom)]).size
-    const cx = detectComplex(deviant, cnByChrom.size)
-    if (cx) findings.push(cx)
-    log('SCAN', `taxonomy: ${findings.length} finding`
-      + `${findings.length === 1 ? '' : 's'} across `
-      + `${new Set(findings.map((f) => f.chrom)).size} chromosome(s)`)
+    // every origin call on the array rather than only on the affected chromosomes. It counts
+    // copy-number events, so where copy number is withheld it is withheld with it, on record.
+    if (copyWithheld) {
+      result.refusals!.push(intensityWithheld
+        ? { claim: 'complex', gate: 'normal-majority', cause: 'no-intensity-reference', measured: dropInMeasured }
+        : { claim: 'complex', gate: 'copy-scan.chaotic-genome', cause: 'proxy',
+          measured: { ...stageMeasured, heterozygositySpread: spread } })
+    } else {
+      const deviant = new Set([...whole, ...result.segments.map((sg) => sg.chrom)]).size
+      const cx = detectComplex(deviant, cnByChrom.size)
+      if (cx) findings.push(cx)
+    }
+    // A COPY-NEUTRAL CLAIM SAYS THERE ARE TWO COPIES, and where copy number has no reference the count
+    // is unknown. A chromosome down to one copy reads homozygous end to end, which is a run; with
+    // copy number read it is filtered as a loss above, and without it the run is classed as a
+    // disomy of one parent. On GSE148488 that put a UPD or isodisomy on 10 chromosomes of 4 cells
+    // whose copy number is withheld, every one of them published monosomic or deleted. So these
+    // go where copy number goes, on record, under the same cause.
+    const COPY_NEUTRAL = new Set(['cnn-loh', 'isodisomy', 'heterodisomy', 'segmental-upd'])
+    const kept = copyWithheld ? findings.filter((f) => !COPY_NEUTRAL.has(f.cls)) : findings
+    for (const f of findings) {
+      if (kept.includes(f)) continue
+      result.refusals!.push(intensityWithheld
+        ? { claim: 'findings', chrom: f.chrom, gate: 'normal-majority', cause: 'no-intensity-reference',
+          measured: dropInMeasured, withheld: f }
+        : { claim: 'findings', chrom: f.chrom, gate: 'copy-scan.chaotic-genome', cause: 'proxy',
+          measured: { ...stageMeasured, heterozygositySpread: spread }, withheld: f })
+    }
+    log('SCAN', `taxonomy: ${kept.length} finding`
+      + `${kept.length === 1 ? '' : 's'} across `
+      + `${new Set(kept.map((f) => f.chrom)).size} chromosome(s)`)
     await breathe()
-    result.findings = findings
+    result.findings = kept
     }
     // Which walls stand depends on what the user actually supplied, so it is recorded here
     // rather than guessed at display time. Reading these as undefined would tell a
@@ -2085,7 +2122,7 @@ export async function scoreSample(input: {
       parentAbsent: autosomes.filter((c) => c.lostParent && !c.aneuploidy).length,
       gainByAlleles: autosomes.filter((c) => c.alleleGain?.verdict === 'gain' && c.aneuploidy !== 'gain').length,
       allelesStand: (uninterpretable && alleleClaims.size > 0) || intensityWithheld,
-      disomicFraction: disomic,
+      normalFraction: normal,
     })
     // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader nothing on the
     // sample is reportable, which is the same to the person reading it. Recorded as soft.

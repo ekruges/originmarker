@@ -1,0 +1,61 @@
+Pre-registration: withhold arrays, rebuild automatically, compare with the measured parent
+=========================================================================================
+
+Written 11 November 2026 against 5.52.0, BEFORE audit/withholding.ts is run. Founder panel: the
+shipped web/public/panel/founders-gse186441.tsv.gz. Thresholds are the shipped ones throughout.
+
+MATERIAL WITH A MEASURED PARENT TO SCORE AGAINST
+  GSE148488   8 paternal pronuclei of one sperm donor, his bulk array GSM4472397 (truth, never
+              given to a rebuild), 7 maternal pronuclei, 2 egg donors, and the 31 cells with a
+              published Table S3 karyotype (his diploid children, and two published failures)
+  S23         18 laboratory cells and the sperm donor's bulk array S23-00 (truth, never given to a
+              rebuild). Paternal by the sample sheet AND by the consult's test against S23-00:
+              S23-02, -04, -05, -09, -11, -13. Maternal by both: S23-01, -03, -06, -07, -08, -10,
+              -14, -18. Unsettled: S23-12, -15 (sheet: no usable DNA), S23-16, -17 (sheet: P).
+
+A. PRODUCTS WITHHELD. Every subset S of the paternal products with |S| >= 4 (GSE148488: 163,
+   S23: 22) is the group; every other array is judged against it (judgeProducts).
+   A1  Every member of every subset reads 'product', judged against the others.
+   A2  Every withheld paternal product reads 'product' against every subset.
+   A3  No maternal pronucleus, egg donor, sheet-maternal S23 cell, or Table S3 cell reads
+       'product' against any subset. (A Table S3 cell that has lost most maternal chromosomes would
+       be the exception the test is allowed to find; any such case is reported by name.)
+   A4  For every subset of >= 5, the masked rebuild's measured contamination (homozygous calls
+       where the truth array is heterozygous) is below the unmasked rebuild's.
+   A5  Measured contamination is reported against the model figure. Expected: model understates.
+
+B. ONE-PARENT COPY STATE AGAINST WITHHELD REBUILDS (GSE148488). Variants: the 8 masked and
+   unmasked; the 8 leave-one-out rebuilds of 7; 6 random subsets of 6 and 6 of 5, seeded; and the
+   5.51.0 five (80, 81, 82, 83, 85) masked and unmasked. Each scored per autosome on the 31 cells
+   and the 15 pronuclei, against the measured father GSM4472397 scored the same way.
+   B1  Every masked variant agrees with the measured father on at least 630 of the informative
+       autosomes of the 31 cells.
+   B2  No variant gives a wrong parent beyond GSM4472405 chr4 and GSM4552382 chr2.
+   B3  Every masked variant reads at most 4 published-normal chromosomes as having lost a copy
+       that the measured father reads disomic.
+   B4  The copy-number decision (disomic fraction at or over 0.80) is the measured father's on at
+       least 30 of 31 cells for every masked variant.
+   B5  Every paternal pronucleus, against every variant WITHOUT it, reads 'other-lost' on at least
+       95% of its decided autosomes; every maternal pronucleus reads 'parent-lost' on at least 95%.
+   B6  Reported: unmasked against masked agreement, variant by variant.
+
+C. EACH S23 CELL WITHHELD, THE REBUILD AUTOMATIC. For each cell k, om reconstruct over the other
+   17 S23 cells (the shipped command: stage sort, grouping, judging, mask), then k is scored by
+   scoreSample against that rebuild and against S23-00 measured.
+   C1  The rebuild from 17 uses exactly the paternal products other than k, for all 18.
+   C2  Stage, ploidy and drop-in correction identical on 18 of 18.
+   C3  Every copy-number row (whole-chromosome and segmental, made or withheld) identical on 18 of 18.
+   C4  Per-autosome copy state identical on at least 97% of the autosomes decided in both.
+
+D. THE GERMLINE PAGE, end to end on its public example products in a browser: products load, the
+   pairs group, the build judges every array and reports the mask, and parental origin is called.
+   D1  The build completes with every example product admitted and states a masked count.
+   D2  Parental origin is called for every example array, and no console error is raised.
+
+A failed prediction is reported as a failure.
+
+ADDENDUM, BEFORE ANY PART WAS SCORED. The smoke run of withholding-score.ts on one cell (S23-07, a
+haploid maternal pronucleus, against S23-00) found 5.52.0 withholding copy number from every haploid
+product: the normal-majority test counted disomic chromosomes only, and a haploid product has none.
+Fixed first (normalFraction: the commonest copy state's share, disomic or one copy of either parent),
+so every part below scores the fixed code. B4's "disomic fraction" reads "normal fraction".

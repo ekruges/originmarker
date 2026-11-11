@@ -9,6 +9,82 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.52.1 "Haplotype Block"
+
+**Withholding arrays and rebuilding from the rest found three faults in 5.52.0, and all three are
+fixed.** Every product of a parent was scored against a rebuild from its siblings, every array outside
+a group was judged against it, and each laboratory cell of series S23 was withheld in turn, the father
+rebuilt by `om reconstruct` from the other seventeen and the cell scored against that rebuild and against
+the measured sperm donor. Pre-registered in audit/withholding-preregistration.txt; scored in
+audit/withholding-result-2026-11-11.txt.
+
+**Copy number was withheld from every haploid product.** The normal-majority test counted disomic
+chromosomes, and a haploid product has none: it reads one copy everywhere. It now takes the share of the
+genome's commonest copy state, two copies or one copy of either parent, so a haploid reads its own
+majority and a chaotic genome still reads none. No template is never a state a majority can share, so
+noise still fails. The Zuccaro cells read the same as before; on S23 the copy-number scan runs again on
+every pronucleus, and S23-14's chr4 loss at 0.07 to 42.0 Mb, which the laboratory's sheet records as a
+segmental loss of chr4 5.8 to 38, is reported against the rebuilt father as against the measured one.
+
+**The mask stopped at window boundaries, and a shared stretch does not.** Where a stretch every product
+carries identically fills only part of a window, the window read diluted and stayed in, and a product
+carrying the other haplotype read its father's allele absent there. The mask now runs on two window
+grids, the second shifted half a window, and walks outward from each masked run to the second marker
+where the products disagree. Each product scored against a rebuild from the others, windows where it
+reads its father's allele absent over 5%:
+
+| | no mask | 5.52.0 | now |
+|---|---|---|---|
+| S23, each of 6 against the other 5 | 136 | 10 | 1 |
+| GSE148488, each of 8 against the other 7 | 537 | 421 | 404 |
+
+The rest on GSE148488 are its drop-in products' own errors. Against the father's own array, the eight
+pronucleus rebuild's homozygous calls where he is heterozygous fall from 2.081% to 1.997%.
+
+**A chaotic diploid could pass as a product.** The product test read the genome as one average, and a
+chromosome with no template has no allele contrast, so it reads like a product's. GSM4472405, a chaotic
+cell of GSE148488 (7 chromosomes one copy, 8 no template, 5 disomic, 2 missing the father), averaged
+under the bar and was admitted in 78 of 163 rebuilds. A product carries only its parent's chromosomes, so
+now none of them may read in the range where a chromosome missing that parent's copy reads, from 0.675
+(the 5% quantile of that range on Table S3). Over every rebuild from four to seven of the GSE148488
+father's pronuclei and four or five of S23's, a withheld product's highest chromosome read at most 0.626,
+and GSM4472405's at least 0.702. The rule was chosen after the first pass found the fault; its threshold
+was measured before it. A share-of-chromosomes rule was tried first and dropped, since rebuild error
+from four siblings put real products under the chaotic cell. A chromosome a product lacks reads no
+template and does not count, and on a marker subset too sparse to read any chromosome alone the genome
+reading stands.
+
+**The last stand-in gate on a drop-in array is gone.** The detectors for events that leave copy number
+unchanged were switched off on every drop-in array with no physical cause named. Each is now judged on
+what drop-in does to it. Drop-in only ever adds heterozygous calls, so it can break a run of
+homozygosity and never make one: those detectors run. Over the 31 Zuccaro cells, the 7 drop-in cells
+gave no finding on a chromosome published normal, and the 24 others one. Triploidy reads where the B
+allele frequencies band, which drop-in moves (two haploid pronuclei read diploid by their band at drop-in
+of 0.30), so it is withheld there under a new physical cause, `baf-displaced`. The complex-genome count
+reads copy number, so it is withheld wherever copy number is, on record; before, it was dropped silently.
+
+**A UPD on a chromosome with one copy.** A chromosome down to one copy reads homozygous end to end. Where
+copy number is read it is filtered as a loss; where copy number had no reference, the run was classed as a
+disomy of one parent, which asserts two copies. On GSE148488 that put a UPD or isodisomy on 10 chromosomes
+of 4 chaotic cells, every one published monosomic or deleted. Copy-neutral classes (copy-neutral LOH,
+isodisomy, heterodisomy, segmental UPD) now go where copy number goes, under the same cause. This was in
+5.52.0 too, since the normal-majority gate it added withholds copy number on chaotic cells.
+
+**The noise bar means something physical.** The information ratio reads as the share of an array's
+homozygous calls that are random, which a synthetic check now pins: a sample whose calls are a fraction
+f random reads f. `NO_INFORMATION_MIN` was 0.60; it is 0.50, the point past which an array is more noise
+than genome and every reading built on its genotypes, the drop-in correction included, reads the noise.
+No decision on the laboratory's 95 arrays or the 31 Zuccaro cells moves. The one array near it, S12-56,
+read 0.565 against the earlier panel and 0.608 against this one, either side of the old bar; it is now
+refused against both, as about 60% random. The refusal says so in those words.
+
+**A failed stage's refusals carry its cause.** When the stage names a physical failure, no genotype
+signal or a second genome, every claim it clears is now recorded under that cause rather than as a proxy.
+The call-rate floor, a declared failure and the bare heterozygosity ceiling still name none, and stay
+proxies.
+
+---
+
 ## 5.52.0 "Haplotype Block"
 
 **One parent, rebuilt from the children, now gives what two measured parents give.** The laboratory's

@@ -798,7 +798,8 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
     const accepted = judged.filter((j) => j.verdict === 'product').map((j) => j.id)
     const verdictLines = () => judged.map((j) => `  ${j.id.padEnd(28)} ${j.verdict.padEnd(16)} `
       + `r ${Number.isFinite(j.call.r) ? j.call.r.toFixed(3) : 'n/a'}  base ${Number.isFinite(j.call.base)
-        ? j.call.base.toFixed(3) : 'n/a'}  against ${j.against}\n`).join('')
+        ? j.call.base.toFixed(3) : 'n/a'}  chromosomes reading this parent missing ${j.parentAbsent}`
+      + `  against ${j.against}\n`).join('')
     if (accepted.length < minProducts) {
       process.stderr.write(verdictLines())
       die(`${accepted.length} array(s) read as products of this parent, under the ${minProducts} this `

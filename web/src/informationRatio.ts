@@ -41,8 +41,19 @@ import type { AB } from './informativity.ts'
 
 /** At or below this, the calls are informative. Not shipped as a positive claim: see the run note. */
 export const INFORMATIVE_MAX = 0.30
-/** At or above this, the calls carry no information. The cut the shipped reason fires on. */
-export const NO_INFORMATION_MIN = 0.60
+/**
+ * At or above this, most of the array's homozygous calls are random. The cut the shipped reason
+ * fires on.
+ *
+ * WHY HALF. R is the share of homozygous calls that are random: a random call is opposite at the
+ * expected rate and a genome's call almost never is, so an array whose calls are a fraction f random
+ * reads R = f + (1 - f)g, g being the 0.02 to 0.07 a clean array reads. Half is the point past which
+ * the genotypes are more noise than genome, and every reading built on them, heterozygosity and the
+ * drop-in removed from it included, is reading the noise. On the laboratory's 95 arrays and GSE148488
+ * nothing sits between 0.33 and 0.56 but one array, S12-56, at 0.565 and 0.608 on the two panels it
+ * has been read against; at 0.60 it sat either side of the bar by panel.
+ */
+export const NO_INFORMATION_MIN = 0.50
 /** A reference whose A/B coding is flipped against the sample reads near 2, not 1. */
 export const FLIPPED_CODING_MIN = 1.5
 /** Below this many shared homozygous markers the ratio is not estimated. */
@@ -106,9 +117,10 @@ export const whyNoInformation = (r: number, reference: string): string | undefin
       + 'anything here is believed'
   }
   if (band !== 'no-information') return undefined
-  return `this array's genotype calls carry no information about any genome: against `
+  return `this array's genotype calls are mostly noise: against `
     + `${reference} they disagree at opposite homozygotes at ${r.toFixed(2)} of the rate `
-    + 'expected from calls that say nothing, where 1.0 is that rate exactly. This is not a '
+    + 'expected from calls that say nothing, where 1.0 is that rate exactly, so about '
+    + `${Math.round(Math.min(1, r) * 100)}% of its homozygous calls are random. This is not a `
     + 'mixture of two people, which reads below 1 rather than at it, and it is not a limit of '
     + 'the markers, which are there. Where the same amplified material has been run twice, the '
     + 'failure reproduced every time, so running that product again is unlikely to help'

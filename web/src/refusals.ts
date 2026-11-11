@@ -20,7 +20,7 @@
 export const PHYSICAL_CAUSES = [
   /** The DNA is not there, on the whole array or on this chromosome. */
   'no-template',
-  /** The calls carry no information about any genome: hybridisation or clustering failed. */
+  /** Most of the calls are random, so they say more about the noise than about any genome. */
   'no-genotype-signal',
   /** Another person's DNA is in the reaction, where the claim needs a single genome. */
   'second-genome',
@@ -30,6 +30,9 @@ export const PHYSICAL_CAUSES = [
   'parents-uninformative',
   /** The claim needs a parent array that was not supplied. */
   'parent-not-loaded',
+  /** Drop-in moved the B allele frequencies, so where they band no longer says how many copies
+   *  there are: two haploid pronuclei of GSE148488 read their band as diploid at drop-in of 0.30. */
+  'baf-displaced',
 ] as const
 
 export type PhysicalCause = (typeof PHYSICAL_CAUSES)[number]
@@ -38,7 +41,7 @@ export type PhysicalCause = (typeof PHYSICAL_CAUSES)[number]
  *  from these, so withholding at the source withholds them too. */
 export type ClaimKind =
   | 'aneuploidy' | 'lostParent' | 'aneuploidyParent' | 'mixed' | 'alleleGain'
-  | 'segment' | 'findings' | 'relatedness' | 'sample'
+  | 'segment' | 'findings' | 'triploidy' | 'complex' | 'relatedness' | 'sample'
 
 export interface Refusal {
   claim: ClaimKind
