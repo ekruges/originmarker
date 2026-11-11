@@ -78,3 +78,44 @@ upward at E), partial if it is not. This also keeps an extra copy out of `partia
 copy barely moves the dominant side.
 
 No census row had been produced under the original rule. P1 to P7 stand unchanged.
+
+RESULT OF THE AMENDED RULE, AND ITS WITHDRAWAL
+----------------------------------------------
+Scored on audit/refusal-census.ts, 31 published cells:
+
+  P1  2 of 4 named with the published parent (GSM4472422 chr5, GSM4552389 chr5). GSM4472405 chr16 not
+      reached: that cell's zygosity reads unknown, which gates the allele channel before this rule.
+      GSM4552364 chr16 came out partial.
+  P2  3 of 4 partial; GSM4552420 chr15 named maternal, as published.
+  P3  HOLDS. 0 wrong parents, against 1 at baseline.
+  P4  FAILS. 20 confirmed lost parents against 78 at baseline. 58 correct calls became partial.
+  P6  2 named on chromosomes published normal, both GSM4552387 (chr15, chr21), a biopsy of the embryo
+      whose sisters the consult found read chr13 and chr15 abnormal by two independent channels.
+
+Two errors in the rule, both visible in the census:
+
+1. The floor is measured where both parents are the same homozygote, which is a TWO-copy template.
+   A lost chromosome is a ONE-copy template, on which the absent allele is called far more often,
+   because one dropout is enough where two were needed. On clean single cells the floor reads 0.0003
+   to 0.002 and genuine monosomies read well above it, so they were called partial.
+2. The two-copy level was used as a single binomial rate. Chromosomes vary between themselves far more
+   than binomial sampling allows, so with a thousand markers a two-copy chromosome only modestly above
+   the cell's median rejects it at 1000 to 1. That produced partial calls on chromosomes published
+   normal, six of them on one cell published normal throughout.
+
+The rule is withdrawn. It was committed and never released.
+
+REPLACEMENT, DESIGNED AFTER SEEING THIS RESULT
+----------------------------------------------
+The decision returns to the validated one, HAPLOID_MAX with SURVIVOR_MIN and MIXED_SHARE, with one
+change: its inputs are corrected for the drop-in measured on the cell itself. A heterozygous call at a
+marker where the cell can only be homozygous is drop-in, so the share of heterozygous calls that
+reflects a second copy is (fraction - d) / (1 - d), and each one-parent share is divided by (1 - d).
+This is the over-refusal consult's measured recommendation ("heterozygosity must be read as
+heterozygosity minus drop-in"), which predates this result. On clean cells d is 0.0003 to 0.02 and
+the correction is negligible, so the 78 confirmed calls should stand; on drop-in cells it removes what
+drop-in added.
+
+Because it was chosen after seeing this census, its score on the same census is NOT independent
+validation. It is reported as such, and it needs confirmation on material it was not designed on
+before the claim is made in public.

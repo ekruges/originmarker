@@ -256,7 +256,9 @@ export function hetCallOneParent(
   // there is no "that parent's allele alone" to count, because it carries both. They are NaN
   // rather than zero so a reader cannot mistake an absent quantity for a measured one, and
   // `provisional` is true because one parent defined the informative set.
-  const base = { fraction, informative, onlyA: NaN, onlyB: NaN, provisional: true }
+  // Drop-in is MODELLED here rather than removed from the reading, so the reading is reported as is.
+  const base = { fraction, informative, onlyA: NaN, onlyB: NaN, provisional: true, dropIn: 0,
+    corrected: { fraction, onlyA: NaN, onlyB: NaN } }
   if (informative < minMarkers) {
     return { ...base, ploidy: 'uncalled',
       why: `${informative} markers where the loaded parent is heterozygous is under the `
@@ -381,6 +383,13 @@ export interface HetCall {
   onlyA: number
   onlyB: number
   /**
+   * The drop-in measured on this cell and removed before the verdict, 0 where it could not be
+   * measured. `fraction`, `onlyA` and `onlyB` stay as read, so they are what a reader counts by hand;
+   * `corrected` is what the boundaries were applied to.
+   */
+  dropIn: number
+  corrected: { fraction: number; onlyA: number; onlyB: number }
+  /**
    * Which parent's allele is all that remains, on a uniparental chromosome with two parents
    * loaded and that share at or over SURVIVOR_MIN. Absent otherwise: a uniparental reading with no
    * survivor is a chromosome the arrays are not measuring, not a loss.
@@ -392,10 +401,30 @@ export interface HetCall {
   why: string
 }
 
-export function hetCall(t: HetTally, parents: 1 | 2): HetCall {
+/**
+ * DROP-IN IS REMOVED BEFORE THE BOUNDARIES ARE APPLIED. A heterozygous call at a marker where this
+ * cell can only be homozygous is drop-in, measured at markers where both parents are the same
+ * homozygote (answerKeys.ts). A one-copy chromosome carries those calls too, so on a cell with
+ * drop-in of 0.2 to 0.3 a genuine loss read 0.21 to 0.40 heterozygous and sat between the boundaries,
+ * unnamed: 14 published monosomies over 31 GSE148488 cells. Of what is read heterozygous, the share
+ * that reflects a second copy is (fraction - d) / (1 - d), and a one-parent share loses the d of its
+ * calls that drop-in turned heterozygous, so it is divided by (1 - d). On cells this rule was
+ * validated on d is 0.0003 to 0.02 and the correction is negligible.
+ */
+export function hetCall(t: HetTally, parents: 1 | 2, dropIn = 0): HetCall {
   const fraction = t.informative ? t.het / t.informative : NaN
   const onlyA = t.informative ? (t.onlyA ?? 0) / t.informative : NaN
   const onlyB = t.informative ? (t.onlyB ?? 0) / t.informative : NaN
+  const d = Number.isFinite(dropIn) && dropIn > 0 && dropIn < 1 ? dropIn : 0
+  const corrected = {
+    fraction: Math.max(0, (fraction - d) / (1 - d)),
+    onlyA: Math.min(1, onlyA / (1 - d)),
+    onlyB: Math.min(1, onlyB / (1 - d)),
+  }
+  const read = d > 0
+    ? `${(corrected.fraction * 100).toFixed(1)}% heterozygous where a parent is homozygous, after `
+      + `removing this cell's ${(d * 100).toFixed(1)}% drop-in (${(fraction * 100).toFixed(1)}% as read)`
+    : `${(fraction * 100).toFixed(1)}% heterozygous where a parent is homozygous`
   const provisional = parents === 1
   const lo = provisional ? ONE_PARENT_HAPLOID_MAX : HAPLOID_MAX
   const hi = provisional ? ONE_PARENT_DIPLOID_MIN : DIPLOID_MIN
@@ -406,35 +435,39 @@ export function hetCall(t: HetTally, parents: 1 | 2): HetCall {
       informative: t.informative,
       onlyA,
       onlyB,
+      dropIn: d,
+      corrected,
       provisional,
       why: `${t.informative} informative markers is under the ${MIN_INFORMATIVE} this needs`,
     }
   }
-  if (fraction < lo) {
-    const survivor = parents === 2 && onlyA >= SURVIVOR_MIN ? 'a' as const
-      : parents === 2 && onlyB >= SURVIVOR_MIN ? 'b' as const : undefined
+  if (corrected.fraction < lo) {
+    const survivor = parents === 2 && corrected.onlyA >= SURVIVOR_MIN ? 'a' as const
+      : parents === 2 && corrected.onlyB >= SURVIVOR_MIN ? 'b' as const : undefined
     return {
       ploidy: 'uniparental',
       fraction,
       informative: t.informative,
       onlyA,
       onlyB,
+      dropIn: d,
+      corrected,
       survivor,
       provisional,
-      why: `${(fraction * 100).toFixed(1)}% heterozygous where a parent is homozygous, under `
-        + `${(lo * 100).toFixed(0)}%: one parent's genome and nothing else`,
+      why: `${read}, under ${(lo * 100).toFixed(0)}%: one parent's genome and nothing else`,
     }
   }
-  if (fraction >= hi) {
+  if (corrected.fraction >= hi) {
     return {
       ploidy: 'biparental',
       fraction,
       informative: t.informative,
       onlyA,
       onlyB,
+      dropIn: d,
+      corrected,
       provisional,
-      why: `${(fraction * 100).toFixed(1)}% heterozygous where a parent is homozygous, at or over `
-        + `${(hi * 100).toFixed(0)}%: a second parental contribution is present`,
+      why: `${read}, at or over ${(hi * 100).toFixed(0)}%: a second parental contribution is present`,
     }
   }
   return {
@@ -443,9 +476,11 @@ export function hetCall(t: HetTally, parents: 1 | 2): HetCall {
     informative: t.informative,
     onlyA,
     onlyB,
+    dropIn: d,
+    corrected,
     provisional,
-    why: `${(fraction * 100).toFixed(1)}% sits between the ${(lo * 100).toFixed(0)}% and `
-      + `${(hi * 100).toFixed(0)}% boundaries, which is neither`,
+    why: `${read}, between the ${(lo * 100).toFixed(0)}% and ${(hi * 100).toFixed(0)}% boundaries, `
+      + 'which is neither',
   }
 }
 

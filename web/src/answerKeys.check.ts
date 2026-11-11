@@ -1,12 +1,10 @@
 /**
- * The answer keys count what they say they count, and the allele state follows the cell's own keys.
+ * The answer key counts only markers whose right answer is known, and drop-in is what it says.
  */
 import assert from 'node:assert/strict'
-import {
-  emptySameHom, addSameHom, dropIn, absentAlleleFloor, alleleState, ALLELE_STATE_EVIDENCE,
-} from './answerKeys.ts'
+import { emptySameHom, addSameHom, dropIn } from './answerKeys.ts'
+import { hetCall, emptyHet } from './obligateHet.ts'
 
-// 1. ONLY MARKERS WHERE BOTH PARENTS ARE THE SAME HOMOZYGOTE COUNT.
 {
   const t = emptySameHom()
   addSameHom(t, 'AA', 'AA', 'AA')   // right
@@ -20,41 +18,39 @@ import {
   addSameHom(t, 'AA', 'AA', 'NC')   // one parent uncalled: unknown answer
   assert.deepEqual(t, { n: 5, het: 1, wrong: 2 })
   assert.equal(dropIn(t), 1 / 5)
-  assert.equal(absentAlleleFloor(t), 2 / 5)
   assert.ok(Number.isNaN(dropIn(emptySameHom())), 'no markers is no measurement, not zero')
 }
 
-// 2. THE STATES on a cell with drop-in: a 2% floor, two-copy chromosomes reading 15% one-parent.
+// THE CASE THIS EXISTS FOR. A one-copy chromosome on a cell with 25% drop-in: of 1,346 informative
+// markers 36.5% read heterozygous, 62.1% the surviving parent alone and 1.4% the lost one. Read as
+// is, it sits between the boundaries and names no one. With the drop-in removed it is 15.3%
+// heterozygous and the survivor 82.8%: one parent's genome, and which one.
 {
-  const s = (x: number, y: number, n: number) => alleleState(x, y, n, 0.02, 0.15).state
-  assert.equal(s(15, 700, 1000), 'lost', 'the rarer allele at the floor, the other far over two copies')
-  assert.equal(s(3, 700, 1000), 'lost', 'under the floor is a loss too')
-  assert.equal(s(60, 650, 1000), 'partial', 'dominant far over two copies, rarer well over the floor')
-  assert.equal(s(140, 160, 1000), 'none', 'both sides at the two-copy level')
-  assert.equal(s(40, 180, 1000), 'none',
-    'an extra copy barely moves the dominant side, so it is not read as a partial loss')
+  const n = 1346
+  const t = { ...emptyHet(), informative: n, het: Math.round(0.365 * n),
+    onlyA: Math.round(0.014 * n), onlyB: Math.round(0.621 * n) }
+  const raw = hetCall(t, 2)
+  assert.equal(raw.ploidy, 'uncalled', 'read as is, drop-in leaves it between the boundaries')
+  const fixed = hetCall(t, 2, 0.25)
+  assert.equal(fixed.ploidy, 'uniparental')
+  assert.equal(fixed.survivor, 'b', 'the second parent survives, so the first parent\'s copy is gone')
+  assert.ok(Math.abs(fixed.fraction - raw.fraction) < 1e-12, 'what is read is kept as read')
+  assert.ok(/after removing this cell's 25\.0% drop-in/.test(fixed.why), `and the reason says so: ${fixed.why}`)
 }
 
-// 3. ERROR-FREE MATERIAL, which is where a rule on the rarer side alone could not fire: two-copy
-// chromosomes carry no one-parent calls, so the floor and the two-copy level are both zero.
-assert.equal(alleleState(0, 980, 1000, 0, 0).state, 'lost')
-assert.equal(alleleState(0, 0, 1000, 0, 0).state, 'none')
+// ON A CLEAN CELL THE CORRECTION IS NEGLIGIBLE, so the calls this rule was validated on stand.
+{
+  const n = 1000
+  const t = { ...emptyHet(), informative: n, het: 120, onlyA: 10, onlyB: 870 }
+  assert.equal(hetCall(t, 2, 0.002).ploidy, hetCall(t, 2).ploidy)
+  assert.equal(hetCall(t, 2, 0.002).survivor, hetCall(t, 2).survivor)
+}
 
-// 4. NOTHING MEASURED, NOTHING CALLED.
-assert.equal(alleleState(10, 700, 1000, NaN, 0.15).state, 'undecided')
-assert.equal(alleleState(10, 700, 1000, 0.02, NaN).state, 'undecided')
-
-// 5. THE CASE THAT SETS THE RULE'S SHAPE. One trophectoderm biopsy, published 45,XY,-6, carries its
-// chr6 monosomy at 6.0% rarer and 69.6% dominant over 1,123 markers and a chr21 published normal at
-// 6.8% and 70.7% over 263. Both are partial: the data do not separate them, and a rule that named a
-// parent on one would name it on both.
-assert.equal(alleleState(67, 782, 1123, 0.02, 0.15).state, 'partial')
-assert.equal(alleleState(18, 186, 263, 0.02, 0.15).state, 'partial')
-
-// 6. A LIKELIHOOD RATIO SCALES WITH THE EVIDENCE: a dominant 40% over 1,000 markers is decisive,
-// over ten it is four markers and proves nothing.
-assert.equal(alleleState(5, 400, 1000, 0.02, 0.15).state, 'lost')
-assert.equal(alleleState(0, 4, 10, 0.02, 0.15).state, 'none')
-assert.ok(Math.abs(ALLELE_STATE_EVIDENCE - Math.log(1000)) < 1e-12)
+// A TWO-COPY CHROMOSOME ON A DROP-IN CELL STAYS TWO COPIES: 70% heterozygous at 25% drop-in is 60%.
+{
+  const n = 1000
+  const t = { ...emptyHet(), informative: n, het: 700, onlyA: 150, onlyB: 150 }
+  assert.equal(hetCall(t, 2, 0.25).ploidy, 'biparental')
+}
 
 console.log('  ok   answerKeys.check.ts')
