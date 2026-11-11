@@ -136,3 +136,29 @@ printed beside it, so she can read any refusal herself.
 ## Order
 0 and 1 now. 2 next, since every later phase consumes it. 3 to 6 each pre-registered in its own
 commit before it is scored. Nothing in 3 or 4 ships before the census exists to measure it against.
+
+## Phase 7: one reconstructed parent gives what two measured parents give (from the parity consult)
+
+Grounded in audit/CONSULT-one-parent-parity.md and its response. The laboratory always has ONE parent,
+reconstructed from that parent's haploid products, so this is the configuration that has to work.
+
+1. Founder frequencies from GSE186441: 187 public constitutional blood arrays on the same Axiom UK
+   Biobank platform, unrelated to GSE148488, so every validation on GSE148488 is independent of the
+   panel. QC on call rate and heterozygosity, exact duplicates dropped. Shipped under a new file name
+   (the CDN caches by name), carrying its own calibration, re-measured: drop-in against the two-parent
+   reading on the 31 cells, offset on the two unrelated laboratory bulk arrays.
+2. One-parent allele state. At markers where the one parent P is homozygous, the share of the non-P
+   allele, split by how common that allele is among the founders. Per chromosome: no template, the
+   other parent's copy lost, P's copy lost, or disomic. Feeds lostParent with one parent.
+3. Disomic fraction, the share of autosomes the allele state reads disomic, as the normal-majority
+   gate: copy number on a drop-in array is released at 0.80 or over.
+4. Germline: a product is accepted when its non-P share against a rebuild from the OTHER products is
+   low, not when its heterozygosity is; and the rebuild is masked where every product carries one
+   haplotype, where it asserts homozygous at the parent's heterozygous sites.
+5. The copy-number scan stops skipping chromosomes the alleles name, so it no longer depends on the
+   parents; one event with two lines of evidence is merged at reporting, a conflict printed as one.
+6. Validation, preregistered before scoring, in both arms. The consult chose its thresholds on the 31
+   cells, so a re-score there checks the code; the 72 laboratory arrays with no hand call and the
+   laboratory's own products are the out-of-sample material.
+7. The consult's reading of 18 laboratory products against a measured father, for Joy to check against
+   her sample sheet.
