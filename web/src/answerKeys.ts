@@ -107,7 +107,13 @@ export function parsePanel(text: string): FounderPanel {
   return out
 }
 
-/** Where the shipped panel lives, relative to the site root and to the repository's web/public. */
+/**
+ * Where the shipped panel lives, relative to the site root and to the repository's web/public.
+ *
+ * RENAME THE FILE WHEN ITS CONTENTS CHANGE. The CDN in front of both hosts caches it under this name,
+ * a 404 included: on the release that first shipped it, the URL answered 404 from cache for minutes
+ * after the file was live, and the app would have fallen back to no panel. A new name is a new entry.
+ */
 export const FOUNDER_PANEL_PATH = 'panel/founders.tsv.gz'
 
 /**
