@@ -1,0 +1,65 @@
+Pre-registration: naming a lost parent against the cell's own answer keys
+==========================================================================
+
+Written 10 November 2026 against 5.49.0 plus the refusal records (commit 6ad8469), BEFORE the rule is
+implemented and before any cell's error rate has been computed. Scored on audit/refusal-census.ts over
+the 31 GSE148488 cells with a published Table S3 karyotype and both parents.
+
+THE DEFECT
+----------
+A lost parent is named only when the heterozygous fraction at opposite-homozygote markers is under
+HAPLOID_MAX = 0.20 and the surviving parent's allele is at or over SURVIVOR_MIN = 0.70. Drop-in puts
+heterozygous calls on a chromosome that has only one copy, so on a cell with drop-in of 0.2 to 0.3 a
+genuine loss reads 0.21 to 0.40 and is left uncalled. The census: 14 published monosomies undecided;
+on the 8 with counts, the lost parent's allele reads 0.005 to 0.095 and the survivor's 0.57 to 0.78.
+Three of the 8 are on cells that pass the stage gate. Separately, the stage gate clears every allele
+claim on a cell over the heterozygosity ceiling, although drop-in does not move which parent's allele
+is present.
+
+THE RULE, FIXED NOW
+-------------------
+Two answer keys per cell, both measured on that cell, both requiring two measured bulk parents:
+
+  floor    the wrong-homozygote rate at markers where both parents are the SAME homozygote: the sample
+           can only be that homozygote there, so the opposite homozygote is an error, and it is the rate
+           at which an allele absent from the template appears as a homozygous call.
+  present  the median, over the cell's own biparental autosomes, of the smaller of the two one-parent
+           shares: what a chromosome carrying both copies reads on this cell.
+
+Per autosome, x = the smaller one-parent count and y = the larger, of n informative markers. With E =
+ln 1000, the same order as SEGMENT_LRT:
+
+  lost      x/n is at or under the floor, or the data do not reject the floor at E; AND they reject
+            the present level at E in the downward direction; AND y/n is above the present level at E.
+            The lost parent is the one whose allele is the minority.
+  partial   the present level is rejected downward at E, the floor is rejected upward at E. Reported as
+            `mixed` with its counts and NO parent named: one parent's copy is missing from part of the
+            sample, or the sample is a mixture of states.
+  otherwise nothing is named, as now.
+
+No fraction threshold appears. HAPLOID_MAX, SURVIVOR_MIN and MIXED_SHARE stop deciding lostParent and
+mixed. They still define the contribution verdict, which this does not change.
+
+THE GATE. On a stage refusal, lostParent and mixed are no longer cleared when the information ratio
+against a measured parent is under NO_INFORMATION_MIN, which is 5.48.0's measured test for calls that
+carry genotype information. Where it is at or over, or cannot be computed, they are cleared and
+recorded as now. Intensity-derived claims (aneuploidy, segments) are untouched: intensity on a
+disordered genome is a separate question with its own measurements.
+
+PREDICTIONS
+-----------
+P1  The published monosomies on single and refused cells that the census left undecided with counts,
+    GSM4472405 chr16, GSM4472422 chr5, GSM4552389 chr5 and GSM4552364 chr16, are named lost, each
+    with the published parent. FAILS if any is named with the wrong parent; reported as a shortfall
+    for any left unnamed.
+P2  The trophectoderm ones, GSM4472413 chr6 and GSM4552420 chr9, chr11 and chr15, come out partial
+    and unnamed. Not a gate: a named one with the right parent is reported, a wrong one FAILS P3.
+P3  No new wrong parent anywhere. Baseline: 1 of 81 lostParent calls, on a cell published chaotic.
+P4  No current correct call is lost. Baseline: 78 confirmed lostParent. FAILS below 78.
+P5  No lostParent on any cell whose information ratio is at or over NO_INFORMATION_MIN.
+P6  New lostParent on a chromosome Table S3 calls normal: listed individually with its log R. FAILS at
+    3 or more without intensity agreeing in sign; those with agreement go to the adjudicate list.
+P7  The 72 laboratory arrays with no hand call carry no parental arrays, so this rule cannot run on
+    them; unchanged by construction, and the segment arm is not touched.
+
+Any failure is reported as a failure and the change does not ship until it is understood.
