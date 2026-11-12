@@ -381,6 +381,7 @@ async function profileFile(
   tick: (s: Partial<Stage>) => void,
   log: (tag: Tag, text: string) => void,
   inferred = false,
+  role: 'parent' | 'sample' = 'sample',
 ): Promise<{ profile: SampleProfile; gates: Gate[] }> {
   const byChrom = new Map<string, ChromStats>()
   const baf = emptyBafSums()
@@ -413,7 +414,7 @@ async function profileFile(
   const profile: SampleProfile = {
     ...finishProfile(file.name, byChrom, baf, firstId, builds), build: buildVerdict(builds),
   }
-  const g = gates(profile, inferred)
+  const g = gates(profile, inferred, role)
   log('PARSE', `${int(n)} markers, ${byChrom.size} chromosomes`)
   log('CALL', `call ${pct(profile.callRate, 1)}, het ${pct(profile.hetRate, 1)}, `
     + `BAF spread at het calls ${Number.isFinite(profile.hetBafSd)
@@ -662,7 +663,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       try {
         const pacc = emptyParent()
         const { profile, gates: g } = await profileFile(
-          e.file, (r) => collectParentRow(r, pacc), bar(e.id, e.file.size), log, !!e.inferred,
+          e.file, (r) => collectParentRow(r, pacc), bar(e.id, e.file.size), log, !!e.inferred, 'parent',
         )
         // THE ONE REFUSAL THAT SHOULD STOP A RUN. Every downstream channel measures against the
         // loaded parent, so a parent array that failed its own gates cannot support any of them,

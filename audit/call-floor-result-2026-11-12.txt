@@ -1,0 +1,66 @@
+The call-rate floor, replaced by what it stood in for
+=====================================================
+
+Run 12 November 2026 on tesla. Scored against audit/call-floor-preregistration.txt, written after the
+survey and before the change. Laboratory arrays are pseudonymised; per-array tables stay in audit/local.
+
+WHAT CHANGED
+  QC_CALL_FLOOR is gone. The information ratio refuses mostly-random calls at any heterozygosity, not
+  only over the ceiling. Where a parent is loaded, the one-parent copy state supplies ploidy
+  (stage.allelePloidy): disomic on half the stated chromosomes is two genomes and never haploid; one
+  copy of one parent on NORMAL_MAJORITY_MIN of them is one genome, staged haploid where heterozygosity
+  with the measured drop-in removed is at the haploid level, over or under the ceiling.
+  Along the way the same fault appeared in a second floor. CALL_RATE_FLOOR (0.60) withheld zygosity
+  below 60% called, and fires on 113 of the 1,001 surveyed arrays; the three pronuclei it was set on
+  are GSE148488's three heaviest drop-in products. Zygosity is now read from the alleles where they
+  decide: one genome or two by the copy state; both parents' alleles on two or more autosomes with
+  drop-in removed, from the opposite-homozygote reading with two parents or from chromosomes reading
+  in the disomic range (DISOMIC_LOW 0.343) with one. Where the band is still read, it is withheld when
+  the measured drop-in reaches the band margin, HET_BAND_EXCESS, since drop-in alone fills it. The
+  call rate stands in only where no founder panel is loaded.
+
+E1  Every array read without a parent, the survey rerun on the new code: stage, ploidy and refusal
+    identical on all 1,078 distinct files. HOLDS.
+E2  GSE148488 against both parents, the measured father, and the eight-pronucleus rebuild:
+      no Table S3 cell staged haploid: HOLDS. GSM4552364 moves from haploid to blastomere in every
+      configuration.
+      stage identical, rebuild against both parents: 31 of 31. HOLDS. Zygosity too, 31 of 31, in all
+      three configurations (before: 3 chaotic cells read diploid with both parents and unknown with
+      one).
+      all 15 pronuclei haploid against the father: 14 of 15. FAILS by one. Three of the four drop-in
+      paternal pronuclei, diploid or unknown before, are now haploid; GSM4774686, at drop-in 0.41,
+      reads no template on most chromosomes, so the alleles stay silent and its ploidy stays unknown,
+      as before. No pronucleus is staged diploid.
+E3  S23, each cell against S23-00 and against the rebuild om reconstruct makes from the other 17:
+      stage, ploidy and drop-in correction identical on 18 of 18; every copy-number row identical
+      on 18 of 18; copy states 387 of 396, as in 5.52.1. The 13 pronuclei haploid; S23-08, -16 and
+      -17 diploid; S23-12 and -15 refused. HOLDS.
+E4  Synthetic failure, 20 real arrays (5 diploid cells published normal, 15 pronuclei) over 35
+    conditions of locus and allele dropout:
+      No condition takes an array under 40% called: an array without DNA keeps calling about half
+      its markers at random, at 70% locus dropout the degraded arrays still call 51% or more.
+      With the father loaded, diploid sources staged haploid: 0 of 175, at every dropout. HOLDS.
+      Without a parent: 35 of 175, against 40 under the floor on the same grid; the floor never
+      fired, and the noise test now refuses 29 where it refused 16.
+      Haploid sources not refused, with the father loaded: 262 staged haploid, 129 unknown, 25 diploid
+      (5.52.1: 140, 129, 147). FAILS AS WORDED ("every haploid source not refused is staged
+      haploid"): the 25 are all at 55% locus dropout with allele dropout of 0.6 or more, where too few
+      chromosomes state a copy for the alleles to speak, and heterozygosity sits 0.000 to 0.014 under
+      the ceiling with drop-in of 0.17 to 0.20, so the drop-in correction, applied over the ceiling
+      only, does not run.
+      Every refusal in all 700 degraded arrays, every mode: no genotype signal.
+E5  Census claim counts. Rebuilt father and measured father alone: unchanged. Both parents: lostParent
+    confirmed 82 to 89, contradicted 4 to 5, wrong parent 1 to 2. FAILS AS WORDED ("unchanged except
+    where a stage moves"): the moves are zygosity, not stage. GSM4472405, a drop-in chaotic cell, had no
+    zygosity with both parents, so no parent was named on it; its alleles now show both parents, and it
+    gains 7 confirmed losses, 1 contradicted, and the wrong parent on chr4 that every one-parent
+    configuration already reported. Two parental-absence segments on its chr11 and chr16 are now
+    whole-chromosome losses of the father's copy, both published so.
+
+KNOWN LIMIT, FOUND HERE AND NOT CHANGED
+  Without a parent, heterozygosity cannot tell one genome from two on heavily amplified material:
+  dropout lowers it and drop-in raises it. Of 708 arrays the stage calls diploid with no parent, 292
+  read at the haploid level once their measured drop-in is removed. One is GSM4774687, a paternal
+  pronucleus, haploid by micromanipulation, staged trophectoderm. With a parent loaded, as in every
+  run of the application, the alleles decide; GSM4774687 is then haploid. Making the parentless
+  ploidy of those 292 unknown would be right and has not been validated, so it is left as stated.

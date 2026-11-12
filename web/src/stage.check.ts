@@ -15,7 +15,7 @@
 //   depress heterozygosity and are absorbed into the number, so the number must not travel alone.
 import assert from 'node:assert/strict'
 import {
-  inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, QC_CALL_FLOOR,
+  inferStage, locus, dropoutFromReplicates, BULK_HETEROZYGOSITY, HAPLOID_MAX_HET, allelePloidy,
   BAND_DIPLOID_CERTAIN, MAX_DIPLOID_HET,
   BULK_MAX_BAF_SD, stageFacts, amplificationWord, hetSpread, HET_SPREAD_LOCALISED,
   stageDefaults,
@@ -57,24 +57,48 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
   }
 }
 
-// --- 4. QUALITY IS GATED BEFORE PLOIDY ------------------------------------------------------------
+// --- 4. A FAILED REACTION IS REFUSED FOR WHAT IT IS, NOT FOR ITS CALL RATE ---------------------
 //
-// The failure an audit found in the first version: near-total dropout drives heterozygosity toward
-// zero, so a failed amplification was classified as HAPLOID and handed a confident parameter set
-// rather than being rejected. The two are indistinguishable by heterozygosity, so call rate must
-// decide first, and the gate must fire even when the heterozygosity looks haploid.
+// An array with no DNA does not stop calling: on this platform it calls 42% to 75% of markers at
+// random, so it reads heterozygous and its calls carry no information, and it is refused for that.
+// Call rate alone refuses nothing. Where one genome and a heavily dropped-out diploid read alike,
+// the alleles against a loaded parent tell them apart.
 {
-  const dead = inferStage(p(0.004, 0.22))
-  assert.equal(dead.stage, 'failed', 'a failed amplification must not be called haploid')
-  assert.ok(!Number.isFinite(dead.dropout), 'and must not carry a usable dropout parameter')
-  assert.equal(dead.basis, 'none')
-
-  // The gate is on call rate, so a plausible heterozygosity does not rescue a dead array.
-  assert.equal(inferStage(p(0.30, 0.31)).stage, 'failed')
-  // And a good call rate with the same heterozygosity IS classified.
-  assert.notEqual(inferStage(p(0.004, 0.95)).stage, 'failed')
+  const random = inferStage({ ...p(0.004, 0.22), information: 0.9 })
+  assert.equal(random.stage, 'failed', 'calls that are mostly noise are refused at any heterozygosity')
+  assert.equal(random.refusedBy, 'no-genotype-signal')
+  assert.ok(!Number.isFinite(random.dropout), 'and carry no usable dropout parameter')
+  assert.equal(random.basis, 'none')
+  assert.equal(inferStage({ ...p(0.20, 0.50), information: 0.62 }).refusedBy, 'no-genotype-signal')
+  // Genuine calls at a low call rate are read.
+  assert.equal(inferStage({ ...p(0.004, 0.22), information: 0.04 }).stage, 'haploid')
+  assert.notEqual(inferStage(p(0.30, 0.31)).refusedBy, 'call-floor' as never)
   assert.equal(inferStage(p(NaN)).stage, 'unknown')
-  assert.ok(QC_CALL_FLOOR > 0.2 && QC_CALL_FLOOR < 0.7)
+
+  const states = (n: Record<string, number>) => Object.entries(n).flatMap(([s, k]) => Array(k).fill(s))
+  // A diploid whose heterozygotes dropped out reads haploid by heterozygosity; its alleles say two.
+  const dropped = inferStage({ ...p(0.03, 0.80), copyStates: states({ disomic: 15, 'other-lost': 4, 'parent-lost': 3 }) })
+  assert.equal(dropped.ploidy, 'diploid', 'most chromosomes carry a second genome: not haploid')
+  assert.notEqual(dropped.stage, 'haploid')
+  // A product reads one parent's copy alone; a chaotic genome with one copy of each parent's chromosomes
+  // reads neither.
+  assert.equal(inferStage({ ...p(0.03, 0.80), copyStates: states({ 'other-lost': 20, 'no-template': 2 }) }).stage, 'haploid')
+  assert.equal(allelePloidy(states({ 'other-lost': 7, 'parent-lost': 5, 'no-template': 10 })), undefined)
+  assert.equal(allelePloidy(states({ 'other-lost': 9, undecided: 13 })), undefined, 'too few chromosomes state anything')
+  // Drop-in hides ploidy from heterozygosity and the band; the alleles still show one genome.
+  const dropInHaploid = inferStage({ ...p(0.35, 0.80), dropIn: 0.30, information: 0.10,
+    copyStates: states({ 'other-lost': 21, disomic: 1 }) })
+  assert.equal(dropInHaploid.stage, 'haploid')
+  assert.equal(dropInHaploid.dropInCorrected, 0.30)
+  assert.equal(inferStage({ ...p(0.35, 0.80), dropIn: 0.30, information: 0.10 }).ploidy, 'unknown',
+    'and without a parent it stays unknown')
+  // Under the ceiling, drop-in lifts a haploid past the haploid line; with it removed it is one genome.
+  const lifted = { ...p(0.15, 0.78), dropIn: 0.12, information: 0.05 }
+  assert.notEqual(inferStage(lifted).stage, 'haploid', 'by heterozygosity alone it reads diploid')
+  assert.equal(inferStage({ ...lifted, copyStates: states({ 'other-lost': 21, disomic: 1 }) }).stage, 'haploid')
+  // Two copies of one parent's genome read one parent's alleles but diploid heterozygosity: diploid.
+  assert.notEqual(inferStage({ ...p(0.16, 0.90), dropIn: 0.02, information: 0.03,
+    copyStates: states({ 'other-lost': 22 }) }).stage, 'haploid', 'a uniparental diploid is not haploid')
 }
 
 // --- 4a. THE LADDER IS CLOSED AT THE TOP AS WELL AS THE BOTTOM ----------------------------------
@@ -171,8 +195,10 @@ const p = (hetRate: number, callRate = 0.95) => ({ hetRate, callRate })
 
   // The veto never reclassifies material that was already diploid by heterozygosity.
   assert.equal(inferStage({ hetRate: 0.150, callRate: 0.95, hetBand: 0.30 }).stage, 'trophectoderm')
-  // Quality still outranks it: a dead array is failed, not rescued into a stage by its band.
-  assert.equal(inferStage({ hetRate: h, callRate: 0.22, hetBand: 0.30 }).stage, 'failed')
+  // Noise still outranks it: calls that are mostly random are refused, not rescued by their band.
+  assert.equal(inferStage({ hetRate: h, callRate: 0.22, hetBand: 0.30, information: 0.9 }).stage, 'failed')
+  // And a low call rate of genuine calls is read like any other, band veto included.
+  assert.notEqual(inferStage({ hetRate: h, callRate: 0.22, hetBand: 0.30, information: 0.04 }).stage, 'haploid')
   assert.ok(BAND_DIPLOID_CERTAIN >= 0.15)
 }
 
@@ -416,8 +442,8 @@ console.log('stage.check.ts: all assertions passed, including quality gated befo
   // What must keep failing still fails on any panel.
   assert.equal(inferStage({ hetRate: 0.60, callRate: 0.95 }, { panelHeterozygosity: 0.31 }).stage,
     'failed', 'a 60% heterozygous array is not a genome on any panel')
-  assert.equal(inferStage({ hetRate: 0.20, callRate: 0.30 }, { panelHeterozygosity: 0.31 }).stage,
-    'failed', 'the call-rate floor is not a heterozygosity and does not move with the panel')
+  assert.equal(inferStage({ hetRate: 0.20, callRate: 0.30, information: 0.9 }, { panelHeterozygosity: 0.31 }).stage,
+    'failed', 'calls that are mostly noise are refused on any panel')
 }
 
 // PLOIDY IS A DIFFERENT QUESTION FROM MATERIAL, and until this it had no answer. `stage` says what
@@ -435,8 +461,10 @@ console.log('stage.check.ts: all assertions passed, including quality gated befo
     'a first polar body is a dyad and still one genome, however heterozygous it reads')
   assert.equal(call(0.40).ploidy, 'not one genome',
     'over the diploid ceiling is two people or a contaminated reaction, not a ploidy')
-  assert.equal(call(0.15, 0.2).ploidy, 'unknown',
-    'an amplification failure says nothing about how many genomes were there')
+  assert.equal(inferStage({ hetRate: 0.15, callRate: 0.2, information: 0.9 }).ploidy, 'unknown',
+    'calls that are mostly noise say nothing about how many genomes were there')
+  assert.equal(call(0.15, 0.2).ploidy, 'diploid',
+    'a low call rate of genuine calls at diploid heterozygosity is a diploid read sparsely')
   assert.equal(call(NaN).ploidy, 'unknown', 'no profile, no ploidy')
 
   // A declared stage carries the same answer as an inferred one of the same name.

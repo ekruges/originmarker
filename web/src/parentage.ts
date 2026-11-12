@@ -962,6 +962,13 @@ export function classify(
      * floor, not sufficient: see BULK_SPREAD_MAX. Unset is treated as amplified.
      */
     bulk?: boolean
+    /**
+     * This array's drop-in, on the parents' scale, read against the founder panel (answerKeys.ts).
+     * Drop-in puts heterozygous calls at intermediate BAF, so it fills the band on its own: where it
+     * reaches HET_BAND_EXCESS the band cannot say one contribution or two. Supplied, it replaces the
+     * call-rate floor, which stood in for it.
+     */
+    dropIn?: number
   } = {},
 ): ParentageResult {
   const role = opts.role ?? 'paternal'
@@ -1034,7 +1041,12 @@ export function classify(
   // this call rate the heterozygous band is artefact, so zygosity is withheld, and the noise
   // ceiling grows large enough that "under the ceiling" stops meaning "related".
   const callRate = t.markers ? t.called / t.markers : NaN
-  const hetUsable = !Number.isFinite(callRate) || callRate >= CALL_RATE_FLOOR
+  // DROP-IN, WHERE IT IS MEASURED, IS WHAT FILLS THE BAND. The three pronuclei the call-rate floor
+  // was set on are the three of GSE148488 with the heaviest drop-in, 0.18 to 0.26, and their band
+  // excess, 0.166 to 0.239, is that drop-in. The call rate stands in only where nothing measured it.
+  const dropInMeasured = opts.dropIn !== undefined && Number.isFinite(opts.dropIn)
+  const hetUsable = dropInMeasured ? (opts.dropIn as number) < HET_BAND_EXCESS
+    : !Number.isFinite(callRate) || callRate >= CALL_RATE_FLOOR
 
   let verdict: Verdict
   if (Number.isFinite(hetBand) && hetBand > HET_BAND_IMPLAUSIBLE) {
@@ -1068,7 +1080,15 @@ export function classify(
   }
 
   let zygosity: Zygosity = 'unknown'
-  if (!hetUsable) {
+  if (!hetUsable && dropInMeasured) {
+    limits.push(
+      `Drop-in of ${pct(opts.dropIn as number, 1)}, at markers where this array cannot be `
+      + 'heterozygous, puts heterozygous calls in the band by itself, at or over the '
+      + `${pct(HET_BAND_EXCESS, 0)} excess that separates one parental contribution from two. `
+      + 'Zygosity is not read from the band here. The presence or absence of this parent\'s '
+      + 'contribution is unaffected: that is Mendelian and does not rest on heterozygous calls.',
+    )
+  } else if (!hetUsable) {
     limits.push(
       `Call rate ${pct(callRate, 1)} is below ${pct(CALL_RATE_FLOOR, 0)}, where erroneous `
       + 'heterozygous calls become common. Zygosity is read from the heterozygous band, so it is '

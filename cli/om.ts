@@ -214,7 +214,6 @@ const parentNamed = (verdict: string, loaded: 'paternal' | 'maternal'): string |
  * moved off a default says so in its own output.
  */
 const stageOpts = () => ({
-  callFloor: num('qc-call-floor', stageMod.QC_CALL_FLOOR),
   maxDiploidHet: num('max-diploid-het', stageMod.MAX_DIPLOID_HET),
   haploidMaxHet: num('haploid-max-het', stageMod.HAPLOID_MAX_HET),
   bulkHeterozygosity: num('bulk-heterozygosity', stageMod.BULK_HETEROZYGOSITY),
@@ -927,7 +926,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
   constants() {
     const rows = [
       ['stage', 'BULK_HETEROZYGOSITY', stageMod.BULK_HETEROZYGOSITY, 'diploid rate measured on bulk gDNA on this platform. A PANEL and ANCESTRY property, not a constant of nature'],
-      ['stage', 'QC_CALL_FLOOR', stageMod.QC_CALL_FLOOR, 'below this no stage is inferred: a failed reaction imitates haploid material'],
+      ['stage', 'ALLELE_PLOIDY_MIN_STATED', stageMod.ALLELE_PLOIDY_MIN_STATED, 'autosomes stating a copy state against the loaded parent before the alleles say one genome or two'],
       ['stage', 'MAX_DIPLOID_HET', stageMod.MAX_DIPLOID_HET, 'above this the array is not one genome. 0.168 plus drop-in at the top of the measured range gives 0.212'],
       ['stage', 'HAPLOID_MAX_HET', stageMod.HAPLOID_MAX_HET, 'below this the sample carries one genome. NOT safe in both directions'],
       ['stage', 'BAND_DIPLOID_CERTAIN', stageMod.BAND_DIPLOID_CERTAIN, 'BAF band at or above which the sample is diploid whatever its calls say. Vetoes haploid, cannot confirm it'],

@@ -61,6 +61,7 @@
 import type { SampleProfile } from './ingest.ts'
 import { NO_INFORMATION_MIN } from './informationRatio.ts'
 import { DROP_IN } from './oneParentOrigin.ts'
+import { NORMAL_MAJORITY_MIN, type CopyState } from './oneParentState.ts'
 
 export type Stage =
   | 'bulk'
@@ -86,7 +87,7 @@ export interface StageCall {
    * Which test refused the array, on a `failed` stage only. Carried so a refusal record can name
    * the gate and its numbers without reading them back out of `why`.
    */
-  refusedBy?: 'heterozygosity-ceiling' | 'call-floor' | 'declared' | 'no-genotype-signal' | 'second-genome'
+  refusedBy?: 'heterozygosity-ceiling' | 'declared' | 'no-genotype-signal' | 'second-genome'
   /**
    * The drop-in, measured on this array against a founder panel, that was removed before it was
    * staged. Present only on an array that read over the heterozygosity ceiling and came back under
@@ -117,8 +118,38 @@ export interface StageCall {
  */
 export const BULK_HETEROZYGOSITY = 0.168
 
-/** Call rate below which no stage is inferred, because a failed reaction imitates haploid material. */
-export const QC_CALL_FLOOR = 0.40
+/**
+ * Chromosomes that must state a copy state against the loaded parent before the alleles may say how
+ * many genomes an array carries: most of the 22.
+ */
+export const ALLELE_PLOIDY_MIN_STATED = 11
+
+/**
+ * How many genomes the alleles show against a loaded parent, measured or reconstructed.
+ *
+ * A haploid product carries one parent's genome on every chromosome: one copy of that parent's
+ * (`other-lost` against it) or of the other's (`parent-lost`). A diploid carries a second genome on
+ * most chromosomes, and allele dropout does not hide it, since dropout removes alleles at random and
+ * leaves the other parent's in the calls. So two genomes when most stated chromosomes read disomic,
+ * and one when the commonest state is one copy of one parent on NORMAL_MAJORITY_MIN of them. A chaotic
+ * genome holding one copy of some chromosomes from each parent is neither. No template and undecided
+ * state nothing and are left out.
+ *
+ * WHY THIS REPLACED A CALL-RATE FLOOR. The floor refused every array under 40% called, because a
+ * failed reaction was taken to drive heterozygosity toward zero and read as one genome. Over 1,001
+ * arrays it fired on none, and the arrays with no DNA read 58% to 67% heterozygous, at random, and are
+ * refused as noise. The case it stood in for exists at high call rate, a chaotic diploid of GSE148488
+ * staged haploid at 88% called, and the alleles are what reach it.
+ */
+export function allelePloidy(states?: readonly CopyState[]): 'one genome' | 'two genomes' | undefined {
+  if (!states) return undefined
+  const stated = states.filter((s) => s !== 'undecided' && s !== 'no-template')
+  if (stated.length < ALLELE_PLOIDY_MIN_STATED) return undefined
+  const n = (s: CopyState): number => stated.filter((x) => x === s).length
+  if (n('disomic') / stated.length >= 0.5) return 'two genomes'
+  if (Math.max(n('other-lost'), n('parent-lost')) / stated.length >= NORMAL_MAJORITY_MIN) return 'one genome'
+  return undefined
+}
 
 /**
  * Heterozygosity above which the array is not one genome at all.
@@ -384,6 +415,11 @@ export function inferStage(
      * optional, and with neither the ceiling behaves exactly as it always has.
      */
     dropIn?: number, information?: number,
+    /**
+     * The one-parent copy state of each autosome, read against a loaded parent, measured or
+     * reconstructed (oneParentState.ts). Supplies the ploidy genotypes cannot: see allelePloidy.
+     */
+    copyStates?: readonly CopyState[],
   },
   /**
    * The boundaries, so a caller that knows what it is doing can move them.
@@ -394,7 +430,7 @@ export function inferStage(
    * values, so omitting this argument is exactly the shipped configuration.
    */
   opts: {
-    callFloor?: number, maxDiploidHet?: number, haploidMaxHet?: number,
+    maxDiploidHet?: number, haploidMaxHet?: number,
     bulkHeterozygosity?: number, bandDiploidCertain?: number,
     /** Bulk heterozygosity of this panel, which scales every boundary below. See panelScale. */
     panelHeterozygosity?: number,
@@ -406,7 +442,6 @@ export function inferStage(
   const call = profile.callRate
   let dropInCorrected: number | undefined
   const band = profile.hetBand
-  const callFloor = opts.callFloor ?? QC_CALL_FLOOR
   // An explicit threshold from a caller is used as given; only the defaults follow the panel.
   const scale = panelScale(opts.panelHeterozygosity)
   // THE CEILING AND THE DROPOUT ANCHOR FOLLOW THE PANEL; THE RUNGS DO NOT, and that asymmetry is
@@ -435,7 +470,12 @@ export function inferStage(
   // GSE148488 seven of the nine arrays the ceiling refuses are the third kind: drop-in of 0.24 to 0.32
   // against the 0.02 typical of admitted arrays, single genomes whose allele calls agree with the
   // published karyotype at 133 of 138.
-  if (h > maxDiploid && Number.isFinite(profile.information)
+  //
+  // CALLS THAT ARE MOSTLY NOISE ARE REFUSED WHATEVER THEIR HETEROZYGOSITY. An array with no DNA does
+  // not stop calling: the seven of the 1,001 surveyed that are recorded as having none call 42% to 75%
+  // of markers, at random. Random calls read heterozygous, so in practice they land over the ceiling,
+  // but what refuses them is that they are random, and that holds under the ceiling too.
+  if (Number.isFinite(profile.information)
     && (profile.information as number) >= NO_INFORMATION_MIN) {
     return {
       stage: 'failed', ploidy: 'unknown', dropout: NaN, basis: 'none',
@@ -480,16 +520,6 @@ export function inferStage(
         + 'genome reads this way, so this is not a stage',
     }
   }
-  if (call < callFloor) {
-    return {
-      stage: 'failed', ploidy: 'unknown', dropout: NaN, basis: 'none',
-      templates: 'not applicable', markerFloor: 200, refusedBy: 'call-floor',
-      caveat: 'amplification failure and haploid material are indistinguishable by heterozygosity',
-      why: `call rate ${(call * 100).toFixed(1)}% is below the ${(callFloor * 100).toFixed(0)}% `
-        + 'floor. This is an amplification failure rather than a stage: near-total dropout drives '
-        + 'heterozygosity toward zero and would otherwise be read as one genome',
-    }
-  }
 
   // Intensity outranks the genotype calls in this one direction. A sample whose BAF band is at
   // the diploid line has intermediate signal at a large fraction of its markers, which one
@@ -501,11 +531,12 @@ export function inferStage(
   // two copies only where drop-in is not supplying it.
   const bandSaysDiploid = dropInCorrected === undefined
     && Number.isFinite(band as number) && (band as number) >= bandCertain
+  const alleles = allelePloidy(profile.copyStates)
 
   // DROP-IN CORRECTED HETEROZYGOSITY DOES NOT SEPARATE ONE COPY FROM TWO on this material: haploid
   // pronuclei read 0.002 to 0.014 with drop-in removed and diploid progeny from 0.015. So a corrected
   // array does not reach the haploid rung on heterozygosity; only the BAF band can call its ploidy.
-  if (h <= haploidMax && !bandSaysDiploid && dropInCorrected === undefined) {
+  if (h <= haploidMax && !bandSaysDiploid && dropInCorrected === undefined && alleles !== 'two genomes') {
     // PB2, pronuclei and sperm carry one chromatid and are homozygous throughout. A FIRST polar
     // body carries a dyad and is genuinely heterozygous distal to each crossover, expected h about
     // 0.074, so the two are distinguished by where in the band the sample sits rather than lumped.
@@ -543,7 +574,28 @@ export function inferStage(
     hit = BOUNDS.find((b) => b.stage !== 'bulk'
       && h >= (b.stage === 'blastomere' ? haploidMax : b.minHet)) ?? BOUNDS[BOUNDS.length - 1]
   }
-  if (bandSaysDiploid && h <= haploidMax) {
+  // ONE GENOME BY ITS ALLELES, UNDER THE CEILING TOO. Drop-in and failed calls lift a haploid's
+  // heterozygosity past the haploid line without taking it over the ceiling, and lift its BAF band.
+  // Where the alleles read one parent's genome, heterozygosity is read with the measured drop-in
+  // removed: at the haploid level it is one genome. A cell carrying two copies of one parent's genome
+  // reads diploid heterozygosity with drop-in removed, and stays diploid.
+  if (alleles === 'one genome' && dropInCorrected === undefined && Number.isFinite(profile.dropIn)
+    && (profile.dropIn as number) > 0 && (profile.dropIn as number) < 1) {
+    const d = profile.dropIn as number
+    const hc = Math.max(0, (h - d) / (1 - d))
+    if (hc <= haploidMax) {
+      return {
+        stage: 'haploid', ploidy: 'haploid', dropout: 0.02, basis: 'stage-default',
+        templates: '1 chromatid', markerFloor: 200,
+        caveat: 'staged by its alleles against the loaded parent and its heterozygosity with drop-in removed',
+        why: `${(h * 100).toFixed(1)}% heterozygous as read, ${(hc * 100).toFixed(1)}% with this array's `
+          + `${(d * 100).toFixed(1)}% drop-in removed, under the ${(haploidMax * 100).toFixed(1)}% a `
+          + 'diploid reaches; and against the loaded parent most chromosomes carry one parent\'s copy '
+          + 'alone. One genome',
+      }
+    }
+  }
+  if ((bandSaysDiploid || alleles === 'two genomes') && h <= haploidMax && dropInCorrected === undefined) {
     return {
       stage: hit.stage,
       ploidy: 'diploid',
@@ -554,22 +606,41 @@ export function inferStage(
       basis: 'heterozygosity-shortfall',
       templates: hit.templates,
       markerFloor: hit.floor,
-      caveat: 'genotype heterozygosity alone would have called this one genome; the BAF band '
-        + 'overrode that. Dropout is at or near its ceiling, so every downstream call on this '
-        + 'sample is weakly powered even where it is admitted',
-      why: `${(h * 100).toFixed(1)}% heterozygous is in the haploid range, but a BAF band of `
-        + `${((band as number) * 100).toFixed(1)}% is at or above the ${(bandCertain * 100)
-          .toFixed(0)}% diploid line. Intermediate intensity at that many markers cannot come from `
-        + 'one template, so this is a heavily dropped-out diploid rather than one genome',
+      caveat: `genotype heterozygosity alone would have called this one genome; the ${bandSaysDiploid
+        ? 'BAF band' : 'alleles against the parent'} overrode that. Dropout is at or near its ceiling, so `
+        + 'every downstream call on this sample is weakly powered even where it is admitted',
+      why: bandSaysDiploid
+        ? `${(h * 100).toFixed(1)}% heterozygous is in the haploid range, but a BAF band of `
+          + `${((band as number) * 100).toFixed(1)}% is at or above the ${(bandCertain * 100)
+            .toFixed(0)}% diploid line. Intermediate intensity at that many markers cannot come from `
+          + 'one template, so this is a heavily dropped-out diploid rather than one genome'
+        : `${(h * 100).toFixed(1)}% heterozygous is in the haploid range, but against the loaded `
+          + 'parent most chromosomes carry a second genome\'s alleles, which one genome cannot. Allele '
+          + 'dropout removes alleles at random and leaves the other parent\'s in the calls, so this is '
+          + 'a heavily dropped-out diploid rather than one genome',
     }
   }
   const implied = Math.min(0.6, Math.max(0.005, 1 - h / bulkHet))
+  // ONE GENOME BY ITS ALLELES, where drop-in has hidden it from heterozygosity and the band. A haploid
+  // product reads one parent's copy alone on every chromosome against a loaded parent, and drop-in
+  // cannot add the other parent's alleles: the four drop-in paternal pronuclei of GSE148488 read so.
+  if (dropInCorrected !== undefined && alleles === 'one genome') {
+    return {
+      stage: 'haploid', ploidy: 'haploid', dropInCorrected, dropout: 0.02, basis: 'stage-default',
+      templates: '1 chromatid', markerFloor: 200,
+      caveat: 'staged by its alleles against the loaded parent, since drop-in hides ploidy from '
+        + 'heterozygosity and the BAF band',
+      why: `${(profile.hetRate * 100).toFixed(1)}% heterozygous as read, over the ceiling from `
+        + `${(dropInCorrected * 100).toFixed(1)}% drop-in. Against the loaded parent most chromosomes `
+        + 'carry one parent\'s copy alone, which is one genome',
+    }
+  }
   if (dropInCorrected !== undefined) {
     return {
       stage: hit.stage,
       // Neither heterozygosity nor the BAF band says how many copies once drop-in is this heavy:
-      // drop-in corrupts both. Stated as unknown rather than guessed.
-      ploidy: 'unknown',
+      // drop-in corrupts both. The alleles do where a parent is loaded; otherwise unknown.
+      ploidy: alleles === 'two genomes' ? 'diploid' : 'unknown',
       dropInCorrected,
       dropout: Math.max(implied, hit.dropout * 0.6),
       basis: 'heterozygosity-shortfall',

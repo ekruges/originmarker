@@ -76,6 +76,13 @@ export const PARENT_LOST_MIN = 0.75
  * range, for a test that asks whether ANY chromosome could be one.
  */
 export const PARENT_LOST_LOW = 0.675
+/**
+ * The low end of where a disomic chromosome reads: the 5% quantile of r over the 477 published-normal
+ * chromosomes of Table S3 (median 0.442, 95% at 0.611), measured by the parity consult. A chromosome
+ * at or over it carries the other parent's alleles as a second copy does, not as rebuild error, which
+ * lifts a product's chromosome to 0.21 to 0.33.
+ */
+export const DISOMIC_LOW = 0.343
 
 export type CopyState = 'disomic' | 'other-lost' | 'parent-lost' | 'no-template' | 'undecided'
 

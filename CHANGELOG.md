@@ -9,6 +9,56 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.53.0 "Coupling Phase"
+
+**No array is refused for its call rate, and the alleles say how many genomes a cell carries.**
+Surveyed over every array this project holds, 1,122 files and 1,001 distinct arrays
+(audit/call-floor-result-2026-11-12.txt, pre-registered in audit/call-floor-preregistration.txt):
+
+- **The stage's call-rate floor fired on none of them.** The lowest call rate is 0.421, over the 0.40
+  floor. An array with no DNA does not stop calling. The seven recorded as having none call 42% to 75%
+  of markers, at random, read 58% to 67% heterozygous, and were already refused as no genotype signal.
+  The floor's premise, that a failed reaction drives heterozygosity toward zero and reads as one genome,
+  is the opposite of what failure does on this platform. It is removed, and the information ratio now
+  refuses mostly-random calls at any heterozygosity, not only over the ceiling.
+- **The case it stood for exists at high call rate.** GSE148488's GSM4552364, a chaotic diploid with 15
+  chromosomes carrying both parents, was staged haploid at 88% called. Where a parent is loaded,
+  measured or reconstructed, the one-parent copy state now supplies the ploidy heterozygosity cannot
+  (`stage.allelePloidy`). Disomic on half the chromosomes is two genomes, never haploid. One copy of
+  one parent on NORMAL_MAJORITY_MIN of them is one genome, staged haploid where heterozygosity with the
+  measured drop-in removed is at the haploid level, over the ceiling or under it. GSM4552364 is now a
+  blastomere in every configuration, and three of GSE148488's four drop-in paternal pronuclei, diploid
+  or of unknown ploidy before, are haploid.
+- **Zygosity had the same fault in a second floor.** `CALL_RATE_FLOOR` withheld it below 60% called,
+  which fires on 113 of the 1,001 arrays, on the strength of three pronuclei that are GSE148488's three
+  heaviest drop-in products. Zygosity is now read from the alleles where they decide: one genome or two
+  by the copy state; both parents' alleles, drop-in removed, on two or more autosomes. That is read from
+  the opposite-homozygote reading with two parents, or from chromosomes in the disomic range
+  (DISOMIC_LOW 0.343) with one. Where the heterozygous band is still read, it is withheld when measured
+  drop-in reaches the band margin, since drop-in alone fills it. The call rate stands in only where no
+  founder panel is loaded. Stage and zygosity are identical on all 31 Zuccaro cells between both
+  parents, the measured father and the rebuilt father; three chaotic cells had read diploid with two
+  parents and unknown with one.
+- **With both parents, one more cell is read.** GSM4472405, a drop-in chaotic cell, had no zygosity,
+  so no parent was named on it. It now gains 7 confirmed losses, 1 contradicted, and the wrong parent
+  on chr4 that every one-parent configuration already reported.
+- **A sample's quality table no longer says "excluded"** for a call rate under 60%; it says marginal,
+  since the sample is read and what refuses it is measured directly. A parent array there still stops
+  the run.
+
+**Tested on real arrays made to fail.** 20 arrays of known ploidy were degraded over 35 conditions of
+locus and allele dropout, with the no-DNA signal drawn as measured on Table S3's nullisomic
+chromosomes. None reached a 40% call rate. With the father loaded, no diploid was staged haploid at any
+dropout (0 of 175), and haploid recall rose from 140 to 262 of 525. Every refusal was the physical one.
+
+Known limits. Without a parent, heterozygosity cannot tell one genome from two on heavily amplified
+material: 292 of the 708 arrays staged diploid with no parent read at the haploid level once their
+drop-in is removed, one of them a haploid pronucleus. With a parent loaded, as in every run of the
+application, the alleles decide. At 55% locus dropout with near-total allele dropout the alleles fall
+silent and 25 degraded haploid arrays still read diploid, from heterozygosity just under the ceiling.
+
+---
+
 ## 5.52.1 "Haplotype Block"
 
 **Withholding arrays and rebuilding from the rest found three faults in 5.52.0, and all three are

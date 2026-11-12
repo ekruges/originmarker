@@ -1003,8 +1003,11 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
                 <Table.Tr>
                   <Table.Td><b>call rate</b></Table.Td>
                   <Table.Td>
-                    Below 60%, excluded, following the only published threshold measured on
-                    amplified material <Ref id="natesan_2014" />. 60 to 75% is marginal. Note the
+                    Below 60% is under the only published threshold measured on amplified material{' '}
+                    <Ref id="natesan_2014" />. A parent array there stops the run, since every channel
+                    is measured against it. A sample is reported as marginal and still read: an
+                    array with no DNA keeps calling at random and is refused for that by its
+                    information ratio, so call rate is not what refuses it. 60 to 75% is marginal. Note the
                     Axiom vendor gate of 97% was established on unamplified bulk DNA and would
                     reject nearly every embryo biopsy, which is why it is not used here.
                   </Table.Td>
@@ -1014,7 +1017,10 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
                   <Table.Td>
                     Below 60% call rate, erroneous heterozygous calls become common, so a
                     heterozygous call is no longer robust and any partition resting on it loses its
-                    guarantee. The gate suspends that assumption rather than quietly relying on it.
+                    guarantee. The gate reports that rather than quietly relying on it; the
+                    erroneous calls themselves are measured as drop-in against the founder panel,
+                    and where drop-in fills the heterozygous band, zygosity is read from the
+                    alleles instead.
                   </Table.Td>
                 </Table.Tr>
                 <Table.Tr>
@@ -2013,10 +2019,15 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             preferred.
           </Text>
           <Text size="sm" mb={10}>
-            <b>Quality is gated before ploidy.</b> A failed amplification drives heterozygosity
-            toward zero, so without a call-rate floor it is read as haploid and handed a confident
-            parameter set instead of a rejection. The two cannot be separated by heterozygosity, so
-            call rate decides first and a failed array is reported as failed.
+            <b>A failed reaction is refused for what it is, not for its call rate.</b> An array
+            with no DNA does not stop calling: on this platform it calls 42% to 75% of markers at
+            random, reads 58% to 67% heterozygous, and its calls carry no information, which is
+            what refuses it. A call-rate floor once stood in for that, on the reasoning that failure
+            drives heterozygosity toward zero and reads as one genome; over 1,001 arrays it fired on
+            none. What heterozygosity genuinely cannot do is tell one genome from a diploid whose
+            heterozygotes dropped out. Where a parent is loaded, measured or reconstructed, the
+            alleles do: a diploid carries the other parent&rsquo;s alleles on most chromosomes
+            through any dropout, and a haploid product on none.
           </Text>
           <Text size="sm" mb={10}>
             <b>Haploid material is a different axis, and not a uniform one.</b> A second polar body,
@@ -2142,7 +2153,8 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             </List.Item>
             <List.Item>
               <Code>A8_45</Code> stays <b>unclear</b>, and the oocyte donor shows a second reason
-              why. Against the sperm donor alone its 53% call rate already withholds zygosity. Add
+              why. Against the sperm donor alone its zygosity is already withheld: its drop-in fills
+              the heterozygous band, and no chromosome carries both parents&rsquo; alleles. Add
               her and the maternal side lands at 12.84% against a 10.91% ceiling, 1.2x, inside the
               uncalled band as well. That array has 47% dropout and resolves neither parent. See{' '}
               <SecRef id="band" />.
@@ -2285,9 +2297,12 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             </Table>
           </Wide>
           <Text mb={8}>
-            The four refusals are the informative part. Three are paternal pronuclei below the
-            60% call rate, where the tool excludes the sample on its own gate and withholds
-            zygosity; on the axis that matters it had all three right, detecting the paternal
+            The four refusals are the informative part. Three are paternal pronuclei at 54% to 59%
+            call rate, the three of the series with the heaviest drop-in, which fills their
+            heterozygous band. Zygosity was withheld for them on a call-rate gate; it is now read
+            from their alleles against the sperm donor, which show one genome on two of them and
+            say nothing on the third, at drop-in of 0.41. On the axis that matters it had all three
+            right, detecting the paternal
             genome as present at 0.44x, 0.49x and 0.45x of their ceilings. The fourth is the
             noisiest of eight egg-donor arrays, landing at 1.08x inside the uncalled band while
             the other seven, unrelated to the sperm donor in exactly the same way, are called at

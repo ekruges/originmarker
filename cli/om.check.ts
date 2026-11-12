@@ -16,7 +16,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import * as inferredArray from '../web/src/inferredArray.ts'
 import {
-  inferStage, QC_CALL_FLOOR, MAX_DIPLOID_HET, HAPLOID_MAX_HET, BULK_HETEROZYGOSITY,
+  inferStage, MAX_DIPLOID_HET, HAPLOID_MAX_HET, BULK_HETEROZYGOSITY,
   BAND_DIPLOID_CERTAIN,
 } from '../web/src/stage.ts'
 import {
@@ -30,7 +30,6 @@ const p = (hetRate: number, callRate = 0.95, hetBand?: number) => ({ hetRate, ca
 // --- 1. no options is the shipped configuration, on every branch --------------------------------
 {
   const explicit = {
-    callFloor: QC_CALL_FLOOR,
     maxDiploidHet: MAX_DIPLOID_HET,
     haploidMaxHet: HAPLOID_MAX_HET,
     bulkHeterozygosity: BULK_HETEROZYGOSITY,
@@ -72,13 +71,9 @@ const pairs = (n: number, f: (i: number) => [AB, AB]): [AB, AB][] =>
 
 // --- 2. every dial actually moves the answer ----------------------------------------------------
 {
-  // A dead array is failed by default; lowering the floor lets it through.
-  assert.equal(inferStage(p(0.004, 0.22)).stage, 'failed')
-  assert.notEqual(inferStage(p(0.004, 0.22), { callFloor: 0.10 }).stage, 'failed')
-
   // A mixture is failed by default; raising the ceiling admits it as a genome.
   assert.equal(inferStage(p(0.52, 0.55)).stage, 'failed')
-  assert.equal(inferStage(p(0.52, 0.55), { maxDiploidHet: 0.70, callFloor: 0.10 }).stage, 'bulk')
+  assert.equal(inferStage(p(0.52, 0.55), { maxDiploidHet: 0.70 }).stage, 'bulk')
 
   // The haploid boundary moves in both directions.
   assert.equal(inferStage(p(0.099)).stage, 'haploid')

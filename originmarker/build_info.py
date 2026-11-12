@@ -246,10 +246,15 @@ RELEASES: tuple[Release, ...] = (
             "each copied whole from one of the parent's two homologues. Two of a parent's gametes "
             "carry the same stretch half the time, and all of a handful of them some of the time, "
             "and there a parent rebuilt from its gametes cannot see that it had two."),
+    Release("Coupling Phase",
+            "Alleles that sit on the same parental chromosome travel together, in coupling, and an "
+            "array reads a cell's genome through them as well as through its heterozygosity. Where "
+            "dropout empties the heterozygous calls, the other parent's alleles are still there, "
+            "and they say whether two genomes are present."),
 )
 
-VERSION = "5.52.1"
-CODENAME = "Haplotype Block"
+VERSION = "5.53.0"
+CODENAME = "Coupling Phase"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

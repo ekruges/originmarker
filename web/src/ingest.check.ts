@@ -186,6 +186,9 @@ const verdict = (p: ReturnType<typeof prof>, name: string) =>
 
 assert.equal(verdict(prof(0.55, 0.30), 'call rate'), 'exclude', 'below 60%: the one published cut')
 assert.equal(verdict(prof(0.68, 0.30), 'call rate'), 'marginal')
+// A sample is read whatever its call rate, so for a sample the cut is reported, not applied.
+assert.equal(gates(prof(0.55, 0.30), false, 'sample').find((g) => g.name === 'call rate')!.verdict, 'marginal')
+assert.equal(gates(prof(0.55, 0.30), false, 'sample').find((g) => g.name === 'het-to-hom asymmetry valid')!.verdict, 'marginal')
 assert.equal(verdict(prof(0.907, 0.122), 'call rate'), 'usable', 'the real cohort is inside the band')
 assert.equal(verdict(prof(0.99, 0.30), 'call rate'), 'usable')
 // The vendor gate is named in the message rather than applied, because it was established on

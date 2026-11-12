@@ -410,16 +410,25 @@ export interface Gate {
  * heterozygosity is zero by construction. On one, `het-to-hom asymmetry valid` and
  * `genome-wide LOH` are `report_only`; every other gate applies unchanged.
  */
-export function gates(p: SampleProfile, inferred = false): Gate[] {
+export function gates(p: SampleProfile, inferred = false, role: 'parent' | 'sample' = 'parent'): Gate[] {
   const out: Gate[] = []
   const cr = p.callRate
+  // A SAMPLE IS NOT EXCLUDED ON ITS CALL RATE. The analysis reads it whatever this says: an array with
+  // no DNA still calls 42% to 75% of markers, at random, and is refused for that by its information
+  // ratio (stage.ts), and a chromosome with none by its alleles and signal. So for a sample the
+  // published cut is reported as marginal, and for a PARENT it still excludes, since every channel is
+  // measured against the parent and a failed parent stops the run.
+  const below = role === 'sample' ? 'marginal' : 'exclude'
 
   out.push({
     name: 'call rate',
     value: cr,
-    verdict: cr < 0.60 ? 'exclude' : cr < 0.75 ? 'marginal' : 'usable',
+    verdict: cr < 0.60 ? below : cr < 0.75 ? 'marginal' : 'usable',
     detail: cr < 0.60
-      ? 'below 60%: excluded (Natesan 2014, the only published threshold measured on amplified material)'
+      ? (role === 'sample'
+        ? 'below 60%, under the only published threshold measured on amplified material (Natesan 2014). '
+          + 'Not excluded on it: calls that are noise and chromosomes without DNA are measured directly'
+        : 'below 60%: excluded (Natesan 2014, the only published threshold measured on amplified material)')
       : cr < 0.75
         ? 'between 60% and 75%: below the published usable band, interpret with care'
         : cr > 0.97
@@ -434,7 +443,7 @@ export function gates(p: SampleProfile, inferred = false): Gate[] {
     name: 'het-to-hom asymmetry valid',
     value: cr,
     // A reconstruction emits no heterozygous calls, so none of them can be erroneous.
-    verdict: inferred ? 'report_only' : cr < 0.60 ? 'exclude' : cr < 0.75 ? 'marginal' : 'usable',
+    verdict: inferred ? 'report_only' : cr < 0.60 ? below : cr < 0.75 ? 'marginal' : 'usable',
     detail: inferred
       ? 'not applicable: a reconstructed reference emits no heterozygous calls, so there are none '
         + 'to be erroneous'

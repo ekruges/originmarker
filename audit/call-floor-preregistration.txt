@@ -1,0 +1,48 @@
+Pre-registration: the call-rate floor, replaced by what it stood in for
+=======================================================================
+
+Written 12 November 2026 against 5.52.1, after the survey below and BEFORE any change is built.
+
+WHAT THE SURVEY FOUND (audit/local/nocall-survey; every array on tesla, 1,122 files, 1,001 unique)
+  The floor (QC_CALL_FLOOR, call rate under 0.40) fires on none: the lowest call rate is 0.421.
+  An array with no DNA does not stop calling. The 7 arrays recorded as having none (GSE148488's
+  failed array and its "chr6p fragment only" cell; the laboratory's four "failed, no gDNA" cells and
+  S23-12, "1,2,9,15,19 only") call 42% to 75% of markers, read 58% to 67% heterozygous, and are all
+  refused already, as no genotype signal (information ratio 0.60 to 1.37). On a chromosome with no
+  copy (Table S3's 21 nullisomies, and GSM4552418's 21 absent chromosomes) the array still calls
+  26% to 61%; what marks it is log R at the no-calls (-1.7 to -2.2) and allele balance at the no-calls
+  scattered (60% to 84% intermediate, against 0% to 20% on a present chromosome).
+  So the floor's premise, that a failed reaction drives heterozygosity toward zero and imitates one
+  genome, is the opposite of what failed arrays do here. The case it stood in for does exist, at high
+  call rate: GSM4552364, a chaotic diploid cell (15 chromosomes disomic by its alleles), is staged
+  haploid at 88% called, which no call-rate floor reaches.
+
+THE CHANGE
+  1. The floor is removed. Arrays without DNA stay refused by the information ratio.
+  2. Where a parent is loaded, measured or reconstructed, the one-parent copy state supplies the
+     ploidy the genotypes cannot. A haploid product carries one parent's genome on every chromosome;
+     a diploid carries a second genome on most, through allele dropout, since dropout removes alleles
+     at random and leaves the other parent's alleles in the calls. So:
+       two genomes  disomic on at least half the chromosomes stating a copy state: never haploid
+       one genome   the commonest state is one copy of one parent, on at least NORMAL_MAJORITY_MIN of
+                    them: haploid, including where drop-in left the ploidy unknown
+     Read inside the stage, so one reconstructed parent and two measured parents give one answer.
+
+PREDICTIONS
+  E1  On the 1,001 arrays read without a parent, no stage changes.
+  E2  GSE148488, against the measured father, the eight-pronucleus rebuild, and both parents:
+      no Table S3 cell staged haploid (GSM4552364 moves to a diploid rung); all 15 pronuclei staged
+      haploid, including the four drop-in paternal ones now staged with ploidy unknown; the stage
+      identical between the rebuild and both parents on 31 of 31.
+  E3  S23, each cell against S23-00 and against the rebuild from the other 17: stage identical on 18
+      of 18; the 13 pronuclei (sheet P or M, staging haploid today) staged haploid; S23-08, -16 and -17
+      diploid; S23-12 and -15 refused.
+  E4  Synthetic failure on real arrays (allele dropout and locus dropout over a grid, the no-call
+      signal drawn as measured on nullisomic chromosomes): with a parent loaded, no diploid source is
+      staged haploid at any allele dropout under 0.9; every haploid source not refused is staged
+      haploid, including at call rates under 0.40. Without a parent, diploid sources staged haploid
+      are reported against the floor's count on the same grid, as the cost of removing it.
+  E5  The Zuccaro census and the laboratory's 95 arrays: every claim count unchanged except where
+      E2 moves a stage.
+
+A failed prediction is reported as a failure.

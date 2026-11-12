@@ -65,12 +65,12 @@ import {
 } from './answerKeys.ts'
 import type { PhysicalCause } from './refusals.ts'
 import {
-  emptyShareTally, addShare, shareCall, normalFraction, NORMAL_MAJORITY_MIN,
+  emptyShareTally, addShare, shareCall, normalFraction, NORMAL_MAJORITY_MIN, DISOMIC_LOW,
   type ShareTally, type ShareCall,
 } from './oneParentState.ts'
 import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
-  panelScale, hetSpread, HET_SPREAD_LOCALISED,
+  panelScale, hetSpread, HET_SPREAD_LOCALISED, allelePloidy,
 } from './stage.ts'
 import { nullScale, calibratedZ, median, intensityDetects } from './intensityNull.ts'
 import { reconcileStage } from './declaredStage.ts'
@@ -500,8 +500,14 @@ export async function scoreSample(input: {
     .filter((x): x is ParentIndex => !!x && !x.inferred && x.callRate >= PANEL_ANCHOR_CALL_RATE)
     .map((x) => x.heterozygosity)
     .filter((x) => Number.isFinite(x) && x > 0)
+  // THE ALLELES SAY HOW MANY GENOMES, where a parent is loaded: see stage.allelePloidy. Read from the
+  // same tallies as the copy state below, against the father in either configuration, so one
+  // reconstructed parent and two measured ones give one stage.
+  const copyStates = acc.shareByChrom
+    ? [...acc.shareByChrom].filter(([c]) => isAutosome(c)).map(([, t]) => shareCall(t).state)
+    : undefined
   const stageAgreement = reconcileStage(
-    inferStage({ ...profile, dropIn: panelDropIn, information: panelInformation }, {
+    inferStage({ ...profile, dropIn: panelDropIn, information: panelInformation, copyStates }, {
       panelHeterozygosity: stageAnchors.length ? Math.min(...stageAnchors) : undefined,
       ...input.stageOpts,
     }), input.declaredStage, stageDefaults,
@@ -521,11 +527,22 @@ export async function scoreSample(input: {
   const result = classify(t, pat.heterozygosity, {
     role: soloRole,
     bulk: bulkMaterial,
+    dropIn: panelDropIn,
     ...(pat.inferred && Number.isFinite(pat.inferred.spuriousAbsence)
       ? { spuriousAbsence: pat.inferred.spuriousAbsence } : {}),
     ...(pat.inferred ? { inferredParent: true } : {}),
   })
   result.refusals = []
+  // ZYGOSITY FROM THE ALLELES, where they decide: one genome or two, read as the stage reads it
+  // (allelePloidy). classify read it from the heterozygous band, which drop-in fills and allele
+  // dropout empties; the other parent's alleles in the calls are touched by neither.
+  const allelesSay = allelePloidy(copyStates)
+  if (allelesSay) {
+    result.zygosity = allelesSay === 'two genomes' ? 'diploid' : 'uniparental_homozygous'
+    result.limits = result.limits.filter((l) => !l.includes('Zygosity is '))
+    result.notes.push(`Zygosity is read from the alleles against the loaded parent: ${allelesSay === 'two genomes'
+      ? 'most chromosomes carry a second genome' : 'most chromosomes carry one parent\'s copy alone'}.`)
+  }
   // A reconstruction whose banner could not be read is NOT a measured array, and proceeding as
   // though it were is the failure this whole path exists to stop. Say so where the operator reads.
   if (pat.inferred && !Number.isFinite(pat.inferred.hRetained)) {
@@ -664,6 +681,16 @@ export async function scoreSample(input: {
   const bothParentsSomewhere = result.chroms
     .filter((c) => isAutosome(c.chrom) && c.contribution?.ploidy === 'biparental').length
     >= BIPARENTAL_AUTOSOMES_MIN
+  // AND WITH BOTH PARENTS LOADED THAT IS TWO CONTRIBUTIONS, read from the alleles with drop-in
+  // removed. Where the band could not say, because drop-in filled it, this does: both parents'
+  // alleles on that many chromosomes is a genome carrying both. Not with one parent, where no drop-in
+  // is removed from this reading and drop-in alone would pass for the second parent.
+  if (two && cellDropIn > 0 && result.zygosity === 'unknown' && bothParentsSomewhere) {
+    result.zygosity = 'diploid'
+    result.limits = result.limits.filter((l) => !l.includes('Zygosity is '))
+    result.notes.push('Zygosity is read from the alleles: both parents\' alleles are present, with '
+      + `drop-in removed, on ${BIPARENTAL_AUTOSOMES_MIN} or more autosomes.`)
+  }
   for (const c of result.chroms) {
     const call = c.contribution
     if (!twoBulk || !bothParentsSomewhere || !knownBiparental(result.zygosity)
@@ -701,6 +728,17 @@ export async function scoreSample(input: {
     }
   }
   const normal = normalFraction([...shareCalls.values()])
+  // BOTH PARENTS SOMEWHERE, FROM ONE PARENT'S ALLELES. Where neither the band nor the genome-wide
+  // reading decides, as on a chaotic genome that lost chromosomes of both parents, chromosomes reading
+  // as a second copy reads say a second contribution exists. The copy state cancels drop-in, so this
+  // holds with one parent as with two; the same count guards the one-parent loss reading below.
+  const secondCopies = [...shareCalls.values()].filter((x) => x.state === 'disomic' && x.r >= DISOMIC_LOW).length
+  if (result.zygosity === 'unknown' && allelesSay !== 'one genome' && secondCopies >= BIPARENTAL_AUTOSOMES_MIN) {
+    result.zygosity = 'diploid'
+    result.limits = result.limits.filter((l) => !l.includes('Zygosity is '))
+    result.notes.push(`Zygosity is read from the alleles: ${secondCopies} autosomes carry a second copy `
+      + 'against the loaded parent, drop-in removed.')
+  }
   if (!mat && [...shareCalls.values()].filter((x) => x.state === 'disomic').length >= BIPARENTAL_AUTOSOMES_MIN) {
     for (const c of result.chroms) {
       const sc = shareCalls.get(c.chrom)
