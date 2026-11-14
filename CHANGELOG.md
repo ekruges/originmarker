@@ -9,6 +9,50 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 5.54.0 "Repulsion Phase"
+
+**With one parent, the tool now says which parent gave an extra chromosome.** One parent is the
+laboratory's whole configuration, and until now an extra copy seen by intensity was left without a
+parent there. The one-parent copy state reads, at markers where the loaded parent is homozygous, the
+share of the allele that parent lacks, without selecting on the cell's own calls, which is what
+disabled the old one-parent route. An extra copy of the loaded parent's chromosome leaves the other
+parent's alleles a third of the copies, not a half; an extra copy of the other's, two thirds. As a
+share of the loaded parent's alleles that is 2/3 or 1/3 against 1/2. Each whole chromosome's share is
+read by the same test two parents use, against the same cell's disomic chromosomes. Intensity detects
+the gain and the alleles only say whose: a parent is named at three times the cell's own spread
+(`ONE_PARENT_ORIENT_Z`), and never for a gain intensity has not called, since one parent's share is
+too noisy to detect one alone (on half a cell's markers it put a gain on a chromosome published
+normal).
+
+Tested on extra chromosomes of known origin built on real arrays, by re-weighting five published-normal
+GSE148488 cells' own allele intensities (audit/one-parent-gain-result-2026-11-14.txt, pre-registered):
+
+| | first six chromosomes, where the bar was set | sixteen held-out chromosomes |
+|---|---|---|
+| gains intensity calls | 38 | 68 |
+| parent named, against the rebuilt father alone | 24 | 52 |
+| named wrong | 0 | 0 |
+| agreeing with both measured parents | 22 of 22 | 47 of 47 |
+| named on an unmodified chromosome | 0 | 0 |
+
+The first pass, which used the two-parent bar unchanged, named 9 of 60 and failed its own bar of half;
+it is reported as such. On the 31 Table S3 cells nothing but the gain rows moved, in any
+configuration, and the one-parent reading names no gain's parent on a chromosome published normal,
+where two parents name 3. Segmental gains are not attempted: a partial gain dilutes a whole
+chromosome's share.
+
+**A validation suite, one command.** `audit/validate/run.sh` runs, in sequence, the census against
+Table S3 in all three parent configurations; metamorphic tests against the rebuilt father, where
+shuffling the markers and swapping the A/B coding must change nothing and halving them must contradict
+nothing; and the constructed gains, original and held out. With the laboratory series and the full
+array list it adds the hold-out rebuild and the no-parent survey. `audit/validate/scorecard.py` turns
+the lot into one scorecard and lists every number that moved since the previous one. On this release
+against the rebuilt father, shuffling and swapping changed nothing on 31 of 31 cells, and halving
+contradicted nothing; its scorecard is kept as `audit/validate/scorecards/5.54.0.json`, the baseline
+the next release is diffed against.
+
+---
+
 ## 5.53.0 "Coupling Phase"
 
 **No array is refused for its call rate, and the alleles say how many genomes a cell carries.**

@@ -1,0 +1,63 @@
+Pre-registration: which parent gave an extra chromosome, with one parent
+=========================================================================
+
+Written 14 November 2026 against 5.53.0, BEFORE the code below is built or run.
+
+WHY. With one parent, which is the laboratory's whole configuration, the tool sees an extra copy by
+intensity and cannot say whose it is. The two-parent reading (gainOrigin.scanAlleleGains) reads the
+father's share of alleles at markers where the parents are opposite homozygotes, against the cell's
+own biparental chromosomes. The old one-parent route selected markers by the cell's own
+heterozygous calls, which forces the share to one half; it is unwired and stays so.
+
+THE METHOD. The one-parent copy state (oneParentState.ts) reads, at markers where the loaded parent P
+is homozygous, the share r of the allele P lacks, without selecting on the cell's calls. On a disomic
+chromosome r sits at the cell's disomic level r_d; with an extra copy of P's chromosome the other
+parent's alleles are a third, not a half, of the copies, so r = 2/3 r_d; with an extra copy of the
+other parent's, r = 4/3 r_d. So P's share s = 1 - r / (2 r_d) is 1/2, 2/3 or 1/3: the units of the
+two-parent share. Each autosome's s, with r_d the median r over the cell's disomic chromosomes, is
+read by the same scanAlleleGains, against the same cell's disomic chromosomes, with its intensity,
+under the same conditions (a genome known to carry both parents; copy number readable). Whole
+chromosomes only; a segment's share needs the marker-level reading and is not attempted.
+
+TESTS
+  CONSTRUCTED. Five GSE148488 cells Table S3 publishes with a normal karyotype; on six of their
+  chromosomes published normal (2, 5, 9, 13, 18, 21), one at a time, an extra copy is added by
+  re-weighting the cell's own allele intensities: one copy's worth of intensity added to the father's
+  allele where he is homozygous (an extra paternal copy) or the mother's where she is (an extra
+  maternal copy), split evenly elsewhere. Scored against the father rebuilt from his eight pronuclei
+  alone, and against both measured parents for the two-parent reading. 60 constructions.
+  P1  Of the constructed gains the one-parent reading names a parent for, the wrong parent on at
+      most 2%.
+  P2  It names a parent on at least half of the 60.
+  P3  Where both readings name a parent, they name the same one on every constructed gain.
+  CENSUS, the 31 Table S3 cells:
+  P4  One-parent gain claims on chromosomes published normal: no more than the two-parent arm's 3.
+  P5  Where the one-parent and two-parent arms both name a gain's parent, the same parent.
+  P6  Nothing else moves: stage, zygosity, copy number and lostParent identical to 5.53.0 in every
+      configuration.
+
+A failed prediction is reported as a failure.
+
+PASS 1, SCORED 14 NOVEMBER (the method above, 60 constructions)
+  P1  wrong parent on at most 2% of those named: 0 of 9. HOLDS.
+  P2  a parent named on at least half: 9 of 60. FAILS.
+  P3  the same parent as the two-parent reading wherever both name one: 9 of 9. HOLDS.
+  Why P2 fails: the two-parent test detects a gain from the alleles alone, so it needs |z| of 6; the
+  one-parent share is noisier, and its z reached 6 on 9. Its direction was right on 55 of the 57
+  constructions it scored, and the two it got wrong read |z| 0.40 and 0.51. On the 29 unmodified
+  chromosomes of the same cells |z| reached 3.01. Intensity called 38 of the 60 gains.
+
+PASS 2, WRITTEN BEFORE IT IS BUILT OR RUN
+  The change: with one parent, intensity detects the gain and the alleles only orient it. Where
+  intensity has called a whole-chromosome gain and the one-parent share is at least ONE_PARENT_ORIENT_Z
+  = 3 of the cell's own spread from its disomic chromosomes, the parent is named by the direction.
+  3 is the conventional three-sigma bar; it was set after seeing pass 1, so it is scored on
+  constructions it has not seen.
+  HELD OUT: the same five cells, the 16 other autosomes where Table S3 publishes normal, an extra
+  paternal and an extra maternal copy on each, scored as before.
+  Q1  Of the held-out gains intensity calls, a parent named on at least half.
+  Q2  Wrong parent on at most 2% of those named.
+  Q3  The same parent as the two-parent reading wherever both name one.
+  Q4  No parent named on any chromosome of an unmodified cell, nor on any chromosome but the one
+      constructed.
+  And on the 31 Table S3 cells (the census), P4 to P6 above.

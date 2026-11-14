@@ -1365,6 +1365,22 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             the other parent fits, and in between neither an extra copy nor a loss is supported.
           </Text>
           <Text size="sm" mb={10}>
+            <b>With one parent, which is how a laboratory with a reconstructed parent works, the
+            same test runs on a different share.</b> At markers where the loaded parent is
+            homozygous, the share of the allele it lacks is read without selecting on the
+            cell&rsquo;s own calls. It sits at the cell&rsquo;s disomic level on a chromosome with one
+            copy of each parent, at two thirds of that level with an extra copy of the loaded
+            parent&rsquo;s chromosome, and at four thirds with an extra copy of the other&rsquo;s. Expressed
+            as the loaded parent&rsquo;s share it is one half, two thirds or one third, and it is
+            judged against the same cell&rsquo;s disomic chromosomes. Where intensity has already
+            called the gain, the alleles only say whose: a parent is named at three of the
+            cell&rsquo;s spreads, and never for a gain intensity has not called, since one
+            parent&rsquo;s share is too noisy to detect a gain alone. On extra chromosomes built on
+            real arrays and held out from that bar, it named the parent of 52 of the 68 gains
+            intensity called, none wrongly, and agreed with both measured parents on all 47 both
+            named. Whole chromosomes only.
+          </Text>
+          <Text size="sm" mb={10}>
             <b>Both numbers are also read together as a likelihood, which is reported beside the
             verdict and does not decide it.</b> Six states over a grid of cell fraction and
             chemistry compression, including the state that says this chromosome&rsquo;s intensity

@@ -1,0 +1,54 @@
+Which parent gave an extra chromosome, with one parent: result
+==============================================================
+
+Run 14 November 2026 on tesla. Scored against audit/one-parent-gain-preregistration.txt, pass 1 and
+pass 2 each written before they ran. Scorecards: audit/validate/scorecard.py.
+
+PASS 1 (the share fed to the two-parent test unchanged, 60 constructions on chromosomes 2, 5, 9, 13,
+18 and 21 of five cells Table S3 publishes normal)
+  P1  wrong parent on at most 2% of those named: 0 of 9. HOLDS.
+  P2  a parent named on at least half: 9 of 60. FAILS.
+  P3  same parent as the two-parent reading wherever both name one: 9 of 9. HOLDS.
+  The two-parent test detects a gain from the alleles alone and needs |z| 6. The one-parent share is
+  noisier; its direction was right on 55 of the 57 constructions it scored, and the two it got wrong
+  read |z| 0.40 and 0.51, both on GSM4552369's chr2 and chr9, where two parents read a gain in the
+  unmodified cell that Table S3 does not publish. Intensity called 38 of the 60.
+
+PASS 2 (intensity detects, the alleles orient: a parent is named on an intensity-called gain at
+|z| >= ONE_PARENT_ORIENT_Z = 3; held out, the 16 other autosomes published normal in the same cells,
+158 constructions, scored against the father rebuilt from his eight pronuclei alone)
+  Q1  a parent named on at least half of the gains intensity calls: 52 of 68. HOLDS.
+  Q2  wrong parent on at most 2%: 0 of 58 named (52 oriented, 6 detected from the alleles alone). HOLDS.
+      (As shipped, the 6 are not named: see below.)
+  Q3  same parent as both measured parents wherever both name one: 53 of 53. HOLDS.
+  Q4  no parent named on an unmodified chromosome, nor on any chromosome but the one constructed:
+      0 and 0. HOLDS. (Two parents name gains on GSM4552369 chr2 and chr9 in every construction of
+      that cell, its own unpublished imbalances: 47 rows, one event each.)
+  Pass 1 rescored under the same rule, in sample: 24 of the 38 intensity-called named, 0 wrong,
+  22 of 22 agreeing with two parents.
+
+THE INVARIANCE SUITE, ON THIS CODE, FOUND ONE MORE THING
+  Halving a cell's markers must contradict nothing and should raise nothing new. On GSM4552372 chr16,
+  published normal, the half array was given a gain with a parent where the full array had none, and
+  intensity called no gain on either. It came from the two-parent route, which detects a gain from
+  the alleles alone at |z| 6, a bar set on two parents' share; one parent's share is noisier. So with
+  one parent the alleles now name a parent only for a gain intensity has called. That drops the 6
+  allele-only names of the held-out set, all of which had been right, and leaves:
+    held out   52 of the 68 intensity-called named, 0 wrong, 47 of 47 agreeing with two parents
+    pass 1     24 of 38, 0 wrong, 22 of 22
+    unmodified chromosomes named: 0 in both
+  Rescored from the recorded runs, then confirmed by the full suite on the release code
+  (audit/validate/run.sh, scorecard in audit/validate/scorecards/5.54.0.json): the same numbers.
+  On that run halving the markers contradicted nothing on 31 cells and raised one new claim, the
+  lostParent on GSM4552387 chr13 that 5.53.0 also raises; shuffling and swapping changed nothing.
+
+CENSUS (the 31 Table S3 cells, both parents, the measured father alone, the rebuilt father alone)
+  P4  one-parent gain claims naming a parent on chromosomes published normal: 0, against the two-parent
+      arm's 3. HOLDS.
+  P5  same parent where both arms name one: no chromosome is named by both. HOLDS, vacuously: on these
+      cells the one-parent reading names no gain's parent at all.
+  P6  every row but the gain rows identical to 5.53.0 in all three configurations. HOLDS.
+
+WHAT IT CANNOT DO
+  Segmental gains: the share is read per whole chromosome. A partial gain dilutes it, and is left
+  unnamed. With one parent, a gain intensity does not call is not named.

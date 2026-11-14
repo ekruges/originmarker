@@ -30,7 +30,7 @@ import {
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground, scanAlleleGains,
   type ChromShare,
-  MIN_INFORMATIVE_DEFAULT, type DosageMarker, callLossOrigin,
+  MIN_INFORMATIVE_DEFAULT, type DosageMarker, callLossOrigin, ONE_PARENT_ORIENT_Z,
 } from './gainOrigin.ts'
 import {
   addTwoParent, emptyHet, hetCall, type HetTally, MIXED_SHARE, HAPLOID_MAX, nameAbsentParent,
@@ -769,6 +769,56 @@ export async function scoreSample(input: {
       const c = result.chroms.find((x) => x.chrom === g.chrom)
       if (c) c.alleleGain = g
     }
+  } else if (!two && shareCalls.size && knownBiparental(result.zygosity)) {
+    // AND WITH ONE PARENT, the laboratory's configuration. The copy state reads, at markers where the
+    // loaded parent is homozygous, the share r of the allele it lacks, without selecting on this
+    // cell's calls. An extra copy of the loaded parent's chromosome leaves the other parent's alleles
+    // a third of the copies, r = 2/3 of the cell's disomic level; an extra copy of the other's, 4/3.
+    // So the loaded parent's share, 1 - r / (2 x that level), is 1/2, 2/3 or 1/3: the two-parent
+    // share's units, read by the same test against the same cell's disomic chromosomes. Whole
+    // chromosomes only. See audit/one-parent-gain-preregistration.txt.
+    const level = median([...shareCalls.values()].filter((x) => x.state === 'disomic' && Number.isFinite(x.r)).map((x) => x.r))
+    if (Number.isFinite(level) && level > 0) {
+      const shares = result.chroms.filter((c) => isAutosome(c.chrom)).map((c) => {
+        const sc = shareCalls.get(c.chrom)
+        const own = sc && Number.isFinite(sc.r) ? 1 - sc.r / (2 * level) : NaN
+        return {
+          chrom: c.chrom,
+          share: soloRole === 'paternal' ? own : 1 - own,
+          informative: sc?.n2 ?? 0,
+          biparental: sc?.state === 'disomic' && c.verdict !== 'not_measured',
+          lrrShift: c.lrrShift,
+        }
+      })
+      for (const g of scanAlleleGains(shares)) {
+        const c = result.chroms.find((x) => x.chrom === g.chrom)
+        if (c) c.alleleGain = g
+      }
+      // ORIENTED WHERE INTENSITY HAS ALREADY CALLED THE GAIN, AND ONLY THERE. The test above can detect
+      // a gain from the alleles alone at ALLELE_GAIN_Z, a bar set on two parents' share. One parent's
+      // share is noisier: on half a cell's markers it put a gain, with a parent, on a chromosome Table
+      // S3 publishes normal (GSM4552372 chr16) where intensity called none. So with one parent
+      // intensity detects and the alleles only say whose, at the bar that keeps direction honest.
+      for (const c of result.chroms) {
+        const g = c.alleleGain
+        if (g?.verdict !== 'gain' || c.aneuploidy === 'gain') continue
+        c.alleleGain = { ...g, verdict: 'none', parent: undefined,
+          why: 'the alleles lean to one parent, but intensity calls no extra copy here, and with one '
+            + 'parent the alleles name the parent of a gain intensity has called, not detect one' }
+      }
+      for (const c of result.chroms) {
+        const g = c.alleleGain
+        if (c.aneuploidy !== 'gain' || !g || g.verdict !== 'none' || !Number.isFinite(g.z)
+          || Math.abs(g.z) < ONE_PARENT_ORIENT_Z) continue
+        const parent = g.z > 0 ? 'paternal' : 'maternal'
+        c.alleleGain = { ...g, verdict: 'gain', parent,
+          why: `intensity reads an extra copy, and against the loaded ${soloRole === 'paternal' ? 'father' : 'mother'} `
+            + `the alleles read the ${parent} share ${Math.abs(g.z).toFixed(1)} of this cell's spread `
+            + 'from its disomic chromosomes, toward the extra copy being that parent\'s' }
+      }
+    }
+  }
+  {
     for (const c of result.chroms) {
       const g = c.alleleGain
       if (!g || (g.verdict !== 'gain' && g.verdict !== 'imbalance')) continue

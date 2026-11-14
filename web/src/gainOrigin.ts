@@ -548,6 +548,15 @@ export function callHomologue(
  * for any other.
  */
 export const ALLELE_GAIN_Z = 6
+/**
+ * With one parent loaded, how far a chromosome's share must sit from the cell's disomic chromosomes,
+ * in their own spread, before the direction of a gain intensity has already called names a parent.
+ * Lower than ALLELE_GAIN_Z because it answers a smaller question: not whether there is an extra copy,
+ * which intensity has said, but whose. Pass 1 of audit/one-parent-gain-preregistration.txt: the
+ * direction was right on 55 of 57 constructed gains, the two wrong at |z| 0.40 and 0.51; unmodified
+ * chromosomes reached 3.01.
+ */
+export const ONE_PARENT_ORIENT_Z = 3
 /** The smallest shift that is a gain however wide the cell's own scale is. A third of the 0.167
  *  an extra copy moves a clean median, about half of what WGA leaves of it. */
 export const ALLELE_GAIN_SHIFT = 0.08

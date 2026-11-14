@@ -251,10 +251,14 @@ RELEASES: tuple[Release, ...] = (
             "array reads a cell's genome through them as well as through its heterozygosity. Where "
             "dropout empties the heterozygous calls, the other parent's alleles are still there, "
             "and they say whether two genomes are present."),
+    Release("Repulsion Phase",
+            "Alleles on opposite homologues are in repulsion: one parent's chromosome carries one, the "
+            "other parent's the other. Count the copies of each and an extra chromosome shows whose "
+            "it is, with only one of the two parents there to read them against."),
 )
 
-VERSION = "5.53.0"
-CODENAME = "Coupling Phase"
+VERSION = "5.54.0"
+CODENAME = "Repulsion Phase"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
