@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict'
 import {
-  emptyCarryTally, addCarry, carryCall, parentGenome, RARE_MAX, PRESENT_MIN, ENRICHMENT_MIN,
+  emptyCarryTally, addCarry, carryCall, parentGenome, RARE_MAX, RARE_MIN, PRESENT_MIN, ENRICHMENT_MIN,
   type CarryCall, type CarryTally,
 } from './parentGenome.ts'
 
@@ -62,6 +62,8 @@ assert.equal(chrom('child', 0.12, 0.5, 20).state, 'thin', 'too few markers are n
 const t = emptyCarryTally()
 addCarry(t, 'AB', 'AA', 0.1); addCarry(t, 'NC', 'AA', 0.1); addCarry(t, 'BB', 'NC', 0.1)
 addCarry(t, 'BB', 'BB', undefined); addCarry(t, 'BB', 'BB', 0.5)
+// An allele no founder holds is not tallied, in either class.
+addCarry(t, 'BB', 'BB', 0); addCarry(t, 'BB', 'AA', RARE_MIN / 2); addCarry(t, 'AA', 'AA', 0)
 assert.deepEqual(t, emptyCarryTally())
 addCarry(t, 'BB', 'BB', RARE_MAX); addCarry(t, 'AA', 'AB', 1 - RARE_MAX); addCarry(t, 'AA', 'BB', 0.05)
 assert.deepEqual(t, { same: 1, het: 1, opp: 0, ctlSame: 0, ctlHet: 0, ctlOpp: 1 })
@@ -82,7 +84,7 @@ const lopsided = Array.from({ length: 22 }, () => tally('child', 0.12, 0.5, 600,
 assert.ok(lopsided.every((x) => carryCall(x).state === 'absent'), 'D alone reads the child as a stranger')
 assert.equal(parentGenome(lopsided).verdict, 'carries')
 assert.ok(parentGenome(lopsided).enrichment >= ENRICHMENT_MIN)
-assert.ok(parentGenome(many('stranger', 22)).enrichment < 3)
+assert.ok(!(parentGenome(many('stranger', 22)).enrichment >= 3), 'under 3, or too few heterozygotes to read')
 assert.ok(parentGenome(many('stranger', 22, 0.4)).enrichment < ENRICHMENT_MIN, 'a stranger of the same ancestry')
 assert.equal(parentGenome(many('stranger', 22, 0.4)).verdict, 'none')
 
@@ -95,5 +97,21 @@ assert.ok(thinChild.every((x) => carryCall(x).state !== 'absent'))
 assert.equal(parentGenome(thinChild).verdict, 'carries')
 assert.notEqual(parentGenome(Array.from({ length: 22 }, () => tally('stranger', 0.12, 0.9, 60))).verdict, 'carries')
 assert.notEqual(parentGenome(Array.from({ length: 22 }, () => tally('stranger', 0.4, 0.9, 60))).verdict, 'carries')
+
+// A haploid stranger whose only heterozygous calls are noise, three times as common at the adult's
+// rare homozygotes as elsewhere: the ratio is high and it is not read.
+{
+  const noisy = Array.from({ length: 22 }, () => {
+    const x = emptyCarryTally()
+    for (let i = 0; i < 3000; i += 1) {
+      addCarry(x, 'BB', rnd() < 0.06 ? 'AB' : rnd() < 0.12 ? 'BB' : 'AA', 0.1)
+      addCarry(x, 'AA', rnd() < 0.02 ? 'AB' : rnd() < 0.1 ? 'BB' : 'AA', 0.1)
+    }
+    return x
+  })
+  const g = parentGenome(noisy)
+  assert.ok(Number.isNaN(g.enrichment), 'too few heterozygous calls to read an enrichment')
+  assert.equal(g.verdict, 'none')
+}
 
 console.log('parentGenome.check ok')

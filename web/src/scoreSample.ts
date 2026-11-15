@@ -264,7 +264,7 @@ export interface Collected {
   /** The one-parent copy-state tallies per autosome, where the panel carries founder frequencies.
    *  See oneParentState.ts. */
   shareByChrom: Map<string, ShareTally> | null
-  /** The parent-genome tallies per autosome against each MEASURED parent, where the panel carries
+  /** The parent-genome tallies per autosome against each loaded parent, where the panel carries
    *  founder frequencies. See parentGenome.ts. */
   carryByChrom: Map<string, CarryTally> | null
   carryMatByChrom: Map<string, CarryTally> | null
@@ -322,9 +322,8 @@ export function emptyCollected(
     panelSameHom: panel ? emptySameHom() : null,
     informationPanel: panel ? emptyHomTally() : null,
     shareByChrom: (panel as FounderPanel | null | undefined)?.freqB ? new Map() : null,
-    carryByChrom: (panel as FounderPanel | null | undefined)?.freqB && !pat.inferred && !pat.absent
-      ? new Map() : null,
-    carryMatByChrom: (panel as FounderPanel | null | undefined)?.freqB && mat && !mat.inferred ? new Map() : null,
+    carryByChrom: (panel as FounderPanel | null | undefined)?.freqB && !pat.absent ? new Map() : null,
+    carryMatByChrom: (panel as FounderPanel | null | undefined)?.freqB && mat ? new Map() : null,
   }
 }
 

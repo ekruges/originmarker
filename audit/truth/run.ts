@@ -98,6 +98,10 @@ for (const [id, path, parentPath, tag, otherPath, role] of list) {
         lostParent: c.lostParent ?? '', aneuploidyParent: c.aneuploidyParent ?? '', gain: c.alleleGain?.verdict ?? '', gainParent: c.alleleGain?.parent ?? '',
         lrrShift: c.lrrShift ?? null, lrrZ: c.lrrZ ?? null, state: c.copyState?.state ?? '' })),
       segments: (res.segments ?? []).map(seg),
+      findings: (res.findings ?? []).map((f: any) => ({ cls: f.cls, chrom: f.chrom, start: f.startBp, end: f.endBp,
+        whole: !!f.wholeChromosome, originBlocked: f.originBlocked ? true : undefined, flag: f.flag })),
+      origins: [...(res.oneParent ?? []).map((o: any) => ({ by: 'one-parent', where: o.where, verdict: o.verdict, parent: o.parent ?? null })),
+        ...(res.dosageCalls ?? []).map((d: any) => ({ by: 'dosage', where: d.where, verdict: d.verdict }))],
       refusals: (res.refusals ?? []).map((x: any) => ({ claim: x.claim, chrom: x.chrom ?? '', gate: x.gate,
         cause: x.cause, withheld: held(x.withheld) })),
     }) + '\n')

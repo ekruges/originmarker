@@ -9,6 +9,36 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.1.0 "Identity by State"
+
+**The parent check now reads a reconstructed parent, by the rule it reads a measured one.** A parent
+rebuilt from its own haploid cells is the laboratory's usual configuration, and 6.0.0 left it
+unchecked: a rebuild of the wrong adult was read as 5.54.0 read any wrong adult.
+
+Two changes to the reading make one rule serve both. Alleles no founder holds are left out: the
+adult's homozygote for one is more often a miscall than a genotype, a rebuild made from amplified
+cells has many, and other amplified arrays repeat them, which admitted three noisy unrelated arrays
+against one rebuild. And the heterozygote enrichment is read only where a fifth of the sample's calls
+at those markers are heterozygous: against a rebuild, near-homozygous cells read an enrichment over 5
+from heterozygous calls that are noise. The bars do not move.
+
+On 825 open arrays against two fathers, each measured and rebuilt (audit/truth/
+rebuilt-parent-check-2026-11-15.txt, the rule written before it was run): every true child is
+carried against the measured array and against the rebuild, 78 of 78; no unrelated array is, of some
+660 against each; and no array reads "carries" against one and "none" against the other. Against the
+nine measured adults of 6.0.0 the same rule carries 124 of 124 true children and none of 927
+unrelated pairs.
+
+In the tool, against the rebuilt father, the 31 Table S3 cells and the 18 arrays of the laboratory's
+second experiment keep the stage, zygosity, printed calls and named parents of 6.0.0, and 133
+unrelated arrays against him are given no copy state and no parent. With measured parents nothing
+printed moves. The suite is identical to 6.0.0 on all 65 lines (audit/validate/scorecards/6.1.0.json).
+
+**One parent against two, as it stands.** Segment losses: 18 of 20 with both parents, 13 with the
+measured father, 10 with the rebuilt one. All seven of the mother's are missed with the father alone,
+which has no reading of her copy along a chromosome; a scan from the allele the father lacks was
+tried and its markers are too sparse to reach a window. This is the next thing to close.
+
 ## 6.0.0 "Identity by Descent"
 
 **The tool now asks whether the array in the parental slot is a parent before it reads an allele

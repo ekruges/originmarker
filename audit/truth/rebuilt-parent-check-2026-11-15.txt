@@ -1,0 +1,79 @@
+The parent check against a reconstructed parent
+===============================================
+Scored on 15 November 2026 on open arrays only. Follows audit/truth/v6-2026-11-15.txt, whose
+section 9 lists this as not done.
+
+THE RULE, written before it was built or run in the tool
+--------------------------------------------------------
+  1. Markers: the adult is homozygous for an allele the founders hold at 0.02 to 0.2. An allele no
+     founder holds is left out.
+  2. The enrichment E is read only where at least 20% of the sample's calls at those markers are
+     heterozygous.
+  3. The bars are unchanged and the same for a measured and a reconstructed parent: three
+     chromosomes present by D, or E at 5 or over, or the whole-genome clause.
+
+Pass test: against the rebuilt father the 31 Table S3 cells keep the stage, zygosity, printed calls
+and named parents they have in 6.0.0; no unrelated array carries a rebuilt father's genome;
+measured-parent results unchanged; the suite no worse on any line.
+
+WHY THOSE TWO CHANGES
+---------------------
+825 open arrays against two fathers, each as a measured array and as a rebuild from his pronuclei
+(carry.ts). With every rare allele counted and the 6.0.0 rule:
+
+  D reads a rebuild as it reads a measured array for true children (71 to 76 of 77 by three
+  chromosomes, measured 75) and admits three noisy unrelated arrays against one rebuild and none
+  against the measured array. E runs higher against a rebuild: unrelated arrays reach 6.4 against
+  3.8 measured.
+
+Both come from alleles no founder holds. A rebuild is made from amplified cells, and a homozygote for
+such an allele in it is usually a miscall that other amplified arrays repeat; left out, the three
+admissions go and E reads the same against both (unrelated arrays reach 3.8 against a rebuild, 3.3
+measured). The unrelated arrays that read E over 5 against a rebuild were near-homozygous cells,
+3% heterozygous, whose few heterozygous calls are noise in both classes; a ratio of two noise rates
+is not a reading, which is the second change.
+
+RESULT, offline
+---------------
+                              true children carried   unrelated carried   "carries" one way and
+                                                                           "none" the other
+  sperm donor, measured       78 of 78                0 of 660            -
+  sperm donor, rebuilt        78 of 78                0 of 662            0 of 825
+  the same, an earlier build  78 of 78                0 of 659            0 of 825
+  second father, measured     8 of his products       0 of 656            -
+  second father, rebuilt      9 of his products       0 of 655            0 of 825
+
+Against the nine measured adults of the first scan, with the same rule: 124 of 124 true children
+carried, none of 927 unrelated pairs and none of 37 of shared ancestry; the highest E of an unrelated
+pair is 2.9. As a pronucleus label: 33 of 36 agree with the laboratory's, none disagrees, 3 are not
+answered.
+
+RESULT, in the tool
+-------------------
+  Rebuilt father, 31 Table S3 cells and 18 arrays of Experiment 2: stage, zygosity, printed calls
+  and named parents identical to 6.0.0 on 49 of 49. The check reads them: 37 carry, 8 carry none
+  (maternal pronuclei), 4 are not shown, two of those refused arrays.
+  133 unrelated open arrays against the rebuilt father: none carried; no chromosome is given a copy
+  state or a parent.
+  Measured parents, 88 rows: stage, zygosity, printed calls and named parents identical. One
+  maternal pronucleus moves from not shown to none against its father. Against egg donor D's array
+  two true children no longer read "none".
+  Suite: 65 of 65 lines identical to 6.0.0 (audit/validate/scorecards/6.1.0.json).
+
+THE THREE CONFIGURATIONS, as they stand
+---------------------------------------
+31 Table S3 cells, printed:
+
+                                   both parents   measured father   rebuilt father
+  stated normal, left alone        446 of 477     448 of 477        454 of 477
+  whole loss, found                100 of 150     102 of 150        100 of 150
+  segment loss, found              18 of 20       13 of 20          10 of 20
+    paternal                       13 of 13       13 of 13          10 of 13
+    maternal                        5 of 7         0 of 7            0 of 7
+  parent of a whole loss           91, 89 right   93, 91 right      92, 90 right
+                                   2 wrong        2 wrong           2 wrong
+
+The father alone has no reading of the mother's copy on a segment. A scan of the markers where the
+father is homozygous and the allele he lacks is common was tried and found nothing: those markers
+run about 11 to the megabase against 140 for the existing scan, so no window reaches its minimum. The
+loss-of-heterozygosity findings do not see these losses in any configuration either.

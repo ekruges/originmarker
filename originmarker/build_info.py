@@ -259,10 +259,14 @@ RELEASES: tuple[Release, ...] = (
             "A child holds one of each parent's two chromosomes, whole between the crossovers: "
             "identical by descent to that parent along its length. An array that carries none of an "
             "adult's genome is not that adult's child, whichever slot the file was loaded into."),
+    Release("Identity by State",
+            "Two genomes can show the same allele without either having it from the other: alike in "
+            "state, not by descent. A miscall that amplified arrays repeat is alike in state, and a "
+            "parent rebuilt from amplified cells is now read without them."),
 )
 
-VERSION = "6.0.0"
-CODENAME = "Identity by Descent"
+VERSION = "6.1.0"
+CODENAME = "Identity by State"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

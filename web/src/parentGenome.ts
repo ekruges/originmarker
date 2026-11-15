@@ -2,8 +2,8 @@
  * Whether an array carries the genome of the adult loaded as its parent, read before any allele is
  * read against that adult.
  *
- * Read at markers where the adult is homozygous for an allele the founder panel holds at RARE_MAX or
- * under, from the sample's calls there:
+ * Read at markers where the adult is homozygous for an allele the founder panel holds at RARE_MIN to
+ * RARE_MAX, from the sample's calls there:
  *
  *   D = (same homozygote - other homozygote) / called. A child reads above zero and anyone else below,
  *       at any dropout that takes either allele alike; the adult's own haploid product reads near 1.
@@ -11,9 +11,9 @@
  *       heterozygote needs both alleles, so E holds where dropout favours one parent's allele. Drop-in
  *       pulls it toward 1, so a low E says nothing.
  *
- * Not read against a reconstructed parent, whose rare homozygotes include the adult's heterozygotes.
- * Does not tell a parent from a child or a full sibling, and does not count the genomes of an array
- * that carries none of the adult's. Measurements: audit/truth/v6-2026-11-15.txt.
+ * Read the same against a measured parent and a reconstructed one. Does not tell a parent from a
+ * child or a full sibling, and does not count the genomes of an array that carries none of the
+ * adult's. Measurements: audit/truth.
  */
 
 export interface CarryTally {
@@ -26,6 +26,12 @@ export const emptyCarryTally = (): CarryTally => ({ same: 0, het: 0, opp: 0, ctl
 
 /** Founder frequency at or under which the allele the adult is homozygous for is rare. */
 export const RARE_MAX = 0.2
+/**
+ * And at or over which it is tallied. A homozygote for an allele no founder holds is more often a
+ * miscall than a genotype, in a reconstructed parent above all, and amplified arrays repeat each
+ * other's miscalls.
+ */
+export const RARE_MIN = 0.02
 
 /** One marker into the tally. `freqB` is the founders' B allele frequency. */
 export function addCarry(
@@ -35,11 +41,11 @@ export function addCarry(
   if ((parent !== 'AA' && parent !== 'BB') || freqB === undefined) return
   if (sample !== 'AA' && sample !== 'BB' && sample !== 'AB') return
   const own = parent === 'BB' ? freqB : 1 - freqB
-  if (own <= RARE_MAX) {
+  if (own >= RARE_MIN && own <= RARE_MAX) {
     if (sample === parent) t.same += 1
     else if (sample === 'AB') t.het += 1
     else t.opp += 1
-  } else if (own >= 1 - RARE_MAX) {
+  } else if (own >= 1 - RARE_MAX && own <= 1 - RARE_MIN) {
     if (sample === parent) t.ctlSame += 1
     else if (sample === 'AB') t.ctlHet += 1
     else t.ctlOpp += 1
@@ -74,6 +80,9 @@ export const PRESENT_MIN = 3
 export const ENRICHMENT_MIN = 5
 /** Heterozygous calls at the adult's rare homozygotes before the enrichment is read. */
 export const MIN_ENRICHMENT_HETS = 200
+/** And their share of the calls there. A near-homozygous array's heterozygous calls are noise, and
+ *  a ratio of two noise rates is not a reading. */
+export const MIN_ENRICHMENT_HET_SHARE = 0.2
 /** Chromosomes that must read without it, and none with it, before the array is said to hold none.
  *  Also the chromosomes that must be read before the genome is judged as a whole. */
 export const ABSENT_MIN = 10
@@ -82,7 +91,7 @@ export const ABSENT_MIN = 10
  * `carries`: the adult's genome is in the array. `none`: it is on no readable chromosome, which is
  * the other parent's pronucleus or polar body, a cell that lost every chromosome of this parent, or
  * an adult who is not a parent; the alleles cannot tell those apart. `unshown`: too few chromosomes
- * read to say either. `unread`: no founder frequencies, or a reconstructed parent.
+ * read to say either. `unread`: no founder frequencies, or no parent loaded.
  */
 export type ParentGenomeVerdict = 'carries' | 'none' | 'unshown' | 'unread'
 
@@ -108,8 +117,9 @@ export function parentGenome(tallies: readonly CarryTally[]): ParentGenome {
   const sum = (f: (t: CarryTally) => number): number => read.reduce((a, { t }) => a + f(t), 0)
   const het = sum((t) => t.het)
   const ctlHet = sum((t) => t.ctlHet)
-  const enrichment = het >= MIN_ENRICHMENT_HETS && ctlHet > 0
-    ? (het / sum((t) => t.same + t.het + t.opp)) / (ctlHet / sum((t) => t.ctlSame + t.ctlHet + t.ctlOpp))
+  const hetShare = het / sum((t) => t.same + t.het + t.opp)
+  const enrichment = het >= MIN_ENRICHMENT_HETS && hetShare >= MIN_ENRICHMENT_HET_SHARE && ctlHet > 0
+    ? hetShare / (ctlHet / sum((t) => t.ctlSame + t.ctlHet + t.ctlOpp))
     : NaN
   // The genome as a whole: D pooled over the chromosomes read, admitted only where none is absent.
   const n = sum((t) => t.same + t.het + t.opp)

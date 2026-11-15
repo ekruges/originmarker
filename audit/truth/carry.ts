@@ -21,6 +21,8 @@ const R = new URL('../../', import.meta.url).pathname
 const keys = await import(R + 'web/src/answerKeys.ts')
 const panel = keys.parsePanel(gunzipSync(readFileSync(R + 'web/public/' + keys.FOUNDER_PANEL_PATH)).toString('utf8'))
 export const RARE = 0.2
+// The lowest founder frequency of the adult's allele that is tallied: 0 keeps alleles no founder holds.
+const RARE_MIN = Number(process.env.OM_RARE_MIN ?? 0)
 const [refFile, listFile, shard, shards, out] = [process.argv[2], process.argv[3], Number(process.argv[4]), Number(process.argv[5]), process.argv[6]]
 function* rows(path: string) {
   const raw = readFileSync(path); const next = lineReader(path.endsWith('.gz') ? gunzipSync(raw) : raw); let header: any = null
@@ -40,7 +42,8 @@ for (const l of readFileSync(refFile, 'utf8').split('\n').filter(Boolean)) {
     if (!/^\d+$/.test(r.chrom) || (r.genotype !== 'AA' && r.genotype !== 'BB')) continue
     const fB = panel.freqB?.get(r.probesetId); if (fB === undefined) continue
     const fOwn = r.genotype === 'BB' ? fB : 1 - fB
-    const c = fOwn <= RARE ? (r.genotype === 'AA' ? 1 : 2) : fOwn >= 1 - RARE ? (r.genotype === 'AA' ? 3 : 4) : 0
+    const c = fOwn <= RARE && fOwn >= RARE_MIN ? (r.genotype === 'AA' ? 1 : 2)
+      : fOwn >= 1 - RARE && fOwn <= 1 - RARE_MIN ? (r.genotype === 'AA' ? 3 : 4) : 0
     if (!c) continue
     let k = index.get(r.probesetId)
     if (k === undefined) { k = index.size; index.set(r.probesetId, k) }
