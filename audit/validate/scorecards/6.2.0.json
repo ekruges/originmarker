@@ -1,0 +1,89 @@
+{
+ "census": {
+  "census-meas1.claims_on_published_normal": 35,
+  "census-meas1.lostParent": {
+   "adjudicate": 2,
+   "confirmed": 91,
+   "contradicted": 8,
+   "wrong-parent": 2
+  },
+  "census-meas1.withheld_by_gate": {
+   "normal-majority": 402,
+   "other-parent.under-span": 5,
+   "stage.drop-in": 7,
+   "stage.no-genotype-signal": 20
+  },
+  "census-recon.claims_on_published_normal": 28,
+  "census-recon.lostParent": {
+   "adjudicate": 2,
+   "confirmed": 90,
+   "contradicted": 9,
+   "wrong-parent": 2
+  },
+  "census-recon.withheld_by_gate": {
+   "normal-majority": 410,
+   "other-parent.under-span": 1,
+   "stage.drop-in": 7,
+   "stage.no-genotype-signal": 20
+  },
+  "census-two.claims_on_published_normal": 45,
+  "census-two.lostParent": {
+   "confirmed": 89,
+   "contradicted": 5,
+   "wrong-parent": 2
+  },
+  "census-two.withheld_by_gate": {
+   "normal-majority": 402,
+   "stage.drop-in": 7,
+   "stage.no-genotype-signal": 20
+  },
+  "parity.census-meas1.copy_rows": "16/16",
+  "parity.census-meas1.stage_zygosity": "31/31",
+  "parity.census-recon.copy_rows": "16/16",
+  "parity.census-recon.stage_zygosity": "31/31"
+ },
+ "constructed": {
+  "both_named": 22,
+  "both_named_same_parent": 22,
+  "one.constructed": 60,
+  "one.false_gain_unmodified": 0,
+  "one.intensity_gain_called": 46,
+  "one.named": 26,
+  "one.other_chromosome_gains": 0,
+  "one.right": 26,
+  "one.wrong": 0,
+  "two.constructed": 60,
+  "two.false_gain_unmodified": 2,
+  "two.intensity_gain_called": 46,
+  "two.named": 37,
+  "two.other_chromosome_gains": 12,
+  "two.right": 37,
+  "two.wrong": 0
+ },
+ "constructed_heldout": {
+  "both_named": 48,
+  "both_named_same_parent": 48,
+  "one.constructed": 158,
+  "one.false_gain_unmodified": 0,
+  "one.intensity_gain_called": 88,
+  "one.named": 57,
+  "one.other_chromosome_gains": 0,
+  "one.right": 57,
+  "one.wrong": 0,
+  "two.constructed": 158,
+  "two.false_gain_unmodified": 0,
+  "two.intensity_gain_called": 88,
+  "two.named": 92,
+  "two.other_chromosome_gains": 47,
+  "two.right": 92,
+  "two.wrong": 0
+ },
+ "invariance": {
+  "cells": 31,
+  "flip_cells_differing": 0,
+  "half_contradictions": 0,
+  "half_new_claims": 1,
+  "half_stage_moves": 1,
+  "shuffle_cells_differing": 0
+ }
+}

@@ -9,6 +9,70 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.2.0 "Loss of Heterozygosity"
+
+**With one parent loaded, the tool now finds a stretch missing the OTHER parent's copy.** The absence
+scan reads the loaded parent's own alleles, so such a stretch read present throughout. On the 31
+Table S3 cells, with the father alone, 6.1.0 printed none of the 7 stated losses of the mother's copy
+on a segment; with both parents it prints 5.
+
+**The reading (`otherParentLoss.ts`).** A marker is seen where the sample's call shows an allele the
+loaded parent's copy would not give it: the allele that parent lacks where it is homozygous, a
+heterozygous call where it is heterozygous. On the array's own chromosomes that carry both parents
+the seen rate is fitted as b + a x q where the parent is homozygous, q the founders' frequency of the
+allele it lacks, and as h where it is heterozygous. With the other parent's copy gone the rate is b.
+A run of markers scores the summed log-likelihood ratio, gone against present.
+
+Calls on amplified cells fail in clusters, and scored as independent calls a noisy array reads runs
+on normal chromosomes as high as real losses on a clean one. Each array's score is divided by the
+variance of its own 500-marker block sums over the binomial variance. After the division 954 readings
+of stated-normal chromosomes against the father reach 8.0 and the stated losses read 27 to 525, in an
+experiment run before the rule was written; the threshold is 15.
+
+A run is reported from 3 Mb, where under 3% of the homozygous calls at the loaded parent's homozygous
+markers inside it are the homozygote that parent cannot give, on a genome read as two parents', and
+not where intensity reads a gain over half of it: an extra copy of the loaded parent's outnumbers the
+other parent's alleles and they drop out of the calls.
+
+| 31 cells, printed | both parents | measured father | rebuilt father |
+|---|---|---|---|
+| the mother's segment losses | 5 of 7 | 4 of 7 (was 0) | 5 of 7 (was 0) |
+| the father's segment losses | 13 of 13 | 13 of 13 | 10 of 13 |
+| whole-chromosome losses | 100 of 150 | 102 | 101 (was 100) |
+| stated-normal chromosomes left alone | 446 of 477 | 446 (was 448) | 452 (was 454) |
+| parent of a stated loss, right / wrong | 107 / 2 | 108 / 2 (was 104 / 2) | 106 / 2 (was 100 / 2) |
+
+Every new call sits on a stated loss of the mother's copy or where the two-parent run prints one
+from the mother's own alleles; the two stated-normal chromosomes newly called in each one-parent arm
+are two of those. With both parents loaded, with no parent, and against an unrelated adult, every
+record is identical to 6.1.0 (39, 330 and 133 rows). The validation suite is identical on 63 of 65
+lines; the two that moved are the claims on published-normal chromosomes in the one-parent arms, 32
+to 35 and 24 to 28, against 45 with both parents.
+
+**A stated limit: under 3 Mb, with one parent and one cell.** Where both parents carry the same
+haplotype the sample shows no allele the loaded parent lacks, exactly as where the other parent's
+copy is gone, and nothing in one parent's alleles separates the two. Such runs reach a score of 40 on
+normal chromosomes, at the lactase region, HLA and dense probe clusters. So a run of 1 to 3 Mb that
+passes every other test is withheld, recorded with its place, and named in the sample's limits. The
+one stated loss the measured father misses is about 2.5 Mb and scores 24; the rebuilt father reads it
+at 3.3 Mb and prints it. Counting what is printed or withheld, the one-parent arms read 6 of the 7
+and two parents 5: 9 runs are withheld on the 270 rows scored, the 2.5 Mb loss, three pieces of a
+second stated loss that no arm prints, and one shared stretch stated normal in two cells among them. Other cells of the same embryo could tell a shared stretch from a loss, and
+on two normal embryos they read as one genome; the embryo carrying this loss does not, so no rule was
+built on it (audit/truth/one-parent-segments-2026-11-15.txt).
+
+**The one-parent naming no longer contradicts a segment.** The step that names the absent parent on
+a segment from one array counts opposite homozygotes at every marker where the loaded parent is
+homozygous, including markers where no founder carries another allele and an opposite homozygote can
+only be a miscall. On a stretch at one copy those reach 5%, over its 3% bound, and against the
+measured father it named the father on all 8 new segments. A segment this scan finds is named by the
+scan and is not put to that step. Found by reading the page, not the scores.
+
+**`audit/truth/parity.py`** prints the table above from the run records, one command, and with a
+suite scorecard adds the constructed gains. Two faults of the first run, a haploid product read
+against a rebuild and a paternal duplication read as a maternal absence, are in the results file with
+the changes that removed them.
+
 ## 6.1.0 "Identity by State"
 
 **The parent check now reads a reconstructed parent, by the rule it reads a measured one.** A parent

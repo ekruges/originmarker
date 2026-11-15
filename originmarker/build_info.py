@@ -263,10 +263,15 @@ RELEASES: tuple[Release, ...] = (
             "Two genomes can show the same allele without either having it from the other: alike in "
             "state, not by descent. A miscall that amplified arrays repeat is alike in state, and a "
             "parent rebuilt from amplified cells is now read without them."),
+    Release("Loss of Heterozygosity",
+            "Where one parent's copy of a stretch is gone, the cell stops showing that parent's "
+            "alleles there. With only the other parent on an array the missing alleles are still "
+            "countable, by how often unrelated people carry them, down to where two parents who "
+            "share a stretch read the same."),
 )
 
-VERSION = "6.1.0"
-CODENAME = "Identity by State"
+VERSION = "6.2.0"
+CODENAME = "Loss of Heterozygosity"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

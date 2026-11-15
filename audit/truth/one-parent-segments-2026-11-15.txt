@@ -1,0 +1,179 @@
+The other parent's copy on a segment, with one parent loaded
+=============================================================
+Scored on 15 November 2026 on open arrays only. Follows audit/truth/rebuilt-parent-check-2026-11-15.txt.
+The table below is printed by audit/truth/parity.py from the run records.
+
+WHAT WAS MISSING
+----------------
+The absence scan reads the loaded parent's own alleles, so with one parent a stretch missing the
+OTHER parent's copy reads present throughout. On the 31 Table S3 cells, 20 segment losses are stated:
+13 of the father's copy and 7 of the mother's. With the father alone 6.1.0 printed 13 of the 13 and
+none of the 7; with both parents, 13 and 5.
+
+THE FIRST RULE, AND WHY IT FAILED
+---------------------------------
+Scan the markers where the loaded parent is homozygous and the allele it lacks is common among
+founders (0.5 or over), with the existing window scan. Result: 0 of 7. Those markers come at about 11
+per megabase, a sixteenth of what the window scan is built for, so no window reaches its minimum.
+
+THE EXPERIMENT BEFORE THE SECOND RULE
+-------------------------------------
+Offline, the 31 cells in three arms: measured father, father rebuilt from his pronuclei, mother alone.
+
+  Every marker counted by how likely the other parent is to show there. Where the loaded parent is
+  homozygous the sample shows the allele it lacks at b + a x q, q the founders' frequency of that
+  allele; where it is heterozygous the sample is heterozygous at h. b, a and h are fitted on the
+  array's own chromosomes that carry both parents. With the other parent's copy gone the rate is b.
+
+  Scored as independent calls, noisy arrays gave runs on normal chromosomes as high as real losses
+  on clean ones. Calls on amplified cells fail in clusters. Dividing each array's score by the
+  variance of its own 500-marker block sums over the binomial variance (median over blocks) took
+  the 954 readings of stated-normal chromosomes against the father, measured and rebuilt, to a
+  maximum of 8.0, leaving two regions aside. The stated losses of the other parent's copy read 27 to
+  525 with a good parental array.
+
+  The two regions left aside read 34 to 168 on chromosomes the table states normal. The two-parent
+  run prints a maternal loss on both, from the mother's own alleles.
+
+  Against the mother alone, 477 readings: five over 8 and the rest 7.2 or under. Two of the five are
+  where the two-parent run prints a paternal loss from the father's own alleles. One fails the 3%
+  bound of rule 4. One is a 6 Mb stretch at the end of chromosome 4, read 50, where intensity falls
+  by half a unit and two other cells of the embryo read the father's allele absent over the same
+  stretch; the table states it normal. One, read 35, was not examined.
+
+  Runs under 3 Mb reach 40 on normal chromosomes after the division: the lactase region, HLA, dense
+  probe clusters, and one run of 2.4 Mb against the rebuilt father. Where both parents carry the
+  same haplotype the sample shows no allele the loaded parent lacks, as it does where the other
+  parent's copy is gone. Nothing in one parent's alleles separates the two.
+
+THE RULE, written before it was built or run in the tool
+--------------------------------------------------------
+  1. Runs with exactly one parent loaded, its genome shown to be in the array, founder frequencies
+     in the panel, and two or more autosomes read as carrying both parents by the one-parent copy
+     state. Those autosomes are the reference and the chromosomes scanned.
+  2. Rates b, a, h from the reference chromosomes: a straight-line fit per chromosome, median over
+     chromosomes.
+  3. A run's score is the summed log-likelihood ratio, gone against present, divided by the array's
+     clustering, which is never taken under 1.
+  4. Reported where the divided score is 15 or more, the run spans 3 Mb or more, and under 3% of the
+     homozygous calls at the loaded parent's homozygous markers inside it are the homozygote that
+     parent cannot give (the existing bound for the loaded parent's own copy being there).
+  5. 15 is 1.9 times the highest score on the normal chromosomes of the experiment and 1.8 times
+     under the weakest stated loss reached, the placement of the existing scan's threshold. 3 Mb is
+     the smallest hand-called event and above every shared-haplotype run seen.
+  6. Nothing changes with both parents loaded, or none.
+
+Pass test: father alone, measured and rebuilt, finds the mother's segment losses on at least as many
+as both parents do (5 of 7); stated-normal chromosomes left alone on at least as many as with both
+parents (446 of 477); whole losses, the father's segment losses and named parents no worse than
+6.1.0; both-parent and no-parent results identical to 6.1.0; the suite no worse on any line.
+
+Written beside the rule, before the run: the fifth loss the two-parent run finds is about 2.5 Mb by
+the alleles, so the rule was expected to find it against the rebuilt father, where the run reads
+3.3 Mb, and to miss it against the measured father, where it reads 2.6 Mb.
+
+THREE FAULTS THE FIRST RUN SHOWED
+---------------------------------
+270 rows: the 31 cells in three arms, 18 further arrays with a father, 133 unrelated arrays against
+the rebuilt father. 22 new calls. 20 sat on a stated loss of the mother's copy or on a place the
+two-parent run prints one. The other two:
+
+  A haploid product, read against a parent rebuilt from haploid products, got one call. Such a
+  sample carries one of the parent's two haplotypes in blocks; where it carries the one the rebuild
+  did not take it shows alleles the rebuild lacks, and those blocks read as carrying both parents.
+  Change: the scan runs only on a genome read as two parents', the guard the parent naming already
+  uses.
+
+  A cell with a stated paternal duplication got "maternal alleles absent" across the duplicated
+  piece. An extra copy of the loaded parent's outnumbers the other parent's alleles and they drop
+  out of the calls. Change: a run is not reported where intensity reads a gain over half of it or
+  more.
+
+  The third was read off the page, on one of the cells. The run log named the FATHER as the absent
+  parent on the two segments the page had just printed as the mother's. The one-parent naming that
+  ran on every segment counts opposite homozygotes at every marker where the loaded parent is
+  homozygous, including markers where no founder carries another allele, where an opposite
+  homozygote can only be a miscall. On a stretch at one copy those reach 5%, over its 3% bound, and
+  against the measured father it named the father on all 8 new segments. Change: a segment the scan
+  found is named by the scan and is not put to that naming, as a segment found against a second
+  parent's own alleles is not.
+
+No change touches the seven losses the pass test counts. The rerun on the same 270 rows:
+
+RESULT
+------
+31 cells, printed calls:
+                                              both parents   measured father   rebuilt father
+  stated-normal chromosomes left alone          446 of 477     446 (was 448)     452 (was 454)
+  whole-chromosome losses printed               100 of 150     102               101 (was 100)
+  losses on a segment printed                    18 of 20       17 (was 13)       15 (was 10)
+    the father's                                 13 of 13       13                10
+    the mother's                                  5 of 7         4 (was 0)         5 (was 0)
+  parent of a stated loss, right / wrong        107 / 2        108 / 2 (104 / 2)  106 / 2 (100 / 2)
+
+  19 new calls in the two one-parent arms. 9 are stated losses of the mother's copy on a segment.
+  7 are on the two stated-normal chromosomes where the two-parent run prints a maternal loss, which
+  is the whole of the fall in "left alone". 2 are on a chromosome stated as complex, where the
+  two-parent run prints a maternal loss over the same stretch. 1 is on a stated whole loss of the
+  mother's copy that the rebuilt-father arm did not print before.
+
+  Both parents loaded, 39 rows: every record identical to 6.1.0.
+  Unrelated arrays against the rebuilt father, 133 rows: identical; the parent check stops the scan.
+  No parent, 330 rows: identical.
+
+  The validation suite against the 6.1.0 scorecard: 63 of 65 lines identical. The two that moved
+  are the claims on published-normal chromosomes in the one-parent arms, 32 to 35 against the
+  measured father and 24 to 28 against the rebuilt one, all on the two chromosomes above. With both
+  parents the same count is 45.
+
+THE PASS TEST
+-------------
+  mother's segment losses, rebuilt father    5 of 7, the two-parent number      met
+  mother's segment losses, measured father   4 of 7, one under                  NOT MET
+  stated-normal chromosomes left alone       446 and 452 against 446            met
+  nothing else worse; other arms identical                                      met
+
+The one loss the measured father misses is the 2.5 Mb one, as written beforehand. Its divided score
+is 24, over the threshold; it is under the 3 Mb floor. The floor was not lowered: after the division
+a run of 2 to 3 Mb on a normal chromosome reaches 22, and shorter ones 40.
+
+THE STATED LIMIT
+----------------
+Ruled on 15 November: with one parent and one cell, a loss of the other parent's copy under 3 Mb is
+not reported. A run of 1 Mb to 3 Mb that passes the score and the 3% bound is withheld, recorded with
+its place, and named in the sample's limits; 1 Mb is the tool's floor for any segment.
+
+On the 270 rows, 9 runs are withheld. One is the 2.5 Mb stated loss against the measured father.
+Three are pieces of 2.4 and 2.8 Mb of another stated loss of the mother's copy, in a cell that has
+lost most of its chromosomes and where no arm prints it. Two are one 1.6 Mb stretch on chromosome 7
+stated normal in two cells, among the shared stretches of the experiment. Three are on two
+laboratory cells with no stated answer. Counting what is printed or withheld, the mother's segment
+losses are 6 of 7 against the measured father and 6 of 7 against the rebuilt one, and 5 of 7 with
+both parents. Every other record is identical to the run before the change.
+
+OTHER CELLS OF THE EMBRYO, TESTED AND NOT USED
+----------------------------------------------
+Cells of one embryo carry the same two parental genomes. A stretch the parents share then reads as
+missing in every one of them, and a loss in one cell does not, so another cell showing the other
+parent's alleles across a short run would settle it.
+
+The premise was measured on 25 arrays of three embryos of one couple. At markers where the father
+is homozygous and one cell shows the allele he lacks, does the other cell show it, scored in blocks
+of 500 against that cell's own rates. Between clean arrays of one embryo, 78% to 100% of blocks read
+the same haplotype (84 pairs, two embryos); between clean arrays of different embryos, 2% to 70%
+(126 pairs). Opposite homozygotes between two arrays, in 20 Mb windows, say the same: 1% to 7% of
+windows over 3% within an embryo, 41% to 62% between embryos.
+
+The embryo carrying the 2.5 Mb loss does not hold to it. Its ten arrays do not read as one genome:
+the cell with the loss against the cleanest other cell reads 36% to 43% of blocks the same, and two
+other cells of it differ as siblings do (57% of windows over 3%). In the stretch itself four of its
+cells show the mother's alleles (log-likelihood ratios of 330 to 600 for present), but a cell that
+may carry a different maternal haplotype there cannot vouch for this one. No rule was built on it.
+
+WHAT THE SCAN CANNOT SAY
+------------------------
+  Between related parents a shared haplotype can run past 3 Mb, and a run is then true of the
+  alleles and not of the copy number.
+  With one parent and one cell, a loss of the other parent's copy under 3 Mb is not reported.
+  Two stated losses of the mother's copy sit in cells that have lost most of their chromosomes; no
+  arm finds them, two parents included.
