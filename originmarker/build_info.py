@@ -255,10 +255,14 @@ RELEASES: tuple[Release, ...] = (
             "Alleles on opposite homologues are in repulsion: one parent's chromosome carries one, the "
             "other parent's the other. Count the copies of each and an extra chromosome shows whose "
             "it is, with only one of the two parents there to read them against."),
+    Release("Identity by Descent",
+            "A child holds one of each parent's two chromosomes, whole between the crossovers: "
+            "identical by descent to that parent along its length. An array that carries none of an "
+            "adult's genome is not that adult's child, whichever slot the file was loaded into."),
 )
 
-VERSION = "5.54.0"
-CODENAME = "Repulsion Phase"
+VERSION = "6.0.0"
+CODENAME = "Identity by Descent"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

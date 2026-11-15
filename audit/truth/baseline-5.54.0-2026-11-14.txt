@@ -1,0 +1,183 @@
+OriginMarker 5.54.0 against every stated answer on disk
+========================================================
+Scored on 14 November 2026 with the shipped code, nothing changed. Laboratory series are written
+by pseudonym (S01 to S24); per-array tables stay in audit/local/truth.
+
+Built and scored by audit/truth: build.py (the answers), run.ts (the tool's output per array),
+features.ts (the raw signals per array), kin.ts and kin-windows.ts (who carries whose genome),
+score.py (the comparison). Each has its own check.
+
+
+1. THE ANSWERS
+--------------
+913 distinct arrays are on disk. 530 carry at least one stated fact; 5,046 facts in all.
+
+  Jerabek 2026, Nature        sample overview: material, embryo, cell (265 arrays)
+                              cell ploidy, euploid or aneuploid (147 cells)
+                              break sites with coordinates (166 rows)
+  Turocy 2026, Nat Commun     per-chromosome karyotype (110 samples; 90 arrays on disk)
+                              break points (113 arrays)
+  Zuccaro 2020, Cell          per-chromosome karyotype with the parent named (31 arrays matched;
+                              38 further rows of Table S3 are not yet matched to an array)
+  GSE148488 metadata          material, pronucleus label, parents (135 arrays)
+  laboratory sheets           pronucleus labels and karyotype text (90 rows), manual calls (30 arrays)
+
+Not on disk: 77 rows of the two Turocy tables name arrays of GSE186407 that are not here, the
+polar bodies among them. Series S01 to S09, 218 arrays, have no sheet of any kind.
+
+No table after Zuccaro 2020 names a parent. Parent of origin can be scored only where a parent is
+arrayed: GSE148488, Experiment 2 (S23) and, found here, Experiment 1 (S20; see 5).
+
+
+2. OPEN AND SEALED
+------------------
+A unit is an experimental group (Jerabek) or an embryo group (Turocy). A unit holding an array of a
+series the tool was developed on (S12, S13, S20, S21, S23, S24, GSE148488) is open; every other unit
+is open or sealed by the parity of a hash of its name.
+
+  open     442 arrays   of which 118 are in units never used before today ("fresh")
+  sealed    88 arrays   Jerabek BE1, BE2, BEx, ESCs, SAP-2; Turocy A, C, E, H, I, J
+
+Sealed holds 22 stated gains, 46 losses, 568 normal chromosomes, 42 ploidy cells and 36 breaks.
+No output of any kind has been produced on a sealed array: not the tool's, not the raw signals,
+not the kinship scan. score.py refuses a run that contains one unless told it is the one scoring.
+
+
+3. WHAT 5.54.0 DOES
+-------------------
+The series with published karyotypes have no parent arrayed, and the tool does not run without one.
+What the call rate and the intensity compute does not depend on whose array is in the parental
+slot: per chromosome it is identical against the true father and against an unrelated adult on 31
+of 31 Table S3 cells. So these rows are that part of the tool, read with a stand-in.
+
+Fresh arrays (Turocy B, D, G, Z: the 49 arrays with a per-chromosome row), no parent:
+
+  stated normal chromosomes left alone     917 of 924
+  whole-chromosome loss found               29 of 43
+  segmental loss found                      14 of 40
+  whole-chromosome gain found                6 of 52
+  segmental gain found                       3 of 10
+  called in the opposite direction           0
+
+Cell ploidy, Jerabek, arrays of S12 and S13 (seen):
+
+  cells stated aneuploid with any call      41 of 64
+  cells stated euploid with no call         32 of 32
+
+The stage read with no parent, against the stated material:
+
+  fresh    60 of 112 consistent; 49 of 108 single blastomeres read "trophectoderm"
+  seen     70 of 142 consistent; 22 of 110 blastomeres read "haploid"
+
+The 31 Table S3 cells (seen), with and without their father:
+
+                                   whole loss    segmental loss    normal left alone
+  father loaded, printed           102 of 150     13 of 20          447 of 477
+  father loaded, computed          111 of 150     13 of 20          438 of 477
+  no parent                         19 of 150      0 of 20          449 of 477
+
+The alleles are what find a loss. Without a parent the tool finds one loss in eight on these cells.
+
+Breaks are not yet a fair test: the tool places a break from the parental-absence scan, which needs
+a parent. With copy segments alone an edge lies within 5 Mb of 25 of 195 published breaks.
+
+
+4. WHAT THE STATED GAINS ARE
+----------------------------
+42 of the 52 stated whole-chromosome gains on fresh arrays are in four cells.
+
+Two cells, 12 stated gains each and no chromosome stated normal. The chromosome medians of log R
+form two groups and nothing between: twelve at +0.40 to +0.52 and nine at -1.0 to -1.4. The table
+reads the first group as trisomy and the second as lost. Intensity cannot say whether the twelve
+are at two copies or three, because the cell holds nothing to compare them with. The tool calls the
+nine losses and no gain.
+
+Two cells, 9 stated gains each beside 10 or 11 chromosomes stated normal. The nine sit +0.45 above
+the rest, seven times the spread of normal chromosomes elsewhere. The tool sees the shift and does
+not call it: with nine of twenty-one chromosomes displaced, the median absolute deviation it scales
+by is itself three times too large, and z reads 1.4. intensityNull.ts states that this estimator
+holds to three or four affected chromosomes.
+
+The remaining 10 gains are in four cells with at least 13 chromosomes stated normal.
+
+The files carry the array software's own copy-number state per marker, a smoothed state the tool
+has never read. Its share of markers in the gain state separates the stated gains from stated-normal
+chromosomes almost completely when taken as an absolute number (47 of 52 at a 0.5% false rate) and
+no better than log R when taken against the cell's own median (18 of 52). The stated gains follow
+that track read on an absolute scale.
+
+Monosomy and intensity. On Turocy arrays a stated monosomy moves log R clearly (16 of 20 found at a
+0.5% false rate against a pooled spread). On the Table S3 cells it does not (median shift -0.12,
+0 of 108 at the same rate). The two studies' amplifications do not carry dosage alike, so an
+intensity rule set on one does not transfer.
+
+
+5. WHO CARRIES WHOSE GENOME
+---------------------------
+825 arrays (the sealed ones left out) against nine arrayed adults: the rate of opposite homozygous
+calls against each adult, as a fraction of the array's own median rate against all nine. Known
+children of the GSE148488 sperm donor read a median of 0.38; unrelated genomes 0.8 to 1.3.
+
+Experiment 1 (S20-10 to -19) was fertilised with the GSE148488 sperm donor. Its three pronuclei
+labelled paternal read 0.03 to 0.04 against his public array, the level of the Experiment 2
+paternal pronuclei against their own father, and its maternal pronucleus reads 0.02 against the
+laboratory's maternal array. Experiment 1 therefore has BOTH parents arrayed.
+
+Sibling embryos: four trophectoderm outgrowths (S18-29 to -32) and one ES line (S24-01) read 0.32
+to 0.39 against S20-31, itself one of seven blastomeres of one embryo.
+
+Outside GSE148488, 31 of 578 judged arrays carry the genome of one of the nine. No array of
+S01 to S17, S19, S22 or GSE186407 does.
+
+AN UNRELATED ADULT CAN PASS FOR A PARENT. Against the GSE148488 sperm donor, 25 cells of Turocy
+embryos Z10 to Z14 read "disomic" on 13 to 22 chromosomes in the one-parent copy state, and were
+staged diploid. They are not his children: along the genome their rate against him is at the
+unrelated level in every 5 Mb window, with no stretch at the child level (median window rate 0.06
+to 0.09 against 0.024 for his known children). Their whole-genome rate against him is lower than
+against the other eight adults (ratio 0.63 to 0.86), which is shared ancestry, and that is enough
+to cross the thresholds the copy state was set with on one family.
+
+THE OPPOSITE ERROR. With an unrelated adult in the parental slot, 17 of the 31 Table S3 cells,
+all carrying two genomes, are staged haploid.
+
+A SHARPER READING, MEASURED BUT NOT YET A RULE (carry.ts). Where an adult is homozygous for an allele
+the founder panel has at 0.2 or under, the share of an array's called genotypes that are homozygous
+for the other allele, taken per chromosome and then as the median chromosome:
+
+  one of the adult's haploid products          0.03 to 0.09     (8 pairs)
+  a child of the adult                         median 0.13      (156 pairs; 5% to 95%: 0.05 to 0.48)
+  a pronucleus of the other parent             0.78 to 0.83     (7 pairs)
+  a stranger                                   median 0.71      (4,710 pairs; 5%: 0.56)
+  a stranger of similar ancestry (Z10 to Z14)  median 0.45      (37 pairs)
+  an array whose calls are noise               median 0.18      whoever the adult is
+
+It separates a product, a child and a stranger where the whole-genome rate does not, and it shows
+the two things a rule must handle: a noise array reads like a child, so the control class (the
+adult homozygous for the COMMON allele) has to be read beside it; and ancestry alone moves a
+stranger a third of the way to a child. Children of egg donor D read 0.39 to 0.48 against her
+array, which has a third fewer homozygous calls than the other adults' arrays: her array, or the
+manifest's assignment of those embryos to her, needs checking before it is used as a parent.
+
+THE FAMILIES IN THE CORPUS. Against all 108 arrays of bulk quality, of 578 judged arrays outside
+GSE148488: 244 have a first-degree relative among them and 111 share a genome with one (cells of an
+embryo that also has an outgrowth, an ES line or a whole-embryo sample). Series S08, S11, S12, S21
+and GSE186407 have none.
+
+
+6. WHAT FOLLOWS
+---------------
+In the order the numbers above point to.
+
+  a. Whose genome is this? Before any allele call, test the loaded parent along the genome
+     (section 5's window test) and refuse a parent that is not one. Both errors of section 5 come
+     from skipping it.
+  b. A reading with no parent. Most published series have none. Today the tool cannot run on them
+     at all; it should run and say what it can: stage, absent chromosomes, intensity.
+  c. The whole-chromosome intensity null must survive a cell with many affected chromosomes.
+     Section 4's two nine-gain cells are the test.
+  d. Gains need answers that are not read off the same intensity. The reciprocal sister cells are
+     the candidate: 5 stated trisomies on disk have a sister stated monosomic on that chromosome,
+     and the 77 Turocy arrays not on disk hold more.
+  e. The stage label tracks amplification quality, not material: half of all single blastomeres
+     read "trophectoderm".
+  f. Experiment 1 can now be scored with two parents.

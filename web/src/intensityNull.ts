@@ -108,6 +108,35 @@ export function nullScale(unitMeans: readonly number[]): NullScale {
 }
 
 /**
+ * Distance between neighbouring chromosome medians over which they are not one copy state. Half of
+ * the smallest shift a whole chromosome is called at (parentage.COPY_SHIFT_FLOOR).
+ */
+export const STATE_GAP = 0.20
+
+/**
+ * The null from the chromosomes sharing the array's commonest copy state: the largest group of
+ * sorted medians in which neighbours stand within `gap`. An array with no such gap is one group and
+ * reads as `nullScale` does. Where the largest group is under `minUnits`, or two groups tie, the
+ * null is `nullScale` of every unit. `lo` and `hi` bound the group; whether its state is two copies
+ * or one is not in the intensity.
+ */
+export function majorityScale(
+  unitMeans: readonly number[], gap = STATE_GAP, minUnits = 8,
+): NullScale & { lo: number; hi: number } {
+  const xs = unitMeans.filter((x) => Number.isFinite(x)).sort((a, b) => a - b)
+  const groups: number[][] = []
+  for (const x of xs) {
+    const g = groups[groups.length - 1]
+    if (g && x - g[g.length - 1] <= gap) g.push(x)
+    else groups.push([x])
+  }
+  groups.sort((a, b) => b.length - a.length)
+  const [first, second] = groups
+  const ref = !first || first.length < minUnits || (second && second.length === first.length) ? xs : first
+  return { ...nullScale(ref), lo: ref.length ? ref[0] : NaN, hi: ref.length ? ref[ref.length - 1] : NaN }
+}
+
+/**
  * How far a region sits from the array's own centre, in units of the array's own spread.
  *
  * Returns undefined rather than a number when the null is too thin to mean anything. A z computed

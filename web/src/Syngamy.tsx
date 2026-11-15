@@ -1,6 +1,6 @@
 import { breathe } from './scan'
 import {
-  collectParentRow, collectRow, emptyCollected, emptyParent, finishParent, scoreSample,
+  collectParentRow, collectRow, emptyCollected, emptyParent, finishParent, noParent, scoreSample,
   type ParentIndex,
 } from './scoreSample'
 import { loadFounderPanel } from './answerKeys'
@@ -725,7 +725,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     // given: the tally, the segments and the Mendelian exclusion all ask whether the LOADED
     // parent's copy is present, and which parent that is only decides what the answer is called.
     // Gating the whole run on a sperm donor meant an oocyte-only run silently did nothing at all.
-    const solo = index ?? maternalIndex
+    // WITH NO FILE LABELLED AS A PARENT THE RUN STILL READS WHAT NEEDS NONE. A parent that was
+    // labelled and failed its own gates is different: that run stops, as above.
+    const solo = index ?? maternalIndex ?? (donorEntry || oocyteEntry ? null : noParent())
     const soloRole: 'paternal' | 'maternal' = index ? 'paternal' : 'maternal'
     if (solo) {
       const pat = solo
@@ -886,7 +888,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 Examples
               </Button>
             )}
-            <Button size="xs" disabled={busy || !pending || !hasParent} onClick={() => { void run() }}>
+            <Button size="xs" disabled={busy || !pending} onClick={() => { void run() }}>
               Run
             </Button>
             {entries.some((e) => e.result) && (
@@ -922,7 +924,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
 
         <DropZone
           empty={entries.length === 0}
-          prompt="Drop array exports here. Label one donor, the rest samples."
+          prompt="Drop array exports here. Label a parent if one was arrayed; the rest are samples."
           onFiles={(f) => { void add(f) }}
         >
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
@@ -948,12 +950,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           </Alert>
         )}
         {entries.length > 0 && !hasParent && (
-          <Alert color="orange" mt={8} p="xs">
+          <Alert color="gray" mt={8} p="xs">
             <Text size="xs">
-              One file must be labelled as a parent, sperm or oocyte. Either alone is enough: the
-              run asks whether that parent&rsquo;s copy is present, and names the other parent by
-              exclusion where the alleles allow it. Loading both measures each side directly
-              rather than inferring one.
+              No file is labelled as a parent. The run reads what needs none: the stage, the sex
+              chromosomes, and copy number from the call rate and the intensity. Label one file
+              sperm or oocyte to read which parent each chromosome came from. Either alone is
+              enough, and loading both measures each side directly.
             </Text>
           </Alert>
         )}
@@ -1025,7 +1027,10 @@ function Chip({ entry, busy, stage, onRole, onRemove }: {
   onRemove: () => void
 }) {
   const { file, role, state, profile, result } = entry
-  const verdict = entry.paired?.originClass ?? result?.originClass
+  // With no parent the tile says what was read, the stage; `unclear` there is a refused array.
+  const verdict = result?.noParent
+    ? (result.stage?.stage === 'failed' ? 'unclear' : result.stage?.stage)
+    : entry.paired?.originClass ?? result?.originClass
   const running = state === 'profiling' || state === 'running'
 
   return (
@@ -1051,7 +1056,7 @@ function Chip({ entry, busy, stage, onRole, onRemove }: {
           size="xs" variant="light" style={{ flex: 'none', maxWidth: 'none' }}
           color={verdict ? (verdict === 'unclear' ? 'orange' : 'genomeBlue') : STATE_COLOUR[state]}
         >
-          {verdict?.replace(/_/g, ' ') ?? state}
+          {result?.noParent && result.stage?.stage === 'failed' ? 'failed' : verdict?.replace(/[_-]/g, ' ') ?? state}
         </Badge>
         <button
           type="button" onClick={onRemove} disabled={busy || running} aria-label="Remove"
@@ -1090,6 +1095,8 @@ function Chip({ entry, busy, stage, onRole, onRemove }: {
         >
           {running && stage
             ? `${int(stage.markers)} · ${mb(stage.bytes)}/${mb(stage.total)}`
+            : result?.noParent && profile
+              ? `${pct(profile.callRate, 0)} called · no parent`
             : result
               ? `${pct(result.genomeRate)} of ${pct(result.explainable)}`
               : profile
@@ -1135,10 +1142,19 @@ function ResultCard({ entry, donorName, oocyteName }: {
   // With both arrays the class comes from the pair: each parent is measured, so a maternal
   // origin is a presence rather than the shape left behind by a paternal absence.
   const originClass = entry.paired?.originClass ?? r.originClass
-  const decided = originClass !== 'unclear'
-  const gloss = originClass === 'neither_parent'
-    ? 'Neither declared parent accounts for this genome.'
-    : GLOSS[originClass as keyof typeof GLOSS]
+  // WITH NO PARENT THE HEADLINE IS WHAT WAS READ: the stage. A parental class has nothing behind it.
+  // ONE PARENT LOADED AND NONE OF ITS GENOME IN THE ARRAY is a uniparental genome only if that adult
+  // is the parent. With both loaded, the other's genome being present is what says so.
+  const parentAbsentAlone = !m && r.parentGenome?.verdict === 'none'
+  const decided = r.noParent ? r.stage?.stage !== 'failed' : originClass !== 'unclear' && !parentAbsentAlone
+  const gloss = r.noParent
+    ? 'Read with no parent: the stage, the sex chromosomes and copy number. No chromosome is given a parent.'
+    : parentAbsentAlone
+      ? `${GLOSS[originClass as keyof typeof GLOSS] ?? ''} That holds if the loaded array is this sample's `
+        + 'parent, which the alleles cannot show: see the notice below.'
+    : originClass === 'neither_parent'
+      ? 'Neither declared parent accounts for this genome.'
+      : GLOSS[originClass as keyof typeof GLOSS]
 
   return (
     <Paper p={0} mb={12}>
@@ -1150,14 +1166,14 @@ function ResultCard({ entry, donorName, oocyteName }: {
       }}
       >
         <Text size="xs" c="dimmed" mb={2}>
-          {entry.file.name} &middot; vs {donorName}{m && ` and ${oocyteName}`}
+          {entry.file.name} &middot; {r.noParent ? 'no parent loaded' : `vs ${donorName}`}{m && ` and ${oocyteName}`}
         </Text>
         <Group gap={10} align="baseline">
           <Text
             style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.1 }}
             c={decided ? 'genomeBlue.9' : 'orange.9'}
           >
-            {originClass.replace(/_/g, ' ').toUpperCase()}
+            {(r.noParent ? r.stage?.stage ?? 'unread' : originClass).replace(/[_-]/g, ' ').toUpperCase()}
           </Text>
           {r.spermType !== 'unknown' && (
             <Badge size="sm" variant="outline" color="genomeGrey">
@@ -1234,7 +1250,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
         <Text size="sm" mt={3}>{gloss}</Text>
         <RunAlerts r={r} />
         <div style={{ marginTop: 6 }}>
-          <Axis label={m ? 'paternal' : ''} r={r} />
+          {!r.noParent && <Axis label={m ? 'paternal' : ''} r={r} />}
           {m && <Axis label="maternal" r={m} />}
         </div>
         <Group gap={12} align="center" mt={4}>

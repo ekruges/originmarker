@@ -1,0 +1,248 @@
+OriginMarker v6 (branch, not released) against every stated answer on disk
+==========================================================================
+Scored on 15 November 2026 on the open arrays only. The sealed arrays, 125 since the truth was
+rebuilt, have had nothing run on them. Laboratory series are written by pseudonym; per-array tables
+stay in audit/local/truth. The frozen release, 5.54.0, is scored beside every number.
+
+The truth was rebuilt first: the 76 arrays of GSE186407 the first inventory missed were on the
+machine all along. 989 arrays, 604 with a stated fact, 479 open and 125 sealed. Four rows of the
+Turocy tables still name no array (embryo F2, which GEO does not hold).
+
+"Printed" is what a reader sees. "Computed" adds what the tool worked out and withheld.
+
+
+1. WHAT CHANGED
+---------------
+  a. parentGenome.ts   Whether the array carries the genome of the adult loaded as its parent, read
+                       before any allele is read against that adult.
+  b. no parent         A run with no parental array reads what needs none.
+  c. majorityScale     The intensity of a whole chromosome, and of a segment, is read against the
+                       chromosomes that share the array's commonest copy state.
+
+
+2. WHOSE GENOME IS THIS
+-----------------------
+Two readings at markers where the adult is homozygous for an allele the founder panel holds at 0.2
+or under.
+
+  D = (sample the same homozygote - sample the other homozygote) / called. A child reads above
+      zero at any allele dropout, because dropout makes the two kinds of false homozygote in equal
+      numbers; anyone else reads below zero; the adult's own haploid product reads near one.
+  E = the share of calls that are heterozygous there, over the same share where the adult is the
+      common homozygote. A heterozygote needs both alleles, so no dropout makes one. A child reads
+      a median of 8.7; an unrelated genome 1.5 and never over 3.8.
+
+A chromosome is `present` or `absent` at 2.5 standard errors of D, and not read where the control
+class shows its calls are noise. The array carries the genome on three chromosomes present, or on E
+at 5 or over, or where D pooled over ten or more chromosomes is 2.5 standard errors above zero and
+no chromosome is absent. It carries none where no chromosome is present and ten are absent.
+
+Measured on the tallies of 825 open arrays against nine adults (carry.ts), before it was wired:
+
+  a true child against its parent                  124 of 124 carry    (122 by D alone, 1 more by E,
+                                                                       1 more by the pooled clause)
+  an array against an unrelated adult                0 of 927 carry
+  Turocy Z cells against the GSE148488 sperm donor   0 of  37 carry    (the pair 5.54.0 read as his)
+  arrays whose calls are noise, any adult            0 of 1,215 carry
+
+E is what carries one published cell: D reads it without its father's genome on 15 of 22
+chromosomes, 16 of which its table states normal, and E reads 6.7. That cell lost the paternal
+allele more often than the maternal one.
+
+As a pronucleus label, against the laboratory's own (36 pronuclei with the father arrayed):
+paternal where the father's genome is carried at D over one half, maternal where it carries none.
+32 agree, none disagrees, 4 are not answered: one not shown, and three that carry his genome at
+D under 0.45 where a product reads 0.8.
+
+In the tool, on the arrays of the 5.54.0 baseline (the rows against an unrelated adult were run with
+D alone, before E and the pooled clause, neither of which an unrelated pair reaches):
+
+                                          5.54.0             v6
+  31 Table S3 cells, their father         stage as stated    the same stage and zygosity on 31 of
+                                                             31; 29 carry, 2 refused arrays not shown
+  the same cells, an unrelated adult      17 staged haploid  1 (read so with no parent too); 0 carry
+                                          29 "uniparental"   0
+  39 Z cells, the sperm donor             517 chromosomes    0 chromosomes read against him; 0 carry
+                                          read two copies
+  223 other arrays, an unrelated adult    103 staged haploid 24; 0 carry
+
+
+3. WITH A PARENT, NOTHING MOVES
+-------------------------------
+The 31 Table S3 cells, printed, the alleles counted:
+
+                         normal left alone   whole loss    segment loss   parent of a whole loss
+  5.54.0, father         447 of 477          102 of 150    13 of 20       93 named, 91 right, 2 wrong
+  v6, father             448 of 477          102 of 150    13 of 20       93 named, 91 right, 2 wrong
+  v6, both parents       446 of 477          100 of 150    18 of 20       91 named, 89 right, 2 wrong
+
+One cell differs between 5.54.0 and v6 with the father: a gain printed on a chromosome stated
+normal is gone.
+
+One parent against two, as it stands: segment losses are 13 of 20 with one parent and 18 of 20 with
+two. That gap is 5.54.0's and is not closed here.
+
+
+4. THE TWO LABORATORY EXPERIMENTS WITH THEIR PARENTS
+----------------------------------------------------
+Experiment 2 (S23), its father: of 16 pronuclei the sheet labels, 13 are read as labelled and 3 are
+not answered. Experiment 1 (S20), both parents, the father being the GSE148488 sperm donor: 5 of 5
+labelled pronuclei are read as labelled.
+
+Read differently from the sheet, and listed for the laboratory rather than counted as errors:
+
+  S20-14   sheet: maternal.            Carries neither loaded parent's genome.
+  S20-19   sheet: M+P.                 The father's product alone; none of the mother's genome.
+  S20-10   sheet: M+P.                 Mostly maternal: the father's alleles are there as
+                                       heterozygotes (E 10.6) and D against him is below zero.
+  S23-16   sheet: paternal pronucleus. Carries the father's genome and a second one (D -0.03, E 8.2).
+  S23-17   sheet: paternal pronucleus. The same (D 0.35, E 7.1).
+
+
+5. WITH NO PARENT
+-----------------
+5.54.0 does not run without a parent. What its call rate and intensity compute is the same against
+any adult (31 of 31 Table S3 cells), so its column below is that code read with an unrelated adult
+in the slot; most of what it computed there it withheld. All 330 open arrays with a stated answer,
+printed:
+
+                                         fresh (155 arrays)             seen (175 arrays)
+                                         5.54.0       v6               5.54.0       v6
+  stated normal, left alone              1197 / 1200  1197 / 1200      465 / 477    456 / 477
+  stated whole loss, found                 13 / 50      31 / 50         10 / 150     25 / 150
+  stated segment loss, found               13 / 40      15 / 40          0 / 20       0 / 20
+  stated whole gain, found                  4 / 54      10 / 54          0 / 1        0 / 1
+  stated segment gain, found                3 / 10       3 / 10          3 / 5        1 / 5
+  called in the opposite direction          0            0               0            0
+  cells stated aneuploid, any call          0 / 2        0 / 2          31 / 64      42 / 64
+  cells stated euploid, no call             5 / 5        5 / 5          32 / 32      32 / 32
+
+The stage with no parent is the parent-free stage of 5.54.0 on 330 of 330.
+
+The 21 printed calls on chromosomes stated normal among the seen arrays: 18 are whole chromosomes
+more than 1 log2 under the rest of their array and two thirds heterozygous, which is a chromosome
+with no template, in five Table S3 cells (8, 5, 2, 2 and 1 of them); 3 are segment losses. With the
+father loaded both versions call those chromosomes too. They are on the list in section 8.
+
+Seven stated gains that 5.54.0's code printed against a stand-in are not printed by v6. Five are in
+one cell, four of them whole chromosomes 0.5 log2 over thirteen normal ones: the whole-chromosome
+test reads them at 4.8 to 5.2 of the reference group's spread against a bar of 5.49, and the segment scan
+that used to print them chromosome-long is now withheld on a drop-in array with no alleles behind it
+(next paragraph). Two are segment gains on Table S3 cells, withheld by the same rule. They are
+withheld, not miscalled, and they are what item 3.3 of the plan is for.
+
+Two things the first no-parent run got wrong, and what was changed:
+
+  A cell missing ten chromosomes printed eleven gained segments on the twelve it has. The segment
+  scans took their baseline from every marker, so it sat between the missing and the present.
+  They now read against the chromosomes of the majority group, as the whole-chromosome test does.
+
+  A noisy drop-in cell printed four gained segments on chromosomes stated normal. A gained segment
+  is the one copy claim that rests on a few megabases of intensity alone. On a drop-in array it is
+  now printed only where the alleles show a normal majority, which needs a parent whose genome is
+  in the array; otherwise it is kept as a withheld claim.
+
+
+6. THE INTENSITY NULL AND THE GAINS
+-----------------------------------
+`nullScale` is the median and scaled median absolute deviation of the 22 autosome medians, and
+holds while three or four are displaced. `majorityScale` splits the sorted medians wherever two
+neighbours stand more than 0.20 apart and takes the null inside the largest group. An array with
+no such gap is one group and reads exactly as before. A chromosome two thirds heterozygous has no
+template and is not a copy state the others are measured against.
+
+A group of four or more chromosomes above the majority is reported as gained only if it carries
+at most 0.9 of the majority's heterozygous calls. One step up is a third copy over two, or two
+copies over a majority at one, and intensity cannot say which. Nine chromosomes whose sisters lack
+exactly those nine read 0.79; seven stated-normal chromosomes above twelve stated losses read 1.22.
+
+What the stated gains are, on the arrays that have them:
+
+  Z10-4, Z10-5   Twelve "trisomies" each. Nine chromosomes are absent from each array (two thirds
+                 heterozygous, 1.3 log2 down), so the twelve present sit high against the array's
+                 median. v6 reads those losses and one gain, chromosome 6, in each.
+  Z10-6          Nine stated trisomies. They are exactly the nine chromosomes Z10-4 and Z10-5 lack,
+                 and Z10-6 lacks chromosome 6. v6 reads eight of the nine, and the loss of 6.
+  Z17-51, Z15-38 Nine and four stated trisomies that are the upper end of a continuous spread of
+                 chromosome medians, with stated-normal chromosomes within 0.06 of them. Not read.
+
+Gains and sister cells. Of the whole-chromosome gains printed on open cells that have a sister on
+the array, 32 of 52 are met by a whole-chromosome loss of the same chromosome in a sister. For the
+5.54.0 code it is 8 of 26.
+
+
+7. THE VALIDATION SUITE
+-----------------------
+audit/validate/run.sh on the final code, against the 5.54.0 scorecard. 47 of 65 lines are identical.
+Those that moved:
+
+                                                        5.54.0     v6
+  constructed gains read by intensity, six chromosomes  38 of 60   46 of 60
+  the same, sixteen held-out chromosomes                68 of 158  88 of 158
+  parent named, one rebuilt parent                      24, 0 wrong   26, 0 wrong
+  the same, held out                                    52, 0 wrong   57, 0 wrong
+  parent named, both parents                            37 and 92     37 and 92
+  both configurations name it, and the same parent      47 of 47   48 of 48
+  claims on a chromosome published normal               46, 33, 25 45, 32, 24   (two, measured, rebuilt)
+  copy rows equal across configurations                 15 of 15   16 of 16
+  claims withheld for no normal majority                403, 403, 408   402, 402, 410
+
+Unchanged: a lost chromosome's parent confirmed 89, 91 and 90 with 2 wrong in each configuration;
+stage and zygosity equal across configurations on 31 of 31; no cell differs under shuffling or
+flipping; no gain named on an unmodified chromosome with one parent.
+
+The first suite run on this branch read 30 of 31 for stage and zygosity against the rebuilt father.
+A published zygote, a true child on a poor array, cleared the parent check's bar on two chromosomes
+where it needs three, so against its measured father its copy states were withheld and its zygosity
+went from diploid to unknown, while against the rebuilt father, which is not read, it stayed diploid.
+The check now also reads the genome as a whole (section 2). That is the rule's third clause and it
+came from this cell; across 11,550 pairs of array and adult it admits that cell and no unrelated pair.
+
+One parent against two, on the constructed gains: the parent is named on 26 of 60 with one parent
+and 37 of 60 with two; 57 and 92 of 158 held out. That gap is not closed here.
+
+
+8. WHERE AN ARRAY AND A TABLE DISAGREE
+--------------------------------------
+For the laboratory. None of these is counted as a tool error or a table error here.
+
+  Turocy Z10-4, Z10-5     twelve stated trisomies each; the arrays show nine chromosomes absent
+                          and the rest at one level (section 6).
+  Five Table S3 cells     18 chromosomes stated normal carry no template in the array matched to
+                          the row (section 5). Rows were matched to arrays by title and, where
+                          several cells of one embryo share a title, by the assignment that
+                          contradicts the fewest chromosomes. That matching is the first thing to
+                          check: a wrong one would produce exactly this.
+  One Table S3 cell       its father's alleles are lost more often than its mother's on the 16
+                          chromosomes stated normal (section 2).
+  Egg donor D             her public array is a poor one: a third fewer homozygous calls than the
+                          other adults' arrays, her stated children read diluted against it, and
+                          two of them read as carrying none of her genome.
+  Four trophectoderm      stated children of egg donor B; they carry egg donor C's genome on 13 to
+  arrays                  16 chromosomes and B's on one.
+  Two "gDNA" arrays       stated with the sperm donor as father; they are egg donor A's own DNA
+                          (D 0.89 and 0.65 against her array on 22 of 22 chromosomes).
+  Experiment 1 and 2      five arrays read differently from the sheet (section 4).
+
+
+9. WHAT THIS DOES NOT DO
+------------------------
+  The parent check does not yet read a REBUILT parent, which is the laboratory's usual
+  configuration. Measured since: against a father rebuilt from his pronuclei, D reads true children
+  as it does against his measured array (71 to 76 of 77, measured 75) and reads no unrelated array
+  as his (0 of 159, 0 of 323). E runs higher against a rebuild, unrelated arrays reaching 6.4
+  against 3.8, because about a quarter of a rebuild's rare homozygotes are the father's
+  heterozygotes. So D can be read against a rebuild as it stands and E needs its own bar.
+
+  A full sibling, or the sample's own child, carries the genome too. Which of two arrays is the
+  parent is not in the genotypes (relatedness.ts).
+
+  How many genomes an array holds when it carries none of the adult's, or when no parent is loaded.
+  Parent-free heterozygosity does not count genomes on this material: pronuclei read 5% to 26%
+  heterozygous and diploid blastomeres 10% to 35%. Of seven pronuclei the parent-free stage reads
+  two haploid.
+
+  Gains on a segment, with no parent, on a drop-in array: withheld.
+
+  One parent against two: segment losses 13 of 20 against 18 of 20; the parent of a constructed
+  extra chromosome is named on fewer cells with one parent than with two (section 7).

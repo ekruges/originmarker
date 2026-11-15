@@ -9,6 +9,92 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.0.0 "Identity by Descent"
+
+**The tool now asks whether the array in the parental slot is a parent before it reads an allele
+against it, runs with no parent at all, and reads copy number against the chromosomes most of the
+cell shares.** All three come from scoring 5.54.0 against every stated answer on disk
+(audit/truth/baseline-5.54.0-2026-11-14.txt), which is new in this release and described below.
+
+**What 5.54.0 got wrong, measured.** Against an unrelated adult the one-parent copy state reads that
+adult's copy lost on every chromosome, and the stage took that for a single genome: 17 of 31
+published diploid cells were staged haploid and 29 called uniparental. Against an unrelated adult of
+the sample's own ancestry it read two copies instead: 517 chromosomes of 39 cells were read as
+carrying a man's genome who is not their father. Nothing on the page said so in either case.
+
+**Whose genome is this (`parentGenome.ts`).** At markers where the adult is homozygous for an allele
+the founder panel holds at 0.2 or under, D is the sample's same homozygotes less its opposite ones,
+over its calls. Dropout turns a child's heterozygotes into both kinds in equal numbers, so a child
+reads above zero at any dropout and anyone else below it. E is the share of heterozygous calls
+there over the same share where the adult is the common homozygote; a heterozygote needs both
+alleles, so no dropout makes one. An array carries the adult's genome on three chromosomes clear by
+D, or on E at 5 or over, or where the genome as a whole reads above zero and no chromosome reads
+without it. On 825 open arrays against nine adults: 124 of 124 true children carry, and none of 927
+unrelated pairs, none of 37 pairs of shared ancestry and none of 1,215 pairs with a noise array.
+As a pronucleus label it agrees with the laboratory's on 32 of 36 and declines the other 4.
+
+Where the genome is not shown, the copy states no longer reach the stage or the zygosity, no parent
+is given to a chromosome by them, and the page says which of the two it is: none of the adult's
+genome in the array, or not shown either way. With both parents loaded and neither genome in the
+array, no parent is named on the run. A RECONSTRUCTED parent is not read yet and behaves as before.
+
+**No parent.** With no file labelled as a parent the run reads the stage, the sex chromosomes and
+copy number, and gives no chromosome a parent. Before this the run did nothing. The first version of
+it had no chromosome rows at all, because rows were built from the parental markers, so a
+whole-chromosome call had nowhere to stand; `classify` now adds a row for a chromosome the parent
+offers nothing on.
+
+**The intensity null (`intensityNull.majorityScale`).** The whole-chromosome null was the median and
+spread of the 22 autosome medians, which holds while three or four are displaced. A cell with nine
+chromosomes a copy up has two tight groups of medians, the spread spans the gap, and nothing is
+called. The null is now taken inside the largest group of medians that stand within 0.20 of a
+neighbour; an array with no such gap reads exactly as before. A chromosome two thirds heterozygous
+has no template and is left out. A group of four or more above the majority is reported as gained
+only if it carries at most 0.9 of the majority's heterozygous calls, since one step up is a third
+copy over two or two copies over a majority at one. The segment scans take their baseline from the
+same chromosomes: over every marker, a cell missing ten chromosomes printed eleven gained segments
+on the twelve it has. On a drop-in array a gained segment is printed only where the alleles show a
+normal majority.
+
+Printed, with no parent, on the 330 open arrays with a stated answer (5.54.0's column is its code
+read against an unrelated adult, since it does not run without one):
+
+| | fresh, 5.54.0 | fresh, 6.0.0 | seen, 5.54.0 | seen, 6.0.0 |
+|---|---|---|---|---|
+| stated normal, left alone | 1197 of 1200 | 1197 of 1200 | 465 of 477 | 456 of 477 |
+| stated whole loss, found | 13 of 50 | 31 of 50 | 10 of 150 | 25 of 150 |
+| stated whole gain, found | 4 of 54 | 10 of 54 | 0 of 1 | 0 of 1 |
+| cells stated aneuploid, any call | 0 of 2 | 0 of 2 | 31 of 64 | 42 of 64 |
+| cells stated euploid, no call | 5 of 5 | 5 of 5 | 32 of 32 | 32 of 32 |
+
+Of the 21 calls on chromosomes stated normal among the seen arrays, 18 are chromosomes with no
+template in the array. Seven stated gains the old code printed against a stand-in are now withheld;
+they are listed in audit/truth/v6-2026-11-15.txt with the reason.
+
+**With the true parent nothing moved.** On the 31 Table S3 cells with their father: 102 of 150 whole
+losses, 13 of 20 segment losses, 93 parents named of which 91 right and 2 wrong, in both versions;
+one gain printed on a chromosome stated normal is gone.
+
+**The answer key (`audit/truth`).** `build.py` joins the supplementary tables of Zuccaro 2020, Turocy
+2026 and Jerabek 2026, the GEO metadata and the laboratory's sheets to the arrays: 989 arrays, 604
+with a stated fact. 125 arrays are sealed by a hash of their unit's name and nothing has been run on
+them; `score.py` refuses a run that contains one. `run.ts` writes what `scoreSample` reports for each
+array, printed or withheld, and `score.py` scores it.
+
+**The validation suite** (audit/validate/scorecards/6.0.0.json, against 5.54.0's): 47 of 65 lines are
+identical. Constructed gains read by intensity rise from 38 to 46 of 60, and from 68 to 88 of 158 on
+the held-out chromosomes; the parent is named with one rebuilt parent on 26 and 57 of them, from 24
+and 52, with none wrong; claims on a chromosome published normal fall by one in each configuration.
+A lost chromosome's parent is confirmed on 89, 91 and 90 with 2 wrong, as before, and stage and
+zygosity are equal across configurations on 31 of 31.
+
+**What this does not do.** One parent is still behind two in two places: segment losses, 13 of 20
+against 18 of 20, and the parent of a constructed extra chromosome, 26 of 60 against 37 of 60. The
+parent check does not read a reconstructed parent. How many genomes an array holds cannot be read
+where it carries none of the loaded parent's genome, or where no parent is loaded, beyond what the
+parent-free stage says. The results, the disagreements between arrays and published tables, and
+these limits are in audit/truth/v6-2026-11-15.txt.
+
 ## 5.54.0 "Repulsion Phase"
 
 **With one parent, the tool now says which parent gave an extra chromosome.** One parent is the

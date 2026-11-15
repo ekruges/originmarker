@@ -5,7 +5,7 @@
 // the marker count. Those two are the whole reason this module exists.
 import assert from 'node:assert/strict'
 import {
-  median, mad, nullScale, calibratedZ, intensityDetects, Z_CHROMOSOME, Z_WINDOW,
+  median, mad, nullScale, majorityScale, calibratedZ, intensityDetects, Z_CHROMOSOME, Z_WINDOW, STATE_GAP,
 } from './intensityNull.ts'
 
 /** A deterministic stream, so a failure is the code changing and never the draw changing. */
@@ -143,6 +143,33 @@ const gauss = (r: () => number) => {
   assert.equal(intensityDetects(calibratedZ(between, n), false), true)
   assert.equal(intensityDetects(calibratedZ(between, n), true), false)
   assert.equal(intensityDetects(undefined, true), false, 'no z is not a detection')
+}
+
+// The null inside the commonest copy state.
+{
+  // No gap: one group, and the null is the one the thresholds were calibrated on.
+  const quiet = Array.from({ length: 22 }, (_, i) => -0.2 + i * 0.018)
+  assert.deepEqual({ ...majorityScale(quiet), lo: 0, hi: 0 }, { ...nullScale(quiet), lo: 0, hi: 0 })
+  // Eleven chromosomes at two copies and nine a step above: the old null spans the gap and calls
+  // nothing; the majority's own null calls all nine.
+  const normal = Array.from({ length: 11 }, (_, i) => -0.06 + i * 0.012)
+  const up = Array.from({ length: 9 }, (_, i) => 0.42 + i * 0.012)
+  const cell = [...normal, ...up]
+  const old = nullScale(cell)
+  assert.ok(up.every((x) => !intensityDetects(calibratedZ(x, old), true)), 'the median null misses the group')
+  const maj = majorityScale(cell)
+  assert.equal(maj.units, 11)
+  assert.ok(Math.abs(maj.centre) < 0.01 && maj.hi < 0.1 && maj.lo > -0.1)
+  assert.ok(up.every((x) => intensityDetects(calibratedZ(x, maj), true)), 'the majority null calls it')
+  assert.ok(normal.every((x) => !intensityDetects(calibratedZ(x, maj), true)), 'and leaves the majority alone')
+  // A single displaced chromosome leaves the null where it was.
+  const one = [...quiet.slice(0, 21), 0.9]
+  assert.equal(majorityScale(one).units, 21)
+  // No majority: two equal groups, or a largest group too small. The null is everything, and wide.
+  const tie = [...Array.from({ length: 10 }, (_, i) => i * 0.01), ...Array.from({ length: 10 }, (_, i) => 0.6 + i * 0.01)]
+  assert.equal(majorityScale(tie).units, 20)
+  assert.equal(majorityScale([0, 0.01, 0.02, 0.5, 0.51, 0.52, 1, 1.01]).units, 8)
+  assert.ok(STATE_GAP > 0)
 }
 
 console.log('intensityNull.check.ts: one affected unit does not destroy the scale, the scale does '

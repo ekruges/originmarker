@@ -39,7 +39,7 @@ import type { Segment } from './segments.ts'
 import type { HetCall } from './obligateHet.ts'
 import type { Enrichment } from './features.ts'
 import type { StageCall } from './stage.ts'
-import { calibratedZ, intensityDetects, nullScale } from './intensityNull.ts'
+import { calibratedZ, intensityDetects, nullScale, majorityScale, median as medianExact } from './intensityNull.ts'
 
 /** Residual absence on clean data, from genotyping error alone. Measured at 0.03% and 0.05%. */
 export const ABSENCE_ERROR_FLOOR = 0.005
@@ -417,6 +417,20 @@ export const COPY_SHIFT_FLOOR_BULK = 0.14
  * below it would gain one, which invents a gain.
  */
 export const BULK_SPREAD_MAX = 0.0265
+
+/**
+ * Heterozygous share of a chromosome's calls at or over which it holds no template: noise calls
+ * read about two thirds heterozygous. Such a chromosome is not a copy state.
+ */
+export const NO_TEMPLATE_HET = 0.5
+/** Chromosomes above the majority's group, at or over which the heterozygosity test is asked. */
+export const GAIN_GROUP_MIN = 4
+/**
+ * Heterozygosity of the chromosomes above the majority, as a fraction of the majority's, over which
+ * they are not reported as gained. A third copy lowers the share of heterozygous calls; two copies
+ * over a majority at one raise it. Intensity reads both as one step up.
+ */
+export const GAIN_HET_RATIO_MAX = 0.9
 
 export type OriginClass = 'androgenetic' | 'gynogenetic' | 'biparental' | 'unclear'
 
@@ -850,6 +864,18 @@ export interface ParentageResult {
   parentSanity?: import('./parentSanity.ts').ParentSanity
   /** The same, for the second parental array when one was loaded. */
   parentSanityOther?: import('./parentSanity.ts').ParentSanity
+  /** Whether the array carries the loaded parent's genome at all, read before any allele call
+   *  against that parent. See parentGenome.ts. */
+  parentGenome?: import('./parentGenome.ts').ParentGenome
+  parentGenomeOther?: import('./parentGenome.ts').ParentGenome
+  /** What to tell the reader where a loaded parent's genome is not shown to be in the array. */
+  parentGenomeNotices?: { headline: string; body: string }[]
+  /** No parental array was loaded: no chromosome is given a parent on this result. */
+  noParent?: boolean
+  /** The autosomes that share this array's commonest copy state, which copy number is read against. */
+  copyReference?: string[]
+  /** Autosomes above that state by intensity and not reported as gained. See GAIN_HET_RATIO_MAX. */
+  copyUnresolved?: string[]
   /**
    * What the loaded parental array actually IS to this sample, measured rather than assumed. An
    * unrelated adult or a sibling in the parental slot withholds every named parent: see
@@ -1236,7 +1262,17 @@ export function classify(
   // including chrX would widen the spread this measures events against by a whole copy on half
   // of all samples. chrX is still measured above, and read by sexChromosome.ts, which knows what
   // level to expect it at; it is kept out of the whole-chromosome test below for the same reason.
-  const lrrNull = nullScale([...chromLrr].filter(([c]) => isAutosome(c)).map(([, v]) => v))
+  // The null is taken among the chromosomes sharing the commonest copy state, chromosomes with no
+  // template left out; with fewer than eight left, over every autosome.
+  const hetShare = (c: string): number => {
+    const called = t.callByChrom.get(c)?.[0] ?? 0
+    return called ? (t.hetDevByChrom.get(c)?.[1] ?? 0) / called : NaN
+  }
+  const autosomeLrr = [...chromLrr].filter(([c]) => isAutosome(c))
+  const withTemplate = autosomeLrr.filter(([c]) => !(hetShare(c) >= NO_TEMPLATE_HET))
+  const lrrNull = withTemplate.length >= 8
+    ? majorityScale(withTemplate.map(([, v]) => v))
+    : { ...nullScale(autosomeLrr.map(([, v]) => v)), lo: -Infinity, hi: Infinity }
   const aneuploidy = new Map<string, 'loss' | 'gain'>()
   const callFrac = new Map<string, number>()
   const lrrShift = new Map<string, number>()
@@ -1280,6 +1316,25 @@ export function classify(
       ? byIntensity && z > 0
       : Number.isFinite(lrrShift.get(c)) && (lrrShift.get(c) as number) >= LRR_SHIFT
     aneuploidy.set(c, gain ? 'gain' : 'loss')
+  }
+  // A group above the majority is a gain only if it carries fewer heterozygous calls: see
+  // GAIN_HET_RATIO_MAX.
+  const gained = [...aneuploidy].filter(([, v]) => v === 'gain').map(([c]) => c)
+  // The chromosomes the null was taken among: the segment scans read against the same ones.
+  const reference = withTemplate.filter(([, v]) => v >= lrrNull.lo && v <= lrrNull.hi).map(([c]) => c)
+  let copyUnresolved: string[] = []
+  // The group is every chromosome above the majority's, not only those that cleared the gates.
+  const above = withTemplate.filter(([, v]) => v > lrrNull.hi).map(([c]) => c)
+  if (gained.length && above.length >= GAIN_GROUP_MIN) {
+    const ratio = medianExact(above.map(hetShare)) / medianExact(reference.map(hetShare))
+    if (!(ratio <= GAIN_HET_RATIO_MAX)) {
+      for (const c of gained) aneuploidy.delete(c)
+      copyUnresolved = above
+      limits.push(`${above.length} chromosomes (${above.join(', ')}) sit above the other chromosomes of `
+        + `this array by intensity and are not reported as gained: they carry ${ratio.toFixed(2)} of the `
+        + `others' heterozygous calls, where a third copy carries fewer. Most chromosomes of this array may `
+        + 'be at one copy and these at two.')
+    }
   }
 
   const chroms: ChromResult[] = []
@@ -1403,6 +1458,32 @@ export function classify(
     })
   }
 
+  // A chromosome with no parental marker has no absence to read and still has a copy number: the
+  // call rate and the intensity need no parent.
+  for (const [c] of [...callPerChrom].sort(byChromName)) {
+    if (!isAutosome(c) || t.byChrom.has(c)) continue
+    const aneu = aneuploidy.get(c)
+    chroms.push({
+      chrom: c,
+      informative: 0,
+      absent: 0,
+      bafExtreme: NaN,
+      mosaicZ: mosaicZ.get(c) ?? NaN,
+      aneuploidy: aneu,
+      callFraction: callFrac.get(c) ?? NaN,
+      lrrShift: lrrShift.get(c) ?? NaN,
+      lrrZ: lrrZ.get(c) ?? NaN,
+      verdict: 'not_measured',
+      rate: NaN,
+      note: aneu
+        ? `${aneu === 'loss' ? 'LOST' : 'GAINED'}: this chromosome calls at `
+          + `${pct(callFrac.get(c) ?? NaN, 0)} of the genome's median rate and its intensity sits `
+          + `${(lrrShift.get(c) ?? NaN).toFixed(2)} log2 from the chromosomes that share this array's `
+          + 'commonest copy state. No parental marker is read here, so no parent is attached.'
+        : undefined,
+    })
+  }
+
   // Dispersion across chromosomes: uniform, or confined to part of the genome. Reported always,
   // consulted only where the genome-wide rate is already ambiguous.
   const rates = chroms.filter((c) => isAutosome(c.chrom)).map((c) => c.rate)
@@ -1468,6 +1549,7 @@ export function classify(
     nonParentalRate, secondParentExpected, hetBand, homBand, homPinnedRate,
     noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, unmeasured: [], notes, limits,
+    copyReference: reference, copyUnresolved,
   }
 }
 

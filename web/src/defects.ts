@@ -470,6 +470,7 @@ export function runAlerts(r: {
   }
   parentSanity?: { conflict?: string; headline: string; why: string }
   parentSanityOther?: { conflict?: string; headline: string; why: string }
+  parentGenomeNotices?: { headline: string; body: string }[]
   integrity?: { level: string; headline: string; why: string; limits: string }
   stageAgreement?: {
     agrees: boolean; ploidyConflict: boolean; notice: string
@@ -493,6 +494,8 @@ export function runAlerts(r: {
   for (const p of [r.parentSanity, r.parentSanityOther]) {
     if (p?.conflict) out.push({ key: p.conflict, headline: p.headline, body: p.why })
   }
+  // Whose genome this is comes before anything read against the parent. See parentGenome.ts.
+  for (const n of r.parentGenomeNotices ?? []) out.push({ key: n.headline, ...n })
   if (r.integrity && r.integrity.level !== 'intact') {
     out.push({
       key: `integrity-${r.integrity.level}`,

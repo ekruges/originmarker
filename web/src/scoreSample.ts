@@ -69,6 +69,10 @@ import {
   type ShareTally, type ShareCall,
 } from './oneParentState.ts'
 import {
+  emptyCarryTally, addCarry, parentGenome, parentGenomeSentence, parentGenomeNotice, UNREAD,
+  type CarryTally,
+} from './parentGenome.ts'
+import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
   panelScale, hetSpread, HET_SPREAD_LOCALISED, allelePloidy,
 } from './stage.ts'
@@ -108,6 +112,8 @@ export interface ParentIndex {
   /** Heterozygosity as the FILE reads, before any banner substitution. Equal to
    *  `heterozygosity` on a measured array; 0 on a reconstruction. */
   measuredHeterozygosity: number
+  /** No parental array was loaded: see `noParent`. */
+  absent?: boolean
 }
 
 /** Where a run writes its narrative. The browser paints it, the command line prints it. */
@@ -203,6 +209,13 @@ export const finishParent = (
 }
 
 /**
+ * The parental slot with nothing in it. A run against it reads what needs no parent: the stage, the
+ * sex chromosomes, and copy number from the call rate and the intensity. Every tally keyed to a
+ * parental genotype stays empty, so no chromosome is given a parent.
+ */
+export const noParent = (): ParentIndex => ({ ...finishParent(emptyParent(), null), absent: true })
+
+/**
  * Everything one sample's rows accumulate into, in a single pass.
  *
  * One pass rather than several: these arrays run past 825,000 markers and re-reading one to
@@ -251,6 +264,10 @@ export interface Collected {
   /** The one-parent copy-state tallies per autosome, where the panel carries founder frequencies.
    *  See oneParentState.ts. */
   shareByChrom: Map<string, ShareTally> | null
+  /** The parent-genome tallies per autosome against each MEASURED parent, where the panel carries
+   *  founder frequencies. See parentGenome.ts. */
+  carryByChrom: Map<string, CarryTally> | null
+  carryMatByChrom: Map<string, CarryTally> | null
 }
 
 /**
@@ -305,7 +322,16 @@ export function emptyCollected(
     panelSameHom: panel ? emptySameHom() : null,
     informationPanel: panel ? emptyHomTally() : null,
     shareByChrom: (panel as FounderPanel | null | undefined)?.freqB ? new Map() : null,
+    carryByChrom: (panel as FounderPanel | null | undefined)?.freqB && !pat.inferred && !pat.absent
+      ? new Map() : null,
+    carryMatByChrom: (panel as FounderPanel | null | undefined)?.freqB && mat && !mat.inferred ? new Map() : null,
   }
+}
+
+const carryTally = (m: Map<string, CarryTally>, chrom: string): CarryTally => {
+  let t = m.get(chrom)
+  if (!t) m.set(chrom, t = emptyCarryTally())
+  return t
 }
 
 /**
@@ -354,6 +380,10 @@ export function collectRow(
         let st = acc.shareByChrom.get(r.chrom)
         if (!st) acc.shareByChrom.set(r.chrom, st = emptyShareTally())
         addShare(st, fa, r.baf, fq, g === fa)
+        if (acc.carryByChrom) addCarry(carryTally(acc.carryByChrom, r.chrom), fa, r.genotype, fq)
+        if (acc.carryMatByChrom && mat) {
+          addCarry(carryTally(acc.carryMatByChrom, r.chrom), mat.gt.get(r.probesetId), r.genotype, fq)
+        }
       }
     }
   }
@@ -503,7 +533,17 @@ export async function scoreSample(input: {
   // THE ALLELES SAY HOW MANY GENOMES, where a parent is loaded: see stage.allelePloidy. Read from the
   // same tallies as the copy state below, against the father in either configuration, so one
   // reconstructed parent and two measured ones give one stage.
-  const copyStates = acc.shareByChrom
+  // WHOSE GENOME IS THIS, before any allele is read against a parent. See parentGenome.ts.
+  const genomeOf = (m: Map<string, CarryTally> | null) => (m
+    ? parentGenome([...m].filter(([c]) => isAutosome(c)).map(([, t]) => t)) : UNREAD)
+  const patGenome = genomeOf(acc.carryByChrom)
+  const matGenome = mat ? genomeOf(acc.carryMatByChrom) : undefined
+  // The copy states count genomes only where the parent's is among them: against an adult whose
+  // genome is not in the array they read that adult's copy lost whatever the array holds.
+  const parentShown = patGenome.verdict === 'carries' || patGenome.verdict === 'unread'
+  // Whether the alleles can be read against a parent at all: one is loaded, and its genome is here.
+  const allelesReadable = parentShown && !pat.absent
+  const copyStates = acc.shareByChrom && parentShown
     ? [...acc.shareByChrom].filter(([c]) => isAutosome(c)).map(([, t]) => shareCall(t).state)
     : undefined
   const stageAgreement = reconcileStage(
@@ -533,6 +573,22 @@ export async function scoreSample(input: {
     ...(pat.inferred ? { inferredParent: true } : {}),
   })
   result.refusals = []
+  result.parentGenome = patGenome
+  if (pat.absent) {
+    result.noParent = true
+    result.limits = result.limits.filter((l) => !l.startsWith('No markers where the parent is homozygous'))
+    result.limits.push('No parental array is loaded. The stage, the sex chromosomes and copy number from '
+      + 'the call rate and the intensity are read; which parent a chromosome came from is not.')
+  }
+  if (matGenome) result.parentGenomeOther = matGenome
+  for (const [g, role] of [[patGenome, soloRole], [matGenome, soloRole === 'paternal' ? 'maternal' : 'paternal']] as const) {
+    if (!g || g.verdict === 'carries' || g.verdict === 'unread') continue
+    const who = role === 'paternal' ? 'father' : 'mother'
+    const said = parentGenomeSentence(g, who)
+    log('WARN', said)
+    result.limits.push(said)
+    result.parentGenomeNotices = [...result.parentGenomeNotices ?? [], parentGenomeNotice(g, who)!]
+  }
   // ZYGOSITY FROM THE ALLELES, where they decide: one genome or two, read as the stage reads it
   // (allelePloidy). classify read it from the heterozygous band, which drop-in fills and allele
   // dropout empties; the other parent's alleles in the calls are touched by neither.
@@ -724,22 +780,24 @@ export async function scoreSample(input: {
       if (!t) continue
       const sc = shareCall(t)
       shareCalls.set(c.chrom, sc)
-      c.copyState = sc
+      // Kept for the normal-majority test below either way; shown as a state only against a parent.
+      if (parentShown) c.copyState = sc
     }
   }
-  const normal = normalFraction([...shareCalls.values()])
+  // Against no parent, or an adult whose genome is not in the array, the states show no majority.
+  const normal = allelesReadable ? normalFraction([...shareCalls.values()]) : NaN
   // BOTH PARENTS SOMEWHERE, FROM ONE PARENT'S ALLELES. Where neither the band nor the genome-wide
   // reading decides, as on a chaotic genome that lost chromosomes of both parents, chromosomes reading
   // as a second copy reads say a second contribution exists. The copy state cancels drop-in, so this
   // holds with one parent as with two; the same count guards the one-parent loss reading below.
   const secondCopies = [...shareCalls.values()].filter((x) => x.state === 'disomic' && x.r >= DISOMIC_LOW).length
-  if (result.zygosity === 'unknown' && allelesSay !== 'one genome' && secondCopies >= BIPARENTAL_AUTOSOMES_MIN) {
+  if (parentShown && result.zygosity === 'unknown' && allelesSay !== 'one genome' && secondCopies >= BIPARENTAL_AUTOSOMES_MIN) {
     result.zygosity = 'diploid'
     result.limits = result.limits.filter((l) => !l.includes('Zygosity is '))
     result.notes.push(`Zygosity is read from the alleles: ${secondCopies} autosomes carry a second copy `
       + 'against the loaded parent, drop-in removed.')
   }
-  if (!mat && [...shareCalls.values()].filter((x) => x.state === 'disomic').length >= BIPARENTAL_AUTOSOMES_MIN) {
+  if (parentShown && !mat && [...shareCalls.values()].filter((x) => x.state === 'disomic').length >= BIPARENTAL_AUTOSOMES_MIN) {
     for (const c of result.chroms) {
       const sc = shareCalls.get(c.chrom)
       if (!sc || c.verdict === 'not_measured') continue
@@ -979,7 +1037,9 @@ export async function scoreSample(input: {
   // normal chromosome only when most are. The disomic fraction asks that of the alleles directly: 0.000
   // to 0.727 on cells published chaotic, 0.864 to 1.000 on the rest, 0 on arrays whose calls are noise.
   // Where it cannot be computed, a drop-in array has shown none and every other array is read as before.
-  const normalMajority = Number.isFinite(normal) ? normal >= NORMAL_MAJORITY_MIN : !dropInCell
+  // With no alleles to ask, the majority is the one intensityNull.majorityScale finds or fails to.
+  const normalMajority = Number.isFinite(normal) ? normal >= NORMAL_MAJORITY_MIN
+    : !allelesReadable || !dropInCell
   const intensityWithheld = !uninterpretable && !normalMajority
   if (intensityWithheld) {
     for (const c of result.chroms) {
@@ -1069,7 +1129,7 @@ export async function scoreSample(input: {
     result.refusals!.push({ claim: 'relatedness', gate: stageGate, cause: stageCause,
       measured: stageMeasured })
   }
-  const rel = uninterpretable ? null : relate(
+  const rel = uninterpretable || pat.absent ? null : relate(
     { gt: pat.gt, pos: markerPos },
     { gt: myGt as Map<string, AB>, pos: markerPos },
     OPPOSITE_HOM_MAX,
@@ -1133,13 +1193,19 @@ export async function scoreSample(input: {
   // only fault was a wrong file.
   const sexConflict = result.parentSanity.conflict ? result.parentSanity
     : matSanity?.conflict ? matSanity : undefined
+  // One parent's genome absent is a finding, a uniparental genome or the other parent's product;
+  // both absent is two arrays that are not this sample's parents.
+  const neitherParent = patGenome.verdict === 'none' && matGenome?.verdict === 'none'
   const withholdReason = sexConflict
     ? `the parental array does not match the role it was loaded under. ${sexConflict.why}`
-    : ''
+    : neitherParent
+      ? 'neither loaded parental array is a parent of this sample: no chromosome read carries the '
+        + 'genome of either.'
+      : ''
   /** The same fact in one clause, for the per-row strings. See the alert for the whole reason. */
   const shortWithholdReason = sexConflict
     ? `the array loaded as the ${sexConflict.declared} parent is not the sex that slot requires.`
-    : ''
+    : neitherParent ? 'neither loaded parental array carries its genome into this sample.' : ''
   const parentSlotWrong = !!withholdReason
   if (parentSlotWrong) {
     log('WARN', `NO PARENT IS NAMED ON THIS RUN: ${withholdReason}`)
@@ -1189,7 +1255,13 @@ export async function scoreSample(input: {
     noCall.set(c, [ms.length, ms.filter((m) => !m.called).length])
   }
   const allCn = [...cnByChrom.values()].flat()
-  const lrrAll = allCn
+  // The segment scans read against the chromosomes the whole-chromosome test does, those sharing
+  // the array's commonest copy state (parentage.copyReference): absent chromosomes would otherwise
+  // pull the baseline under the present ones.
+  const referenceChroms = new Set(result.copyReference ?? [])
+  const referenceCn = referenceChroms.size >= 8
+    ? new Map([...cnByChrom].filter(([c]) => referenceChroms.has(c))) : cnByChrom
+  const lrrAll = [...referenceCn.values()].flat()
     .map((m) => m.log2R).filter((x): x is number => x !== null).sort((a, b) => a - b)
   const genomeLrr = lrrAll.length ? lrrAll[lrrAll.length >> 1] : 0
   // Genome call rate from the markers themselves. StageCall does not carry one, and the stage's
@@ -1244,7 +1316,9 @@ export async function scoreSample(input: {
   // loses 8 to nomination and 0 to the intensity gate, so a lower gate could never have reached
   // them. scanCopyGain proposes on intensity instead and reaches 25 of the 26, and 0 of 67 losses,
   // the second by construction since a lost copy cannot read intensity-high.
-  const gainProfile = highLrrProfile(cnByChrom)
+  const gainProfile = highLrrProfile(referenceCn)
+  // A chromosome above the majority and not reported as gained is not reported in pieces either.
+  const unresolved = new Set(result.copyUnresolved ?? [])
   // THE COPY-NUMBER SCAN READS EVERY CHROMOSOME INTENSITY HAS NOT ALREADY CALLED WHOLE, whatever the
   // alleles say. It used to skip one the alleles name as missing a parent too, and those names are what
   // differ with how many parents are loaded, so the scan itself depended on the parents. A segment that
@@ -1256,7 +1330,8 @@ export async function scoreSample(input: {
       return [
         ...byNoCall,
         // `byNoCall` is passed so a region both channels see is reported once, not twice.
-        ...scanCopyGain(ms, externalNull(gainProfile.byChrom, c), genomeLrr, gainProfile, byNoCall),
+        ...(unresolved.has(c) ? []
+          : scanCopyGain(ms, externalNull(gainProfile.byChrom, c), genomeLrr, gainProfile, byNoCall)),
       ]
     })
   // ONE EVENT, TWO LINES OF EVIDENCE. A copy loss covering 80% or more of a chromosome the alleles already
@@ -1274,7 +1349,18 @@ export async function scoreSample(input: {
   // RUN EVEN WHERE WITHHELD, and recorded rather than reported, so the census can score what the
   // withholding cost. Nothing below reads `scannedCopy` except through `copy`.
   const copyWithheld = uninterpretable || chaoticGenome || intensityWithheld
-  const copy = copyWithheld ? [] : scannedCopy
+  // On a drop-in array a gained segment is printed only where the alleles show a normal majority: it
+  // is the one copy claim resting on a few megabases of intensity alone.
+  const gainSegmentsWithheld = !copyWithheld && dropInCell && !allelesReadable
+  const copy = copyWithheld ? []
+    : gainSegmentsWithheld ? scannedCopy.filter((sg) => sg.kind !== 'copy-gain') : scannedCopy
+  if (gainSegmentsWithheld) {
+    for (const sg of scannedCopy) {
+      if (sg.kind !== 'copy-gain') continue
+      result.refusals!.push({ claim: 'segment', chrom: sg.chrom, gate: 'drop-in.no-alleles',
+        cause: 'no-intensity-reference', measured: dropInMeasured, withheld: sg })
+    }
+  }
   if (copyWithheld) {
     for (const sg of scannedCopy) {
       result.refusals!.push(intensityWithheld
