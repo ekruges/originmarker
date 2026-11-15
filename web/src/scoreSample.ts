@@ -51,7 +51,7 @@ import {
 } from './relatedness.ts'
 import { callBothParentsOrigin } from './bothParentsOrigin.ts'
 import {
-  otherRates, scanOtherParent, coveredShare, OTHER_MIN_SPAN_BP, type OtherMarker,
+  otherRates, scanOtherParent, ownRates, scanOwnCopy, coveredShare, OTHER_MIN_SPAN_BP, type OtherMarker,
 } from './otherParentLoss.ts'
 import {
   detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh, COMPLEX_CALL_RATE,
@@ -79,7 +79,7 @@ import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
   panelScale, hetSpread, HET_SPREAD_LOCALISED, allelePloidy,
 } from './stage.ts'
-import { nullScale, calibratedZ, median, intensityDetects } from './intensityNull.ts'
+import { nullScale, calibratedZ, median, intensityDetects, STATE_GAP } from './intensityNull.ts'
 import { reconcileStage } from './declaredStage.ts'
 import { assessIntegrity } from './integrity.ts'
 
@@ -271,9 +271,10 @@ export interface Collected {
    *  founder frequencies. See parentGenome.ts. */
   carryByChrom: Map<string, CarryTally> | null
   carryMatByChrom: Map<string, CarryTally> | null
-  /** Per autosome, the markers the one-parent scan for the other parent's copy reads. Null with two
-   *  parents or none, or a panel without founder frequencies. See otherParentLoss.ts. */
+  /** Per autosome, the markers the likelihood scans of otherParentLoss.ts read against each loaded
+   *  parent. Null where that parent is not loaded or the panel carries no founder frequencies. */
   otherByChrom: Map<string, OtherMarker[]> | null
+  otherMatByChrom: Map<string, OtherMarker[]> | null
 }
 
 /**
@@ -330,8 +331,23 @@ export function emptyCollected(
     shareByChrom: (panel as FounderPanel | null | undefined)?.freqB ? new Map() : null,
     carryByChrom: (panel as FounderPanel | null | undefined)?.freqB && !pat.absent ? new Map() : null,
     carryMatByChrom: (panel as FounderPanel | null | undefined)?.freqB && mat ? new Map() : null,
-    otherByChrom: (panel as FounderPanel | null | undefined)?.freqB && !pat.absent && !mat ? new Map() : null,
+    otherByChrom: (panel as FounderPanel | null | undefined)?.freqB && !pat.absent ? new Map() : null,
+    otherMatByChrom: (panel as FounderPanel | null | undefined)?.freqB && mat ? new Map() : null,
   }
+}
+
+/** One called marker into a parent's list for the likelihood scans. See otherParentLoss.OtherMarker. */
+const pushOther = (
+  by: Map<string, OtherMarker[]>, parent: string, r: ProbeRow, freqB: ReadonlyMap<string, number>,
+): void => {
+  if (r.genotype === 'NC' || (parent !== 'AA' && parent !== 'AB' && parent !== 'BB')) return
+  const fq = parent === 'AB' ? undefined : freqB.get(r.probesetId)
+  const q = parent === 'AB' ? null : fq === undefined ? 0 : parent === 'AA' ? fq : 1 - fq
+  if (q !== null && !(q > 0)) return
+  let ms = by.get(r.chrom)
+  if (!ms) by.set(r.chrom, ms = [])
+  ms.push({ pos: r.pos, q, seen: parent === 'AB' ? r.genotype === 'AB' : r.genotype !== parent,
+    opp: parent !== 'AB' && r.genotype !== 'AB' && r.genotype !== parent })
 }
 
 const carryTally = (m: Map<string, CarryTally>, chrom: string): CarryTally => {
@@ -392,15 +408,9 @@ export function collectRow(
         }
       }
     }
-    if (acc.otherByChrom && r.genotype !== 'NC' && (fa === 'AA' || fa === 'AB' || fa === 'BB')) {
-      const fq = fa === 'AB' ? undefined : (acc.panel as FounderPanel).freqB!.get(r.probesetId)
-      const q = fa === 'AB' ? null : fq === undefined ? 0 : fa === 'AA' ? fq : 1 - fq
-      if (q === null || q > 0) {
-        let om = acc.otherByChrom.get(r.chrom)
-        if (!om) acc.otherByChrom.set(r.chrom, om = [])
-        om.push({ pos: r.pos, q, seen: fa === 'AB' ? r.genotype === 'AB' : r.genotype !== fa,
-          opp: fa !== 'AB' && r.genotype !== 'AB' && r.genotype !== fa })
-      }
+    if (acc.otherByChrom) pushOther(acc.otherByChrom, fa, r, (acc.panel as FounderPanel).freqB!)
+    if (acc.otherMatByChrom && mat) {
+      pushOther(acc.otherMatByChrom, mat.gt.get(r.probesetId) ?? 'NC', r, (acc.panel as FounderPanel).freqB!)
     }
   }
   // Only a marker where the parent is homozygous and the sample is called can say
@@ -1387,25 +1397,51 @@ export async function scoreSample(input: {
           measured: { ...stageMeasured, heterozygositySpread: spread }, withheld: sg })
     }
   }
-  // WITH ONE PARENT, THE OTHER PARENT'S COPY. The absence scan below reads the loaded parent's own
-  // alleles, so a stretch missing the other parent's copy reads present throughout. Read on the
-  // chromosomes the one-parent copy state says carry both parents, against each other, on a genome
-  // read as two parents', and not where intensity reads a gain. See otherParentLoss.ts.
-  const otherSegments: Segment[] = []
-  if (acc.otherByChrom && !mat && parentShown && knownBiparental(result.zygosity)) {
-    const carryBoth = new Map([...acc.otherByChrom]
+  // THE LIKELIHOOD SCANS, otherParentLoss.ts. Each loaded parent's markers on the chromosomes the
+  // one-parent copy state says carry both parents, on a genome read as two parents'. Those
+  // chromosomes are the reference the array's own rates are fitted on, and the ones scanned.
+  const twoParents = knownBiparental(result.zygosity)
+  const carryingBoth = (by: Map<string, OtherMarker[]> | null): Map<string, OtherMarker[]> => new Map(
+    [...(by ?? [])]
       .filter(([c]) => shareCalls.get(c)?.state === 'disomic' && measured.has(c) && !whole.has(c))
       .map(([c, ms]) => [c, [...ms].sort((x, y) => x.pos - y.pos)] as const))
-    const rates = carryBoth.size >= BIPARENTAL_AUTOSOMES_MIN ? otherRates([...carryBoth.values()]) : null
-    if (rates) {
+  const ratesOf = (ms: Map<string, OtherMarker[]>) => (
+    ms.size >= BIPARENTAL_AUTOSOMES_MIN ? otherRates([...ms.values()]) : null)
+  const matShown = matGenome !== undefined && (matGenome.verdict === 'carries' || matGenome.verdict === 'unread')
+  const patMarkers = parentShown && twoParents ? carryingBoth(acc.otherByChrom) : new Map<string, OtherMarker[]>()
+  const matMarkers = mat && matShown && twoParents ? carryingBoth(acc.otherMatByChrom) : new Map<string, OtherMarker[]>()
+  const patRates = ratesOf(patMarkers)
+  const matRates = ratesOf(matMarkers)
+  // Mean log R across a run less the median of the rest of its chromosome.
+  const lrrShiftOf = (c: string, startBp: number, endBp: number): number => {
+    const inside: number[] = []
+    const rest: number[] = []
+    for (const m of cnByChrom.get(c) ?? []) {
+      if (m.log2R !== null) (m.pos >= startBp && m.pos <= endBp ? inside : rest).push(m.log2R)
+    }
+    return inside.length && rest.length ? inside.reduce((x, y) => x + y, 0) / inside.length - median(rest) : NaN
+  }
+  // AN EXTRA COPY READS LIKE A LOSS IN THE CALLS: it outnumbers the other parent's allele, which
+  // then drops out of them. A lost copy cannot raise intensity, so a run is refused where a gain
+  // segment covers it or its own intensity stands a copy state above the rest of its chromosome.
+  // The gain scan alone is not enough: it asks a larger rise than one extra copy gives a single cell.
+  const underGain = (run: Segment, shift: number): boolean => shift >= STATE_GAP || coveredShare(
+    run.startBp, run.endBp,
+    scannedCopy.filter((sg) => sg.chrom === run.chrom && sg.kind === 'copy-gain')) >= RECIPROCAL_OVERLAP
+  // WITH ONE PARENT, THE OTHER PARENT'S COPY. The absence scan below reads the loaded parent's own
+  // alleles, so a stretch missing the other parent's copy reads present throughout. Not where
+  // intensity reads a gain.
+  const otherSegments: Segment[] = []
+  if (acc.otherByChrom && !mat && parentShown && twoParents) {
+    if (patRates) {
       // A run under OTHER_MIN_SPAN_BP is withheld: the other parent's array is what would tell it
       // from a haplotype the parents share. Its place is recorded and stated.
       const short: Segment[] = []
-      for (const [c, ms] of carryBoth) {
-        const gained = scannedCopy.filter((sg) => sg.chrom === c && sg.kind === 'copy-gain')
-        for (const run of scanOtherParent(c, ms, rates, MIN_SEGMENT_SPAN_BP)) {
-          if (coveredShare(run.startBp, run.endBp, gained) >= RECIPROCAL_OVERLAP) continue
-          const sg: Segment = { ...run, absentParent: otherRole }
+      for (const [c, ms] of patMarkers) {
+        for (const run of scanOtherParent(c, ms, patRates, MIN_SEGMENT_SPAN_BP)) {
+          const lrrShift = lrrShiftOf(c, run.startBp, run.endBp)
+          if (underGain(run, lrrShift)) continue
+          const sg: Segment = { ...run, absentParent: otherRole, lrrShift }
           ;(sg.spanBp < OTHER_MIN_SPAN_BP ? short : otherSegments).push(sg)
         }
       }
@@ -1423,8 +1459,8 @@ export async function scoreSample(input: {
           + 'The other parent\'s array settles it.',
         )
       }
-      log('SCAN', `${otherRole} copy scan: ${carryBoth.size} chromosomes carrying both parents, `
-        + `clustering ${rates.inflation.toFixed(1)}, ${otherSegments.length} run(s)`
+      log('SCAN', `${otherRole} copy scan: ${patMarkers.size} chromosomes carrying both parents, `
+        + `clustering ${patRates.inflation.toFixed(1)}, ${otherSegments.length} run(s)`
         + `${short.length ? `, ${short.length} under ${OTHER_MIN_SPAN_BP / 1e6} Mb withheld` : ''}`)
     } else {
       result.limits.push(
@@ -1434,20 +1470,44 @@ export async function scoreSample(input: {
       )
     }
   }
+  // The window scan, per loaded parent, against that parent's own homozygous markers. A chromosome
+  // the alleles read as missing one parent is not scanned for an absence segment inside it: that
+  // would be the same absence described twice.
+  const windowPat = [...absenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
+    .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))
+      .map((sg): Segment => (mat ? { ...sg, absentParent: soloRole } : sg)))
+  // Without the second run a deletion of the other parent's copy is invisible: the first parent's
+  // allele reads present at every marker of it.
+  const windowMat = mat ? [...matAbsenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
+    .flatMap(([c, ms]) => scanChromosome(ms, externalNull(matAbsenceTally, c))
+      .map((sg): Segment => ({ ...sg, absentParent: otherRole }))) : []
+  // A PARENT'S OWN COPY, WHERE THE WINDOW SCAN HAS TOO FEW MARKERS: a short loss, or a parent
+  // rebuilt from few cells. A run the window scan already reports stands as that scan gave it.
+  const ownSegments: Segment[] = []
+  for (const [markers, rates, role, windowed] of [
+    [patMarkers, patRates, soloRole, windowPat], [matMarkers, matRates, otherRole, windowMat],
+  ] as const) {
+    const own = rates && ownRates([...markers.values()], rates.a)
+    if (!own) continue
+    const before = ownSegments.length
+    for (const [c, ms] of markers) {
+      for (const run of scanOwnCopy(c, ms, own, MIN_SEGMENT_SPAN_BP)) {
+        const lrrShift = lrrShiftOf(c, run.startBp, run.endBp)
+        if (underGain(run, lrrShift)) continue
+        if (windowed.some((w) => w.chrom === c && segmentCoords(w).start <= run.endBp
+          && segmentCoords(w).end >= run.startBp)) continue
+        ownSegments.push({ ...run, absentParent: role, lrrShift })
+      }
+    }
+    log('SCAN', `${role} own-copy scan: ${markers.size} chromosomes carrying both parents, clustering `
+      + `${own.inflation.toFixed(1)}, ${ownSegments.length - before} run(s) the window scan does not give`)
+  }
+  const scanFound = new Set([...otherSegments, ...ownSegments])
   const allSegments = [
     ...copy,
-    ...otherSegments,
-    // A chromosome the alleles read as missing one parent is not scanned for an absence segment
-    // inside it: that would be the same absence described twice.
-    ...[...absenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
-      .flatMap(([c, ms]) => scanChromosome(ms, externalNull(t.byChrom, c))
-        .map((sg): Segment => (mat ? { ...sg, absentParent: soloRole } : sg))),
-    // The same scan against the OTHER parent's own homozygous markers. Without it a deletion of
-    // that parent's copy is invisible: the first parent's allele reads present at every marker of
-    // it. Same statistic, same threshold, same null construction, different marker set.
-    ...(mat ? [...matAbsenceByChrom].filter(([c]) => measured.has(c) && !lostByAlleles.has(c))
-      .flatMap(([c, ms]) => scanChromosome(ms, externalNull(matAbsenceTally, c))
-        .map((sg): Segment => ({ ...sg, absentParent: otherRole }))) : []),
+    ...scanFound,
+    ...windowPat,
+    ...windowMat,
   ].sort((a, b) => b.score - a.score)
   const segmentsWithheld = uninterpretable && !chaoticGenome
   if (segmentsWithheld) {
@@ -2185,10 +2245,10 @@ export async function scoreSample(input: {
     ...(result.chroms ?? []).filter((c) => c.aneuploidy || c.lostParent)
       .map((c) => ({ chrom: c.chrom, start: 0, end: Number.MAX_SAFE_INTEGER,
         label: `chr${c.chrom}` })),
-    // A segment the other-parent scan found is named by that scan and is not asked again here:
+    // A segment a likelihood scan found is named by that scan and is not asked again here:
     // nameAbsentParent counts opposite homozygotes at every marker, and on a stretch at one copy
     // the miscalls among them pass its bound.
-    ...result.segments.filter((sg) => !otherSegments.includes(sg)).map((sg) => {
+    ...result.segments.filter((sg) => !scanFound.has(sg)).map((sg) => {
       const co = segmentCoords(sg)
       return { chrom: sg.chrom, start: co.start, end: co.end,
         label: `chr${sg.chrom} ${(co.start / 1e6).toFixed(1)}-${(co.end / 1e6).toFixed(1)}Mb` }

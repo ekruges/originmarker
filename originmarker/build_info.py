@@ -268,10 +268,15 @@ RELEASES: tuple[Release, ...] = (
             "alleles there. With only the other parent on an array the missing alleles are still "
             "countable, by how often unrelated people carry them, down to where two parents who "
             "share a stretch read the same."),
+    Release("Double-Strand Break",
+            "A crossover begins with a break through both strands of one chromosome. A break left "
+            "unrepaired loses what lies beyond it, and the piece lost can be short. Read marker by "
+            "marker against the parent whose copy it was, it shows where a window of two thousand "
+            "markers does not."),
 )
 
-VERSION = "6.2.0"
-CODENAME = "Loss of Heterozygosity"
+VERSION = "6.3.0"
+CODENAME = "Double-Strand Break"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

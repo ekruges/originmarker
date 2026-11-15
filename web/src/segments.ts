@@ -236,6 +236,10 @@ export interface Segment {
    *  measured rather than assumed: 18 overlapping pairs over 31 public cells, involving 35 of 69
    *  parental-absence segments on 6 cells, and costing no hand-called event its parent. */
   contested?: boolean
+  /** Mean log R across the segment less the median of the rest of its chromosome. Set on a segment
+   *  the likelihood scans of otherParentLoss.ts find. A fall supports the loss and is not required;
+   *  a rise of a copy state refuses the run. */
+  lrrShift?: number
 }
 
 /**

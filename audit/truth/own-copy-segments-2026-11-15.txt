@@ -1,0 +1,141 @@
+A parent's own copy on a short segment
+======================================
+Scored on 15 November 2026 on open arrays only. Follows audit/truth/one-parent-segments-2026-11-15.txt.
+The table is printed by audit/truth/parity.py from the run records.
+
+WHAT WAS MISSING
+----------------
+The window scan for a parent's own copy needs 2,400 of that parent's homozygous markers in a window.
+A father rebuilt from his pronuclei carries fewer than a measured one, and against him 6.2.0 printed 10
+of the 13 stated losses of the father's copy on a segment; against the measured father, 13.
+
+THE EXPERIMENT BEFORE THE RULE
+------------------------------
+Offline, the 31 Table S3 cells against the measured and the rebuilt father. The scoring of 6.2.0
+pointed at the loaded parent's own alleles: at markers where that parent is homozygous, is the call
+the opposite homozygote. With both copies the rate is e + d x q, fitted on the array's reference
+chromosomes; with that parent's copy gone it is e + a x q, the rate the other parent's allele shows
+alone. Runs scored by log-likelihood ratio divided by the array's clustering of this indicator.
+
+  Against the rebuilt father all 13 stated losses read 58 or more. The three the tool missed read
+  58, 129 and 132.
+
+  Against the measured father 15 runs on stated-normal chromosomes reach the threshold of 15. Six
+  are where the window scan already prints a loss. Of the other nine, eight fall well below the
+  rest of their chromosome in intensity, seven of them below every same-length stretch of it, and
+  one shows no change.
+
+  Under 3 Mb, 4 of 896 runs on stated-normal chromosomes reach the threshold, three of them dense
+  probe clusters under 0.2 Mb. A haplotype the parents share does not make an opposite homozygote,
+  so this direction has no need of the 3 Mb floor of the other one.
+
+THE RULE, written before it was built
+-------------------------------------
+  1. For each loaded parent whose genome the array carries, with founder frequencies, on a genome
+     read as two parents', on the chromosomes read as carrying both.
+  2. Rates e and d from the reference chromosomes, a straight-line fit per chromosome, median over
+     chromosomes; a from the fit of 6.2.0.
+  3. A run is printed where its divided score is 15 or more, it spans 1 Mb or more, and it is not
+     under an intensity gain.
+  4. Where the window scan already reports a segment for that parent over the run, that segment
+     stands and nothing is added.
+  5. No parent loaded, or an adult who is not a parent: nothing changes.
+
+Struck from point 3 before any code was written: "and intensity also falls across it, by the tool's
+calibrated bar". The bar was tested on the experiment's regions first. Across the genome, same-length
+stretches of a single cell differ by 0.1 to 0.4, so two of the stated losses read 3.7 and 4.4 against
+a bar of 4.5 and none of the eight falling stretches clears it; within one chromosome a long run has
+fewer than the eight same-length stretches the tool requires before it quotes a figure. A run is
+printed on the allele evidence, as every parental-absence segment is, with its intensity change
+beside it.
+
+Pass test: the rebuilt father prints the father's stated segment losses on 13 of 13; stated-normal
+chromosomes left alone in each one-parent arm at least as in the two-parent arm; at least 9 in 10 of
+the runs printed on stated-normal chromosomes either come from the window scan or are supported, by
+a fall in intensity or by the same stretch in another array of the embryo; the mother's segment
+losses, whole losses and named parents no worse than 6.2.0 and no wrong parent added; records with no
+parent or an unrelated adult identical to 6.2.0.
+
+ONE FAULT THE FIRST RUN SHOWED
+------------------------------
+270 rows. On two chromosomes with a stated gain of the OTHER parent the scan printed alleles absent,
+and once more on a stated-normal chromosome against the rebuilt father. An extra copy of the other
+parent outnumbers this parent's allele and the calls read as a loss. Intensity rises across those
+runs, by 0.24, 0.30 and 0.40, which a lost copy cannot do. The rule refused a run under a gain only
+where the intensity scan had called a gain segment, and that scan asks a larger rise than one extra
+copy gives a single cell. Change: a run is also refused where its own mean intensity stands above
+the median of the rest of its chromosome by 0.20 or more, the tool's gap between two copy states,
+in both directions of the scan. The three stated losses the pass test counts fall by 0.6 to 0.8.
+The rerun removed those runs, four records, and nothing else.
+
+RESULT
+------
+31 cells, printed calls:
+                                              both parents    measured father   rebuilt father
+  the father's segment losses                   13 of 13        13 of 13          13 (was 10)
+  the mother's segment losses                    7 of 7 (was 5)  4 of 7            5 of 7
+    printed or withheld                          7 of 7          6 of 7            6 of 7
+  whole-chromosome losses                       102 of 150 (100) 104 (102)         102 (101)
+  stated-normal chromosomes left alone          433 of 477 (446) 436 (446)         445 (452)
+  parent of a stated loss, right / wrong        110 / 2 (107/2)  109 / 2 (108/2)   110 / 2 (106/2)
+
+  No segment 6.2.0 printed is gone. 46 are new over the 270 rows:
+
+    stated segment losses of that parent           3 against the rebuilt father; 2 of the mother's
+                                                   copy with both parents, in two cells that have
+                                                   lost most of their chromosomes
+    stated whole losses, printed as a segment      2 with both parents, 2 against the measured
+                                                   father, 1 against the rebuilt one
+    stated-normal chromosomes                      13 with both parents, 10 against the measured
+                                                   father, 9 against the rebuilt one
+    a chromosome stated as a paternal gain         1 against the rebuilt father, where the window
+                                                   scan prints the same against the measured one
+    laboratory cells with no stated answer         3
+
+  Six of the 46 are under 3 Mb. Four of those are one 1.5 Mb stretch at the tip of chromosome 19 in
+  two cells of one embryo, in two arms; intensity falls by 0.5 and 0.6.
+
+  With no parent, 330 rows: every record identical to 6.2.0. Against an unrelated adult, 133 rows:
+  identical.
+
+  One trophectoderm biopsy gains three stretches and with them the genome-wide label for a complex
+  genome, in every arm.
+
+  The validation suite against the 6.2.0 scorecard: 64 of 67 lines identical. The three that moved
+  are the claims on published-normal chromosomes, 45 to 58 with both parents, 35 to 45 against the
+  measured father and 28 to 37 against the rebuilt one: the runs listed below.
+
+THE RUNS ON STATED-NORMAL CHROMOSOMES
+-------------------------------------
+                         from the window scan   new   new and supported   window or supported
+  both parents                   34              13          11                 45 of 47
+  measured father                24              10           9                 33 of 34
+  rebuilt father                 16               9           7                 23 of 25
+
+  Supported: intensity across the run falls by 0.20 or more against the rest of its chromosome, or
+  another array of the same embryo prints the same parent absent over at least half of it.
+
+  The end of chromosome 4, about 6 Mb, the father's copy: three cells of one embryo, intensity
+  down 0.5 to 0.7, in every arm.
+  Four stretches of 14 to 36 Mb in three arrays and one of 3 Mb at the end of chromosome 22, the
+  father's copy, intensity down 0.5 to 1.1. The 1.5 Mb stretch at the tip of chromosome 19 above.
+  Two stretches of the mother's copy, 5 and 11 Mb, with both parents loaded, intensity down 0.3.
+  Not supported: one stretch of 24 Mb in a trophectoderm biopsy, in every arm, intensity unchanged;
+  one of 9 Mb of the mother's copy with both parents, intensity down 0.18; and against the rebuilt
+  father one of 104 Mb with intensity unchanged, where the window scan prints the same stretch
+  against the measured father.
+
+THE PASS TEST
+-------------
+  rebuilt father, the father's segment losses        13 of 13                          met
+  normals left alone, one-parent arms against two    436 and 445 against 433           met
+  runs on normals from the window scan or supported  0.96, 0.97, 0.92                  met
+  nothing else worse, no wrong parent added          110/2, 109/2, 110/2               met
+  no parent, unrelated adult                         identical                         met
+
+WHAT THIS DOES TO THE PARITY TABLE
+----------------------------------
+Stated-normal chromosomes left alone fall against the published table in every arm, by 13, 10 and
+7, on the runs listed above. With both parents the mother's own alleles now read the two stated
+losses no arm printed, so the two-parent arm stands at 7 of 7 of the mother's segment losses and
+the one-parent arms at 4 and 5 printed, 6 and 6 counting what is withheld under the 3 Mb limit.

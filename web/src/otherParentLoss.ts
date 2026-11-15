@@ -1,5 +1,6 @@
 /**
- * Where the OTHER parent's copy is missing along a chromosome, with one parent P loaded.
+ * Where a parent's copy is missing along a chromosome, read against one loaded parent P: the OTHER
+ * parent's copy (scanOtherParent), and P's own (scanOwnCopy).
  *
  * A marker is `seen` where the sample's call shows an allele P's copy would not give it: where P is
  * homozygous, the allele P lacks, which the other parent carries with founder frequency q; where P
@@ -19,18 +20,25 @@
  * stretches are short, which OTHER_MIN_SPAN_BP excludes. Between related parents they are not, and a
  * run is then true of the alleles and not of the copy number.
  *
- * Nor an extra copy of P's: it outnumbers the other parent's alleles and they drop out of the calls.
- * The caller drops a run that intensity reads as gained (`coveredShare`), and runs nothing on a
+ * Nor an extra copy: it outnumbers the other parent's alleles and they drop out of the calls, in
+ * either direction. The caller refuses a run that intensity reads as gained, and runs nothing on a
  * genome not read as two parents', where a haploid product shows P's other haplotype in blocks.
  *
- * Not run with both parents loaded: each parent's own homozygous markers answer this directly.
+ * P'S OWN COPY is read at the markers where P is homozygous: with it gone the call is the homozygote
+ * P cannot give, at the rate the other parent's allele shows alone (e + a x q), against e + d x q
+ * with both present. The same runs, the same division, on the opposite-homozygote calls. It reaches
+ * what the window scan in segments.ts cannot for want of markers, a short loss or a parent rebuilt
+ * from few cells.
+ *
+ * The other parent's copy is not read this way with both parents loaded: each parent's own
+ * homozygous markers answer it directly.
  * Measurements: audit/truth.
  *
  * Self-check:  node src/otherParentLoss.check.ts
  */
 import { median } from './intensityNull.ts'
 import { ABSENT_PARENT_OPP_MIN } from './obligateHet.ts'
-import type { Segment } from './segments.ts'
+import { NULL_FLOOR, type Segment } from './segments.ts'
 
 export interface OtherMarker {
   pos: number
@@ -127,6 +135,27 @@ export function otherRates(reference: readonly (readonly OtherMarker[])[]): Othe
 }
 
 /**
+ * Every run of a cumulative score that gains `need` or more: the best, then the best on either side
+ * of it, until none reaches it. Each is [first marker, one past the last, gain].
+ */
+function bestRuns(cum: Float64Array, need: number): [number, number, number][] {
+  const out: [number, number, number][] = []
+  const todo: [number, number][] = [[0, cum.length - 1]]
+  while (todo.length) {
+    const [lo, hi] = todo.pop()!
+    let low = lo; let from = lo; let to = lo; let best = 0
+    for (let j = lo + 1; j <= hi; j += 1) {
+      if (cum[j - 1] < cum[low]) low = j - 1
+      if (cum[j] - cum[low] > best) { best = cum[j] - cum[low]; from = low; to = j }
+    }
+    if (best < need) continue
+    todo.push([lo, from], [to, hi])
+    out.push([from, to, best])
+  }
+  return out
+}
+
+/**
  * Runs along one chromosome where the other parent's copy is missing. `markers` in position order.
  *
  * The best-scoring run is taken, then the best on either side of it, until none reaches the
@@ -146,18 +175,8 @@ export function scanOtherParent(
     rate[i] = p
     cum[i + 1] = cum[i] + (ms[i].seen ? Math.log(rates.b / p) : Math.log((1 - rates.b) / (1 - p)))
   }
-  const need = OTHER_LRT * rates.inflation
   const out: Segment[] = []
-  const todo: [number, number][] = [[0, n]]
-  while (todo.length) {
-    const [lo, hi] = todo.pop()!
-    let low = lo; let from = lo; let to = lo; let best = 0
-    for (let j = lo + 1; j <= hi; j += 1) {
-      if (cum[j - 1] < cum[low]) low = j - 1
-      if (cum[j] - cum[low] > best) { best = cum[j] - cum[low]; from = low; to = j }
-    }
-    if (best < need) continue
-    todo.push([lo, from], [to, hi])
+  for (const [from, to, best] of bestRuns(cum, OTHER_LRT * rates.inflation)) {
     const spanBp = ms[to - 1].pos - ms[from].pos
     if (spanBp < minSpanBp) continue
     let seen = 0; let expected = 0; let homCalls = 0; let opp = 0
@@ -173,6 +192,95 @@ export function scanOtherParent(
       kind: 'parental-absence', chrom, markers: w, absent: w - seen, rate: (w - seen) / w,
       startBp: ms[from].pos, endBp: ms[to - 1].pos, spanBp,
       score: best / rates.inflation, nullRate: 1 - expected / w,
+    })
+  }
+  return out.sort((x, y) => x.startBp - y.startBp)
+}
+
+export interface OwnRates {
+  /** Opposite-homozygote rate where the other parent cannot have given the allele P lacks. */
+  e: number
+  /** Rise of that rate with q with both copies present: P's allele dropped from a heterozygote. */
+  d: number
+  /** Its rise with q with P's copy gone: the other parent's allele alone, at the rate it shows. */
+  a: number
+  /** Variance of block sums over what independent calls would give. Never under 1. */
+  inflation: number
+}
+
+/**
+ * The array's rates and clustering for P's OWN copy, from chromosomes that carry both parents. `a`
+ * is `OtherRates.a` of the same parent. Null where fewer than two chromosomes can be fitted, the
+ * clustering cannot be measured, or a missing copy would read no higher than a present one.
+ */
+export function ownRates(reference: readonly (readonly OtherMarker[])[], a: number): OwnRates | null {
+  const es: number[] = []
+  const ds: number[] = []
+  for (const ms of reference) {
+    let n = 0; let sq = 0; let sqq = 0; let so = 0; let sqo = 0
+    for (const m of ms) {
+      if (m.q === null) continue
+      n += 1; sq += m.q; sqq += m.q * m.q
+      if (m.opp) { so += 1; sqo += m.q }
+    }
+    const varQ = n ? sqq / n - (sq / n) ** 2 : 0
+    if (n < MIN_FIT_MARKERS || !(varQ > 0)) continue
+    const d = (sqo / n - (sq / n) * (so / n)) / varQ
+    ds.push(d)
+    es.push(so / n - d * (sq / n))
+  }
+  if (es.length < 2) return null
+  const e = Math.min(0.5, Math.max(NULL_FLOOR, median(es)))
+  const d = Math.max(0, median(ds))
+  if (!(a > d)) return null
+  const ratios: number[] = []
+  for (const ms of reference) {
+    let k = 0; let x = 0; let v = 0
+    for (const m of ms) {
+      if (m.q === null) continue
+      const p = Math.min(0.999, e + d * m.q)
+      x += (m.opp ? 1 : 0) - p
+      v += p * (1 - p)
+      k += 1
+      if (k === BLOCK_MARKERS) { ratios.push((x * x) / v); k = 0; x = 0; v = 0 }
+    }
+  }
+  if (ratios.length < MIN_BLOCKS) return null
+  return { e, d, a, inflation: Math.max(1, median(ratios) / CHI2_MEDIAN) }
+}
+
+/**
+ * Runs along one chromosome where P's OWN copy is missing: the call is the homozygote P cannot
+ * give, at the rate the other parent's allele shows alone. `markers` in position order.
+ *
+ * An opposite homozygote is P's allele seen missing, not merely unseen, so a haplotype the parents
+ * share does not produce it and the floor is the one every segment has.
+ */
+export function scanOwnCopy(
+  chrom: string, markers: readonly OtherMarker[], rates: OwnRates, minSpanBp: number,
+): Segment[] {
+  const ms = markers.filter((m) => m.q !== null)
+  const n = ms.length
+  const cum = new Float64Array(n + 1)
+  const base = new Float64Array(n)
+  for (let i = 0; i < n; i += 1) {
+    const q = ms[i].q as number
+    const p0 = Math.min(0.999, rates.e + rates.d * q)
+    const p1 = Math.min(0.999, rates.e + rates.a * q)
+    base[i] = p0
+    cum[i + 1] = cum[i] + (ms[i].opp ? Math.log(p1 / p0) : Math.log((1 - p1) / (1 - p0)))
+  }
+  const out: Segment[] = []
+  for (const [from, to, best] of bestRuns(cum, OTHER_LRT * rates.inflation)) {
+    const spanBp = ms[to - 1].pos - ms[from].pos
+    if (spanBp < minSpanBp) continue
+    let opp = 0; let expected = 0
+    for (let k = from; k < to; k += 1) { expected += base[k]; if (ms[k].opp) opp += 1 }
+    const w = to - from
+    out.push({
+      kind: 'parental-absence', chrom, markers: w, absent: opp, rate: opp / w,
+      startBp: ms[from].pos, endBp: ms[to - 1].pos, spanBp,
+      score: best / rates.inflation, nullRate: expected / w,
     })
   }
   return out.sort((x, y) => x.startBp - y.startBp)

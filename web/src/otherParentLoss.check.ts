@@ -1,7 +1,7 @@
 // Self-check for the one-parent scan for the other parent's copy. Run: node src/otherParentLoss.check.ts
 import assert from 'node:assert/strict'
 import {
-  otherRates, scanOtherParent, coveredShare, OTHER_LRT, OTHER_MIN_SPAN_BP, type OtherMarker,
+  otherRates, scanOtherParent, ownRates, scanOwnCopy, coveredShare, OTHER_LRT, OTHER_MIN_SPAN_BP, type OtherMarker,
 } from './otherParentLoss.ts'
 
 /** A deterministic stream, so a failure is the code changing and never the draw changing. */
@@ -137,6 +137,26 @@ for (let k = 0; k < 5; k += 1) {
   assert.equal(coveredShare(0, 100, [iv(-50, 50)]), 0.5)
   assert.equal(coveredShare(0, 100, [iv(10, 40), iv(30, 60), iv(90, 200)]), 0.6)
   assert.equal(coveredShare(0, 100, [iv(200, 300)]), 0)
+}
+
+// --- 9. P's own copy: found where it is missing, silent where both copies are -----------------
+{
+  const own = ownRates(reference, rates.a)!
+  assert.ok(own.d < own.a, 'a missing copy must read higher than a present one')
+  assert.ok(own.inflation < 1.5, `independent calls read clustered: ${own.inflation}`)
+  for (let k = 0; k < 5; k += 1) assert.deepEqual(scanOwnCopy('1', chromosome(r, 20_000), own, 1e6), [])
+  const segs = scanOwnCopy('5', chromosome(r, 20_000, [{ from: 30e6, to: 40e6, kind: 'parent-gone' }]), own, 1e6)
+  assert.equal(segs.length, 1)
+  assert.ok(Math.abs(segs[0].startBp - 30e6) < 0.5e6 && Math.abs(segs[0].endBp - 40e6) < 0.5e6,
+    `edges ${segs[0].startBp}-${segs[0].endBp}`)
+  assert.ok(segs[0].rate > segs[0].nullRate && segs[0].score >= OTHER_LRT)
+  // The other parent's copy missing leaves no opposite homozygote: not this event.
+  assert.deepEqual(scanOwnCopy('5', chromosome(r, 20_000, [{ from: 30e6, to: 40e6, kind: 'gone' }]), own, 1e6), [])
+  // A short loss is in reach here: nothing two parents share makes an opposite homozygote.
+  const short = scanOwnCopy('5', chromosome(r, 20_000, [{ from: 30e6, to: 32e6, kind: 'parent-gone' }]), own, 1e6)
+  assert.equal(short.length, 1)
+  // With no contrast between a missing copy and a present one there are no rates.
+  assert.equal(ownRates(reference, 0), null)
 }
 
 console.log('otherParentLoss ok')

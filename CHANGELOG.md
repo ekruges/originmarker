@@ -9,6 +9,59 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.3.0 "Double-Strand Break"
+
+**A parent's own copy missing on a short segment is now found, and a parent rebuilt from few cells
+finds what a measured one does.** The window scan needs 2,400 of a parent's homozygous markers in a
+window. A father rebuilt from his pronuclei carries fewer, and against him 6.2.0 printed 10 of the 13
+stated losses of the father's copy on a segment, where the measured father prints 13.
+
+**The reading (`otherParentLoss.scanOwnCopy`).** The scoring of 6.2.0, pointed at the loaded parent's
+own alleles. At markers where that parent is homozygous, is the call the opposite homozygote: with
+both copies at e + d x q, fitted on the array's reference chromosomes, and with that parent's copy
+gone at e + a x q, the rate the other parent's allele shows alone. Runs are scored by log-likelihood
+ratio divided by the array's clustering, at the threshold of 15, from 1 Mb: a haplotype the parents
+share does not make an opposite homozygote, so this direction needs no 3 Mb floor. It runs for each
+loaded parent, and where the window scan already reports a segment over a run, that segment stands.
+
+| 31 cells, printed | both parents | measured father | rebuilt father |
+|---|---|---|---|
+| the father's segment losses | 13 of 13 | 13 of 13 | 13 of 13 (was 10) |
+| the mother's segment losses | 7 of 7 (was 5) | 4 of 7 | 5 of 7 |
+| whole-chromosome losses | 102 of 150 (was 100) | 104 (was 102) | 102 (was 101) |
+| stated-normal chromosomes left alone | 433 of 477 (was 446) | 436 (was 446) | 445 (was 452) |
+| parent of a stated loss, right / wrong | 110 / 2 | 109 / 2 | 110 / 2 |
+
+No segment 6.2.0 printed is gone. With both parents the mother's own alleles read the two stated
+losses of her copy that no arm printed, in two cells that have lost most of their chromosomes. With
+no parent and against an unrelated adult every record is identical to 6.2.0 (330 and 133 rows). The
+validation suite is identical on 64 of 67 lines; the three that moved count the claims on
+published-normal chromosomes, one in each arm, and are the runs of the next paragraph.
+
+**It prints losses on chromosomes the published table states normal.** 13 with both parents, 10
+against the measured father, 9 against the rebuilt one. Of the runs printed on stated-normal
+chromosomes, those the window scan already gave or that a second line supports are 45 of 47, 33 of 34
+and 23 of 25; support is a fall in intensity of 0.20 or more across the run, or the same stretch in
+another array of the embryo. Among them: about 6 Mb at the end of chromosome 4, the father's copy, in
+three cells of one embryo, intensity down 0.5 to 0.7; and 1.5 Mb at the tip of chromosome 19 in two
+cells of another. Not supported: 24 Mb in one trophectoderm biopsy in every arm, 9 Mb of the mother's
+copy with both parents, and 104 Mb against the rebuilt father where the window scan prints the same
+stretch against the measured one. The list is in audit/truth/own-copy-segments-2026-11-15.txt.
+
+**An extra copy is not read as a loss.** An extra copy of one parent outnumbers the other's allele,
+which drops out of the calls and reads as that parent's copy missing. The first run printed three
+such runs, two on chromosomes with a stated gain of the other parent; intensity rises across them by
+0.24 to 0.40, which a lost copy cannot do. 6.2.0 refused a run only under a gain segment from the
+intensity scan, which asks a larger rise than one extra copy gives a single cell. A run is now also
+refused where its own intensity stands 0.20 or more above the rest of its chromosome, in both
+directions of the scan.
+
+**Intensity is beside a run, not a condition on it.** The rule first asked that intensity fall across
+a run by the calibrated bar. Tested before any code: same-length stretches of a single cell differ
+by 0.1 to 0.4 across the genome, two of the stated losses read 3.7 and 4.4 against the bar of 4.5,
+and within one chromosome a long run has too few same-length stretches to quote a figure. Each run
+carries its intensity change (`lrrShift`).
+
 ## 6.2.0 "Loss of Heterozygosity"
 
 **With one parent loaded, the tool now finds a stretch missing the OTHER parent's copy.** The absence
