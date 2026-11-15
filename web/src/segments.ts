@@ -240,6 +240,13 @@ export interface Segment {
    *  the likelihood scans of otherParentLoss.ts find. A fall supports the loss and is not required;
    *  a rise of a copy state refuses the run. */
   lrrShift?: number
+  /** That mean, from stretches of as many markers on the other chromosomes carrying both parents,
+   *  in units of their spread (intensityNull.calibratedZ). Set where a run under the span floor of
+   *  otherParentLoss.ts was put to it; undefined where the array offers too few such stretches. */
+  lrrZ?: number
+  /** On a run under the span floor of otherParentLoss.ts that is reported all the same: the second
+   *  line that made it a finding. */
+  shortBy?: 'intensity' | 'sister'
 }
 
 /**

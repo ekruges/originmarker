@@ -38,9 +38,12 @@
  */
 import { median } from './intensityNull.ts'
 import { ABSENT_PARENT_OPP_MIN } from './obligateHet.ts'
+import { LR_DROP } from './refine.ts'
 import { NULL_FLOOR, type Segment } from './segments.ts'
 
 export interface OtherMarker {
+  /** The probe, so another array of the run can be read at the same marker. */
+  id: string
   pos: number
   /** Founder frequency of the allele P lacks, over 0; null where P is heterozygous. */
   q: number | null
@@ -69,6 +72,16 @@ export const OTHER_LRT = 15
  * returned to the caller, which withholds it and says where it is.
  */
 export const OTHER_MIN_SPAN_BP = 3_000_000
+/**
+ * Fall in the divided score that bounds an edge: every place the run could start, or end, and score
+ * within this of its best. The window scan's own bound, on this scan's scale.
+ */
+export const EDGE_DROP = LR_DROP
+/**
+ * Share of blocks at or over which another array reads as the same genome as this one: midway
+ * between the most arrays of two embryos of one couple reach and the least arrays of one embryo give.
+ */
+export const SAME_GENOME_SHARE = 0.75
 /** Markers per block when the clustering is measured: under the shortest run reported. */
 export const BLOCK_MARKERS = 500
 /** Blocks needed before the clustering is read. */
@@ -156,6 +169,28 @@ function bestRuns(cum: Float64Array, need: number): [number, number, number][] {
 }
 
 /**
+ * The edges of a run [from, to) and the interval around each, as positions. An edge's interval is
+ * the unbroken stretch of places it could move to with the run's score within `drop` of its best.
+ */
+function edgesOf(
+  cum: Float64Array, pos: (i: number) => number, from: number, to: number, drop: number,
+): NonNullable<Segment['refined']> {
+  let startLo = from
+  while (startLo > 0 && cum[startLo - 1] <= cum[from] + drop) startLo -= 1
+  let startHi = from
+  while (startHi < to - 1 && cum[startHi + 1] <= cum[from] + drop) startHi += 1
+  let endLo = to
+  while (endLo > from + 1 && cum[endLo - 1] >= cum[to] - drop) endLo -= 1
+  let endHi = to
+  while (endHi < cum.length - 1 && cum[endHi + 1] >= cum[to] - drop) endHi += 1
+  return {
+    startBp: pos(from), startLoBp: pos(startLo), startHiBp: pos(startHi),
+    endBp: pos(to - 1), endLoBp: pos(endLo - 1), endHiBp: pos(endHi - 1),
+    spanBp: pos(to - 1) - pos(from),
+  }
+}
+
+/**
  * Runs along one chromosome where the other parent's copy is missing. `markers` in position order.
  *
  * The best-scoring run is taken, then the best on either side of it, until none reaches the
@@ -192,6 +227,7 @@ export function scanOtherParent(
       kind: 'parental-absence', chrom, markers: w, absent: w - seen, rate: (w - seen) / w,
       startBp: ms[from].pos, endBp: ms[to - 1].pos, spanBp,
       score: best / rates.inflation, nullRate: 1 - expected / w,
+      refined: edgesOf(cum, (i) => ms[i].pos, from, to, EDGE_DROP * rates.inflation),
     })
   }
   return out.sort((x, y) => x.startBp - y.startBp)
@@ -281,6 +317,7 @@ export function scanOwnCopy(
       kind: 'parental-absence', chrom, markers: w, absent: opp, rate: opp / w,
       startBp: ms[from].pos, endBp: ms[to - 1].pos, spanBp,
       score: best / rates.inflation, nullRate: expected / w,
+      refined: edgesOf(cum, (i) => ms[i].pos, from, to, EDGE_DROP * rates.inflation),
     })
   }
   return out.sort((x, y) => x.startBp - y.startBp)
@@ -298,4 +335,42 @@ export function coveredShare(
     if (to > from) { covered += to - from; reach = to }
   }
   return endBp > startBp ? covered / (endBp - startBp) : 0
+}
+
+/**
+ * How much of the genome another array shares with this one, as the share of blocks that read the
+ * same copy of the other parent. `other` holds the other array's reading, in genome order, at each
+ * marker where P is homozygous and THIS array shows the allele P lacks: an array carrying the same
+ * copy shows it too, at b + a, and one carrying an unrelated copy at b + a x q. NaN on too few blocks.
+ *
+ * Arrays of one embryo share both parents' copies throughout, so what the parents share reads as
+ * missing in all of them and a loss in one does not. Arrays of two embryos share about half.
+ */
+export function sameGenomeShare(other: readonly { q: number; seen: boolean }[], rates: OtherRates): number {
+  const same = Math.min(0.999, rates.b + rates.a)
+  let blocks = 0; let agree = 0; let k = 0; let sum = 0
+  for (const m of other) {
+    const apart = Math.min(0.999, rates.b + rates.a * m.q)
+    sum += m.seen ? Math.log(same / apart) : Math.log((1 - same) / (1 - apart))
+    k += 1
+    if (k === BLOCK_MARKERS) { blocks += 1; if (sum > 0) agree += 1; k = 0; sum = 0 }
+  }
+  return blocks >= MIN_BLOCKS ? agree / blocks : NaN
+}
+
+/**
+ * How strongly an array shows the other parent's alleles across [startBp, endBp]: the summed
+ * log-likelihood ratio, present against gone, divided by the array's clustering.
+ */
+export function presentScore(
+  markers: readonly OtherMarker[], rates: OtherRates, startBp: number, endBp: number,
+): number {
+  let sum = 0
+  for (const m of markers) {
+    if (m.pos < startBp || m.pos > endBp) continue
+    const p = present(m, rates)
+    if (!(p > rates.b)) continue
+    sum += m.seen ? Math.log(p / rates.b) : Math.log((1 - p) / (1 - rates.b))
+  }
+  return sum / rates.inflation
 }

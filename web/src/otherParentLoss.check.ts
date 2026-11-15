@@ -1,7 +1,8 @@
 // Self-check for the one-parent scan for the other parent's copy. Run: node src/otherParentLoss.check.ts
 import assert from 'node:assert/strict'
 import {
-  otherRates, scanOtherParent, ownRates, scanOwnCopy, coveredShare, OTHER_LRT, OTHER_MIN_SPAN_BP, type OtherMarker,
+  otherRates, scanOtherParent, ownRates, scanOwnCopy, coveredShare, sameGenomeShare, presentScore,
+  OTHER_LRT, OTHER_MIN_SPAN_BP, SAME_GENOME_SHARE, type OtherMarker,
 } from './otherParentLoss.ts'
 
 /** A deterministic stream, so a failure is the code changing and never the draw changing. */
@@ -50,7 +51,7 @@ function chromosome(
       seen = !failed && r() < p
       opp = seen && q !== null && r() < 0.02
     }
-    out.push({ pos, q, seen, opp })
+    out.push({ id: `m${i}`, pos, q, seen, opp })
   }
   return out
 }
@@ -83,6 +84,12 @@ for (let k = 0; k < 5; k += 1) {
   assert.ok(Math.abs(sg.startBp - 30e6) < 0.3e6 && Math.abs(sg.endBp - 36e6) < 0.3e6,
     `edges ${sg.startBp}-${sg.endBp}`)
   assert.ok(sg.rate > sg.nullRate, 'the rate reported is the one that rose')
+  // Each edge carries an interval that holds the edge itself and the true cut.
+  const e = sg.refined!
+  assert.ok(e.startLoBp <= e.startBp && e.startBp <= e.startHiBp && e.endLoBp <= e.endBp && e.endBp <= e.endHiBp)
+  assert.ok(e.startLoBp <= 30e6 + SPACING && 30e6 <= e.startHiBp, `start interval ${e.startLoBp}-${e.startHiBp}`)
+  assert.ok(e.endLoBp <= 36e6 && 36e6 - SPACING <= e.endHiBp, `end interval ${e.endLoBp}-${e.endHiBp}`)
+  assert.ok(e.startHiBp < e.endLoBp, 'the two intervals do not meet on a clear run')
 }
 
 // --- 4. under the span floor nothing is reported, however clear ------------------------------
@@ -157,6 +164,25 @@ for (let k = 0; k < 5; k += 1) {
   assert.equal(short.length, 1)
   // With no contrast between a missing copy and a present one there are no rates.
   assert.equal(ownRates(reference, 0), null)
+}
+
+// --- 10. another array of the run: the same genome or not, and what it shows across a run ------
+{
+  // Where this array shows the allele P lacks, an array carrying the same copy shows it too.
+  const qs = Array.from({ length: 30_000 }, () => Math.max(0.001, r() ** 2 * 0.9))
+  const sister = qs.map((q) => ({ q, seen: r() < rates.b + rates.a }))
+  const sibling = qs.map((q, i) => ({ q, seen: r() < (Math.floor(i / 3000) % 2 ? rates.b + rates.a : rates.b + rates.a * q) }))
+  const stranger = qs.map((q) => ({ q, seen: r() < rates.b + rates.a * q }))
+  assert.ok(sameGenomeShare(sister, rates) > 0.95)
+  const half = sameGenomeShare(sibling, rates)
+  assert.ok(half > 0.3 && half < SAME_GENOME_SHARE, `an array sharing half reads ${half}`)
+  assert.ok(sameGenomeShare(stranger, rates) < 0.1)
+  assert.ok(Number.isNaN(sameGenomeShare(sister.slice(0, 2000), rates)), 'too few blocks is not a reading')
+  // Across a stretch an array shows the other parent's alleles, or does not.
+  const whole = chromosome(r, 20_000)
+  const lost = chromosome(r, 20_000, [{ from: 30e6, to: 32e6, kind: 'gone' }])
+  assert.ok(presentScore(whole, rates, 30e6, 32e6) >= OTHER_LRT)
+  assert.ok(presentScore(lost, rates, 30e6, 32e6) < 0)
 }
 
 console.log('otherParentLoss ok')

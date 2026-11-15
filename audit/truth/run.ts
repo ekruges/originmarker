@@ -3,8 +3,9 @@
  * fact in audit/local/truth can be scored against it offline.
  *
  * The list is tab-separated: array id, array path, parent path, tag, and optionally the other
- * parent's path and `maternal` where the first parent is the mother. A parent path of `-` is no
- * parent. Each record also carries `stageFree`, the stage with no parent consulted.
+ * parent's path, `maternal` where the first parent is the mother, and the paths of the other arrays
+ * of the same run, separated by `;`. A parent path of `-` is no parent. Each record also carries
+ * `stageFree`, the stage with no parent consulted.
  *
  * Every claim is written whether the tool printed it or withheld it. A withheld claim is in
  * `refusals` with what it would have said.
@@ -59,11 +60,26 @@ function parentIndex(path: string) {
 }
 
 const seg = (s: any) => ({ chrom: s.chrom, kind: s.kind, start: s.startBp, end: s.endBp, absentParent: s.absentParent,
-  score: Number.isFinite(s.score) ? +s.score.toFixed(1) : undefined, lrrShift: Number.isFinite(s.lrrShift) ? +s.lrrShift.toFixed(3) : undefined })
+  shortBy: s.shortBy,
+  score: Number.isFinite(s.score) ? +s.score.toFixed(1) : undefined, lrrShift: Number.isFinite(s.lrrShift) ? +s.lrrShift.toFixed(3) : undefined,
+  lrrZ: Number.isFinite(s.lrrZ) ? +s.lrrZ.toFixed(2) : undefined })
 const held = (w: any) => (w && typeof w === 'object' && 'kind' in w && 'startBp' in w ? seg(w)
   : w && typeof w === 'object' ? (w.verdict ?? w.cls ?? w.state ?? 'object') : w)
 
-for (const [id, path, parentPath, tag, otherPath, role] of list) {
+// The called autosomal genotypes of another array of the same run, as the page keeps them.
+const callsOf = new Map<string, Map<string, string>>()
+function calls(path: string): Map<string, string> {
+  let m = callsOf.get(path)
+  if (!m) {
+    m = new Map()
+    for (const r of rows(path)) if (/^\d+$/.test(r.chrom) && r.genotype !== 'NC') m.set(r.probesetId, r.genotype)
+    if (callsOf.size > 12) callsOf.clear()
+    callsOf.set(path, m)
+  }
+  return m
+}
+
+for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
   if (done.has(`${id}|${tag}`)) continue
   try {
     const pat = parentIndex(parentPath)
@@ -82,7 +98,8 @@ for (const [id, path, parentPath, tag, otherPath, role] of list) {
     // The stage with no parent consulted: the founder panel's drop-in and information ratio only.
     const free = stageMod.inferStage({ ...profile, dropIn: keys.onParentScale(keys.dropIn(sameHom), panel.calibration),
       information: info.informationRatio(homTally) }) as any
-    const res = await score.scoreSample({ acc, profile, pat, mat, soloRole: role === 'maternal' ? 'maternal' : 'paternal', sibs: [],
+    const res = await score.scoreSample({ acc, profile, pat, mat, soloRole: role === 'maternal' ? 'maternal' : 'paternal',
+      sibs: (others ?? '').split(';').filter(Boolean).map(calls),
       sampleName: id, log: () => {} } as never) as any
     appendFileSync(out, JSON.stringify({
       id, tag, parent: parentPath.split('/').pop(),

@@ -49,6 +49,7 @@ import type { DosageVerdict } from './dosageOrigin'
 import { groupUnits } from './abnormalities'
 import { timeGroup } from './timing'
 import { stageFacts } from './stage'
+import { OTHER_LRT } from './otherParentLoss'
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
  *
@@ -739,7 +740,32 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       const sampleGt = new Map<string, Map<string, string>>()
       /** Finished samples, kept locally because patch() writes React state we cannot read back. */
       const finished: { id: string; result: ParentageResult }[] = []
-      const queue = entries.filter((e) => e.role === 'sample' && e.state !== 'done')
+      // A RUN IS READ WHOLE. Sister arrays and units of one embryo are properties of every array in
+      // the run, so when a new sample comes in, the samples finished by an earlier Run are read again
+      // with it.
+      // ponytail: every earlier sample is read again, about 15 s each; keep each finished sample's
+      // calls across Run presses if runs grow large.
+      const queue = entries.some((e) => e.role === 'sample' && e.state !== 'done')
+        ? entries.filter((e) => e.role === 'sample') : []
+      // ONE IMPLEMENTATION OF THE ANSWER, in scoreSample.ts, which the command line and the
+      // cross-surface check also call. What is left here is what only a browser has to do: read a
+      // File, paint progress, and hold React state.
+      // The founder panel, the parent-free answer key: with it the stage tells drop-in from a second
+      // genome from noise on any material, with or without a parent. Null if it cannot be fetched,
+      // which leaves the stage exactly as it was before panels.
+      const readSample = async (s: (typeof queue)[number], sibs: Map<string, string>[]) => {
+        const acc = emptyCollected(pat, mat, await loadFounderPanel())
+        const { profile, gates } = await profileFile(
+          s.file, (r) => collectRow(r, pat, mat, acc), bar(s.id, s.file.size), log,
+        )
+        // Which arrays are units of one embryo is a property of the run, not of this sample.
+        const result = await scoreSample({ acc, profile, pat, mat, soloRole, sibs, sampleName: s.file.name, log })
+        const maternal = acc.tm && mat
+          ? classify(acc.tm, mat.heterozygosity, { role: 'maternal' }) : undefined
+        const paired = maternal ? pair(result, maternal, agree) : undefined
+        return { calls: acc.myGt, profile, gates, result, maternal, paired }
+      }
+      const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
       let doneCount = 0
       for (const s of queue) {
         // Three things an operator can act on: which file, how many remain, and any refusal that
@@ -749,35 +775,15 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          // ONE IMPLEMENTATION OF THE ANSWER, in scoreSample.ts, which the command line and the
-          // cross-surface check also call. What is left here is what only a browser has to do:
-          // read a File, paint progress, and hold React state.
-          // The founder panel, the parent-free answer key: with it the stage tells drop-in from a
-          // second genome from noise on any material, with or without a parent. Null if it cannot
-          // be fetched, which leaves the stage exactly as it was before panels.
-          const acc = emptyCollected(pat, mat, await loadFounderPanel())
-          const { profile, gates: g } = await profileFile(
-            s.file, (r) => collectRow(r, pat, mat, acc), bar(s.id, s.file.size), log,
-          )
-          sampleGt.set(s.id, acc.myGt)
-          const result = await scoreSample({
-            acc,
-            profile,
-            pat,
-            mat,
-            soloRole,
-            // Which arrays are units of one embryo is a property of the run, not of this sample.
-            sibs: [...sampleGt.entries()].filter(([id]) => id !== s.id).map(([, m]) => m),
-            sampleName: s.file.name,
-            log,
-          })
-          const maternal = acc.tm && mat
-            ? classify(acc.tm, mat.heterozygosity, { role: 'maternal' }) : undefined
-          const paired = maternal ? pair(result, maternal, agree) : undefined
-          log('DONE', `${s.file.name}: ${paired?.originClass ?? result.originClass}, ${soloRole} `
-            + `absent ${pct(result.genomeRate)} vs ceiling ${pct(result.explainable)}`
-            + (maternal ? `, maternal absent ${pct(maternal.genomeRate)} vs ceiling `
-              + `${pct(maternal.explainable)}` : ''))
+          const { calls, profile, gates: g, result, maternal, paired } = await readSample(s, othersOf(s.id))
+          sampleGt.set(s.id, calls)
+          // With no parent loaded there is no parent's absence to report, and soloRole is a placeholder.
+          log('DONE', result.noParent
+            ? `${s.file.name}: stage ${result.stage?.stage ?? 'unread'}, no parent loaded`
+            : `${s.file.name}: ${paired?.originClass ?? result.originClass}, ${soloRole} `
+              + `absent ${pct(result.genomeRate)} vs ceiling ${pct(result.explainable)}`
+              + (maternal ? `, maternal absent ${pct(maternal.genomeRate)} vs ceiling `
+                + `${pct(maternal.explainable)}` : ''))
           finished.push({ id: s.id, result })
           await breathe()
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired })
@@ -785,6 +791,26 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           const m = e instanceof Error ? e.message : String(e)
           log('WARN', `${s.file.name}: ${m}`)
           patch(s.id, { state: 'failed', error: m })
+        }
+      }
+
+      // AN ARRAY READ LATER STILL COUNTS. A sample is scored against the arrays finished before it.
+      // One left with a run under the span floor withheld is read once more when the run holds
+      // every array, so that an array of its embryo that came after it can settle the run. The last
+      // sample read has already seen the rest.
+      for (const f of finished.slice(0, -1)) {
+        if (!f.result.refusals?.some((x) => x.gate === 'other-parent.under-span')) continue
+        const s = queue.find((e) => e.id === f.id)
+        if (!s) continue
+        log('READ', `${s.file.name}: read again, now that the run holds every array`)
+        setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
+        try {
+          const { profile, gates: g, result, maternal, paired } = await readSample(s, othersOf(s.id))
+          f.result = result
+          await breathe()
+          patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired })
+        } catch (e) {
+          log('WARN', `${s.file.name}: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
 
@@ -1075,7 +1101,7 @@ function Chip({ entry, busy, stage, onRole, onRemove }: {
       <div style={{ height: 42, marginBottom: 4 }}>
         {running ? (
           <Progress value={stage?.total ? (stage.bytes / stage.total) * 100 : 0} size="sm" animated />
-        ) : result ? (
+        ) : result && !result.noParent ? (
           <ChromStrip chroms={result.chroms} ceiling={result.explainable} />
         ) : profile ? (
           <ProfileStrip profile={profile} />
@@ -1548,6 +1574,16 @@ const kindLabel = (k: SegmentKind, role: 'paternal' | 'maternal', sg?: Segment):
       : sg?.contested ? 'alleles absent, both parents'
         : `${sg?.absentParent ?? role} alleles absent`)
 
+// A segment carries `lrrShift` exactly when a likelihood scan of otherParentLoss.ts made it. Those
+// scans score on their own scale, divided by the array's clustering, so each row is read against
+// the threshold of the scan that made it.
+const fromAlleleScan = (sg: Segment): boolean => sg.lrrShift !== undefined
+const thresholdOf = (sg: Segment): number => (fromAlleleScan(sg) ? OTHER_LRT : SEGMENT_LRT)
+/** Intensity change across a row in log2, signed; a dash where it was not measured. */
+const intensityText = (sg: Segment): string => (
+  sg.lrrShift !== undefined && sg.lrrShift !== null && Number.isFinite(sg.lrrShift)
+    ? `${sg.lrrShift > 0 ? '+' : ''}${sg.lrrShift.toFixed(2)}` : '–')
+
 /**
  * Where each extra copy came from, or why that cannot be said.
  *
@@ -1653,12 +1689,13 @@ function SegmentCallout({ segments, role }: {
         homozygous markers.
       </Text>
       <div style={{ marginTop: 7, display: 'grid', gap: 3 }}>
-        {segments.map((sg) => (
-          <Text key={`${sg.chrom}:${sg.startBp}`} size="xs" ff="monospace">
+        {segments.map((sg, i) => (
+          <Text key={`${sg.chrom}:${sg.startBp}:${i}`} size="xs" ff="monospace">
             chr{sg.chrom}&nbsp;{int(sg.startBp)}&ndash;{int(sg.endBp)}
             {'  '}&middot;{'  '}{mb(sg.spanBp)}
             {'  '}&middot;{'  '}{kindLabel(sg.kind, role, sg)}
             {'  '}&middot;{'  '}{pct(sg.rate, 1)} against {pct(sg.nullRate, 1)}
+            {fromAlleleScan(sg) && <>{'  '}&middot;{'  '}intensity {intensityText(sg) === '–' ? 'not measured' : `${intensityText(sg)} log2`}</>}
           </Text>
         ))}
       </div>
@@ -1744,28 +1781,31 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
       </Section>
 
       {r.segments.length > 0 && (
-        <Section title={`Segments where the ${r.role} genome is missing`}>
+        <Section title="Segments inside a chromosome">
           <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
             A chromosome that is partly lost reads as neither present nor absent, so the whole
             chromosome comes back unclear and the missing part goes unreported. These are the
-            regions inside a chromosome where the {r.role} allele is absent at a rate the rest of
-            this genome does not reach. Each is scored against the median rate of the sample&rsquo;s
-            OTHER chromosomes, which one event cannot move.
+            regions inside a chromosome where a parent&rsquo;s alleles or the DNA itself are
+            missing, or where there are extra copies, at a rate the rest of this genome does not
+            reach. Each row says which.
           </Text>
           <Table striped withTableBorder>
             <Table.Thead>
               <Table.Tr>
                 <Table.Th>Chromosome</Table.Th>
+                <Table.Th>Change</Table.Th>
                 <Table.Th ta="right">Span</Table.Th>
                 <Table.Th ta="right">Markers</Table.Th>
                 <Table.Th ta="right">Absent</Table.Th>
                 <Table.Th ta="right">Against</Table.Th>
                 <Table.Th ta="right">Score</Table.Th>
+                <Table.Th ta="right">Threshold</Table.Th>
+                <Table.Th ta="right">Intensity</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              {r.segments.map((sg) => (
-                <Table.Tr key={`${sg.chrom}:${sg.startBp}`}>
+              {r.segments.map((sg, i) => (
+                <Table.Tr key={`${sg.chrom}:${sg.startBp}:${i}`}>
                   <Table.Td>
                     chr{sg.chrom}
                     <Text span size="xs" c="dimmed" ff="monospace">
@@ -1780,6 +1820,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
                       {' '}{segmentCoords(sg).interval}
                     </Text>
                   </Table.Td>
+                  <Table.Td>{kindLabel(sg.kind, r.role, sg)}</Table.Td>
                   <Table.Td ta="right" ff="monospace">
                     {(segmentCoords(sg).spanBp / 1e6).toFixed(1)} Mb
                   </Table.Td>
@@ -1787,17 +1828,29 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
                   <Table.Td ta="right" ff="monospace">{pct(sg.rate, 2)}</Table.Td>
                   <Table.Td ta="right" ff="monospace" c="dimmed">{pct(sg.nullRate, 2)}</Table.Td>
                   <Table.Td ta="right" ff="monospace">{sg.score.toFixed(0)}</Table.Td>
+                  <Table.Td ta="right" ff="monospace" c="dimmed">{thresholdOf(sg)}</Table.Td>
+                  <Table.Td ta="right" ff="monospace">{intensityText(sg)}</Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>
           </Table>
           <Text size="xs" c="dimmed" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
-            The span is the resolution, not the event: the smallest region that can be called here
-            is {int(MIN_SEGMENT_MARKERS)} informative markers, which on this array covers anywhere
-            from a few hundred kilobases to tens of megabases depending on marker density. A real
-            event smaller than that is reported at the size of the window that found it. The score
-            is a log-likelihood ratio against a threshold of {SEGMENT_LRT}, and one just over it is
-            a weak finding rather than a strong one.
+            Two scans make these rows and they score on different scales, so each score is read
+            against its own scan&rsquo;s threshold. The window scan reports a log-likelihood ratio
+            against {SEGMENT_LRT}; the scans of one parent&rsquo;s alleles report one divided by the
+            array&rsquo;s own clustering, against {OTHER_LRT}. A score just over its threshold is a
+            weak finding rather than a strong one.
+          </Text>
+          <Text size="xs" c="dimmed" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
+            Intensity is the mean log R across the row less the rest of its chromosome, in log2,
+            shown for rows from the allele scans. A fall supports a loss; the row stands on its
+            alleles either way. A dash means it was not measured.
+          </Text>
+          <Text size="xs" c="dimmed" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
+            The span is the resolution, not the event: the smallest region the window scan can
+            call is {int(MIN_SEGMENT_MARKERS)} informative markers, which on this array covers
+            anywhere from a few hundred kilobases to tens of megabases depending on marker density.
+            A real event smaller than that is reported at the size of the window that found it.
           </Text>
         </Section>
       )}

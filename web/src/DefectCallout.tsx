@@ -264,7 +264,7 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
       }}
       >
         {defects.map((d, i) => (
-          <OneDefect key={`${d.chrom}:${d.startBp}:${d.kind}`} d={d} why={unique[i] ?? []} />
+          <OneDefect key={`${d.chrom}:${d.startBp}:${d.kind}:${i}`} d={d} why={unique[i] ?? []} />
         ))}
       </div>
 

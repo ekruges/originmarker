@@ -1,0 +1,150 @@
+How small a loss the scans find, how exact its edges, and what settles a run under 3 Mb
+=======================================================================================
+Measured on 15 November 2026 on open arrays only. Follows audit/truth/own-copy-segments-2026-11-15.txt.
+Produced by audit/validate/constructed-losses.ts.
+
+WHY BUILT LOSSES
+----------------
+Table S3 states 20 losses on a segment and one of them is under 3 Mb, so neither the smallest loss
+found nor the distance of an edge from the truth can be read off the answer key. A loss is built
+instead, as the marker floor of the window scan was titrated: a cell published with a monosomy of a
+named parent holds one copy of that chromosome with its own amplification artefact, and its rows over
+a stretch replace the same rows of a cell of the same father whose chromosome is published normal.
+
+  Recipients    the 16 cells with 19 or more autosomes published normal: 12 the tool reads without
+                drop-in, 4 with it. A chromosome on which the cell as read carries a run is not used.
+  Donors        for each chromosome, the cell with that monosomy that has the most chromosomes
+                published normal. Two chromosomes for the mother's copy, two for the father's.
+  Stretches     1, 1.5, 2, 3, 5 and 10 Mb, starting at 15%, 45% and 75% of the chromosome's markers.
+  Arms          the measured father, and the father reconstructed from his pronuclei.
+  Controls      a 10 Mb stretch from a cell whose chromosome is published normal.
+
+2,515 scored constructions. Found means a run of the lost parent over the stretch, printed or
+withheld.
+
+THE SMALLEST LOSS FOUND
+-----------------------
+Arrays read without drop-in, share of built losses found:
+
+                    the mother's copy gone,          the mother's copy gone,      the father's copy gone,     the father's copy gone,
+                    measured father                  rebuilt father               measured father             rebuilt father
+     1 Mb           27%  (all withheld)                0%                           0%                          0%
+     1.5 Mb         64%  (all but one withheld)       23%  (withheld)              13%                          1%
+     2 Mb           73%  (all but one withheld)       38%  (withheld)              23%                          4%
+     3 Mb           82%                               73%                          41%                         17%
+     5 Mb           95%                               88%                          64%                         45%
+    10 Mb          100%                              100%                          91%                         65%
+     n per size     66                                66                           69                          69
+
+  Found in 9 of 10: from 5 Mb for the mother's copy against the measured father, from 10 Mb against
+  the rebuilt one, and from 10 Mb for the father's copy against the measured father. Against the
+  rebuilt father the father's copy is not found in 9 of 10 at any size built.
+
+  The father's copy is read from one signal, opposite homozygotes at the father's homozygous
+  markers, and the mother's from two, so the two columns are not expected to match. The donors of
+  the father's copy are also noisier cells: the published paternal monosomies sit in them.
+
+Arrays read with drop-in, 4 cells: the mother's copy is found in 21% at 5 Mb and 62% at 10 Mb against
+the measured father, 17% and 25% against the rebuilt one, and nothing under 5 Mb; the father's copy
+in 67% at 5 Mb and 83% at 10 Mb against the measured father.
+
+THE EDGES
+---------
+Distance of a found run's edge from the true cut, arrays without drop-in:
+
+                                               median      90% within    worst
+  the mother's copy, measured father           0.03 Mb     0.31 Mb       2.29 Mb     582 edges
+  the mother's copy, rebuilt father            0.09 Mb     0.43 Mb       1.81 Mb     424
+  the father's copy, measured father           0.11 Mb     0.92 Mb      10.75 Mb     318
+  the father's copy, rebuilt father            0.20 Mb     2.39 Mb      34.02 Mb     184
+
+Each run now carries an interval on each edge: every place the edge could sit with the run's score
+within 12, the window scan's own bound, of its best. The true cut is inside it on 572 of 582, 424 of
+424, 311 of 318 and 178 of 184 edges, 98% to 100%, and on every edge of the drop-in arrays. The
+intervals are wide for what the edges achieve: median 1.5, 2.2, 3.2 and 6.8 Mb.
+
+A RUN UNDER 3 MB
+----------------
+With one parent and one array, a stretch the two parents share reads the same in the alleles as a
+loss of the other parent's copy, so a run under 3 Mb is withheld (6.2.0). Two second lines were
+tested on the built losses.
+
+  Intensity. A run is printed where its mean intensity sits 4.5 or more of the array's own spread
+  below the centre of stretches of as many markers on its other two-parent chromosomes, the tool's
+  calibrated test. Of 108 built losses under 3 Mb that the alleles see against the measured father,
+  2 pass; of 40 against the rebuilt father, none. The intensity of the built stretches reads a
+  median of 1.0 of the spread below the centre. On single cells it settles almost nothing, which is
+  what the rule was written expecting.
+
+  Another array of the same embryo. Arrays of one embryo carry the same two parental copies, so what
+  the parents share reads as missing in all of them and a loss in one does not. Another array of the
+  run is taken as the same embryo where, at the markers where the loaded parent is homozygous and
+  this array shows the allele it lacks, it shows that allele too, on 75% or more of blocks of 500
+  markers scored against its own rates; and it settles a run where its own score for the other
+  parent's alleles being present across the run is 15 or more.
+
+    Same embryo or not, one array per biopsy of two embryos of one couple: 79% to 100% of blocks
+    within an embryo, 31% to 69% between the two. On 25 arrays of three embryos, between arrays read
+    without drop-in: 78% to 100% within, 2% to 70% between.
+
+    Built losses with the other biopsies of the recipient's embryo supplied, 8 recipients without
+    drop-in, 42 constructions a size:
+
+                    measured father                      rebuilt father
+                    printed    seen by the alleles       printed    seen
+       1 Mb           24%          24%                      0%        0%
+       1.5 Mb         57%          60%                     24%       24%
+       2 Mb           69%          69%                     40%       40%
+       3 Mb           81%          81%                     79%       79%
+
+    Of the losses built under 3 Mb that the alleles see, 63 of 64 are printed against the measured
+    father and 27 of 27 against the rebuilt one. On the 3 recipients with drop-in nothing under 3 Mb
+    is seen.
+
+    The shared stretch. One recipient carries, as read, a run of 1.6 Mb that the table states normal
+    and that the experiment of 6.2.0 found in several cells of the couple. With four other arrays of
+    its embryo supplied it stays withheld: none shows the mother's alleles across it. Arrays of the
+    couple's OTHER embryo do show them there, so an array is asked only once it reads as the same
+    embryo.
+
+THE CONTROLS
+------------
+A stretch from a cell whose chromosome is published normal, 10 Mb, at each place.
+  With the other arrays of the embryo supplied: 108 of 108 print nothing.
+  In the main run: 174 of 177 print nothing against the measured father and 175 of 177 against the
+  rebuilt one. The five that print are one recipient with one donor on one chromosome, and that
+  donor is an array the tool reads with drop-in and withholds everything on: the harness took an
+  array that prints no run for an array with no run. The harness now takes a control stretch only
+  from a cell read as two genomes, with no drop-in, that prints no run.
+  Rerun with that donor rule, 15 recipients: 165 of 165 print nothing against the measured father
+  and 165 of 165 against the rebuilt one.
+
+THE REAL ROWS AND THE SUITE
+---------------------------
+  The 270 rows of 6.3.0 with a parent, the other arrays of each embryo supplied: no segment 6.3.0
+  printed is gone and three are new. One is a run of 1.9 Mb in a laboratory cell, settled by
+  intensity at 13.6 of the array's spread. Two are the pieces of a stated loss of the mother's copy
+  that the measured father withheld, settled by another cell of the embryo. The measured father
+  prints the mother's segment losses on 5 of 7 (was 4), the rebuilt father on 5, both parents on 7.
+  The 2.5 Mb stated loss stays withheld: the arrays labelled as its embryo do not read as one
+  genome.
+  With no parent, 330 rows: every record identical to 6.3.0.
+  The validation suite against the 6.3.0 scorecard: 67 of 67 lines identical.
+
+THE PASS TEST
+-------------
+  F1  true cut inside the printed interval, 95 in 100 or more     98% to 100%                 met
+  F2  smallest loss found in 9 of 10, per setup                   stated below                met
+  F3  nothing printed on a control or on the shared stretches     165 of 165, 165 of 165,     met
+                                                                  108 of 108; shared
+                                                                  stretches withheld
+  F4  nothing 6.3.0 prints is lost; suite identical               0 gone; 67 of 67            met
+
+WHAT IS STATED
+--------------
+  With one parent loaded and no other array of the embryo, a loss of the other parent's copy is
+  reported from 3 Mb, and found in 9 of 10 from 5 Mb against a measured parent and from 10 Mb
+  against a parent rebuilt from its haploid cells.
+  With another array of the same embryo it is reported under 3 Mb where the alleles see it: about 7
+  in 10 at 2 Mb and 6 in 10 at 1.5 Mb against a measured parent.
+  On an array read with drop-in a loss under 5 Mb is not found.

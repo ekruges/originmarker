@@ -273,10 +273,15 @@ RELEASES: tuple[Release, ...] = (
             "unrepaired loses what lies beyond it, and the piece lost can be short. Read marker by "
             "marker against the parent whose copy it was, it shows where a window of two thousand "
             "markers does not."),
+    Release("Sister Chromatid",
+            "After replication a chromosome is two sister chromatids, each a copy of the other. The "
+            "cells of one embryo are copies in the same way: what the parents gave is in every one "
+            "of them. So a stretch missing from one cell alone is a loss, and a stretch missing from "
+            "all of them is what the parents share."),
 )
 
-VERSION = "6.3.0"
-CODENAME = "Double-Strand Break"
+VERSION = "6.4.0"
+CODENAME = "Sister Chromatid"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

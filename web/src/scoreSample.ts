@@ -51,7 +51,8 @@ import {
 } from './relatedness.ts'
 import { callBothParentsOrigin } from './bothParentsOrigin.ts'
 import {
-  otherRates, scanOtherParent, ownRates, scanOwnCopy, coveredShare, OTHER_MIN_SPAN_BP, type OtherMarker,
+  otherRates, scanOtherParent, ownRates, scanOwnCopy, coveredShare, sameGenomeShare, presentScore,
+  OTHER_MIN_SPAN_BP, OTHER_LRT, SAME_GENOME_SHARE, type OtherMarker, type OtherRates,
 } from './otherParentLoss.ts'
 import {
   detectLoh, detectUpd, detectTriploidy, detectComplex, runsOfHomozygosity, mergeLoh, COMPLEX_CALL_RATE,
@@ -79,7 +80,7 @@ import {
   inferStage, stageDefaults, type Stage, PANEL_ANCHOR_CALL_RATE, parentOverCeiling, MAX_DIPLOID_HET,
   panelScale, hetSpread, HET_SPREAD_LOCALISED, allelePloidy,
 } from './stage.ts'
-import { nullScale, calibratedZ, median, intensityDetects, STATE_GAP } from './intensityNull.ts'
+import { nullScale, calibratedZ, median, intensityDetects, STATE_GAP, Z_WINDOW } from './intensityNull.ts'
 import { reconcileStage } from './declaredStage.ts'
 import { assessIntegrity } from './integrity.ts'
 
@@ -346,7 +347,8 @@ const pushOther = (
   if (q !== null && !(q > 0)) return
   let ms = by.get(r.chrom)
   if (!ms) by.set(r.chrom, ms = [])
-  ms.push({ pos: r.pos, q, seen: parent === 'AB' ? r.genotype === 'AB' : r.genotype !== parent,
+  ms.push({ id: r.probesetId, pos: r.pos, q,
+    seen: parent === 'AB' ? r.genotype === 'AB' : r.genotype !== parent,
     opp: parent !== 'AB' && r.genotype !== 'AB' && r.genotype !== parent })
 }
 
@@ -1421,6 +1423,61 @@ export async function scoreSample(input: {
     }
     return inside.length && rest.length ? inside.reduce((x, y) => x + y, 0) / inside.length - median(rest) : NaN
   }
+  // How far a run's mean log R sits from stretches of the same number of markers on the other
+  // chromosomes that carry both parents, in units of their spread. See intensityNull.ts.
+  const lrrSorted = new Map<string, number[]>()
+  const lrrOf = (c: string): number[] => {
+    let v = lrrSorted.get(c)
+    if (!v) {
+      v = [...(cnByChrom.get(c) ?? [])].sort((x, y) => x.pos - y.pos)
+        .map((m) => m.log2R).filter((x): x is number => x !== null)
+      lrrSorted.set(c, v)
+    }
+    return v
+  }
+  const mean = (xs: readonly number[], from = 0, to = xs.length): number => {
+    let sum = 0
+    for (let i = from; i < to; i += 1) sum += xs[i]
+    return sum / (to - from)
+  }
+  const lrrZOf = (run: Segment, reference: Iterable<string>): number | undefined => {
+    const inside = (cnByChrom.get(run.chrom) ?? [])
+      .filter((m) => m.log2R !== null && m.pos >= run.startBp && m.pos <= run.endBp).map((m) => m.log2R as number)
+    if (!inside.length) return undefined
+    const units: number[] = []
+    for (const c of reference) {
+      if (c === run.chrom) continue
+      const v = lrrOf(c)
+      for (let i = 0; i + inside.length <= v.length; i += inside.length) units.push(mean(v, i, i + inside.length))
+    }
+    return calibratedZ(mean(inside), nullScale(units))
+  }
+  // ANOTHER ARRAY OF THE SAME EMBRYO carries the same two parental copies, so what the parents share
+  // reads as missing in it too and a loss in this array alone does not. Each other array of the run
+  // is read against the loaded parent at this array's markers, kept if it reads as the same genome,
+  // and asked whether it shows the other parent's alleles across a run.
+  let sisters: { byChrom: Map<string, OtherMarker[]>; rates: OtherRates }[] | undefined
+  const shownBySister = (run: Segment): boolean => {
+    sisters ??= sibs.flatMap((sib) => {
+      const byChrom = new Map<string, OtherMarker[]>()
+      const where: { q: number; seen: boolean }[] = []
+      for (const [c, ms] of patMarkers) {
+        const theirs: OtherMarker[] = []
+        for (const m of ms) {
+          const g = sib.get(m.id)
+          const p = pat.gt.get(m.id)
+          if (!g || g === 'NC' || !p) continue
+          const seen = m.q === null ? g === 'AB' : g !== p
+          theirs.push({ id: m.id, pos: m.pos, q: m.q, seen, opp: m.q !== null && g !== 'AB' && g !== p })
+          if (m.q !== null && m.seen) where.push({ q: m.q, seen })
+        }
+        byChrom.set(c, theirs)
+      }
+      const rates = otherRates([...byChrom.values()])
+      return rates && sameGenomeShare(where, rates) >= SAME_GENOME_SHARE ? [{ byChrom, rates }] : []
+    })
+    return sisters.some((s) => presentScore(s.byChrom.get(run.chrom) ?? [], s.rates, run.startBp, run.endBp) >= OTHER_LRT)
+  }
   // AN EXTRA COPY READS LIKE A LOSS IN THE CALLS: it outnumbers the other parent's allele, which
   // then drops out of them. A lost copy cannot raise intensity, so a run is refused where a gain
   // segment covers it or its own intensity stands a copy state above the rest of its chromosome.
@@ -1434,29 +1491,48 @@ export async function scoreSample(input: {
   const otherSegments: Segment[] = []
   if (acc.otherByChrom && !mat && parentShown && twoParents) {
     if (patRates) {
-      // A run under OTHER_MIN_SPAN_BP is withheld: the other parent's array is what would tell it
-      // from a haplotype the parents share. Its place is recorded and stated.
+      // A run under OTHER_MIN_SPAN_BP reads the same as a haplotype the parents share, in the
+      // alleles. It is a finding where intensity falls across it as well, by the calibrated test,
+      // since a shared haplotype is at two copies; or where another array of the same embryo shows
+      // the other parent's alleles across it. Otherwise it is withheld, and its place recorded
+      // and stated; the other parent's array is what would settle it.
       const short: Segment[] = []
       for (const [c, ms] of patMarkers) {
         for (const run of scanOtherParent(c, ms, patRates, MIN_SEGMENT_SPAN_BP)) {
           const lrrShift = lrrShiftOf(c, run.startBp, run.endBp)
           if (underGain(run, lrrShift)) continue
           const sg: Segment = { ...run, absentParent: otherRole, lrrShift }
-          ;(sg.spanBp < OTHER_MIN_SPAN_BP ? short : otherSegments).push(sg)
+          if (sg.spanBp >= OTHER_MIN_SPAN_BP) { otherSegments.push(sg); continue }
+          sg.lrrZ = lrrZOf(sg, patMarkers.keys())
+          sg.shortBy = sg.lrrZ !== undefined && sg.lrrZ <= -Z_WINDOW ? 'intensity'
+            : shownBySister(sg) ? 'sister' : undefined
+          ;(sg.shortBy ? otherSegments : short).push(sg)
         }
+      }
+      for (const sg of otherSegments) {
+        if (!sg.shortBy) continue
+        const mb = (bp: number): string => (bp / 1e6).toFixed(1)
+        result.notes.push(
+          `chr${sg.chrom} ${mb(sg.startBp)}-${mb(sg.endBp)} Mb is under ${OTHER_MIN_SPAN_BP / 1e6} Mb, where a stretch both `
+          + `parents share reads the same in the alleles. It is reported as a loss of the ${otherRole} copy because `
+          + (sg.shortBy === 'intensity' ? 'intensity falls across it as well.'
+            : `another array of this run, read as the same embryo, shows the ${otherRole} alleles across it.`))
       }
       for (const sg of short) {
         result.refusals!.push({ claim: 'segment', chrom: sg.chrom, gate: 'other-parent.under-span',
-          cause: 'parent-not-loaded', measured: { spanBp: sg.spanBp, score: sg.score, markers: sg.markers },
+          cause: 'parent-not-loaded',
+          measured: { spanBp: sg.spanBp, score: sg.score, markers: sg.markers, ...(sg.lrrZ === undefined ? {} : { lrrZ: sg.lrrZ }) },
           withheld: sg })
       }
       if (short.length) {
         const mb = (bp: number): string => (bp / 1e6).toFixed(1)
         result.limits.push(
           `No ${otherRole} allele is seen on ${short.map((sg) => `chr${sg.chrom} ${mb(sg.startBp)}-${mb(sg.endBp)} Mb`).join(', ')}. `
-          + `Under ${OTHER_MIN_SPAN_BP / 1e6} Mb that is not reported as a loss of the ${otherRole} copy: `
-          + 'a stretch where both parents carry the same DNA reads the same with one parent loaded. '
-          + 'The other parent\'s array settles it.',
+          + `Under ${OTHER_MIN_SPAN_BP / 1e6} Mb that is reported as a loss of the ${otherRole} copy only `
+          + 'with a second line, and here there is none: intensity does not measurably fall across it, '
+          + 'and no other array of this run that reads as the same embryo shows those alleles there. '
+          + 'A stretch where both parents carry the same DNA reads the same in the alleles with one '
+          + 'parent loaded. The other parent\'s array, or another cell of the embryo, settles it.',
         )
       }
       log('SCAN', `${otherRole} copy scan: ${patMarkers.size} chromosomes carrying both parents, `

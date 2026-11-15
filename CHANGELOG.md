@@ -9,6 +9,78 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.4.0 "Sister Chromatid"
+
+**How small a loss the scans find is now measured, every run carries an interval on its edges, and a
+run under 3 Mb can be settled by another cell of the same embryo.** Table S3 states one segment loss
+under 3 Mb, so none of this could be read off the answer key. Losses were built instead
+(`audit/validate/constructed-losses.ts`): the rows of a cell published with a monosomy of a named
+parent, which holds one copy with its own amplification artefact, replace the same stretch of a cell
+of the same father whose chromosome is published normal. 2,515 constructions of 1 to 10 Mb on 16
+recipient cells, against the measured father and the father rebuilt from his pronuclei
+(audit/truth/built-losses-2026-11-15.txt).
+
+**The smallest loss found**, on arrays read without drop-in:
+
+| built loss | the mother's copy, measured father | the mother's copy, rebuilt father | the father's copy, measured father | the father's copy, rebuilt father |
+|---|---|---|---|---|
+| 2 Mb | 73%, withheld | 38%, withheld | 23% | 4% |
+| 3 Mb | 82% | 73% | 41% | 17% |
+| 5 Mb | 95% | 88% | 64% | 45% |
+| 10 Mb | 100% | 100% | 91% | 65% |
+
+The father's copy is read from one signal and the mother's from two, and its donors are the noisier
+cells, since the published paternal monosomies sit in them. On arrays read with drop-in nothing
+under 5 Mb is found. A control stretch, 10 Mb of a cell whose chromosome is published normal, prints
+nothing on 330 of 330, and on 108 of 108 with the other arrays of the embryo supplied.
+
+**Edges.** A run from the likelihood scans printed "not localised", because the interval of the window
+scan was never computed for it. Each now carries one on both edges: every place the edge could sit
+with the run's score within 12 of its best, the window scan's bound. A found run's edge sits a median
+0.03 to 0.2 Mb from the true cut, and the true cut is inside the interval on 98% to 100% of edges. The
+intervals are wider than the edges need, a median 1.5 to 6.8 Mb.
+
+**A run under 3 Mb.** With one parent and one array a stretch the parents share reads as a loss of the
+other parent's copy, so 6.2.0 withholds such a run. It is now reported on a second line, either of two.
+
+Another array of the same embryo. Arrays of one embryo carry the same two parental copies: what the
+parents share reads as missing in all of them, and a loss in one does not. Another array of the run
+is taken as the same embryo where, at markers where the loaded parent is homozygous and this array
+shows the allele it lacks, the other shows it too on 75% or more of blocks of 500; arrays of one
+embryo read 79% to 100% and arrays of two embryos of one couple 31% to 69%. It settles a run where its
+own score for the other parent's alleles across the run is 15 or more. With the other biopsies of the
+recipient's embryo supplied, 63 of the 64 built losses under 3 Mb that the alleles see are printed
+against the measured father: 69% of those built at 2 Mb, 57% at 1.5 Mb, 24% at 1 Mb. The shared
+stretch of 6.2.0 stays withheld with four other arrays of its embryo loaded; arrays of the couple's
+other embryo show the mother's alleles across it, which is why an array is asked only once it reads
+as the same embryo. On the page a sample left with such a run withheld is read once more when the run
+holds every array, so an array loaded after it counts.
+
+Intensity, by the calibrated test: the run's mean 4.5 or more of the array's own spread below the
+centre of stretches of as many markers. It settles 2 of 108 built losses, which is what a single cell
+allows, and one run of 1.9 Mb in a laboratory cell at 13.6.
+
+On the 270 rows of 6.3.0 nothing printed is gone and three runs are new: that laboratory run, and the
+two pieces of a stated loss of the mother's copy that the measured father withheld, settled by another
+cell. The measured father prints the mother's segment losses on 5 of 7, the rebuilt father on 5, both
+parents on 7. The 2.5 Mb stated loss stays withheld: the arrays labelled as its embryo do not read
+as one genome. With no parent every record is identical to 6.3.0. The validation suite is identical
+to the 6.3.0 scorecard on 67 of 67 lines.
+
+**Page faults fixed.** The segment table put every row under "Segments where the paternal genome is
+missing" and quoted the window scan's threshold of 250 for all of them, so from 6.2.0 a loss of the
+mother's copy found with the father loaded sat under a paternal heading beside a score of a
+different scale. Each row now names what changed, with the same words as the row above the table,
+and is read against the threshold of the scan that made it, 250 or 15. From 6.3.0 a run from the
+likelihood scans carried its intensity change and the page showed it nowhere; it is now in the
+table and beside the row, as support, not as a condition. A Run press that adds a sample reads
+every sample of the run again: a sample scored by an earlier Run press was otherwise never read
+with the new array, so a second array of an embryo settled nothing unless both went in before one
+Run press. Since 6.0.0, with no parent loaded, the file's strip drew a parent's absence that was
+never measured and the run log named the mother; neither happens now. With both parents loaded, two
+rows of the list of changes that start at the same marker shared one key, so the page could draw
+one and drop the other; each row now has its own.
+
 ## 6.3.0 "Double-Strand Break"
 
 **A parent's own copy missing on a short segment is now found, and a parent rebuilt from few cells
