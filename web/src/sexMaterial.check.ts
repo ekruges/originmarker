@@ -108,6 +108,34 @@ const noY: SexTally = {
     .constitution, '47,XXY')
 }
 
+// --- 2d. WHAT X AND Y SHOW, WITH NO PARENT -------------------------------------------------------
+{
+  const yes: SexTally = { ...noY, yCalled: 48, yLrr: Array(51).fill(0.3) }
+  const shown = sexMaterial({ parentLoaded: false, stage: stage({}), hetRate: 0.16, dropIn: 0.02 })
+  const notShown = sexMaterial({ parentLoaded: false, stage: stage({}), hetRate: 0.15, dropIn: 0.14 })
+  const hap = sexMaterial({ parentLoaded: false, stage: stage({ stage: 'haploid', ploidy: 'haploid' }),
+    hetRate: 0.01, dropIn: NaN })
+  const np = (m: typeof shown, xShift: number, xZ: number, y: SexTally, xCallFraction = 1) =>
+    callSexChromosomes({ diploid: m.diploid, material: m, twoInsideNoise: true, xShift, xZ, y, xCallFraction })
+  // X present a step under with a Y is two genomes whatever the heterozygosity says.
+  assert.equal(np(notShown, -0.45, -12, yes).constitution, 'XY')
+  // No X template and a Y: not XY.
+  assert.equal(np(hap, -1.9, -40, yes, 0.3).constitution, 'unresolved')
+  // At the autosomes' level, no Y: one X on one genome, XX on two, the conditional line otherwise.
+  assert.equal(np(hap, 0.08, 2, noY).constitution, 'one X')
+  assert.equal(np(shown, 0.08, 2, noY).constitution, 'XX')
+  const cond = np(notShown, 0.08, 2, noY)
+  assert.equal(cond.constitution, 'XX or one X')
+  assert.ok(cond.why.startsWith('X at the level of the autosomes, no Y read'), cond.why)
+  // A step under with no Y read, and over the autosomes: nothing aneuploid with no parent.
+  assert.equal(np(shown, -0.6, -20, noY).constitution, 'unresolved')
+  assert.equal(np(shown, 0.6, 20, noY).constitution, 'unresolved')
+  // Stage unresolved: not read.
+  const failed = sexMaterial({ parentLoaded: false, stage: stage({ stage: 'failed', ploidy: 'unknown' }),
+    hetRate: 0.16, dropIn: 0.02 })
+  assert.equal(np(failed, 0.08, 2, noY).constitution, 'unresolved')
+}
+
 // --- 3. THE REASON FOR A MISSING LEVEL IS WHAT THE FILE LACKS ------------------------------------
 {
   const c = callSexChromosomes({ diploid: true, xShift: NaN, y: noY,

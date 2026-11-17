@@ -1328,7 +1328,8 @@ export async function scoreSample(input: {
     diploid: material.diploid,
     material,
     twoInsideNoise: pat.absent,
-    ...(pat.absent ? { hetSex: profile.sex, hetRatio: profile.chrXHetRatio } : {}),
+    ...(pat.absent ? { hetSex: profile.sex, hetRatio: profile.chrXHetRatio,
+      xCallFraction: xChrom?.callFraction } : {}),
     // A row needs 200 chrX markers, its level 200 with intensity. The pseudoautosomal region is
     // left out only where the tally knows the assembly, which comes from the parent.
     xMissing: !xChrom && !pat.absent

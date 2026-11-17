@@ -29,7 +29,7 @@
  * own channel.
  */
 import { intensityDetects } from './intensityNull.ts'
-import { COPY_SHIFT_FLOOR } from './parentage.ts'
+import { CALL_COLLAPSE, COPY_SHIFT_FLOOR } from './parentage.ts'
 import type { Sex } from './ingest.ts'
 import type { SexMaterial } from './sexMaterial.ts'
 import { sexCall, type SexTally } from './sexing.ts'
@@ -52,7 +52,8 @@ export const Y_CN_MIN_PROBES = 200
 export const Y_BESIDE_X = -0.9
 
 /** What the sex chromosomes were found to be. */
-export type Constitution = 'XX' | 'XY' | '45,X' | '47,XXY' | '47,XXX' | 'unresolved'
+export type Constitution = 'XX' | 'XY' | '45,X' | '47,XXY' | '47,XXX' | 'one X' | 'XX or one X'
+  | 'unresolved'
 
 export interface SexChromosomeCall {
   /** X copies relative to the sample's own autosomes. Null where nothing could be measured. */
@@ -84,6 +85,8 @@ export interface SexChromosomeInput {
   /** The heterozygosity sex (ingest.ts callSex) and its ratio, read with no parent loaded. */
   hetSex?: Sex
   hetRatio?: number | null
+  /** chrX call rate over the genome's median: under CALL_COLLAPSE it has no template. */
+  xCallFraction?: number
 }
 
 /**
@@ -151,6 +154,7 @@ function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
   const detects = (o.xZ === undefined || intensityDetects(o.xZ, true))
     && Math.abs(o.xShift) >= COPY_SHIFT_FLOOR
   const level = `chrX sits ${o.xShift.toFixed(2)} log2 from this sample's autosomes`
+  if (o.twoInsideNoise && o.material?.staged) return whatXAndYShow(o, level, detects)
   if (!o.diploid && o.material?.haploid) {
     // One genome: one X at the autosomes' level, or none and a Y. Neither is a sex.
     const x = !Number.isFinite(o.xShift) ? `${xWhy}, so where chrX sits was not measured`
@@ -236,4 +240,68 @@ function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
       ? `${level}, which is two copies, and chrY is present as well`
       : `${level}, which is two copies`,
   }
+}
+
+/**
+ * With no parent, what chrX and chrY themselves show, with the ploidy added only where it is read.
+ * One genome holds chrX at its autosomes' level or holds none, so chrX present a copy step under
+ * the autosomes with a chrY is two genomes, XY, whatever the heterozygosity says. chrX at the
+ * autosomes' level with no chrY is XX in two genomes and one X in one, which intensity cannot
+ * separate. No aneuploid constitution is printed with no parent.
+ */
+function whatXAndYShow(
+  o: SexChromosomeInput & { yBearing: boolean | null }, level: string, detects: boolean,
+): SexChromosomeCall {
+  const m = o.material!
+  const none = (why: string): SexChromosomeCall => ({
+    xCopies: null, yBearing: o.yBearing, constitution: 'unresolved', aneuploid: false, why,
+  })
+  const say = (constitution: Constitution, xCopies: 1 | 2 | null, why: string): SexChromosomeCall => ({
+    xCopies, yBearing: o.yBearing, constitution, aneuploid: false, why,
+  })
+  if (!Number.isFinite(o.xShift)) {
+    return none(`${o.xMissing ?? 'chromosome X carries no intensity on this file'}, so its level was `
+      + 'not measured')
+  }
+  const zOut = o.xZ !== undefined && intensityDetects(o.xZ, true)
+  const step = COPY_SHIFT_FLOOR.toFixed(2)
+  const yText = o.yBearing === true ? 'chrY is present by its calls and intensity'
+    : o.yBearing === false ? 'chrY is genotyped on this panel and not present'
+      : 'this file cannot say whether chrY is present'
+  if (!detects && (zOut || Math.abs(o.xShift) >= COPY_SHIFT_FLOOR)) {
+    return none(`${level}, ${zOut ? `beyond this array's own noise but short of the ${step} log2 copy step`
+      : `past the ${step} log2 copy step but inside this array's own noise`}, so one X or two is not `
+      + 'separable here')
+  }
+  if (detects && o.xShift > 0) {
+    return none(`${level}, over the autosomes by more than a copy step. An extra X is not printed with `
+      + 'no parent loaded')
+  }
+  if (detects) {
+    const cf = o.xCallFraction
+    if (cf !== undefined && Number.isFinite(cf) && cf < CALL_COLLAPSE) {
+      return none(`${level}, and chrX calls at ${(cf * 100).toFixed(0)}% of the genome's median rate, `
+        + `under the ${(CALL_COLLAPSE * 100).toFixed(0)}% a chromosome that is there reaches: no X `
+        + `template. ${yText}`)
+    }
+    if (o.yBearing === true) {
+      return say('XY', 1, `${level}, a copy step under the autosomes, and ${yText}. One genome cannot `
+        + 'hold chrX a step under its autosomes, so this is two genomes: XY')
+    }
+    return none(`${level}, a copy step under the autosomes, and ${yText}. With no parent loaded a `
+      + 'missing X is not printed: a male karyotype and a monosomy X are not separated here')
+  }
+  if (o.yBearing === true) {
+    return none(`${level}, not a one-copy step, and chrY is present. A one-X level compressed by `
+      + 'amplification and 47,XXY are not separable without a parent')
+  }
+  if (m.haploid) {
+    return say('one X', 1, `one X, the normal complement of one genome: this cell is staged haploid and `
+      + `${level}, the level of its autosomes`)
+  }
+  if (m.diploid) {
+    return say('XX', 2, `${level}, which is two copies, and two copies of the autosomes are shown`)
+  }
+  return say('XX or one X', null, 'X at the level of the autosomes, no Y read: XX if this cell holds '
+    + `two genomes, one X if it holds one, and this file does not settle which (${level}; ${m.why})`)
 }

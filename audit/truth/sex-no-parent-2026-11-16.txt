@@ -277,3 +277,68 @@ Candidate B, counted 17 November (code /root/om-sexnpB, records /root/sexnpB)
   S3: not rerun. The candidate is gated on no parent (twoInsideNoise and hetSex are passed only
   then), so the 270 with-parent rows run the build's code; sexMaterial.check.ts pins that a loaded
   parent gives the 6.5.0 reading.
+
+CANDIDATE C (written 17 November before it was built or counted; third commit, for the ruling)
+--------------------------------------------------------------------------------------------
+The physics proposed, checked first against the build's records on the 290 (chrX level against
+the autosomes, its z, with no parent):
+  - XY, two genomes: X below the autosomes on all 14 stated XY with a chrX level (-0.16 to -0.79,
+    z -3.3 to -57). But NOT a clean copy step on amplified cells: under the 0.40 step on 6 of them
+    only (-0.40 to -0.79); bulk sits at -0.39 to -0.41, astride the step; single cells and
+    blastomeres -0.26 to -0.37. With the 0.40 step most XY single cells stay between the levels.
+    This is not built around: C uses the 0.40 step as it stands.
+  - One genome with an X: at the autosomes' level, -0.04 to +0.19 (26 stated one X), z under
+    5.49. Holds.
+  - One genome with a Y: chrX -1.34 to -2.12 with chrY present (9 stated Y only). "Below the
+    autosomes with a Y" alone would read these as XY. So X must also be shown PRESENT, by its call
+    rate against CALL_COLLAPSE (0.60 of the genome's median, the tool's absence test). Whether the
+    call rate separates them on single cells is recorded in this run (an absent chromosome can
+    still produce noise calls); if it does not, that is reported, not built around.
+  - Two stated one-X cells read chrX at -1.40 and -1.89 with no chrY called: no X template where
+    one X is stated. Listed, not explained.
+The rule. With NO parent loaded, on a stage that resolved (not failed, not unknown); same gates as
+the build (array noise Z_CHROMOSOME, 0.40 copy step, the existing chrY reading); B's heterozygosity
+reading kept where two copies are shown:
+  C1. chrX present, a copy step under the autosomes (both gates), chrY present: XY, whatever the
+      ploidy reading ("a one-genome cell cannot hold X a step under its autosomes").
+  C2. chrX a step under with chrY absent or unreadable: not read (45,X is not printed with no
+      parent). chrX not present (call rate under CALL_COLLAPSE): not read, with what X and Y show.
+  C3. chrX at the autosomes' level (inside both gates), no chrY read: staged haploid prints "one
+      X", the normal complement of one genome; two copies shown prints XX; otherwise prints the
+      conditional line "XX or one X": XX if two genomes, one X if one, not settled by this file.
+  C4. chrX between the levels, or over the autosomes, or at their level with chrY present: not
+      read, as in the build. No 45,X, 47,XXX or 47,XXY with no parent.
+  C5. With a parent loaded, nothing changes. The heterozygosity sex in Sample quality: as built.
+Counted on the 290 beside 6.5.0 and the build, with the conditional line as its own row; S2 on the
+290 and the 330; S4 on the 330 no-parent rows; agreement with the with-parent reading where a public
+no-parent row has a measured-parent row.
+
+Candidate C, counted 17 November (code /root/om-sexnpC, records /root/sexnpC; B kept underneath)
+  The call-rate test for a present X held: chrX of the 9 stated Y-only cells calls at 0.28 to 0.53
+  of the genome's median, chrX of the 14 stated XY at 0.88 to 1.01; CALL_COLLAPSE is 0.60.
+  No parent, the 290 stated arrays:
+                                                   6.5.0     build     C
+    one X: printed female or XX (of 28)              26         3       3
+    one X: given the conditional line or "one X"      0         0      23
+    one X: not read                                   2        25       2
+    XX: printed XX (of 12)                           12         6       6
+    XX: given the conditional line                    0         0       6
+    XX: not read                                      0         6       0
+    XY: printed XY (of 15)                           13        10      10
+    XY: not read                                      0         4       3
+    printed and contradicted by the stated answer    28         4       5
+    45,X, 47,XXX or 47,XXY printed                    0         0       0
+  6.5.0 is its header sex. Contradicted, C: the three one-X cells printed XX (S23 x2, S21, as the
+  build; R2 shows two copies on them); one stated XY printed female/XX (S23, chrX -0.16, no chrY
+  genotyped; as the build); one stated XY given "one X" (S20: staged haploid, chrX at the
+  autosomes' level, no chrY genotyped). XY printed XY: 6 by the copy step and chrY (C1), the rest
+  by B's heterozygosity reading with chrY; 3 single cells at -0.26 to -0.37 stay between levels.
+  S2: 106 reasons and printed lines on the 290, 85 on the 330, checked against the file: 0 false.
+  S4: the 330 no-parent rows, every autosome entry and every other field identical to 6.4.0; only
+  chrX and `sex` differ.
+  Against the measured-parent reading of the same public cell (31 cells with both):
+    C: 9 agree (XX 7, XY 2), 4 conditional where the parent reads XX, 5 XY where the parent path
+       reads 47,XXY, 1 contradicts (GSM4552364: C prints "one X" because with no parent it is
+       staged haploid at 9.5% heterozygous; with the father the alleles stage it a diploid
+       blastomere and it reads XX), 12 not read.
+    build: 6 agree, 0 contradict, 25 not read.
