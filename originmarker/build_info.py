@@ -287,10 +287,14 @@ RELEASES: tuple[Release, ...] = (
             "An ideogram is a chromosome drawn to scale, with its landmarks marked along its "
             "length. Every call now has one: the chromosome's own markers from end to end, allele "
             "fraction above and intensity below, with a box over the stretch the call covers."),
+    Release("Pedigree",
+            "A pedigree is the record of who descends from whom. Given several men's arrays, the "
+            "tool now reads which one the cells descend from: the one whose genome is in them. "
+            "Where none is, or where two are, it says so and names nobody."),
 )
 
-VERSION = "6.5.0"
-CODENAME = "Ideogram"
+VERSION = "6.6.0"
+CODENAME = "Pedigree"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

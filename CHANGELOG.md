@@ -9,6 +9,37 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.6.0 "Pedigree"
+
+**Load every sperm array of an experiment and the page says which one is the father.** More than
+one file may now carry the sperm label. Each candidate is read against each sample by the existing
+parent check, unchanged and with no new threshold. A sample names a candidate when exactly one
+carries; a run names the father when exactly one candidate carries on any of its samples. Samples
+that carry no candidate count for or against none: a maternal pronucleus, a polar body and a noise
+array all read that way. The page prints a table (each candidate: carries in, none in, not shown
+in), names the father or says none of them is, and scores the samples against the one it named.
+With none named the samples are scored with no father loaded, and the page says so. The same table
+is printed in the PDF report, and `om father` gives it on the command line.
+
+Measured on the open arrays with 22 men offered as candidates and none labelled (the sperm donor of
+each experiment, and 20 men of the founder panel's public series): the true father is named on 77
+of the 77 public cells and 8 of the 8 cells of one laboratory experiment that the labelled check
+carries, a wrong man on none; with the true father left out no man is named on 106 of 106 and 31
+of 31; a father rebuilt from his pronuclei is named exactly as his measured array is
+(audit/truth/find-the-father-2026-11-16.txt).
+
+**What it cannot tell.** A parent from a close relative of that parent: two candidates who are
+brothers, or a father and his son, can both carry, and then neither is named. This limit is stated
+on the page and has not been measured on related men. A sample carries its mother's genome too, so
+her file is labelled oocyte, not sperm: offered as a candidate father she carries, and the page
+then names nobody rather than choose.
+
+**Run reads every sample again after any change to the loaded files or their labels.** Adding a
+parent after the samples were scored, or relabelling a file, left the earlier results on the page
+unchanged when Run was pressed. Scoring is otherwise unchanged.
+
+---
+
 ## 6.5.0 "Ideogram"
 
 **Every loss or gain the page prints now opens a plot of its chromosome.** Allele fraction above,
