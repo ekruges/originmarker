@@ -9,6 +9,52 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.7.0 "Premature Separation"
+
+**With one parent loaded, the parent of an extra chromosome is named more often, and a gain the
+intensity calls is no longer reported as a missing parent.** Three rules, written before any code
+(audit/truth/extra-copy-one-parent-2026-11-16.txt):
+
+1. A chromosome the intensity scan calls a gain is never reported as missing a parent's copy,
+   whatever its copy state reads. It is scored as carrying both parents and goes to the gain test.
+   A lost copy cannot raise intensity. An extra copy of one parent can push the copy state past the
+   line that reads a missing parent, and each one-parent arm printed a lost parent on 3 of the 60
+   constructed gains that way.
+2. For a parent rebuilt from pronuclei, each marker where he reads homozygous is weighted in the
+   gain test by the chance that he really is, from the founder frequency of the allele he lacks and
+   the fewest pronuclei the rebuild requires at a marker. A measured parent has weight 1.
+3. Where those name no parent, a second route can name the other parent only: at the loaded
+   parent's homozygous markers where the allele he lacks is common and the sample is called
+   heterozygous, the median share of that allele, against the same median on the cell's other
+   two-parent chromosomes. Upward only: two copies of an allele the loaded parent does not carry
+   can only come from the other parent, however the extra copy arose.
+
+Nothing changes with both parents loaded, with none, or on a chromosome intensity does not call a
+gain.
+
+| parent of a constructed gain named | both parents | measured father | rebuilt father |
+|---|---|---|---|
+| of 60 | 37 | 44 | 37 (was 26) |
+| of 158 on held-out chromosomes | 92 | 81 | 74 (was 57) |
+| wrong parent | 0 | 0 | 0 |
+| a constructed gain printed as a lost parent, of 60 | 0 | 0 | 0 |
+| the same, of 158 | 0 | 3 | 0 |
+
+The measured-father arm is new in the suite. On the 60 a one-parent run now names the parent as
+often as a two-parent run or more often. On the held-out chromosomes it does not yet: two parents
+know both genotypes at every marker, one parent knows the other only through founder frequencies.
+The 3 of 158 are gains the intensity scan misses, which rule 1 therefore does not reach.
+
+Zero wrong also holds where the other parent's extra copy is built as both of that parent's
+homologues and as the same homologue twice (42 and 45 named with the measured father, 35 and 39
+with the rebuilt one). The suite's own construction mixes the two.
+
+On the 270 with-parent rows and the 330 no-parent rows every record is identical to 6.4.0. In the
+validation suite only the constructed-gain lines moved, all up or new; the census and invariance
+lines are identical.
+
+---
+
 ## 6.6.0 "Pedigree"
 
 **Load every sperm array of an experiment and the page says which one is the father.** More than

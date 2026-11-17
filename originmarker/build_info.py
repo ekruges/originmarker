@@ -291,10 +291,15 @@ RELEASES: tuple[Release, ...] = (
             "A pedigree is the record of who descends from whom. Given several men's arrays, the "
             "tool now reads which one the cells descend from: the one whose genome is in them. "
             "Where none is, or where two are, it says so and names nobody."),
+    Release("Premature Separation",
+            "A chromatid that parts from its sister too early can travel to the wrong pole and "
+            "leave a cell with an extra copy. Which parent that copy came from is in the alleles. "
+            "With one parent on an array, an extra copy the intensity sees is now put to that "
+            "question even where the alleles alone read it as a missing parent."),
 )
 
-VERSION = "6.6.0"
-CODENAME = "Pedigree"
+VERSION = "6.7.0"
+CODENAME = "Premature Separation"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
