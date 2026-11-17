@@ -283,10 +283,14 @@ RELEASES: tuple[Release, ...] = (
             "pair, before it goes on. Nothing the tool reads or reports changes here: a check that "
             "failed without cause now measures what it claims to, and the libraries under the "
             "tool are brought up to date."),
+    Release("Ideogram",
+            "An ideogram is a chromosome drawn to scale, with its landmarks marked along its "
+            "length. Every call now has one: the chromosome's own markers from end to end, allele "
+            "fraction above and intensity below, with a box over the stretch the call covers."),
 )
 
-VERSION = "6.4.1"
-CODENAME = "Proofreading"
+VERSION = "6.5.0"
+CODENAME = "Ideogram"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
