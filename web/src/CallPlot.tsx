@@ -6,7 +6,7 @@
  */
 import { useId, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import {
-  BASE, cellPer, drawable, mergeBins, normalRange, perForStretch, runningScore, shareIn, tickStepMb, valueOf,
+  BASE, cellPer, drawable, risesInside, shareTop, mergeBins, normalRange, perForStretch, runningScore, shareIn, tickStepMb, valueOf,
   viewOf, wrap, type Bin, type PlotData, type Role, type Track,
 } from './plotSeries.ts'
 import { headline, type Defect } from './defects.ts'
@@ -127,11 +127,13 @@ export function WholeCell({ data, marks, name, focus }: {
   const pers = tracks.map(cellPer)
   const called = new Set(marks.filter((m) => !m.withheld).map((m) => m.chrom))
   const ranges = tracks.map((t, i) => normalRange(t, pers[i], called))
+  const tops = tracks.map((t, i) => (t.kind === 'share' ? shareTop(ranges[i].mid) : 1))
+  const rowLabel = (t: Track, i: number) => (tops[i] < 1 ? `${t.label}, against this cell's own level (row top ${pct(tops[i])})` : t.label)
   const rows = W >= 760 ? [AUTOSOMES] : [AUTOSOMES.slice(0, 11), AUTOSOMES.slice(11)]
   const G = 3
   const TH = 58
   const block = tracks.length * (TH + 18) + 20
-  const H = 6 + rows.length * block + 22
+  const H = 6 + rows.length * block + 4
   const len = (c: string) => data.endBp.get(c) ?? 1
   type Panel = { c: string; x: number; w: number; top: number }
   const panels: Panel[] = []
@@ -145,7 +147,7 @@ export function WholeCell({ data, marks, name, focus }: {
       x += w + G
     }
   })
-  const yOf = (t: Track, top: number, v: number) => (t.kind === 'share' ? top + TH * (1 - Math.max(0, Math.min(1, v)))
+  const yOf = (t: Track, top: number, v: number) => (t.kind === 'share' ? top + TH * (1 - Math.max(0, Math.min(1, v / tops[tracks.indexOf(t)])))
     : top + TH * (LEVEL_HI - Math.max(LEVEL_LO, Math.min(LEVEL_HI, v))) / (LEVEL_HI - LEVEL_LO))
   const marksFor = (c: string, t: Track) => marks.filter((m) => m.chrom === c && (!m.parent || !t.parent || m.parent === t.parent))
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
@@ -160,7 +162,11 @@ export function WholeCell({ data, marks, name, focus }: {
     const m = marksFor(p.c, t).find((q) => bp >= q.startBp && bp <= q.endBp)
     if (m) { setTip({ x: px, y: py, lines: [m.sentence, ...m.lines.slice(0, 3)] }); return }
     const b = mergeBins(t.bins.get(p.c) ?? [], pers[ti], t.kind === 'level').find((q) => bp >= q.startBp && bp <= q.endBp)
-    setTip(b ? { x: px, y: py, lines: binLine(t, p.c, b) } : null)
+    if (!b) { setTip(null); return }
+    // A bar under the cell's normal range with no call over it: say it is not a call, and why.
+    const below = t.kind === 'share' ? valueOf(t, b) < ranges[ti].lo : valueOf(t, b) < -0.3
+    setTip({ x: px, y: py, lines: [...binLine(t, p.c, b), ...(below ? [
+      "Below this cell's normal range, but not a call: the stretch did not pass the tool's tests (too short, too few markers, or a score under the bar)."] : [])] })
   }
   return (
     <div ref={ref} style={{ position: 'relative', margin: '8px 0 2px', maxWidth: '100%' }}>
@@ -173,7 +179,7 @@ export function WholeCell({ data, marks, name, focus }: {
         <rect width={W} height={H} fill="#fff" />
         {rows.map((_, r) => tracks.map((t, ti) => (
           <text key={`l${r}${ti}`} x={1} y={6 + r * block + ti * (TH + 18) + 10} fontWeight={600} fill={colourOf(t.parent)}>
-            {t.label}
+            {rowLabel(t, ti)}
           </text>
         )))}
         {panels.map((p) => {
@@ -223,13 +229,11 @@ export function WholeCell({ data, marks, name, focus }: {
             </g>
           )
         })}
-        <text x={W - 2} y={H - 4} textAnchor="end" fill={DIM}>
-          grey band: this cell&apos;s normal range; lines under a chromosome: calls
-        </text>
       </svg>
       <Tip tip={tip} w={W} />
       <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
         <span>
+          Grey band: this cell&apos;s normal range. A line under a chromosome marks a call; a dip with no line under it is not a call.{' '}
           {marks.some((m) => m.withheld) ? 'Dashed: found, not reported. ' : ''}
           {tracks.some((t) => t.parent) ? 'A parent\'s bar is the share of markers where that parent\'s letter could be seen at which it is. ' : ''}
           Every bar of a row holds as many markers.
@@ -300,11 +304,12 @@ export function CallFigure({ mark, data, marks, name }: {
   if (strip) y = strip.top + strip.h + 26
   const top = y + 44
   const TH = 120
-  const yv = (v: number) => (t.kind === 'share' ? top + TH * (1 - Math.max(0, Math.min(1, v)))
+  const vTop = t.kind === 'share' ? shareTop(rg.mid) : 1
+  const yv = (v: number) => (t.kind === 'share' ? top + TH * (1 - Math.max(0, Math.min(1, v / vTop)))
     : top + TH * (LEVEL_HI - Math.max(LEVEL_LO, Math.min(LEVEL_HI, v))) / (LEVEL_HI - LEVEL_LO))
   const score = !mark.whole && t.kind === 'share' && Number.isFinite(data.dropIn) && t.parent
     ? runningScore(bars, rg.mid, data.dropIn) : null
-  const scoreOk = score && score.some((v) => v > 0)
+  const scoreOk = !!score && risesInside(score, bars, mark.startBp, mark.endBp)
   const sTop = top + TH + 34
   const SH = 44
   const smax = scoreOk ? Math.max(...score!.filter(Number.isFinite), 1) : 1
@@ -318,7 +323,7 @@ export function CallFigure({ mark, data, marks, name }: {
   const ticks: number[] = []
   for (let v = Math.ceil(loBp / 1e6 / step) * step; v * 1e6 <= hiBp; v += step) ticks.push(v)
   const xs = (i: number) => L + PW * (i + 0.5) / 22
-  const ys = (v: number) => strip!.top + strip!.h * (1 - Math.max(0, Math.min(1, v)))
+  const ys = (v: number) => strip!.top + strip!.h * (1 - Math.max(0, Math.min(1, v / vTop)))
   const ysl = (v: number) => strip!.top + strip!.h * (LEVEL_HI - Math.max(LEVEL_LO, Math.min(LEVEL_HI, v))) / (LEVEL_HI - LEVEL_LO)
   const sy = (v: number) => (t.kind === 'share' ? ys(v) : ysl(v))
   const stripOthers = pooled.filter((v, i) => Number.isFinite(v) && !called.has(AUTOSOMES[i])).sort((a, b) => a - b)
@@ -375,7 +380,7 @@ export function CallFigure({ mark, data, marks, name }: {
             })}
           </g>
         ) : null}
-        <text x={L} y={top - 30} fontWeight={600} fill={INK}>{t.label}{mark.whole ? `, along chromosome ${mark.chrom}` : ''}</text>
+        <text x={L} y={top - 30} fontWeight={600} fill={INK}>{t.label}{vTop < 1 ? ", against this cell's own level" : ''}{mark.whole ? `, along chromosome ${mark.chrom}` : ''}</text>
         {/* The cell's normal range, then the call, then the bars. */}
         {Number.isFinite(rg.lo) ? <rect x={L} y={yv(rg.hi)} width={PW} height={Math.max(1, yv(rg.lo) - yv(rg.hi))} fill={RANGE} /> : null}
         {mark.outLoBp !== undefined ? <rect x={x(mark.outLoBp)} y={top - 4} width={Math.max(0, x(mark.startBp) - x(mark.outLoBp))} height={TH + 4} fill={colour} opacity={0.06} /> : null}
@@ -388,7 +393,7 @@ export function CallFigure({ mark, data, marks, name }: {
         ))}
         <text x={labelRight ? x(mark.endBp) : x(mark.startBp)} y={top - 7} textAnchor={labelRight ? 'end' : 'start'}
           fontWeight={700} fill={colour}>{label}</text>
-        {[0, 0.5, 1].map((v) => (t.kind === 'share' ? (
+        {[0, vTop / 2, vTop].map((v) => (t.kind === 'share' ? (
           <text key={v} x={L - 5} y={yv(v) + 4} textAnchor="end" fill={DIM}>{pct(v)}</text>
         ) : null))}
         {t.kind === 'level' ? <text x={L - 5} y={yv(0) + 4} textAnchor="end" fill={DIM}>level</text> : null}

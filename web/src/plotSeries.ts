@@ -259,6 +259,27 @@ export function runningScore(bins: readonly Bin[], present: number, missing: num
   return bins.map((b) => (s = Math.max(0, s + b.k * up + (b.n - b.k) * dn)))
 }
 
+/**
+ * The top of a share row's axis. A row whose normal level sits under a quarter (two-letter calls) is
+ * drawn against twice that level, so its normal range sits mid-row instead of in a thin strip at the
+ * floor; no value changes, only where the axis ends. A row whose normal level is high keeps 0 to 100%,
+ * since its drop toward zero is the event and a cut axis would make a partial drop read as a full one.
+ */
+export function shareTop(normal: number): number {
+  return Number.isFinite(normal) && normal < 0.25 ? Math.min(1, Math.max(0.05, 2 * normal)) : 1
+}
+
+/** Whether a running score climbs inside the called stretch: by half its height or more between the
+ *  bar before the stretch and its last bar. A score that rises only outside the stretch is not drawn. */
+export function risesInside(score: readonly number[], bins: readonly Bin[], startBp: number, endBp: number): boolean {
+  const inside = bins.map((b, i) => (b.startBp >= startBp && b.endBp <= endBp ? i : -1)).filter((i) => i >= 0)
+  if (!inside.length) return false
+  const top = Math.max(0, ...score.filter(Number.isFinite))
+  const from = inside[0] > 0 ? score[inside[0] - 1] : 0
+  const rise = (score[inside[inside.length - 1]] || 0) - (from || 0)
+  return top > 0 && rise >= top / 2
+}
+
 /** The stretch a figure shows: a call under a sixth of its chromosome in a window around it. */
 export function viewOf(startBp: number, endBp: number, chromEndBp: number): { loBp: number; hiBp: number } {
   const span = endBp - startBp

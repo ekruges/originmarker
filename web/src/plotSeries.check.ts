@@ -2,7 +2,7 @@
 import assert from 'node:assert'
 import {
   BASE, binBase, CELL_BAR, drawable, mergeBins, MIN_DRAWN_SPAN_BP, normalRange, perForStretch, plotData,
-  runningScore, shareIn, tickStepMb, valueOf, viewOf, wrap, type PlotData, type Track,
+  risesInside, runningScore, shareIn, shareTop, tickStepMb, valueOf, viewOf, wrap, type PlotData, type Track,
 } from './plotSeries.ts'
 
 // ---------------------------------------------------------------- binning
@@ -82,6 +82,18 @@ const src = { markerPos, myGt, cnByChrom: new Map() }
   assert.ok(s.slice(0, 5).every((v) => v === 0), 'flat where the copy is there')
   assert.ok(s[9] > s[6] && s[6] > s[5] && s[5] > 0, 'climbs where it is not')
   assert.ok(runningScore(bins, 0.01, 0.03).every(Number.isNaN), 'no score where present is not above missing')
+}
+
+// ---------------------------------------------------------------- axis top and when the score is drawn
+assert.equal(shareTop(0.12), 0.24, 'a low row is drawn against twice its normal level')
+assert.equal(shareTop(0.85), 1, 'a high row keeps 0 to 100%')
+assert.equal(shareTop(NaN), 1)
+{
+  const bins = [...Array(10)].map((_, i) => ({ startBp: i * 10, endBp: i * 10 + 9, n: 100, k: 0 }))
+  const climbsInside = [0, 0, 0, 2, 4, 6, 8, 8, 7, 6]
+  const climbsAfter = [0, 0, 0, 0, 0, 0, 0, 3, 6, 9]
+  assert.equal(risesInside(climbsInside, bins, 30, 69), true)
+  assert.equal(risesInside(climbsAfter, bins, 30, 69), false, 'a rise after the stretch ends is not drawn')
 }
 
 // ---------------------------------------------------------------- which calls are drawn
