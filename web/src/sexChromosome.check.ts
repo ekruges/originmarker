@@ -70,7 +70,10 @@ const diploid = { diploid: true }
   assert.equal(callSexChromosomes({ ...diploid, xShift: -0.040, y: thinY }).constitution,
     'XX')
   // Both sex chromosomes present is an abnormality in a way two X alone is not.
-  const kline = callSexChromosomes({ ...diploid, xShift: -0.010, y: genotypedY(true) })
+  // Bulk DNA, chrX at the autosomes' level, heterozygous on X as two X are, and a chrY.
+  const kline = callSexChromosomes({
+    ...diploid, bulk: true, hetSex: 'female', hetRatio: 1.0, xShift: -0.010, y: genotypedY(true),
+  })
   assert.equal(kline.constitution, '47,XXY')
   assert.equal(kline.aneuploid, true)
 }
@@ -120,6 +123,25 @@ const diploid = { diploid: true }
   assert.equal(callSexChromosomes({
     ...diploid, bulk: true, xShift: -0.010, y: intensityOnlyY(-2.263),
   }).constitution, 'XX')
+}
+
+// --- 7. TWO X WITH A Y ON AMPLIFIED MATERIAL IS NOT A DEFAULT -----------------------------------
+{
+  // A single cell with a parent: chrX -0.30, inside the noise, a chrY, and no heterozygous calls on X.
+  const xy = callSexChromosomes({ ...diploid, hetSex: 'male', hetRatio: 0.05, xShift: -0.30, xZ: -1.8,
+    y: genotypedY(true) })
+  assert.equal(xy.constitution, 'XY', xy.why)
+  // The same level with heterozygosity between the bands: not 47,XXY, and the reason says why.
+  const weak = callSexChromosomes({ ...diploid, hetSex: 'ambiguous', hetRatio: 0.3, xShift: 0.17, xZ: 0.5,
+    y: genotypedY(true) })
+  assert.equal(weak.constitution, 'unresolved')
+  assert.ok(weak.why.includes('cannot separate one X from two'), weak.why)
+  // Bulk DNA at the autosomes' level whose heterozygous calls read one X: XY, not 47,XXY.
+  assert.equal(callSexChromosomes({ ...diploid, bulk: true, hetSex: 'male', hetRatio: 0.05, xShift: -0.12,
+    xZ: -2.1, y: genotypedY(true) }).constitution, 'XY')
+  // Two copy steps down and still called: not read.
+  assert.equal(callSexChromosomes({ ...diploid, hetSex: 'ambiguous', xShift: -1.77, xZ: -4.5,
+    xCallFraction: 0.9, y: genotypedY(true) }).constitution, 'unresolved')
 }
 
 console.log('sexChromosome.check.ts OK: one X is a male or a monosomy, and chrY is what decides')

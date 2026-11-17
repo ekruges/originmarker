@@ -79,8 +79,9 @@ const noY: SexTally = {
     .constitution, 'unresolved')
   assert.equal(callSexChromosomes({ diploid: true, twoInsideNoise: true, xShift: 0.08, xZ: 3.4, y: noY })
     .constitution, 'XX', 'inside the noise two X stands')
-  // With a parent loaded the 6.5.0 reading stands.
-  assert.equal(callSexChromosomes({ diploid: true, xShift: -0.31, xZ: -6.7, y: yes }).constitution, '47,XXY')
+  // With a parent loaded the 6.5.0 reading stands, but not two X by default with a chrY on
+  // amplified material.
+  assert.equal(callSexChromosomes({ diploid: true, xShift: -0.31, xZ: -6.7, y: yes }).constitution, 'unresolved')
 }
 
 // --- 2c. HETEROZYGOSITY ON X, WITH NO PARENT, ON TWO COPIES ONLY ----------------------------------
@@ -105,7 +106,7 @@ const noY: SexTally = {
   assert.equal(callSexChromosomes({ diploid: false, twoInsideNoise: true, hetSex: 'female', xShift: 0, y: noY })
     .constitution, 'unresolved')
   assert.equal(callSexChromosomes({ diploid: true, hetSex: 'female', xShift: -0.31, xZ: -6.7, y: yes })
-    .constitution, '47,XXY')
+    .constitution, 'unresolved')
 }
 
 // --- 2d. WHAT X AND Y SHOW, WITH NO PARENT -------------------------------------------------------

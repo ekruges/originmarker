@@ -82,7 +82,7 @@ export interface SexChromosomeInput {
   xMissing?: string
   /** Two X only where chrX is inside the array's own noise; set with no parent loaded. */
   twoInsideNoise?: boolean
-  /** The heterozygosity sex (ingest.ts callSex) and its ratio, read with no parent loaded. */
+  /** The heterozygosity sex (ingest.ts callSex) and its ratio, from the sample's own calls. */
   hetSex?: Sex
   hetRatio?: number | null
   /** chrX call rate over the genome's median: under CALL_COLLAPSE it has no template. */
@@ -230,6 +230,35 @@ function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
       aneuploid: true,
       why: `${level}, which is more than two copies${o.yBearing === true
         ? ', with chrY present' : ''}`,
+    }
+  }
+  // TWO X WITH A Y IS A CLAIM, NOT A DEFAULT. Two X here only means chrX was not shown a copy step
+  // under the autosomes, which on amplified material an XY cell often is not. 47,XXY stands where
+  // bulk DNA holds chrX at its autosomes' level and heterozygous calls on X do not read one X.
+  if (!o.twoInsideNoise && o.yBearing === true) {
+    const twoSteps = o.xShift <= -2 * COPY_SHIFT_FLOOR
+    if (o.hetSex === 'male' && !twoSteps) {
+      const ratio = o.hetRatio == null ? '' : ` ${o.hetRatio.toFixed(2)}`
+      return {
+        xCopies: 1, yBearing: true, constitution: 'XY', aneuploid: false,
+        why: `heterozygous calls on chrX read one X (chrX to autosome heterozygosity ratio${ratio}, `
+          + `in the male band), and chrY is present by its calls and intensity; ${level}, not a `
+          + 'copy step, which on this material does not separate one X from two',
+      }
+    }
+    const atLevel = Math.abs(o.xShift) < COPY_SHIFT_FLOOR
+      && !(o.xZ !== undefined && intensityDetects(o.xZ, true))
+    if (!(o.bulk === true && atLevel)) {
+      const called = !(o.xCallFraction !== undefined && o.xCallFraction < CALL_COLLAPSE)
+      return {
+        xCopies: null, yBearing: true, constitution: 'unresolved', aneuploid: false,
+        why: twoSteps && called
+          ? `${level}: chromosome X sits further below the autosomes than one copy, and its calls `
+            + 'do not show it absent either, so this file does not settle what the cell holds'
+          : `${level}, not a copy step, and chrY is present. On ${o.bulk === true
+            ? 'bulk DNA with chrX away from the level of the autosomes' : 'amplified material'} this `
+            + 'X level cannot separate one X from two, so XY and 47,XXY are not separable here',
+      }
     }
   }
   return {
