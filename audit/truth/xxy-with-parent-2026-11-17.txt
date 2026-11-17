@@ -113,3 +113,61 @@ other case is left unresolved, with the reason that this X level cannot separate
 or that chrX sits further down than one copy and its calls do not show it absent. On the 270
 rows: 18 now read XY, 8 unresolved, none 47,XXY; nothing else moved, and with no parent nothing
 changed.
+
+3.12c AN ADULT WOMAN'S BULK ARRAY READS A Y (written 17 November, before any code)
+==================================================================================
+The fault. sexChromosome.ts yPresent decides whether the panel genotypes chrY from the one file:
+"some chrY call, or fewer than 200 chrY markers". A file that calls none of 812 is taken for a
+chip that never genotypes chrY, and on bulk DNA the intensity-only test (chrY within Y_BESIDE_X of
+chrX, built on CytoScan) then reads a Y. On this chip a woman calls none and a man calls nearly all
+(the sperm donor 805 of 812), so zero calls is absence. A public egg donor's array printed 47,XXY
+with the sperm donor loaded.
+
+Rule (plan item 3.12c): on a chip whose chrY markers are genotyped, a file that calls none of them
+has no Y. The intensity-only test is used only on a chip that never genotypes chrY.
+
+How the chip's chrY genotyping is known. From the chip, in platform.ts, the module that already
+recognises it: the chip profile of the proven chip says its chrY markers are genotyped (measured:
+the sperm donor 805 of 812, the 13 public male cells of 3.12b 702 to 805; egg donors 0). Every
+file that reaches scoring is that chip: the page and the harness refuse a file whose markers are
+not the proven chip's (platform.ts, 6.8.0). So scoring passes "chip genotypes chrY" and yPresent
+takes the calls. A file from a chip that never genotypes chrY is refused before scoring today; if
+such a chip is proven later, its profile says so and the intensity-only route serves it, as the
+existing CytoScan check cases do (they pass no chip, which keeps the file-level test).
+The other way considered: read it from the loaded parent's file (a man calling chrY shows the chip
+genotypes it). It leaves runs with no parent, or with the mother only, on the faulty route, so it
+does not meet the rule. On the existing records the two cannot be told apart (below), so this is
+not a choice that moves a row.
+
+Gate (plan item 3.12c): the woman's bulk array reads XX with a parent loaded and with none; every
+row of the 600 that reads a Y today still reads it; nothing else moves; checks pass; suite no
+worse; released with 3.12b in one version.
+
+Prediction, from the existing records only (no new run):
+  - 290 stated arrays (6.10.0 no-parent records; chrY calls from the 16 November probe): 130 read a
+    Y; every one calls chrY at the call-rate test's level, none with zero calls (the four staged
+    bulk call 803 to 812). 156 arrays call zero chrY and none of them reads a Y. Nothing moves.
+  - 330 no-parent rows: 131 read a Y; 10 of them are staged bulk, the only material where the
+    intensity-only route can run. Four of those call 803 to 812. The other six (two series) have
+    no chrY call count in the records; their chrX sits at -0.38 to -0.45, one X, as a man's does.
+    Predicted: they call chrY and do not move. To be confirmed by tomorrow's run.
+  - 270 with-parent rows: 7 are staged bulk; the one that reads a Y calls 803 chrY markers, the
+    other 6 (against a rebuilt or stand-in father) have no chrX row and read nothing. Nothing moves.
+  - So: no row of the 600 calls zero chrY and reads a Y today (six to confirm), and none moves.
+    The woman's bulk array, not among the 600, moves from 47,XXY to XX with a parent, and reads
+    XX with none (chrX 0.19 at the autosomes' level on bulk DNA, two copies shown).
+Built 17 November (Mac only; no run). platform.ts PROVEN_CHIP_GENOTYPES_Y; scoreSample passes it;
+yPresent takes the calls where it is set. Check cases (sexChromosome.check.ts section 8): a
+woman's bulk array on this chip, 0 of 812 called, reads no Y and XX; with nothing said of the chip
+the intensity-only route still reads a Y beside a one-X level, as on CytoScan. tsc, checks.sh and
+release-check.sh exit 0. Owed, on the coordinator's word: the 270 and 330 rows on this code, the
+browser check of the woman's bulk array with and without a parent, and the suite once.
+
+DRAFT CHANGELOG PARAGRAPH, ADDED FOR 3.12c
+------------------------------------------
+**A woman's array no longer reads a Y chromosome.** When a file called none of its chromosome Y
+markers, the tool took that for a chip that never genotypes Y and fell back to an intensity test
+built for such chips, which on bulk DNA read a Y on an adult woman: a public egg donor printed
+47,XXY with the sperm donor loaded. On the UK Biobank Axiom chip a man calls nearly all of the 812
+chromosome Y markers and a woman none, so a file that calls none has no Y. The intensity-only test
+now serves only a chip that never genotypes Y.

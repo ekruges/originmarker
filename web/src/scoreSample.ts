@@ -46,6 +46,7 @@ import { accumulateSex, emptySex, sexCall, type SexCall, type SexTally } from '.
 import type { InferredBanner } from './inferredArray.ts'
 import { callSexChromosomes } from './sexChromosome.ts'
 import { sexMaterial } from './sexMaterial.ts'
+import { PROVEN_CHIP_GENOTYPES_Y } from './platform.ts'
 import { reconcileParentSex } from './parentSanity.ts'
 import {
   relate, OPPOSITE_HOM_MAX, relatednessAssessable, REL,
@@ -1474,6 +1475,8 @@ export async function scoreSample(input: {
     twoInsideNoise: pat.absent,
     hetSex: profile.sex,
     hetRatio: profile.chrXHetRatio,
+    // Every file scored here is the proven chip: the readers refuse any other (platform.ts).
+    chipGenotypesY: PROVEN_CHIP_GENOTYPES_Y,
     xCallFraction: xChrom?.callFraction,
     // A row needs 200 chrX markers, its level 200 with intensity. The pseudoautosomal region is
     // left out only where the tally knows the assembly, which comes from the parent.

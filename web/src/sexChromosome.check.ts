@@ -144,4 +144,18 @@ const diploid = { diploid: true }
     xCallFraction: 0.9, y: genotypedY(true) }).constitution, 'unresolved')
 }
 
+// --- 8. ON A CHIP THAT GENOTYPES chrY, NO CALL IS NO Y --------------------------------------------
+{
+  // A woman's bulk array on this chip: 0 of 812 chrY markers called, chrY intensity near chrX.
+  const woman: SexTally = { ...intensityOnlyY(-0.12), yTotal: 812, yLrr: Array(812).fill(-0.12) }
+  const c = callSexChromosomes({ ...diploid, bulk: true, chipGenotypesY: true, hetSex: 'female', hetRatio: 1.0,
+    xShift: 0.19, xZ: 1.0, y: woman })
+  assert.equal(c.yBearing, false)
+  assert.equal(c.constitution, 'XX', c.why)
+  // The same file with nothing said of the chip still takes the intensity-only route, which is
+  // what a chip that never genotypes chrY needs (section 6).
+  assert.equal(callSexChromosomes({ ...diploid, bulk: true, xShift: -0.551, y: intensityOnlyY(-0.464) })
+    .constitution, 'XY')
+}
+
 console.log('sexChromosome.check.ts OK: one X is a male or a monosomy, and chrY is what decides')

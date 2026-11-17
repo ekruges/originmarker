@@ -87,6 +87,8 @@ export interface SexChromosomeInput {
   hetRatio?: number | null
   /** chrX call rate over the genome's median: under CALL_COLLAPSE it has no template. */
   xCallFraction?: number
+  /** The chip genotypes chrY (platform.ts). Where it does, no call is no Y. Unset: read from the file. */
+  chipGenotypesY?: boolean
 }
 
 /**
@@ -100,7 +102,7 @@ export interface SexChromosomeInput {
  */
 export function yPresent(o: SexChromosomeInput): boolean | null {
   const call = sexCall(o.y)
-  const panelGenotypesY = o.y.yCalled > 0 || o.y.yTotal < Y_CN_MIN_PROBES
+  const panelGenotypesY = o.chipGenotypesY === true || o.y.yCalled > 0 || o.y.yTotal < Y_CN_MIN_PROBES
   if (panelGenotypesY) return call.yBearing
   if (o.bulk === true && Number.isFinite(call.lrrShift) && Number.isFinite(o.xShift)) {
     return call.lrrShift - o.xShift >= Y_BESIDE_X
