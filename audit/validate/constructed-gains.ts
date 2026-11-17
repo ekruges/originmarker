@@ -9,8 +9,9 @@
  * the duplicated parent carries where that parent is homozygous, and split evenly where it is not,
  * and BAF and log R are recomputed. The array's own noise stays.
  *
- * Each construction, and each cell as read, is scored by the shipped scoreSample twice: against the
- * father reconstructed from his pronuclei alone (OM_FATHER), and against both measured parents.
+ * Each construction, and each cell as read, is scored by the shipped scoreSample three times: against
+ * the father reconstructed from his pronuclei alone (OM_FATHER, config 'one'), against both measured
+ * parents ('two'), and against the measured father alone ('meas1').
  *
  * Run: OM_TRIOS=<dir> OM_FATHER=<reconstruction> node --experimental-strip-types \
  *        audit/validate/constructed-gains.ts <shard> <shards> <out>
@@ -107,6 +108,7 @@ const summary = (res: any, chrom: string) => {
     z: c.alleleGain?.z ?? null, lrrZ: c.alleleGain?.lrrZ ?? null, aneuploidy: c.aneuploidy ?? '',
     state: c.copyState?.state ?? '', r: c.copyState?.r ?? null, otherGains: others,
     withheld: (res.refusals ?? []).filter((x: any) => x.chrom === chrom && x.claim === 'alleleGain').map((x: any) => x.gate),
+    lostParent: c.lostParent ?? '',
   }
 }
 
@@ -122,7 +124,8 @@ for (const gsm of CELLS.filter((_, i) => i % shards === shard)) {
   for (const [chrom, side, rs] of jobs) {
     const one = await scoreRows(rs, rebuiltFather.idx, null, gsm)
     const two = await scoreRows(rs, measuredFather.idx, mother.idx, gsm)
-    for (const [config, res] of [['one', one], ['two', two]] as const) {
+    const meas1 = await scoreRows(rs, measuredFather.idx, null, gsm)
+    for (const [config, res] of [['one', one], ['two', two], ['meas1', meas1]] as const) {
       const targets = chrom === '-' ? chroms : [chrom]
       for (const t of targets) {
         appendFileSync(out, JSON.stringify({ gsm, chrom: t, constructed: chrom === '-' ? 'none' : side, config,

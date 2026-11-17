@@ -19,6 +19,7 @@ import { locus } from './stage.ts'
 import { DEFAULT_PERMUTATIONS, MIN_REGIONS } from './features.ts'
 import { drawComparison } from './comparisonPdf.ts'
 import type { ComparisonResult } from './comparison.ts'
+import type { ParentSearchText } from './findParent.ts'
 import type { Gate, SampleProfile } from './ingest.ts'
 import type { RunResult } from './runlength.ts'
 import { int, utc } from './fmt.ts'
@@ -68,6 +69,8 @@ export interface ReportInput {
    * almost every card. The question is a cohort question in any case.
    */
   comparison?: ComparisonResult
+  /** The search among several files labelled sperm, when there was one. See findParent.ts. */
+  fatherSearch?: ParentSearchText | null
   /** A per-locus deletion test, if one was run after the genome-wide call. */
   locus?: {
     chrom: string
@@ -342,6 +345,15 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           + EXAMPLE_DENSITY] as [string, string]]
       : []),
   ])
+
+  if (input.fatherSearch) {
+    heading('Which file is the father')
+    card(input.fatherSearch.rows.map((r) => [r.name, `carries in ${r.carries}, none in ${r.none}, `
+      + `not shown in ${r.unshown}`] as [string, string]))
+    for (const s of [input.fatherSearch.line, input.fatherSearch.abstain, input.fatherSearch.limit]) {
+      if (s) text(s, 8, 'Helvetica', 3)
+    }
+  }
 
   // --- summary ------------------------------------------------------------------------------
   heading('Result summary')

@@ -61,6 +61,8 @@ export interface InferredBanner {
   /** Heterozygous sites asserted as homozygous. */
   contamination: number
   products: number
+  /** The fewest products the reconstruction required per marker (`min products / marker`). */
+  mMin?: number
   /** 'paternal', 'maternal', or '' when the products did not establish which. */
   side: string
 }
@@ -102,6 +104,7 @@ export function parseInferredBanner(head: string): InferredBanner | null {
     spuriousAbsence: bannerPct(head, 'spurious absence'),
     contamination: bannerPct(head, 'contamination'),
     products: n ? Number(n[1]) : NaN,
+    mMin: Number(/^([0-9]+)/.exec(bannerField(head, 'min products / marker') ?? '')?.[1] ?? NaN),
     side: bannerField(head, 'side') ?? '',
   }
 }
