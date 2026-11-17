@@ -196,13 +196,13 @@ Code copy on tesla /root/om-sexnp4, records /root/sexnp4. Compared with /root/tr
   S5  checks.sh 0, release-check.sh 0. Browser run below. Not released (not this branch's job).
 
 Browser run, final code, public arrays (GSE148488):
-  cell GSM4472401, no parent: header "SINGLE CELL  diploid", no sex badge; Sex chromosomes "Not
+  one public cell, no parent: header "SINGLE CELL  diploid", no sex badge; Sex chromosomes "Not
     read: chrX sits 0.32 log2 from this sample's autosomes, beyond this array's own noise but short
     of the 0.40 log2 copy step, so one X or two is not separable here."; Sample quality Sex
     "female" (two copies shown: 13.2% heterozygous).
-  same cell, father GSM4472397: header "UNCLEAR  diploid  XX  4 chromosomal changes"; "XX: chrX
+  same cell with its father: header "UNCLEAR  diploid  XX  4 chromosomal changes"; "XX: chrX
     sits 0.32 log2 from this sample's autosomes, which is two copies." (as 6.5.0).
-  maternal pronucleus GSM4774673, no parent: header "HAPLOID  unknown", no sex badge; Sample
+  a public maternal pronucleus, no parent: header "HAPLOID  unknown", no sex badge; Sample
     quality Sex "not read: staged haploid, one sex chromosome is its normal complement"; "Not
     read: this cell is staged haploid: one genome, so one sex chromosome is its normal complement
     and says nothing of a sex. chrX sits 0.26 log2 from this sample's autosomes, which in one
@@ -364,13 +364,13 @@ Candidate C, counted 17 November (code /root/om-sexnpC, records /root/sexnpC; B 
   chrX and `sex` differ.
   Against the measured-parent reading of the same public cell (31 cells with both):
     C: 9 agree (XX 7, XY 2), 4 conditional where the parent reads XX, 5 XY where the parent path
-       reads 47,XXY, 1 contradicts (GSM4552364: C prints "one X" because with no parent it is
+       reads 47,XXY, 1 contradicts (one public cell: C prints "one X" because with no parent it is
        staged haploid at 9.5% heterozygous; with the father the alleles stage it a diploid
        blastomere and it reads XX), 12 not read.
     build: 6 agree, 0 contradict, 25 not read.
 
 Found 17 November while choosing arrays for the browser run (C's own records, no code changed):
-  C prints XY on two public blastomeres with no stated sex, GSM4472405 and GSM4472409, whose chrX
+  C prints XY on two public blastomeres with no stated sex, whose chrX
   sits at -1.69 and -1.94 log2 (z -9.9, -19.0): two copy steps under the autosomes, where the
   stated Y-only cells sit (-1.34 to -2.12). Their chrX call rate is 0.74 and 0.96 of the genome's
   median, over CALL_COLLAPSE, so C reads chrX as present. On these two the call rate does not
@@ -390,7 +390,7 @@ complement..." to "one X: the normal complement of one genome: ...". Text only; 
 A4, written 17 November before it was built or rerun
 ----------------------------------------------------
 Cause: C prints XY where chrX sits two copy steps or more under the autosomes but still calls over
-CALL_COLLAPSE (GSM4472405 -1.69 at 0.74, GSM4472409 -1.94 at 0.96, and others like them). A chrX
+CALL_COLLAPSE (-1.69 at 0.74, -1.94 at 0.96, and others like them). A chrX
 that far down is not "one copy below", whatever its call rate.
 Change: with no parent, XY is printed from the intensity route only where chrX sits at least one
 copy step and less than two copy steps (2 x COPY_SHIFT_FLOOR, 0.80) under the autosomes; the
@@ -408,15 +408,15 @@ A4 result (code /root/om-sexnpA4, records /root/sexnpA4), against the C records:
   The stated-sex table is unchanged, row for row: one X 3 printed XX / 23 "one X" or conditional /
   2 not read; XX 6 printed / 6 conditional; XY 10 printed / 3 not read; the same 5 contradicted.
   Readings that changed, all XY to unresolved, all with chrX two steps or more down and calling at
-  0.60 or over: on the 290, 9 (S21 one, GSE186407 public seven, GSE148488 public GSM4472405 and
-  GSM4472409, chrX -1.28 to -1.94, calls 0.63 to 0.96); on the 330 no-parent rows, 11 (the same
+  0.60 or over: on the 290, 9 (S21 one, GSE186407 public seven, GSE148488 public two,
+  chrX -1.28 to -1.94, calls 0.63 to 0.96); on the 330 no-parent rows, 11 (the same
   seven GSE186407 and two GSE148488 cells, S12 one at -1.00, S17 two at -0.81 and -1.82).
   None has a stated sex. Exactly the set predicted before the run.
   S2: 115 reasons on the 290 and 96 on the 330 checked, 0 false. S4: the 330 no-parent rows,
   every autosome entry and every other field identical to 6.7.0. With a parent loaded the code
   path is untouched (the guard sits inside the no-parent reading), so the 270 with-parent rows
   were not rerun; the check file pins the parent path to the 6.5.0 reading.
-  Browser, GSM4472405 with no parent: "Not read: chrX sits -1.69 log2 from this sample's
+  Browser, one of those two cells with no parent: "Not read: chrX sits -1.69 log2 from this sample's
   autosomes: chromosome X sits further below the autosomes than one copy, and its calls do not
   show it absent either, so this file does not settle what the cell holds."
 
@@ -432,8 +432,8 @@ For a follow-up item (measured, nothing built): 47,XXY with a parent loaded
   On the 270 with-parent rows, 26 print 47,XXY (13 father rows, 13 two-parent rows): 13 public
   GSE148488 cells, each with chrY present. Their chrX sits at -1.78 to +0.30 log2 with z -5.5 to
   +3.5: inside the noise or short of the copy step, so 6.5.0's "two copies" default with a chrY
-  gives 47,XXY. With no parent, rule C reads 5 of the 13 XY and leaves 8 unread. GSM4552385, the
-  cell an example run uses, is one of them (chrX +0.17, z 0.5, chrY present): 47,XXY with a parent,
+  gives 47,XXY. With no parent, rule C reads 5 of the 13 XY and leaves 8 unread. The
+  cell an example run uses is one of them (chrX +0.17, z 0.5, chrY present): 47,XXY with a parent,
   not read with none.
   Applying A3 to the with-parent path is one condition in sexChromosome.ts (the 47,XXY return
   for two X with a chrY). On the 270 it moves exactly those 26 rows to unresolved and nothing else

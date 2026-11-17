@@ -305,10 +305,15 @@ RELEASES: tuple[Release, ...] = (
             "drawing one. Enough draws show what she carried. A run that holds other cells of the "
             "same mother now reads her from them, and with one parent on an array the parent of "
             "an extra chromosome is named as often as with two."),
+    Release("Pseudoautosomal",
+            "The X and the Y pair and cross over only at their tips, the pseudoautosomal regions, "
+            "which behave like any autosome. Everywhere else a cell holds X by copies of its own. "
+            "With no parent on an array those copies are now read for what they show, and a line "
+            "that depends on how many genomes the cell holds says so."),
 )
 
-VERSION = "6.9.0"
-CODENAME = "Segregation"
+VERSION = "6.10.0"
+CODENAME = "Pseudoautosomal"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
