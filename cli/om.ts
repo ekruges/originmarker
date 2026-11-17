@@ -19,6 +19,8 @@
  *                 [--other <array>]       the other parent, which puts every event on the
  *                                         reliable direction rather than half of them
  *   om link       <parent> <sample>...     first-degree, sibling, duplicate, or unrelated
+ *   om father     <sample>... --candidates <a,b,...>
+ *                                         which candidate is the father of these samples
  *   om cohort     <dir> --ref <array>      origin for every confirmed child in a directory
  *   om census     <dir>                    haploid products per group, for reconstruction
  *   om reconstruct <product>...            a parent's genotypes from that parent's haploid cells
@@ -52,6 +54,7 @@ const defects = await import(`${W}defects.ts`)
 // a parent from a sibling. Moved to web/src so both surfaces run the same measurement.
 const rel = await import(`${W}relatedness.ts`)
 const parentSanity = await import(`${W}parentSanity.ts`)
+const findParent = await import(`${W}findParent.ts`) as typeof import('../web/src/findParent.ts')
 const { oppositeHom, windowedIbs0, secondParent, relate, REL,
   IBD0_SPREAD_MIN, IBD0_FLOOR_MAX } = rel as never as typeof import('../web/src/relatedness.ts')
 
@@ -485,6 +488,48 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
           + 'all: the likelihood is the same read either way, so this command reports the '
           + 'relationship and leaves the direction to whoever knows which sample is the embryo.\n')
       })
+  },
+
+  // THE PAGE'S SEARCH, through the module it calls: each candidate read against each sample by the
+  // parent check, then one decision for the run. See findParent.ts.
+  father() {
+    const samples = args.positional
+    const paths = (args.flags.get('candidates') ?? '').split(',').filter(Boolean)
+    if (!samples.length || !paths.length) die('usage: om father <sample>... --candidates <a,b,...> [--json]')
+    const freqB = (founderPanel() as { freqB?: Map<string, number> } | null)?.freqB
+    if (!freqB) die('the parent check needs the founder panel\'s frequencies, and none is loaded')
+    const cands = paths.map((p) => loadParent(p))
+    const gts = cands.map((c) => c.pat.gt as Map<string, string>)
+    const cells = samples.map((p) => {
+      const t = findParent.emptyCandidateTallies(cands.length)
+      for (const r of readRows(p)()) findParent.addCandidateRow(t, gts, r as never, freqB)
+      return { id: idOf(p), genomes: findParent.candidateGenomes(t) }
+    })
+    const found = findParent.findParent(cells.map((c) => c.genomes), cands.length)
+    const text = findParent.fatherSearchText(found, cands.map((c) => c.id))
+    out({
+      candidates: cands.map((c) => c.id), outcome: found.outcome,
+      named: found.named === null ? null : cands[found.named].id,
+      ...text,
+      samples: cells.map((c) => ({
+        id: c.id, carries: findParent.carriers(c.genomes).map((i) => cands[i].id),
+        verdicts: c.genomes.map((g) => g.verdict),
+      })),
+    }, () => {
+      const w = Math.max(9, ...text.rows.map((r) => r.name.length))
+      process.stdout.write(`${'candidate'.padEnd(w)}  carries  none  not shown\n`)
+      for (const r of text.rows) {
+        process.stdout.write(`${r.name.padEnd(w)}  ${String(r.carries).padStart(7)}  `
+          + `${String(r.none).padStart(4)}  ${String(r.unshown).padStart(9)}\n`)
+      }
+      process.stdout.write(`\n${text.line}\n`)
+      if (text.abstain) process.stdout.write(`${text.abstain}\n`)
+      process.stdout.write(`Limit: ${text.limit}\n\n`)
+      for (const c of cells) {
+        const k = findParent.carriers(c.genomes)
+        process.stdout.write(`  ${c.id}  ${k.length ? `carries ${k.map((i) => cands[i].id).join(', ')}` : 'carries none'}\n`)
+      }
+    })
   },
 
   async origin() {
@@ -978,6 +1023,8 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
 
   om stage       <array>                  material, dropout, marker floor
   om link        <parent> <sample>...     first-degree, sibling, duplicate, or unrelated
+  om father      <sample>... --candidates a,b,...
+                                         which candidate is the father of these samples
   om origin      <parent> <sample> [--other <array>]
                                          which parent's copy is missing, per region
   om cohort      <dir> --ref <array>      origin for every confirmed child in a directory
