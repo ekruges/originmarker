@@ -1,133 +1,82 @@
 /**
- * The per-marker series a call plot draws, and the geometry of the box over a call.
+ * What the cell figures draw: for each parent whose letters can be read, the share of the markers where
+ * that parent's letters could be seen at which they are, in bins along every chromosome.
  *
- * Built from the accumulator the one scoring pass already filled, after it is scored: no second
- * read of the file and no scan. Bounded: per chromosome at most CAP_INFORMATIVE markers where a
- * loaded parent is homozygous (the ones that can show whose letter is missing) and CAP_OTHER of
- * the rest, each drawn by a seeded reservoir so a chromosome of any length keeps the same budget
- * and the same file always keeps the same points.
+ * Built once per sample from the accumulator the one scoring pass filled, over every marker; only the
+ * bins are kept, so memory is bounded by markers over bin size. Measured on the open public cells with
+ * stated karyotypes (audit/truth/call-plot-levers-2026-11-17.txt).
+ *
+ * Bins hold a fixed number of the track's own markers, so every bar is equally trustworthy and a thin
+ * region never makes a ragged bar. The base bin is BASE markers; a figure merges whole base bins.
  */
 
-/** Markers where a loaded parent is homozygous, per chromosome. With both parents loaded only
- *  about 3 in 100 markers are, so a shared budget would leave too few to show a parent's letter
- *  missing; they get a budget of their own. */
-export const CAP_INFORMATIVE = 1500
-/** Every other marker, per chromosome. A plot is at most about 1,000 px wide, so 4,000 points in
- *  all is about four per pixel column: enough for the bands to read, few enough to draw at once. */
-export const CAP_OTHER = 2500
+/** Markers in a base bin. Figures merge these into bars of BASE * k markers. */
+export const BASE = 50
+/** Markers per bar on the whole-cell figure: equal-count bins of 200 separated stated losses in noisy
+ *  cells better than 5 Mb bins or smaller counts (0.47 against 0.30 of inside bars past every other). */
+export const CELL_BAR = 200
+/** Most bars a track draws across the whole cell. A dense track (two-letter calls, call rate) gets bars of
+ *  more markers, so the figure stays one bar per few pixels and each bar is no less trustworthy. */
+export const CELL_MAX_BARS = 300
 
-/** Sample genotype per marker: 0 no call, 1 AA, 2 AB, 3 BB. */
-export const GT_TEXT = ['no call', 'AA', 'AB', 'BB'] as const
-const GT_CODE: Record<string, number> = { AA: 1, AB: 2, BB: 3 }
+/** Base bins per bar for a track on the whole-cell figure. */
+export function cellPer(t: Track): number {
+  let n = 0
+  for (const bs of t.bins.values()) for (const b of bs) n += b.n
+  return Math.max(CELL_BAR / BASE, Math.ceil(n / (BASE * CELL_MAX_BARS)))
+}
 
-/** Whose letter alone the sample shows at a marker: 0 not readable, 1 the father's, 2 the mother's. */
-export type Who = 0 | 1 | 2
+/** Fewest bars a stretch gets on its own figure; the bar is shrunk to BASE markers at most to reach it. */
+export const MIN_STRETCH_BARS = 6
+/** Under this a stretch is not drawn on its own: no measure separated one band (about 6 Mb) by eye. */
+export const MIN_DRAWN_SPAN_BP = 6e6
 
-export interface ChromSeries {
-  /** Sorted by position. */
-  pos: Uint32Array
-  /** B allele frequency; NaN where the file gives none. */
-  baf: Float32Array
-  /** log R; NaN where the file gives none. */
-  lrr: Float32Array
-  gt: Uint8Array
-  who: Uint8Array
-  /** Markers on the chromosome before the budget, so the plot can say what it shows. */
-  total: number
-  /** Last marker position on the chromosome, kept or not. */
+export type Role = 'paternal' | 'maternal'
+
+export interface Bin {
+  startBp: number
   endBp: number
+  /** Markers in the bin. */
+  n: number
+  /** Share tracks: markers where the letter is present. Intensity: the median log R less the normal. */
+  k: number
+}
+
+/** One row of the figure. */
+export interface Track {
+  key: 'father' | 'mother' | 'two-letter' | 'call-rate' | 'intensity'
+  /** In words, for the figure. */
+  label: string
+  /** The technical name, for the hover. */
+  tech: string
+  /** The parent whose letters it counts, for its colour; none for the parent-free tracks. */
+  parent: Role | null
+  /** 'share' bars from 0 to 1; 'level' bars around 0. */
+  kind: 'share' | 'level'
+  /** Drawn as a row of the whole-cell figure. Intensity is kept for every run, for gains and the
+   *  one-line notes, and drawn only with no parent loaded. */
+  shown: boolean
+  bins: Map<string, Bin[]>
+}
+
+export interface PlotData {
+  tracks: Track[]
+  /** The cell's rate of false two-letter calls, where both parents are measured; NaN otherwise. */
+  dropIn: number
+  /** Last marker position per chromosome. */
+  endBp: Map<string, number>
 }
 
 /** The fields of scoreSample's Collected this reads. */
-export interface SeriesSource {
+export interface PlotSource {
   markerPos: ReadonlyMap<string, { chrom: string; pos: number }>
-  myBaf: ReadonlyMap<string, number>
   myGt: ReadonlyMap<string, string>
-  cnByChrom: ReadonlyMap<string, readonly { pos: number; log2R: number | null }[]>
+  cnByChrom: ReadonlyMap<string, readonly { pos: number; called: boolean; log2R: number | null }[]>
 }
 
-const hom = (g: string | undefined): boolean => g === 'AA' || g === 'BB'
+const hom = (g: string | undefined): g is 'AA' | 'BB' => g === 'AA' || g === 'BB'
+const isAuto = (c: string) => /^\d+$/.test(c) && +c >= 1 && +c <= 22
 
-/** Whose letter alone a homozygous call shows. A parent homozygous for the other letter has none
- *  of this one to give, so it came from the other parent. Both excluded is not Mendelian: 0. */
-export function whoseLetter(sample: string | undefined, father?: string, mother?: string): Who {
-  if (!hom(sample)) return 0
-  const notFather = hom(father) && sample !== father
-  const notMother = hom(mother) && sample !== mother
-  if (notFather && notMother) return 0
-  return notFather ? 2 : notMother ? 1 : 0
-}
-
-/** Seeded reservoir of indices into a stream. Deterministic per chromosome. */
-class Reservoir {
-  readonly keep: string[] = []
-  seen = 0
-  readonly cap: number
-  private seed: number
-  constructor(cap: number, seed: number) { this.cap = cap; this.seed = seed || 1 }
-  private rnd(): number {
-    this.seed = (this.seed * 1103515245 + 12345) & 0x7fffffff
-    return this.seed / 0x80000000
-  }
-  offer(id: string): void {
-    this.seen += 1
-    if (this.keep.length < this.cap) { this.keep.push(id); return }
-    const j = Math.floor(this.rnd() * this.seen)
-    if (j < this.cap) this.keep[j] = id
-  }
-}
-
-export function callSeries(
-  src: SeriesSource,
-  father: ReadonlyMap<string, string> | null,
-  mother: ReadonlyMap<string, string> | null,
-  caps: { informative: number; other: number } = { informative: CAP_INFORMATIVE, other: CAP_OTHER },
-): Map<string, ChromSeries> {
-  const pools = new Map<string, { inf: Reservoir; rest: Reservoir; end: number }>()
-  let lastChrom = ''
-  let p: { inf: Reservoir; rest: Reservoir; end: number } | undefined
-  for (const [id, { chrom, pos }] of src.markerPos) {
-    if (chrom !== lastChrom) { p = pools.get(chrom); lastChrom = chrom }
-    if (!p) {
-      // Seeded by the chromosome name, so the same file always keeps the same points.
-      const s = [...chrom].reduce((a, c) => a * 31 + c.charCodeAt(0), 7)
-      pools.set(chrom, p = { inf: new Reservoir(caps.informative, s), rest: new Reservoir(caps.other, s + 1), end: 0 })
-    }
-    if (pos > p.end) p.end = pos
-    const informative = (father !== null && hom(father.get(id)) || mother !== null && hom(mother.get(id)))
-      && src.myGt.has(id)
-    ;(informative ? p.inf : p.rest).offer(id)
-  }
-  const out = new Map<string, ChromSeries>()
-  for (const [chrom, p] of pools) {
-    const ids = [...p.inf.keep, ...p.rest.keep]
-      .map((id) => ({ id, pos: src.markerPos.get(id)!.pos }))
-      .sort((a, b) => a.pos - b.pos)
-    // log R is held per position on the copy-number channel; join the kept markers by position.
-    const lrrAt = new Map<number, number>()
-    for (const { pos } of ids) lrrAt.set(pos, NaN)
-    for (const m of src.cnByChrom.get(chrom) ?? []) {
-      if (m.log2R !== null && lrrAt.has(m.pos)) lrrAt.set(m.pos, m.log2R)
-    }
-    const n = ids.length
-    const s: ChromSeries = {
-      pos: new Uint32Array(n), baf: new Float32Array(n), lrr: new Float32Array(n),
-      gt: new Uint8Array(n), who: new Uint8Array(n), total: p.inf.seen + p.rest.seen, endBp: p.end,
-    }
-    ids.forEach(({ id, pos }, i) => {
-      const g = src.myGt.get(id)
-      s.pos[i] = pos
-      s.baf[i] = src.myBaf.get(id) ?? NaN
-      s.lrr[i] = lrrAt.get(pos) ?? NaN
-      s.gt[i] = g ? GT_CODE[g] ?? 0 : 0
-      s.who[i] = whoseLetter(g, father?.get(id), mother?.get(id))
-    })
-    out.set(chrom, s)
-  }
-  return out
-}
-
-/** Median of the finite values in a list, or NaN. */
 export function median(xs: readonly number[]): number {
   const v = xs.filter(Number.isFinite).sort((a, b) => a - b)
   if (!v.length) return NaN
@@ -135,85 +84,221 @@ export function median(xs: readonly number[]): number {
   return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2
 }
 
-/** The cell's own log R level: the median over every kept marker of every chromosome. A line to
- *  read a box against, not the tool's reference, which is chosen by its own rule. */
-export function cellLrr(series: ReadonlyMap<string, ChromSeries>): number {
-  const all: number[] = []
-  for (const s of series.values()) for (const v of s.lrr) all.push(v)
-  return median(all)
-}
-
-/** Median log R of the kept markers inside [startBp, endBp]. */
-export function boxLrr(s: ChromSeries, startBp: number, endBp: number): number {
-  const v: number[] = []
-  for (let i = 0; i < s.pos.length; i += 1) if (s.pos[i] >= startBp && s.pos[i] <= endBp) v.push(s.lrr[i])
-  return median(v)
-}
-
-/** Index of the kept marker nearest a position, or -1 on an empty series. */
-export function nearestIndex(pos: ArrayLike<number>, bp: number): number {
-  const n = pos.length
-  if (!n) return -1
-  let lo = 0
-  let hi = n - 1
-  while (lo < hi) {
-    const mid = (lo + hi) >> 1
-    if (pos[mid] < bp) lo = mid + 1
-    else hi = mid
+/** Base bins of BASE markers in position order; a last remainder of half a bin or less joins the bin
+ *  before it. `level` gives the bin a median instead of a count. */
+export function binBase(pos: Float64Array, x: Float64Array, level = false, size = BASE): Bin[] {
+  const o = [...pos.keys()].sort((a, b) => pos[a] - pos[b])
+  const out: Bin[] = []
+  for (let i = 0; i < o.length;) {
+    let j = Math.min(o.length, i + size)
+    if (o.length - j <= size / 2) j = o.length
+    const part = o.slice(i, j)
+    const k = level ? median(part.map((t) => x[t])) : part.reduce((s, t) => s + x[t], 0)
+    out.push({ startBp: pos[part[0]], endBp: pos[part[part.length - 1]], n: part.length, k })
+    i = j
   }
-  return lo > 0 && bp - pos[lo - 1] <= pos[lo] - bp ? lo - 1 : lo
+  return out
 }
 
-/** One box over a chromosome plot. `lines` are what the row that opened it shows, for the hover. */
-export interface PlotBox {
-  startBp: number
-  endBp: number
-  /** Edge intervals, where the tool localised the edges. */
-  startLoBp?: number
-  startHiBp?: number
-  endLoBp?: number
-  endHiBp?: number
-  withheld?: boolean
-  label: string
-  lines: string[]
+/** Bars of `per` base bins each. Counts add exactly; a level bar takes the median of its bins. */
+export function mergeBins(bins: readonly Bin[], per: number, level = false): Bin[] {
+  if (per <= 1) return [...bins]
+  const out: Bin[] = []
+  for (let i = 0; i < bins.length; i += per) {
+    const g = bins.slice(i, i + per)
+    if (out.length && g.length < per / 2) {
+      const last = out[out.length - 1]
+      const all = [last, ...g]
+      out[out.length - 1] = { startBp: last.startBp, endBp: g[g.length - 1].endBp, n: all.reduce((s, b) => s + b.n, 0),
+        k: level ? median(all.map((b) => b.k)) : all.reduce((s, b) => s + b.k, 0) }
+      continue
+    }
+    out.push({ startBp: g[0].startBp, endBp: g[g.length - 1].endBp, n: g.reduce((s, b) => s + b.n, 0),
+      k: level ? median(g.map((b) => b.k)) : g.reduce((s, b) => s + b.k, 0) })
+  }
+  return out
 }
 
-/** The tool's own edges for a segment: refined edges with their intervals, or the window edges. */
-export function segmentBox(sg: {
-  startBp: number; endBp: number
-  refined?: { startBp: number; startLoBp: number; startHiBp: number; endBp: number; endLoBp: number; endHiBp: number }
-}, label: string, lines: string[], withheld = false): PlotBox {
-  const r = sg.refined
-  return r
-    ? { startBp: r.startBp, endBp: r.endBp, startLoBp: r.startLoBp, startHiBp: r.startHiBp,
-      endLoBp: r.endLoBp, endHiBp: r.endHiBp, label, lines, withheld }
-    : { startBp: sg.startBp, endBp: sg.endBp, label, lines, withheld }
+/** The bar's value: the share for a share track, the level for an intensity track. */
+export const valueOf = (t: Pick<Track, 'kind'>, b: Bin): number => (t.kind === 'share' ? b.k / b.n : b.k)
+
+/**
+ * The tracks for one sample.
+ *
+ * Both parents measured: each parent's letters present where the parents are opposite homozygotes. One
+ * parent loaded: that parent's letter present where the other letter shows; the other parent's letters
+ * present where the run's other embryos read her as the opposite homozygote (`otherOpposite`), or else
+ * the two-letter calls. No parent: call rate, two-letter calls and intensity.
+ */
+export function plotData(src: PlotSource, x: {
+  loaded: { role: Role; gt: ReadonlyMap<string, string> } | null
+  second: ReadonlyMap<string, string> | null
+  /** Probe ids where the run's other draws read the other parent as the loaded one's opposite homozygote. */
+  otherOpposite?: ReadonlySet<string> | null
+  genomeLrr?: number
+}): PlotData {
+  type Acc = Map<string, { p: number[]; x: number[] }>
+  const acc = new Map<string, Acc>()
+  const put = (t: string, chrom: string, pos: number, v: number) => {
+    let a = acc.get(t)
+    if (!a) acc.set(t, a = new Map())
+    let c = a.get(chrom)
+    if (!c) a.set(chrom, c = { p: [], x: [] })
+    c.p.push(pos); c.x.push(v)
+  }
+  const endBp = new Map<string, number>()
+  const loaded = x.loaded
+  const other: Role | null = loaded ? (loaded.role === 'paternal' ? 'maternal' : 'paternal') : null
+  let sameHom = 0; let sameHomAB = 0
+  for (const [id, { chrom, pos }] of src.markerPos) {
+    if (!isAuto(chrom)) continue
+    if (pos > (endBp.get(chrom) ?? 0)) endBp.set(chrom, pos)
+    const s = src.myGt.get(id)
+    if (!loaded) continue
+    const p = loaded.gt.get(id)
+    if (!s || !hom(p)) continue
+    if (x.second) {
+      const q = x.second.get(id)
+      if (!hom(q)) continue
+      if (q === p) { sameHom += 1; if (s === 'AB') sameHomAB += 1; continue }
+      put(loaded.role, chrom, pos, s === 'AB' || s === p ? 1 : 0)
+      put(other!, chrom, pos, s === 'AB' || s === q ? 1 : 0)
+      continue
+    }
+    if (s !== p) put(loaded.role, chrom, pos, s === 'AB' ? 1 : 0)
+    if (x.otherOpposite?.has(id)) put(other!, chrom, pos, s !== p ? 1 : 0)
+  }
+  if (!loaded || (!x.second && !x.otherOpposite)) {
+    for (const [id, { chrom, pos }] of src.markerPos) {
+      if (!isAuto(chrom)) continue
+      const s = src.myGt.get(id)
+      if (s) put('two-letter', chrom, pos, s === 'AB' ? 1 : 0)
+    }
+  }
+  {
+    // The cell's own level: the median over every autosomal reading.
+    const all: number[] = []
+    for (const [chrom, ms] of src.cnByChrom) if (isAuto(chrom)) for (const m of ms) if (m.log2R !== null) all.push(m.log2R)
+    const sorted = Float64Array.from(all).sort()
+    const normal = x.genomeLrr ?? (sorted.length ? sorted[sorted.length >> 1] : 0)
+    for (const [chrom, ms] of src.cnByChrom) {
+      if (!isAuto(chrom)) continue
+      for (const m of ms) {
+        if (!loaded) put('call-rate', chrom, m.pos, m.called ? 1 : 0)
+        if (m.log2R !== null) put('intensity', chrom, m.pos, m.log2R - normal)
+      }
+    }
+  }
+  const NAME: Record<Role, string> = { paternal: 'father', maternal: 'mother' }
+  const spec = (key: string): Omit<Track, 'bins' | 'shown'> | null => {
+    if (key === 'paternal' || key === 'maternal') {
+      const who = NAME[key as Role]
+      const both = !!x.second
+      const own = loaded?.role === key
+      return {
+        key: who as 'father' | 'mother', parent: key as Role, kind: 'share',
+        label: `${who[0].toUpperCase()}${who.slice(1)}'s letters present`,
+        tech: both ? `share of called markers where the parents are opposite homozygotes reading AB or the ${who}'s homozygote`
+          : own ? `share AB among ${who}-homozygous markers where the other allele shows`
+            : `share showing the allele the loaded parent lacks, where the run's other draws read the ${who} as the opposite homozygote`,
+      }
+    }
+    if (key === 'two-letter') return { key, parent: null, kind: 'share', label: 'Two-letter calls', tech: 'AB share of called markers' }
+    if (key === 'call-rate') return { key, parent: null, kind: 'share', label: 'Markers read', tech: 'call rate' }
+    if (key === 'intensity') return { key, parent: null, kind: 'level', label: 'Copies, from intensity', tech: 'median log R less the normal' }
+    return null
+  }
+  const order = ['paternal', 'maternal', 'two-letter', 'call-rate', 'intensity']
+  const tracks: Track[] = []
+  for (const key of order) {
+    const a = acc.get(key)
+    const sp = spec(key)
+    if (!a || !sp) continue
+    const bins = new Map<string, Bin[]>()
+    for (const [chrom, c] of a) bins.set(chrom, binBase(Float64Array.from(c.p), Float64Array.from(c.x), sp.kind === 'level'))
+    tracks.push({ ...sp, shown: sp.key !== 'intensity' || !loaded, bins })
+  }
+  return { tracks, dropIn: sameHom > 200 ? sameHomAB / sameHom : NaN, endBp }
 }
 
-export interface BoxGeometry {
-  /** The called stretch, in pixels. */
-  x0: number
-  x1: number
-  /** The edge intervals, in pixels, drawn lighter. Absent where the edges were not localised. */
-  left?: [number, number]
-  right?: [number, number]
+/** The middle 80% of a track's bars on the chromosomes with no call: the cell's own normal range. */
+export function normalRange(t: Track, per: number, skip: ReadonlySet<string>): { lo: number; mid: number; hi: number } {
+  const v: number[] = []
+  for (const [c, bs] of t.bins) if (!skip.has(c)) for (const b of mergeBins(bs, per, t.kind === 'level')) v.push(valueOf(t, b))
+  v.sort((a, b) => a - b)
+  const at = (q: number) => (v.length ? v[Math.min(v.length - 1, Math.floor(q * v.length))] : NaN)
+  return { lo: at(0.1), mid: median(v), hi: at(0.9) }
 }
 
-/** Pixels for a box on a plot spanning [0, endBp] over [left, left + width]. Clamped to the plot,
- *  and never narrower than 2 px, so a call shorter than a pixel is still seen. */
-export function boxGeometry(b: PlotBox, endBp: number, left: number, width: number): BoxGeometry {
-  const x = (bp: number) => left + width * Math.max(0, Math.min(1, bp / Math.max(endBp, 1)))
-  let x0 = x(b.startBp)
-  let x1 = x(b.endBp)
-  if (x1 - x0 < 2) { const m = (x0 + x1) / 2; x0 = m - 1; x1 = m + 1 }
-  const g: BoxGeometry = { x0, x1 }
-  if (b.startLoBp !== undefined && b.startHiBp !== undefined) g.left = [x(b.startLoBp), x(b.startHiBp)]
-  if (b.endLoBp !== undefined && b.endHiBp !== undefined) g.right = [x(b.endLoBp), x(b.endHiBp)]
-  return g
+/** A share over the bars that lie inside [startBp, endBp], pooled by marker counts. */
+export function shareIn(bins: readonly Bin[], startBp: number, endBp: number): { share: number; n: number } {
+  let k = 0; let n = 0
+  for (const b of bins) if (b.startBp >= startBp && b.endBp <= endBp) { k += b.k; n += b.n }
+  return { share: n ? k / n : NaN, n }
+}
+
+/** Base bins per bar on a stretch's own figure: as many as keep MIN_STRETCH_BARS bars inside it, up to
+ *  the whole-cell bar. */
+export function perForStretch(bins: readonly Bin[], startBp: number, endBp: number): number {
+  const inside = bins.filter((b) => b.startBp >= startBp && b.endBp <= endBp).length
+  return Math.max(1, Math.min(CELL_BAR / BASE, Math.floor(inside / MIN_STRETCH_BARS)))
+}
+
+/**
+ * Evidence that the parent's copy is missing, added along the chromosome and held at zero from below,
+ * so it is flat where the copy is there and climbs where it is not. Per marker the log ratio of the
+ * marker's reading with the copy missing (present at `missing`, the cell's false two-letter rate) to with
+ * it there (present at `present`, the cell's normal level); summed per bar from its counts.
+ */
+export function runningScore(bins: readonly Bin[], present: number, missing: number): number[] {
+  const r1 = Math.max(missing, 0.02)
+  if (!(present > r1 && present < 1)) return bins.map(() => NaN)
+  const up = Math.log(r1 / present)
+  const dn = Math.log((1 - r1) / (1 - present))
+  let s = 0
+  return bins.map((b) => (s = Math.max(0, s + b.k * up + (b.n - b.k) * dn)))
+}
+
+/** The stretch a figure shows: a call under a sixth of its chromosome in a window around it. */
+export function viewOf(startBp: number, endBp: number, chromEndBp: number): { loBp: number; hiBp: number } {
+  const span = endBp - startBp
+  if (span >= chromEndBp / 6) return { loBp: 0, hiBp: chromEndBp }
+  const half = Math.max(span * 3.5, 6e6)
+  const mid = (startBp + endBp) / 2
+  let loBp = Math.max(0, mid - half)
+  let hiBp = Math.min(chromEndBp, mid + half)
+  if (hiBp - loBp < 2 * half) { if (loBp === 0) hiBp = Math.min(chromEndBp, 2 * half); else loBp = Math.max(0, chromEndBp - 2 * half) }
+  return { loBp, hiBp }
+}
+
+/**
+ * Whether a call's own figure is drawn, from what separated on the open public cells. Not drawn: a
+ * stretch under MIN_DRAWN_SPAN_BP; a gain on part of a chromosome; a partial loss with no parent; the
+ * other parent's copy on part of a chromosome where only two-letter calls stand for her.
+ */
+export function drawable(call: { whole: boolean; spanBp: number; gain: boolean; parent: Role | null },
+  data: PlotData): { draw: boolean; track: Track | null } {
+  const pick = (k: Track['key']) => data.tracks.find((t) => t.key === k) ?? null
+  const own = call.parent === 'paternal' ? pick('father') : call.parent === 'maternal' ? pick('mother') : null
+  if (call.whole) return { draw: true, track: own ?? pick('intensity') ?? pick('two-letter') }
+  if (call.spanBp < MIN_DRAWN_SPAN_BP || call.gain) return { draw: false, track: null }
+  if (own) return { draw: true, track: own }
+  return { draw: false, track: null }
 }
 
 /** Tick spacing in Mb for an axis of this length: about six ticks. */
-export function tickStepMb(endBp: number): number {
-  const mb = endBp / 1e6
+export function tickStepMb(spanBp: number): number {
+  const mb = spanBp / 1e6
   return [1, 2, 5, 10, 20, 25, 50, 100].find((s) => mb / s <= 7) ?? 100
+}
+
+/** Greedy word wrap at about `chars` per line. */
+export function wrap(text: string, chars: number): string[] {
+  const out: string[] = []
+  let line = ''
+  for (const w of text.split(' ')) {
+    if (line && line.length + 1 + w.length > chars) { out.push(line); line = w } else line = line ? `${line} ${w}` : w
+  }
+  if (line) out.push(line)
+  return out
 }

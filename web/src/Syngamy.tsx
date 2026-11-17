@@ -47,8 +47,8 @@ import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
-import { callSeries, cellLrr, segmentBox, type ChromSeries } from './plotSeries'
-import { CallPlot, DefectPlot, withheldBox, withheldRuns } from './CallPlot'
+import { plotData, type PlotData } from './plotSeries'
+import { CallFigure, CellFigure, defectMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
 import { defectsFrom, findingToDefect, mendelParent, parentNamed, runAlerts, withMechanism } from './defects'
 import type { DosageVerdict } from './dosageOrigin'
 import { groupUnits } from './abnormalities'
@@ -325,7 +325,7 @@ interface Entry {
   /** This file is a genotype Germline reconstructed, not an array anyone measured. */
   inferred?: boolean
   /** Per-chromosome markers for the call plots, from the scoring pass. See plotSeries.ts. */
-  series?: Map<string, ChromSeries>
+  series?: PlotData
 }
 
 /** One parent held as a call per marker. The shape is scoreSample's, so the two cannot diverge.
@@ -844,9 +844,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         const maternal = acc.tm && mat
           ? classify(acc.tm, mat.heterozygosity, { role: 'maternal' }) : undefined
         const paired = maternal ? pair(result, maternal, agree) : undefined
-        const loaded = pat.absent ? null : pat.gt
-        const series = soloRole === 'paternal'
-          ? callSeries(acc, loaded, mat?.gt ?? null) : callSeries(acc, null, loaded)
+        const series = plotData(acc, {
+          loaded: pat.absent ? null : { role: soloRole, gt: pat.gt }, second: mat?.gt ?? null,
+          otherOpposite: acc.otherOpposite ?? null,
+        })
         return { calls: acc.myGt, profile, gates, result, maternal, paired, series }
       }
       const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
@@ -1292,6 +1293,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
   // With both arrays the class comes from the pair: each parent is measured, so a maternal
   // origin is a presence rather than the shape left behind by a paternal absence.
   const originClass = entry.paired?.originClass ?? r.originClass
+  const marks = open ? marksOf(r, entry.series) : []
   // WITH NO PARENT THE HEADLINE IS WHAT WAS READ: the stage. A parental class has nothing behind it.
   // ONE PARENT LOADED AND NONE OF ITS GENOME IN THE ARRAY is a uniparental genome only if that adult
   // is the parent. With both loaded, the other's genome being present is what says so.
@@ -1434,11 +1436,13 @@ function ResultCard({ entry, donorName, oocyteName }: {
             </div>
           )}
           <SegmentCallout segments={r.segments} role={r.role} />
+          <CellFigure data={entry.series} marks={marks} name={plotName(entry)} />
           <DefectCallout
             defects={defectsForResult(r)}
-            plot={(d) => (
-              <DefectPlot d={d} segments={r.segments} refusals={r.refusals} series={entry.series} name={plotName(entry)} />
-            )}
+            plot={(d) => {
+              const mk = defectMark(d, r.segments, loadedRole(r), entry.series?.endBp.get(d.chrom))
+              return mk ? <CallFigure mark={mk} data={entry.series} marks={marks} name={plotName(entry)} /> : null
+            }}
           />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
@@ -1728,6 +1732,20 @@ const segmentLines = (sg: Segment, role: 'paternal' | 'maternal'): string[] => {
 
 const plotName = (e: Entry): string => e.file.name.replace(/\.[^.]*$/, '')
 
+/** The loaded parent's role, or none. */
+const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.noParent ? null : r.role)
+
+/** Every printed change and every run found and withheld, as the cell figures mark them. */
+function marksOf(r: ParentageResult, data: PlotData | undefined): Mark[] {
+  const marks: Mark[] = []
+  for (const d of defectsForResult(r)) {
+    const m = defectMark(d, r.segments, loadedRole(r), data?.endBp.get(d.chrom))
+    if (m) marks.push(m)
+  }
+  for (const sg of withheldRuns(r.refusals)) marks.push(withheldMark(sg, loadedRole(r)))
+  return marks
+}
+
 /** Opens or closes a row's chromosome plot. */
 const PlotToggle = ({ open, onClick }: { open: boolean; onClick: () => void }) => (
   <button
@@ -1872,7 +1890,7 @@ function SegmentCallout({ segments, role }: {
 
 function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: {
   result: ParentageResult; maternal?: ParentageResult; profile: SampleProfile; gates: Gate[]
-  series?: Map<string, ChromSeries>; name: string
+  series?: PlotData; name: string
 }) {
   const sex = r.chroms.filter((c) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
   const [plotAt, setPlotAt] = useState<number | null>(null)
@@ -2002,10 +2020,9 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
           </Table>
           </Scroll>
           {plotSg && series ? (
-            <CallPlot
-              chrom={plotSg.chrom} series={series.get(plotSg.chrom)} name={name} cellLrr={cellLrr(series)}
-              boxes={[segmentBox(plotSg, kindLabel(plotSg.kind, r.role, plotSg), segmentLines(plotSg, r.role)),
-                ...held.filter((w) => w.chrom === plotSg.chrom).map(withheldBox)]}
+            <CallFigure
+              mark={segmentMark(plotSg, loadedRole(r), segmentLines(plotSg, r.role))}
+              data={series} marks={marksOf(r, series)} name={name}
             />
           ) : null}
           <Text size="xs" c="dimmed" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
@@ -2041,10 +2058,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
                 {' '}{(segmentCoords(sg).spanBp / 1e6).toFixed(2)} Mb, {int(sg.markers)} markers, withheld
               </Text>
               {heldAt === i ? (
-                <CallPlot
-                  chrom={sg.chrom} series={series.get(sg.chrom)} boxes={[withheldBox(sg)]} name={name}
-                  cellLrr={cellLrr(series)}
-                />
+                <CallFigure mark={withheldMark(sg, loadedRole(r))} data={series} marks={marksOf(r, series)} name={name} />
               ) : null}
             </div>
           ))}

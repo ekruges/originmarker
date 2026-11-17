@@ -285,6 +285,9 @@ export interface Collected {
    *  measured parent), and the share at heterozygous calls. See oneParentGain.ts. */
   shareWByChrom: Map<string, WeightedShare> | null
   hetShareByChrom: Map<string, number[]> | null
+  /** Where the run's other draws read the other parent as the loaded one's opposite homozygote
+   *  (motherFromRun.ts). Set by the scoring pass for the cell figures; nothing scores on it. */
+  otherOpposite?: Set<string> | null
 }
 
 /**
@@ -550,6 +553,7 @@ function readMotherFromRun(x: {
   const run = motherFromRun({ markers, sample: acc.myGt, baf: (id) => acc.myBaf.get(id), others: sibs,
     parentKey: pat, rebuilt: !!pat.inferred, mMin: pat.inferred?.mMin })
   result.motherFromRun = { status: run.status, draws: run.draws, drawArrays: run.drawArrays }
+  acc.otherOpposite = run.opposite ?? null
   if (run.status !== 'used') {
     result.limits.push(`The run's other arrays were not used to read the ${her}: ${
       run.status === 'sample-unfit' ? 'this array\'s noise is too high to place it in an embryo'

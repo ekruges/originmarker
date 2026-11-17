@@ -1,0 +1,187 @@
+Levers for the hard cases of the "letters present" figure. Rules written before any count.
+17 November 2026. Open GSE148488 cells with a published karyotype (the 30 of the study), stated
+stretches as in study.py (band to GRCh37, guard at each edge). Never a sealed array.
+
+THE FIGURE (what is drawn, per setup)
+  both parents     P's letters present: share of called markers where the parents are opposite
+                   homozygotes that read AB or P's homozygote.
+  father alone     father's copy: share AB among father-homozygous markers where the other letter
+  (measured or     shows (AB or the opposite homozygote).
+  rebuilt)         mother's copy: share of called markers reading AB (two-letter calls), and the
+                   share of father-homozygous markers reading the mother's letter alone.
+  inferred mother  P's letters present as for both parents, with her genotype read off the run's
+                   other embryos (lever 4).
+
+HARD AND EASY (fixed before counting)
+  hard: the cell is noisy (drop-in, below, over 0.15), or the setup is father alone or rebuilt
+        father, or the stated stretch is under 15 Mb.
+  easy: everything else (clean cell, both parents, stretch 15 Mb or more).
+
+MEASURES
+  beyond  share of inside bins past every bin on the same cell's normal chromosomes.
+  AUC     inside bins against those bins.
+  band    share of inside bins below the 10th percentile of those bins (the pale band's floor).
+  in/out  median inside, median on normal chromosomes.
+
+LEVER 1  Equal-precision bars: bins of 50, 100 and 200 of the quantity's own markers, against the
+         5 Mb baseline. The last bin of a chromosome takes a remainder of half a bin or less.
+LEVER 2  The cell's normal range: middle 80% (10th to 90th percentile) of the quantity's bins on its
+         normal chromosomes, drawn behind the bars. Adds no separation by construction; measured as
+         "band" above and judged on the pictures.
+LEVER 3  Drop-in removed. d = the cell's rate of false two-letter calls:
+           both parents: AB share of called markers where both parents are the same homozygote
+                         (the tool's sameHom answer key).
+           father alone: AB share of called father-homozygous markers where the founder panel holds
+                         the allele he lacks at frequency 0 with n >= 100 (the tool's panel answer key).
+         Both parents: corrected = (raw - d) / (1 - d), clipped to [0, 1]. Monotone within a cell, so
+         beyond and AUC cannot change; only the levels change.
+         Father alone, father's copy: corrected = (AB - d*N) / (OS - d*N), clipped to [0, 1], where N
+         is the bin's called father-homozygous markers and OS those showing the other letter. Not
+         monotone, so it can change separation.
+LEVER 4  Mother read from the run's other embryos. Units: arrays of the same stated mother whose calls
+         agree at 0.90 or more of shared called markers (every 10th marker) are one embryo; one array per
+         unit (highest call rate). Draws: every unit but the sample's own; used where 2 or more.
+         At a father-homozygous marker, with q the founder frequency of the allele he lacks, her
+         posterior of being the opposite homozygote from the draws' shows (1 shows the allele he lacks,
+         0 does not, no call skipped): prior q^2 / 2q(1-q) / (1-q)^2 for opposite / heterozygous /
+         same; P(show) 0.85 / 0.44 / 0.03. Entered where the posterior is 0.5 or more.
+         This approximates rule 4 of motherFromRun.ts with fixed rates instead of per-draw fitted ones.
+LEVER 5  The running score. Per marker of the quantity's set, with x = 1 where P's letter is present:
+         step = log P(x | copy missing) - log P(x | present), present rate r0 = the share on the cell's
+         normal chromosomes, missing rate r1 = max(d, 0.02). Stretch measure: the sum over the inside
+         markers against the largest sum over any run of as many consecutive markers on the normal
+         chromosomes; "clear" where it exceeds it.
+
+RESULTS, every draw of her the series offers (14 to 16 per cell)
+--------------------------------------------------------------
+LEVER 1. Bins: 5 Mb against equal counts. The drawn quantity, raw. Mean beyond / band, median AUC / in / out.
+  mb5000000
+    easy                 n= 84 beyond 0.85 auc 1.00 band 0.97 in 0.13 out 0.81
+    hard all             n=264 beyond 0.42 auc 0.97 band 0.79 in 0.28 out 0.82
+     noisy cell (both)   n= 27 beyond 0.30 auc 0.97 band 0.87 in 0.17 out 0.84
+     father alone        n=116 beyond 0.43 auc 0.97 band 0.78 in 0.33 out 0.82
+     rebuilt father      n=116 beyond 0.41 auc 0.97 band 0.78 in 0.27 out 0.80
+     short (<15 Mb)      n= 15 beyond 0.47 auc 0.99 band 0.87 in 0.09 out 0.13
+  n50
+    easy                 n= 84 beyond 0.89 auc 1.00 band 0.98 in 0.12 out 0.82
+    hard all             n=265 beyond 0.28 auc 0.92 band 0.63 in 0.28 out 0.80
+     noisy cell (both)   n= 27 beyond 0.29 auc 0.97 band 0.83 in 0.18 out 0.84
+     father alone        n=117 beyond 0.24 auc 0.87 band 0.59 in 0.32 out 0.80
+     rebuilt father      n=117 beyond 0.30 auc 0.89 band 0.62 in 0.25 out 0.78
+     short (<15 Mb)      n= 16 beyond 0.32 auc 0.67 band 0.48 in 0.11 out 0.12
+  n100
+    easy                 n= 84 beyond 0.94 auc 1.00 band 0.98 in 0.13 out 0.81
+    hard all             n=263 beyond 0.35 auc 0.94 band 0.68 in 0.27 out 0.81
+     noisy cell (both)   n= 27 beyond 0.39 auc 0.98 band 0.82 in 0.20 out 0.84
+     father alone        n=117 beyond 0.33 auc 0.91 band 0.65 in 0.32 out 0.81
+     rebuilt father      n=117 beyond 0.36 auc 0.93 band 0.66 in 0.26 out 0.79
+     short (<15 Mb)      n= 14 beyond 0.27 auc 0.64 band 0.47 in 0.10 out 0.13
+  n200
+    easy                 n= 78 beyond 0.95 auc 1.00 band 0.97 in 0.13 out 0.82
+    hard all             n=260 beyond 0.42 auc 0.96 band 0.73 in 0.28 out 0.81
+     noisy cell (both)   n= 27 beyond 0.47 auc 0.99 band 0.88 in 0.20 out 0.86
+     father alone        n=117 beyond 0.40 auc 0.93 band 0.71 in 0.34 out 0.81
+     rebuilt father      n=116 beyond 0.42 auc 0.96 band 0.71 in 0.26 out 0.79
+     short (<15 Mb)      n= 11 beyond 0.09 auc 0.54 band 0.36 in 0.11 out 0.12
+
+LEVER 2. The normal-range band: share of inside bins under the band floor (10th percentile), n100.
+    easy                 n= 84 band 0.98 beyond 0.94
+    hard all             n=263 band 0.68 beyond 0.35
+     noisy cell (both)   n= 27 band 0.82 beyond 0.39
+     father alone        n=117 band 0.65 beyond 0.33
+     rebuilt father      n=117 band 0.66 beyond 0.36
+     short (<15 Mb)      n= 14 band 0.47 beyond 0.27
+
+LEVER 3. Drop-in removed, n100.
+  both     present    raw       
+    easy                 n= 84 beyond 0.94 auc 1.00 band 0.98 in 0.13 out 0.81
+    hard all             n= 29 beyond 0.43 auc 0.99 band 0.83 in 0.17 out 0.84
+     noisy cell (both)   n= 27 beyond 0.39 auc 0.98 band 0.82 in 0.20 out 0.84
+     short (<15 Mb)      n=  2 beyond 1.00 auc 1.00 band 1.00 in 0.07 out 0.86
+  both     present    corrected 
+    easy                 n= 84 beyond 0.94 auc 1.00 band 0.98 in 0.08 out 0.80
+    hard all             n= 29 beyond 0.40 auc 0.99 band 0.70 in 0.02 out 0.81
+     noisy cell (both)   n= 27 beyond 0.35 auc 0.98 band 0.68 in 0.02 out 0.81
+     short (<15 Mb)      n=  2 beyond 1.00 auc 1.00 band 1.00 in 0.03 out 0.85
+  father   cond       raw       
+    hard all             n= 68 beyond 0.56 auc 0.98 band 0.88 in 0.48 out 0.85
+     father alone        n= 68 beyond 0.56 auc 0.98 band 0.88 in 0.48 out 0.85
+     short (<15 Mb)      n=  1 beyond 0.83 auc 0.99 band 1.00 in 0.47 out 0.87
+  father   cond       corrected 
+    hard all             n= 68 beyond 0.08 auc 0.69 band 0.19 in 0.00 out 0.17
+     father alone        n= 68 beyond 0.08 auc 0.69 band 0.19 in 0.00 out 0.17
+     short (<15 Mb)      n=  1 beyond 0.00 auc 0.93 band 0.83 in 0.36 out 0.78
+  rebuilt  cond       raw       
+    hard all             n= 68 beyond 0.61 auc 0.99 band 0.90 in 0.41 out 0.86
+     rebuilt father      n= 68 beyond 0.61 auc 0.99 band 0.90 in 0.41 out 0.86
+     short (<15 Mb)      n=  1 beyond 1.00 auc 1.00 band 1.00 in 0.39 out 0.84
+  rebuilt  cond       corrected 
+    hard all             n= 68 beyond 0.12 auc 0.80 band 0.24 in 0.00 out 0.47
+     rebuilt father      n= 68 beyond 0.12 auc 0.80 band 0.24 in 0.00 out 0.47
+     short (<15 Mb)      n=  1 beyond 0.00 auc 1.00 band 1.00 in 0.33 out 0.81
+
+LEVER 4. The mother read from the run's other embryos (cells with 2 or more draws), n100.
+  father   paternal  cond         n= 68 beyond 0.56 auc 0.98 band 0.88 in 0.48 out 0.85  (whole 54)
+  father   paternal  inferred     n= 68 beyond 0.77 auc 1.00 band 0.95 in 0.18 out 0.87  (whole 54)
+  father   maternal  two_letter   n= 49 beyond 0.00 auc 0.70 band 0.33 in 0.08 out 0.13  (whole 42)
+  father   maternal  inferred     n= 48 beyond 0.72 auc 0.99 band 0.91 in 0.17 out 0.83  (whole 42)
+  father   maternal  mother_alone n= 49 beyond 0.00 auc 0.73 band 0.00 in 0.00 out 0.01  (whole 42)
+  father   maternal  inferred     n= 48 beyond 0.72 auc 0.99 band 0.91 in 0.17 out 0.83  (whole 42)
+  rebuilt  paternal  cond         n= 68 beyond 0.61 auc 0.99 band 0.90 in 0.41 out 0.86  (whole 54)
+  rebuilt  paternal  inferred     n= 65 beyond 0.80 auc 1.00 band 0.96 in 0.17 out 0.85  (whole 54)
+  rebuilt  maternal  two_letter   n= 49 beyond 0.00 auc 0.70 band 0.33 in 0.08 out 0.13  (whole 42)
+  rebuilt  maternal  inferred     n= 44 beyond 0.73 auc 1.00 band 0.91 in 0.11 out 0.84  (whole 42)
+  rebuilt  maternal  mother_alone n= 49 beyond 0.00 auc 0.77 band 0.00 in 0.00 out 0.01  (whole 42)
+  rebuilt  maternal  inferred     n= 44 beyond 0.73 auc 1.00 band 0.91 in 0.11 out 0.84  (whole 42)
+
+LEVER 5. The running score over the stretch against the largest run as long on normal chromosomes.
+  both     paternal  present      clear: easy 1.00 (n=39)  hard 1.00 (n=12)  noisy 1.00 (n=11)  short 1.00 (n=1)
+  both     maternal  present      clear: easy 0.96 (n=24)  hard 0.75 (n=12)  noisy 0.71 (n=7)  short 0.80 (n=5)
+  father   paternal  cond         clear: easy -  hard 0.90 (n=48)  noisy -  short 1.00 (n=1)
+  father   paternal  inferred     clear: easy -  hard 0.98 (n=52)  noisy -  short 1.00 (n=1)
+  father   maternal  inferred     clear: easy -  hard 0.87 (n=38)  noisy -  short 0.80 (n=5)
+  father   maternal  two_letter   clear: easy -  hard 0.47 (n=38)  noisy -  short 0.00 (n=5)
+  rebuilt  paternal  cond         clear: easy -  hard 0.96 (n=49)  noisy -  short 1.00 (n=1)
+  rebuilt  paternal  inferred     clear: easy -  hard 0.98 (n=49)  noisy -  short 1.00 (n=1)
+  rebuilt  maternal  inferred     clear: easy -  hard 0.87 (n=38)  noisy -  short 0.80 (n=5)
+  rebuilt  maternal  two_letter   clear: easy -  hard 0.50 (n=40)  noisy -  short 0.00 (n=5)
+
+
+LEVER 4 AND 5 WITH TWO DRAWS OF HER
+-----------------------------------
+LEVER 4. The mother read from the run's other embryos (cells with 2 or more draws), n100.
+  father   paternal  cond         n= 68 beyond 0.56 auc 0.98 band 0.88 in 0.48 out 0.85  (whole 54)
+  father   paternal  inferred     n= 63 beyond 0.74 auc 1.00 band 0.95 in 0.24 out 0.87  (whole 54)
+  father   maternal  two_letter   n= 49 beyond 0.00 auc 0.70 band 0.33 in 0.08 out 0.13  (whole 42)
+  father   maternal  inferred     n= 44 beyond 0.75 auc 1.00 band 0.92 in 0.13 out 0.70  (whole 42)
+  father   maternal  mother_alone n= 49 beyond 0.00 auc 0.73 band 0.00 in 0.00 out 0.01  (whole 42)
+  rebuilt  paternal  cond         n= 68 beyond 0.61 auc 0.99 band 0.90 in 0.41 out 0.86  (whole 54)
+  rebuilt  paternal  inferred     n= 63 beyond 0.82 auc 1.00 band 0.96 in 0.28 out 0.85  (whole 54)
+  rebuilt  maternal  two_letter   n= 49 beyond 0.00 auc 0.70 band 0.33 in 0.08 out 0.13  (whole 42)
+  rebuilt  maternal  inferred     n= 43 beyond 0.71 auc 1.00 band 0.85 in 0.11 out 0.70  (whole 42)
+  rebuilt  maternal  mother_alone n= 49 beyond 0.00 auc 0.77 band 0.00 in 0.00 out 0.01  (whole 42)
+
+LEVER 5. The running score over the stretch against the largest run as long on normal chromosomes.
+  both     paternal  present      clear: easy 1.00 (n=39)  hard 1.00 (n=12)  noisy 1.00 (n=11)  short 1.00 (n=1)
+  both     maternal  present      clear: easy 0.96 (n=24)  hard 0.75 (n=12)  noisy 0.71 (n=7)  short 0.80 (n=5)
+  father   paternal  cond         clear: easy -  hard 0.90 (n=48)  noisy -  short 1.00 (n=1)
+  father   paternal  inferred     clear: easy -  hard 0.98 (n=52)  noisy -  short 1.00 (n=1)
+  father   maternal  inferred     clear: easy -  hard 0.88 (n=40)  noisy -  short 0.80 (n=5)
+  father   maternal  two_letter   clear: easy -  hard 0.47 (n=38)  noisy -  short 0.00 (n=5)
+  rebuilt  paternal  cond         clear: easy -  hard 0.96 (n=49)  noisy -  short 1.00 (n=1)
+  rebuilt  paternal  inferred     clear: easy -  hard 1.00 (n=52)  noisy -  short -
+  rebuilt  maternal  inferred     clear: easy -  hard 0.86 (n=35)  noisy -  short 0.80 (n=5)
+  rebuilt  maternal  two_letter   clear: easy -  hard 0.50 (n=40)  noisy -  short 0.00 (n=5)
+
+WHAT IS DRAWN, FROM THESE COUNTS
+--------------------------------
+Bars of a fixed number of the track's own markers (lever 1): 200 on the whole cell, beyond 0.95 easy and
+0.47 in noisy cells against 0.85 and 0.30 for 5 Mb bins; on a stretch's own figure the bar shrinks to keep
+six bars inside it. The cell's normal range is drawn behind the bars (lever 2): in noisy cells 0.82 to
+0.88 of inside bars sit under its floor though few clear every other bar. Drop-in is not removed from the
+bars (lever 3): with both parents it changes no ranking by construction, and with the father alone it
+destroys the measure (beyond 0.56 to 0.08). The mother read from the run (lever 4) is drawn as her track
+where the scoring pass reads her: beyond 0.74 to 0.75 with two draws of her against 0.56 and 0.00 without.
+The running score (lever 5) is drawn under a stretch where both parents are measured, the only setup
+whose missing rate the cell gives (the false two-letter rate): clear on every paternal stretch, noisy
+cells included. With one parent the score needs a missing rate the cell does not give, so it is not drawn.

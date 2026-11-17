@@ -181,6 +181,8 @@ export interface MotherFromRun {
   drawArrays: number[]
   /** Per chromosome: the weighted median of the loaded parent's allele share, and its summed weight. */
   shares: Map<string, { share: number; weight: number }>
+  /** Probe ids where she is entered as the loaded parent's opposite homozygote. For figures; scores nothing. */
+  opposite?: Set<string>
 }
 
 const unitOf = (markers: readonly RunMarker[], members: readonly Int8Array[], arrays: number[]) => {
@@ -289,7 +291,9 @@ export function motherFromRun(input: {
     for (const [s, x] of v) { acc += x; if (acc >= tot / 2) { med = s; break } }
     shares.set(c, { share: med, weight: tot })
   }
-  return { status: 'used', draws: draws.length, units: units.length, readable: readable.length + 1, drawArrays, shares }
+  const opposite = new Set<string>()
+  for (let i = 0; i < markers.length; i += 1) if (w[i] > 0) opposite.add(markers[i].id)
+  return { status: 'used', draws: draws.length, units: units.length, readable: readable.length + 1, drawArrays, shares, opposite }
 }
 
 /** One chromosome as the route reads it. `share` is the LOADED parent's allele share. */
