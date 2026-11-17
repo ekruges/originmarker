@@ -296,10 +296,14 @@ RELEASES: tuple[Release, ...] = (
             "leave a cell with an extra copy. Which parent that copy came from is in the alleles. "
             "With one parent on an array, an extra copy the intensity sees is now put to that "
             "question even where the alleles alone read it as a missing parent."),
+    Release("Cortical Reaction",
+            "When one sperm has fused, the egg's cortical reaction hardens its coat and nothing "
+            "else gets in. A file from a chip the tool is not proven on is now stopped at the door "
+            "the same way, with the reason, and is never scored with another chip's numbers."),
 )
 
-VERSION = "6.7.0"
-CODENAME = "Premature Separation"
+VERSION = "6.8.0"
+CODENAME = "Cortical Reaction"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
