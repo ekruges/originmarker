@@ -73,6 +73,10 @@ import {
   type ShareTally, type ShareCall,
 } from './oneParentState.ts'
 import {
+  gainReadAsLoss, emptyWeightedShare, addWeightedShare, weightedShareR, hetCallShare,
+  otherCopyFromHetCalls, type WeightedShare,
+} from './oneParentGain.ts'
+import {
   emptyCarryTally, addCarry, parentGenome, parentGenomeSentence, parentGenomeNotice, UNREAD,
   type CarryTally,
 } from './parentGenome.ts'
@@ -276,6 +280,10 @@ export interface Collected {
    *  parent. Null where that parent is not loaded or the panel carries no founder frequencies. */
   otherByChrom: Map<string, OtherMarker[]> | null
   otherMatByChrom: Map<string, OtherMarker[]> | null
+  /** One parent loaded: the gain test's share with a rebuilt parent's markers weighted (null with a
+   *  measured parent), and the share at heterozygous calls. See oneParentGain.ts. */
+  shareWByChrom: Map<string, WeightedShare> | null
+  hetShareByChrom: Map<string, number[]> | null
 }
 
 /**
@@ -334,6 +342,9 @@ export function emptyCollected(
     carryMatByChrom: (panel as FounderPanel | null | undefined)?.freqB && mat ? new Map() : null,
     otherByChrom: (panel as FounderPanel | null | undefined)?.freqB && !pat.absent ? new Map() : null,
     otherMatByChrom: (panel as FounderPanel | null | undefined)?.freqB && mat ? new Map() : null,
+    shareWByChrom: (panel as FounderPanel | null | undefined)?.freqB && !mat && pat.inferred
+      && Number.isFinite(pat.inferred.mMin) ? new Map() : null,
+    hetShareByChrom: (panel as FounderPanel | null | undefined)?.freqB && !mat && !pat.absent ? new Map() : null,
   }
 }
 
@@ -404,6 +415,19 @@ export function collectRow(
         let st = acc.shareByChrom.get(r.chrom)
         if (!st) acc.shareByChrom.set(r.chrom, st = emptyShareTally())
         addShare(st, fa, r.baf, fq, g === fa)
+        if (acc.shareWByChrom) {
+          let w = acc.shareWByChrom.get(r.chrom)
+          if (!w) acc.shareWByChrom.set(r.chrom, w = emptyWeightedShare())
+          addWeightedShare(w, fa, r.baf, fq, pat.inferred?.mMin)
+        }
+        if (acc.hetShareByChrom) {
+          const y = hetCallShare(fa, r.genotype, r.baf, fq)
+          if (y !== null) {
+            let ys = acc.hetShareByChrom.get(r.chrom)
+            if (!ys) acc.hetShareByChrom.set(r.chrom, ys = [])
+            ys.push(y)
+          }
+        }
         if (acc.carryByChrom) addCarry(carryTally(acc.carryByChrom, r.chrom), fa, r.genotype, fq)
         if (acc.carryMatByChrom && mat) {
           addCarry(carryTally(acc.carryMatByChrom, r.chrom), mat.gt.get(r.probesetId), r.genotype, fq)
@@ -830,7 +854,9 @@ export async function scoreSample(input: {
       const sc = shareCalls.get(c.chrom)
       if (!sc || c.verdict === 'not_measured') continue
       const lost = sc.state === 'other-lost' ? otherRole : sc.state === 'parent-lost' ? soloRole : undefined
-      if (!lost) continue
+      // A lost copy cannot raise intensity: on a chromosome the intensity scan calls gained, the loss
+      // state is the extra copy's share, and the gain test reads it. See oneParentGain.ts rule 1.
+      if (!lost || gainReadAsLoss(sc.state, c.aneuploidy === 'gain')) continue
       c.lostParent = lost
       if (c.aneuploidy === 'loss') c.aneuploidyParent = lost === soloRole ? 'this' : 'other'
     }
@@ -863,22 +889,50 @@ export async function scoreSample(input: {
     // So the loaded parent's share, 1 - r / (2 x that level), is 1/2, 2/3 or 1/3: the two-parent
     // share's units, read by the same test against the same cell's disomic chromosomes. Whole
     // chromosomes only. See audit/one-parent-gain-preregistration.txt.
-    const level = median([...shareCalls.values()].filter((x) => x.state === 'disomic' && Number.isFinite(x.r)).map((x) => x.r))
-    if (Number.isFinite(level) && level > 0) {
-      const shares = result.chroms.filter((c) => isAutosome(c.chrom)).map((c) => {
+    //
+    // A REBUILT parent's homozygotes are weighted by the chance each is real (oneParentGain rule 2),
+    // in this share only; the copy state keeps the unweighted r. A chromosome intensity calls gained
+    // is tested even where its copy state reads a lost parent (rule 1), and is never a reference.
+    const rOf = (chrom: string): number => {
+      const sc = shareCalls.get(chrom)
+      if (!sc) return NaN
+      return acc.shareWByChrom
+        ? weightedShareR(acc.shareByChrom!.get(chrom)!, acc.shareWByChrom.get(chrom)) : sc.r
+    }
+    // Rules 1 and 2 decide only on chromosomes the intensity scan calls gained; everywhere else the
+    // verdict is the unweighted test's (rule 4).
+    const sharesOf = (rFor: (chrom: string) => number, rules: boolean) => {
+      const level = median(result.chroms.filter((c) => shareCalls.get(c.chrom)?.state === 'disomic')
+        .map((c) => rFor(c.chrom)).filter((r) => Number.isFinite(r)))
+      if (!Number.isFinite(level) || level <= 0) return null
+      return result.chroms.filter((c) => isAutosome(c.chrom)).map((c) => {
         const sc = shareCalls.get(c.chrom)
-        const own = sc && Number.isFinite(sc.r) ? 1 - sc.r / (2 * level) : NaN
+        const r = rFor(c.chrom)
+        const own = Number.isFinite(r) ? 1 - r / (2 * level) : NaN
+        const measured = c.verdict !== 'not_measured'
         return {
           chrom: c.chrom,
           share: soloRole === 'paternal' ? own : 1 - own,
           informative: sc?.n2 ?? 0,
-          biparental: sc?.state === 'disomic' && c.verdict !== 'not_measured',
+          biparental: measured && (sc?.state === 'disomic'
+            || (rules && gainReadAsLoss(sc?.state, c.aneuploidy === 'gain'))),
+          reference: measured && sc?.state === 'disomic',
           lrrShift: c.lrrShift,
         }
       })
+    }
+    const shares = sharesOf((chrom) => shareCalls.get(chrom)?.r ?? NaN, false)
+    if (shares) {
       for (const g of scanAlleleGains(shares)) {
         const c = result.chroms.find((x) => x.chrom === g.chrom)
         if (c) c.alleleGain = g
+      }
+      const ruled = sharesOf(rOf, true)
+      if (ruled) {
+        for (const g of scanAlleleGains(ruled, ruled.filter((x) => x.reference))) {
+          const c = result.chroms.find((x) => x.chrom === g.chrom)
+          if (c && c.aneuploidy === 'gain') c.alleleGain = g
+        }
       }
       // ORIENTED WHERE INTENSITY HAS ALREADY CALLED THE GAIN, AND ONLY THERE. The test above can detect
       // a gain from the alleles alone at ALLELE_GAIN_Z, a bar set on two parents' share. One parent's
@@ -901,6 +955,26 @@ export async function scoreSample(input: {
           why: `intensity reads an extra copy, and against the loaded ${soloRole === 'paternal' ? 'father' : 'mother'} `
             + `the alleles read the ${parent} share ${Math.abs(g.z).toFixed(1)} of this cell's spread `
             + 'from its disomic chromosomes, toward the extra copy being that parent\'s' }
+      }
+      // THE OTHER PARENT'S COPY FROM THE HETEROZYGOUS CALLS, UPWARD ONLY (oneParentGain rule 3), where
+      // intensity calls the gain and the share above named no parent.
+      if (acc.hetShareByChrom) {
+        const refs = result.chroms.filter((c) => shareCalls.get(c.chrom)?.state === 'disomic'
+          && c.verdict !== 'not_measured')
+        for (const c of result.chroms) {
+          if (!isAutosome(c.chrom) || c.aneuploidy !== 'gain' || c.alleleGain?.verdict === 'gain') continue
+          const call = otherCopyFromHetCalls(acc.hetShareByChrom.get(c.chrom) ?? [],
+            refs.filter((x) => x.chrom !== c.chrom).map((x) => acc.hetShareByChrom!.get(x.chrom) ?? []))
+          if (!call?.named) continue
+          const g = c.alleleGain ?? { chrom: c.chrom, shift: NaN, z: NaN, scale: NaN, centre: NaN,
+            informative: shareCalls.get(c.chrom)?.n2 ?? 0, lrrShift: c.lrrShift }
+          c.alleleGain = { ...g, verdict: 'gain', parent: otherRole,
+            why: `intensity reads an extra copy, and where this cell is heterozygous at markers the loaded `
+              + `${soloRole === 'paternal' ? 'father' : 'mother'} is homozygous for, the allele that parent lacks `
+              + `holds ${call.median.toFixed(3)} of the signal against ${call.centre.toFixed(3)} on its other `
+              + `two-parent chromosomes, ${call.z.toFixed(1)} of their spread above. Only an extra copy of the `
+              + `${otherRole} parent lifts it` }
+        }
       }
     }
   }

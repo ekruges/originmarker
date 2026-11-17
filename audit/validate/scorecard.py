@@ -140,7 +140,9 @@ def census(prefixes):
 
 def constructed(rows):
     card, detail = {}, []
-    for cfg in ('one', 'two'):
+    for cfg in ('one', 'two', 'meas1'):
+        if not any(r['config'] == cfg for r in rows):
+            continue
         built = [r for r in rows if r['config'] == cfg and r['constructed'] != 'none']
         named = [r for r in built if r['gain'] == 'gain']
         right = [r for r in named if r['parent'] == r['constructed']]
@@ -152,6 +154,8 @@ def constructed(rows):
         base = [r for r in rows if r['config'] == cfg and r['constructed'] == 'none']
         card[f'{cfg}.false_gain_unmodified'] = sum(1 for r in base if r['gain'] == 'gain')
         card[f'{cfg}.other_chromosome_gains'] = sum(len(r['otherGains']) for r in built)
+        if any('lostParent' in r for r in built):
+            card[f'{cfg}.lost_parent_on_gain'] = sum(1 for r in built if r.get('lostParent'))
         for r in named:
             if r['parent'] != r['constructed']:
                 detail.append(f"constructed wrong {cfg} {r['gsm']} chr{r['chrom']} built {r['constructed']} named {r['parent']} z {r['z']:.2f}")
