@@ -30,6 +30,7 @@
  */
 import { intensityDetects } from './intensityNull.ts'
 import { COPY_SHIFT_FLOOR } from './parentage.ts'
+import type { SexMaterial } from './sexMaterial.ts'
 import { sexCall, type SexTally } from './sexing.ts'
 
 /**
@@ -73,6 +74,12 @@ export interface SexChromosomeInput {
   bulk?: boolean
   /** Whether this material is expected to carry two of each chromosome. */
   diploid: boolean
+  /** Why it is not, from sexMaterial.ts; a haploid cell gets its own reading. */
+  material?: SexMaterial
+  /** Why chrX has no level, where it has none: what the file lacks. */
+  xMissing?: string
+  /** Two X only where chrX is inside the array's own noise; set with no parent loaded. */
+  twoInsideNoise?: boolean
 }
 
 /**
@@ -99,20 +106,46 @@ export function callSexChromosomes(input: SexChromosomeInput): SexChromosomeCall
   const none = (why: string): SexChromosomeCall => ({
     xCopies: null, yBearing: o.yBearing, constitution: 'unresolved', aneuploid: false, why,
   })
-  if (!o.diploid) {
-    return none('this material is not expected to carry two of each chromosome, so one X is '
-      + 'ordinary rather than evidence of anything')
-  }
-  if (!Number.isFinite(o.xShift)) {
-    return none('chromosome X carries no intensity on this file, so its copy number was not '
-      + 'measured')
-  }
+  const xWhy = o.xMissing ?? 'chromosome X carries no intensity on this file'
   // The same two gates the autosomes are held to: the shift is bigger than this array's own
   // noise, and it is big enough to be a chromosome.
   const detects = (o.xZ === undefined || intensityDetects(o.xZ, true))
     && Math.abs(o.xShift) >= COPY_SHIFT_FLOOR
-  const xCopies = !detects ? 2 : o.xShift < 0 ? 1 : 3
   const level = `chrX sits ${o.xShift.toFixed(2)} log2 from this sample's autosomes`
+  if (!o.diploid && o.material?.haploid) {
+    // One genome: one X at the autosomes' level, or none and a Y. Neither is a sex.
+    const x = !Number.isFinite(o.xShift) ? `${xWhy}, so where chrX sits was not measured`
+      : !detects ? `${level}, which in one genome is one X`
+        : o.xShift < 0 ? `${level}, under them by more than a copy step, which in one genome is no X`
+          : `${level}, over them by more than a copy step, which is more than one X in one genome`
+    const y = o.yBearing === true ? 'chrY is present by its calls and intensity'
+      : o.yBearing === false ? 'chrY is genotyped on this panel and not present'
+        : 'this file cannot say whether chrY is present'
+    return none(`${o.material.why}, so one sex chromosome is its normal complement and says `
+      + `nothing of a sex. ${x}; ${y}`)
+  }
+  if (!o.diploid) {
+    return none(o.material?.why ?? 'this material is not expected to carry two of each chromosome, '
+      + 'so one X is ordinary rather than evidence of anything')
+  }
+  if (!Number.isFinite(o.xShift)) {
+    return none(`${xWhy}, so its copy number was not measured`)
+  }
+  // Beyond the noise and short of the copy step is neither level: on amplified single cells one X
+  // reads -0.3 and the copy step is 0.40, so "not a copy step" is not "two copies".
+  if (o.twoInsideNoise && !detects) {
+    const zOut = o.xZ !== undefined && intensityDetects(o.xZ, true)
+    if (zOut || Math.abs(o.xShift) >= COPY_SHIFT_FLOOR) {
+      return none(`${level}, ${zOut ? "beyond this array's own noise but short of the "
+        + `${COPY_SHIFT_FLOOR.toFixed(2)} log2 copy step` : `past the ${COPY_SHIFT_FLOOR.toFixed(2)} log2 `
+        + "copy step but inside this array's own noise"}, so one X or two is not separable here`)
+    }
+    if (o.yBearing === true) {
+      return none(`${level}, not a one-copy step, and chrY is present. A one-X level compressed by `
+        + 'amplification and 47,XXY are not separable without a parent')
+    }
+  }
+  const xCopies = !detects ? 2 : o.xShift < 0 ? 1 : 3
 
   if (xCopies === 1) {
     if (o.yBearing === true) {

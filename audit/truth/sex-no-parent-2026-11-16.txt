@@ -1,0 +1,236 @@
+Sex chromosomes with no parent loaded (plan item 3.12)
+=====================================================
+Written 16 November 2026, before any code was changed. Built on 6.5.0 (7545a95), branch
+sex-no-parent. Open arrays only. Per-array tables are untracked, under the main checkout's
+audit/local/sex-no-parent/.
+
+THE FAULT, IN THE CODE
+----------------------
+1. No chromosome X row with no parent. web/src/parentage.ts, classify(): the first row loop
+   (line 1343) builds a row only for a chromosome with parental markers in t.byChrom, which is
+   empty with no parent. The second loop, "a chromosome with no parental marker", skips every
+   chromosome that is not an autosome (line 1464:
+   `if (!isAutosome(c) || t.byChrom.has(c)) continue`). So chrX gets no row, although its call
+   rate and intensity are tallied (tallyRow, line 557) and its shift from the autosomes is
+   computed (line 1287).
+2. The false reason. web/src/scoreSample.ts line 1315 looks up the X row, finds none, passes
+   xShift NaN to callSexChromosomes, and web/src/sexChromosome.ts line 107 then writes "chromosome
+   X carries no intensity on this file". A missing row is not missing intensity.
+3. The header sex. web/src/ingest.ts callSex (line 257): chrX heterozygous calls over autosomal
+   ones, under 0.15 "male", over 0.55 "female". It is computed when the file is read, before any
+   stage, and printed in the file chip (Syngamy.tsx line 1136), the parse log (line 427), the
+   Sample quality table (line 1527) with its "sex call" gate row (ingest.ts line 545), and the PDF
+   (syngamyPdf.ts line 903). On a haploid cell every heterozygous call is noise, X and autosomes
+   alike, so the ratio sits near 1 and reads "female".
+4. Also seen: sexChromosome.ts asks only "diploid or not", and scoreSample.ts (line 1316) counts as
+   diploid any stage that is not haploid, unknown or failed. With no parent, a cell whose
+   heterozygosity comes from drop-in is staged on a diploid rung (stage.ts: drop-in is removed
+   only over the 25% ceiling), so chrX at the autosomes' level would read "XX" on a pronucleus
+   once fault 1 is fixed. Its reason for non-diploid material ("not expected to carry two of each
+   chromosome") is also false of a diploid array the stage refused.
+
+THE PHYSICS
+-----------
+  diploid XX       chrX at the autosomes' level, heterozygous like them
+  diploid XY       chrX one copy under the autosomes, still genotyped; chrY called where the
+                   file genotypes it
+  haploid, one X   chrX at the autosomes' level: every chromosome is at one copy
+  haploid, Y       no chrX; chrY called
+So the level of chrX says one X or two only where the cell is shown to carry two copies of its
+autosomes. Heterozygosity says so only once drop-in is removed: drop-in adds heterozygous calls to
+one genome. stage.ts measures haploid pronuclei at 0.2% to 1.4% heterozygous with drop-in removed,
+and HAPLOID_MAX_HET (10.5%) is the line a diploid reaches at any stage.
+
+Looked at before the rule was written, and recorded so it is not hidden: the stage and ploidy of the
+6.4.1 no-parent records against the stated sex. Of 257 stated arrays with a record: stated one X,
+2 haploid, 2 ploidy unknown, 1 staged diploid (single cell); stated XX, 10 diploid, 2 ploidy
+unknown (trophectoderm, drop-in removed); stated XY, 11 diploid, 1 ploidy unknown. 33 stated arrays
+(the lab's pronuclei, mostly) have no no-parent record yet. No sex outcome of the new rule was seen.
+
+THE RULE
+--------
+R1. chrX row. classify builds a chrX row from the call rate and the intensity wherever no row came
+    from parental markers, under the floor every row has (200 chrX markers). Like the parental X
+    row it carries no copy-number call: aneuploidy stays autosomal. The tally leaves the
+    pseudoautosomal region out only where it knows the assembly, and it takes the assembly from the
+    parent, so with no parent the region (about 7% of chrX markers on this array) stays in. That
+    lifts a one-X level toward zero by a few hundredths against a 0.40 copy floor; not changed here.
+R2. Two copies shown. With NO parent loaded, the sex chromosomes are read as a karyotype only on an
+    array that shows two copies of its autosomes:
+      - not where the stage failed or is unknown, nor where it is haploid;
+      - shown where heterozygosity with the stage's drop-in removed, (h - d) / (1 - d) with d the
+        founder-panel drop-in the stage was given, is over HAPLOID_MAX_HET;
+      - shown where the stage reads ploidy diploid with heterozygosity at or under HAPLOID_MAX_HET,
+        because there it was the BAF band, not heterozygosity, that said two copies;
+      - not shown otherwise: the heterozygous calls are what drop-in on one genome gives.
+    With a parent loaded nothing changes: the stage reads genome count from the parent's alleles
+    there, and gate S3 holds that path fixed.
+R3. Sex reading against ploidy. Where two copies are shown, callSexChromosomes as before (chrX
+    level against the autosomes, with chrY). Haploid: no sex; the reason says one sex chromosome is
+    a haploid cell's normal complement and states where chrX sits (at the autosomes' level: one X;
+    under them by COPY_SHIFT_FLOOR or more: no X) and whether chrY is read. Stage unresolved or two
+    copies not shown: no sex, and the reason says which.
+R4. Every "unresolved" reason true of the file. No chrX row: "fewer than 200 chromosome X markers"
+    (plus "outside the pseudoautosomal region" where the assembly is known). A row with no level:
+    "fewer than 200 chromosome X markers carry intensity". The stage reasons quote the stage and the
+    numbers of R2.
+R5. Header sex. The heterozygosity sex (profile.sex) is printed for a sample only where R2 shows two
+    copies; elsewhere the page says it is not read and why. Before a run there is no stage, so a
+    file in the sample slot shows no sex in its chip and its parse log; parents keep theirs (bulk
+    adults, and the parent checks read it). With a parent loaded, the page prints what 6.5.0 does.
+
+THE GATE (plan item 3.12, S1 to S5, fixed before this file)
+-----------------------------------------------------------
+S1. No parent, open arrays with a stated sex (the 290 of the 16 November measurement; stated class
+    parsed from the karyotype text exactly as fu/sex.py does). Printed sex = the header sex where
+    R5 prints it, and the sex-chromosome constitution where it is not "unresolved".
+      - stated one X (28): printed female or any constitution with two X: must be 0 (today 26).
+      - stated XX (12): right = a sex printed and every printed sex says female/XX. Today 12.
+      - stated XY (15): right = a sex printed and every printed sex says male/XY. Today 13.
+      - every array with no sex printed carries a reason.
+S2. Every unresolved reason checked against the file: a "fewer than 200 markers" reason against the
+    chrX counts read from the file; a stage reason against the recorded stage, ploidy, h and d.
+    All 290 S1 arrays and the 330 no-parent rows.
+S3. The 270 with-parent rows: the constitution identical to the 6.4.0 records
+    (/root/truth-run/p5/h.jsonl; 6.5.0 changed no scoring code).
+S4. The 270 with-parent and 330 no-parent rows: every field of every record identical to 6.4.0
+    except the chrX row and the sex field on no-parent rows, which R1 to R3 change. Validation
+    suite: no line worse than the 6.4.0 scorecard.
+S5. checks.sh and release-check.sh pass by exit code; browser run with and without a parent.
+    Release is not part of this branch.
+
+RESULTS
+-------
+The runs, in order, are below. The final run is the last section.
+Browser run, first pass (written before the rerun): with no parent the maternal pronucleus read
+HAPLOID with no sex badge, and Sample quality said "Sex: not read: staged haploid", but the reason the
+sex-chromosome reading gives (where chrX sits, whether chrY is read) was printed nowhere: the badge
+is hidden when the reading is unresolved. Change: the "Sex chromosomes" section of the detail now
+opens with one line, "Not read: <reason>." or "<constitution>: <reason>.". Page only; no reading
+changes.
+
+First scoring run (290 stated arrays, no parent), written before any change or rerun
+---------------------------------------------------------------------------------
+  stated one X (28):  printed two X 3, no sex printed 25            (bar: 0)
+  stated XX (12):     right 6, no sex printed 6                     (bar: 12)
+  stated XY (15):     right 4, no sex 4, "male" + 47,XXY 6, female/XX 1   (bar: 13)
+  S2: 211 unresolved reasons checked against the file, 0 false.
+Causes, read off the per-array records (table untracked):
+  A. 47,XXY on normal males. chrX sits -0.31 to -0.39 log2 with z -5 to -54: far beyond the array's
+     noise and short of the 0.40 copy step, so it reads "two copies", and with chrY present that is
+     47,XXY. On bulk DNA the level is -0.37 to -0.39: the pseudoautosomal region stays in with no
+     parent (R1 note), which lifts a one-X level toward zero. On single cells -0.31, compressed by
+     amplification.
+  B. Drop-in-corrected heterozygosity does not separate the two classes near the bar. The three
+     stated one-X cells printed XX read 0.106, 0.109 and 0.110 (staged diploid or ploidy unknown);
+     the six stated XX cells not read read 0.064 to 0.104. Stated one-X haploid-staged cells reach
+     0.075. The classes overlap from about 0.06 to 0.11, so no bar on this measure meets both S1
+     lines. The bar is not moved.
+  C. The one stated XY printed female/XX sits at -0.16 (z -5.5) with no chrY genotyped.
+Change before the rerun (A only; B and C are not changed):
+  A1. With no assembly known, the chrX level leaves out the pseudoautosomal region of both
+      assemblies (their union; on either assembly it removes under 0.4 Mb of ordinary chrX).
+  A2. With no parent loaded, two X is said only where chrX is inside the array's own noise (the
+      z gate the autosomes use, Z_CHROMOSOME). A level beyond the noise and short of the copy step
+      is unresolved, with that reason. With a parent the reading is left as 6.5.0 (S3).
+
+Second scoring run (A1, A2), written before any further change
+--------------------------------------------------------------
+  stated one X (28):  printed two X 3, no sex printed 25
+  stated XX (12):     right 6, no sex printed 6
+  stated XY (15):     right 9, no sex 4, "male" + 47,XXY 1, female/XX 1
+  S2: 226 unresolved reasons checked, 0 false.
+  Over all 290: 47,XXY still printed on 9 arrays, chrX at -0.11 to -0.58 with z -0.8 to -5.0 and a
+  chrY. Cause: "two copies" is still the default wherever one gate fails; on a noisy array a one-X
+  level sits inside the noise (z -0.8 at -0.32), and one array at -0.58 misses on z alone.
+Change before the rerun:
+  A2 widened. With no parent loaded, two X is said only where chrX is inside BOTH gates: inside the
+      array's noise and under the copy step. Failing one gate is unresolved.
+  A3. With no parent loaded, chrY present and chrX not shown at one copy is unresolved ("XY with a
+      compressed one-X level, or 47,XXY, not separable without a parent"), never 47,XXY.
+
+Third scoring run (A2 widened, A3)
+----------------------------------
+  stated one X (28):  printed two X 3, no sex printed 25
+  stated XX (12):     right 6, no sex printed 6
+  stated XY (15):     right 10, no sex 4, female/XX 1
+  S2: 237 unresolved reasons checked, 0 false. Over all 290, no 47,XXY, 47,XXX or 45,X printed.
+  S4, against the 6.4.0 records: every autosome entry and every other field identical on the 270
+  with-parent and the 330 no-parent rows. Only `sex` and the chrX entry differ.
+  S3 FAILS as built: 141 of the 270 with-parent rows changed their reading (77 to XX, 43 to
+  47,XXY, 12 XY, 4 45,X, 3 47,XXX, 2 XX to 47,XXX). Written before any change:
+    - 182 rows against a rebuilt father (recon, recon-standin) had no chrX row in 6.4.0: the
+      rebuilt parent gives no chrX markers. R1 built one, and the 6.5.0 reading then ran on it.
+    - 88 rows against a measured parent had their chrX level move by +0.02 to +0.03: the harness
+      tally knows no assembly with a parent either, so A1 dropped the pseudoautosomal region there
+      too (2 rows XX to 47,XXX).
+  Change before the rerun of the 270 with-parent rows: R1 and A1 apply with no parent loaded only,
+  so the parent path is 6.5.0's (S3). Where a parent is loaded and gives fewer than 200 chrX
+  markers, the reason now says that, not "no intensity": "the loaded parent gives fewer than 200
+  chromosome X markers to read against, so no chrX row was built".
+
+Final run (R1 and A1 with no parent only), 17 November
+------------------------------------------------------
+Code copy on tesla /root/om-sexnp4, records /root/sexnp4. Compared with /root/truth-run/p5 (6.4.0).
+  S1  FAILS on all three lines.
+        stated one X (28): printed two X 3 (bar 0; 6.5.0 printed female on 26), no sex 25
+        stated XX (12):    right 6 (bar 12), no sex printed 6
+        stated XY (15):    right 10 (bar 13), no sex 4, female/XX 1
+        every array with no sex printed carries a reason: yes, 290 of 290.
+      Over the 290, no 47,XXY, 47,XXX or 45,X is printed with no parent.
+      Why it fails, with the numbers above (cause B): drop-in-corrected heterozygosity overlaps
+      between stated one-X cells (up to 0.110) and stated XX cells (down to 0.064). A bar low
+      enough to read all twelve XX prints at least three one-X cells as XX; a bar high enough to
+      print no one-X cell as XX drops at least six XX. The stage itself stages the three one-X
+      cells diploid or ploidy unknown. The bar (HAPLOID_MAX_HET) was not moved. XY: four stated
+      males are not read for the same reason, one sits at -0.16 with no chrY genotyped.
+      The gate comes back as it stands: S1 cannot be met by this measure.
+  S2  PASSES. 237 unresolved reasons on the 290 and 238 on the 330 no-parent rows, each checked
+      against the file and the record: 0 false. The old "carries no intensity" reason is gone.
+  S3  PASSES. 270 with-parent rows: the sex reading and the chrX entry identical to 6.4.0.
+  S4  PASSES on records. 270 with-parent rows identical in every field. 330 no-parent rows:
+      every autosome entry, segment, finding, origin and refusal identical; only the new chrX
+      entry and `sex` differ (unresolved to XX 79, to XY 13).
+      Suite (audit/validate/run.sh, /root/sexnp4/suite) against scorecards/6.4.0.json: "NOTHING
+      MOVED SINCE PREVIOUS". No line worse.
+  S5  checks.sh 0, release-check.sh 0. Browser run below. Not released (not this branch's job).
+
+Browser run, final code, public arrays (GSE148488):
+  cell GSM4472401, no parent: header "SINGLE CELL  diploid", no sex badge; Sex chromosomes "Not
+    read: chrX sits 0.32 log2 from this sample's autosomes, beyond this array's own noise but short
+    of the 0.40 log2 copy step, so one X or two is not separable here."; Sample quality Sex
+    "female" (two copies shown: 13.2% heterozygous).
+  same cell, father GSM4472397: header "UNCLEAR  diploid  XX  4 chromosomal changes"; "XX: chrX
+    sits 0.32 log2 from this sample's autosomes, which is two copies." (as 6.5.0).
+  maternal pronucleus GSM4774673, no parent: header "HAPLOID  unknown", no sex badge; Sample
+    quality Sex "not read: staged haploid, one sex chromosome is its normal complement"; "Not
+    read: this cell is staged haploid: one genome, so one sex chromosome is its normal complement
+    and says nothing of a sex. chrX sits 0.26 log2 from this sample's autosomes, which in one
+    genome is one X; this file cannot say whether chrY is present."
+  A sample file's chip shows no sex before a run; a parent's does. Console: only /api/health 502.
+
+Seen and not changed (for the bottom list):
+  - With a parent loaded, the header sex is still the heterozygosity sex on haploid material.
+  - Against a rebuilt father there is no chrX row (the rebuild gives no chrX markers), so no sex
+    reading; the reason now says so.
+  - The harness tally knows no assembly even with a measured parent, so its chrX level keeps the
+    pseudoautosomal region; the page knows the assembly. The page and the harness differ by
+    +0.02 to +0.03 on chrX with a parent.
+
+DRAFT CHANGELOG PARAGRAPH (not in CHANGELOG.md)
+-----------------------------------------------
+**With no parent loaded, the sex chromosomes are read against the cell's own ploidy, and the page
+no longer prints "female" on a haploid cell.** 6.5.0 built no chromosome X row with no parent, so
+the reading was unresolved on every array, with a false reason ("chromosome X carries no
+intensity"), while the page printed a sex from heterozygous calls on X: "female" on 26 of 28 cells
+stated to carry one X, nearly all pronuclei. Now chrX gets a row from its call rate and intensity
+(the pseudoautosomal region of either assembly left out), and the sex is read only on an array that
+shows two copies of its autosomes: not haploid, and heterozygous past the 10.5% one genome reaches
+once the array's drop-in is removed. Two X needs chrX inside the array's noise and under the copy
+step; chrY with chrX short of a one-copy step is left unresolved rather than called 47,XXY. Every
+unresolved reading says why, in the Sex chromosomes section. Against stated answers with no
+parent: one X printed as XX on 3 of 28 (was female on 26), XX right on 6 of 12 (header was 12),
+XY right on 10 of 15 (header was 13); no 45,X, 47,XXX or 47,XXY printed. Drop-in-corrected
+heterozygosity overlaps between one-X and XX cells (0.064 to 0.110), so the rest stay unread with
+that reason. With a parent loaded every reading is as 6.5.0, and every autosome record is
+unchanged.

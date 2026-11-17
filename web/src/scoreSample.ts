@@ -45,6 +45,7 @@ import { uniparentalOrigin } from './uniparentalOrigin.ts'
 import { accumulateSex, emptySex, sexCall, type SexCall, type SexTally } from './sexing.ts'
 import type { InferredBanner } from './inferredArray.ts'
 import { callSexChromosomes } from './sexChromosome.ts'
+import { sexMaterial } from './sexMaterial.ts'
 import { reconcileParentSex } from './parentSanity.ts'
 import {
   relate, OPPOSITE_HOM_MAX, relatednessAssessable, REL,
@@ -290,6 +291,7 @@ export function emptyCollected(
   const t = emptyTally()
   const tm = mat ? emptyTally() : null
   t.build = pat.build
+  if (pat.absent) t.noParent = true
   if (tm) tm.build = mat?.build ?? null
   return {
     t,
@@ -1312,15 +1314,28 @@ export async function scoreSample(input: {
   //
   // Haploid material is not asked, because one X is what it is supposed to carry, and neither is
   // an array whose stage did not resolve: this reads the same intensity every other call rests on.
+  // With no parent, two copies must also be shown past drop-in: see sexMaterial.ts.
   const xChrom = result.chroms.find((c) => c.chrom === 'X' || c.chrom === '23')
-  const diploidMaterial = !uninterpretable && result.stage?.stage !== 'haploid'
-    && result.stage?.stage !== 'unknown'
+  const material = sexMaterial({
+    stage: result.stage, hetRate: profile.hetRate, dropIn: panelDropIn, parentLoaded: !pat.absent,
+  })
+  if (pat.absent) result.sexMaterial = material
   result.sexChromosome = callSexChromosomes({
     xShift: xChrom?.lrrShift ?? NaN,
     xZ: xChrom && Number.isFinite(xChrom.lrrZ) ? xChrom.lrrZ : undefined,
     y: acc.sex,
     bulk: bulkMaterial,
-    diploid: diploidMaterial,
+    diploid: material.diploid,
+    material,
+    twoInsideNoise: pat.absent,
+    // A row needs 200 chrX markers, its level 200 with intensity. The pseudoautosomal region is
+    // left out only where the tally knows the assembly, which comes from the parent.
+    xMissing: !xChrom && !pat.absent
+      ? 'the loaded parent gives fewer than 200 chromosome X markers to read against, so no chrX '
+        + 'row was built'
+      : `${!xChrom ? 'this file has fewer than 200 chromosome X markers'
+      : 'fewer than 200 chromosome X markers carry intensity on this file'}${t.build
+      ? ' outside the pseudoautosomal region' : ''}`,
   })
   if (result.sexChromosome.aneuploid) {
     log('WARN', `sex chromosomes: ${result.sexChromosome.constitution}. `
