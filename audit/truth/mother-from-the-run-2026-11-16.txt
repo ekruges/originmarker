@@ -177,6 +177,17 @@ M5 extra builds 0 wrong              met
 M6 rows                              met (1 row reordered, nothing lost)
 M7 checks, suite arm                 met; browser run and release held
 
+AFTER MERGING 6.8.0 (the chip check on every reader), 17 November
+-----------------------------------------------------------------
+No conflicts. On the merged code the 270 with-parent rows (with and without the run's other arrays) and
+the 330 no-parent rows are identical, record by record, to this build's own gate-run records; the suite
+and the 158 were not rerun. One page change made during the browser run: a one-parent sample read with
+no other array of its run now says so in its limits ("none were loaded with this one"); limits are not in
+the run records, so the comparison above stands. Browser run on public arrays: a cell of mother D read
+with three other cells of the run used 2 draws of her (the noisy one is refused, its limits say why) and
+reads the same calls as its harness record; the same cell alone says the run's other arrays were not
+used; with three sperm files the measured father is named, the samples score, and a plot opens.
+
 DRAFT CHANGELOG PARAGRAPH (not in CHANGELOG.md)
 ----------------------------------------------
 With one parent loaded, a run's other draws of the other parent now name the parent of an extra
@@ -186,4 +197,5 @@ on her genotype weighted by its own drop-in and dropout, and the two-parent test
 where the one-cell rules named no parent. Constructed gains with the run's other arrays given: rebuilt
 father 44 of 60 and 97 of 158 (was 37 and 74), measured father 47 and 99 (was 44 and 81), both parents
 37 and 92, no wrong parent. Nothing changes for a cell read alone, with both parents or with none; the
-limits text says how many draws of the other parent were used, or why none were.
+limits text says how many draws of the other parent were used, or why none were, including when no
+other array of the run was loaded.

@@ -533,6 +533,11 @@ function readMotherFromRun(x: {
   result: ParentageResult; soloRole: 'paternal' | 'maternal'; otherRole: 'paternal' | 'maternal'; log: LogFn
 }): void {
   const { acc, pat, sibs, shareCalls, result, soloRole, otherRole, log } = x
+  const her = otherRole === 'maternal' ? 'mother' : 'father'
+  if (!sibs.length) {
+    result.limits.push(`The run's other arrays were not used to read the ${her}: none were loaded with this one.`)
+    return
+  }
   const freqB = (acc.panel as FounderPanel).freqB!
   const markers: RunMarker[] = []
   for (const [id, where] of acc.markerPos) {
@@ -544,7 +549,6 @@ function readMotherFromRun(x: {
   }
   const run = motherFromRun({ markers, sample: acc.myGt, baf: (id) => acc.myBaf.get(id), others: sibs,
     parentKey: pat, rebuilt: !!pat.inferred, mMin: pat.inferred?.mMin })
-  const her = otherRole === 'maternal' ? 'mother' : 'father'
   result.motherFromRun = { status: run.status, draws: run.draws, drawArrays: run.drawArrays }
   if (run.status !== 'used') {
     result.limits.push(`The run's other arrays were not used to read the ${her}: ${
@@ -1217,7 +1221,7 @@ export async function scoreSample(input: {
   }
   // THE OTHER PARENT, READ OFF THE OTHER DRAWS OF HER THIS RUN HOLDS (motherFromRun.ts), where one parent
   // is loaded and shown, and the cell has a two-copy majority to read intensity against.
-  if (!two && parentShown && sibs.length && shareCalls.size && !intensityWithheld
+  if (!two && parentShown && shareCalls.size && !intensityWithheld
     && (acc.panel as FounderPanel | null)?.freqB) {
     readMotherFromRun({ acc, pat, sibs, shareCalls, result, soloRole, otherRole, log })
   }
