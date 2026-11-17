@@ -83,6 +83,31 @@ const noY: SexTally = {
   assert.equal(callSexChromosomes({ diploid: true, xShift: -0.31, xZ: -6.7, y: yes }).constitution, '47,XXY')
 }
 
+// --- 2c. HETEROZYGOSITY ON X, WITH NO PARENT, ON TWO COPIES ONLY ----------------------------------
+{
+  const yes: SexTally = { ...noY, yCalled: 48, yLrr: Array(51).fill(0.3) }
+  const np = { diploid: true, twoInsideNoise: true }
+  // Intensity between levels, heterozygous X: XX, and the reason says which evidence.
+  const xx = callSexChromosomes({ ...np, hetSex: 'female', hetRatio: 1.1, xShift: 0.32, xZ: 6, y: noY })
+  assert.equal(xx.constitution, 'XX')
+  assert.ok(xx.why.startsWith('heterozygous calls on chrX read two X'), xx.why)
+  // Heterozygous X and a chrY: they disagree, nothing printed.
+  const bad = callSexChromosomes({ ...np, hetSex: 'female', hetRatio: 1.1, xShift: -0.32, xZ: -0.8, y: yes })
+  assert.equal(bad.constitution, 'unresolved')
+  assert.ok(bad.why.startsWith('the readings disagree'))
+  // No heterozygous X and a chrY: XY.
+  assert.equal(callSexChromosomes({ ...np, hetSex: 'male', hetRatio: 0.05, xShift: -0.32, xZ: -0.8, y: yes })
+    .constitution, 'XY')
+  // Intensity one copy, heterozygosity two: disagree.
+  assert.equal(callSexChromosomes({ ...np, hetSex: 'female', hetRatio: 1, xShift: -0.6, xZ: -20, y: noY })
+    .constitution, 'unresolved')
+  // Not shown two copies, or a parent loaded: heterozygosity is not consulted.
+  assert.equal(callSexChromosomes({ diploid: false, twoInsideNoise: true, hetSex: 'female', xShift: 0, y: noY })
+    .constitution, 'unresolved')
+  assert.equal(callSexChromosomes({ diploid: true, hetSex: 'female', xShift: -0.31, xZ: -6.7, y: yes })
+    .constitution, '47,XXY')
+}
+
 // --- 3. THE REASON FOR A MISSING LEVEL IS WHAT THE FILE LACKS ------------------------------------
 {
   const c = callSexChromosomes({ diploid: true, xShift: NaN, y: noY,

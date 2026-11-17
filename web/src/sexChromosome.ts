@@ -30,6 +30,7 @@
  */
 import { intensityDetects } from './intensityNull.ts'
 import { COPY_SHIFT_FLOOR } from './parentage.ts'
+import type { Sex } from './ingest.ts'
 import type { SexMaterial } from './sexMaterial.ts'
 import { sexCall, type SexTally } from './sexing.ts'
 
@@ -80,6 +81,9 @@ export interface SexChromosomeInput {
   xMissing?: string
   /** Two X only where chrX is inside the array's own noise; set with no parent loaded. */
   twoInsideNoise?: boolean
+  /** The heterozygosity sex (ingest.ts callSex) and its ratio, read with no parent loaded. */
+  hetSex?: Sex
+  hetRatio?: number | null
 }
 
 /**
@@ -101,7 +105,42 @@ export function yPresent(o: SexChromosomeInput): boolean | null {
   return null
 }
 
+/**
+ * With no parent, on material shown to hold two copies, heterozygous calls on chrX are a second
+ * reading of the X count: real on two genomes, which is the only material this is asked of. The
+ * bands are callSex's. A reading is printed only where nothing measured contradicts it.
+ */
 export function callSexChromosomes(input: SexChromosomeInput): SexChromosomeCall {
+  const c = byIntensity(input)
+  if (!input.hetSex || !input.twoInsideNoise || !input.diploid) return c
+  const het = input.hetSex === 'female' ? 2 : input.hetSex === 'male' ? 1 : null
+  if (het === null) return c
+  const ratio = input.hetRatio == null ? '' : ` ${input.hetRatio.toFixed(2)}`
+  const hetWhy = `heterozygous calls on chrX read ${het === 2 ? 'two X' : 'one X'} (chrX to autosome `
+    + `heterozygosity ratio${ratio}, in the ${input.hetSex} band)`
+  const y = c.yBearing
+  const no = (why: string): SexChromosomeCall => ({
+    xCopies: null, yBearing: y, constitution: 'unresolved', aneuploid: false, why,
+  })
+  if (c.xCopies !== null && c.xCopies !== het) {
+    return no(`the readings disagree: ${hetWhy}; by intensity, ${c.why}`)
+  }
+  if (het === 2 && y === true) return no(`the readings disagree: ${hetWhy}, and chrY is present`)
+  if (c.constitution !== 'unresolved') return { ...c, why: `by intensity, ${c.why}; and ${hetWhy}` }
+  if (het === 2) {
+    return { xCopies: 2, yBearing: y, constitution: 'XX', aneuploid: false,
+      why: `${hetWhy}; intensity alone did not separate one X from two (${c.why})` }
+  }
+  if (y === true) {
+    return { xCopies: 1, yBearing: y, constitution: 'XY', aneuploid: false,
+      why: `${hetWhy}, and chrY is present by its calls and intensity` }
+  }
+  return no(`${hetWhy}, and ${y === false ? 'chrY is genotyped on this panel and not present'
+    : 'this file cannot say whether chrY is present'}: a male karyotype and a monosomy X are not `
+    + 'separable from heterozygosity')
+}
+
+function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
   const o = { ...input, yBearing: yPresent(input) }
   const none = (why: string): SexChromosomeCall => ({
     xCopies: null, yBearing: o.yBearing, constitution: 'unresolved', aneuploid: false, why,

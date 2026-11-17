@@ -234,3 +234,46 @@ XY right on 10 of 15 (header was 13); no 45,X, 47,XXX or 47,XXY printed. Drop-in
 heterozygosity overlaps between one-X and XX cells (0.064 to 0.110), so the rest stay unread with
 that reason. With a parent loaded every reading is as 6.5.0, and every autosome record is
 unchanged.
+
+CANDIDATE B (written 17 November before it was built or counted; for the owner's ruling)
+---------------------------------------------------------------------------------------
+Kept on a second commit on this branch, so either version can be released.
+On a sample with NO parent loaded that R2 shows to hold two copies of its autosomes (condition
+unchanged), the sex-chromosome line also takes the heterozygosity reading of chrX: ingest.ts
+callSex with its existing bands (ratio under 0.15 one X, over 0.55 two X, between: no reading). No
+new bar. Combined with the intensity reading (after A1 to A3) and chrY:
+  - intensity reads a copy count and heterozygosity reads a different one: nothing printed, the
+    reason says the readings disagree and gives both;
+  - heterozygosity two X and chrY present: nothing printed, disagree;
+  - they agree, or intensity gives no count: heterozygosity two X prints XX; one X with chrY
+    present prints XY; one X without chrY read is unresolved (male or monosomy not separable);
+  - an aneuploid constitution is printed only where intensity itself reads it, as in the build.
+The reason names which evidence gave the reading: heterozygous calls on X, intensity, chrY.
+Material not shown to hold two copies, and every run with a parent loaded: exactly as the build.
+Counted on the same 290 stated arrays, beside the build and 6.5.0; S2 and S4 rerun on the 330
+no-parent rows. The with-parent path cannot move (the candidate is gated on no parent), so S3 is
+carried from the build's run and pinned by the check file.
+
+Candidate B, counted 17 November (code /root/om-sexnpB, records /root/sexnpB)
+  No parent, the 290 stated arrays:
+                                          6.5.0     build (0995d63)   candidate B
+    one X printed female or XX (of 28)     26           3                 3
+    XX right (of 12)                       12           6                 6
+    XY right (of 15)                       13          10                10
+    contradictions withheld                 -           -                 0
+    45,X, 47,XXX or 47,XXY printed          0           0                 0
+  6.5.0 is its header sex; it printed no sex-chromosome constitution with no parent.
+  B moves nothing among the stated arrays: the 6 XX and 4 XY not read are withheld by R2 (two
+  copies not shown: drop-in-corrected heterozygosity 0.064 to 0.104), which B leaves unchanged,
+  and the 3 one-X cells printed XX are printed so by intensity and heterozygosity together,
+  because R2 shows two copies on them (corrected 0.106, 0.109, 0.110; staged single-cell diploid,
+  blastomere diploid, trophectoderm ploidy unknown). They print XX under the build and under B.
+  S2: 212 reasons on the 290 and 194 on the 330 checked, 0 false.
+  S4: the 330 no-parent rows, every autosome entry and every other field identical to 6.4.0; only
+  chrX and `sex` differ (unresolved to XX 90, to XY 46). Against the build, B adds 44 readings
+  (XX 11, XY 33). Six of those cells have a measured-parent row: 1 XX agrees; 5 read XY where the
+  parent path (6.5.0) reads 47,XXY, the default-to-two-copies fault A3 removed with no parent. The
+  other 38 have no outside answer.
+  S3: not rerun. The candidate is gated on no parent (twoInsideNoise and hetSex are passed only
+  then), so the 270 with-parent rows run the build's code; sexMaterial.check.ts pins that a loaded
+  parent gives the 6.5.0 reading.
