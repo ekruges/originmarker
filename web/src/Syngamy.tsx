@@ -468,6 +468,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const [examples, setExamples] = useState(false)
   const [saving, setSaving] = useState(false)
   const [locus, setLocus] = useState<LocusRun | null>(null)
+  /** A file was removed since the last Run press. */
+  const [removed, setRemoved] = useState(false)
   /** Several files labelled sperm: what the search found, and the file it named. */
   const [fatherSearch, setFatherSearch] = useState<(ParentSearchText & { namedId?: string }) | null>(null)
   const pick = useRef<HTMLInputElement>(null)
@@ -641,6 +643,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         reportId: id,
         fromExamples: examples,
         locus,
+        fatherSearch,
         // The run-wide feature comparison, if someone ran it. Without this line the field exists,
         // the drawing code exists, and the section never prints: input.comparison is always
         // undefined and the bundling silently does not happen.
@@ -655,6 +658,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const run = async () => {
     setBusy(true)
     setStartedAt(new Date().toISOString())
+    setRemoved(false)
     let index = donor
     let maternalIndex = oocyte
 
@@ -795,13 +799,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       const sampleGt = new Map<string, Map<string, string>>()
       /** Finished samples, kept locally because patch() writes React state we cannot read back. */
       const finished: { id: string; result: ParentageResult }[] = []
-      // A RUN IS READ WHOLE. Sister arrays and units of one embryo are properties of every array in
-      // the run, so when a new sample comes in, the samples finished by an earlier Run are read again
-      // with it.
-      // ponytail: every earlier sample is read again, about 15 s each; keep each finished sample's
-      // calls across Run presses if runs grow large.
-      const queue = candidates.length > 1 || entries.some((e) => e.role === 'sample' && e.state !== 'done')
-        ? entries.filter((e) => e.role === 'sample') : []
+      // A RUN IS READ WHOLE. Sister arrays, units of one embryo and the parents are properties of
+      // every array in the run, and Run is offered only after the files or their labels change, so
+      // each press reads every sample again against the files loaded now.
+      // ponytail: every sample is read again on each press, about 15 s each; keep each finished
+      // sample's calls across Run presses if runs grow large.
+      const queue = entries.filter((e) => e.role === 'sample')
       // ONE IMPLEMENTATION OF THE ANSWER, in scoreSample.ts, which the command line and the
       // cross-surface check also call. What is left here is what only a browser has to do: read a
       // File, paint progress, and hold React state.
@@ -915,7 +918,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     setBusy(false)
   }
 
-  const pending = entries.some((e) => e.state === 'waiting')
+  // A file removed is a change too, though nothing is left waiting.
+  const pending = entries.some((e) => e.state === 'waiting') || removed
   // The file the samples were scored against: the one labelled sperm, or the one a search named.
   const sperm = entries.filter((e) => e.role === 'donor')
   const fatherEntry = sperm.length > 1 ? sperm.find((e) => e.id === fatherSearch?.namedId) : sperm[0]
@@ -1000,7 +1004,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 variant="subtle" size="xs" disabled={busy}
                 onClick={() => {
                   setEntries([]); setDonor(null); setOocyte(null); setLines([]); setFatherSearch(null)
-                  setStartedAt(null); setExamples(false); setLocus(null)
+                  setStartedAt(null); setExamples(false); setLocus(null); setRemoved(false)
                 }}
               >
                 Clear
@@ -1025,7 +1029,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                     maternal: undefined,
                     paired: undefined,
                   })}
-                  onRemove={() => setEntries((p) => p.filter((x) => x.id !== e.id))}
+                  onRemove={() => { setEntries((p) => p.filter((x) => x.id !== e.id)); setRemoved(true) }}
                 />
               ))}
           </div>

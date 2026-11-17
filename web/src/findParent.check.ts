@@ -72,4 +72,15 @@ assert.equal(both.outcome, 'several'); assert.equal(both.named, null); assert.eq
 assert.deepEqual(both.counts.map((c) => c.carries), [2, 3, 0])
 assert.match(fatherSearchText(both, ['f', 'm', 's']).line, /^No father is named: f is in 2, m is in 3 of 3 arrays/)
 
+// And the table reaches the printed report.
+const { buildReportPdf } = await import('./syngamyPdf.ts')
+const pdf = await buildReportPdf({
+  files: [], donorHeterozygosity: NaN, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+  tool: 'OriginMarker', reportId: 'CHECK', fromExamples: false, fatherSearch: text,
+})
+const txt = Buffer.from(await pdf.arrayBuffer()).toString('latin1')
+for (const s of ['Which file is the father', 'carries in 2, none in 1, not shown in 0', 'f.txt is the father']) {
+  assert.ok(txt.includes(s), `the report must print "${s}"`)
+}
+
 console.log('findParent.check ok')
