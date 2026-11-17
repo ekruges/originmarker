@@ -10,6 +10,9 @@ import {
 } from './inferredReference'
 import { loadFounderPanel } from './answerKeys'
 import {
+  emptyChipTally, idAt, idColumn, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableRefusal,
+} from './platform'
+import {
   emptySex, accumulateSex, sexCall, paternalGroup, type SexCall,
 } from './sexing'
 import { inferredArrayText, isInferredFile } from './inferredArray'
@@ -139,6 +142,40 @@ async function eachLine(
     await new Promise((r) => { setTimeout(r, 0) })
   }
   if (carry) fn(carry)
+}
+
+/**
+ * Why a file is not from the proven chip, or null when it is. Read in its own pass, before the file
+ * becomes a product, because a product's markers join the set as it streams. See platform.ts.
+ */
+async function chipRefusal(file: File): Promise<string | null> {
+  const known = (await loadFounderPanel())?.freqB
+  if (!known) return null
+  let map: ReturnType<typeof headerMap> = null
+  let header = ''
+  let idCol: ReturnType<typeof idColumn> = null
+  const chip = emptyChipTally()
+  const ids = emptyChipTally()
+  const builds = emptyBuildSums()
+  await eachLine(file, (line) => {
+    if (!map) {
+      if (!header && line.trim() && !line.startsWith('#')) header = line
+      map = headerMap(line)
+      if (map) return
+      if (idCol) {
+        const id = idAt(line, idCol)
+        if (id) { ids.markers += 1; if (known.has(id)) ids.known += 1 }
+      } else if ((idCol = idColumn(line))) header = line
+      return
+    }
+    const r = parseRow(line, map)
+    if (!r) return
+    tallyChip(chip, r.probesetId, r.chrom, known)
+    accumulateBuild(r, builds)
+  })
+  if (!map) return unreadableRefusal(missingRequired(header), idCol ? ids : null)
+  const call = recogniseChip(chip, buildVerdict(builds), missingSignals(map))
+  return call.proven ? null : call.text
 }
 
 /**
@@ -344,6 +381,12 @@ export function GermlinePage() {
         continue
       }
       try {
+        const refused = await chipRefusal(f)
+        if (refused) {
+          errs.push(`${f.name}: ${refused}`)
+          log('WARN', `${name}: ${refused}`)
+          continue
+        }
         const slot = ps.begin(name)
         const baf = { inBand: 0, total: 0 }
         const sx = emptySex()

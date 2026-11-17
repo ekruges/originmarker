@@ -19,6 +19,8 @@
  *                 [--other <array>]       the other parent, which puts every event on the
  *                                         reliable direction rather than half of them
  *   om link       <parent> <sample>...     first-degree, sibling, duplicate, or unrelated
+ *   om father     <sample>... --candidates <a,b,...>
+ *                                         which candidate is the father of these samples
  *   om cohort     <dir> --ref <array>      origin for every confirmed child in a directory
  *   om census     <dir>                    haploid products per group, for reconstruction
  *   om reconstruct <product>...            a parent's genotypes from that parent's haploid cells
@@ -52,6 +54,8 @@ const defects = await import(`${W}defects.ts`)
 // a parent from a sibling. Moved to web/src so both surfaces run the same measurement.
 const rel = await import(`${W}relatedness.ts`)
 const parentSanity = await import(`${W}parentSanity.ts`)
+const findParent = await import(`${W}findParent.ts`) as typeof import('../web/src/findParent.ts')
+const platform = await import(`${W}platform.ts`) as typeof import('../web/src/platform.ts')
 const { oppositeHom, windowedIbs0, secondParent, relate, REL,
   IBD0_SPREAD_MIN, IBD0_FLOOR_MAX } = rel as never as typeof import('../web/src/relatedness.ts')
 
@@ -148,7 +152,8 @@ function load(path: string, stride = 1, full = true): Loaded {
   for (let i = 0; i < 60; i += 1) if (lines[i] && !lines[i].startsWith('#')) { h = i; break }
   if (h < 0) die(`${path}: no header found in the first 60 lines`)
   const map = ingest.headerMap(lines[h])
-  if (!map) die(`${path}: header not recognised. Columns were: ${lines[h].slice(0, 120)}`)
+  if (!map) die(`${path}: ${platform.unreadableLines(lines, shippedKnown())}`)
+  provenChip(path, lines, h, map)
 
   const gt = new Map<string, AB>()
   const pos = new Map<string, { chrom: string, pos: number }>()
@@ -231,7 +236,8 @@ function readRows(path: string) {
   for (let i = 0; i < 60; i += 1) if (lines[i] && !lines[i].startsWith('#')) { h = i; break }
   if (h < 0) die(`${path}: no header found in the first 60 lines`)
   const map = ingest.headerMap(lines[h])
-  if (!map) die(`${path}: header not recognised. Columns were: ${lines[h].slice(0, 120)}`)
+  if (!map) die(`${path}: ${platform.unreadableLines(lines, shippedKnown())}`)
+  provenChip(path, lines, h, map)
   return function* () {
     for (let i = h + 1; i < lines.length; i += 1) {
       const r = ingest.parseRow(lines[i], map)
@@ -265,6 +271,38 @@ function founderPanel(): Map<string, 'AA' | 'BB'> | null {
   if (!existsSync(path)) return (panelCache = null)
   const raw = readFileSync(path)
   return (panelCache = answerKeys.parsePanel((path.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')))
+}
+
+/**
+ * The marker ids the proven chip is recognised by: those of the frequency panel `--panel` names,
+ * which is built from the arrays of the chip it serves, or else the shipped founder panel.
+ * `--no-panel` does not turn the check off; it only chooses what a score is read against. See
+ * web/src/platform.ts.
+ */
+let knownCache: Map<string, number> | null | undefined
+function shippedKnown(): Map<string, number> | null {
+  if (knownCache !== undefined) return knownCache
+  const path = args.flags.get('panel') ?? join(dirname(W.replace(/\/$/, '')), 'public', answerKeys.FOUNDER_PANEL_PATH)
+  if (!existsSync(path)) return (knownCache = null)
+  const raw = readFileSync(path)
+  return (knownCache = (answerKeys.parsePanel((path.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')) as
+    { freqB?: Map<string, number> }).freqB ?? null)
+}
+
+/** Every array read here is refused, with the page's words, unless it is from the proven chip. */
+function provenChip(path: string, lines: string[], h: number, map: NonNullable<ReturnType<typeof ingest.headerMap>>): void {
+  const known = shippedKnown()
+  if (!known) { process.stderr.write(`${path}: the founder panel is not on disk, so the chip is not checked\n`); return }
+  const rows: { probesetId: string; chrom: string }[] = []
+  const builds = ingest.emptyBuildSums()
+  for (let i = h + 1; i < lines.length; i += 1) {
+    const r = ingest.parseRow(lines[i], map)
+    if (!r) continue
+    rows.push(r)
+    ingest.accumulateBuild(r as never, builds as never)
+  }
+  const call = platform.recogniseRows(rows, ingest.buildVerdict(builds as never), map, known)
+  if (!call.proven) die(`${path}: ${call.text}`)
 }
 
 /** The parent, through the accumulator the browser fills. Read once and reused across a cohort. */
@@ -485,6 +523,48 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
           + 'all: the likelihood is the same read either way, so this command reports the '
           + 'relationship and leaves the direction to whoever knows which sample is the embryo.\n')
       })
+  },
+
+  // THE PAGE'S SEARCH, through the module it calls: each candidate read against each sample by the
+  // parent check, then one decision for the run. See findParent.ts.
+  father() {
+    const samples = args.positional
+    const paths = (args.flags.get('candidates') ?? '').split(',').filter(Boolean)
+    if (!samples.length || !paths.length) die('usage: om father <sample>... --candidates <a,b,...> [--json]')
+    const freqB = (founderPanel() as { freqB?: Map<string, number> } | null)?.freqB
+    if (!freqB) die('the parent check needs the founder panel\'s frequencies, and none is loaded')
+    const cands = paths.map((p) => loadParent(p))
+    const gts = cands.map((c) => c.pat.gt as Map<string, string>)
+    const cells = samples.map((p) => {
+      const t = findParent.emptyCandidateTallies(cands.length)
+      for (const r of readRows(p)()) findParent.addCandidateRow(t, gts, r as never, freqB)
+      return { id: idOf(p), genomes: findParent.candidateGenomes(t) }
+    })
+    const found = findParent.findParent(cells.map((c) => c.genomes), cands.length)
+    const text = findParent.fatherSearchText(found, cands.map((c) => c.id))
+    out({
+      candidates: cands.map((c) => c.id), outcome: found.outcome,
+      named: found.named === null ? null : cands[found.named].id,
+      ...text,
+      samples: cells.map((c) => ({
+        id: c.id, carries: findParent.carriers(c.genomes).map((i) => cands[i].id),
+        verdicts: c.genomes.map((g) => g.verdict),
+      })),
+    }, () => {
+      const w = Math.max(9, ...text.rows.map((r) => r.name.length))
+      process.stdout.write(`${'candidate'.padEnd(w)}  carries  none  not shown\n`)
+      for (const r of text.rows) {
+        process.stdout.write(`${r.name.padEnd(w)}  ${String(r.carries).padStart(7)}  `
+          + `${String(r.none).padStart(4)}  ${String(r.unshown).padStart(9)}\n`)
+      }
+      process.stdout.write(`\n${text.line}\n`)
+      if (text.abstain) process.stdout.write(`${text.abstain}\n`)
+      process.stdout.write(`Limit: ${text.limit}\n\n`)
+      for (const c of cells) {
+        const k = findParent.carriers(c.genomes)
+        process.stdout.write(`  ${c.id}  ${k.length ? `carries ${k.map((i) => cands[i].id).join(', ')}` : 'carries none'}\n`)
+      }
+    })
   },
 
   async origin() {
@@ -978,6 +1058,8 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
 
   om stage       <array>                  material, dropout, marker floor
   om link        <parent> <sample>...     first-degree, sibling, duplicate, or unrelated
+  om father      <sample>... --candidates a,b,...
+                                         which candidate is the father of these samples
   om origin      <parent> <sample> [--other <array>]
                                          which parent's copy is missing, per region
   om cohort      <dir> --ref <array>      origin for every confirmed child in a directory

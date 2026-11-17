@@ -9,6 +9,110 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.8.0 "Cortical Reaction"
+
+**A file from another chip is refused, with the reason, everywhere a file is read.** The tool is
+proven on one chip, the UK Biobank Axiom array, and until now it applied that chip's numbers to any
+file with the right columns, printing a haploid stage and a damaged-sample banner on Illumina
+arrays that said nothing about the sample, and a parent rebuilt from such files would have been
+built with Axiom's numbers. A file is now read only when at least half of its autosomal markers
+are in the founder panel: every Axiom file read measures 100% (365 arrays), the two Illumina
+series 0% (68 arrays). Any other file is not scored on the Syngamy page, not used as a product on
+the Germline page, and refused by every command of the command line, `om father` included, each
+with the same words and every cause it can name: how many of its markers the panel holds, a genome
+build neither GRCh37 nor GRCh38 fits, a missing intensity or allele-fraction column.
+
+The reader also takes Illumina's names for the marker, intensity and allele-fraction columns
+("SNP Name", "Log R Ratio", "B Allele Freq", with or without a per-sample prefix), so an Illumina
+Final Report is refused as another chip with its panel share rather than as a file with columns
+missing, and a missing intensity or allele-fraction column is named rather than dropped. Only
+autosomes count toward the share: the panel holds none of the chip's X and Y markers, and a
+truncated Axiom export still reads 100%.
+
+On Axiom nothing changes: all 600 records of the truth set's with-parent and no-parent rows are
+identical (audit/truth/unknown-chip-2026-11-16.txt). This is the first piece of reading other
+chips, not the feature: the recognition lives in `web/src/platform.ts`, where the per-chip profile
+will go.
+
+---
+
+## 6.7.0 "Premature Separation"
+
+**With one parent loaded, the parent of an extra chromosome is named more often, and a gain the
+intensity calls is no longer reported as a missing parent.** Three rules, written before any code
+(audit/truth/extra-copy-one-parent-2026-11-16.txt):
+
+1. A chromosome the intensity scan calls a gain is never reported as missing a parent's copy,
+   whatever its copy state reads. It is scored as carrying both parents and goes to the gain test.
+   A lost copy cannot raise intensity. An extra copy of one parent can push the copy state past the
+   line that reads a missing parent, and each one-parent arm printed a lost parent on 3 of the 60
+   constructed gains that way.
+2. For a parent rebuilt from pronuclei, each marker where he reads homozygous is weighted in the
+   gain test by the chance that he really is, from the founder frequency of the allele he lacks and
+   the fewest pronuclei the rebuild requires at a marker. A measured parent has weight 1.
+3. Where those name no parent, a second route can name the other parent only: at the loaded
+   parent's homozygous markers where the allele he lacks is common and the sample is called
+   heterozygous, the median share of that allele, against the same median on the cell's other
+   two-parent chromosomes. Upward only: two copies of an allele the loaded parent does not carry
+   can only come from the other parent, however the extra copy arose.
+
+Nothing changes with both parents loaded, with none, or on a chromosome intensity does not call a
+gain.
+
+| parent of a constructed gain named | both parents | measured father | rebuilt father |
+|---|---|---|---|
+| of 60 | 37 | 44 | 37 (was 26) |
+| of 158 on held-out chromosomes | 92 | 81 | 74 (was 57) |
+| wrong parent | 0 | 0 | 0 |
+| a constructed gain printed as a lost parent, of 60 | 0 | 0 | 0 |
+| the same, of 158 | 0 | 3 | 0 |
+
+The measured-father arm is new in the suite. On the 60 a one-parent run now names the parent as
+often as a two-parent run or more often. On the held-out chromosomes it does not yet: two parents
+know both genotypes at every marker, one parent knows the other only through founder frequencies.
+The 3 of 158 are gains the intensity scan misses, which rule 1 therefore does not reach.
+
+Zero wrong also holds where the other parent's extra copy is built as both of that parent's
+homologues and as the same homologue twice (42 and 45 named with the measured father, 35 and 39
+with the rebuilt one). The suite's own construction mixes the two.
+
+On the 270 with-parent rows and the 330 no-parent rows every record is identical to 6.4.0. In the
+validation suite only the constructed-gain lines moved, all up or new; the census and invariance
+lines are identical.
+
+---
+
+## 6.6.0 "Pedigree"
+
+**Load every sperm array of an experiment and the page says which one is the father.** More than
+one file may now carry the sperm label. Each candidate is read against each sample by the existing
+parent check, unchanged and with no new threshold. A sample names a candidate when exactly one
+carries; a run names the father when exactly one candidate carries on any of its samples. Samples
+that carry no candidate count for or against none: a maternal pronucleus, a polar body and a noise
+array all read that way. The page prints a table (each candidate: carries in, none in, not shown
+in), names the father or says none of them is, and scores the samples against the one it named.
+With none named the samples are scored with no father loaded, and the page says so. The same table
+is printed in the PDF report, and `om father` gives it on the command line.
+
+Measured on the open arrays with 22 men offered as candidates and none labelled (the sperm donor of
+each experiment, and 20 men of the founder panel's public series): the true father is named on 77
+of the 77 public cells and 8 of the 8 cells of one laboratory experiment that the labelled check
+carries, a wrong man on none; with the true father left out no man is named on 106 of 106 and 31
+of 31; a father rebuilt from his pronuclei is named exactly as his measured array is
+(audit/truth/find-the-father-2026-11-16.txt).
+
+**What it cannot tell.** A parent from a close relative of that parent: two candidates who are
+brothers, or a father and his son, can both carry, and then neither is named. This limit is stated
+on the page and has not been measured on related men. A sample carries its mother's genome too, so
+her file is labelled oocyte, not sperm: offered as a candidate father she carries, and the page
+then names nobody rather than choose.
+
+**Run reads every sample again after any change to the loaded files or their labels.** Adding a
+parent after the samples were scored, or relabelling a file, left the earlier results on the page
+unchanged when Run was pressed. Scoring is otherwise unchanged.
+
+---
+
 ## 6.5.0 "Ideogram"
 
 **Every loss or gain the page prints now opens a plot of its chromosome.** Allele fraction above,

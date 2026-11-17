@@ -1,0 +1,120 @@
+Which parent gave an extra chromosome, with one parent loaded
+=============================================================
+Written 16 November 2026 BEFORE the code below is built or run. Open arrays only. Plan item 3.0d.
+The three experiments behind it are recorded outside the repository (per-array tables stay under
+audit/local/); this file carries the rule, the pass tests, the prediction and, after the run, the
+scored result.
+
+WHAT WAS MISSING
+----------------
+With both parents the tool names the parent of a constructed gain on 37 of 60 (92 of 158 held out).
+With one rebuilt parent, 26 of 60 (57 of 158). With one measured parent the suite had no arm; offline
+it names 40 of 60. Three causes on the 60:
+  1. A gain whose one-parent copy state crosses into a loss state (an extra copy of the loaded parent
+     puts its share at 2/3 of the disomic level, of the other parent's at 4/3) is never put to the
+     gain test, and a lost parent is printed on it instead: 3 of the 60 in each one-parent arm.
+  2. A rebuilt parent's homozygotes include true heterozygotes all of whose pronuclei showed one
+     allele; they dilute the share. Offline this costs about 7 of the 60 at the orientation bar.
+  3. The share is a mean over markers where the other parent did or did not pass the allele, so it
+     carries that parent's genotype sampling. Where the sample is heterozygous the allele's share is
+     the copy ratio itself, but only its upward movement belongs to one parent alone.
+
+THE RULE
+--------
+1. One parent loaded, its genome shown to be in the array, the genome read as two parents'. A
+   chromosome the intensity scan calls a gain is never reported as missing a parent's copy, whatever
+   its copy state reads. It is scored as a chromosome carrying both parents and goes to the gain
+   test. Why: a lost copy cannot raise intensity.
+2. Rebuilt parent only. In the gain test's share, a marker where the rebuilt parent reads homozygous
+   is weighted by the chance that it really is: (1-q)^2 / ((1-q)^2 + 2q(1-q) x 2^-m), q the founder
+   frequency of the allele it lacks, m the fewest pronuclei a marker needs in the rebuild (stated by
+   the rebuild's own banner; 5 for the suite's rebuild). A measured parent has weight 1.
+3. A second route, for the OTHER parent only. Where 1 and 2 name no parent and intensity calls the
+   gain: at the loaded parent's homozygous markers where the allele it lacks is common (0.5 or more)
+   and the sample is called heterozygous (at least 100 markers), the median share of that allele is
+   compared with the same median on the cell's other two-parent chromosomes (at least 6). Three
+   spreads or more above them (spread never under 0.02) names the other parent's extra copy. Upward
+   only: two copies of an allele the loaded parent does not carry can only come from the other
+   parent, however the extra copy arose. Downward is not used: an extra copy of the loaded parent,
+   and an extra copy made of both of the other parent's homologues, fall the same way.
+4. Both parents loaded, or none: nothing changes. A chromosome intensity does not call a gain:
+   nothing changes.
+5. Every constant is one the tool already has, except m.
+
+Not adopted: finding a gain that intensity does not call from the share and a weaker intensity bar
+(adds 1 of 60 offline; its bar rests on 8 to 10 normal chromosomes); reading the other parent off
+sibling embryos (needs the other parent's array to tell siblings from strangers).
+
+PASS TESTS (they add to the item's EXIT gate)
+--------------------------------------------
+D1. The EXIT gate: 37 of 60 and 92 of 158 in each one-parent arm, 0 wrong.
+D2. No built gain is printed as a lost parent, in any arm.
+D3. On the 270 with-parent rows and the 330 no-parent rows: nothing 6.4.1 prints is lost, no stated
+    loss becomes a gain, no new call on a stated-normal chromosome, and the both-parent and no-parent
+    rows are identical to 6.4.1.
+D4. 0 wrong on the two extra builds (the other parent's extra copy as both homologues, and as the
+    same homologue twice).
+D5. All checks pass. Suite: no line worse. The suite gains a measured-father arm for constructed
+    gains.
+D6. Released as its own version, after a browser run. HELD if D1 is not met.
+
+PREDICTED BEFORE THE RUN
+------------------------
+D1 met on the 60 (measured father 44, rebuilt father 37), NOT met on the 158 (about 81 and 74
+against 92). D2 met (the 3 + 3 lost-parent prints on built gains withdrawn). D3 met: on the 31 cells
+the rule changes nothing, because no chromosome there carries both an intensity gain call and a
+lost-parent state. D4 met offline (measured 42 and 45, rebuilt 35 and 39 on the two builds, 0 wrong).
+The gate run is the second look at the 158.
+
+For the record: two recipient chromosomes of the suite already read as gains with two parents before
+anything is built on them; no rule can name the parent of the copy added there.
+
+FAULT FOUND IN THE GATE RUN, AND THE CHANGE (written before the rerun)
+---------------------------------------------------------------------
+The suite's metamorphic test (every other marker, rebuilt father) shows one new claim: an "allele
+imbalance" on a chromosome intensity does not call gained (half_new_claims 1 -> 2). Cause: the build
+used the rule-2 weighted share for the WHOLE gain test, so the share, and with it the imbalance
+verdict, moved on chromosomes intensity does not call gained. That breaks rule 4 ("a chromosome
+intensity does not call a gain: nothing changes"); the rule itself is unchanged.
+Change: the gain test runs as before (unweighted, every chromosome) and a second pass with rules 1 and
+2 replaces the verdict only on chromosomes the intensity scan calls gained. Nothing the parent of a
+constructed gain is named by can move (every name needs the intensity call on that chromosome), so
+the constructed-gain lines of the gate run stand and the 158 are not read again; the invariance test
+and the 60 are rerun.
+After the change: invariance identical to 6.4.0 on every line (half_new_claims back to 1), the 60
+unchanged (rebuilt 37, measured 44, both 37), all checks pass.
+
+RESULT, 16 November 2026 (gate run: the validation suite on this code; the 158 read once, as the
+scorecard prints them)
+------------------------------------------------------------------------------------------
+                                           Both parents   Measured father   Rebuilt father
+D1 parent of a built gain named, of 60          37              44 (new arm)     37 (was 26)
+   the same, of 158 held out                    92              81 (new arm)     74 (was 57)
+   wrong                                        0               0                0
+D2 built gain printed as a lost parent, 60      0               0                0  (was 3 and 3 offline)
+   the same, 158                                0               3                0
+D3 270 with-parent and 330 no-parent rows: every printed call identical to 6.4.0 (gatediff: no
+   segment gone or new, no other difference), so no stated loss became a gain, nothing new on a
+   stated-normal chromosome, and the both-parent and no-parent rows are identical.
+D4 the two extra builds of the 60 (both homologues / same homologue twice), 0 wrong:
+                                                                44 -> 42 / 45     35 / 39
+   one lost parent printed on one of these builds (measured father, both-homologue build)
+D5 checks, type check and release check pass. Suite against 6.4.0: only the constructed-gain lines
+   moved, every one up or new (the measured-father arm, the lost-parent count); census and
+   invariance lines identical.
+D6 HELD.
+
+                                  Gate           Result
+D1 60, one-parent arms >= 37      met            44 and 37
+D1 158, one-parent arms >= 92     NOT MET        81 and 74, as predicted
+D2 no built gain as lost parent   NOT MET        3 of 158 with the measured father
+D3 rows                           met
+D4 extra builds, 0 wrong          met
+D5 checks, suite no worse         met
+D6 release                        held
+
+Why D2 fails on 3: rule 1 acts only where the intensity scan calls the gain. A built gain that
+intensity misses and whose copy-state share crosses into a loss state is still printed as a lost
+parent. The same thing shows once on the 60's both-homologue build. Telling such a gain from a lost
+copy without intensity needs the calls (opposite homozygotes, heterozygous calls), which this rule
+does not use.

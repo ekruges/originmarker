@@ -18,11 +18,13 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { gunzipSync } from 'node:zlib'
 
 const W = new URL('../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const score = await import(`${W}scoreSample.ts`)
 const defects = await import(`${W}defects.ts`)
+const panelKeys = await import(`${W}answerKeys.ts`)
 
 // ---------------------------------------------------------------- a synthetic array
 //
@@ -37,6 +39,11 @@ const CHROMS = Array.from({ length: 22 }, (_, i) => String(i + 1))
 // AFTER the collapse rather than before it.
 const PER_CHROM = 2400
 const LOST = new Set(['13', '19'])
+// Marker ids the shipped founder panel holds, so the command line reads these files as the proven
+// chip (web/src/platform.ts). Both surfaces score them without the panel.
+const PANEL_IDS = [...(panelKeys.parsePanel(gunzipSync(readFileSync(
+  new URL(`../web/public/${panelKeys.FOUNDER_PANEL_PATH}`, import.meta.url))).toString('utf8')).freqB!.keys())]
+const idOf = (chrom: string, i: number) => PANEL_IDS[(Number(chrom) - 1) * PER_CHROM + i]
 
 // THE FIXTURE IS BUILT TO THE NUMBERS A REAL RUN PRODUCED, and that is the point of these three.
 //
@@ -95,7 +102,7 @@ function synthesise(): { parent: string; sample: string } {
   const sample = [HEAD]
   for (const chrom of CHROMS) {
     for (let i = 0; i < PER_CHROM; i += 1) {
-      const id = `AX-${chrom}-${i}`
+      const id = idOf(chrom, i)
       const pos = 100_000 + i * 90_000
       // 17% heterozygous, which is what the loaded parent of the real run measures.
       const pg = r() < PARENT_HET ? 1 : (r() < 0.5 ? 0 : 2)
@@ -144,7 +151,7 @@ function synthesiseBiparental(): { parent: string; mother: string; sample: strin
   const sample = [HEAD]
   for (const chrom of CHROMS) {
     for (let i = 0; i < PER_CHROM; i += 1) {
-      const id = `AX-${chrom}-${i}`
+      const id = idOf(chrom, i)
       const pos = 100_000 + i * 90_000
       const pg = r() < PARENT_HET ? 1 : (r() < 0.5 ? 0 : 2)
       parent.push([id, chrom, pos, (r() * 0.1 - 0.05).toFixed(4),
@@ -280,7 +287,7 @@ function cliAnswer(dir: string, role = 'paternal', otherFile?: string) {
     '--experimental-strip-types',
     new URL('./om.ts', import.meta.url).pathname,
     'origin', join(dir, 'parent.probes'), join(dir, 'sample.probes'),
-    '--role', role, '--json',
+    '--role', role, '--json', '--no-panel',
     ...(otherFile ? ['--other', join(dir, otherFile)] : []),
   ], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   return JSON.parse(outText) as {
@@ -424,6 +431,69 @@ const cliComparable = (a: ReturnType<typeof cliAnswer>) => ({
   assert.equal(cli.zygosity, web.zygosity)
   console.log(`  both parental arrays: ${web.rows.length} event(s), ${named.length} naming a `
     + 'parent from the array that can see it, identical on both surfaces')
+}
+
+// ---------------------------------------------------------------- 1d. which candidate is the father
+//
+// Several files labelled sperm. The page reads each candidate against each sample through
+// findParent.ts and names the father; `om father` must name the same one with the same counts.
+{
+  const findParent = await import(`${W}findParent.ts`)
+  const answerKeys = await import(`${W}answerKeys.ts`)
+  const r = rng(20261116)
+  const N = 5000
+  const ids: [string, string, number][] = CHROMS.flatMap((c) => Array.from({ length: N }, (_, i) =>
+    [c, `AX-f${c}-${i}`, 100_000 + i * 40_000] as [string, string, number]))
+  // Rare alleles across the parent check's range of founder frequencies, on either allele.
+  const q = ids.map((_, i) => { const f = 0.06 + 0.12 * r(); return i % 2 ? f : 1 - f })
+  const allele = (i: number) => (r() < q[i] ? 1 : 0)
+  const adult = () => ids.map((_, i) => allele(i) + allele(i))
+  const give = (g: number) => (g === 1 ? (r() < 0.5 ? 1 : 0) : g / 2)
+  const [father, mother, stranger] = [adult(), adult(), adult()]
+  const child = () => ids.map((_, i) => give(father[i]) + give(mother[i]))
+  const pronucleus = ids.map((_, i) => 2 * give(mother[i]))
+  const file = (g: number[]) => [HEAD, ...ids.map(([c, id, pos], i) => [id, c, pos, '0.0000',
+    g[i] === 1 ? '0.5000' : g[i] === 0 ? '0.0200' : '0.9800', '2.0', String(g[i]), '1'].join('\t'))].join('\n')
+  const panelText = ['probeset\tfreqB\tn', ...ids.map(([, id], i) => `${id}\t${q[i].toFixed(4)}\t40`)].join('\n')
+  const dir = mkdtempSync(join(tmpdir(), 'om-cross-father-'))
+  const arrays: Record<string, number[]> = { 'stranger.probes': stranger, 'father.probes': father,
+    'cell1.probes': child(), 'cell2.probes': child(), 'pn.probes': pronucleus }
+  for (const [n, g] of Object.entries(arrays)) writeFileSync(join(dir, n), file(g))
+  writeFileSync(join(dir, 'panel.tsv'), panelText)
+  const freqB = answerKeys.parsePanel(panelText).freqB
+  const samples = ['cell1.probes', 'cell2.probes', 'pn.probes']
+
+  const web = (cands: string[]) => {
+    const idx = cands.map((n) => {
+      const acc = score.emptyParent()
+      for (const row of rowsOf(file(arrays[n]))) score.collectParentRow(row, acc)
+      return score.finishParent(acc, null).gt
+    })
+    return findParent.findParent(samples.map((n) => {
+      const t = findParent.emptyCandidateTallies(cands.length)
+      for (const row of rowsOf(file(arrays[n]))) findParent.addCandidateRow(t, idx, row, freqB)
+      return findParent.candidateGenomes(t)
+    }), cands.length)
+  }
+  const cli = (cands: string[]) => JSON.parse(execFileSync(process.execPath, [
+    '--experimental-strip-types', new URL('./om.ts', import.meta.url).pathname, 'father',
+    ...samples.map((n) => join(dir, n)), '--candidates', cands.map((n) => join(dir, n)).join(','),
+    '--panel', join(dir, 'panel.tsv'), '--json',
+  ], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })) as {
+    outcome: string; named: string | null; rows: { carries: number; none: number; unshown: number }[]
+  }
+  for (const cands of [['stranger.probes', 'father.probes'], ['stranger.probes']]) {
+    const w = web(cands)
+    const c = cli(cands)
+    // The answer first: the fixture's father, with the mother's pronucleus abstaining.
+    assert.equal(w.outcome, cands.includes('father.probes') ? 'named' : 'none')
+    if (w.named !== null) assert.equal(cands[w.named], 'father.probes')
+    assert.equal(c.outcome, w.outcome, 'THE TWO SURFACES NAME DIFFERENT FATHERS FROM THE SAME FILES.')
+    assert.equal(c.named, w.named === null ? null : cands[w.named].replace(/\.probes$/, ''))
+    assert.deepEqual(c.rows.map(({ carries, none, unshown }) => ({ carries, none, unshown })), w.counts)
+  }
+  console.log('  several candidate fathers: the father named, and none with him left out, '
+    + 'identical on both surfaces')
 }
 
 // ---------------------------------------------------------------- 2. no third implementation

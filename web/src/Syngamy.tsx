@@ -4,6 +4,9 @@ import {
   type ParentIndex,
 } from './scoreSample'
 import { loadFounderPanel } from './answerKeys'
+import {
+  emptyChipTally, idAt, idColumn, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableRefusal,
+} from './platform'
 import { syngamyTable } from './syngamyTable'
 import { ParentalBalancePanel } from './ParentalBalancePanel'
 import type { BalanceSample, PairedSample } from './parentalBalance'
@@ -53,6 +56,9 @@ import { timeGroup } from './timing'
 import { stageFacts } from './stage'
 import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
+import {
+  addCandidateRow, candidateGenomes, emptyCandidateTallies, findParent, fatherSearchText, type ParentSearchText,
+} from './findParent'
 /**
  * Syngamy - whether the two gametic genomes fused, and which parts of each survived.
  *
@@ -396,15 +402,30 @@ async function profileFile(
   let firstId = ''
   let n = 0
   let skipped = 0
+  // The chip is recognised from the markers against the founder panel's. See platform.ts.
+  const known = (await loadFounderPanel())?.freqB
+  const chip = emptyChipTally()
+  let firstHeader = ''
+  // A header that never resolves may still name the marker id; the chip is then read from the ids.
+  let idCol: ReturnType<typeof idColumn> = null
+  const ids = emptyChipTally()
   log('READ', `${file.name}  ${mb(file.size)}`)
   await eachLine(file, (line) => {
     if (!map) {
+      if (!firstHeader && line.trim() && !line.startsWith('#')) firstHeader = line
       map = headerMap(line)
-      if (map) log('PARSE', `header resolved, ${Object.keys(map).length - 1} columns mapped`)
+      if (map) {
+        log('PARSE', `header resolved, ${Object.keys(map).length - 1} columns mapped`)
+        for (const m of missingSignals(map)) log('WARN', `${file.name}: ${m}`)
+      } else if (idCol) {
+        const id = idAt(line, idCol)
+        if (id && known) { ids.markers += 1; if (known.has(id)) ids.known += 1 }
+      } else if ((idCol = idColumn(line))) firstHeader = line
       return
     }
     const r = parseRow(line, map)
     if (!r) { skipped += 1; return }
+    if (known) tallyChip(chip, r.probesetId, r.chrom, known)
     if (!firstId) firstId = r.probesetId
     accumulate(r, byChrom)
     accumulateBaf(r, baf)
@@ -413,12 +434,17 @@ async function profileFile(
     n += 1
     if (n % 100_000 === 0) { tick({ markers: n }); log('PARSE', `${int(n)} markers`) }
   }, (bytes) => tick({ bytes }))
-  if (!map) throw new Error('no recognisable header row')
+  if (!map) throw new Error(unreadableRefusal(missingRequired(firstHeader), idCol && known ? ids : null))
   tick({ markers: n })
   if (skipped) log('WARN', `${int(skipped)} rows unparseable, skipped`)
 
   const profile: SampleProfile = {
     ...finishProfile(file.name, byChrom, baf, firstId, builds), build: buildVerdict(builds),
+  }
+  if (!known) log('WARN', `${file.name}: the founder panel did not load, so the chip is not checked`)
+  else {
+    const call = recogniseChip(chip, profile.build, missingSignals(map))
+    if (!call.proven) throw new Error(call.text)
   }
   const g = gates(profile, inferred, role)
   log('PARSE', `${int(n)} markers, ${byChrom.size} chromosomes`)
@@ -466,6 +492,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const [examples, setExamples] = useState(false)
   const [saving, setSaving] = useState(false)
   const [locus, setLocus] = useState<LocusRun | null>(null)
+  /** A file was removed since the last Run press. */
+  const [removed, setRemoved] = useState(false)
+  /** Several files labelled sperm: what the search found, and the file it named. */
+  const [fatherSearch, setFatherSearch] = useState<(ParentSearchText & { namedId?: string }) | null>(null)
   const pick = useRef<HTMLInputElement>(null)
 
   // BUFFERED, because a line used to cost a React render and a 500-element array copy, and a run
@@ -606,6 +636,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     try {
       const files: ReportFile[] = []
       for (const e of entries) {
+        // A candidate the search did not name was not a parent of this run.
+        if (e.role === 'donor' && e !== fatherEntry) continue
         files.push({
           name: e.file.name,
           size: e.file.size,
@@ -635,6 +667,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         reportId: id,
         fromExamples: examples,
         locus,
+        fatherSearch,
         // The run-wide feature comparison, if someone ran it. Without this line the field exists,
         // the drawing code exists, and the section never prints: input.comparison is always
         // undefined and the bundling silently does not happen.
@@ -649,6 +682,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const run = async () => {
     setBusy(true)
     setStartedAt(new Date().toISOString())
+    setRemoved(false)
     let index = donor
     let maternalIndex = oocyte
 
@@ -709,9 +743,53 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       }
     }
 
-    const donorEntry = entries.find((e) => e.role === 'donor')
-    if (donorEntry && donorEntry.state !== 'done') {
+    const candidates = entries.filter((e) => e.role === 'donor')
+    const donorEntry = candidates.length === 1 ? candidates[0] : undefined
+    // The index held may be a father a search named, not this file.
+    if (donorEntry && (donorEntry.state !== 'done' || (fatherSearch && fatherSearch.namedId !== donorEntry.id))) {
       index = await indexParent(donorEntry, 'sperm donor')
+      setDonor(index)
+    }
+    setFatherSearch(null)
+    // SEVERAL FILES LABELLED SPERM: each is read against every sample by the parent check, and the
+    // one whose genome alone is found is used as the father. See findParent.ts.
+    // ponytail: every candidate is indexed and every sample read once more on each Run press;
+    // keep the indexes across presses if runs of many candidates grow slow.
+    if (candidates.length > 1) {
+      index = null
+      const freqB = (await loadFounderPanel())?.freqB
+      const found: { e: Entry; p: DonorIndex }[] = []
+      for (const e of candidates) {
+        const p = await indexParent(e, `candidate father ${e.file.name}`)
+        if (p) found.push({ e, p })
+      }
+      if (!freqB || !found.length) {
+        log('WARN', freqB ? 'no candidate father could be read' : 'the founder panel did not load, and '
+          + 'the search for the father needs its frequencies')
+      } else {
+        const gts = found.map((x) => x.p.gt)
+        const cells = []
+        for (const s of entries.filter((e) => e.role === 'sample')) {
+          const t = emptyCandidateTallies(found.length)
+          log('READ', `${s.file.name}: read against ${found.length} candidate fathers`)
+          setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
+          try {
+            await profileFile(s.file, (r) => addCandidateRow(t, gts, r, freqB), bar(s.id, s.file.size), log)
+            cells.push(candidateGenomes(t))
+          } catch (err) {
+            log('WARN', `${s.file.name}: ${err instanceof Error ? err.message : String(err)}`)
+          }
+        }
+        const search = findParent(cells, found.length)
+        const said = fatherSearchText(search, found.map((x) => x.e.file.name))
+        for (const r of said.rows) {
+          log('CALL', `${r.name}: carries in ${r.carries}, none in ${r.none}, not shown in ${r.unshown}`)
+        }
+        log(search.outcome === 'named' ? 'DONE' : 'WARN', said.line)
+        const named = search.named === null ? null : found[search.named]
+        index = named?.p ?? null
+        setFatherSearch({ ...said, namedId: named?.e.id })
+      }
       setDonor(index)
     }
     const oocyteEntry = entries.find((e) => e.role === 'oocyte')
@@ -745,13 +823,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       const sampleGt = new Map<string, Map<string, string>>()
       /** Finished samples, kept locally because patch() writes React state we cannot read back. */
       const finished: { id: string; result: ParentageResult }[] = []
-      // A RUN IS READ WHOLE. Sister arrays and units of one embryo are properties of every array in
-      // the run, so when a new sample comes in, the samples finished by an earlier Run are read again
-      // with it.
-      // ponytail: every earlier sample is read again, about 15 s each; keep each finished sample's
-      // calls across Run presses if runs grow large.
-      const queue = entries.some((e) => e.role === 'sample' && e.state !== 'done')
-        ? entries.filter((e) => e.role === 'sample') : []
+      // A RUN IS READ WHOLE. Sister arrays, units of one embryo and the parents are properties of
+      // every array in the run, and Run is offered only after the files or their labels change, so
+      // each press reads every sample again against the files loaded now.
+      // ponytail: every sample is read again on each press, about 15 s each; keep each finished
+      // sample's calls across Run presses if runs grow large.
+      const queue = entries.filter((e) => e.role === 'sample')
       // ONE IMPLEMENTATION OF THE ANSWER, in scoreSample.ts, which the command line and the
       // cross-surface check also call. What is left here is what only a browser has to do: read a
       // File, paint progress, and hold React state.
@@ -865,7 +942,11 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     setBusy(false)
   }
 
-  const pending = entries.some((e) => e.state === 'waiting')
+  // A file removed is a change too, though nothing is left waiting.
+  const pending = entries.some((e) => e.state === 'waiting') || removed
+  // The file the samples were scored against: the one labelled sperm, or the one a search named.
+  const sperm = entries.filter((e) => e.role === 'donor')
+  const fatherEntry = sperm.length > 1 ? sperm.find((e) => e.id === fatherSearch?.namedId) : sperm[0]
   // Either parent alone is enough to run. The analysis asks whether the LOADED parent's copy is
   // present, which is the same question whichever parent that is, so requiring a sperm donor
   // turned an oocyte-only run into a disabled button with no explanation.
@@ -946,8 +1027,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               <Button
                 variant="subtle" size="xs" disabled={busy}
                 onClick={() => {
-                  setEntries([]); setDonor(null); setOocyte(null); setLines([])
-                  setStartedAt(null); setExamples(false); setLocus(null)
+                  setEntries([]); setDonor(null); setOocyte(null); setLines([]); setFatherSearch(null)
+                  setStartedAt(null); setExamples(false); setLocus(null); setRemoved(false)
                 }}
               >
                 Clear
@@ -972,12 +1053,20 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                     maternal: undefined,
                     paired: undefined,
                   })}
-                  onRemove={() => setEntries((p) => p.filter((x) => x.id !== e.id))}
+                  onRemove={() => { setEntries((p) => p.filter((x) => x.id !== e.id)); setRemoved(true) }}
                 />
               ))}
           </div>
         </DropZone>
 
+        {sperm.length > 1 && !fatherSearch && (
+          <Alert color="gray" mt={8} p="xs">
+            <Text size="xs">
+              {sperm.length} files are labelled sperm. The run reads each against every sample,
+              names the one whose genome is in them, and scores the samples against it.
+            </Text>
+          </Alert>
+        )}
         {entries.filter((e) => e.role === 'oocyte').length > 1 && (
           <Alert color="orange" mt={8} p="xs">
             <Text size="xs">Only one file can be the oocyte donor.</Text>
@@ -995,10 +1084,37 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         )}
       </Paper>
 
+      {fatherSearch && (
+        <Paper p="sm" mb={10}>
+          <Text fw={600} size="xs" tt="uppercase" c="dimmed" mb={4} style={{ letterSpacing: '0.04em' }}>
+            Which file is the father
+          </Text>
+          <Table fz="xs" withTableBorder={false} verticalSpacing={2} mb={6}>
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Candidate</Table.Th><Table.Th>Carries in</Table.Th>
+                <Table.Th>None in</Table.Th><Table.Th>Not shown in</Table.Th>
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {fatherSearch.rows.map((r) => (
+                <Table.Tr key={r.name}>
+                  <Table.Td ff="monospace">{r.name}</Table.Td><Table.Td>{r.carries}</Table.Td>
+                  <Table.Td>{r.none}</Table.Td><Table.Td>{r.unshown}</Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+          <Text size="xs" mb={4}>{fatherSearch.line}</Text>
+          {fatherSearch.abstain && <Text size="xs" c="dimmed" mb={4}>{fatherSearch.abstain}</Text>}
+          <Text size="xs" c="dimmed">{fatherSearch.limit}</Text>
+        </Paper>
+      )}
+
       {entries.filter((e) => e.result).map((e) => (
         <ResultCard
           key={e.id} entry={e}
-          donorName={entries.find((x) => x.role === 'donor')?.file.name ?? ''}
+          donorName={fatherEntry?.file.name ?? ''}
           oocyteName={entries.find((x) => x.role === 'oocyte')?.file.name ?? ''}
         />
       ))}
@@ -1042,6 +1158,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
 
       <RunInformation
         entries={entries} startedAt={startedAt} health={health} examples={examples}
+        father={fatherEntry?.state === 'done' ? fatherEntry.file.name : undefined}
       />
     </>
   )
@@ -2272,16 +2389,16 @@ function LocusTest({ entries, donor, oocyte, log, onResult }: {
 
 
 /** What a citation needs and nothing else. The reasoning behind the numbers is in the PDF. */
-function RunInformation({ entries, startedAt, health, examples }: {
+function RunInformation({ entries, startedAt, health, examples, father }: {
   entries: Entry[]
   startedAt: string | null
   health?: Health | null
   examples: boolean
+  father?: string
 }) {
   const done = entries.filter((e) => e.state === 'done')
   if (!done.length) return null
   const samples = done.filter((e) => e.result)
-  const donorEntry = done.find((e) => e.role === 'donor')
   const builds = [...new Set(done.map((e) => e.profile?.build.build ?? 'undetermined'))]
 
   return (
@@ -2293,7 +2410,7 @@ function RunInformation({ entries, startedAt, health, examples }: {
         ['Started', startedAt ? utc(startedAt) : '-'],
         ['Tool', health
           ? `OriginMarker ${health.version} (${health.release_codename})` : 'OriginMarker'],
-        ['Donor', donorEntry?.file.name ?? '-'],
+        ['Donor', father ?? '-'],
         ['Samples', String(samples.length)],
         ['Assembly', builds.join(', ')],
         ...(examples

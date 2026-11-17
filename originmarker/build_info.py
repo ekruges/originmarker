@@ -287,10 +287,23 @@ RELEASES: tuple[Release, ...] = (
             "An ideogram is a chromosome drawn to scale, with its landmarks marked along its "
             "length. Every call now has one: the chromosome's own markers from end to end, allele "
             "fraction above and intensity below, with a box over the stretch the call covers."),
+    Release("Pedigree",
+            "A pedigree is the record of who descends from whom. Given several men's arrays, the "
+            "tool now reads which one the cells descend from: the one whose genome is in them. "
+            "Where none is, or where two are, it says so and names nobody."),
+    Release("Premature Separation",
+            "A chromatid that parts from its sister too early can travel to the wrong pole and "
+            "leave a cell with an extra copy. Which parent that copy came from is in the alleles. "
+            "With one parent on an array, an extra copy the intensity sees is now put to that "
+            "question even where the alleles alone read it as a missing parent."),
+    Release("Cortical Reaction",
+            "When one sperm has fused, the egg's cortical reaction hardens its coat and nothing "
+            "else gets in. A file from a chip the tool is not proven on is now stopped at the door "
+            "the same way, with the reason, and is never scored with another chip's numbers."),
 )
 
-VERSION = "6.5.0"
-CODENAME = "Ideogram"
+VERSION = "6.8.0"
+CODENAME = "Cortical Reaction"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

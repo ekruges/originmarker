@@ -1,0 +1,181 @@
+Find the father: which of several candidate fathers is the parent of these arrays
+==================================================================================
+Plan item 3.7. Scored on 16 November 2026 on open arrays only. Builds on the parent check of
+audit/truth/rebuilt-parent-check-2026-11-15.txt and changes nothing in it.
+
+THE RULE, written before any run
+--------------------------------
+  1. Each candidate is read against each cell by the parent check as it stands: the same markers
+     (the candidate homozygous for an allele the founders hold at 0.02 to 0.2), the same bars, the
+     same verdict (carries, none, not shown, unread). No new threshold.
+  2. One cell. The cell names a candidate when exactly one candidate reads "carries". When none
+     carries, the cell says none of these is shown to be its father. When two or more carry, the
+     cell names none of them and says which carry. That is the known limit: the check cannot tell
+     a parent from a parent's close relative (a brother, a father, a son), so two candidates who
+     are close relatives of each other can both carry.
+  3. A run of many cells. Each candidate is counted on the cells where it carries. A cell where no
+     candidate carries abstains: a maternal pronucleus, a polar body, a cell that lost the father's
+     chromosomes, or an array whose calls are noise all read that way, and none of them speaks
+     against the father. The run names the father when exactly one candidate carries on any cell
+     of the run. When two or more candidates carry on cells of the run, it names none and says so.
+     When no candidate carries on any cell, it says none of these is the father.
+  4. A named father is then used exactly as a file labelled as the father is used today. With none
+     named the samples are scored with no father, and the page says so. One file labelled as the
+     father behaves exactly as before.
+  5. The mother is not a candidate father. She is labelled as the oocyte donor where her array is
+     loaded; a cell carries her genome as surely as its father's.
+
+PASS TEST, the gate of plan item 3.7 as approved, made concrete before the run
+------------------------------------------------------------------------------
+Cells: every open cell whose father is known and on disk. The public series' cells with a stated
+father (the sperm donor); the bulk cumulus arrays of that series are adult tissue, not cells of an
+embryo, and are left out of the cells. The laboratory's Experiment 2, whose sheet names its sperm
+array.
+Candidates: every adult array on disk, offered unlabelled: the sperm donor, the four egg donors,
+Experiment 2's sperm array, and the other adult arrays of the scans. The cell's own stated mother is
+left out (rule 5). Replicate arrays of one person count as that person once.
+
+  G1. With every candidate offered: the true father is named on at least as many cells as the
+      labelled parent check carries him today, and a wrong adult is named on none.
+  G2. With the true father left out: no candidate is named, on every cell.
+  G3. G1 and G2 again with the father rebuilt from pronuclei in place of his measured array.
+  G4. The known limit is stated in the tool.
+  G5. Checked in a browser, checks pass, suite no worse on any line.
+Also reported, not gated: each experiment as one run (rule 3), and the cells' own mothers left in
+as candidates.
+
+THE CELLS AND THE CANDIDATES, as run
+------------------------------------
+Cells: 106 cells of the public series with the sperm donor as stated father (bulk cumulus arrays left
+out), and the 31 arrays of Experiment 2. None is sealed; every one was checked against the sealed
+list before it was read.
+Candidates, measured: the sperm donor, egg donors A, B, C and D, Experiment 2's sperm array, and two
+further adult arrays of the laboratory scans. Each cell's stated mother is left out of its own
+candidates. Replicate arrays of one person are offered once. The cumulus arrays are not offered: they
+are an egg donor's tissue, so they are her again.
+Candidates, rebuilt: the same, with the true father's measured array replaced by his rebuild from
+pronuclei (the suite's rebuilt father for the public series, the Experiment 2 rebuild for that one).
+
+EXPERIMENT, offline, before any tool change
+-------------------------------------------
+Recorded parent-check tallies of every open array against these adults (rare floor 0.02, the tool's
+rule), read with parentGenome.ts as shipped and the rule above. Per-array table under audit/local.
+
+                                      public series (106)        Experiment 2 (31)
+  labelled check carries the father   77 (rebuilt: 77)           8 (rebuilt: 8)
+  every candidate offered
+    true father named                 73                         8
+    wrong adult named                 0                          0
+    two carry, none named             4 (father + egg donor C)   0
+    no candidate carries              29                         23
+  true father left out
+    some candidate named              4 (egg donor C)            0
+    no candidate named                102                        31
+      every candidate reads "none"    73                         29
+  rebuilt father in his place
+    true father named                 73                         8
+    wrong adult named                 0                          0
+    two carry, none named             4 (rebuild + egg donor C)  0
+  stated mother left in (not gated)
+    true father named                 4                          no mother on disk
+    two carry                         73 (father + mother)
+
+For reference, the arrays each adult carries on among all 825 open arrays of the scans: sperm donor
+96, egg donors A 18, B 15, C 30, D 27, Experiment 2's sperm array 9, the two other adults 4 and 1, the
+two rebuilds 96 and 9. These were not checked one by one against families; only the cells above are
+scored.
+
+THE FOUR CELLS. All four are replicate arrays of one trophectoderm biopsy whose stated mother is egg
+donor B. They carry egg donor C's genome and read "none" against B's, as the 6.0.0 results already
+reported for them. So C is very likely their mother, and the stated mother is a labelling error in
+the answer key. Under rule 5 their mother is not a candidate; with the stated label she is, and
+she is the second carrier.
+
+GATE RESULT, scored with the built code (`om father`, one run per experiment, mother and arm)
+----------------------------------------------------------------------------------------------
+Every count is identical to the offline experiment.
+
+  G1  true father named on at least as many cells as the labelled check carries:
+        public series 73 of 77, Experiment 2 8 of 8.                       NOT MET as stated, by 4
+      wrong adult named: 0 and 0.                                          met
+  G2  true father left out, no candidate named on every cell:
+        public series 102 of 106 (egg donor C named on the 4 cells above),
+        Experiment 2 31 of 31.                                             NOT MET as stated, by 4
+  G3  the same with the rebuilt father: 73 of 77 and 8 of 8 named, 0 wrong; father out as G2.
+                                                                           NOT MET as stated, by 4
+  G4  the limit is stated in the tool, under the candidate table.          met
+  G5  browser: the right father named among three candidates; with him left out, none named and
+      the samples scored with no parent; one labelled father gives a page identical to the run
+      where the search named the same file. Checks pass, release check passes (exit 0). Suite: not
+      rerun, see below.                                                    met, suite by construction
+
+With the four cells' mother read as egg donor C (their arrays carry her genome and not B's), every
+gate line is met: 77 of 77 and 8 of 8 named, none wrong, none named with the father left out, the
+same with the rebuilt father. That reading changes the answer key, not the rule, and is not mine to
+make: the gate goes back with this evidence.
+
+The run as one decision (rule 3, not gated): Experiment 2 names its sperm array (measured and
+rebuilt), and names none with it left out. The public series split by stated mother names the sperm
+donor for egg donors A, C and D (15, 24 and 30 cells carry him), and none with him left out. For egg
+donor B's cells it names none (the sperm donor carries on 8, egg donor C on 4), and with him left out
+it names egg donor C. One stray carrier anywhere in a run stops the naming, which is the rule as
+written; the page says which candidates carry and on how many arrays.
+
+THE SUITE
+---------
+Not rerun. Its harnesses (refusal-census, invariance, constructed gains, no-call survey) import 44
+modules, and none of them is a file this change touches: the new findParent.ts is imported only by
+the page, the command line and the cross-surface check. So every suite line is the 6.4.0 scorecard's
+(6.4.1 changed no scoring code). It can be run if wanted; it starts nine census jobs at once.
+
+DRAFT CHANGELOG PARAGRAPH
+-------------------------
+Find the father. Several files may now carry the sperm label. The run reads each against every
+sample with the parent check, unchanged, prints a table of how many arrays carry each candidate,
+names the one whose genome alone is found and scores the samples against it; with none named it
+scores with no father and says so. Arrays that carry no candidate (a maternal pronucleus, a polar
+body, a noisy array) count for or against none. The limit is stated on the page: the check does not
+tell a parent from a close relative, and a cell carries its mother too. `om father` gives the same
+answer from the command line. On the open arrays, with every adult on disk offered: the true father
+named on 73 of 77 public cells and 8 of 8 laboratory cells that carry him, no wrong adult named; the
+four left are one biopsy that carries egg donor C, not its stated mother. One labelled father
+behaves exactly as before.
+
+RULING, the owner, 16 November
+------------------------------
+The gate is scored with men only as candidate fathers: the sperm donor, any other adult male arrays
+on disk, and the rebuilt fathers. Egg donors are not offered. The answer key is not changed, and the
+rule in the tool is unchanged. The table above, every adult offered, stays as the record of why.
+
+GATE UNDER THE RULING, men only, scored with the built code (`om father`)
+-------------------------------------------------------------------------
+Candidates: 22 men. On the laboratory side there are two male arrays: the sperm donor and
+Experiment 2's sperm array (chromosome Y called at 812 of 812 markers, chromosome X 1.7%
+heterozygous). The two other laboratory adults read female (Y called at 0 of 812, X 18% heterozygous)
+and are left out. Added: the first 20 men, in the file's own sample order, of the 185 public adults
+of the founder panel's series (83 read male by the same Y and X rule, 92 female, 10 unclear). None of
+these is on the sealed list. These 20 are among the founders the panel frequencies were computed
+from, so their own rare alleles are counted in those frequencies; that can only make them look less
+like strangers, not more. The rebuilt arm puts the true father's rebuild in place of his measured
+array. Same open cells as above.
+
+                                      public series (106)        Experiment 2 (31)
+  G1  labelled check carries father   77                         8
+      true father named               77                         8
+      wrong man named                 0                          0
+      two carry, none named           0                          0
+  G2  true father left out
+      some man named                  0                          0
+      no man named                    106                        31
+        every candidate reads "none"  76                         29
+  G3  rebuilt father in his place
+      true father named               77                         8
+      wrong man named                 0                          0
+      rebuilt father left out         as G2 (the same 21 men)
+
+  As one run each: the public series names the sperm donor (measured and rebuilt) and names none
+  with him left out; Experiment 2 names its sperm array (measured and rebuilt) and names none with
+  it left out. No other man carries on any cell.
+
+  G1 met, G2 met, G3 met. G4 met. G5: browser rerun on the merged code passed; checks and release
+  check pass; suite by construction as above.
