@@ -66,14 +66,19 @@ const seg = (s: any) => ({ chrom: s.chrom, kind: s.kind, start: s.startBp, end: 
 const held = (w: any) => (w && typeof w === 'object' && 'kind' in w && 'startBp' in w ? seg(w)
   : w && typeof w === 'object' ? (w.verdict ?? w.cls ?? w.state ?? 'object') : w)
 
-// The called autosomal genotypes of another array of the same run, as the page keeps them.
-const callsOf = new Map<string, Map<string, string>>()
-function calls(path: string): Map<string, string> {
+// The called autosomal genotypes of another array of the same run, as the page keeps them: read by
+// probe id, held as one byte per probe so a whole run's arrays fit in memory together.
+const probeIndex = new Map<string, number>()
+const CODES = ['', 'AA', 'AB', 'BB']
+const callsOf = new Map<string, { get(id: string): string | undefined }>()
+function calls(path: string): { get(id: string): string | undefined } {
   let m = callsOf.get(path)
   if (!m) {
-    m = new Map()
-    for (const r of rows(path)) if (/^\d+$/.test(r.chrom) && r.genotype !== 'NC') m.set(r.probesetId, r.genotype)
-    if (callsOf.size > 12) callsOf.clear()
+    const rs = rows(path).filter((r) => /^\d+$/.test(r.chrom))
+    for (const r of rs) if (!probeIndex.has(r.probesetId)) probeIndex.set(r.probesetId, probeIndex.size)
+    const code = new Uint8Array(probeIndex.size)
+    for (const r of rs) if (r.genotype !== 'NC') code[probeIndex.get(r.probesetId)!] = CODES.indexOf(r.genotype)
+    m = { get: (id: string) => { const i = probeIndex.get(id); return i === undefined || i >= code.length ? undefined : CODES[code[i]] || undefined } }
     callsOf.set(path, m)
   }
   return m
@@ -122,6 +127,8 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
         ...(res.dosageCalls ?? []).map((d: any) => ({ by: 'dosage', where: d.where, verdict: d.verdict }))],
       refusals: (res.refusals ?? []).map((x: any) => ({ claim: x.claim, chrom: x.chrom ?? '', gate: x.gate,
         cause: x.cause, withheld: held(x.withheld) })),
+      ...(res.motherFromRun ? { motherFromRun: { ...res.motherFromRun,
+        drawArrays: res.motherFromRun.drawArrays.map((i: number) => (others ?? '').split(';').filter(Boolean)[i]) } } : {}),
     }) + '\n')
   } catch (e) {
     appendFileSync(out, JSON.stringify({ id, tag, error: String(e).slice(0, 300) }) + '\n')

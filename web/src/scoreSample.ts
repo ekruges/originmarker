@@ -76,6 +76,7 @@ import {
   gainReadAsLoss, emptyWeightedShare, addWeightedShare, weightedShareR, hetCallShare,
   otherCopyFromHetCalls, type WeightedShare,
 } from './oneParentGain.ts'
+import { motherFromRun, routeGains, type RunMarker, type RouteChrom } from './motherFromRun.ts'
 import {
   emptyCarryTally, addCarry, parentGenome, parentGenomeSentence, parentGenomeNotice, UNREAD,
   type CarryTally,
@@ -519,6 +520,65 @@ export function collectRow(
       if (absent) d[1] += 1
       matAbsenceTally.set(r.chrom, d)
     }
+  }
+}
+
+/**
+ * motherFromRun.ts wired in: the run's other arrays read for the other parent's genotype, and the
+ * two-parent test run on it where the first build named no parent. Names gains only; every other verdict
+ * stands. The limits say how many draws of the other parent were used, or why none were.
+ */
+function readMotherFromRun(x: {
+  acc: Collected; pat: ParentIndex; sibs: readonly Map<string, string>[]; shareCalls: Map<string, ShareCall>
+  result: ParentageResult; soloRole: 'paternal' | 'maternal'; otherRole: 'paternal' | 'maternal'; log: LogFn
+}): void {
+  const { acc, pat, sibs, shareCalls, result, soloRole, otherRole, log } = x
+  const freqB = (acc.panel as FounderPanel).freqB!
+  const markers: RunMarker[] = []
+  for (const [id, where] of acc.markerPos) {
+    const g = pat.gt.get(id)
+    const f = freqB.get(id)
+    if ((g !== 'AA' && g !== 'BB') || f === undefined) continue
+    const q = g === 'AA' ? f : 1 - f
+    if (q > 0) markers.push({ id, chrom: where.chrom, pos: where.pos, parent: g, q })
+  }
+  const run = motherFromRun({ markers, sample: acc.myGt, baf: (id) => acc.myBaf.get(id), others: sibs,
+    parentKey: pat, rebuilt: !!pat.inferred, mMin: pat.inferred?.mMin })
+  const her = otherRole === 'maternal' ? 'mother' : 'father'
+  result.motherFromRun = { status: run.status, draws: run.draws, drawArrays: run.drawArrays }
+  if (run.status !== 'used') {
+    result.limits.push(`The run's other arrays were not used to read the ${her}: ${
+      run.status === 'sample-unfit' ? 'this array\'s noise is too high to place it in an embryo'
+      : run.status === 'sample-not-a-draw' ? 'this array\'s own calls are too noisy, or show too little of the other '
+        + 'parent, to tell which arrays share its mother'
+      : `${run.draws} other draw${run.draws === 1 ? '' : 's'} of the ${her} (an embryo or a haploid product of hers), `
+        + 'and 2 are needed'}.`)
+    return
+  }
+  result.limits.push(`The ${her}'s genotype was read from ${run.draws} other draws of the ${her} in this run `
+    + '(embryos and haploid products sharing her copies), each weighted by its own drop-in and dropout.')
+  const named = new Set(result.chroms.filter((c) => c.alleleGain?.verdict === 'gain').map((c) => c.chrom))
+  const chroms: RouteChrom[] = result.chroms.filter((c) => isAutosome(c.chrom)).map((c) => {
+    const sh = run.shares.get(c.chrom)
+    return { chrom: c.chrom, share: sh?.share ?? NaN, weight: sh?.weight ?? 0, state: shareCalls.get(c.chrom)?.state,
+      measured: c.verdict !== 'not_measured', intensityGain: c.aneuploidy === 'gain', lrrShift: c.lrrShift ?? NaN }
+  })
+  for (const g of routeGains(chroms, named)) {
+    const c = result.chroms.find((y) => y.chrom === g.chrom)
+    if (!c) continue
+    const parent = g.loadedParent ? soloRole : otherRole
+    const paternalShift = soloRole === 'paternal' ? g.shift : -g.shift
+    c.alleleGain = {
+      chrom: c.chrom, verdict: 'gain', parent, shift: paternalShift, z: soloRole === 'paternal' ? g.z : -g.z,
+      scale: g.scale, centre: soloRole === 'paternal' ? g.centre : 1 - g.centre, informative: Math.round(g.weight),
+      lrrShift: c.lrrShift ?? NaN, lrrZ: g.lrrZ,
+      why: `against the ${her}'s genotype read from ${run.draws} other draws of her in this run, the ${parent} `
+        + `alleles are over-represented by ${Math.abs(g.shift).toFixed(3)} against the ${g.references} other `
+        + `chromosomes reading both parents (${Math.abs(g.z).toFixed(1)} of their spread), and the intensity `
+        + `reads ${g.lrrZ.toFixed(1)} of the cell's own spread above them, so the ${parent} parent supplied an `
+        + 'extra copy',
+    }
+    log('WARN', `chr${c.chrom}: extra copy, ${parent}. ${c.alleleGain.why}.`)
   }
 }
 
@@ -1154,6 +1214,12 @@ export async function scoreSample(input: {
       c.aneuploidyParent = undefined
       c.alleleGain = undefined
     }
+  }
+  // THE OTHER PARENT, READ OFF THE OTHER DRAWS OF HER THIS RUN HOLDS (motherFromRun.ts), where one parent
+  // is loaded and shown, and the cell has a two-copy majority to read intensity against.
+  if (!two && parentShown && sibs.length && shareCalls.size && !intensityWithheld
+    && (acc.panel as FounderPanel | null)?.freqB) {
+    readMotherFromRun({ acc, pat, sibs, shareCalls, result, soloRole, otherRole, log })
   }
   // WHETHER THE CALLS THEMSELVES SAY ANYTHING, which is the one thing the stage refusal cannot
   // tell a reader. The ceiling it fires on cannot separate a mixture from a destroyed array; the

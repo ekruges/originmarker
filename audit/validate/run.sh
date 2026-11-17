@@ -9,6 +9,8 @@
 #                the laboratory runs, so every one-parent check is read against it)
 #   OM_S23, OM_S23_SERIES   the laboratory series and its number, for the hold-out rebuild (optional)
 #   OM_SURVEY_LIST          a file of every array path, for the no-parent survey (optional)
+#   OM_UNITS     the truth units list: with it the constructed gains are also scored with the run's other
+#                arrays given, each checked open there first (optional)
 #   NODE         node 22 or later                                       (default: node)
 #
 # Parts run one after another, never together: each holds whole arrays in memory, and the machine
@@ -38,6 +40,7 @@ wait
 echo "== invariance against the rebuilt father"
 OM_FATHER=$OM_FATHER OM_TRIOS=$OM_TRIOS shards 3 invariance $N audit/validate/invariance.ts
 echo "== constructed gains, the original six chromosomes and the held-out sixteen"
+if [ -n "${OM_UNITS:-}" ]; then export OM_RUN=1 OM_UNITS; fi
 OM_FATHER=$OM_FATHER OM_TRIOS=$OM_TRIOS shards 3 gains $N audit/validate/constructed-gains.ts
 OM_CHROMS=1,3,4,6,7,8,10,11,12,14,15,16,17,19,20,22 OM_FATHER=$OM_FATHER OM_TRIOS=$OM_TRIOS \
   shards 3 gains-heldout $N audit/validate/constructed-gains.ts
