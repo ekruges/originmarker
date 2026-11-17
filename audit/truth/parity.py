@@ -12,8 +12,8 @@ but for the one line that says so: a claim computed and withheld is in the recor
             right or wrong, over every stated loss and over the whole-chromosome ones alone
 
 With --scorecard, the validation suite's scorecard.json adds the constructed gains: an extra copy
-spliced into a real array, and whether the tool names its parent. The suite reads those with both
-parents and with the rebuilt father; it has no measured-father arm.
+spliced into a real array, and whether the tool names its parent, with both parents, each one-parent
+arm, and each one-parent arm again with the run's other arrays given.
 
 Run: python3 audit/truth/parity.py --truth audit/local/truth --runs <jsonl>... [--scorecard scorecard.json]
 """
@@ -130,6 +130,11 @@ if __name__ == '__main__':
                   + f"{c['one.named']:>11d} of {c['one.constructed']:<3d}")
             print(f"{'    wrong':44s}" + f"{c['two.wrong']:>18d}"
                   + (f"{c['meas1.wrong']:>18d}" if 'meas1.wrong' in c else f"{'':>18s}") + f"{c['one.wrong']:>18d}")
+            if 'one-run.named' in c:
+                print(f"{'    with the run arrays given':44s}" + f"{'':>18s}"
+                      + f"{c['meas1-run.named']:>11d} of {c['meas1-run.constructed']:<3d}"
+                      + f"{c['one-run.named']:>11d} of {c['one-run.constructed']:<3d}")
+                print(f"{'      wrong':44s}" + f"{'':>18s}" + f"{c['meas1-run.wrong']:>18d}" + f"{c['one-run.wrong']:>18d}")
             if 'one.lost_parent_on_gain' in c:
                 print(f"{'    built gain printed as a lost parent':44s}"
                       + ''.join(f"{c.get(k + '.lost_parent_on_gain', 0):>18d}" for k in ('two', 'meas1', 'one')))

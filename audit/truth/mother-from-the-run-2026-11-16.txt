@@ -1,0 +1,201 @@
+Which parent gave an extra chromosome, one parent loaded, with the other draws of the mother a run holds
+=========================================================================================================
+Written 16 November 2026 BEFORE the code below is built or run. Open arrays only. Plan item 3.0d, second
+build. The experiments behind it (4 and 5, and the two checks asked before building) are recorded outside
+the repository; this file carries the rule, every new constant with its origin, the pass tests, the
+prediction and, after the run, the scored result.
+
+WHAT IS MISSING AFTER THE FIRST BUILD
+-------------------------------------
+With one parent loaded the other parent is known only through the founders' frequencies, so a cell alone
+names the parent of a constructed gain on 44 of 60 (measured father) and 37 of 60 (rebuilt father), and
+on 81 and 74 of 158 held out, against 92 with both parents. A run holds other draws of the same mother:
+her other embryos and her haploid products (a maternal pronucleus, a polar body). Each carries one of her
+two copies. Read together they give her genotype at the loaded parent's homozygous markers, and the
+two-parent test can then run on it.
+
+THE RULE
+--------
+1. Arrays of a run that read as one genome are one embryo: the tool's same-genome share
+   (otherParentLoss.sameGenomeShare, the lower of the two directions) at or over SAME_GENOME_SHARE 0.75,
+   joined through shared partners. Only arrays with a rate fit (otherParentLoss.otherRates against the
+   loaded parent) and a noise rate b under NO_TEMPLATE_BASE 0.30 are joined; an array outside that is
+   not a draw. A pronucleus or a polar body stands alone because it shares no genome with any other
+   array. The embryo is formed against whichever parent is loaded.
+2. A unit (an embryo, by majority of its called arrays, a tie no call) is a draw of the mother only where
+   its own rate fit shows the other parent's alleles (a >= 0.19) and its noise rate b is at or under
+   DROPIN_CEILING 0.0525. The sample's own unit has to pass both too; a sample that does not is scored by
+   the one-cell rules alone and its limits text says why the run's other arrays were not used.
+3. Two units share a mother where the share of 10 Mb windows in which they carry the same copy of hers is
+   at or over 0.272 (measured parent) or 0.100 (rebuilt parent). Per window, at the loaded parent's
+   homozygous markers with founder frequency q of the allele it lacks from RARE_MIN 0.02 to under 1 that
+   both units call: K = sum (sX - eX)(sY - eY) / sum aX aY q(1-q)/2, s = 1 where the unit shows the
+   allele, e = b + a q from its fit. A window counts only with MIN_SHARE_MARKERS 100 such markers, and
+   reads as sharing her copy where K >= 1. Units are joined through shared partners.
+4. With 2 or more draws of her in the sample's group (its own unit never votes), at each loaded-parent
+   homozygous marker with 0 < q < 1, the chance she is the opposite homozygote is the posterior over
+   {opposite homozygote, heterozygote, his homozygote} (prior q^2, 2q(1-q), (1-q)^2), each draw
+   contributing its own likelihood: shows with b + a, b + a/2, b; does not show with one less each.
+   A marker enters where that chance is 0.5 or more, weighted by it, and with a rebuilt parent also by
+   rule 2 of the first build. Per chromosome: the weighted median of the loaded parent's allele share at
+   those markers, and its summed weight.
+5. The two-parent test (gainOrigin.scanAlleleGains' bars: |z| >= ALLELE_GAIN_Z, |shift| >=
+   ALLELE_GAIN_SHIFT, intensity >= ALLELE_GAIN_LRR_Z spreads; scale floors ALLELE_GAIN_SCALE_FLOOR and
+   ALLELE_GAIN_LRR_SCALE_FLOOR; ALLELE_GAIN_MIN_REFERENCE reference chromosomes) then runs on that share,
+   only on chromosomes rules 1 to 3 of the first build named no parent on. Its reference:
+   a. it does not run where the cell's allele gains are withheld for want of a two-copy majority
+      (gate normal-majority);
+   b. the reference chromosomes are the copy state's disomic ones plus any it reads as a lost parent whose
+      intensity is not below the cell's level (median lrrShift of the disomic chromosomes): a lost copy
+      cannot raise intensity;
+   c. the share reference and the tested chromosome need ALLELE_GAIN_MIN_INFORMATIVE 200 of summed
+      weight (weight, not a count of markers); the intensity reference takes every chromosome of (b),
+      with no minimum, because intensity needs no allele markers.
+   A chromosome whose copy state reads a lost parent is tested only where the intensity scan calls it
+   gained (first build, rule 1); one read as no template or undecided is not tested.
+6. Both parents loaded, no parent, the loaded parent's genome not shown in the sample, or a run with fewer
+   than 2 draws of the mother: nothing changes. The limits text says how many draws of the mother were
+   used, or why none were.
+
+EVERY NEW CONSTANT, AND WHERE IT COMES FROM
+------------------------------------------
+- 0.19, the fitted signal a above which a unit shows the other parent's alleles: the middle of a measured
+  gap (units with no mother's genome, paternal pronuclei and two embryos, read 0.00 to 0.05; every unit
+  with one reads 0.32 or more).
+- 0.272 and 0.100, the same-mother bars for a measured and a rebuilt parent: 1.9 times the highest window
+  share any pair of embryos of different mothers reached (0.143 and 0.052), the placing of 3.0b rule 6.
+- 10 Mb, the window: the size the two bars were measured with. Shorter than the stretches over which two
+  draws of one mother share one of her copies (her crossovers end them).
+- 1, the window score that reads as sharing her copy: the middle of the two levels the arithmetic gives
+  (2 sharing, 0 not).
+- 0.5, the posterior at which a marker enters: more likely than not.
+- 2, the fewest draws: the rule's own statement.
+Existing constants by import: SAME_GENOME_SHARE, NO_TEMPLATE_BASE, DROPIN_CEILING, RARE_MIN,
+MIN_SHARE_MARKERS, ALLELE_GAIN_* , rebuiltHomWeight's m from the rebuild's banner. The 0.999 cap on a
+probability is the one sameGenomeShare uses.
+The drop-in gate (DROPIN_CEILING on the fit's b) was added in experiment 4 after the data were seen, and is
+on record as such: with noisy units in, no window statistic separated siblings from strangers.
+
+MEASURED BEFORE BUILDING: THE EMBRYOS AGAINST A REBUILT PARENT
+-------------------------------------------------------------
+On the public run (106 children of the sperm donor), the same share and bar against the rebuilt father
+alone give 22 embryos where the measured father gives 23; 18 are identical. Two arrays more pass as usable
+(both still over the drop-in ceiling, so neither is a draw). Four merges: two embryos of one mother (label
+A) become one unit; three units with no mother's genome merge (all fail rule 2 either way); one noisy array
+joins a noisy embryo; one noisy array stands alone. The groups that hold the 60's cells (mothers B and D)
+are unchanged. A wrong merge of two embryos of one mother costs a draw; it cannot add a draw from another
+mother, and the sample's own unit never votes. Because a merge costs draws, the limits text states how
+many draws of the mother were used.
+
+PASS TESTS (they add to the item's EXIT gate)
+--------------------------------------------
+M1. The EXIT gate with the run's other arrays supplied: 37 of 60 and 92 of 158 in each one-parent arm,
+    0 wrong. This is the third look at the 158.
+M2. One cell alone: every record identical to the first build.
+M3. Gains named on chromosomes that should read normal: no more often than the real two-parent run on the
+    same chromosomes. No stated loss becomes a gain.
+M4. No two units of different mothers are grouped, on the open public arrays and on the lab experiment
+    whose mother's array exists (her array is the truth, not an input).
+M5. 0 wrong on the two extra builds (the other parent's extra copy as both homologues, and as the same
+    homologue twice).
+M6. The 270 and 330 rows: nothing printed is lost; both-parent and no-parent rows identical; every
+    one-parent row that changes with the run's other arrays supplied is listed.
+M7. All checks pass; the suite gets an arm with the run's other arrays; browser run; released.
+
+PREDICTED BEFORE THE RUN, FROM THE 60 ONLY
+-----------------------------------------
+Offline, rules 1 to 3 of the first build plus this route, the rebuilt arm grouped against the rebuilt
+father, worst to best of 5 random draws of the mother at each number (suite's build / both homologues /
+same homologue twice), 0 wrong everywhere:
+                     2 draws          3 draws          4 draws          every draw
+  measured father    45-47/43-45/46-49 46-47/43-45/47-49 46-47/44-45/47-50 47 / 45 / 50
+  rebuilt father     40-43/38-40/42-45 39-42/37-39/41-45 40-43/37-40/43-46 44 / 41 / 48
+  both parents       37 / 37 / 37
+The suite's cells really hold every draw: 8 for the three cells of mother D, 7 (rebuilt) or 1 (measured)
+for the cell of mother B, none for the drop-in cell. So the gate run is predicted at 47 (measured) and 44
+(rebuilt) on the 60, with 45 / 50 and 41 / 48 on the two extra builds. A cell with 1 draw does not run
+the route (rule 6); offline that changes no count.
+Gains named on normal chromosomes, offline: only the two chromosomes the real two-parent run itself
+names, at or under its rate. No stated loss named a gain.
+The 158 are not predicted: they have not been read for this.
+
+RESULT, 17 November 2026 (gate run: this code on tesla; the 158 read once, as the scorecard prints them;
+this is the third look at the 158)
+--------------------------------------------------------------------------------------------------
+                                             Both parents   Measured father   Rebuilt father
+M1 parent of a built gain named, of 60            37        47 (cell alone 44)  44 (cell alone 37)
+   with the run's other arrays given
+   the same, of 158 held out                      92        99 (cell alone 81)  97 (cell alone 74)
+   wrong                                          0         0                   0
+M2 one cell alone (the first build's 270 and 330 rows, this code): 270 of 270 and 330 of 330 records
+   identical to the first build. Suite census and invariance lines identical to the first build.
+M3 stated-normal chromosomes of the 31 Table S3 cells, run's other arrays given: a gain named on 0 of 477
+   (measured father) and 0 of 477 (rebuilt father); the real two-parent run names 3 on the same 477.
+   Stated losses named a gain: 0 of 171 in each arm.
+M4 public run: 338 arrays voted as draws for the cells read; every one of the sample's labelled mother
+   (mother D 326, mother A 4, and for the cell of mother B 8 pronuclei, which carry no donor label and
+   read nearest donor B by Mendelian error). Lab experiment 1, the mother's array as truth only: the two
+   embryos of hers each drew on the other and on her pronucleus; the one array that reads as another
+   woman's (Mendelian error 0.096 against her array, 0.014 to 0.040 for hers) was never a draw; arrays
+   with no mother's genome were not draws. No two units of different mothers grouped.
+M5 the two extra builds of the 60, 0 wrong:      measured father 44 / 50   rebuilt father 41 / 48
+   (first build 42 / 45 and 35 / 39)
+M6 the 270 rows with every other open array of each row's run given: 269 identical to the first build,
+   1 differs (a measured-father row of the public run whose sample is not a draw: the same segments,
+   origins and refusals, listed in another order). Nothing printed is lost. Both-parent rows and the
+   330 no-parent rows identical. No one-parent row gained or lost a call.
+M7 checks pass (scripts/checks.sh, tsc, release-check by exit code); the suite has the run arm
+   (constructed-gains.ts OM_RUN, scorecard.py and parity.py lines). Browser run and release: not done
+   here, HELD for the release.
+
+Draws used at the suite's cells, as the limits text states them: the three cells of mother D 7
+(measured) and 8 (rebuilt); the cell of mother B 1 (measured: too few, the route does not run) and 7
+(rebuilt, pronuclei); the drop-in cell none (its own noise too high: one-cell rules alone).
+
+Against the prediction (60 only): measured 47 predicted 47; rebuilt 44 predicted 44; extra builds
+rebuilt 41 / 48 predicted 41 / 48, measured 50 predicted 50. One difference: measured father, both-
+homologues build, 44 against 45 predicted. Cause: the experiment scored the extra builds against the
+suite build's record of the built chromosome (its copy state and intensity), not the extra build's own.
+On that build the tool's own copy state of 2365 chr9 (the mother's copy added) reads a lost parent and
+intensity does not call the gain there, so rule 1 keeps it out of the gain test. The tool is right by
+the rule; the experiment's 45 came from the shortcut.
+
+For the record, as the scorecard prints them: with the run's other arrays and the rebuilt father, 1
+gain is named on a chromosome that was not built, among the 158 held-out jobs (0 among the 60, 0 on
+any unmodified cell); with the measured father 3 of the 158 built gains are still printed as a lost
+parent (D2, left open on purpose, as in the first build). The previous suite scorecard on tesla
+(first build, before its fault fix) reads invariance half_new_claims 2; the first build's rerun and this
+run read 1.
+
+                                     Gate                       Result
+M1 one-parent arms >= 37 of 60       met                        47 and 44
+M1 one-parent arms >= 92 of 158      met                        99 and 97, 0 wrong
+M2 one cell alone identical          met
+M3 null at or under two parents      met                        0 and 0 against 3
+M4 no mothers mixed                  met
+M5 extra builds 0 wrong              met
+M6 rows                              met (1 row reordered, nothing lost)
+M7 checks, suite arm                 met; browser run and release held
+
+AFTER MERGING 6.8.0 (the chip check on every reader), 17 November
+-----------------------------------------------------------------
+No conflicts. On the merged code the 270 with-parent rows (with and without the run's other arrays) and
+the 330 no-parent rows are identical, record by record, to this build's own gate-run records; the suite
+and the 158 were not rerun. One page change made during the browser run: a one-parent sample read with
+no other array of its run now says so in its limits ("none were loaded with this one"); limits are not in
+the run records, so the comparison above stands. Browser run on public arrays: a cell of mother D read
+with three other cells of the run used 2 draws of her (the noisy one is refused, its limits say why) and
+reads the same calls as its harness record; the same cell alone says the run's other arrays were not
+used; with three sperm files the measured father is named, the samples score, and a plot opens.
+
+DRAFT CHANGELOG PARAGRAPH (not in CHANGELOG.md)
+----------------------------------------------
+With one parent loaded, a run's other draws of the other parent now name the parent of an extra
+chromosome. The run's other arrays are joined into embryos; embryos and haploid products that carry
+one of the same mother's copies are grouped by how often, window by window, they share it; each votes
+on her genotype weighted by its own drop-in and dropout, and the two-parent test runs on the result
+where the one-cell rules named no parent. Constructed gains with the run's other arrays given: rebuilt
+father 44 of 60 and 97 of 158 (was 37 and 74), measured father 47 and 99 (was 44 and 81), both parents
+37 and 92, no wrong parent. Nothing changes for a cell read alone, with both parents or with none; the
+limits text says how many draws of the other parent were used, or why none were, including when no
+other array of the run was loaded.

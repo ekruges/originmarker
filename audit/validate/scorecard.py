@@ -140,7 +140,7 @@ def census(prefixes):
 
 def constructed(rows):
     card, detail = {}, []
-    for cfg in ('one', 'two', 'meas1'):
+    for cfg in ('one', 'two', 'meas1', 'one-run', 'meas1-run'):
         if not any(r['config'] == cfg for r in rows):
             continue
         built = [r for r in rows if r['config'] == cfg and r['constructed'] != 'none']

@@ -300,10 +300,15 @@ RELEASES: tuple[Release, ...] = (
             "When one sperm has fused, the egg's cortical reaction hardens its coat and nothing "
             "else gets in. A file from a chip the tool is not proven on is now stopped at the door "
             "the same way, with the reason, and is never scored with another chip's numbers."),
+    Release("Segregation",
+            "A parent's two copies of a chromosome segregate among her children, each child "
+            "drawing one. Enough draws show what she carried. A run that holds other cells of the "
+            "same mother now reads her from them, and with one parent on an array the parent of "
+            "an extra chromosome is named as often as with two."),
 )
 
-VERSION = "6.8.0"
-CODENAME = "Cortical Reaction"
+VERSION = "6.9.0"
+CODENAME = "Segregation"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

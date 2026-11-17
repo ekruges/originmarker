@@ -11,9 +11,11 @@
  *
  * Each construction, and each cell as read, is scored by the shipped scoreSample three times: against
  * the father reconstructed from his pronuclei alone (OM_FATHER, config 'one'), against both measured
- * parents ('two'), and against the measured father alone ('meas1').
+ * parents ('two'), and against the measured father alone ('meas1'). With OM_RUN=1 the two one-parent
+ * arms are scored again with the run's other arrays given ('one-run', 'meas1-run'): every other child of
+ * the sperm donor and every pronucleus of the series, each checked open in OM_UNITS before it is read.
  *
- * Run: OM_TRIOS=<dir> OM_FATHER=<reconstruction> node --experimental-strip-types \
+ * Run: OM_TRIOS=<dir> OM_FATHER=<reconstruction> [OM_RUN=1 OM_UNITS=<units.tsv>] node --experimental-strip-types \
  *        audit/validate/constructed-gains.ts <shard> <shards> <out>
  */
 import { readFileSync, appendFileSync, readdirSync } from 'node:fs'
@@ -51,9 +53,34 @@ for (const l of readFileSync(new URL('../zuccaro-table-s3.tsv', import.meta.url)
 const manifest = text(join(TRIOS, 'trio_manifest_full.csv')).split('\n')
 const head = manifest[0].split(',')
 const motherOf = new Map<string, string>()
+const runArrays: string[] = []
 for (const l of manifest.slice(1)) {
   const c = l.split(','); const m = (c[head.indexOf('mother_gsms')] ?? '').split(/[; ]+/)[0]
   if (m) motherOf.set(c[head.indexOf('gsm')], m)
+  const col = (k: string) => c[head.indexOf(k)] ?? ''
+  if (col('role') === 'child' && ((col('father_gsms').startsWith(FATHER) && col('egg_donor')) || col('material') === 'pronucleus')) {
+    runArrays.push(col('gsm'))
+  }
+}
+const RUN = process.env.OM_RUN === '1'
+const split = new Map<string, string>()
+if (RUN) for (const l of text(process.env.OM_UNITS!).split('\n').slice(1)) { const p = l.split('\t'); if (p[0]) split.set(p[0], p[3]) }
+// The run's other arrays as the page keeps them, one byte per probe; refused unless listed open.
+const probeIndex = new Map<string, number>()
+const CODES = ['', 'AA', 'AB', 'BB']
+const runCalls = new Map<string, { get(id: string): string | undefined }>()
+function callsOf(gsm: string) {
+  if (split.get(gsm) !== 'open') throw new Error(`${gsm} is not listed open: refused`)
+  let m = runCalls.get(gsm)
+  if (!m) {
+    const rs = rows(file(gsm)).filter((r) => /^\d+$/.test(r.chrom))
+    for (const r of rs) if (!probeIndex.has(r.probesetId)) probeIndex.set(r.probesetId, probeIndex.size)
+    const code = new Uint8Array(probeIndex.size)
+    for (const r of rs) if (r.genotype !== 'NC') code[probeIndex.get(r.probesetId)!] = CODES.indexOf(r.genotype)
+    m = { get: (id: string) => { const i = probeIndex.get(id); return i === undefined || i >= code.length ? undefined : CODES[code[i]] || undefined } }
+    runCalls.set(gsm, m)
+  }
+  return m
 }
 
 const panel = keys.parsePanel(text(new URL(`../../web/public/${keys.FOUNDER_PANEL_PATH}`, import.meta.url).pathname))
@@ -86,7 +113,7 @@ function construct(cell: any[], chrom: string, parentGt: Map<string, string>): a
   })
 }
 
-async function scoreRows(rs: any[], pat: any, mat: any, name: string) {
+async function scoreRows(rs: any[], pat: any, mat: any, name: string, sibs: any[] = []) {
   const acc = score.emptyCollected(pat, mat, panel as never)
   const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
   for (const r of rs) {
@@ -94,7 +121,7 @@ async function scoreRows(rs: any[], pat: any, mat: any, name: string) {
     ingest.accumulate(r, byChrom); ingest.accumulateBaf(r, bafSums); score.collectRow(r, pat, mat, acc as never)
   }
   const profile = ingest.finishProfile(name, byChrom, bafSums, first)
-  return await score.scoreSample({ acc, profile, pat, mat, soloRole: 'paternal', sibs: [], sampleName: name,
+  return await score.scoreSample({ acc, profile, pat, mat, soloRole: 'paternal', sibs, sampleName: name,
     log: () => {} } as never) as any
 }
 
@@ -109,12 +136,14 @@ const summary = (res: any, chrom: string) => {
     state: c.copyState?.state ?? '', r: c.copyState?.r ?? null, otherGains: others,
     withheld: (res.refusals ?? []).filter((x: any) => x.chrom === chrom && x.claim === 'alleleGain').map((x: any) => x.gate),
     lostParent: c.lostParent ?? '',
+    ...(res.motherFromRun ? { draws: res.motherFromRun.draws, run: res.motherFromRun.status } : {}),
   }
 }
 
 for (const gsm of CELLS.filter((_, i) => i % shards === shard)) {
   const cell = rows(file(gsm))
   const mother = parentIndex(file(motherOf.get(gsm)!))
+  const others = RUN ? runArrays.filter((g) => g !== gsm).map(callsOf) : []
   const chroms = CHROMS.filter((c) => truth.get(gsm)?.get(c) === 'normal')
   const jobs: [string, string, any[]][] = [['-', 'none', cell]]
   for (const c of chroms) {
@@ -125,7 +154,12 @@ for (const gsm of CELLS.filter((_, i) => i % shards === shard)) {
     const one = await scoreRows(rs, rebuiltFather.idx, null, gsm)
     const two = await scoreRows(rs, measuredFather.idx, mother.idx, gsm)
     const meas1 = await scoreRows(rs, measuredFather.idx, null, gsm)
-    for (const [config, res] of [['one', one], ['two', two], ['meas1', meas1]] as const) {
+    const arms: [string, any][] = [['one', one], ['two', two], ['meas1', meas1]]
+    if (RUN) {
+      arms.push(['one-run', await scoreRows(rs, rebuiltFather.idx, null, gsm, others)])
+      arms.push(['meas1-run', await scoreRows(rs, measuredFather.idx, null, gsm, others)])
+    }
+    for (const [config, res] of arms) {
       const targets = chrom === '-' ? chroms : [chrom]
       for (const t of targets) {
         appendFileSync(out, JSON.stringify({ gsm, chrom: t, constructed: chrom === '-' ? 'none' : side, config,

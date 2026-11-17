@@ -720,6 +720,9 @@ export interface ParentageResult {
   verdict: Verdict
   originClass: OriginClass
   zygosity: Zygosity
+  /** One parent loaded and the run's other arrays given: how the other parent was read off them, by
+   *  draws of her (motherFromRun.ts). Indices are into the arrays given. */
+  motherFromRun?: { status: string; draws: number; drawArrays: number[] }
   /**
    * Whether the operator's declared material and the array's own reading agree.
    *
