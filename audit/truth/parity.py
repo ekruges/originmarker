@@ -124,6 +124,12 @@ if __name__ == '__main__':
         for label, key in (('Parent of a constructed gain named', 'constructed'),
                            ('  the same, held-out chromosomes', 'constructed_heldout')):
             c = card[key]
-            print(f'{label:44s}' + f"{c['two.named']:>11d} of {c['two.constructed']:<3d}" + f"{'not in the suite':>18s}"
+            meas = (f"{c['meas1.named']:>11d} of {c['meas1.constructed']:<3d}" if 'meas1.named' in c
+                    else f"{'not in the suite':>18s}")
+            print(f'{label:44s}' + f"{c['two.named']:>11d} of {c['two.constructed']:<3d}" + meas
                   + f"{c['one.named']:>11d} of {c['one.constructed']:<3d}")
-            print(f"{'    wrong':44s}" + f"{c['two.wrong']:>18d}" + f"{'':>18s}" + f"{c['one.wrong']:>18d}")
+            print(f"{'    wrong':44s}" + f"{c['two.wrong']:>18d}"
+                  + (f"{c['meas1.wrong']:>18d}" if 'meas1.wrong' in c else f"{'':>18s}") + f"{c['one.wrong']:>18d}")
+            if 'one.lost_parent_on_gain' in c:
+                print(f"{'    built gain printed as a lost parent':44s}"
+                      + ''.join(f"{c.get(k + '.lost_parent_on_gain', 0):>18d}" for k in ('two', 'meas1', 'one')))
