@@ -140,3 +140,42 @@ answer from the command line. On the open arrays, with every adult on disk offer
 named on 73 of 77 public cells and 8 of 8 laboratory cells that carry him, no wrong adult named; the
 four left are one biopsy that carries egg donor C, not its stated mother. One labelled father
 behaves exactly as before.
+
+RULING, the owner, 16 November
+------------------------------
+The gate is scored with men only as candidate fathers: the sperm donor, any other adult male arrays
+on disk, and the rebuilt fathers. Egg donors are not offered. The answer key is not changed, and the
+rule in the tool is unchanged. The table above, every adult offered, stays as the record of why.
+
+GATE UNDER THE RULING, men only, scored with the built code (`om father`)
+-------------------------------------------------------------------------
+Candidates: 22 men. On the laboratory side there are two male arrays: the sperm donor and
+Experiment 2's sperm array (chromosome Y called at 812 of 812 markers, chromosome X 1.7%
+heterozygous). The two other laboratory adults read female (Y called at 0 of 812, X 18% heterozygous)
+and are left out. Added: the first 20 men, in the file's own sample order, of the 185 public adults
+of the founder panel's series (83 read male by the same Y and X rule, 92 female, 10 unclear). None of
+these is on the sealed list. These 20 are among the founders the panel frequencies were computed
+from, so their own rare alleles are counted in those frequencies; that can only make them look less
+like strangers, not more. The rebuilt arm puts the true father's rebuild in place of his measured
+array. Same open cells as above.
+
+                                      public series (106)        Experiment 2 (31)
+  G1  labelled check carries father   77                         8
+      true father named               77                         8
+      wrong man named                 0                          0
+      two carry, none named           0                          0
+  G2  true father left out
+      some man named                  0                          0
+      no man named                    106                        31
+        every candidate reads "none"  76                         29
+  G3  rebuilt father in his place
+      true father named               77                         8
+      wrong man named                 0                          0
+      rebuilt father left out         as G2 (the same 21 men)
+
+  As one run each: the public series names the sperm donor (measured and rebuilt) and names none
+  with him left out; Experiment 2 names its sperm array (measured and rebuilt) and names none with
+  it left out. No other man carries on any cell.
+
+  G1 met, G2 met, G3 met. G4 met. G5: browser rerun on the merged code passed; checks and release
+  check pass; suite by construction as above.
