@@ -883,6 +883,9 @@ export interface ParentageResult {
   copyReference?: string[]
   /** Autosomes above that state by intensity and not reported as gained. See GAIN_HET_RATIO_MAX. */
   copyUnresolved?: string[]
+  /** The whole-chromosome test's own null, floor and call-rate median, so a part of a chromosome can
+   *  be put to the same test (scoreSample, a part-lost chromosome). */
+  copyNull?: { centre: number; scale: number; units: number; floor: number; callMedian: number }
   /**
    * What the loaded parental array actually IS to this sample, measured rather than assumed. An
    * unrelated adult or a sibling in the parental slot withholds every named parent: see
@@ -1563,6 +1566,9 @@ export function classify(
     noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, unmeasured: [], notes, limits,
     copyReference: reference, copyUnresolved,
+    copyNull: { centre: lrrNull.centre, scale: lrrNull.scale, units: lrrNull.units,
+      floor: opts.bulk === true && lrrNull.scale < BULK_SPREAD_MAX ? COPY_SHIFT_FLOOR_BULK : COPY_SHIFT_FLOOR,
+      callMedian },
   }
 }
 
