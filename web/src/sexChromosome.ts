@@ -296,7 +296,7 @@ function whatXAndYShow(
       + 'amplification and 47,XXY are not separable without a parent')
   }
   if (m.haploid) {
-    return say('one X', 1, `one X, the normal complement of one genome: this cell is staged haploid and `
+    return say('one X', 1, `the normal complement of one genome: this cell is staged haploid and `
       + `${level}, the level of its autosomes`)
   }
   if (m.diploid) {

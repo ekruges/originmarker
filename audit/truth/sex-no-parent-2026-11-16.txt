@@ -217,22 +217,44 @@ Seen and not changed (for the bottom list):
     pseudoautosomal region; the page knows the assembly. The page and the harness differ by
     +0.02 to +0.03 on chrX with a parent.
 
-DRAFT CHANGELOG PARAGRAPH (not in CHANGELOG.md)
------------------------------------------------
-**With no parent loaded, the sex chromosomes are read against the cell's own ploidy, and the page
-no longer prints "female" on a haploid cell.** 6.5.0 built no chromosome X row with no parent, so
-the reading was unresolved on every array, with a false reason ("chromosome X carries no
-intensity"), while the page printed a sex from heterozygous calls on X: "female" on 26 of 28 cells
-stated to carry one X, nearly all pronuclei. Now chrX gets a row from its call rate and intensity
-(the pseudoautosomal region of either assembly left out), and the sex is read only on an array that
-shows two copies of its autosomes: not haploid, and heterozygous past the 10.5% one genome reaches
-once the array's drop-in is removed. Two X needs chrX inside the array's noise and under the copy
-step; chrY with chrX short of a one-copy step is left unresolved rather than called 47,XXY. Every
-unresolved reading says why, in the Sex chromosomes section. Against stated answers with no
-parent: one X printed as XX on 3 of 28 (was female on 26), XX right on 6 of 12 (header was 12),
-XY right on 10 of 15 (header was 13); no 45,X, 47,XXX or 47,XXY printed. Drop-in-corrected
-heterozygosity overlaps between one-X and XX cells (0.064 to 0.110), so the rest stay unread with
-that reason. With a parent loaded every reading is as 6.5.0, and every autosome record is
+DRAFT CHANGELOG PARAGRAPH (not in CHANGELOG.md; describes candidate C as the released rule)
+-----------------------------------------------------------------------------------------
+**With no parent loaded, the page says what chromosomes X and Y show, and no longer prints
+"female" on a one-genome cell.** 6.5.0 built no chromosome X row with no parent, so the
+sex-chromosome reading was unresolved on every array, with a false reason ("chromosome X carries
+no intensity"), while the page printed a sex from heterozygous calls on X: "female" on 26 of 28
+cells stated to carry one X, nearly all pronuclei, where every heterozygous call is noise. Now chrX
+gets a row from its call rate and intensity, with the pseudoautosomal region of either assembly
+left out, and the line reads what X and Y show:
+  - chrX present, a copy step under the autosomes, and chrY present: XY. One genome cannot hold X
+    a step under its autosomes. On an array shown to hold two copies, heterozygous calls on X with
+    chrY also give XY, where intensity and chrY do not contradict them.
+  - chrX at the autosomes' level and no chrY: "one X" on a cell staged haploid, XX where two
+    copies of the autosomes are shown (heterozygous past 10.5% once the array's drop-in is
+    removed, or two copies by the allele-fraction band), and otherwise "XX or one X": XX if the
+    cell holds two genomes, one X if it holds one, which the file does not settle.
+  - chrX between the levels, over the autosomes, or at their level with chrY present: not read,
+    with the reason. No 45,X, 47,XXX or 47,XXY is printed with no parent.
+The heterozygosity sex in Sample quality is printed only where two copies are shown, and a sample
+file's chip shows no sex before a run. Every unresolved reading gives a reason true of the file.
+Against stated answers on 290 open arrays with no parent:
+                                                   6.5.0    first build   this release
+    one X: printed female or XX (of 28)              26          3              3
+    one X: "one X" or "XX or one X"                   0          0             23
+    XX: printed XX (of 12)                           12          6              6
+    XX: "XX or one X"                                 0          0              6
+    XY: printed XY (of 15)                           13         10             10
+    printed and contradicted by the stated answer    28          4              5
+    45,X, 47,XXX or 47,XXY printed                    0          0              0
+(6.5.0 is its header sex, and 6.8.0 reads the sex chromosomes as 6.5.0 does. The first build is
+the version that printed a sex only where two copies were shown.) It still contradicts five stated answers: three
+cells stated to carry one X print XX because their heterozygosity, with drop-in removed, sits just
+past the 10.5% line (0.106 to 0.110) and their stage reads them as two genomes; one stated XY prints
+female/XX with chrX at -0.16 and no chrY genotyped; one stated XY reads "one X", staged haploid with
+no chrY genotyped. On three amplified XY cells chrX sits short of the 0.40 copy step (-0.26 to
+-0.37) and stays unread. Two public blastomeres with chrX two steps down (-1.69, -1.94) print XY,
+because their chrX still calls at 0.74 and 0.96 of the genome's rate; whether those cells hold an X
+is not known. With a parent loaded every reading is as before, and every autosome record is
 unchanged.
 
 CANDIDATE B (written 17 November before it was built or counted; for the owner's ruling)
@@ -342,3 +364,21 @@ Candidate C, counted 17 November (code /root/om-sexnpC, records /root/sexnpC; B 
        staged haploid at 9.5% heterozygous; with the father the alleles stage it a diploid
        blastomere and it reads XX), 12 not read.
     build: 6 agree, 0 contradict, 25 not read.
+
+Found 17 November while choosing arrays for the browser run (C's own records, no code changed):
+  C prints XY on two public blastomeres with no stated sex, GSM4472405 and GSM4472409, whose chrX
+  sits at -1.69 and -1.94 log2 (z -9.9, -19.0): two copy steps under the autosomes, where the
+  stated Y-only cells sit (-1.34 to -2.12). Their chrX call rate is 0.74 and 0.96 of the genome's
+  median, over CALL_COLLAPSE, so C reads chrX as present. On these two the call rate does not
+  separate an absent X from a present one (an absent chromosome still produces calls, as sexing.ts
+  states). With the measured parent missing for both, no outside answer. Not built around: telling
+  one step from two would need a bar that is not in the tool. For the owner's ruling with C.
+
+Merged with main 6.8.0 (4eb6a7b), 17 November: no conflicts; CHANGELOG.md and build_info.py from
+main unchanged. Rows rerun on the merged code (/root/om-sexnpM, records /root/sexnpM):
+  330 no-parent rows: every autosome entry and every other field identical to 6.7.0
+  (/root/r3d/b/rows); `sex` identical to the C run on 330 of 330.
+  270 with-parent rows: identical to 6.7.0 in every field, chrX and `sex` included; identical to
+  the C run on 270 of 270.
+The haploid line's wording was changed after the browser run from "one X: one X, the normal
+complement..." to "one X: the normal complement of one genome: ...". Text only; no reading moves.
