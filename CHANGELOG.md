@@ -9,6 +9,33 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.8.0 "Cortical Reaction"
+
+**A file from another chip is refused, with the reason, everywhere a file is read.** The tool is
+proven on one chip, the UK Biobank Axiom array, and until now it applied that chip's numbers to any
+file with the right columns, printing a haploid stage and a damaged-sample banner on Illumina
+arrays that said nothing about the sample, and a parent rebuilt from such files would have been
+built with Axiom's numbers. A file is now read only when at least half of its autosomal markers
+are in the founder panel: every Axiom file read measures 100% (365 arrays), the two Illumina
+series 0% (68 arrays). Any other file is not scored on the Syngamy page, not used as a product on
+the Germline page, and refused by every command of the command line, `om father` included, each
+with the same words and every cause it can name: how many of its markers the panel holds, a genome
+build neither GRCh37 nor GRCh38 fits, a missing intensity or allele-fraction column.
+
+The reader also takes Illumina's names for the marker, intensity and allele-fraction columns
+("SNP Name", "Log R Ratio", "B Allele Freq", with or without a per-sample prefix), so an Illumina
+Final Report is refused as another chip with its panel share rather than as a file with columns
+missing, and a missing intensity or allele-fraction column is named rather than dropped. Only
+autosomes count toward the share: the panel holds none of the chip's X and Y markers, and a
+truncated Axiom export still reads 100%.
+
+On Axiom nothing changes: all 600 records of the truth set's with-parent and no-parent rows are
+identical (audit/truth/unknown-chip-2026-11-16.txt). This is the first piece of reading other
+chips, not the feature: the recognition lives in `web/src/platform.ts`, where the per-chip profile
+will go.
+
+---
+
 ## 6.7.0 "Premature Separation"
 
 **With one parent loaded, the parent of an extra chromosome is named more often, and a gain the

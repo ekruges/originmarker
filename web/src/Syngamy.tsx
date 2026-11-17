@@ -4,6 +4,9 @@ import {
   type ParentIndex,
 } from './scoreSample'
 import { loadFounderPanel } from './answerKeys'
+import {
+  emptyChipTally, idAt, idColumn, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableRefusal,
+} from './platform'
 import { syngamyTable } from './syngamyTable'
 import { ParentalBalancePanel } from './ParentalBalancePanel'
 import type { BalanceSample, PairedSample } from './parentalBalance'
@@ -398,15 +401,30 @@ async function profileFile(
   let firstId = ''
   let n = 0
   let skipped = 0
+  // The chip is recognised from the markers against the founder panel's. See platform.ts.
+  const known = (await loadFounderPanel())?.freqB
+  const chip = emptyChipTally()
+  let firstHeader = ''
+  // A header that never resolves may still name the marker id; the chip is then read from the ids.
+  let idCol: ReturnType<typeof idColumn> = null
+  const ids = emptyChipTally()
   log('READ', `${file.name}  ${mb(file.size)}`)
   await eachLine(file, (line) => {
     if (!map) {
+      if (!firstHeader && line.trim() && !line.startsWith('#')) firstHeader = line
       map = headerMap(line)
-      if (map) log('PARSE', `header resolved, ${Object.keys(map).length - 1} columns mapped`)
+      if (map) {
+        log('PARSE', `header resolved, ${Object.keys(map).length - 1} columns mapped`)
+        for (const m of missingSignals(map)) log('WARN', `${file.name}: ${m}`)
+      } else if (idCol) {
+        const id = idAt(line, idCol)
+        if (id && known) { ids.markers += 1; if (known.has(id)) ids.known += 1 }
+      } else if ((idCol = idColumn(line))) firstHeader = line
       return
     }
     const r = parseRow(line, map)
     if (!r) { skipped += 1; return }
+    if (known) tallyChip(chip, r.probesetId, r.chrom, known)
     if (!firstId) firstId = r.probesetId
     accumulate(r, byChrom)
     accumulateBaf(r, baf)
@@ -415,12 +433,17 @@ async function profileFile(
     n += 1
     if (n % 100_000 === 0) { tick({ markers: n }); log('PARSE', `${int(n)} markers`) }
   }, (bytes) => tick({ bytes }))
-  if (!map) throw new Error('no recognisable header row')
+  if (!map) throw new Error(unreadableRefusal(missingRequired(firstHeader), idCol && known ? ids : null))
   tick({ markers: n })
   if (skipped) log('WARN', `${int(skipped)} rows unparseable, skipped`)
 
   const profile: SampleProfile = {
     ...finishProfile(file.name, byChrom, baf, firstId, builds), build: buildVerdict(builds),
+  }
+  if (!known) log('WARN', `${file.name}: the founder panel did not load, so the chip is not checked`)
+  else {
+    const call = recogniseChip(chip, profile.build, missingSignals(map))
+    if (!call.proven) throw new Error(call.text)
   }
   const g = gates(profile, inferred, role)
   log('PARSE', `${int(n)} markers, ${byChrom.size} chromosomes`)

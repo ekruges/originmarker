@@ -18,11 +18,13 @@ import { execFileSync } from 'node:child_process'
 import { mkdtempSync, writeFileSync, readdirSync, readFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { gunzipSync } from 'node:zlib'
 
 const W = new URL('../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
 const score = await import(`${W}scoreSample.ts`)
 const defects = await import(`${W}defects.ts`)
+const panelKeys = await import(`${W}answerKeys.ts`)
 
 // ---------------------------------------------------------------- a synthetic array
 //
@@ -37,6 +39,11 @@ const CHROMS = Array.from({ length: 22 }, (_, i) => String(i + 1))
 // AFTER the collapse rather than before it.
 const PER_CHROM = 2400
 const LOST = new Set(['13', '19'])
+// Marker ids the shipped founder panel holds, so the command line reads these files as the proven
+// chip (web/src/platform.ts). Both surfaces score them without the panel.
+const PANEL_IDS = [...(panelKeys.parsePanel(gunzipSync(readFileSync(
+  new URL(`../web/public/${panelKeys.FOUNDER_PANEL_PATH}`, import.meta.url))).toString('utf8')).freqB!.keys())]
+const idOf = (chrom: string, i: number) => PANEL_IDS[(Number(chrom) - 1) * PER_CHROM + i]
 
 // THE FIXTURE IS BUILT TO THE NUMBERS A REAL RUN PRODUCED, and that is the point of these three.
 //
@@ -95,7 +102,7 @@ function synthesise(): { parent: string; sample: string } {
   const sample = [HEAD]
   for (const chrom of CHROMS) {
     for (let i = 0; i < PER_CHROM; i += 1) {
-      const id = `AX-${chrom}-${i}`
+      const id = idOf(chrom, i)
       const pos = 100_000 + i * 90_000
       // 17% heterozygous, which is what the loaded parent of the real run measures.
       const pg = r() < PARENT_HET ? 1 : (r() < 0.5 ? 0 : 2)
@@ -144,7 +151,7 @@ function synthesiseBiparental(): { parent: string; mother: string; sample: strin
   const sample = [HEAD]
   for (const chrom of CHROMS) {
     for (let i = 0; i < PER_CHROM; i += 1) {
-      const id = `AX-${chrom}-${i}`
+      const id = idOf(chrom, i)
       const pos = 100_000 + i * 90_000
       const pg = r() < PARENT_HET ? 1 : (r() < 0.5 ? 0 : 2)
       parent.push([id, chrom, pos, (r() * 0.1 - 0.05).toFixed(4),
@@ -280,7 +287,7 @@ function cliAnswer(dir: string, role = 'paternal', otherFile?: string) {
     '--experimental-strip-types',
     new URL('./om.ts', import.meta.url).pathname,
     'origin', join(dir, 'parent.probes'), join(dir, 'sample.probes'),
-    '--role', role, '--json',
+    '--role', role, '--json', '--no-panel',
     ...(otherFile ? ['--other', join(dir, otherFile)] : []),
   ], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 })
   return JSON.parse(outText) as {
