@@ -1,6 +1,8 @@
 // Self-check for chip recognition and column naming. Run: node src/platform.check.ts
 import assert from 'node:assert/strict'
-import { KNOWN_SHARE_MIN, emptyChipTally, missingRequired, missingSignals, recogniseChip, tallyChip } from './platform.ts'
+import {
+  KNOWN_SHARE_MIN, emptyChipTally, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableLines,
+} from './platform.ts'
 import { headerMap } from './ingest.ts'
 
 const known = new Set(Array.from({ length: 1000 }, (_, i) => `AX-${i}`))
@@ -56,14 +58,29 @@ const noBuild = { build: null, illegal: { GRCh37: 40, GRCh38: 20 }, tested: 5000
   assert.equal(zuccaro.log2r, 4)
 }
 
-// --- 4. AN UNREADABLE HEADER NAMES THE REQUIRED COLUMNS IT LACKS -------------------------------
+// --- 4. AN UNREADABLE HEADER IS READ AS ANOTHER CHIP FROM ITS IDS, OR NAMES WHAT IT LACKS -------
 {
   const finalReport = 'SNP Name\tGC Score\tAllele1 - AB\tAllele2 - AB\tB Allele Freq\tLog R Ratio'
   assert.equal(headerMap(finalReport), null)
   const missing = missingRequired(finalReport)
-  assert.equal(missing.length, 4)
-  assert.match(missing[0], /no marker id column \(looked for probeset_id\)/)
+  assert.deepEqual(missing.map((m) => m.split(' (')[0]), ['no chromosome column', 'no position column', 'no genotype call column'])
+  // GenomeStudio's preamble, then the data header, then rows: refused as another chip, with the share.
+  const lines = ['[Header]', 'GSGT Version\t1.9.4', '[Data]', finalReport,
+    ...Array.from({ length: 50 }, (_, i) => `rs${i}\t0.9\tA\tB\t0.5\t0.1`)]
+  const text = unreadableLines(lines, known)
+  assert.match(text, /^Not scored: this file is not from the UK Biobank Axiom chip/)
+  assert.match(text, /holds 0 of its 50 markers \(0\.0%\)/)
+  assert.match(text, /No chromosome column \(looked for chr\)/)
+  // The same layout with Axiom ids is not called another chip: its columns are named instead.
+  const axiomIds = [finalReport, ...[...known].slice(0, 50).map((id) => `${id}\t0.9\tA\tB\t0.5\t0.1`)]
+  assert.match(unreadableLines(axiomIds, known), /^Not scored: the reader could not find the columns it needs/)
+  // No marker column at all: the columns are named.
+  assert.match(unreadableLines(['a,b,c', '1,2,3'], known), /No marker id column \(looked for probeset_id, snp name, name\)/)
   assert.deepEqual(missingRequired('probeset_id,chr,position'), ['no genotype call column (looked for genotype)'])
+  // Illumina's marker column resolves where the other three are present.
+  const named = headerMap('SNP Name\tchr\tposition\tgenotype\tLog R Ratio')!
+  assert.equal(named.probeset_id, 0)
+  assert.equal(named.log2r, 4)
 }
 
 console.log('platform.check: ok')

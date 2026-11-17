@@ -69,6 +69,7 @@ const REQUIRED = REQUIRED_COLUMNS
  * had nothing to do with the sample.
  */
 const ALIASES: Record<string, readonly string[]> = {
+  probeset_id: COLUMN_NAMES.probeset_id,
   log2r: COLUMN_NAMES.log2r,
   baf: COLUMN_NAMES.baf,
   copy_number: ['copy_number', 'copynumber', 'cn'],

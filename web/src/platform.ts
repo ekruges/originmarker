@@ -32,7 +32,7 @@ export const KNOWN_SHARE_MIN = 0.5
  *  refusal names exactly what was tried. The intensity and allele-fraction names also match after
  *  an export's per-sample prefix (`GSM123.Log R Ratio`). */
 export const COLUMN_NAMES: Record<string, readonly string[]> = {
-  probeset_id: ['probeset_id'],
+  probeset_id: ['probeset_id', 'snp name', 'name'],
   chr: ['chr'],
   position: ['position'],
   genotype: ['genotype'],
@@ -74,10 +74,11 @@ export const matches = (cell: string, name: string): boolean =>
 
 export interface ChipTally { markers: number; known: number }
 export const emptyChipTally = (): ChipTally => ({ markers: 0, known: 0 })
+type Known = ReadonlySet<string> | ReadonlyMap<string, unknown>
 
 /** Autosomes only: the panel holds the founders' autosomal markers, and none on X, Y or MT. */
 export function tallyChip(
-  t: ChipTally, id: string, chrom: string, known: ReadonlySet<string> | ReadonlyMap<string, unknown>,
+  t: ChipTally, id: string, chrom: string, known: Known,
 ): void {
   if (!/^([1-9]|1\d|2[0-2])$/.test(chrom)) return
   t.markers += 1
@@ -123,3 +124,72 @@ export const refusalText = (causes: string[]): string =>
 export const unreadableText = (missing: string[]): string =>
   `Not scored: the reader could not find the columns it needs, so the chip cannot be checked. `
   + `${missing.map((c) => c[0].toUpperCase() + c.slice(1)).join('. ')}.`
+
+/** The proven-chip verdict for rows already parsed, as every reader that holds a whole file uses it. */
+export function recogniseRows(
+  rows: Iterable<{ probesetId: string; chrom: string }>, build: BuildCall, map: ColumnMap, known: Known,
+): ChipCall {
+  const t = emptyChipTally()
+  for (const r of rows) tallyChip(t, r.probesetId, r.chrom, known)
+  return recogniseChip(t, build, missingSignals(map))
+}
+
+/**
+ * Where a header the reader could not resolve still names the marker id (an Illumina Final
+ * Report has `SNP Name` but no chromosome, position or single genotype column), so the chip can
+ * be read from the ids alone.
+ */
+export function idColumn(headerLine: string): { index: number; delim: string } | null {
+  for (const delim of ['\t', ',']) {
+    const cols = headerLine.trim().split(delim).map(norm)
+    const index = cols.findIndex((c) => COLUMN_NAMES.probeset_id.includes(c))
+    if (index >= 0 && cols.length > 1) return { index, delim }
+  }
+  return null
+}
+export const idAt = (line: string, col: { index: number; delim: string }): string =>
+  (line.split(col.delim)[col.index] ?? '').trim()
+
+/** Share of every row's id the panel holds, with no chromosome to restrict to. Measured on Axiom
+ *  exports: 0.9737, the X and Y rows being the rest. */
+export const AXIOM_ALL_ROWS_SHARE = '97%'
+
+/**
+ * The refusal for a file whose header lacks a required column. Read as another chip when the ids
+ * under a marker column show it, with the panel share and the missing columns as causes; otherwise
+ * the columns are named and the chip is said to be unchecked.
+ */
+export function unreadableRefusal(missing: string[], ids: ChipTally | null): string {
+  if (ids && ids.markers > 0 && ids.known / ids.markers < KNOWN_SHARE_MIN) {
+    return refusalText([
+      `the founder panel holds ${int(ids.known)} of its ${int(ids.markers)} markers `
+        + `(${pct(ids.known / ids.markers)}); a ${PROVEN_CHIP} file has ${AXIOM_ALL_ROWS_SHARE} of its `
+        + 'markers in the panel',
+      ...missing,
+    ])
+  }
+  return unreadableText(missing)
+}
+
+/** The same, for a reader holding the whole file as lines. */
+export function unreadableLines(lines: readonly string[], known: Known | null | undefined): string {
+  let header = -1
+  let col: { index: number; delim: string } | null = null
+  for (let i = 0; i < Math.min(lines.length, 200); i += 1) {
+    const l = lines[i]
+    if (!l || !l.trim() || l.startsWith('#')) continue
+    if (header < 0) header = i
+    col = idColumn(l)
+    if (col) { header = i; break }
+  }
+  const missing = header < 0 ? REQUIRED_COLUMNS.map(missingColumn) : missingRequired(lines[header])
+  if (!col || !known) return unreadableRefusal(missing, null)
+  const t = emptyChipTally()
+  for (let i = header + 1; i < lines.length; i += 1) {
+    const id = lines[i] ? idAt(lines[i], col) : ''
+    if (!id) continue
+    t.markers += 1
+    if (known.has(id)) t.known += 1
+  }
+  return unreadableRefusal(missing, t)
+}

@@ -4,7 +4,9 @@ import {
   type ParentIndex,
 } from './scoreSample'
 import { loadFounderPanel } from './answerKeys'
-import { emptyChipTally, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableText } from './platform'
+import {
+  emptyChipTally, idAt, idColumn, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableRefusal,
+} from './platform'
 import { syngamyTable } from './syngamyTable'
 import { ParentalBalancePanel } from './ParentalBalancePanel'
 import type { BalanceSample, PairedSample } from './parentalBalance'
@@ -403,6 +405,9 @@ async function profileFile(
   const known = (await loadFounderPanel())?.freqB
   const chip = emptyChipTally()
   let firstHeader = ''
+  // A header that never resolves may still name the marker id; the chip is then read from the ids.
+  let idCol: ReturnType<typeof idColumn> = null
+  const ids = emptyChipTally()
   log('READ', `${file.name}  ${mb(file.size)}`)
   await eachLine(file, (line) => {
     if (!map) {
@@ -411,7 +416,10 @@ async function profileFile(
       if (map) {
         log('PARSE', `header resolved, ${Object.keys(map).length - 1} columns mapped`)
         for (const m of missingSignals(map)) log('WARN', `${file.name}: ${m}`)
-      }
+      } else if (idCol) {
+        const id = idAt(line, idCol)
+        if (id && known) { ids.markers += 1; if (known.has(id)) ids.known += 1 }
+      } else if ((idCol = idColumn(line))) firstHeader = line
       return
     }
     const r = parseRow(line, map)
@@ -425,7 +433,7 @@ async function profileFile(
     n += 1
     if (n % 100_000 === 0) { tick({ markers: n }); log('PARSE', `${int(n)} markers`) }
   }, (bytes) => tick({ bytes }))
-  if (!map) throw new Error(unreadableText(missingRequired(firstHeader)))
+  if (!map) throw new Error(unreadableRefusal(missingRequired(firstHeader), idCol && known ? ids : null))
   tick({ markers: n })
   if (skipped) log('WARN', `${int(skipped)} rows unparseable, skipped`)
 

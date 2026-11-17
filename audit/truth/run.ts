@@ -42,7 +42,7 @@ function rows(path: string): any[] {
   const lines = text(path).split('\n')
   let h = 0; while (!lines[h] || lines[h].startsWith('#')) h++
   const map = ingest.headerMap(lines[h])
-  if (!map) throw new ChipRefused(path, { text: platform.unreadableText(platform.missingRequired(lines[h])),
+  if (!map) throw new ChipRefused(path, { text: platform.unreadableLines(lines, panel.freqB),
     causes: platform.missingRequired(lines[h]) })
   const o: any[] = []
   for (let i = h + 1; i < lines.length; i++) { const r = ingest.parseRow(lines[i], map); if (r) o.push(r) }
@@ -56,9 +56,9 @@ class ChipRefused extends Error {
 }
 /** The same recognition the page runs, from the rows already read. Throws on another chip. */
 function checkChip(path: string, rs: any[], map: any) {
-  const t = platform.emptyChipTally(); const b = ingest.emptyBuildSums()
-  for (const r of rs) { platform.tallyChip(t, r.probesetId, r.chrom, panel.freqB); ingest.accumulateBuild(r, b) }
-  const call = platform.recogniseChip(t, ingest.buildVerdict(b), map ? platform.missingSignals(map) : [])
+  const b = ingest.emptyBuildSums()
+  for (const r of rs) ingest.accumulateBuild(r, b)
+  const call = platform.recogniseRows(rs, ingest.buildVerdict(b), map, panel.freqB)
   if (!call.proven) throw new ChipRefused(path, call)
 }
 const parents = new Map<string, any>()

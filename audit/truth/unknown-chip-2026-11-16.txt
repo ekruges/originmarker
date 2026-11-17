@@ -96,23 +96,65 @@ G4 PASS on records: no-parent rows 330 of 330 identical (SEGMENTS GONE 0, NEW SE
    apart from the /api/health 502s of a dev server with no backend.
    Released as its own version: not done here, by instruction.
 
+SECOND PASS, on main 6.7.0 merged in (same day)
+-----------------------------------------------
+The two gaps above are closed.
+- Germline page: every file is read once for the chip before it becomes a product (a product's
+  markers join the set as it streams). A file from another chip is listed with the same text and
+  never becomes a product.
+- Command line: every command reads arrays through two readers in cli/om.ts, and both now refuse
+  with the same text and exit 2, `om father` included. The chip is recognised by the ids of the
+  panel `--panel` names, or else the shipped founder panel; `--no-panel` does not turn the check
+  off. For GSM1493517 (CytoSNP-12):
+    om: <path>: Not scored: this file is not from the UK Biobank Axiom chip, the only chip this tool
+    is proven on, so none of its numbers apply. The founder panel holds 0 of its 279,495 autosomal
+    markers (0.0%); a UK Biobank Axiom file has all of its autosomal markers in the panel. Genome
+    build not recognised: 4,173 of 297,794 markers fall outside GRCh37 and 2,416 outside GRCh38.
+- The reader takes Illumina's marker column ("SNP Name", also "Name"). A header that still lacks a
+  required column is read for the chip from its marker ids alone (all rows, there being no
+  chromosome column; Axiom exports measure 0.9737 there). The same CytoSNP file rewritten as a
+  GenomeStudio Final Report ([Header] preamble, SNP Name, GC Score, Allele1/2 - AB, B Allele Freq,
+  Log R Ratio) gives:
+    Not scored: this file is not from the UK Biobank Axiom chip, ... The founder panel holds 0 of
+    its 298,563 markers (0.0%); a UK Biobank Axiom file has 97% of its markers in the panel. No
+    chromosome column (looked for chr). No position column (looked for position). No genotype call
+    column (looked for genotype).
+  The same layout carrying Axiom ids is not called another chip; its missing columns are named.
+- cli/crossSurface.check.ts built its synthetic arrays under invented ids, which the command line
+  now refuses. Its fixtures now use ids the shipped panel holds and its `om origin` call passes
+  `--no-panel`, which leaves both surfaces scoring exactly as before (no panel hit either way);
+  every line of that check reads as it did.
+
+Merged-code results:
+- npx tsc --noEmit clean; scripts/checks.sh "all checks passed" (67); scripts/release-check.sh exit 0.
+- Rows, branch code against the 6.7.0 records (/root/r3d/b/rows): with-parent 270 of 270 identical (father 49, two 39, recon 49,
+  recon-standin 133) and no-parent 330 of 330 identical; segments gone 0, new 0, other
+  differences 0; no error or refusal record.
+- Browser (port 5184): (a) an Axiom cell with its father scores as the 6.7.0 record (same stage,
+  same four segments) and a row's plot opens; (b) the CytoSNP file is refused on the Syngamy page;
+  (c) refused on the Germline page with the same text; (d) three sperm files and two cells name the
+  sperm donor (carries in 2 of 2, the two egg donors in none); (e) console: only /api/health 502s.
+
 NOT COVERED
-- The Germline page (reconstruction from haploid products) and cli/om.ts still read any file;
-  they call the same reader, so the next step is to route them through platform.ts as well.
-- A FinalReport or PennCNV table with Illumina's own column names is refused as unreadable, with
-  the required columns named, not as another chip: its marker id is under "SNP Name", which the
-  reader does not take.
+- A file whose header names no marker column at all is still refused as unreadable, not as
+  another chip: there is nothing to read the chip from.
+- A command line run over a folder stops at the first file from another chip, as for any other
+  unreadable file there.
 
 DRAFT CHANGELOG PARAGRAPH (for the release that ships this; not in CHANGELOG.md)
 --------------------------------------------------------------------------------
-**A file from another chip is refused, with the reason.** The tool is proven on one chip, the UK
-Biobank Axiom array, and until now it applied that chip's numbers to any file with the right
-columns, printing a haploid stage and a damaged-sample banner on Illumina arrays that said nothing
-about the sample. A file is now scored only when at least half of its autosomal markers are in the
-founder panel: every Axiom file read measures 100% (365 arrays), the two Illumina series measured
-0% (68 arrays). Any other file is not scored, and the page says so with each cause it can name:
-how many of its markers the panel holds, a genome build neither GRCh37 nor GRCh38 fits, a missing
-intensity or allele-fraction column. The reader now also takes those two columns under Illumina's
-names ("Log R Ratio", "B Allele Freq", with or without a per-sample prefix) and names either one
-as missing when it is absent, rather than dropping it. On Axiom nothing changes: all 600 records
-of the truth set's with-parent and no-parent rows are identical.
+**A file from another chip is refused, with the reason, everywhere a file is read.** The tool is
+proven on one chip, the UK Biobank Axiom array, and until now it applied that chip's numbers to any
+file with the right columns, printing a haploid stage and a damaged-sample banner on Illumina
+arrays that said nothing about the sample, and a parent rebuilt from such files would have been
+built with Axiom's numbers. A file is now read only when at least half of its autosomal markers
+are in the founder panel: every Axiom file read measures 100% (365 arrays), the two Illumina
+series 0% (68 arrays). Any other file is not scored on the Syngamy page, not used as a product on
+the Germline page, and refused by every command of the command line, `om father` included, each
+with the same words and every cause it can name: how many of its markers the panel holds, a genome
+build neither GRCh37 nor GRCh38 fits, a missing intensity or allele-fraction column. The reader
+also takes Illumina's names for the marker, intensity and allele-fraction columns ("SNP Name",
+"Log R Ratio", "B Allele Freq", with or without a per-sample prefix), so an Illumina Final Report
+is refused as another chip with its panel share rather than as a file with columns missing, and a
+missing intensity or allele-fraction column is named rather than dropped. On Axiom nothing changes:
+all 600 records of the truth set's with-parent and no-parent rows are identical.
