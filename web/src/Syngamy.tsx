@@ -44,6 +44,8 @@ import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
+import { callSeries, cellLrr, segmentBox, type ChromSeries } from './plotSeries'
+import { CallPlot, DefectPlot, withheldBox, withheldRuns } from './CallPlot'
 import { defectsFrom, findingToDefect, mendelParent, parentNamed, runAlerts, withMechanism } from './defects'
 import type { DosageVerdict } from './dosageOrigin'
 import { groupUnits } from './abnormalities'
@@ -316,6 +318,8 @@ interface Entry {
   error?: string
   /** This file is a genotype Germline reconstructed, not an array anyone measured. */
   inferred?: boolean
+  /** Per-chromosome markers for the call plots, from the scoring pass. See plotSeries.ts. */
+  series?: Map<string, ChromSeries>
 }
 
 /** One parent held as a call per marker. The shape is scoreSample's, so the two cannot diverge.
@@ -763,7 +767,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         const maternal = acc.tm && mat
           ? classify(acc.tm, mat.heterozygosity, { role: 'maternal' }) : undefined
         const paired = maternal ? pair(result, maternal, agree) : undefined
-        return { calls: acc.myGt, profile, gates, result, maternal, paired }
+        const loaded = pat.absent ? null : pat.gt
+        const series = soloRole === 'paternal'
+          ? callSeries(acc, loaded, mat?.gt ?? null) : callSeries(acc, null, loaded)
+        return { calls: acc.myGt, profile, gates, result, maternal, paired, series }
       }
       const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
       let doneCount = 0
@@ -775,7 +782,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { calls, profile, gates: g, result, maternal, paired } = await readSample(s, othersOf(s.id))
+          const { calls, profile, gates: g, result, maternal, paired, series } = await readSample(s, othersOf(s.id))
           sampleGt.set(s.id, calls)
           // With no parent loaded there is no parent's absence to report, and soloRole is a placeholder.
           log('DONE', result.noParent
@@ -786,7 +793,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 + `${pct(maternal.explainable)}` : ''))
           finished.push({ id: s.id, result })
           await breathe()
-          patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired })
+          patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
         } catch (e) {
           const m = e instanceof Error ? e.message : String(e)
           log('WARN', `${s.file.name}: ${m}`)
@@ -805,10 +812,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         log('READ', `${s.file.name}: read again, now that the run holds every array`)
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { profile, gates: g, result, maternal, paired } = await readSample(s, othersOf(s.id))
+          const { profile, gates: g, result, maternal, paired, series } = await readSample(s, othersOf(s.id))
           f.result = result
           await breathe()
-          patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired })
+          patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
         } catch (e) {
           log('WARN', `${s.file.name}: ${e instanceof Error ? e.message : String(e)}`)
         }
@@ -1310,7 +1317,12 @@ function ResultCard({ entry, donorName, oocyteName }: {
             </div>
           )}
           <SegmentCallout segments={r.segments} role={r.role} />
-          <DefectCallout defects={defectsForResult(r)} />
+          <DefectCallout
+            defects={defectsForResult(r)}
+            plot={(d) => (
+              <DefectPlot d={d} segments={r.segments} refusals={r.refusals} series={entry.series} name={plotName(entry)} />
+            )}
+          />
           <GainCallout gains={r.gains} />
           {entry.paired && entry.paired.notes.length > 0 && (
             <Section title="Both parents">
@@ -1324,6 +1336,7 @@ function ResultCard({ entry, donorName, oocyteName }: {
           )}
           <SampleDetail
             result={r} maternal={m} profile={entry.profile!} gates={entry.gates!}
+            series={entry.series} name={plotName(entry)}
           />
         </div>
       )}
@@ -1584,6 +1597,33 @@ const intensityText = (sg: Segment): string => (
   sg.lrrShift !== undefined && sg.lrrShift !== null && Number.isFinite(sg.lrrShift)
     ? `${sg.lrrShift > 0 ? '+' : ''}${sg.lrrShift.toFixed(2)}` : '–')
 
+/** What a segment row shows, for the hover on its plot box. */
+const segmentLines = (sg: Segment, role: 'paternal' | 'maternal'): string[] => {
+  const co = segmentCoords(sg)
+  return [
+    `${kindLabel(sg.kind, role, sg)}, chr${sg.chrom}`,
+    `${int(co.start)}-${int(co.end)}, ${co.interval}`,
+    `${(co.spanBp / 1e6).toFixed(1)} Mb, ${int(sg.markers)} markers`,
+    `absent ${pct(sg.rate, 2)} against ${pct(sg.nullRate, 2)}`,
+    `score ${sg.score.toFixed(0)} against ${thresholdOf(sg)}, intensity ${intensityText(sg)}`,
+  ]
+}
+
+const plotName = (e: Entry): string => e.file.name.replace(/\.[^.]*$/, '')
+
+/** Opens or closes a row's chromosome plot. */
+const PlotToggle = ({ open, onClick }: { open: boolean; onClick: () => void }) => (
+  <button
+    type="button" onClick={onClick} aria-expanded={open}
+    style={{
+      border: '1px solid var(--om-border-strong)', background: open ? 'var(--om-head-bg)' : '#fff',
+      font: 'inherit', fontSize: 11, padding: '0 5px', marginRight: 6, cursor: 'pointer',
+    }}
+  >
+    {open ? 'hide plot' : 'plot'}
+  </button>
+)
+
 /**
  * Where each extra copy came from, or why that cannot be said.
  *
@@ -1713,10 +1753,15 @@ function SegmentCallout({ segments, role }: {
   )
 }
 
-function SampleDetail({ result: r, maternal, profile, gates: g }: {
+function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: {
   result: ParentageResult; maternal?: ParentageResult; profile: SampleProfile; gates: Gate[]
+  series?: Map<string, ChromSeries>; name: string
 }) {
   const sex = r.chroms.filter((c) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
+  const [plotAt, setPlotAt] = useState<number | null>(null)
+  const [heldAt, setHeldAt] = useState<number | null>(null)
+  const held = withheldRuns(r.refusals)
+  const plotSg = plotAt === null ? undefined : r.segments[plotAt]
   return (
     <>
       <Section title={maternal ? 'Evidence, sperm donor' : 'Evidence'}>
@@ -1789,6 +1834,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
             missing, or where there are extra copies, at a rate the rest of this genome does not
             reach. Each row says which.
           </Text>
+          <Scroll>
           <Table striped withTableBorder>
             <Table.Thead>
               <Table.Tr>
@@ -1807,6 +1853,9 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
               {r.segments.map((sg, i) => (
                 <Table.Tr key={`${sg.chrom}:${sg.startBp}:${i}`}>
                   <Table.Td>
+                    {series ? (
+                      <PlotToggle open={plotAt === i} onClick={() => setPlotAt(plotAt === i ? null : i)} />
+                    ) : null}
                     chr{sg.chrom}
                     <Text span size="xs" c="dimmed" ff="monospace">
                       {' '}{int(segmentCoords(sg).start)}&ndash;{int(segmentCoords(sg).end)}
@@ -1834,6 +1883,14 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
               ))}
             </Table.Tbody>
           </Table>
+          </Scroll>
+          {plotSg && series ? (
+            <CallPlot
+              chrom={plotSg.chrom} series={series.get(plotSg.chrom)} name={name} cellLrr={cellLrr(series)}
+              boxes={[segmentBox(plotSg, kindLabel(plotSg.kind, r.role, plotSg), segmentLines(plotSg, r.role)),
+                ...held.filter((w) => w.chrom === plotSg.chrom).map(withheldBox)]}
+            />
+          ) : null}
           <Text size="xs" c="dimmed" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
             Two scans make these rows and they score on different scales, so each score is read
             against its own scan&rsquo;s threshold. The window scan reports a log-likelihood ratio
@@ -1852,6 +1909,28 @@ function SampleDetail({ result: r, maternal, profile, gates: g }: {
             anywhere from a few hundred kilobases to tens of megabases depending on marker density.
             A real event smaller than that is reported at the size of the window that found it.
           </Text>
+        </Section>
+      )}
+
+      {held.length > 0 && series && (
+        <Section title="Runs found and withheld">
+          {held.map((sg, i) => (
+            <div key={`${sg.chrom}:${sg.startBp}`} style={{ fontSize: 12, marginBottom: 3 }}>
+              <PlotToggle open={heldAt === i} onClick={() => setHeldAt(heldAt === i ? null : i)} />
+              <span style={{ fontFamily: 'var(--om-mono)' }}>
+                chr{sg.chrom} {int(segmentCoords(sg).start)}&ndash;{int(segmentCoords(sg).end)}
+              </span>
+              <Text span size="xs" c="dimmed">
+                {' '}{(segmentCoords(sg).spanBp / 1e6).toFixed(2)} Mb, {int(sg.markers)} markers, withheld
+              </Text>
+              {heldAt === i ? (
+                <CallPlot
+                  chrom={sg.chrom} series={series.get(sg.chrom)} boxes={[withheldBox(sg)]} name={name}
+                  cellLrr={cellLrr(series)}
+                />
+              ) : null}
+            </div>
+          ))}
         </Section>
       )}
 

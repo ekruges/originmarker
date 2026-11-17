@@ -16,7 +16,7 @@
  * The confidence number is on the face of the chip, in the band's own colour, because it is the
  * thing that decides whether a row may be used and it was previously the hardest thing to find.
  */
-import { useState } from 'react'
+import { useState, type ReactNode } from 'react'
 import { Text } from '@mantine/core'
 import type { Defect } from './defects.ts'
 import { headline, bandColour, BAND_WORD, originBlockedByClass, sentences } from './defects.ts'
@@ -74,7 +74,7 @@ function splitReasons(defects: readonly Defect[]): { unique: string[][]; shared:
   return { unique: per.map((ss) => ss.filter((s) => !isShared(s))), shared }
 }
 
-function OneDefect({ d, why }: { d: Defect; why: string[] }) {
+function OneDefect({ d, why, plot }: { d: Defect; why: string[]; plot?: (d: Defect) => ReactNode }) {
   const [open, setOpen] = useState(false)
   const colour = bandColour(d)
   const named = d.origin && d.origin !== 'unclear'
@@ -100,7 +100,12 @@ function OneDefect({ d, why }: { d: Defect; why: string[] }) {
     : d.band === 'D' ? 'not evaluable'
       : d.band === 'F' ? 'no parent' : null
   return (
-    <div style={{ border: `1px solid ${open ? colour : 'var(--om-defect)'}`, background: 'var(--om-defect-chip)' }}>
+    <div style={{
+      border: `1px solid ${open ? colour : 'var(--om-defect)'}`, background: 'var(--om-defect-chip)',
+      // An open row takes the whole width, so its plot is not squeezed into one grid cell.
+      gridColumn: open && plot ? '1 / -1' : undefined, minWidth: 0,
+    }}
+    >
       <button
         type="button"
         onClick={() => setOpen((v) => !v)}
@@ -191,13 +196,18 @@ function OneDefect({ d, why }: { d: Defect; why: string[] }) {
           {why.length ? (
             <Text size="sm" mt={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>{why.join(' ')}</Text>
           ) : null}
+          {plot?.(d)}
         </div>
       ) : null}
     </div>
   )
 }
 
-export function DefectCallout({ defects }: { defects: Defect[] }) {
+export function DefectCallout({ defects, plot }: {
+  defects: Defect[]
+  /** The chromosome plot for a row, shown when the row is open. */
+  plot?: (d: Defect) => ReactNode
+}) {
   if (!defects.length) return null
   const { unique, shared } = splitReasons(defects)
 
@@ -236,7 +246,7 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
             + `reporting${inherited.length ? `; ${inherited.length} inherited from one `
               + 'genome-level call' : ''}`
           : 'none carries a parental origin'}
-        . Click a change for its evidence.
+        . Click a change for its evidence and its plot.
       </Text>
 
       {inherited.length > 1 ? (
@@ -264,7 +274,7 @@ export function DefectCallout({ defects }: { defects: Defect[] }) {
       }}
       >
         {defects.map((d, i) => (
-          <OneDefect key={`${d.chrom}:${d.startBp}:${d.kind}:${i}`} d={d} why={unique[i] ?? []} />
+          <OneDefect key={`${d.chrom}:${d.startBp}:${d.kind}:${i}`} d={d} why={unique[i] ?? []} plot={plot} />
         ))}
       </div>
 
