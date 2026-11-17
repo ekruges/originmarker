@@ -217,8 +217,9 @@ Seen and not changed (for the bottom list):
     pseudoautosomal region; the page knows the assembly. The page and the harness differ by
     +0.02 to +0.03 on chrX with a parent.
 
-DRAFT CHANGELOG PARAGRAPH (not in CHANGELOG.md; describes candidate C as the released rule)
------------------------------------------------------------------------------------------
+CHANGELOG PARAGRAPH, FINAL (version C with the A4 guard, approved by the owner 17 November; not in
+CHANGELOG.md, which the release writes)
+-------------------------------------------------------------------------------------------------
 **With no parent loaded, the page says what chromosomes X and Y show, and no longer prints
 "female" on a one-genome cell.** 6.5.0 built no chromosome X row with no parent, so the
 sex-chromosome reading was unresolved on every array, with a false reason ("chromosome X carries
@@ -249,7 +250,7 @@ Against stated answers on 290 open arrays with no parent:
     XY: printed XY (of 15)                           13         10             10
     printed and contradicted by the stated answer    28          4              5
     45,X, 47,XXX or 47,XXY printed                    0          0              0
-(6.5.0 is its header sex, and 6.8.0 reads the sex chromosomes as 6.5.0 does. The first build is
+(6.5.0 is its header sex, and 6.9.0 reads the sex chromosomes as 6.5.0 does. The first build is
 the version that printed a sex only where two copies were shown.) It still contradicts five stated answers: three
 cells stated to carry one X print XX because their heterozygosity, with drop-in removed, sits just
 past the 10.5% line (0.106 to 0.110) and their stage reads them as two genomes; one stated XY prints
@@ -418,3 +419,24 @@ A4 result (code /root/om-sexnpA4, records /root/sexnpA4), against the C records:
   Browser, GSM4472405 with no parent: "Not read: chrX sits -1.69 log2 from this sample's
   autosomes: chromosome X sits further below the autosomes than one copy, and its calls do not
   show it absent either, so this file does not settle what the cell holds."
+
+Merged with main 6.9.0 (f728e78), 17 November: no conflicts; CHANGELOG.md and build_info.py from
+main unchanged. Reruns on the merged code (/root/om-sexnp9, records /root/sexnp9):
+  330 no-parent rows: every autosome entry and every other field identical to 6.9.0
+  (/root/r3d/m2 one-cell runs); `sex` identical to the final C run on 330 of 330.
+  270 with-parent rows: identical to 6.9.0 in every field, chrX and `sex` included.
+  290 stated arrays: readings and reasons identical to the final C run on 290 of 290; the
+  stated-sex table unchanged row for row. S2: 115 and 96 reasons checked, 0 false.
+
+For a follow-up item (measured, nothing built): 47,XXY with a parent loaded
+  On the 270 with-parent rows, 26 print 47,XXY (13 father rows, 13 two-parent rows): 13 public
+  GSE148488 cells, each with chrY present. Their chrX sits at -1.78 to +0.30 log2 with z -5.5 to
+  +3.5: inside the noise or short of the copy step, so 6.5.0's "two copies" default with a chrY
+  gives 47,XXY. With no parent, rule C reads 5 of the 13 XY and leaves 8 unread. GSM4552385, the
+  cell an example run uses, is one of them (chrX +0.17, z 0.5, chrY present): 47,XXY with a parent,
+  not read with none.
+  Applying A3 to the with-parent path is one condition in sexChromosome.ts (the 47,XXY return
+  for two X with a chrY). On the 270 it moves exactly those 26 rows to unresolved and nothing else
+  (XX 32, XY 5 stay). It also removes the only route to a real 47,XXY: sexChromosome.check.ts
+  section 3 asserts 47,XXY for bulk DNA with chrX at -0.01 and a chrY, which A3 would refuse. A
+  narrower form (refuse only on amplified material) would keep that case. For the owner.
