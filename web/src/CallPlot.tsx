@@ -1,15 +1,16 @@
 /**
- * The cell figures. The whole cell: every chromosome, one row per parent whose letters can be read,
+ * The cell figures. The whole cell: every chromosome, one row per parent whose alleles can be read,
  * with every printed call marked. One call: the same quantity closer in, with a plain sentence on top,
  * the stretch as a band and the cell's own normal range behind the bars; or, where no true quantity
  * separates such a stretch by eye, one line with the two numbers and the whole cell with it marked.
  */
 import { useId, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import {
-  BASE, cellPer, drawable, risesInside, shareTop, mergeBins, normalRange, perForStretch, runningScore, shareIn, tickStepMb, valueOf,
+  cellPer, drawable, risesInside, shareTop, mergeBins, normalRange, perForStretch, runningScore, shareIn, tickStepMb, valueOf,
   viewOf, wrap, type Bin, type PlotData, type Role, type Track,
 } from './plotSeries.ts'
 import { headline, type Defect } from './defects.ts'
+import { saidOf } from './pageSays.ts'
 import { segmentCoords, type Segment } from './segments.ts'
 import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
 import type { Refusal } from './refusals.ts'
@@ -29,8 +30,8 @@ const LEVEL_HI = 1
 const mb = (bp: number) => (bp / 1e6).toFixed(1)
 const pct = (x: number) => `${Math.round(x * 100)}%`
 const WORD: Record<string, string> = {
-  father: "show the father's letter", mother: "show the mother's letter",
-  'two-letter': 'read two letters', 'call-rate': 'were read',
+  father: "carry the father's allele", mother: "carry the mother's allele",
+  'two-letter': 'carry two alleles', 'call-rate': 'were read',
 }
 
 /** One call as the figures mark it. */
@@ -49,6 +50,12 @@ export interface Mark {
   sentence: string
   /** What the row shows, for the hover. */
   lines: string[]
+  /** The call states its own numbers beside the figure, so the caption quotes none of its own. */
+  quoted?: boolean
+  /** Intensity across the call as its scan measured it, quoted in place of the figure's own. */
+  lrr?: number
+  /** The call's own numbers as a plain sentence, for the line under its bars. */
+  said?: string
 }
 
 function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
@@ -128,7 +135,10 @@ export function WholeCell({ data, marks, name, focus }: {
   const called = new Set(marks.filter((m) => !m.withheld).map((m) => m.chrom))
   const ranges = tracks.map((t, i) => normalRange(t, pers[i], called))
   const tops = tracks.map((t, i) => (t.kind === 'share' ? shareTop(ranges[i].mid) : 1))
-  const rowLabel = (t: Track, i: number) => (tops[i] < 1 ? `${t.label}, against this cell's own level (row top ${pct(tops[i])})` : t.label)
+  // A parent's row reads "present" at the cell's normal level and "missing" at zero, so nobody has to
+  // know what a bar is made of. How it is made is in the hover and under "How this was read".
+  const copyRow = (t: Track) => t.kind === 'share' && (!!t.parent || !!t.indirect)
+  const GUT = tracks.some(copyRow) ? 50 : 0
   const rows = W >= 760 ? [AUTOSOMES] : [AUTOSOMES.slice(0, 11), AUTOSOMES.slice(11)]
   const G = 3
   const TH = 58
@@ -139,8 +149,8 @@ export function WholeCell({ data, marks, name, focus }: {
   const panels: Panel[] = []
   rows.forEach((row, r) => {
     const total = row.reduce((s, c) => s + len(c), 0)
-    const usable = W - 2 - G * (row.length - 1)
-    let x = 1
+    const usable = W - 2 - GUT - G * (row.length - 1)
+    let x = 1 + GUT
     for (const c of row) {
       const w = usable * len(c) / total
       panels.push({ c, x, w, top: 6 + r * block })
@@ -172,16 +182,25 @@ export function WholeCell({ data, marks, name, focus }: {
     <div ref={ref} style={{ position: 'relative', margin: '8px 0 2px', maxWidth: '100%' }}>
       <svg ref={svg} xmlns="http://www.w3.org/2000/svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`}
         fontFamily="system-ui, -apple-system, sans-serif" fontSize={11} role="img"
-        aria-label="Every chromosome of this cell, each parent's letters present"
+        aria-label="Every chromosome of this cell, each parent's copy"
         style={{ display: 'block', touchAction: 'pan-y' }}
         onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setTip(null)}
       >
         <rect width={W} height={H} fill="#fff" />
-        {rows.map((_, r) => tracks.map((t, ti) => (
-          <text key={`l${r}${ti}`} x={1} y={6 + r * block + ti * (TH + 18) + 10} fontWeight={600} fill={colourOf(t.parent)}>
-            {rowLabel(t, ti)}
-          </text>
-        )))}
+        {rows.map((_, r) => tracks.map((t, ti) => {
+          const top = 6 + r * block + ti * (TH + 18) + 14
+          return (
+            <g key={`l${r}${ti}`}>
+              <text x={1 + GUT} y={top - 4} fontWeight={600} fill={colourOf(t.parent)}>{t.label}</text>
+              {copyRow(t) ? (
+                <>
+                  <text x={GUT - 4} y={Math.max(top + 9, yOf(t, top, ranges[ti].mid) + 4)} textAnchor="end" fontSize={10} fill={DIM}>present</text>
+                  <text x={GUT - 4} y={top + TH} textAnchor="end" fontSize={10} fill={DIM}>missing</text>
+                </>
+              ) : null}
+            </g>
+          )
+        }))}
         {panels.map((p) => {
           const muted = focus && p.c !== focus
           return (
@@ -233,10 +252,8 @@ export function WholeCell({ data, marks, name, focus }: {
       <Tip tip={tip} w={W} />
       <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
         <span>
-          Grey band: this cell&apos;s normal range. A line under a chromosome marks a call; a dip with no line under it is not a call.{' '}
-          {marks.some((m) => m.withheld) ? 'Dashed: found, not reported. ' : ''}
-          {tracks.some((t) => t.parent) ? 'A parent\'s bar is the share of markers where that parent\'s letter could be seen at which it is. ' : ''}
-          Every bar of a row holds as many markers.
+          Grey band: this cell&apos;s normal range. A line under a chromosome marks a change; a dip with no line under it is not one.
+          {marks.some((m) => m.withheld) ? ' Dashed: found, not reported.' : ''}
         </span>
         <SaveSvg svg={svg} name={`${name}-cell`} />
       </div>
@@ -257,7 +274,7 @@ export function CallFigure({ mark, data, marks, name }: {
   const pick = drawable({ whole: mark.whole, spanBp: mark.endBp - mark.startBp, gain: mark.gain, parent: mark.parent }, data)
   const called = new Set(marks.filter((m) => !m.withheld).map((m) => m.chrom))
   const quote = (t: Track | null): string => {
-    if (!t || t.kind !== 'share') return ''
+    if (!t || t.kind !== 'share' || mark.quoted) return ''
     const ins = shareIn(t.bins.get(mark.chrom) ?? [], mark.startBp, mark.endBp)
     const rg = normalRange(t, cellPer(t), called)
     return Number.isFinite(ins.share)
@@ -270,12 +287,13 @@ export function CallFigure({ mark, data, marks, name }: {
     const intensity = data.tracks.find((x) => x.key === 'intensity')
     const lvl = intensity ? mergeBins(intensity.bins.get(mark.chrom) ?? [], 1, true)
       .filter((b) => b.startBp >= mark.startBp && b.endBp <= mark.endBp).map((b) => b.k) : []
-    const lvlText = lvl.length ? ` Intensity inside it sits ${lvl.sort((a, b) => a - b)[lvl.length >> 1].toFixed(2)} from the cell's level.` : ''
+    const lvlText = mark.lrr !== undefined ? ` Intensity inside it sits ${mark.lrr.toFixed(2)} from the cell's level.`
+      : !mark.quoted && lvl.length ? ` Intensity inside it sits ${lvl.sort((a, b) => a - b)[lvl.length >> 1].toFixed(2)} from the cell's level.` : ''
     return (
       <div ref={ref} style={{ margin: '8px 0 2px' }}>
         <div style={{ fontSize: 14, fontWeight: 700, color: INK, lineHeight: 1.35 }}>{mark.sentence}</div>
         <div style={{ fontSize: 12, color: INK, lineHeight: 1.5, marginTop: 3, maxWidth: 780 }}>
-          {quote(t)}{lvlText} A single cell cannot show this stretch by eye
+          {mark.said ?? quote(t)}{lvlText} A single cell cannot show this stretch by eye
           {mark.endBp - mark.startBp < 6e6 ? ': it is shorter than one band' : ''}, so it is not drawn on its own.
         </div>
         <WholeCell data={data} marks={marks.filter((m) => m.chrom === mark.chrom)} name={name} focus={mark.chrom} />
@@ -313,7 +331,7 @@ export function CallFigure({ mark, data, marks, name }: {
   const sTop = top + TH + 34
   const SH = 44
   const smax = scoreOk ? Math.max(...score!.filter(Number.isFinite), 1) : 1
-  const words = quote(t)
+  const words = mark.said ?? quote(t)
   const under = wrap(words, Math.max(40, Math.floor((W - L) / 6.6)))
   const uTop = (scoreOk ? sTop + SH + 8 : top + TH + 8) + 16
   const axisY = uTop + under.length * 15 + 4
@@ -380,7 +398,7 @@ export function CallFigure({ mark, data, marks, name }: {
             })}
           </g>
         ) : null}
-        <text x={L} y={top - 30} fontWeight={600} fill={INK}>{t.label}{vTop < 1 ? ", against this cell's own level" : ''}{mark.whole ? `, along chromosome ${mark.chrom}` : ''}</text>
+        <text x={L} y={top - 30} fontWeight={600} fill={INK}>{t.label}{mark.whole ? `, along chromosome ${mark.chrom}` : ''}</text>
         {/* The cell's normal range, then the call, then the bars. */}
         {Number.isFinite(rg.lo) ? <rect x={L} y={yv(rg.hi)} width={PW} height={Math.max(1, yv(rg.lo) - yv(rg.hi))} fill={RANGE} /> : null}
         {mark.outLoBp !== undefined ? <rect x={x(mark.outLoBp)} y={top - 4} width={Math.max(0, x(mark.startBp) - x(mark.outLoBp))} height={TH + 4} fill={colour} opacity={0.06} /> : null}
@@ -393,7 +411,12 @@ export function CallFigure({ mark, data, marks, name }: {
         ))}
         <text x={labelRight ? x(mark.endBp) : x(mark.startBp)} y={top - 7} textAnchor={labelRight ? 'end' : 'start'}
           fontWeight={700} fill={colour}>{label}</text>
-        {[0, vTop / 2, vTop].map((v) => (t.kind === 'share' ? (
+        {t.kind === 'share' && (t.parent || t.indirect) ? (
+          <>
+            <text x={L - 5} y={yv(rg.mid) + 4} textAnchor="end" fontSize={10} fill={DIM}>present</text>
+            <text x={L - 5} y={yv(0) + 4} textAnchor="end" fontSize={10} fill={DIM}>missing</text>
+          </>
+        ) : [0, vTop / 2, vTop].map((v) => (t.kind === 'share' ? (
           <text key={v} x={L - 5} y={yv(v) + 4} textAnchor="end" fill={DIM}>{pct(v)}</text>
         ) : null))}
         {t.kind === 'level' ? <text x={L - 5} y={yv(0) + 4} textAnchor="end" fill={DIM}>level</text> : null}
@@ -409,7 +432,7 @@ export function CallFigure({ mark, data, marks, name }: {
         {scoreOk ? (
           <g>
             <text x={L} y={sTop - 6} fontWeight={600} fill={INK}>
-              {W < 560 ? 'Evidence the copy is missing, added up' : 'Evidence the copy is missing, added along the chromosome'}
+              Evidence the copy is missing
             </text>
             <line x1={L} x2={L + PW} y1={sTop + SH} y2={sTop + SH} stroke={LINE} />
             <path fill="none" stroke={colour} strokeWidth={2}
@@ -430,7 +453,7 @@ export function CallFigure({ mark, data, marks, name }: {
       </svg>
       <Tip tip={tip} w={W} />
       <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
-        <span>Bars of {per * BASE} markers. Grey band: this cell&apos;s normal range, the middle 80% of its chromosomes with no call.</span>
+        <span>Grey band: this cell&apos;s normal range.</span>
         <SaveSvg svg={svg} name={`${name}-chr${mark.chrom}`} />
       </div>
     </div>
@@ -454,10 +477,10 @@ export function segmentMark(sg: Segment, loaded: Role | null, lines: string[], o
     parent = origin === 'paternal' || origin === 'maternal' ? origin : null
     what = `${gain ? 'there is an extra copy' : 'one copy is lost'}${parent ? `, ${WHOSE[parent]}` : ', parent not named'}`
   } else if (sg.contested) {
-    parent = null; what = "both parents' letters read missing, so no parent is named"
+    parent = null; what = "both parents' alleles read missing, so no parent is named"
   } else {
     parent = sg.absentParent ?? loaded
-    what = parent ? `${WHOSE[parent]} copy is missing` : "a parent's letters are missing"
+    what = parent ? `${WHOSE[parent]} copy is missing` : "a parent's alleles are missing"
   }
   return {
     chrom: sg.chrom, startBp: co.start, endBp: co.end, outLoBp: r?.startLoBp, outHiBp: r?.endHiBp, whole: false, gain,
@@ -486,7 +509,7 @@ export function defectMark(d: Defect, segments: readonly Segment[], loaded: Role
     ...(d.informative !== undefined ? [`${d.informative.toLocaleString('en-US')} markers`] : []), d.why]
   const origin = d.origin
   const sg = segments.find((s) => s.chrom === d.chrom && segmentCoords(s).start === d.startBp && segmentCoords(s).end === d.endBp)
-  if (sg) return segmentMark(sg, loaded, [headline(d), ...lines], origin)
+  if (sg) return { ...segmentMark(sg, loaded, [headline(d), ...lines], origin), quoted: true, lrr: d.lrr, said: saidOf(d) }
   const whole = d.locus === `chr${d.chrom}`
   const end = whole ? endBp ?? d.endBp : d.endBp
   const named = origin === 'paternal' || origin === 'maternal' ? origin : null
@@ -498,17 +521,37 @@ export function defectMark(d: Defect, segments: readonly Segment[], loaded: Role
     sentence: whole ? `Whole chromosome ${d.chrom} (${(end / 1e6).toFixed(0)} Mb): ${what}${named ? `, ${WHOSE[named]}` : ', parent not named'}.`
       : `${where(d.chrom, d.startBp, d.endBp)}: ${what}${named ? `, ${WHOSE[named]}` : ''}.`,
     lines: [headline(d), ...lines],
+    quoted: true,
+    lrr: d.lrr,
+  }
+}
+
+/** A joined row of the change list as one mark spanning its pieces. */
+export function rowMark(pieces: readonly Defect[], segments: readonly Segment[], loaded: Role | null, endBp: number | undefined): Mark | null {
+  const first = defectMark(pieces[0], segments, loaded, endBp)
+  if (!first || pieces.length < 2) return first
+  const last = defectMark(pieces[pieces.length - 1], segments, loaded, endBp) ?? first
+  const startBp = Math.min(...pieces.map((p) => p.startBp))
+  const end = Math.max(...pieces.map((p) => p.endBp))
+  const tail = first.sentence.slice(first.sentence.indexOf('):') + 1)
+  return {
+    ...first, startBp, endBp: end, outHiBp: last.outHiBp, lrr: undefined,
+    said: pieces.map((p) => saidOf(p)).filter(Boolean).join(' ') || undefined,
+    sentence: `${where(first.chrom, startBp, end)}${tail}`,
+    lines: pieces.flatMap((p) => defectMark(p, segments, loaded, endBp)?.lines ?? []),
   }
 }
 
 /** The whole-cell figure with its heading, for a result card. */
-export function CellFigure({ data, marks, name }: { data: PlotData | undefined; marks: readonly Mark[]; name: string }): ReactNode {
+export function CellFigure({ data, marks, name, title }: {
+  data: PlotData | undefined; marks: readonly Mark[]; name: string
+  /** What the figure shows, in one sentence: pageSays.figureTitle. */
+  title: string
+}): ReactNode {
   if (!data) return null
   return (
     <div style={{ marginTop: 10 }}>
-      <div style={{ fontSize: 12, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: DIM }}>
-        Every chromosome
-      </div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{title}</div>
       <WholeCell data={data} marks={marks} name={name} />
     </div>
   )

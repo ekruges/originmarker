@@ -87,9 +87,9 @@ const ch = (over: Partial<import('./syngamyTable.ts').TableChange> = {}) => ({
 // --- 5. EVERY COLUMN IS FILLED FROM SOMEWHERE --------------------------------------------------
 {
   const s: TableSample = {
-    name: 'E', originClass: 'androgenetic', zygosity: 'uniparental_homozygous', role: 'paternal',
+    name: 'E', headline: 'ANDROGENETIC', originClass: 'androgenetic', zygosity: 'uniparental_homozygous', role: 'paternal',
     stage: 'esc-single', informative: 580_133,
-    changes: [ch({ origin: 'paternal', band: 'inherited', inheritedMargin: 2.8, why: 'because' })],
+    changes: [ch({ origin: 'paternal', band: 'inherited', inheritedMargin: 2.8, why: 'because', word: 'consistent' })],
   }
   const [head, row] = syngamyTable([s]).trim().split('\n')
   assert.equal(head.split('\t').length, COLUMNS.length)

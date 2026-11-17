@@ -13,6 +13,13 @@
  * A file whose markers are not the proven chip's is not scored: its record carries `chip` with the
  * refusal and the causes, as the page prints them, and nothing else. See web/src/platform.ts.
  *
+ * `genomeVerdicts` holds the loaded parent's genome-wide verdict and, with both parents, the
+ * mother's, read as the page reads it; `changes` holds each printed change as the result card lists
+ * it, with its band and the second test's verdict over it (pageSays.ts).
+ *
+ * With OM_SURFACES=1 each row also checks that the card, the PDF and the figure say one count, one set
+ * of coordinates and one pair of numbers (pageSays.surfaceProblems), one line per row on stderr.
+ *
  * Run: node --experimental-strip-types audit/truth/run.ts <list.tsv> <shard> <shards> <out.jsonl>
  */
 import { readFileSync, appendFileSync, existsSync } from 'node:fs'
@@ -26,6 +33,8 @@ const inferredArray = await import(`${W}inferredArray.ts`)
 const info = await import(`${W}informationRatio.ts`)
 const stageMod = await import(`${W}stage.ts`)
 const platform = await import(`${W}platform.ts`)
+const parentage = await import(`${W}parentage.ts`)
+const pageSays = await import(`${W}pageSays.ts`)
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -124,6 +133,16 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
     const res = await score.scoreSample({ acc, profile, pat, mat, soloRole: role === 'maternal' ? 'maternal' : 'paternal',
       sibs: (others ?? '').split(';').filter(Boolean).map(calls),
       sampleName: id, log: () => {} } as never) as any
+    // The mother's genome-wide verdict, read as the page reads it, so the headline can be replayed.
+    const maternal = (acc as any).tm && mat ? parentage.classify((acc as any).tm, mat.heterozygosity, { role: 'maternal' }) : null
+    if (process.env.OM_SURFACES && !res.noParent) {
+      const cls = maternal ? parentage.pair(res, maternal, NaN).originClass : res.originClass
+      const bad = pageSays.surfaceProblems(res, maternal ?? undefined, cls, tag.startsWith('recon'))
+      process.stderr.write(`SURFACES ${tag} ${bad.length ? bad.join(' | ') : 'ok'}\n`)
+    } else if (process.env.OM_SURFACES) {
+      const bad = pageSays.surfaceProblems(res, undefined, res.originClass, false)
+      process.stderr.write(`SURFACES ${tag} ${bad.length ? bad.join(' | ') : 'ok'}\n`)
+    }
     appendFileSync(out, JSON.stringify({
       id, tag, parent: parentPath.split('/').pop(),
       callRate: profile.callRate, hetRate: profile.hetRate,
@@ -145,6 +164,10 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
         ...(res.dosageCalls ?? []).map((d: any) => ({ by: 'dosage', where: d.where, verdict: d.verdict }))],
       refusals: (res.refusals ?? []).map((x: any) => ({ claim: x.claim, chrom: x.chrom ?? '', gate: x.gate,
         cause: x.cause, withheld: held(x.withheld) })),
+      genomeVerdicts: { loaded: res.verdict ?? null, mother: maternal?.verdict ?? null },
+      // Each printed change with the band it carries and the second test's verdict over it.
+      changes: pageSays.defectsForResult(res).map((d: any) => ({ chrom: d.chrom, start: d.startBp, end: d.endBp,
+        kind: d.kind, origin: d.origin, step: d.step ?? null, band: d.band ?? null, second: d.second?.verdict ?? null })),
       ...(res.motherFromRun ? { motherFromRun: { ...res.motherFromRun,
         drawArrays: res.motherFromRun.drawArrays.map((i: number) => (others ?? '').split(';').filter(Boolean)[i]) } } : {}),
     }) + '\n')

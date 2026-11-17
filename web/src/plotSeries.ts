@@ -1,6 +1,6 @@
 /**
- * What the cell figures draw: for each parent whose letters can be read, the share of the markers where
- * that parent's letters could be seen at which they are, in bins along every chromosome.
+ * What the cell figures draw: for each parent whose alleles can be read, the share of the markers where
+ * that parent's allele could be seen at which it is, in bins along every chromosome.
  *
  * Built once per sample from the accumulator the one scoring pass filled, over every marker; only the
  * bins are kept, so memory is bounded by markers over bin size. Measured on the open public cells with
@@ -15,7 +15,7 @@ export const BASE = 50
 /** Markers per bar on the whole-cell figure: equal-count bins of 200 separated stated losses in noisy
  *  cells better than 5 Mb bins or smaller counts (0.47 against 0.30 of inside bars past every other). */
 export const CELL_BAR = 200
-/** Most bars a track draws across the whole cell. A dense track (two-letter calls, call rate) gets bars of
+/** Most bars a track draws across the whole cell. A dense track (heterozygous calls, call rate) gets bars of
  *  more markers, so the figure stays one bar per few pixels and each bar is no less trustworthy. */
 export const CELL_MAX_BARS = 300
 
@@ -38,7 +38,7 @@ export interface Bin {
   endBp: number
   /** Markers in the bin. */
   n: number
-  /** Share tracks: markers where the letter is present. Intensity: the median log R less the normal. */
+  /** Share tracks: markers where the allele is found. Intensity: the median log R less the normal. */
   k: number
 }
 
@@ -47,9 +47,11 @@ export interface Track {
   key: 'father' | 'mother' | 'two-letter' | 'call-rate' | 'intensity'
   /** In words, for the figure. */
   label: string
-  /** The technical name, for the hover. */
+  /** How the bar is computed, in one sentence, for the hover and "How this was read". */
   tech: string
-  /** The parent whose letters it counts, for its colour; none for the parent-free tracks. */
+  /** The row stands in for a parent's copy without measuring it directly. */
+  indirect?: boolean
+  /** The parent whose alleles it counts, for its colour; none for the parent-free tracks. */
   parent: Role | null
   /** 'share' bars from 0 to 1; 'level' bars around 0. */
   kind: 'share' | 'level'
@@ -61,7 +63,7 @@ export interface Track {
 
 export interface PlotData {
   tracks: Track[]
-  /** The cell's rate of false two-letter calls, where both parents are measured; NaN otherwise. */
+  /** The cell's rate of false heterozygous calls, where both parents are measured; NaN otherwise. */
   dropIn: number
   /** Last marker position per chromosome. */
   endBp: Map<string, number>
@@ -125,10 +127,10 @@ export const valueOf = (t: Pick<Track, 'kind'>, b: Bin): number => (t.kind === '
 /**
  * The tracks for one sample.
  *
- * Both parents measured: each parent's letters present where the parents are opposite homozygotes. One
- * parent loaded: that parent's letter present where the other letter shows; the other parent's letters
- * present where the run's other embryos read her as the opposite homozygote (`otherOpposite`), or else
- * the two-letter calls. No parent: call rate, two-letter calls and intensity.
+ * Both parents measured: each parent's allele found where the parents are opposite homozygotes. One
+ * parent loaded: that parent's allele found where the other allele shows; the other parent's allele
+ * found where the run's other embryos read her as the opposite homozygote (`otherOpposite`), or else
+ * the heterozygous calls. No parent: call rate, heterozygous calls and intensity.
  */
 export function plotData(src: PlotSource, x: {
   loaded: { role: Role; gt: ReadonlyMap<string, string> } | null
@@ -197,15 +199,24 @@ export function plotData(src: PlotSource, x: {
       const own = loaded?.role === key
       return {
         key: who as 'father' | 'mother', parent: key as Role, kind: 'share',
-        label: `${who[0].toUpperCase()}${who.slice(1)}'s letters present`,
-        tech: both ? `share of called markers where the parents are opposite homozygotes reading AB or the ${who}'s homozygote`
-          : own ? `share AB among ${who}-homozygous markers where the other allele shows`
-            : `share showing the allele the loaded parent lacks, where the run's other draws read the ${who} as the opposite homozygote`,
+        label: `${who[0].toUpperCase()}${who.slice(1)}'s copy`,
+        tech: both ? `Each bar is the share of markers where the parents carry different alleles at which the ${who}'s allele is found.`
+          : own ? `Each bar is the share of markers where the ${who} is homozygous and the other parent's allele shows at which the ${who}'s allele is found too.`
+            : `Each bar is the share of markers where the run's other cells read the ${who} as homozygous for the allele the loaded parent lacks at which that allele is found.`,
       }
     }
-    if (key === 'two-letter') return { key, parent: null, kind: 'share', label: 'Two-letter calls', tech: 'AB share of called markers' }
-    if (key === 'call-rate') return { key, parent: null, kind: 'share', label: 'Markers read', tech: 'call rate' }
-    if (key === 'intensity') return { key, parent: null, kind: 'level', label: 'Copies, from intensity', tech: 'median log R less the normal' }
+    if (key === 'two-letter') {
+      // With one parent loaded and nothing reading the other, heterozygous calls stand for her copy.
+      const stands = loaded && !x.second && !x.otherOpposite ? NAME[loaded.role === 'paternal' ? 'maternal' : 'paternal'] : null
+      return {
+        key, parent: null, kind: 'share', indirect: !!stands,
+        label: stands ? `${stands[0].toUpperCase()}${stands.slice(1)}'s copy, indirect` : 'Heterozygous calls',
+        tech: `Each bar is the share of read markers that carry two alleles${stands
+          ? `; a heterozygous call needs the ${stands}'s allele, so with one parent loaded this row stands in for the ${stands}'s copy` : ''}.`,
+      }
+    }
+    if (key === 'call-rate') return { key, parent: null, kind: 'share', label: 'DNA present', tech: 'Each bar is the share of markers the array read at all.' }
+    if (key === 'intensity') return { key, parent: null, kind: 'level', label: 'Copy number', tech: 'Each bar is the signal strength against this cell\'s own level (median log R ratio).' }
     return null
   }
   const order = ['paternal', 'maternal', 'two-letter', 'call-rate', 'intensity']
@@ -247,7 +258,7 @@ export function perForStretch(bins: readonly Bin[], startBp: number, endBp: numb
 /**
  * Evidence that the parent's copy is missing, added along the chromosome and held at zero from below,
  * so it is flat where the copy is there and climbs where it is not. Per marker the log ratio of the
- * marker's reading with the copy missing (present at `missing`, the cell's false two-letter rate) to with
+ * marker's reading with the copy missing (present at `missing`, the cell's false heterozygous rate) to with
  * it there (present at `present`, the cell's normal level); summed per bar from its counts.
  */
 export function runningScore(bins: readonly Bin[], present: number, missing: number): number[] {
@@ -260,7 +271,7 @@ export function runningScore(bins: readonly Bin[], present: number, missing: num
 }
 
 /**
- * The top of a share row's axis. A row whose normal level sits under a quarter (two-letter calls) is
+ * The top of a share row's axis. A row whose normal level sits under a quarter (heterozygous calls) is
  * drawn against twice that level, so its normal range sits mid-row instead of in a thin strip at the
  * floor; no value changes, only where the axis ends. A row whose normal level is high keeps 0 to 100%,
  * since its drop toward zero is the event and a cut axis would make a partial drop read as a full one.
@@ -295,7 +306,7 @@ export function viewOf(startBp: number, endBp: number, chromEndBp: number): { lo
 /**
  * Whether a call's own figure is drawn, from what separated on the open public cells. Not drawn: a
  * stretch under MIN_DRAWN_SPAN_BP; a gain on part of a chromosome; a partial loss with no parent; the
- * other parent's copy on part of a chromosome where only two-letter calls stand for her.
+ * other parent's copy on part of a chromosome where only heterozygous calls stand for her.
  */
 export function drawable(call: { whole: boolean; spanBp: number; gain: boolean; parent: Role | null },
   data: PlotData): { draw: boolean; track: Track | null } {

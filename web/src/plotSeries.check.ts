@@ -1,5 +1,6 @@
 // Tracks, bins, the normal range, the running score and which calls are drawn.
 import assert from 'node:assert'
+import { readFileSync } from 'node:fs'
 import {
   BASE, binBase, CELL_BAR, drawable, mergeBins, MIN_DRAWN_SPAN_BP, normalRange, perForStretch, plotData,
   risesInside, runningScore, shareIn, shareTop, tickStepMb, valueOf, viewOf, wrap, type PlotData, type Track,
@@ -52,17 +53,17 @@ const src = { markerPos, myGt, cnByChrom: new Map() }
   const inside = shareIn(c1, 2_000_000, 4_000_000)
   const outside = shareIn(fa.bins.get('2')!, 0, 4e6)
   assert.ok(inside.share < 0.05 && outside.share > 0.9, `father inside ${inside.share} outside ${outside.share}`)
-  assert.ok(shareIn(d.tracks[1].bins.get('1')!, 2e6, 4e6).share > 0.95, "the mother's letters stay")
+  assert.ok(shareIn(d.tracks[1].bins.get('1')!, 2e6, 4e6).share > 0.95, "the mother's alleles stay")
   assert.equal(d.endBp.get('1'), (N - 1) * 1000)
   const r = normalRange(fa, 1, new Set(['1']))
   assert.ok(r.lo <= r.mid && r.mid <= r.hi && r.lo > 0.7, 'the cell\'s normal range from chromosomes with no call')
 }
 {
-  // Father alone: his letter present where the other shows; the two-letter calls stand for the mother.
+  // Father alone: his allele found where the other shows; heterozygous calls stand for the mother.
   const d = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null })
   assert.deepEqual(d.tracks.filter((t) => t.shown).map((t) => t.key), ['father', 'two-letter'])
   assert.ok(Number.isNaN(d.dropIn))
-  // With the run reading her: her track replaces the two-letter calls.
+  // With the run reading her: her track replaces the heterozygous calls.
   const opp = new Set([...markerPos.keys()].filter((id) => F.get(id) !== M.get(id)))
   const r = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null, otherOpposite: opp })
   assert.deepEqual(r.tracks.filter((t) => t.shown).map((t) => t.key), ['father', 'mother'])
@@ -154,3 +155,37 @@ assert.deepEqual(wrap('one two three four', 9), ['one two', 'three', 'four'])
 }
 
 console.log('plotSeries: ok')
+
+// ---------------------------------------------------------------- what the rows are called (P8)
+// A row label says what the row is, never how it is computed, and no reader-facing string of the
+// figures says "letter" for an allele.
+{
+  const CALC = /share|median|log ?R|homozyg|\bAB\b|against|%|intensity|letter/i
+  const labels = (d: PlotData) => d.tracks.filter((t) => t.shown).map((t) => t.label)
+  const both = plotData(src, { loaded: { role: 'paternal', gt: F }, second: M })
+  const alone = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null })
+  const opp = new Set([...markerPos.keys()].filter((id) => F.get(id) !== M.get(id)))
+  const run = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null, otherOpposite: opp })
+  const cn = new Map([['1', Array.from({ length: 400 }, (_, i) => ({ pos: i * 1000, called: true, log2R: 0 }))]])
+  const none = plotData({ markerPos: new Map(), myGt: new Map(), cnByChrom: cn }, { loaded: null, second: null })
+  const noneAll = none.tracks.map((t) => t.label)
+  assert.deepEqual(labels(both), ["Father's copy", "Mother's copy"])
+  assert.deepEqual(labels(alone), ["Father's copy", "Mother's copy, indirect"])
+  assert.deepEqual(labels(run), ["Father's copy", "Mother's copy"])
+  assert.deepEqual(noneAll, ['DNA present', 'Copy number'])
+  for (const d of [both, alone, run, none]) {
+    for (const t of d.tracks) {
+      assert.ok(!CALC.test(t.label), `a row label names a calculation: ${t.label}`)
+      assert.ok(!/letter/i.test(t.tech), `"letter" in a hover: ${t.tech}`)
+    }
+  }
+  // Every reader-facing string literal and JSX text of the figure files.
+  for (const f of ['CallPlot.tsx', 'plotSeries.ts', 'DefectCallout.tsx', 'pageSays.ts']) {
+    const code = readFileSync(new URL(`./${f}`, import.meta.url), 'utf8')
+      .split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*\*)/.test(l)).join('\n')
+    const said = [...code.matchAll(/(['"`])((?:(?!\1).)*)\1|>([^<>{}]+)</g)].map((m) => (m[2] ?? m[3] ?? '').replace(/\$\{[^}]*\}/g, ''))
+    const bad = said.filter((x) => /letter/i.test(x) && !/^two-letter$/.test(x) && !/letterSpacing/.test(x))
+    assert.deepEqual(bad, [], `"letter" in a reader-facing string of ${f}`)
+  }
+  console.log('  row labels say what each row is; no figure string says "letter"')
+}

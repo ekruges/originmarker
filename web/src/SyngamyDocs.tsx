@@ -341,9 +341,10 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
 
           <Title order={3} mt={14} mb={4}>4. Read the result</Title>
           <Text mb={8}>
-            Each sample gets a card: the class in large type, the measured rates beneath it, and a
-            <b> Detail</b> toggle opening the evidence tables, every chromosome, the quality read
-            and every gate. <b>Report (PDF)</b> then writes the whole thing out. See{' '}
+            Each sample gets a card: what was found in large type with the number of changes, one
+            line under it, the changes with one word each (found two ways, consistent, one
+            reading), the figure of every chromosome, and a <b>How this was read</b> toggle opening
+            how sure each word is, the evidence tables, the quality read and every gate. <b>Report (PDF)</b> then writes the whole thing out. See{' '}
             <SecRef id="report" />.
           </Text>
         </Section>
