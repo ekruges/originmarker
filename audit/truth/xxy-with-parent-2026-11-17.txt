@@ -101,19 +101,6 @@ FINDING, not built (for a follow-up item): a woman's bulk array reads chrY prese
   donors call 0 of 812; their chrY intensity sits -0.12 to +0.70 from the autosomes. The 26 rows of
   this item are not affected: all 13 cells call 702 to 805 of 812 chrY markers.
 
-DRAFT CHANGELOG PARAGRAPH (not in CHANGELOG.md)
------------------------------------------------
-**With a parent loaded, 47,XXY is no longer printed from an X level that cannot carry it.** The
-tool read two X wherever chromosome X was not shown a copy step under the autosomes, and added a
-Y: on amplified single cells an XY cell often sits short of that step, so 26 of 270 with-parent
-rows, 13 public cells, printed 47,XXY, the example's loss cell among them. Now, with a chrY, a
-cell whose heterozygous calls on X read one X is XY (unless chrX sits two copy steps down); bulk
-DNA with chrX at the autosomes' level and no heterozygosity reading one X is still 47,XXY; every
-other case is left unresolved, with the reason that this X level cannot separate one X from two,
-or that chrX sits further down than one copy and its calls do not show it absent. On the 270
-rows: 18 now read XY, 8 unresolved, none 47,XXY; nothing else moved, and with no parent nothing
-changed.
-
 3.12c AN ADULT WOMAN'S BULK ARRAY READS A Y (written 17 November, before any code)
 ==================================================================================
 The fault. sexChromosome.ts yPresent decides whether the panel genotypes chrY from the one file:
@@ -163,11 +150,53 @@ the intensity-only route still reads a Y beside a one-X level, as on CytoScan. t
 release-check.sh exit 0. Owed, on the coordinator's word: the 270 and 330 rows on this code, the
 browser check of the woman's bulk array with and without a parent, and the suite once.
 
-DRAFT CHANGELOG PARAGRAPH, ADDED FOR 3.12c
-------------------------------------------
-**A woman's array no longer reads a Y chromosome.** When a file called none of its chromosome Y
-markers, the tool took that for a chip that never genotypes Y and fell back to an intensity test
-built for such chips, which on bulk DNA read a Y on an adult woman: a public egg donor printed
-47,XXY with the sperm donor loaded. On the UK Biobank Axiom chip a man calls nearly all of the 812
-chromosome Y markers and a woman none, so a file that calls none has no Y. The intensity-only test
-now serves only a chip that never genotypes Y.
+FINAL SCORING, BOTH FIXES (17 November, code fdb0273 at /root/om-xxyc, records /root/xxyc)
+------------------------------------------------------------------------------------------
+Against the 6.10.0 records:
+  270 with-parent rows: 26 rows changed, all 47,XXY: 18 to XY, 8 to unresolved, exactly the 3.12b
+  rows (identical to the 3.12b run on 270 of 270). Every other field of every row, chrX entries
+  included, identical. With a parent: XX 32, XY 23, unresolved 215, no 47,XXY.
+  330 no-parent rows: identical in every field, sex and chrX included.
+  The six bulk no-parent rows the 3.12c prediction could not settle from records call chrY at 806
+  to 812 of 812 (counted from their files): they read a Y by its calls and do not move.
+  So no row of the 600 called zero chrY and read a Y, and none moved: as predicted.
+Browser (public arrays of the published family; console only the /api/health 502s):
+  The egg donor's bulk array with the sperm donor loaded: header "GYNOGENETIC", badges "diploid",
+  "XX"; "XX: chrX sits 0.19 log2 from this sample's autosomes, which is two copies." (6.10.0 and
+  3.12b alone printed 47,XXY.)
+  The same array with no parent: header "BULK", badges "diploid", "XX"; "XX: by intensity, chrX
+  sits 0.19 log2 from this sample's autosomes, which is two copies, and two copies of the
+  autosomes are shown; and heterozygous calls on chrX read two X (chrX to autosome heterozygosity
+  ratio 1.14, in the female band)."
+  The example's loss cell with its father and mother: header "BIPARENTAL", badges "Y-bearing
+  sperm", "diploid", "XY", "2 chromosomal changes"; the XY line quoted above, unchanged from 3.12b.
+
+GATE
+  X1  MET: no 47,XXY on a cell whose X is not shown to be two copies (26 rows to none); the XX and
+      XY printed before stay; every other field identical.
+  X2  MET: the bulk 47,XXY check case passes (section 3).
+  X3  MET: the 330 no-parent rows identical to 6.10.0.
+  X4  checks: tsc, checks.sh, release-check.sh exit 0; reasons follow from each changed row's
+      record; browser run done; suite (audit/validate/run.sh against the 6.9.0 scorecard,
+      /root/xxyc/suite): "NOTHING MOVED SINCE PREVIOUS", no line worse. MET.
+  3.12c MET: the woman's bulk array reads XX with a parent and with none; every row that read a Y
+      still reads it; nothing else moved; checks pass; suite as X4.
+
+CHANGELOG PARAGRAPH, FINAL (3.12b and 3.12c as one release; not in CHANGELOG.md)
+-------------------------------------------------------------------------------
+**With a parent loaded, 47,XXY is printed only where the X level can carry it, and a woman's
+array no longer reads a Y chromosome.** Two faults in the sex-chromosome reading with a parent:
+  - The tool read two X wherever chromosome X was not shown a copy step under the autosomes, and
+    added a Y where one was read. On amplified single cells an XY cell often sits short of that
+    step, so 26 of 270 with-parent rows, 13 public cells, printed 47,XXY, the example's loss cell
+    among them. Now, with a Y, a cell whose heterozygous calls on X read one X is XY (unless X
+    sits two copy steps down); bulk DNA with X at the autosomes' level and no heterozygosity
+    reading one X is still 47,XXY; everything else is left unresolved, with the reason that this
+    X level cannot separate one X from two, or that X sits further down than one copy and its
+    calls do not show it absent. On the 270 rows: 18 now read XY, 8 unresolved, none 47,XXY.
+  - A file that called none of its chromosome Y markers was taken for a chip that never
+    genotypes Y, and an intensity test built for such chips then read a Y on bulk DNA: a public
+    egg donor printed 47,XXY with the sperm donor loaded. On the UK Biobank Axiom chip a man calls
+    nearly all of the 812 chromosome Y markers and a woman none, so a file that calls none has no
+    Y. She now reads XX with a parent and with none.
+With no parent nothing changed, and no other reading or record moved.
