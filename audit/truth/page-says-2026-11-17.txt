@@ -133,6 +133,16 @@ THE HARNESS (P6)
   Mendelian test's verdict over it). On the Mac, two public cells (three rows) scored on main and on
   this branch are identical in every other field.
 
+  The 600 rows on tesla (270 with a parent, list-h; 330 with none, list-np), scored on this branch
+  and compared with the 6.10.0 records (sexnp9): 600 of 600 identical in every field but the two
+  added; no call, parent or coordinate moved. With OM_SURFACES=1 the card, the PDF and the figure
+  agree on all 600 (one count, refined coordinates, one pair of numbers).
+
+  The fixture's one assumption, checked from the new field on the 31 published cells: the mother's
+  genome-wide verdict is present on 12 and unclear on 19, absent on none, so no headline moves. The
+  father's is absent on 2 with the measured father (the two cells read UNCLEAR, disagreement) and
+  on none with the rebuilt father, as the fixture took it.
+
 FIGURE LABELS (P8)
   Row labels say what the row is: "Father's copy", "Mother's copy" (whatever markers they are
   computed from), "Mother's copy, indirect" where heterozygous calls stand in for her, "Heterozygous
