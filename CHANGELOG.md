@@ -9,6 +9,43 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.9.0 "Segregation"
+
+**With one parent loaded, a run's other draws of the other parent now name the parent of an extra
+chromosome, and a one-parent run names it more often than a two-parent run.** The run's other
+arrays are joined into embryos. Embryos and haploid products that carry one of the same mother's
+copies are grouped by how often, window by window, they share it; no array of hers is needed. Each
+draw votes on her genotype, weighted by its own drop-in and dropout, and the two-parent test runs
+on the result where the one-cell rules of 6.7.0 named no parent. The sample's own embryo never
+votes (audit/truth/mother-from-the-run-2026-11-16.txt, rule and pass tests written before code).
+
+| parent of a constructed gain named | both parents | measured father | rebuilt father |
+|---|---|---|---|
+| of 60, the run's other arrays given | 37 | 47 (6.7.0: 44) | 44 (6.7.0: 37) |
+| of 158 on held-out chromosomes, the same | 92 | 99 (6.7.0: 81) | 97 (6.7.0: 74) |
+| wrong parent | 0 | 0 | 0 |
+
+With the other parent's extra copy built as both of her homologues and as the same homologue twice,
+44 and 50 are named with the measured father and 41 and 48 with the rebuilt one, none wrong. On
+chromosomes that should read normal the one-parent arms name a gain on 0 of 477 with the run's
+other arrays given; the two-parent run names 3 on the same chromosomes. No stated loss becomes a
+gain. Every array that voted as a draw belongs to the sample's own mother, on the public run (338
+arrays) and on the laboratory experiment whose mother's array exists, where her array was the truth
+and not an input.
+
+**What it needs, and says.** Two or more other draws of the same mother in the run, each showing
+her alleles and clean enough to group. The limits text of a sample says how many were used, or why
+none were: none loaded, too few, or the sample's own calls too noisy to tell which arrays share its
+mother. A cell read alone is scored exactly as in 6.7.0 (44 and 37 of 60, 81 and 74 of 158), and
+its record is identical on all 600 answer-key rows. With both parents or with none nothing changes.
+
+**Two things it does not do.** With the measured father, 3 of the 158 constructed gains are still
+printed as a lost parent: the intensity scan misses them, so the 6.7.0 rule does not reach them.
+And against a parent rebuilt from pronuclei, two embryos of one mother can be joined into one,
+which costs a draw and cannot add one from another mother.
+
+---
+
 ## 6.8.0 "Cortical Reaction"
 
 **A file from another chip is refused, with the reason, everywhere a file is read.** The tool is
