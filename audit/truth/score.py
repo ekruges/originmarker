@@ -55,6 +55,11 @@ def load(a):
                 r = json.loads(line)
                 if r.get('tag') == a.tag and 'error' not in r:
                     recs[r['id']] = r
+    # See EXPOSED in build.py.
+    exposed = [i for i in recs if units.get(i, {}).get('split') == 'exposed']
+    if exposed:
+        sys.exit(f'{len(exposed)} exposed arrays in these runs. Refused: they are scored as neither '
+                 'open nor sealed.')
     sealed = [i for i in recs if units.get(i, {}).get('split') == 'sealed']
     if sealed and not a.sealed:
         sys.exit(f'{len(sealed)} sealed arrays in these runs. Refused: pass --sealed for the one scoring.')

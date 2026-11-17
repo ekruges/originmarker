@@ -9,6 +9,33 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.11.0 "Barr Body"
+
+**With a parent loaded, 47,XXY is printed only where the X level can carry it, and a woman's
+array no longer reads a Y chromosome.** Two faults in the sex-chromosome reading with a parent:
+
+- The tool read two X wherever chromosome X was not shown a copy step under the autosomes, and
+  added a Y where one was read. On amplified single cells an XY cell often sits short of that
+  step, so 26 of 270 with-parent rows, 13 public cells, printed 47,XXY, the example's loss cell
+  among them. Now, with a Y, a cell whose heterozygous calls on X read one X is XY (unless X
+  sits two copy steps down); bulk DNA with X at the autosomes' level and no heterozygosity
+  reading one X is still 47,XXY; everything else is left unresolved, with the reason that this
+  X level cannot separate one X from two, or that X sits further down than one copy and its
+  calls do not show it absent. On the 270 rows: 18 now read XY, 8 unresolved, none 47,XXY.
+- A file that called none of its chromosome Y markers was taken for a chip that never
+  genotypes Y, and an intensity test built for such chips then read a Y on bulk DNA: a public
+  egg donor printed 47,XXY with the sperm donor loaded. On the UK Biobank Axiom chip a man calls
+  nearly all of the 812 chromosome Y markers and a woman none, so a file that calls none has no
+  Y. She now reads XX with a parent and with none.
+
+With no parent nothing changed, and no other reading or record moved. Results:
+`audit/truth/xxy-with-parent-2026-11-17.txt`.
+
+**The answer key has a third state, "exposed".** Two arrays of a sealed unit were bundled as
+example files, and the examples check runs them, so they were never held out. They are now
+marked exposed: scored neither with the open arrays nor with the sealed ones, and the scoring
+scripts refuse a run that holds one. The sealed set is 123 arrays.
+
 ## 6.10.0 "Pseudoautosomal"
 
 **With no parent loaded, the page says what chromosomes X and Y show, and no longer prints

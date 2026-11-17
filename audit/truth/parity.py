@@ -60,8 +60,8 @@ def table(truth_dir, runs):
                 if 'error' not in r and r['tag'] in dict(ARMS):
                     recs[r['tag']][r['id']] = r
     shared = set.intersection(*(set(recs[a]) for a, _ in ARMS)) & set(states)
-    if any(units.get(i, {}).get('split') == 'sealed' for i in shared):
-        sys.exit('sealed arrays in these runs. Refused.')
+    if any(units.get(i, {}).get('split') in ('sealed', 'exposed') for i in shared):
+        sys.exit('sealed or exposed arrays in these runs. Refused.')
     out = {}
     for arm, _ in ARMS:
         c = collections.Counter()
