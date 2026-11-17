@@ -10,6 +10,9 @@
  * Every claim is written whether the tool printed it or withheld it. A withheld claim is in
  * `refusals` with what it would have said.
  *
+ * A file whose markers are not the proven chip's is not scored: its record carries `chip` with the
+ * refusal and the causes, as the page prints them, and nothing else. See web/src/platform.ts.
+ *
  * Run: node --experimental-strip-types audit/truth/run.ts <list.tsv> <shard> <shards> <out.jsonl>
  */
 import { readFileSync, appendFileSync, existsSync } from 'node:fs'
@@ -22,6 +25,7 @@ const keys = await import(`${W}answerKeys.ts`)
 const inferredArray = await import(`${W}inferredArray.ts`)
 const info = await import(`${W}informationRatio.ts`)
 const stageMod = await import(`${W}stage.ts`)
+const platform = await import(`${W}platform.ts`)
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -38,11 +42,25 @@ function rows(path: string): any[] {
   const lines = text(path).split('\n')
   let h = 0; while (!lines[h] || lines[h].startsWith('#')) h++
   const map = ingest.headerMap(lines[h])
+  if (!map) throw new ChipRefused(path, { text: platform.unreadableText(platform.missingRequired(lines[h])),
+    causes: platform.missingRequired(lines[h]) })
   const o: any[] = []
   for (let i = h + 1; i < lines.length; i++) { const r = ingest.parseRow(lines[i], map); if (r) o.push(r) }
+  checkChip(path, o, map)
   return o
 }
 const panel = keys.parsePanel(text(new URL(`../../web/public/${keys.FOUNDER_PANEL_PATH}`, import.meta.url).pathname))
+class ChipRefused extends Error {
+  file: string; call: any
+  constructor(file: string, call: any) { super(call.text); this.file = file; this.call = call }
+}
+/** The same recognition the page runs, from the rows already read. Throws on another chip. */
+function checkChip(path: string, rs: any[], map: any) {
+  const t = platform.emptyChipTally(); const b = ingest.emptyBuildSums()
+  for (const r of rs) { platform.tallyChip(t, r.probesetId, r.chrom, panel.freqB); ingest.accumulateBuild(r, b) }
+  const call = platform.recogniseChip(t, ingest.buildVerdict(b), map ? platform.missingSignals(map) : [])
+  if (!call.proven) throw new ChipRefused(path, call)
+}
 const parents = new Map<string, any>()
 function parentIndex(path: string) {
   if (path === '-') return score.noParent()
@@ -124,7 +142,10 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
         cause: x.cause, withheld: held(x.withheld) })),
     }) + '\n')
   } catch (e) {
-    appendFileSync(out, JSON.stringify({ id, tag, error: String(e).slice(0, 300) }) + '\n')
+    if (e instanceof ChipRefused) {
+      appendFileSync(out, JSON.stringify({ id, tag, chip: { proven: false, file: e.file.split('/').pop(),
+        knownShare: e.call.knownShare ?? null, causes: e.call.causes, text: e.call.text } }) + '\n')
+    } else appendFileSync(out, JSON.stringify({ id, tag, error: String(e).slice(0, 300) }) + '\n')
   }
 }
 appendFileSync(out, `DONE ${shard}\n`)

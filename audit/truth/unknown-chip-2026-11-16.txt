@@ -1,0 +1,118 @@
+An unknown chip is refused with the cause (plan item 3.11a)
+===========================================================
+16 November 2026, branch unknown-chip, built on 6.5.0. Not released.
+
+WHY
+---
+6.5.0 reads any file with the four required columns and applies the Axiom numbers to it. On
+Illumina HumanCytoSNP-12 (GSE60909) and Illumina 370k-class (GSE19247, GPL6985) it printed a
+haploid stage on diploid cells, a "damaged sample" banner that came from the chip and not the
+sample, ran on with an unrecognised genome build, and would drop an intensity column named
+"Log R Ratio" in silence. Measured in audit/local/platforms-2026-11-16/report.txt (untracked).
+
+THE RULE, written from the measurement below before the gate was scored
+-------------------------------------------------------------------------
+1. A file is the proven chip (UK Biobank Axiom) when at least half of its autosomal markers have
+   an id the shipped founder panel holds. Otherwise it is not scored.
+2. Autosomes only, because the panel holds no marker on X, Y or MT. A ratio of the rows present,
+   so an export missing rows reads the same share as a whole one.
+3. A refused file is named with every cause that can be named: the panel share; a genome build
+   neither GRCh37 nor GRCh38 fits; an intensity or allele-fraction column that is absent, with the
+   names looked for. A file whose header lacks a required column is refused with the names of the
+   missing columns and the names looked for.
+4. On the proven chip nothing changes. A missing intensity or allele-fraction column is named in
+   the run log; an unrecognised build is named as before ("assembly undetermined").
+5. The reader takes the intensity column under log2R, normalized_intensity, lrr, log_r_ratio,
+   logrratio, "log r ratio", and the allele fraction under baf, b_allele_freq, "b allele freq",
+   ballelefreq, b_allele_frequency, "b allele frequency", each also after a per-sample prefix
+   ("GSM123.Log R Ratio"). Anything else is named as missing, never dropped in silence.
+6. Without the panel (fetch failed) the chip is not checked and the run log says so.
+
+THE MEASUREMENT
+---------------
+Share of a file's markers whose id the founder panel (founders-gse186441.tsv.gz, freqB keys)
+holds, over every parsed row, then over autosomes. audit/local/platforms-2026-11-16/share.ts.
+
+  Axiom, the 365 arrays behind the gate rows (laboratory series 235, GSE315671 55, GSE186407 37,
+  GSE148488 35, three rebuilt fathers):
+    all rows: 0.9737 on every one of the 362 measured arrays (825,656 rows each); 1.0000 on the
+      3 rebuilt fathers (381,234 to 537,281 rows, no X or Y).
+    the markers the panel lacks are 20,938 on X and 812 on Y and nothing else (checked on one
+      array; every measured array carries the same 825,656 ids and the same share).
+    autosomes: 1.0000 on all 365.
+    the first 10% and the first 1% of rows: 1.0000; every 50th row: 0.9737.
+    genome build: GRCh37 on all 365.
+  Illumina HumanCytoSNP-12 (GSE60909), 29 arrays (21 cells, 8 parents): 0.0000; 298,563 rows,
+    279,495 autosomal; build not recognised (4,173 of 297,794 outside GRCh37, 2,416 outside GRCh38).
+  Illumina GPL6985 (GSE19247), 39 arrays: 0.0000; 342,946 rows; build not recognised (2,978 of
+    342,887 outside GRCh37, 1,988 outside GRCh38).
+
+THE BAR. Axiom 1.0000 on autosomes, the outside chips 0.0000, nothing between. The bar is 0.5,
+half way: no Axiom file comes within 0.5 of it and no outside file within 0.5 of it.
+A TRUNCATED AXIOM EXPORT. The share is per row present and every Axiom autosomal marker is in
+the panel, so any subset of an Axiom export's autosomal rows reads 1.0000 and is scored. Only an
+export with no autosomal row at all (X, Y or MT only) is refused, with the cause "it has no
+markers on chromosomes 1 to 22". A third chip that shares some Axiom probeset ids would need more
+than half of its autosomal markers to carry Axiom ids to pass; none is known.
+
+THE GATE (written by the owner in the plan, 3.11a), and the result
+--------------------------------------------------------------------
+G1 A file whose markers are not Axiom's is not scored; page and harness say it is from a chip the
+   tool is not proven on and name what cannot be read; no damage banner from the chip.
+G2 An intensity or allele-fraction column under another common name is read or named as missing.
+G3 A genome build the tool does not recognise is named.
+G4 On Axiom every record identical to 6.5.0 (270 with-parent rows, 330 no-parent rows); all
+   checks pass; browser run with one Axiom file and one file from another chip.
+   (Released as its own version: not in this build; no release was asked for.)
+
+RESULTS
+-------
+Harness: audit/truth/run.ts on tesla, branch code, the lists of the 3.0f run (/root/truth-run/p5),
+compared field by field with gatediff.py against that run's records.
+
+G1 PASS. Outside arrays, every arm: 84 of 84 GSE60909 records (21 cells x both parents, father,
+   mother, none) and 39 of 39 GSE19247 records carry the chip refusal and nothing else (no stage,
+   no zygosity, no banner, no chromosome rows). The text, identical on every record of a series:
+     "Not scored: this file is not from the UK Biobank Axiom chip, the only chip this tool is
+     proven on, so none of its numbers apply. The founder panel holds 0 of its 279,495 autosomal
+     markers (0.0%); a UK Biobank Axiom file has all of its autosomal markers in the panel. Genome
+     build not recognised: 4,173 of 297,794 markers fall outside GRCh37 and 2,416 outside GRCh38."
+   (GPL6985: 0 of 332,553; 2,978 of 342,887 and 1,988.) The page prints the same text on the file's
+   card and in the run log, and scores nothing for that file.
+G2 PASS. platform.check.ts section 3: a per-sample "B Allele Freq" and "Log R Ratio" are read; a
+   file with neither has both named as missing in the run log and in a refusal. Axiom spellings
+   (log2R, normalized_intensity, baf) resolve as before (ingest.check.ts passes unchanged).
+G3 PASS. An unrecognised build is named in the refusal with the counts that rule out each build.
+G4 PASS on records: no-parent rows 330 of 330 identical (SEGMENTS GONE 0, NEW SEGMENTS 0,
+   OTHER DIFFERENCES 0); with-parent rows 270 of 270 identical (father 49, two 39, recon 49,
+   recon-standin 133; 0 / 0 / 0). No error record in either set. No new array was read: the Axiom
+   arrays are the gate rows' own, the outside arrays are those of the measurement above, and no
+   sealed array is on either list.
+   Checks: npx tsc --noEmit clean; scripts/checks.sh "all checks passed" (65 checks, one new:
+   platform.check.ts); scripts/release-check.sh exit 0.
+   Browser (dev server, port 5184): one public Axiom cell scored as before (single cell, diploid,
+   no change); one converted CytoSNP-12 file refused with the text above, Run disabled, no
+   damage banner; a run holding both scored the Axiom file and refused the other. Console clean
+   apart from the /api/health 502s of a dev server with no backend.
+   Released as its own version: not done here, by instruction.
+
+NOT COVERED
+- The Germline page (reconstruction from haploid products) and cli/om.ts still read any file;
+  they call the same reader, so the next step is to route them through platform.ts as well.
+- A FinalReport or PennCNV table with Illumina's own column names is refused as unreadable, with
+  the required columns named, not as another chip: its marker id is under "SNP Name", which the
+  reader does not take.
+
+DRAFT CHANGELOG PARAGRAPH (for the release that ships this; not in CHANGELOG.md)
+--------------------------------------------------------------------------------
+**A file from another chip is refused, with the reason.** The tool is proven on one chip, the UK
+Biobank Axiom array, and until now it applied that chip's numbers to any file with the right
+columns, printing a haploid stage and a damaged-sample banner on Illumina arrays that said nothing
+about the sample. A file is now scored only when at least half of its autosomal markers are in the
+founder panel: every Axiom file read measures 100% (365 arrays), the two Illumina series measured
+0% (68 arrays). Any other file is not scored, and the page says so with each cause it can name:
+how many of its markers the panel holds, a genome build neither GRCh37 nor GRCh38 fits, a missing
+intensity or allele-fraction column. The reader now also takes those two columns under Illumina's
+names ("Log R Ratio", "B Allele Freq", with or without a per-sample prefix) and names either one
+as missing when it is absent, rather than dropping it. On Axiom nothing changes: all 600 records
+of the truth set's with-parent and no-parent rows are identical.

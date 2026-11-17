@@ -24,6 +24,7 @@
 import type { AB } from './informativity.ts'
 import { CHROM_LEN, GAPS, type Build } from './buildref.ts'
 import { isAutosome } from './parentage.ts'
+import { COLUMN_NAMES, REQUIRED_COLUMNS, SIGNAL_COLUMNS, matches } from './platform.ts'
 
 export type { Build }
 
@@ -55,7 +56,7 @@ export interface ProbeRow {
   rawGenotype: string
 }
 
-const REQUIRED = ['probeset_id', 'chr', 'position', 'genotype'] as const
+const REQUIRED = REQUIRED_COLUMNS
 
 /**
  * Column aliases, because the same data family ships under different names.
@@ -68,8 +69,8 @@ const REQUIRED = ['probeset_id', 'chr', 'position', 'genotype'] as const
  * had nothing to do with the sample.
  */
 const ALIASES: Record<string, readonly string[]> = {
-  log2r: ['log2r', 'normalized_intensity', 'lrr', 'log_r_ratio', 'logrratio'],
-  baf: ['baf', 'b_allele_freq', 'b allele freq', 'ballelefreq'],
+  log2r: COLUMN_NAMES.log2r,
+  baf: COLUMN_NAMES.baf,
   copy_number: ['copy_number', 'copynumber', 'cn'],
   bestprobeset: ['bestprobeset', 'best_probeset'],
   probe_classification: ['probe_classification', 'snp_classification'],
@@ -124,6 +125,12 @@ export function headerMap(headerLine: string): ColumnMap | null {
       for (const alt of spellings) {
         if (alt in map) { map[canonical] = map[alt]; break }
       }
+    }
+    // An export's per-sample prefix (`GSM123.Log R Ratio`) on the two signal columns.
+    for (const k of SIGNAL_COLUMNS) {
+      if (k in map) continue
+      const i = cols.findIndex((c) => ALIASES[k].some((n) => matches(c, n)))
+      if (i >= 0) map[k] = i
     }
     if (REQUIRED.every((r) => typeof map[r] === 'number')) {
       map.__delim = delim
