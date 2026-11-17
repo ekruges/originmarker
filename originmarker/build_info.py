@@ -278,10 +278,15 @@ RELEASES: tuple[Release, ...] = (
             "cells of one embryo are copies in the same way: what the parents gave is in every one "
             "of them. So a stretch missing from one cell alone is a loss, and a stretch missing from "
             "all of them is what the parents share."),
+    Release("Proofreading",
+            "A polymerase checks each base it has just laid down and takes back one that does not "
+            "pair, before it goes on. Nothing the tool reads or reports changes here: a check that "
+            "failed without cause now measures what it claims to, and the libraries under the "
+            "tool are brought up to date."),
 )
 
-VERSION = "6.4.0"
-CODENAME = "Sister Chromatid"
+VERSION = "6.4.1"
+CODENAME = "Proofreading"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

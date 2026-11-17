@@ -219,17 +219,6 @@ const LARGE = 400_000
 const GROWTH_LIMIT = 2.0
 const REPEATS = 5
 
-/** Fastest of `repeats` draws, per marker. */
-const bestUsPerMarker = async (
-  arr: ReturnType<typeof buildArray>, n: number,
-  work: (a: ReturnType<typeof buildArray>) => Promise<unknown> | unknown,
-  repeats: number,
-): Promise<number> => {
-  let best = Infinity
-  for (let i = 0; i < repeats; i += 1) best = Math.min(best, await time(() => work(arr)))
-  return (best * 1000) / n
-}
-
 /**
  * The growth ratio, measured with the two sizes INTERLEAVED.
  *
@@ -264,16 +253,6 @@ const growthRatio = async (
   return { small: usA, large: usB, growth: usB / usA }
 }
 
-const usPerMarker = async (
-  n: number,
-  work: (a: ReturnType<typeof buildArray>) => Promise<unknown> | unknown,
-  repeats = REPEATS,
-): Promise<number> => {
-  const arr = buildArray(n)
-  await work(arr) // warm, so the first call does not pay for compilation
-  return bestUsPerMarker(arr, n, work, repeats)
-}
-
 const scanWork = (a: ReturnType<typeof buildArray>) =>
   copyNeutralWindows(a.cnByChrom, a.selfMarkers, 0.01, 600)
 
@@ -295,11 +274,10 @@ const scanWork = (a: ReturnType<typeof buildArray>) =>
     }
     return acc
   }
-  // Coarse stride and a single draw. This is a demonstration that the harness can see a rescan,
-  // and it measures 8x against a 2x limit, so it needs neither fine sampling nor repeats.
-  const small = await usPerMarker(SMALL, quadratic, 1)
-  const large = await usPerMarker(LARGE, quadratic, 1)
-  const growth = large / small
+  // Coarse stride keeps the pass short. It is timed by growthRatio, the instrument the assertions
+  // below use, so what is shown to see a rescan is what then measures the scans. A single draw at
+  // SMALL lasts a few milliseconds, and one slow draw there is enough to halve the ratio.
+  const { growth } = await growthRatio(SMALL, LARGE, quadratic)
   assert.ok(growth > GROWTH_LIMIT,
     `the harness must detect a quadratic pass. It measured ${growth.toFixed(2)}x per marker on an `
     + `array four times as big, which is under the ${GROWTH_LIMIT}x limit, so the two assertions `

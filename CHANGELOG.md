@@ -9,6 +9,29 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.4.1 "Proofreading"
+
+**Nothing the tool reads or reports changes.** A check that failed without cause is fixed, and the
+open dependency groups are taken.
+
+The timing check (`web/src/scan.check.ts`) first shows that its own instrument can see a rescan, by
+timing a pass that is quadratic on purpose. That one measurement was a single draw at each size,
+one size after the other, while the scans themselves were already timed as the fastest of five
+interleaved draws. A single draw at 100,000 markers lasts a few milliseconds, so one slow draw
+there is enough to halve the ratio. It read 1.61x against a floor of 2x on the CI run of 6.4.0 and
+failed the build on code that had not changed, and 2.55x to 3.71x on a quiet machine, where a
+quadratic pass should read 4x. The instrument check now uses the same interleaved fastest-of-five
+measurement as the assertions it vouches for, and reads 3.9x to 5.6x, quiet or with four cores
+busy. The limit is unchanged.
+
+The dependency groups: npm minor and patch (Mantine 9.8.0, React 19.3.1, vite 8.3.8, plugin-react
+6.3.0, oxlint 1.93.0, types/node 26.6.6) and pip minor and patch (fastapi 0.162.5, reportlab 5.1.0,
+pytest 9.2.0, primer3-py 2.4.0). The Python tests pass on the new versions, and the page was run in
+a browser on the new npm versions before the release. fastapi 0.162 marks the `root_path` argument
+as deprecated; the app still takes its prefix that way and `tests/test_root_path.py` passes.
+
+---
+
 ## 6.4.0 "Sister Chromatid"
 
 **How small a loss the scans find is now measured, every run carries an interval on its edges, and a
