@@ -9,6 +9,30 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.5.0 "Ideogram"
+
+**Every loss or gain the page prints now opens a plot of its chromosome.** Allele fraction above,
+log R below, position in Mb, with a box over the called stretch. The box comes from the tool's own
+edges, with the edge intervals drawn pale at each end. A whole-chromosome call boxes the whole
+chromosome, and a run found and withheld is drawn dashed and labelled withheld. Hovering the box
+shows what the row shows; hovering a dot shows that marker's position, call, allele fraction and
+log R. Where a loaded parent is homozygous, a marker showing only one parent's letter takes that
+parent's colour. The log R panel carries the cell's median and the median inside the box, so a loss
+or a gain reads as lower or higher at a glance. Each plot saves as an SVG file.
+
+The plot data comes from the one scoring pass, with no second read of the file: at most 4,000
+markers per chromosome, drawn by a seeded sample so one file always shows the same points, about
+1.2 MB per sample and about half a second per cell (`web/src/plotSeries.ts`, with its check).
+Scoring is unchanged: the run records of two published cells are byte-identical to 6.4.1.
+
+The segment table now scrolls inside its own box on a narrow screen. From 6.4.0 its nine columns
+pushed the whole page sideways under about 560 px.
+
+Not in this release: a row's plot shows that row's box and the withheld runs, not the other calls
+on the same chromosome, and there is no zoom, so a run under 3 Mb is about 11 px wide.
+
+---
+
 ## 6.4.1 "Proofreading"
 
 **Nothing the tool reads or reports changes.** A check that failed without cause is fixed, and the
