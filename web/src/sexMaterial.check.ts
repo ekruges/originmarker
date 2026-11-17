@@ -119,6 +119,12 @@ const noY: SexTally = {
     callSexChromosomes({ diploid: m.diploid, material: m, twoInsideNoise: true, xShift, xZ, y, xCallFraction })
   // X present a step under with a Y is two genomes whatever the heterozygosity says.
   assert.equal(np(notShown, -0.45, -12, yes).constitution, 'XY')
+  // Two copy steps under and still called: not XY, by either route.
+  const far = np(notShown, -1.69, -9.9, yes, 0.74)
+  assert.equal(far.constitution, 'unresolved')
+  assert.ok(far.why.includes('does not settle what the cell holds'), far.why)
+  assert.equal(callSexChromosomes({ diploid: true, material: shown, twoInsideNoise: true, hetSex: 'male',
+    hetRatio: 0.05, xShift: -1.94, xZ: -19, y: yes, xCallFraction: 0.96 }).constitution, 'unresolved')
   // No X template and a Y: not XY.
   assert.equal(np(hap, -1.9, -40, yes, 0.3).constitution, 'unresolved')
   // At the autosomes' level, no Y: one X on one genome, XX on two, the conditional line otherwise.

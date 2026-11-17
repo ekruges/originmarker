@@ -134,7 +134,8 @@ export function callSexChromosomes(input: SexChromosomeInput): SexChromosomeCall
     return { xCopies: 2, yBearing: y, constitution: 'XX', aneuploid: false,
       why: `${hetWhy}; intensity alone did not separate one X from two (${c.why})` }
   }
-  if (y === true) {
+  // Two copy steps under is not one X, however few heterozygous calls X carries.
+  if (y === true && !(input.xShift <= -2 * COPY_SHIFT_FLOOR)) {
     return { xCopies: 1, yBearing: y, constitution: 'XY', aneuploid: false,
       why: `${hetWhy}, and chrY is present by its calls and intensity` }
   }
@@ -283,6 +284,10 @@ function whatXAndYShow(
       return none(`${level}, and chrX calls at ${(cf * 100).toFixed(0)}% of the genome's median rate, `
         + `under the ${(CALL_COLLAPSE * 100).toFixed(0)}% a chromosome that is there reaches: no X `
         + `template. ${yText}`)
+    }
+    if (o.xShift <= -2 * COPY_SHIFT_FLOOR) {
+      return none(`${level}: chromosome X sits further below the autosomes than one copy, and its calls `
+        + 'do not show it absent either, so this file does not settle what the cell holds')
     }
     if (o.yBearing === true) {
       return say('XY', 1, `${level}, a copy step under the autosomes, and ${yText}. One genome cannot `

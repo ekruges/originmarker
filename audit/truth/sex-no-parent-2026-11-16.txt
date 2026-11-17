@@ -226,9 +226,12 @@ no intensity"), while the page printed a sex from heterozygous calls on X: "fema
 cells stated to carry one X, nearly all pronuclei, where every heterozygous call is noise. Now chrX
 gets a row from its call rate and intensity, with the pseudoautosomal region of either assembly
 left out, and the line reads what X and Y show:
-  - chrX present, a copy step under the autosomes, and chrY present: XY. One genome cannot hold X
-    a step under its autosomes. On an array shown to hold two copies, heterozygous calls on X with
-    chrY also give XY, where intensity and chrY do not contradict them.
+  - chrX present, one copy step under the autosomes (at least 0.40 log2 and less than two steps),
+    and chrY present: XY. One genome cannot hold X a step under its autosomes. On an array shown to
+    hold two copies, heterozygous calls on X with chrY also give XY, where intensity and chrY do not
+    contradict them and chrX is less than two steps down.
+  - chrX two copy steps or more under the autosomes and still called: not read. It is further down
+    than one copy, and its calls do not show it absent either.
   - chrX at the autosomes' level and no chrY: "one X" on a cell staged haploid, XX where two
     copies of the autosomes are shown (heterozygous past 10.5% once the array's drop-in is
     removed, or two copies by the allele-fraction band), and otherwise "XX or one X": XX if the
@@ -252,9 +255,9 @@ cells stated to carry one X print XX because their heterozygosity, with drop-in 
 past the 10.5% line (0.106 to 0.110) and their stage reads them as two genomes; one stated XY prints
 female/XX with chrX at -0.16 and no chrY genotyped; one stated XY reads "one X", staged haploid with
 no chrY genotyped. On three amplified XY cells chrX sits short of the 0.40 copy step (-0.26 to
--0.37) and stays unread. Two public blastomeres with chrX two steps down (-1.69, -1.94) print XY,
-because their chrX still calls at 0.74 and 0.96 of the genome's rate; whether those cells hold an X
-is not known. With a parent loaded every reading is as before, and every autosome record is
+-0.37) and stays unread. Cells whose chrX sits two copy steps or more down and still calls (for
+example two public blastomeres at -1.69 and -1.94, calling at 0.74 and 0.96 of the genome's rate)
+are not read. With a parent loaded every reading is as before, and every autosome record is
 unchanged.
 
 CANDIDATE B (written 17 November before it was built or counted; for the owner's ruling)
@@ -382,3 +385,36 @@ main unchanged. Rows rerun on the merged code (/root/om-sexnpM, records /root/se
   the C run on 270 of 270.
 The haploid line's wording was changed after the browser run from "one X: one X, the normal
 complement..." to "one X: the normal complement of one genome: ...". Text only; no reading moves.
+
+A4, written 17 November before it was built or rerun
+----------------------------------------------------
+Cause: C prints XY where chrX sits two copy steps or more under the autosomes but still calls over
+CALL_COLLAPSE (GSM4472405 -1.69 at 0.74, GSM4472409 -1.94 at 0.96, and others like them). A chrX
+that far down is not "one copy below", whatever its call rate.
+Change: with no parent, XY is printed from the intensity route only where chrX sits at least one
+copy step and less than two copy steps (2 x COPY_SHIFT_FLOOR, 0.80) under the autosomes; the
+heterozygosity route to XY gets the same upper bound. Two steps or more under, and called above
+the collapse line: nothing printed, with the reason "chromosome X sits further below the
+autosomes than one copy, and its calls do not show it absent either, so this file does not settle
+what the cell holds". Nothing else changes.
+Checked first against the C records: the stated XY cells sit at -0.16 to -0.79, none at -0.80 or
+under, so none moves. The 9 stated Y-only cells call chrX at 0.28 to 0.53 and are caught by the
+call-rate test first. Two stated one-X cells sit beyond -0.80: one is caught by the call-rate test
+(0.43), the other (-1.40, 0.74) is unresolved already and only its reason text changes. Expected to
+change: XY readings with chrX at -0.80 or under and a call rate of 0.60 or over. In C's records
+these are 9 of the 290 arrays and 11 of the 330 no-parent rows, none with a stated sex.
+A4 result (code /root/om-sexnpA4, records /root/sexnpA4), against the C records:
+  The stated-sex table is unchanged, row for row: one X 3 printed XX / 23 "one X" or conditional /
+  2 not read; XX 6 printed / 6 conditional; XY 10 printed / 3 not read; the same 5 contradicted.
+  Readings that changed, all XY to unresolved, all with chrX two steps or more down and calling at
+  0.60 or over: on the 290, 9 (S21 one, GSE186407 public seven, GSE148488 public GSM4472405 and
+  GSM4472409, chrX -1.28 to -1.94, calls 0.63 to 0.96); on the 330 no-parent rows, 11 (the same
+  seven GSE186407 and two GSE148488 cells, S12 one at -1.00, S17 two at -0.81 and -1.82).
+  None has a stated sex. Exactly the set predicted before the run.
+  S2: 115 reasons on the 290 and 96 on the 330 checked, 0 false. S4: the 330 no-parent rows,
+  every autosome entry and every other field identical to 6.7.0. With a parent loaded the code
+  path is untouched (the guard sits inside the no-parent reading), so the 270 with-parent rows
+  were not rerun; the check file pins the parent path to the 6.5.0 reading.
+  Browser, GSM4472405 with no parent: "Not read: chrX sits -1.69 log2 from this sample's
+  autosomes: chromosome X sits further below the autosomes than one copy, and its calls do not
+  show it absent either, so this file does not settle what the cell holds."
