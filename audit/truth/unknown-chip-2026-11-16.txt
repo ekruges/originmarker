@@ -105,7 +105,7 @@ The two gaps above are closed.
 - Command line: every command reads arrays through two readers in cli/om.ts, and both now refuse
   with the same text and exit 2, `om father` included. The chip is recognised by the ids of the
   panel `--panel` names, or else the shipped founder panel; `--no-panel` does not turn the check
-  off. For GSM1493517 (CytoSNP-12):
+  off. For one public CytoSNP-12 array:
     om: <path>: Not scored: this file is not from the UK Biobank Axiom chip, the only chip this tool
     is proven on, so none of its numbers apply. The founder panel holds 0 of its 279,495 autosomal
     markers (0.0%); a UK Biobank Axiom file has all of its autosomal markers in the panel. Genome

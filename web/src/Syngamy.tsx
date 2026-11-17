@@ -54,6 +54,7 @@ import type { DosageVerdict } from './dosageOrigin'
 import { groupUnits } from './abnormalities'
 import { timeGroup } from './timing'
 import { stageFacts } from './stage'
+import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
 import {
   addCandidateRow, candidateGenomes, emptyCandidateTallies, findParent, fatherSearchText, type ParentSearchText,
@@ -450,7 +451,7 @@ async function profileFile(
   log('CALL', `call ${pct(profile.callRate, 1)}, het ${pct(profile.hetRate, 1)}, `
     + `BAF spread at het calls ${Number.isFinite(profile.hetBafSd)
       ? profile.hetBafSd.toFixed(4) : 'n/a'}, `
-    + `sex ${profile.sex}, ${profile.build.build ?? 'assembly undetermined'}`)
+    + `${role === 'parent' ? `sex ${profile.sex}, ` : ''}${profile.build.build ?? 'assembly undetermined'}`)
   for (const x of g) {
     if (x.verdict === 'exclude' || x.verdict === 'marginal') {
       log('WARN', `gate ${x.name}: ${x.verdict}`)
@@ -1251,7 +1252,9 @@ function Chip({ entry, busy, stage, onRole, onRemove }: {
             : result
               ? `${pct(result.genomeRate)} of ${pct(result.explainable)}`
               : profile
-                ? `${int(profile.markers)} mk · ${pct(profile.callRate, 0)} · ${profile.sex}`
+                // No stage before a run, so a sample's heterozygosity sex is not shown: on a
+                // pronucleus it reads female. See sexMaterial.ts.
+                ? `${int(profile.markers)} mk · ${pct(profile.callRate, 0)}${role === 'sample' ? '' : ` · ${profile.sex}`}`
                 : mb(file.size)}
         </Text>
       </Group>
@@ -1631,7 +1634,11 @@ const GATE_COLOUR: Record<string, string> = {
   usable: 'green', marginal: 'orange', exclude: 'red', report_only: 'gray',
 }
 
-function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate[] }) {
+function Quality({ profile: p, gates, material }: {
+  profile: SampleProfile; gates: Gate[]; material?: SexMaterial
+}) {
+  // The heterozygosity sex stands only where two copies are shown. See sexMaterial.ts.
+  const g = sexGates(gates, material)
   return (
     <>
       <Facts items={[
@@ -1645,7 +1652,7 @@ function Quality({ profile: p, gates: g }: { profile: SampleProfile; gates: Gate
           ? `${p.hetBafSd.toFixed(4)}   ${p.hetBafSd <= 0.11 ? 'unamplified' : 'amplified'}`
           : '-'],
         ['chrX / autosomal het', p.chrXHetRatio === null ? '-' : p.chrXHetRatio.toFixed(3)],
-        ['Sex', p.sex],
+        ['Sex', shownSex(p.sex, material)],
         ['Product', p.product],
         ['Assembly', p.build.build
           ? `${p.build.build}   ${int(p.build.illegal.GRCh37)} illegal GRCh37, `
@@ -1952,6 +1959,13 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
 
       {sex.length > 0 && (
         <Section title="Sex chromosomes">
+          {r.sexChromosome && (
+            <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
+              {r.sexChromosome.constitution === 'unresolved'
+                ? `Not read: ${r.sexChromosome.why}.`
+                : `${r.sexChromosome.constitution}: ${r.sexChromosome.why}.`}
+            </Text>
+          )}
           <ChromTable chroms={sex} ceiling={r.explainable} />
         </Section>
       )}
@@ -2071,7 +2085,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
         </Section>
       )}
 
-      <Section title="Sample quality"><Quality profile={profile} gates={g} /></Section>
+      <Section title="Sample quality"><Quality profile={profile} gates={g} material={r.sexMaterial} /></Section>
 
       {[...new Set([...r.limits, ...maternal?.limits ?? []])].length > 0 && (
         <Section title="Limits">

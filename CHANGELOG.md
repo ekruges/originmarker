@@ -9,6 +9,57 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.10.0 "Pseudoautosomal"
+
+**With no parent loaded, the page says what chromosomes X and Y show, and no longer prints
+"female" on a one-genome cell.** Since 6.0.0 no chromosome X row was built with no parent, so the
+sex-chromosome reading was unresolved on every array, with a false reason ("chromosome X carries
+no intensity"), while the page printed a sex from heterozygous calls on X: "female" on 26 of 28
+cells stated to carry one X, nearly all pronuclei, where every heterozygous call is noise. Now chrX
+gets a row from its call rate and intensity, with the pseudoautosomal region of either assembly
+left out, and the line reads what X and Y show:
+
+- chrX present, one copy step under the autosomes (at least 0.40 log2 and less than two steps),
+  and chrY present: XY. One genome cannot hold X a step under its autosomes. On an array shown to
+  hold two copies, heterozygous calls on X with chrY also give XY, where intensity and chrY do not
+  contradict them and chrX is less than two steps down.
+- chrX two copy steps or more under the autosomes and still called: not read. It is further down
+  than one copy, and its calls do not show it absent either.
+- chrX at the autosomes' level and no chrY: "one X" on a cell staged haploid, XX where two copies
+  of the autosomes are shown, and otherwise "XX or one X": XX if the cell holds two genomes, one X
+  if it holds one, which the file does not settle.
+- chrX between the levels, over the autosomes, or at their level with chrY present: not read, with
+  the reason. No 45,X, 47,XXX or 47,XXY is printed with no parent.
+
+The heterozygosity sex in Sample quality is printed only where two copies are shown, and a sample
+file shows no sex before a run. Every unresolved reading gives a reason true of the file.
+
+Against stated answers on 290 open arrays with no parent
+(audit/truth/sex-no-parent-2026-11-16.txt):
+
+| | 6.9.0 | this release |
+|---|---|---|
+| one X: printed female or XX, of 28 | 26 | 3 |
+| one X: "one X" or "XX or one X" | 0 | 23 |
+| XX: printed XX, of 12 | 12 | 6 |
+| XX: "XX or one X" | 0 | 6 |
+| XY: printed XY, of 15 | 13 | 10 |
+| printed and contradicted by the stated answer | 28 | 5 |
+
+**What it still gets wrong, and why.** Five stated answers are contradicted. Three cells stated to
+carry one X print XX: their heterozygosity, with drop-in removed, sits just past the line for two
+copies and the stage reads them as two genomes. One stated XY prints XX, with chrX at -0.16 and no
+chrY genotyped. One stated XY reads "one X", staged haploid with no chrY genotyped. On three
+amplified XY cells chrX sits short of the copy step and stays unread: on amplified single cells X
+does not sit a clean copy step below the autosomes, so the step alone reads fewer XY than the
+heterozygous calls did. With no parent a noisy single cell cannot be reliably told to hold one
+genome or two, and a sex reading cannot be better than that.
+
+With a parent loaded every reading is as before, and every autosome record is unchanged on the 600
+answer-key rows.
+
+---
+
 ## 6.9.0 "Segregation"
 
 **With one parent loaded, a run's other draws of the other parent now name the parent of an extra

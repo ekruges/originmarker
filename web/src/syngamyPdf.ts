@@ -16,6 +16,7 @@ import {
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
+import { sexGates, shownSex } from './sexMaterial.ts'
 import { DEFAULT_PERMUTATIONS, MIN_REGIONS } from './features.ts'
 import { drawComparison } from './comparisonPdf.ts'
 import type { ComparisonResult } from './comparison.ts'
@@ -912,7 +913,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
             + `(unamplified DNA ~0.088, amplified 0.21-0.30)`
           : 'not measured'],
         ['chrX / autosomal het:', p.chrXHetRatio === null ? '-' : p.chrXHetRatio.toFixed(3)],
-        ['Sex call:', p.sex],
+        ['Sex call:', shownSex(p.sex, r.sexMaterial)],
         ['Product:', p.product],
         ['Assembly:', p.build.build
           ? `${p.build.build}  (${int(p.build.illegal.GRCh37)} placements illegal under GRCh37, `
@@ -932,7 +933,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         { head: 'Value', w: 46, right: true },
         { head: 'Verdict', w: 56 },
         { head: 'Basis', w: 292 },
-      ], f.gates.map((g) => [
+      ], sexGates(f.gates, r.sexMaterial).map((g) => [
         g.name,
         g.value === null ? '-' : pct(g.value, 1),
         { v: g.verdict.replace(/_/g, ' '), colour: g.verdict === 'usable' ? INK : WARN },

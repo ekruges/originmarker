@@ -536,6 +536,8 @@ export interface Tally {
   yTotal: number
   /** Assembly, so the pseudoautosomal boundaries used are the right ones. GRCh37 if unknown. */
   build: string | null
+  /** No parental array is loaded: the chrX row comes from call rate and intensity alone. */
+  noParent?: boolean
 }
 
 export const emptyTally = (): Tally => ({
@@ -554,7 +556,9 @@ export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   // the genotypes. The pseudoautosomal region is left out because it is two copies in both sexes
   // and would lift a male's X median toward a female's. What the level means is decided in
   // sexChromosome.ts, against chrY; the whole-chromosome test below stays autosomal.
-  const sexX = (row.chrom === 'X' || row.chrom === '23') && !inPar(row.pos, t.build)
+  // With no parent loaded no assembly is known, so both assemblies' regions are left out.
+  const sexX = (row.chrom === 'X' || row.chrom === '23') && !(t.noParent && !t.build
+    ? inPar(row.pos, 'GRCh37') || inPar(row.pos, 'GRCh38') : inPar(row.pos, t.build))
   if (isAutosome(row.chrom) || sexX) {
     const cc = t.callByChrom.get(row.chrom) ?? [0, 0]
     cc[1] += 1
@@ -972,6 +976,8 @@ export interface ParentageResult {
   limits: string[]
   /** One X or two, and what that is, from sexChromosome.ts. */
   sexChromosome?: import('./sexChromosome.ts').SexChromosomeCall
+  /** With no parent: whether two copies are shown, which the printed sex follows. */
+  sexMaterial?: import('./sexMaterial.ts').SexMaterial
 }
 
 /** Turn the tallies into the three axes and the class they imply. */
@@ -1462,9 +1468,13 @@ export function classify(
   }
 
   // A chromosome with no parental marker has no absence to read and still has a copy number: the
-  // call rate and the intensity need no parent.
+  // call rate and the intensity need no parent. chrX gets the same row wherever the parental
+  // markers gave it none, so sexChromosome.ts can read its level; it carries no copy call, since
+  // `aneuploidy` is autosomal.
+  const hasRow = new Set(chroms.map((r) => r.chrom))
   for (const [c] of [...callPerChrom].sort(byChromName)) {
-    if (!isAutosome(c) || t.byChrom.has(c)) continue
+    const sexX = c === 'X' || c === '23'
+    if (sexX ? !t.noParent || hasRow.has(c) : !isAutosome(c) || t.byChrom.has(c)) continue
     const aneu = aneuploidy.get(c)
     chroms.push({
       chrom: c,
