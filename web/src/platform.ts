@@ -21,6 +21,14 @@ import type { BuildCall, ColumnMap } from './ingest.ts'
 export const PROVEN_CHIP = 'UK Biobank Axiom'
 
 /**
+ * Whether the proven chip genotypes its chromosome Y markers. It does: a man's array calls nearly
+ * all of its 812 and a woman's none, so on this chip a file calling none of them has no Y. A chip
+ * that never genotypes chrY (the CytoScan 750K calls none on a man or a woman) would be read by
+ * intensity instead; see sexChromosome.ts yPresent.
+ */
+export const PROVEN_CHIP_GENOTYPES_Y = true
+
+/**
  * Least share of a file's autosomal markers the founder panel must hold for the file to be the
  * proven chip. Measured: 1.0000 on every Axiom file read (362 arrays and three rebuilt fathers),
  * 0.0000 on both outside chips (68 arrays). Half way between, so that neither a few

@@ -310,10 +310,15 @@ RELEASES: tuple[Release, ...] = (
             "which behave like any autosome. Everywhere else a cell holds X by copies of its own. "
             "With no parent on an array those copies are now read for what they show, and a line "
             "that depends on how many genomes the cell holds says so."),
+    Release("Barr Body",
+            "A cell with two X chromosomes shuts one down, and it shows as a dense spot at the "
+            "edge of the nucleus, the Barr body. That spot is how two X were first told from "
+            "one. With a parent on an array, a second X is now printed only where the cell "
+            "shows it."),
 )
 
-VERSION = "6.10.0"
-CODENAME = "Pseudoautosomal"
+VERSION = "6.11.0"
+CODENAME = "Barr Body"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

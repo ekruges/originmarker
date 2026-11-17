@@ -1,0 +1,202 @@
+47,XXY with a parent loaded (plan item 3.12b)
+=============================================
+Written 17 November 2026, before any code was changed. Built on 6.10.0 (5bc62ab), branch
+xxy-with-parent. Open arrays only. Per-array tables are untracked, under the main checkout's
+audit/local/sex-no-parent/.
+
+THE FAULT
+---------
+With a parent loaded, web/src/sexChromosome.ts reads two X wherever chrX is not detected as a copy
+step from the autosomes, and adds a Y where one is read: two X with a Y is 47,XXY. On amplified
+single cells chrX in an XY cell often sits short of the 0.40 copy step, or past it but inside the
+array's noise. Measured on the 6.10.0 records: 26 of the 270 with-parent rows print 47,XXY, 13
+public cells (each as a father row and a two-parent row), every one with chrY present:
+  - 10 cells amplified, chrX under the 0.40 step (-0.33 to +0.30);
+  - 2 cells amplified, chrX past the step but inside the noise (-1.77, -1.78; z -4.5, -5.5);
+  - 1 cell staged bulk, chrX at -0.12 (z -2.1).
+Heterozygous calls on X read one X on 9 of the 13 (8 amplified, the bulk one) and are between
+the bands on the other 4. One of the 4 is the cell an example run uses to show a loss.
+
+THE RULE (plan item 3.12b, wording as corrected 17 November before any code)
+---------------------------------------------------------------------------
+With a parent loaded, where 6.10.0 would print 47,XXY (two X by default, with a Y):
+  R1. Heterozygous calls on X read one X (ingest.ts callSex, "male" band, its existing bands) and
+      chrX sits less than two copy steps (2 x COPY_SHIFT_FLOOR) under the autosomes: XY. The
+      reason names that evidence. Two X and a Y is contradicted by heterozygosity reading one X.
+  R2. Otherwise, bulk DNA (the stage reads bulk, the condition 6.10.0 already passes as `bulk`)
+      with chrX at the autosomes' level (inside the array's noise and under the 0.40 step):
+      47,XXY, as before.
+  R3. Otherwise, chrX two copy steps or more under the autosomes and still called: unresolved,
+      with the 6.10.0 no-parent reason (further below than one copy, not shown absent either).
+  R4. Otherwise: unresolved, with the reason that on amplified material (or, on bulk, with chrX
+      not at the autosomes' level) this X level cannot separate one X from two.
+Nothing else changes: the XX, XY, 45,X and 47,XXX readings with a parent, and every reading with
+no parent (6.10.0's rule C), are untouched. No new constant.
+
+The existing check that bulk DNA with chrX at the autosomes' level and a Y reads 47,XXY
+(sexChromosome.check.ts section 3) defines no heterozygosity on X and no material. It is given
+the heterozygous calls a two-X genome has (the female band) and bulk material, which is what the
+case describes; its expectation, 47,XXY, is unchanged.
+
+THE GATE (X1 to X4, plan item 3.12b, as corrected)
+-------------------------------------------------
+X1. No 47,XXY on a cell whose X is not shown to be two copies: 26 rows today, none after. The XX
+    and XY readings printed today stay. Every other field of every with-parent row identical to
+    6.10.0.
+X2. The check that bulk DNA with X at the autosomes' level and a Y reads 47,XXY passes.
+X3. The 330 no-parent rows identical to 6.10.0.
+X4. Every reason true of the file; all checks pass; suite no worse; browser run on the example's
+    loss cell with its parents. Release is not part of this branch.
+
+PREDICTION (before the run)
+---------------------------
+Of the 26 rows: 18 read XY (16 amplified rows of 8 cells, 2 bulk rows of 1 cell), 8 unresolved
+(4 rows of the two cells two steps down, R3; 4 rows of the two cells whose heterozygosity is
+between the bands, R4, the example's loss cell among them). None stays 47,XXY. All other rows
+and fields unchanged; the 330 no-parent rows unchanged.
+
+RESULTS (17 November; code /root/om-xxy, records /root/xxy on tesla, 4 shards)
+--------------------------------------------------------------------------
+X1  MET. On the 270 with-parent rows, 26 rows changed, all from 47,XXY: 18 to XY (9 cells: 8
+    amplified, 1 staged bulk, each with heterozygous calls on X reading one X and a chrY) and 8 to
+    unresolved (4 cells: 2 with chrX two steps down and still called, 2 whose heterozygosity on X
+    is between the bands). No 47,XXY remains on the 270. With a
+    parent the readings are now XX 32, XY 23, unresolved 215. The 32 XX and 5 earlier XY are
+    unchanged; every other field of every row, chrX entries included, is identical to 6.10.0.
+X2  MET. sexChromosome.check.ts section 3 (bulk DNA, chrX at the autosomes' level, a chrY) reads
+    47,XXY. The case was given the heterozygous calls a two-X genome has (female band) and bulk
+    material, which it describes; its expectation is unchanged.
+X3  MET. The 330 no-parent rows are identical to 6.10.0 in every field, sex and chrX included.
+X4  Checks: tsc, checks.sh, release-check.sh all exit 0; new cases in sexChromosome.check.ts
+    section 7 (amplified with a chrY and a weak X level, both with heterozygosity reading one X
+    and between the bands; bulk reading one X; two steps down). Reasons: each changed row's
+    branch follows from its record (X level, z, call rate, heterozygosity band, stage); the 18 XY
+    are the 9 cells whose heterozygosity reads one X, the 8 unresolved are the 4 whose X is two
+    steps down or whose heterozygosity is between the bands. Suite: NOT RUN (it needs about two
+    hours and tesla was to be quiet by 4 PM); owed before release. Browser run below.
+
+Against the prediction: the counts matched (18 XY, 8 unresolved). One statement in it did not:
+the example's loss cell is not among the unresolved. It is the cell staged bulk, chrX at -0.11
+with heterozygous calls on X reading one X, and it now reads XY.
+
+Browser (public arrays of the published family, no identifiers here):
+  The example's loss cell with its father and its mother: header "BIPARENTAL", badges
+  "Y-bearing sperm", "diploid", "XY", "2 chromosomal changes", "both parents measured". Line:
+  "XY: heterozygous calls on chrX read one X (chrX to autosome heterozygosity ratio 0.13, in the
+  male band), and chrY is present by its calls and intensity; chrX sits -0.11 log2 from this
+  sample's autosomes, not a copy step, which on this material does not separate one X from two."
+  (6.10.0 printed 47,XXY here.)
+  A bulk public array with a parent (an egg donor loaded as a sample against the sperm donor):
+  "47,XXY: chrX sits 0.19 log2 from this sample's autosomes, which is two copies, and chrY is
+  present as well." Unchanged from 6.10.0, and WRONG: see the finding below.
+  Console: only the /api/health 502s.
+
+FINDING, not built (for a follow-up item): a woman's bulk array reads chrY present
+  With a parent loaded, the egg donor's array prints 47,XXY. On its own it calls 0 of 812 chrY
+  markers and sexing.ts reads no Y. sexChromosome.ts yPresent then falls back to the
+  intensity-only route written for panels that genotype no chrY (CytoScan): it treats "no chrY
+  call at all" as a platform property and, on bulk DNA, compares chrY intensity with chrX (-0.31,
+  against Y_BESIDE_X -0.9) and reads a Y. On this array chrY genotypes in men (the sperm donor
+  calls 805 of 812), so zero calls in a woman is absence, not the platform. Three public egg
+  donors call 0 of 812; their chrY intensity sits -0.12 to +0.70 from the autosomes. The 26 rows of
+  this item are not affected: all 13 cells call 702 to 805 of 812 chrY markers.
+
+3.12c AN ADULT WOMAN'S BULK ARRAY READS A Y (written 17 November, before any code)
+==================================================================================
+The fault. sexChromosome.ts yPresent decides whether the panel genotypes chrY from the one file:
+"some chrY call, or fewer than 200 chrY markers". A file that calls none of 812 is taken for a
+chip that never genotypes chrY, and on bulk DNA the intensity-only test (chrY within Y_BESIDE_X of
+chrX, built on CytoScan) then reads a Y. On this chip a woman calls none and a man calls nearly all
+(the sperm donor 805 of 812), so zero calls is absence. A public egg donor's array printed 47,XXY
+with the sperm donor loaded.
+
+Rule (plan item 3.12c): on a chip whose chrY markers are genotyped, a file that calls none of them
+has no Y. The intensity-only test is used only on a chip that never genotypes chrY.
+
+How the chip's chrY genotyping is known. From the chip, in platform.ts, the module that already
+recognises it: the chip profile of the proven chip says its chrY markers are genotyped (measured:
+the sperm donor 805 of 812, the 13 public male cells of 3.12b 702 to 805; egg donors 0). Every
+file that reaches scoring is that chip: the page and the harness refuse a file whose markers are
+not the proven chip's (platform.ts, 6.8.0). So scoring passes "chip genotypes chrY" and yPresent
+takes the calls. A file from a chip that never genotypes chrY is refused before scoring today; if
+such a chip is proven later, its profile says so and the intensity-only route serves it, as the
+existing CytoScan check cases do (they pass no chip, which keeps the file-level test).
+The other way considered: read it from the loaded parent's file (a man calling chrY shows the chip
+genotypes it). It leaves runs with no parent, or with the mother only, on the faulty route, so it
+does not meet the rule. On the existing records the two cannot be told apart (below), so this is
+not a choice that moves a row.
+
+Gate (plan item 3.12c): the woman's bulk array reads XX with a parent loaded and with none; every
+row of the 600 that reads a Y today still reads it; nothing else moves; checks pass; suite no
+worse; released with 3.12b in one version.
+
+Prediction, from the existing records only (no new run):
+  - 290 stated arrays (6.10.0 no-parent records; chrY calls from the 16 November probe): 130 read a
+    Y; every one calls chrY at the call-rate test's level, none with zero calls (the four staged
+    bulk call 803 to 812). 156 arrays call zero chrY and none of them reads a Y. Nothing moves.
+  - 330 no-parent rows: 131 read a Y; 10 of them are staged bulk, the only material where the
+    intensity-only route can run. Four of those call 803 to 812. The other six (two series) have
+    no chrY call count in the records; their chrX sits at -0.38 to -0.45, one X, as a man's does.
+    Predicted: they call chrY and do not move. To be confirmed by tomorrow's run.
+  - 270 with-parent rows: 7 are staged bulk; the one that reads a Y calls 803 chrY markers, the
+    other 6 (against a rebuilt or stand-in father) have no chrX row and read nothing. Nothing moves.
+  - So: no row of the 600 calls zero chrY and reads a Y today (six to confirm), and none moves.
+    The woman's bulk array, not among the 600, moves from 47,XXY to XX with a parent, and reads
+    XX with none (chrX 0.19 at the autosomes' level on bulk DNA, two copies shown).
+Built 17 November (Mac only; no run). platform.ts PROVEN_CHIP_GENOTYPES_Y; scoreSample passes it;
+yPresent takes the calls where it is set. Check cases (sexChromosome.check.ts section 8): a
+woman's bulk array on this chip, 0 of 812 called, reads no Y and XX; with nothing said of the chip
+the intensity-only route still reads a Y beside a one-X level, as on CytoScan. tsc, checks.sh and
+release-check.sh exit 0. Owed, on the coordinator's word: the 270 and 330 rows on this code, the
+browser check of the woman's bulk array with and without a parent, and the suite once.
+
+FINAL SCORING, BOTH FIXES (17 November, code fdb0273 at /root/om-xxyc, records /root/xxyc)
+------------------------------------------------------------------------------------------
+Against the 6.10.0 records:
+  270 with-parent rows: 26 rows changed, all 47,XXY: 18 to XY, 8 to unresolved, exactly the 3.12b
+  rows (identical to the 3.12b run on 270 of 270). Every other field of every row, chrX entries
+  included, identical. With a parent: XX 32, XY 23, unresolved 215, no 47,XXY.
+  330 no-parent rows: identical in every field, sex and chrX included.
+  The six bulk no-parent rows the 3.12c prediction could not settle from records call chrY at 806
+  to 812 of 812 (counted from their files): they read a Y by its calls and do not move.
+  So no row of the 600 called zero chrY and read a Y, and none moved: as predicted.
+Browser (public arrays of the published family; console only the /api/health 502s):
+  The egg donor's bulk array with the sperm donor loaded: header "GYNOGENETIC", badges "diploid",
+  "XX"; "XX: chrX sits 0.19 log2 from this sample's autosomes, which is two copies." (6.10.0 and
+  3.12b alone printed 47,XXY.)
+  The same array with no parent: header "BULK", badges "diploid", "XX"; "XX: by intensity, chrX
+  sits 0.19 log2 from this sample's autosomes, which is two copies, and two copies of the
+  autosomes are shown; and heterozygous calls on chrX read two X (chrX to autosome heterozygosity
+  ratio 1.14, in the female band)."
+  The example's loss cell with its father and mother: header "BIPARENTAL", badges "Y-bearing
+  sperm", "diploid", "XY", "2 chromosomal changes"; the XY line quoted above, unchanged from 3.12b.
+
+GATE
+  X1  MET: no 47,XXY on a cell whose X is not shown to be two copies (26 rows to none); the XX and
+      XY printed before stay; every other field identical.
+  X2  MET: the bulk 47,XXY check case passes (section 3).
+  X3  MET: the 330 no-parent rows identical to 6.10.0.
+  X4  checks: tsc, checks.sh, release-check.sh exit 0; reasons follow from each changed row's
+      record; browser run done; suite (audit/validate/run.sh against the 6.9.0 scorecard,
+      /root/xxyc/suite): "NOTHING MOVED SINCE PREVIOUS", no line worse. MET.
+  3.12c MET: the woman's bulk array reads XX with a parent and with none; every row that read a Y
+      still reads it; nothing else moved; checks pass; suite as X4.
+
+CHANGELOG PARAGRAPH, FINAL (3.12b and 3.12c as one release; not in CHANGELOG.md)
+-------------------------------------------------------------------------------
+**With a parent loaded, 47,XXY is printed only where the X level can carry it, and a woman's
+array no longer reads a Y chromosome.** Two faults in the sex-chromosome reading with a parent:
+  - The tool read two X wherever chromosome X was not shown a copy step under the autosomes, and
+    added a Y where one was read. On amplified single cells an XY cell often sits short of that
+    step, so 26 of 270 with-parent rows, 13 public cells, printed 47,XXY, the example's loss cell
+    among them. Now, with a Y, a cell whose heterozygous calls on X read one X is XY (unless X
+    sits two copy steps down); bulk DNA with X at the autosomes' level and no heterozygosity
+    reading one X is still 47,XXY; everything else is left unresolved, with the reason that this
+    X level cannot separate one X from two, or that X sits further down than one copy and its
+    calls do not show it absent. On the 270 rows: 18 now read XY, 8 unresolved, none 47,XXY.
+  - A file that called none of its chromosome Y markers was taken for a chip that never
+    genotypes Y, and an intensity test built for such chips then read a Y on bulk DNA: a public
+    egg donor printed 47,XXY with the sperm donor loaded. On the UK Biobank Axiom chip a man calls
+    nearly all of the 812 chromosome Y markers and a woman none, so a file that calls none has no
+    Y. She now reads XX with a parent and with none.
+With no parent nothing changed, and no other reading or record moved.

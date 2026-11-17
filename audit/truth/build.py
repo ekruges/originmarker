@@ -12,7 +12,7 @@ sheets. Nothing here is produced by OriginMarker: each row is what a table state
 Writes, under --out (untracked: these carry laboratory identifiers):
   arrays.tsv   one row per array on disk: id, series, the file chosen, how many copies
   truth.tsv    one row per stated fact: array, source, table, kind, chrom, start, end, value, verbatim
-  units.tsv    one row per array with a fact: its unit and whether the unit is open or sealed
+  units.tsv    one row per array with a fact: its unit and whether it is open, sealed or exposed
   unmatched.tsv  table rows that name no array on disk
 
 OPEN AND SEALED. A unit is an experimental group (Jerabek) or an embryo group (Turocy). A unit is
@@ -21,8 +21,13 @@ pseudonym, and all of GSE148488); every other unit is assigned by the parity of 
 so the assignment cannot depend on anything the tool reports. Sealed arrays are scored once per
 major version and never used to set a constant.
 
+EXPOSED. An array listed in --exposed (an untracked file, one array per line) is neither open nor
+sealed: it is never scored, of either kind. It is for an array of a sealed unit that a fixed test
+of the tool runs, such as a bundled example file: the tool has been run on it, so it cannot count
+as held out, and its unit was never open, so it cannot be developed on either.
+
 Run: python3 audit/truth/build.py --supplements <dir> --inventory <tsv> --manifest <csv> \
-       --lab-sheets <csv> --manual <tsv> --barcode-map <tsv> --out audit/local/truth
+       --lab-sheets <csv> --manual <tsv> --barcode-map <tsv> --exposed <list> --out audit/local/truth
 """
 import argparse
 import collections
@@ -345,7 +350,11 @@ def build(a):
     open_units = {u for aid, u in unit_of.items() if arrays[aid]['series'] in burned}
     open_units |= {u for u in unit_of.values() if u.startswith(('lab:', 'gse148488'))}
 
-    def split(unit):
+    exposed = {line.strip() for line in open(a.exposed) if line.strip()}
+
+    def split(unit, aid=None):
+        if aid in exposed:
+            return 'exposed'
         if unit in open_units:
             return 'open'
         return 'sealed' if int(hashlib.sha1((a.salt + unit).encode()).hexdigest(), 16) % 2 else 'open'
@@ -362,7 +371,7 @@ def build(a):
     with open(os.path.join(a.out, 'units.tsv'), 'w') as f:
         f.write('array\tseries\tunit\tsplit\n')
         for aid in sorted(unit_of):
-            f.write(f"{aid}\t{arrays[aid]['series']}\t{unit_of[aid]}\t{split(unit_of[aid])}\n")
+            f.write(f"{aid}\t{arrays[aid]['series']}\t{unit_of[aid]}\t{split(unit_of[aid], aid)}\n")
     with open(os.path.join(a.out, 'unmatched.tsv'), 'w') as f:
         f.write('source\ttable\tname\n')
         for row in unmatched:
@@ -374,15 +383,15 @@ def report(arrays, truth, unit_of, split, unmatched):
     by_kind = collections.defaultdict(lambda: collections.Counter())
     arrays_by_kind = collections.defaultdict(lambda: collections.defaultdict(set))
     for aid, source, table, kind, chrom, start, end, value, verbatim in truth:
-        s = split(unit_of[aid])
+        s = split(unit_of[aid], aid)
         label = kind
         if kind == 'chrom_state':
             label = 'chrom_state ' + value.split(':')[0]
         by_kind[label][s] += 1
         arrays_by_kind[label][s].add(aid)
     print(f'arrays on disk: {len(arrays)}; with at least one stated fact: {len(unit_of)}')
-    n = collections.Counter(split(u) for u in unit_of.values())
-    print(f"  open {n['open']}, sealed {n['sealed']}")
+    n = collections.Counter(split(u, aid) for aid, u in unit_of.items())
+    print(f"  open {n['open']}, sealed {n['sealed']}, exposed {n['exposed']}")
     print(f"{'fact':28s} {'open rows':>10s} {'arrays':>7s} {'sealed rows':>12s} {'arrays':>7s}")
     for k in sorted(by_kind):
         print(f"{k:28s} {by_kind[k]['open']:10d} {len(arrays_by_kind[k]['open']):7d} "
@@ -450,7 +459,8 @@ if __name__ == '__main__':
         self_check()
         sys.exit(0)
     ap = argparse.ArgumentParser()
-    for name in ('supplements', 'inventory', 'manifest', 'zuccaro', 'lab-sheets', 'manual', 'barcode-map', 'out'):
+    for name in ('supplements', 'inventory', 'manifest', 'zuccaro', 'lab-sheets', 'manual', 'barcode-map',
+                 'exposed', 'out'):
         ap.add_argument(f'--{name}', required=True)
     ap.add_argument('--burned', default='S12,S13,S20,S21,S23,S24',
                     help='series pseudonyms the tool was developed or scored on')
