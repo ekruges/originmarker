@@ -1205,7 +1205,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt }: {
         <DefectCallout
           list={list} setup={setup}
           plot={(g) => {
-            const mk = rowMark(g.pieces, r.segments, loadedRole(r), entry.series?.endBp.get(g.chrom))
+            const mk = rowMark(g.pieces, r.segments, loadedRole(r), entry.series?.endBp.get(g.chrom), g.deeper)
             return mk ? <CallFigure mark={mk} data={entry.series} marks={marks} name={plotName(entry)} /> : null
           }}
         />

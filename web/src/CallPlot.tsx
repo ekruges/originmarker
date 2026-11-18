@@ -467,7 +467,12 @@ const where = (chrom: string, s: number, e: number) =>
   `Chromosome ${chrom}, ${mb(s)} to ${mb(e)} Mb (${((e - s) / 1e6).toFixed(1)} Mb)`
 
 /** A segment row as a mark. */
-export function segmentMark(sg: Segment, loaded: Role | null, lines: string[], origin?: Role | 'unclear'): Mark {
+export function segmentMark(
+  sg: Segment, loaded: Role | null, lines: string[], origin?: Role | 'unclear',
+  /** The list calls this piece a second copy lost on a chromosome already lost whole, so the title
+   *  says the same: a card must not say one thing in the row and another in the title. */
+  deeper?: boolean,
+): Mark {
   const co = segmentCoords(sg)
   const r = sg.refined
   const gain = sg.kind === 'copy-gain'
@@ -475,7 +480,8 @@ export function segmentMark(sg: Segment, loaded: Role | null, lines: string[], o
   let what: string
   if (sg.kind === 'copy-loss' || gain) {
     parent = origin === 'paternal' || origin === 'maternal' ? origin : null
-    what = `${gain ? 'there is an extra copy' : 'one copy is lost'}${parent ? `, ${WHOSE[parent]}` : ', parent not named'}`
+    what = `${gain ? 'there is an extra copy' : deeper ? 'a second copy is lost' : 'one copy is lost'}`
+      + `${parent ? `, ${WHOSE[parent]}` : ', parent not named'}`
   } else if (sg.contested) {
     parent = null; what = "both parents' alleles read missing, so no parent is named"
   } else {
@@ -503,13 +509,15 @@ export function withheldMark(sg: Segment, loaded: Role | null): Mark {
 }
 
 /** A row of the list of changes as a mark; a whole-chromosome row is located by its chromosome. */
-export function defectMark(d: Defect, segments: readonly Segment[], loaded: Role | null, endBp: number | undefined): Mark | null {
+export function defectMark(
+  d: Defect, segments: readonly Segment[], loaded: Role | null, endBp: number | undefined, deeper?: boolean,
+): Mark | null {
   if (d.chrom === 'genome') return null
   const lines = [`${d.locus}${d.interval ? ` ${d.interval}` : ''}`,
     ...(d.informative !== undefined ? [`${d.informative.toLocaleString('en-US')} markers`] : []), d.why]
   const origin = d.origin
   const sg = segments.find((s) => s.chrom === d.chrom && segmentCoords(s).start === d.startBp && segmentCoords(s).end === d.endBp)
-  if (sg) return { ...segmentMark(sg, loaded, [headline(d), ...lines], origin), quoted: true, lrr: d.lrr, said: saidOf(d) }
+  if (sg) return { ...segmentMark(sg, loaded, [headline(d), ...lines], origin, deeper), quoted: true, lrr: d.lrr, said: saidOf(d) }
   const whole = d.locus === `chr${d.chrom}`
   const end = whole ? endBp ?? d.endBp : d.endBp
   const named = origin === 'paternal' || origin === 'maternal' ? origin : null
@@ -527,10 +535,13 @@ export function defectMark(d: Defect, segments: readonly Segment[], loaded: Role
 }
 
 /** A joined row of the change list as one mark spanning its pieces. */
-export function rowMark(pieces: readonly Defect[], segments: readonly Segment[], loaded: Role | null, endBp: number | undefined): Mark | null {
-  const first = defectMark(pieces[0], segments, loaded, endBp)
+export function rowMark(
+  pieces: readonly Defect[], segments: readonly Segment[], loaded: Role | null, endBp: number | undefined,
+  deeper?: boolean,
+): Mark | null {
+  const first = defectMark(pieces[0], segments, loaded, endBp, deeper)
   if (!first || pieces.length < 2) return first
-  const last = defectMark(pieces[pieces.length - 1], segments, loaded, endBp) ?? first
+  const last = defectMark(pieces[pieces.length - 1], segments, loaded, endBp, deeper) ?? first
   const startBp = Math.min(...pieces.map((p) => p.startBp))
   const end = Math.max(...pieces.map((p) => p.endBp))
   const tail = first.sentence.slice(first.sentence.indexOf('):') + 1)
@@ -538,7 +549,7 @@ export function rowMark(pieces: readonly Defect[], segments: readonly Segment[],
     ...first, startBp, endBp: end, outHiBp: last.outHiBp, lrr: undefined,
     said: pieces.map((p) => saidOf(p)).filter(Boolean).join(' ') || undefined,
     sentence: `${where(first.chrom, startBp, end)}${tail}`,
-    lines: pieces.flatMap((p) => defectMark(p, segments, loaded, endBp)?.lines ?? []),
+    lines: pieces.flatMap((p) => defectMark(p, segments, loaded, endBp, deeper)?.lines ?? []),
   }
 }
 
