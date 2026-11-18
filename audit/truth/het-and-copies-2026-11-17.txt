@@ -1,0 +1,293 @@
+Heterozygosity and intensity together: can they tell 0, 1, 2 and 3 copies apart
+================================================================================
+Written 17 November 2026. Measurement only: no tool code was written, built or released for it.
+Open arrays only, every array checked against audit/local/truth/units.tsv before it was read.
+Raw tables are untracked under audit/local/het-copies-2026-11-17/. Cells are numbered; the numbers
+map to arrays only in a private file that stays on the measurement box.
+
+THE OWNER'S IDEA, which this file tests
+---------------------------------------
+"By combining how haploid samples have very little heterozygous SNPs (the 0.5 BAF calls for
+haploids are usually just background) maybe you can use both of this information to differentiate
+between 0, 1 and 2 copies."
+
+WHY IT WOULD MATTER
+-------------------
+The intensity the tool draws is relative: it is normalised to the sample's own level. A cell whose
+every chromosome held the same number of copies reads flat, so the copy axis only means "copies"
+while the rest of the cell is two. Heterozygosity has no such weakness. A region truly at one copy
+cannot be heterozygous, so its heterozygous calls are background. Together the two should give an
+absolute anchor, which the intensity alone cannot.
+
+THE RULE TESTED, written before the numbers below
+-------------------------------------------------
+For each 2.5 Mb bin of each autosome, measure three things and nothing else:
+  H  heterozygosity: the share of CALLED markers in the bin that read heterozygous. With both
+     parents loaded it is read on opposite-homozygote markers only (father AA and mother BB, or the
+     reverse), where two copies must be heterozygous; with one parent, on that parent's homozygous
+     markers; with none, on every called marker.
+  C  call rate: the share of all OFFERED markers in the bin that were called at all. A lost region
+     stops calling.
+  I  intensity: the median of the same intensity column the gain study reads, minus the median over
+     the cell's own published-normal bins (and, where stated, minus the cohort's median offset for
+     that same bin, which takes out the probe-density and GC bias shared by every array).
+Then: group every bin by the copy number the publication states for its chromosome, and ask how
+often each quantity, and the PAIR H x I, places a bin on the right side of each class boundary.
+The claim under test, in one line: H separates one copy from two where I cannot, and I separates
+nought and three where H cannot, so the pair settles all four classes.
+
+Also tested, because they decide whether the idea survives contact with a real cell:
+  D  allele drop-out per cell, measured on the chromosomes the publication calls normal, where
+     every opposite-homozygote marker MUST read heterozygous at two copies. Drop-out is the share
+     that reads homozygous instead. If a per-cell background rate taken from a cell's own normal
+     chromosomes is enough to separate one copy from two in the WORST cells, the idea holds; if it
+     is only enough on average, it does not.
+  P  whole-genome ploidy, the one case the relative intensity cannot do at all: published pronuclei,
+     which carry one parental genome and so sit at one copy throughout, against bulk and cell-line
+     DNA at two copies throughout.
+  X  the confusion: a region at two copies that has lost heterozygosity for another reason reads low
+     on H and normal on I, while a true one-copy region reads low on both. Measured as: of the bins
+     a publication calls normal, how many read H at or below the median H of the SAME cell's
+     published one-copy bins, and does I then tell them apart.
+
+WHAT WAS READ
+-------------
+292 arrays listed open with a file on disk. 85 of them carry at least one published whole-chromosome
+copy state, giving 84,313 bins:
+       0 copies     1,902 bins     8 cells    42 chromosomes
+       1 copy       6,664 bins    27 cells   129 chromosomes
+       2 copies    72,101 bins    77 cells  1,442 chromosomes
+       3+ copies    3,646 bins    30 cells    83 chromosomes
+Published states come from the Turocy 2026 and Zuccaro 2020 per-chromosome karyotypes. Nought copies
+is a stated nullisomy whose own chromosome is named in the published phrase; a nullisomy named for
+another chromosome in the same phrase, and the one array called "nullisomic" with no chromosome
+named, are not used. The Jerabek 2026 and lab arrays carry no per-chromosome state and so appear
+only in the ploidy and drop-out parts.
+
+LIMITS OF THE ANSWER KEY, stated before the tables
+  - Only whole-chromosome states are binned. Every segmental row in the open truth table has no
+    start or end, so a segmental loss cannot be placed on the genome. Segmental GAINS do have
+    coordinates in the open regions table and are included.
+  - The four setups are the same cells with the parents withheld, as the gain study does it, because
+    the open set has no cell whose only loaded parent is the father.
+  - A chromosome carrying more than one published statement is dropped.
+  - The pair figures come from a straight line fitted through the two quantities on the same bins it
+    is then scored on. Read them as a ceiling on what the pair could do, not as a tool's accuracy.
+
+SEPARATION, 2.5 Mb bins (1.00 = never confused, 0.50 = a coin flip)
+-------------------------------------------------------------------
+H is shown twice: as read, and minus the median of the cell's own published-normal bins. C and I are
+always minus the cell's own level, and I also has the cohort's offset for that bin taken out. The
+combination columns are built from the "minus own" versions, since that is what a tool would hold.
+
+Both parents loaded: H on opposite homozygotes, 29 cells, 30,048 bins.
+
+  boundary       H    H-own      C      I    H x I   H x C   H,I,C
+  0 vs 1      0.93     0.84   0.93   0.92    0.99    0.97    0.96
+  0 vs 2      0.52     0.62   0.91   0.95    0.95    0.91    0.93
+  0 vs 3      0.62     0.55   0.89   0.98    0.98    0.90    0.98
+  1 vs 2      0.95     0.95   0.60   0.71    0.95    0.95    0.95
+  1 vs 3      0.92     0.84   0.76   0.82    0.90    0.86    0.97
+  2 vs 3      0.62     0.69   0.73   0.84    0.79    0.76    0.87
+
+No parent: H on every called marker, 85 cells, 84,313 bins.
+
+  boundary       H    H-own      C      I    H x I   H x C   H,I,C
+  0 vs 1      0.99     0.97   0.94   0.94    0.97    0.96    0.96
+  0 vs 2      0.98     0.96   0.94   0.97    0.97    0.95    0.96
+  0 vs 3      0.99     0.97   0.95   1.00    1.00    0.98    1.00
+  1 vs 2      0.71     0.70   0.52   0.77    0.86    0.72    0.86
+  1 vs 3      0.63     0.55   0.57   0.90    0.95    0.63    0.95
+  2 vs 3      0.62     0.67   0.67   0.95    0.94    0.69    0.93
+
+One measured parent, and a rebuilt parent, both read on that parent's homozygous markers, 29 cells.
+H-own throughout, with H as read in brackets:
+
+  boundary      one parent H      rebuilt H         I    one parent H x I   rebuilt H x I
+  0 vs 1       0.96  (0.98)     0.96  (0.98)     0.92        0.96             0.96
+  0 vs 2       0.94  (0.95)     0.93  (0.95)     0.95        0.95             0.94
+  0 vs 3       0.98  (0.97)     0.97  (0.97)     0.98        0.98             0.98
+  1 vs 2       0.66  (0.68)     0.71  (0.77)     0.71        0.84             0.84
+  1 vs 3       0.61  (0.62)     0.57  (0.66)     0.82        0.87             0.89
+  2 vs 3       0.76  (0.59)     0.77  (0.64)     0.84        0.84             0.86
+
+THE LEVELS THE SEPARATION COMES FROM, median over bins [10th to 90th percentile]
+-------------------------------------------------------------------------------
+Both parents, H on opposite homozygotes:
+
+                       0 copies              1 copy              2 copies            3+ copies
+  H              0.667 [0.33 1.00]    0.083 [0.00 0.30]    0.667 [0.36 0.90]    0.604 [0.20 0.80]
+  H minus own   -0.103 [-0.52 +0.29]  -0.500 [-0.69 -0.25]  0.000 [-0.21 +0.17] -0.119 [-0.52 +0.09]
+  parent skew    0.536 [0.17 0.94]    1.000 [0.71 1.00]    0.385 [0.08 0.83]    1.000 [0.69 1.00]
+  C minus own   -0.511 [-0.59 -0.03] +0.019 [-0.09 +0.10]   0.000 [-0.06 +0.03] -0.053 [-0.15 +0.03]
+  I minus own   -2.311 [-2.51 -0.33] -0.302 [-0.70 +0.48]   0.000 [-0.36 +0.27] +0.415 [-0.16 +0.88]
+
+No parent, H on every called marker:
+
+                       0 copies              1 copy              2 copies            3+ copies
+  H              0.665 [0.59 0.72]    0.105 [0.05 0.25]    0.151 [0.10 0.29]    0.132 [0.09 0.25]
+  H minus own   +0.453 [+0.32 +0.52] -0.041 [-0.11 +0.07]   0.000 [-0.04 +0.06] -0.027 [-0.10 +0.04]
+  C              0.438 [0.28 0.55]    0.804 [0.62 0.90]    0.852 [0.74 0.93]    0.791 [0.51 0.90]
+  I minus own   -1.941 [-2.48 -1.25] -0.338 [-0.73 +0.31]   0.000 [-0.27 +0.21] +0.417 [+0.17 +0.60]
+  I, bias out   -1.925 [-2.49 -1.08] -0.333 [-0.70 +0.33]   0.000 [-0.20 +0.19] +0.423 [+0.22 +0.58]
+
+WHAT SEPARATES
+--------------
+1. ONE COPY FROM TWO is the boundary the idea was meant for, and heterozygosity does settle it, but
+   only with both parents. On opposite-homozygote markers, two copies read 0.667 heterozygous and
+   one copy reads 0.083. That is 0.95 separation from heterozygosity alone, against 0.71 from the
+   intensity. The intensity adds nothing on top: the pair is also 0.95. The owner's quantity is the
+   one doing the work, and it is doing it better than the axis the tool draws today.
+2. ONE COPY FROM TWO WITHOUT PARENTS is not settled by either quantity alone, and the pair is a real
+   gain: 0.70 from heterozygosity, 0.77 from the intensity, 0.86 from the two together. This is the
+   one place in the whole study where combining them beats both parts, which is the owner's claim,
+   confirmed, for exactly the setup where the tool is weakest.
+3. NOUGHT COPIES is settled, but by the CALL RATE, not by heterozygosity. A nullisomic bin calls
+   0.438 of its offered markers against 0.852 on a normal bin, and its intensity sits 1.9 below the
+   cell's own level. Heterozygosity does the opposite of what the idea expects there: see below.
+4. THREE COPIES FROM TWO is settled by the intensity alone (0.95 with no parent, 0.84 with both) and
+   heterozygosity does not help (0.62 to 0.69 across the four setups). Adding it slightly HURTS the
+   pair with both parents loaded, 0.79 against 0.84 for the intensity on its own.
+5. A REBUILT PARENT loses nothing. Read on the rebuilt father's homozygous markers, one copy against
+   two is 0.71, against 0.66 for the measured father. Nought against one and two are within 0.01.
+
+WHAT DOES NOT SEPARATE, and the reason
+--------------------------------------
+NOUGHT COPIES READS HETEROZYGOUS, NOT HOMOZYGOUS. This is the finding that breaks the simple form of
+the idea. A nullisomic bin has no template, so the array reads background in both channels, the B
+allele fraction lands near 0.5, and the caller emits AB. Measured: 0.665 heterozygous of called
+markers at nought copies, against 0.151 at two copies and 0.105 at one copy. With both parents the
+effect is total: heterozygosity separates nought copies from two at 0.52, a coin flip.
+
+So heterozygosity is NOT monotone in copy number. Its order is
+     nought (0.67, all background)  >  two (0.67 with parents, 0.15 without)  >  three  >  one
+and a rule that reads "low heterozygosity means fewer copies" will call a nullisomy normal, or
+better than normal. The owner's own parenthesis, that the 0.5 calls are background, is the whole
+reason: at one copy the background is diluted by real homozygous calls, at nought copies it is all
+there is. The quantity that tells nought from everything else is the call rate, which collapses by
+half, and it has to be read first.
+
+THE SECOND CLASS BOUNDARY THE PAIR CANNOT SETTLE is two against three. With both parents, three
+copies read 0.604 heterozygous against 0.667 at two, a separation of 0.62; the extra copy is
+heterozygous too, so there is nothing for heterozygosity to see. Only the intensity sees a gain.
+
+ALLELE DROP-OUT, the thing that was expected to break it
+--------------------------------------------------------
+Measured on each cell's published-normal chromosomes, where an opposite-homozygote marker must read
+heterozygous. 28 cells with both parents loaded (23 blastomeres, 4 trophectoderm, 1 zygote):
+
+  drop-out   median 0.324   10th to 90th percentile 0.203 to 0.509   lowest 0.099   highest 0.568
+
+A third of the markers that must be heterozygous read homozygous, and in the worst cell more than
+half do. The per-cell background is therefore large and it varies three-fold across cells, so a
+fixed threshold is useless; the question is whether each cell's own background is enough.
+
+Inside each cell, one copy against two, scored only on that cell's own bins:
+
+  cell  drop-out   H alone   I alone   H x I     one-copy / two-copy bins
+  118      0.568     0.65      0.91     0.93          68 / 1015
+  213      0.517     0.85      0.61     0.89         675 / 409
+  128      0.510     0.95      0.57     0.97         217 / 780
+  179      0.464     0.93      0.72      0.93        671 / 381
+  177      0.441     0.98      0.73      0.98        307 / 777
+  178      0.433     0.95      0.73      0.96        670 / 378
+  157      0.377     0.98      0.96      0.99        344 / 569
+  110      0.318     0.95      0.71      0.96        435 / 578
+  175      0.311     0.98      0.89      0.98        413 / 512
+  182      0.297     0.89      0.91      0.96         72 / 945
+  127      0.289     0.87      0.89      0.94        111 / 872
+  171      0.284     0.98      0.93      1.00        315 / 456
+  160      0.266     0.99      0.97      1.00        344 / 653
+  173      0.244     0.89      0.81      0.89        411 / 316
+
+THE ANSWER, plainly: a per-cell background measured from the cell's own normal chromosomes is enough
+in the typical cell and is NOT enough in the worst cells. Above a drop-out of about 0.30 the
+heterozygosity reading holds up well (0.87 to 0.99 for eleven of the fourteen cells), but in the two
+worst cells it falls to 0.65 and 0.85, and the pair only recovers them to 0.93 and 0.89. In cell 118
+the whole separation comes from the intensity, not from heterozygosity. So the pair is more robust
+than heterozygosity alone, and neither is clean in a cell that has lost half its heterozygous calls.
+There is no drop-out level at which the measurement simply stops working, and no level at which it
+is safe either; it degrades, and the cell's own background is the only thing that says where it sits.
+
+WHOLE-GENOME PLOIDY, the case the relative intensity cannot do
+-------------------------------------------------------------
+15 published pronuclei, each carrying one parental genome and so at one copy throughout, against 34
+bulk-DNA and cell-line arrays at two copies throughout.
+
+  group                       n   het of called            call rate      per-chromosome
+                                                                          intensity spread
+  pronucleus, one copy       16   0.092 [0.074 0.291]      0.841          0.510 [0.333 1.948]
+  diploid control            34   0.175 [0.144 0.187]      0.967          0.163 [0.137 0.315]
+
+The intensity says nothing about the ploidy. Of the twelve published pronuclei whose call rate is at
+least 0.70, nine have no chromosome deeper than -0.41 against their own genome median, where a true
+one-copy chromosome inside a diploid cell sits 0.44 below and a nullisomic one 1.9 below. A haploid
+genome reads as a normal genome, exactly as predicted, because there is nothing left to normalise
+against. The other three each have one chromosome at -1.76 to -1.85, which is the nullisomy level:
+the relative intensity can still see a chromosome LOST INSIDE a haploid cell, it just cannot see
+that the baseline it is measuring against is one copy rather than two. The per-chromosome spread
+does separate the two groups at 0.96, but in the wrong direction and for the wrong reason: the
+haploids are the WIDER group (median spread 0.510 against 0.163), so that figure reads amplification
+noise, not ploidy, and a rule built on it would call every noisy diploid cell haploid.
+
+Heterozygosity does say it. On the twelve pronuclei whose call rate is at least 0.70, het of called
+runs 0.061 to 0.122. Bulk DNA and cell lines run 0.141 to 0.345. Separation 1.00, no overlap at all.
+Against single diploid CELLS, which carry drop-out of their own, the separation is 0.98 with one
+overlapping pair out of 48 (haploid up to 0.122, single diploid cells from 0.118).
+
+  YES: heterozygosity alone puts a haploid cell in the right class where the relative intensity
+  cannot. It is the clearest result in this file.
+
+The three pronuclei it fails on are the three with the lowest call rate (0.54 to 0.60), and they
+fail upward: their het reads 0.25, 0.33 and 0.44, far ABOVE the diploid controls. That is the same
+background that makes a nullisomic bin read heterozygous. The call rate has to gate the reading.
+
+THE CONFUSION: two copies with no heterozygosity against one copy
+-----------------------------------------------------------------
+Of the bins a publication calls normal, how many read heterozygosity at or below the median of the
+SAME cell's published one-copy bins, and does the intensity then tell them apart.
+
+  both parents, 14 cells with both a one-copy and a two-copy chromosome
+    two-copy bins reading at or below their own cell's one-copy level:  419 of 8,641  (4.8%)
+    worst cell 19.8%, best cell 0.6%
+    intensity separates those confusable two-copy bins from true one-copy bins:  0.56
+    call rate separates them:  0.67
+
+  no parent, 26 cells
+    two-copy bins reading at or below their own cell's one-copy level:  11,156 of 19,617  (56.9%)
+    nine of the 26 cells are above 80%
+    intensity separates them:  0.79
+    call rate separates them:  0.50
+
+Two different answers. With both parents, the confusion is rare, 4.8% of real two-copy bins, but
+when it happens the pair does NOT resolve it: the intensity separates those bins from true one-copy
+bins at 0.56, a coin flip. Their intensity sits at -0.08 against -0.30 for true one-copy bins, with
+a 10-to-90 spread of -1.16 to +0.42, so the deep tail of the confusable bins is indistinguishable.
+With no parent the confusion is the normal case, 56.9%, and the intensity is the only thing that
+helps, at 0.79. In other words: with parents the pair is accurate but cannot explain its own
+mistakes; without parents the heterozygosity reading is nearly uninformative per bin and the
+intensity carries it.
+
+WHAT THE TOOL SHOULD DO WITH THIS, if anything
+----------------------------------------------
+1. ADOPT IT FOR THE HAPLOID AND WHOLE-GENOME CASE, which is a real gap and a clean result. A cell
+   whose heterozygosity on opposite-homozygote markers, or on all called markers, sits at half the
+   level the array's own quality implies, while every chromosome reads flat, is a candidate haploid
+   and the tool today cannot see it at all. Separation 1.00 against bulk DNA, 0.98 against single
+   diploid cells, on 12 published pronuclei. This is the recommendation worth acting on.
+2. DO NOT MAKE HETEROZYGOSITY A COPY AXIS. It is not monotone in copy number: nought copies reads
+   MORE heterozygous than two. Any rule of the form "less heterozygosity means fewer copies" will
+   call a nullisomy normal. The call rate must be read first and must gate everything else, both per
+   bin and per array.
+3. WHERE IT EARNS ITS PLACE AS A SECOND OPINION: one copy against two, with both parents loaded,
+   where heterozygosity on opposite homozygotes beats the intensity 0.95 to 0.71; and one copy
+   against two with no parent, where the pair beats both parts, 0.86 against 0.70 and 0.77. Nowhere
+   else. Two against three, and three against one, belong to the intensity.
+4. ANY SUCH READING NEEDS THE CELL'S OWN BACKGROUND, measured from its normal chromosomes, and has
+   to report that it degrades: drop-out runs 0.10 to 0.57 across these cells, and in the worst two
+   the heterozygosity reading alone falls to 0.65 and 0.85. A cell whose background is above about
+   0.45 should have the claim withheld or weakened, not silently scored.
+5. NOT MEASURED HERE, and needed before any of this is built: segmental losses, because no open
+   truth table carries their coordinates; and a two-copy region with published loss of
+   heterozygosity, because the open set has three such rows and all three are tangled with other
+   events on the same chromosome. Both gaps are in the answer key, not in the method.
