@@ -1,7 +1,8 @@
 // Self-check for chip recognition and column naming. Run: node src/platform.check.ts
 import assert from 'node:assert/strict'
 import {
-  KNOWN_SHARE_MIN, emptyChipTally, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableLines,
+  KNOWN_SHARE_MIN, emptyChipTally, missingRequired, missingSignals, PANEL_UNREADABLE, PROVEN_CHIP,
+  recogniseChip, tallyChip, unreadableLines,
 } from './platform.ts'
 import { headerMap } from './ingest.ts'
 
@@ -81,6 +82,19 @@ const noBuild = { build: null, illegal: { GRCh37: 40, GRCh38: 20 }, tested: 5000
   const named = headerMap('SNP Name\tchr\tposition\tgenotype\tLog R Ratio')!
   assert.equal(named.probeset_id, 0)
   assert.equal(named.log2r, 4)
+}
+
+// A PANEL THAT CANNOT BE READ REFUSES THE FILE, and the sentence says what is not reported rather
+// than leaving the reader to find out that the chip was never checked.
+{
+  assert.match(PANEL_UNREADABLE, /^Not scored: the shipped founder panel could not be read/)
+  assert.ok(PANEL_UNREADABLE.includes(PROVEN_CHIP), 'it names the chip that cannot be shown')
+  for (const withheld of ['whose genome is in the cell', 'the material and its drop-in',
+    'the sex chromosomes', 'every call read against one parent']) {
+    assert.ok(PANEL_UNREADABLE.includes(withheld), `it names what is withheld: ${withheld}`)
+  }
+  assert.ok(!/not checked|unchecked/.test(PANEL_UNREADABLE),
+    'and it does not offer carrying on with the chip unchecked')
 }
 
 console.log('platform.check: ok')

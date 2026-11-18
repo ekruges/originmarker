@@ -146,9 +146,34 @@ export function parsePanel(text: string): FounderPanel {
 export const FOUNDER_PANEL_PATH = 'panel/founders-gse186441.tsv.gz'
 
 /**
- * The shipped panel, fetched once. Inflated from the magic number rather than the filename, as the
- * examples are, because a host may already have removed the gzip encoding in transit. Null on any
- * failure: without a panel the stage behaves exactly as it did before panels existed.
+ * The panel's text from a fetched body, whether the host sent the gzip bytes or inflated them in
+ * transit. Read from the magic number rather than the filename, because both are correct and only
+ * the bytes say which arrived: a host that serves this file with Content-Encoding: gzip delivers it
+ * already inflated, and the development server does.
+ *
+ * READ AS AN ARRAY BUFFER, NOT AS A BLOB. `Response.blob()` stages a body of this size through the
+ * browser's blob store, which needs room on the volume holding the browser profile, and on a nearly
+ * full volume that call fails outright: with 6.9 MB free it fails where `arrayBuffer()` on the same
+ * file in the same page succeeds. A buffer stays in the page and needs no such room. The failure is
+ * silent in the sense that matters, because the result is kept for the page: see loadFounderPanel.
+ */
+export async function panelText(body: ArrayBuffer): Promise<string> {
+  const head = new Uint8Array(body, 0, Math.min(2, body.byteLength))
+  if (head[0] === 0x1f && head[1] === 0x8b) {
+    return new Response(new Blob([body]).stream().pipeThrough(new DecompressionStream('gzip'))).text()
+  }
+  return new TextDecoder().decode(body)
+}
+
+/**
+ * The shipped panel, fetched once.
+ *
+ * NULL MEANS THE PANEL COULD NOT BE READ, AND THAT IS NOT A STATE TO CARRY ON IN. It used to be:
+ * without a panel the stage behaved as it did before panels existed. Since then the chip check
+ * (platform.ts), the per-chromosome parent check, the one-parent copy states and the drop-in that
+ * the material is read with all rest on it, so a run without it reports different calls, a
+ * different material and a different sex without saying so. Every caller in the page refuses the
+ * file instead: see platform.PANEL_UNREADABLE.
  */
 let panelPromise: Promise<FounderPanel | null> | null = null
 export function loadFounderPanel(base = ''): Promise<FounderPanel | null> {
@@ -156,12 +181,7 @@ export function loadFounderPanel(base = ''): Promise<FounderPanel | null> {
     try {
       const res = await fetch(base + FOUNDER_PANEL_PATH)
       if (!res.ok) return null
-      let blob = await res.blob()
-      const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer())
-      if (head[0] === 0x1f && head[1] === 0x8b) {
-        blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob()
-      }
-      return parsePanel(await blob.text())
+      return parsePanel(await panelText(await res.arrayBuffer()))
     } catch {
       return null
     }

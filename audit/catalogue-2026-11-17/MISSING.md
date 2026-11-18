@@ -67,15 +67,16 @@ picker offers `.gz` and the Germline page's own text says a table may be "gzippe
 pages read files with the same code; neither unzips. Only the bundled examples are unzipped, by
 the code that fetches them.
 
-**F. On the development server the founder panel never loads, and nothing stops the run.** The
-panel is read with `res.blob()`, and the Vite development server sends the file with
-`Content-Encoding: gzip`, which makes that call fail in Chrome every time. The page then scores
-every file with no chip check at all, and the only sign is one line in the run log. The live site
-sends the same file with no content encoding, so the shipped tool is not affected; what is
-affected is every browser check run against `npm run dev`, which is how the browser checks in this
-project are done. This catalogue was shot against a built copy served as a plain static site for
-that reason. The result is also kept for the whole page once it fails, so one bad fetch cannot
-recover.
+**F. The founder panel is read in a way that fails on a nearly full disk, and the run carries on
+without it.** The panel is fetched with `res.blob()`, which stages a 17.6 MB body through the
+browser's blob store and needs room on the volume holding the browser profile. With 6.9 MB free
+that call fails outright, where reading the same file as a buffer in the same page succeeds. The
+result is then kept for the whole page, so one failed fetch leaves every file afterwards scored
+with no chip check, and, measured against the same arrays read with the panel, a run with one
+parent loaded prints a different material, a different sex, a different genome-level class and a
+different set of calls with different coordinates, and says none of it. The page logs one line.
+This is the same failure the owner has seen before on a full disk, and it is why several runs
+behind this catalogue had to be redone.
 
 **G. One cell can be headed with either uniparental word, depending on which adult is loaded.** The
 same maternal pronucleus reads GYNOGENETIC against the sperm donor and ANDROGENETIC against an egg

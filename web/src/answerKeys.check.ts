@@ -2,7 +2,8 @@
  * The answer key counts only markers whose right answer is known, and drop-in is what it says.
  */
 import assert from 'node:assert/strict'
-import { emptySameHom, addSameHom, dropIn, parsePanel, onParentScale } from './answerKeys.ts'
+import { emptySameHom, addSameHom, dropIn, panelText, parsePanel, onParentScale } from './answerKeys.ts'
+import { gzipSync } from 'node:zlib'
 import { hetCall, emptyHet } from './obligateHet.ts'
 
 {
@@ -91,6 +92,18 @@ import { hetCall, emptyHet } from './obligateHet.ts'
   assert.equal(f.freqB?.get('AX-3'), 0, 'but every frequency is kept')
   assert.equal(f.freqB?.get('AX-4'), 0.37)
   assert.deepEqual(f.calibration, { slope: 0.9, intercept: 0.01 })
+}
+
+// THE PANEL IS READ WHETHER THE HOST SENT IT GZIPPED OR INFLATED IT IN TRANSIT. Both arrive here
+// as a body of bytes and only the bytes say which, so both are read and both give the same panel.
+{
+  const text = 'probeset\tfreqB\tn\nAX-1\t0.000\t180\nAX-2\t1.000\t175\n'
+  const asSent = gzipSync(Buffer.from(text))
+  const gz = await panelText(asSent.buffer.slice(asSent.byteOffset, asSent.byteOffset + asSent.byteLength))
+  assert.equal(gz, text, 'the gzip bytes are inflated')
+  assert.equal(await panelText(new TextEncoder().encode(text).buffer as ArrayBuffer), text,
+    'an already inflated body is read as it stands')
+  assert.deepEqual([...parsePanel(gz)], [['AX-1', 'AA'], ['AX-2', 'BB']], 'and both give one panel')
 }
 
 console.log('  ok   answerKeys.check.ts')

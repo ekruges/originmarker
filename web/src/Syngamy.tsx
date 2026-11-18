@@ -5,7 +5,8 @@ import {
 } from './scoreSample'
 import { loadFounderPanel } from './answerKeys'
 import {
-  emptyChipTally, idAt, idColumn, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableRefusal,
+  emptyChipTally, idAt, idColumn, missingRequired, missingSignals, PANEL_UNREADABLE, recogniseChip,
+  tallyChip, unreadableRefusal,
 } from './platform'
 import { syngamyTable } from './syngamyTable'
 import { ParentalBalancePanel } from './ParentalBalancePanel'
@@ -238,7 +239,10 @@ async function profileFile(
   let n = 0
   let skipped = 0
   // The chip is recognised from the markers against the founder panel's. See platform.ts.
+  // NO PANEL, NO READING. Everything this file is read against rests on it, the chip check first,
+  // so a file is refused rather than scored with the panel missing: see platform.PANEL_UNREADABLE.
   const known = (await loadFounderPanel())?.freqB
+  if (!known) throw new Error(PANEL_UNREADABLE)
   const chip = emptyChipTally()
   let firstHeader = ''
   // A header that never resolves may still name the marker id; the chip is then read from the ids.
@@ -276,11 +280,8 @@ async function profileFile(
   const profile: SampleProfile = {
     ...finishProfile(file.name, byChrom, baf, firstId, builds), build: buildVerdict(builds),
   }
-  if (!known) log('WARN', `${file.name}: the founder panel did not load, so the chip is not checked`)
-  else {
-    const call = recogniseChip(chip, profile.build, missingSignals(map))
-    if (!call.proven) throw new Error(call.text)
-  }
+  const call = recogniseChip(chip, profile.build, missingSignals(map))
+  if (!call.proven) throw new Error(call.text)
   const g = gates(profile, inferred, role)
   log('PARSE', `${int(n)} markers, ${byChrom.size} chromosomes`)
   log('CALL', `call ${pct(profile.callRate, 1)}, het ${pct(profile.hetRate, 1)}, `

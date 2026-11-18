@@ -128,6 +128,23 @@ export const refusalText = (causes: string[]): string =>
   `Not scored: this file is not from the ${PROVEN_CHIP} chip, the only chip this tool is proven on, `
   + `so none of its numbers apply. ${causes.map((c) => c[0].toUpperCase() + c.slice(1)).join('. ')}.`
 
+/**
+ * The sentence for a run whose shipped founder panel could not be read.
+ *
+ * WHY THE FILE IS REFUSED RATHER THAN SCORED WITHOUT IT. The panel is what says this file is the
+ * proven chip at all, so without it the refusal above cannot be made and every number below it is
+ * applied to a file that was never shown to be the chip they were measured on. The readings that
+ * rest on the panel directly are named here because a reader is owed the list: measured against
+ * the panel and the same arrays without it, a run with one parent loaded printed a different
+ * material, a different sex, a different genome-level class and a different set of calls with
+ * different coordinates, and said nothing.
+ */
+export const PANEL_UNREADABLE = 'Not scored: the shipped founder panel could not be read, so this '
+  + `file cannot be shown to be from the ${PROVEN_CHIP} chip and nothing that rests on the panel `
+  + 'can be read from it: whose genome is in the cell, the material and its drop-in, the sex '
+  + 'chromosomes, and every call read against one parent. Nothing is reported from this file until '
+  + 'the panel loads.'
+
 /** The sentence for a file whose header the reader could not resolve at all. */
 export const unreadableText = (missing: string[]): string =>
   `Not scored: the reader could not find the columns it needs, so the chip cannot be checked. `

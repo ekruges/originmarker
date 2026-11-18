@@ -10,7 +10,8 @@ import {
 } from './inferredReference'
 import { loadFounderPanel } from './answerKeys'
 import {
-  emptyChipTally, idAt, idColumn, missingRequired, missingSignals, recogniseChip, tallyChip, unreadableRefusal,
+  emptyChipTally, idAt, idColumn, missingRequired, missingSignals, PANEL_UNREADABLE, recogniseChip,
+  tallyChip, unreadableRefusal,
 } from './platform'
 import {
   emptySex, accumulateSex, sexCall, paternalGroup, type SexCall,
@@ -149,8 +150,10 @@ async function eachLine(
  * becomes a product, because a product's markers join the set as it streams. See platform.ts.
  */
 async function chipRefusal(file: File): Promise<string | null> {
+  // NO PANEL, NO READING: it is what says this file is the proven chip, and the reconstruction,
+  // the group and every rate quoted after it rest on that. See platform.PANEL_UNREADABLE.
   const known = (await loadFounderPanel())?.freqB
-  if (!known) return null
+  if (!known) return PANEL_UNREADABLE
   let map: ReturnType<typeof headerMap> = null
   let header = ''
   let idCol: ReturnType<typeof idColumn> = null
