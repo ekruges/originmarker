@@ -217,3 +217,22 @@ own rate: about 0.5 where one copy is missing, 1.0 on a normal chromosome, 0.8 o
 on a gain instead of rising, so it cannot separate a gain from a normal stretch, and in the
 no-parent series it RISES to 1.4 where a copy is missing, because a chromosome with almost no
 intensity left returns noisy genotype calls. It is not drawn.
+
+
+WHAT THE FIGURE TAKES FROM THE HETEROZYGOSITY MEASUREMENT
+=========================================================
+Measured separately (het-and-copies-2026-11-17.txt) and adopted here, not re-measured:
+  - a level of none cannot be read from intensity or from heterozygosity. A stretch with no
+    template reads background in both and the caller still returns calls, 0.665 heterozygous at
+    zero copies against 0.151 at two. What marks it is the call rate collapsing, 0.438 against
+    0.852. The figure therefore draws a dashed outline, not a zero, wherever both tracks read none
+    while the markers are still calling at the rate that cell holds on its own normal chromosomes.
+    216 of the 1,038 both-none bins across these 28 cells are flagged that way, and 104 of 145 in
+    one cell;
+  - the boundary between none and one copy rests on the alleles, which this study's own numbers
+    agree with (allele split out 0.86 on whole losses against 0.42 for intensity alone);
+  - the boundary between one copy and two rests on intensity, where heterozygosity makes the
+    comparison worse;
+  - drop-out runs 0.203 to 0.509 between the tenth and ninetieth percentile and 0.568 at worst, and
+    degrades smoothly with no safe level, so the figure shows each cell's own band as the width of
+    its uncertainty and one of the worst cells is drawn rather than left out.
