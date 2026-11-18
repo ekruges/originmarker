@@ -687,7 +687,6 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         const paired = maternal ? pair(result, maternal, agree) : undefined
         const series = plotData(acc, {
           loaded: pat.absent ? null : { role: soloRole, gt: pat.gt }, second: mat?.gt ?? null,
-          otherOpposite: acc.otherOpposite ?? null,
         })
         return { calls: acc.myGt, profile, gates, result, maternal, paired, series }
       }

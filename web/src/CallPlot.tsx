@@ -1,13 +1,16 @@
 /**
- * The cell figures. The whole cell: every chromosome, one row per parent whose alleles can be read,
- * with every printed call marked. One call: the same quantity closer in, with a plain sentence on top,
- * the stretch as a band and the cell's own normal range behind the bars; or, where no true quantity
- * separates such a stretch by eye, one line with the two numbers and the whole cell with it marked.
+ * The cell figure: how many copies each parent gave, at each place in the genome.
+ *
+ * One figure at two zoom levels. The top deck is the whole cell, every chromosome, one track per
+ * parent where both are measured and the copies in all otherwise, with the chromosomes that carry no
+ * change muted so the eye lands on the ones that do. Under it, one zoom per change in chromosome
+ * order, each the same figure along that one chromosome with the called stretch marked, numbered to
+ * match the badge above. The same zoom is what a single call's expander shows.
  */
-import { useId, useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
+import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import {
-  cellPer, drawable, risesInside, shareTop, mergeBins, normalRange, perForStretch, runningScore, shareIn, tickStepMb, valueOf,
-  viewOf, wrap, type Bin, type PlotData, type Role, type Track,
+  cellPer, copyBars, COPY_MAX, copyWord, guardedBars, mergeBins, normalRange, perForStretch, tickStepMb,
+  totalBars, viewOf, wrap, zoomPicks, type Bin, type PlotData, type Role, type Track,
 } from './plotSeries.ts'
 import { headline, type Defect } from './defects.ts'
 import { saidOf } from './pageSays.ts'
@@ -19,20 +22,14 @@ const FATHER = 'var(--om-blue)'
 const MOTHER = 'var(--om-higher)'
 const NEUTRAL = '#6b727b'
 const CALL = 'var(--om-defect)'
+const GAINC = 'var(--om-ok, #1f7a4d)'
 const DIM = 'var(--om-text-dim)'
 const INK = '#1d2126'
 const RANGE = '#e9ecef'
 const LINE = '#e3e6ea'
 const colourOf = (p: Role | null | undefined) => (p === 'paternal' ? FATHER : p === 'maternal' ? MOTHER : NEUTRAL)
 const AUTOSOMES = Array.from({ length: 22 }, (_, i) => String(i + 1))
-const LEVEL_LO = -1.5
-const LEVEL_HI = 1
 const mb = (bp: number) => (bp / 1e6).toFixed(1)
-const pct = (x: number) => `${Math.round(x * 100)}%`
-const WORD: Record<string, string> = {
-  father: "carry the father's allele", mother: "carry the mother's allele",
-  'two-letter': 'carry two alleles', 'call-rate': 'were read',
-}
 
 /** One call as the figures mark it. */
 export interface Mark {
@@ -48,6 +45,8 @@ export interface Mark {
   withheld?: string
   /** What the call is, in one plain sentence. */
   sentence: string
+  /** The same finding in two or three words, for the label at its chromosome and the zoom's title. */
+  word: string
   /** What the row shows, for the hover. */
   lines: string[]
   /** The call states its own numbers beside the figure, so the caption quotes none of its own. */
@@ -113,138 +112,239 @@ function Tip({ tip, w }: { tip: { x: number; y: number; lines: string[] } | null
   )
 }
 
-const binLine = (t: Track, chrom: string, b: Bin): string[] => [
+/* --- the figure ------------------------------------------------------------------------------ */
+
+/** The drawn tracks: both parents where both are measured, the copies in all otherwise. */
+const drawnTracks = (data: PlotData): Track[] => data.tracks.filter((t) => t.shown)
+
+/** One track's bars along a chromosome, already in copies. */
+function barsOf(data: PlotData, t: Track, chrom: string, per: number): Bin[] {
+  const own = t.bins.get(chrom) ?? []
+  if (t.kind === 'level') return totalBars(mergeBins(own, per, true))
+  const level = data.tracks.find((x) => x.key === 'intensity')?.bins.get(chrom) ?? []
+  return copyBars(mergeBins(own, per), level)
+}
+
+/** The range this cell itself holds on the chromosomes with no change, in copies. */
+function copyRange(data: PlotData, t: Track, per: number, skip: ReadonlySet<string>) {
+  const v: number[] = []
+  for (const chrom of t.bins.keys()) {
+    if (skip.has(chrom)) continue
+    for (const b of barsOf(data, t, chrom, per)) if (Number.isFinite(b.k)) v.push(b.k)
+  }
+  v.sort((a, b) => a - b)
+  const at = (q: number) => (v.length ? v[Math.min(v.length - 1, Math.floor(q * v.length))] : NaN)
+  return { lo: at(0.1), mid: at(0.5), hi: at(0.9) }
+}
+
+/** The call rate this cell holds on the chromosomes with no change: the guard's floor. */
+function rateFloor(data: PlotData, per: number, skip: ReadonlySet<string>): number {
+  const rate = data.tracks.find((t) => t.key === 'call-rate')
+  return rate ? normalRange(rate, per, skip).lo : NaN
+}
+
+/** Bars both parents read as none on this chromosome while the markers are still calling. */
+function guardOf(data: PlotData, chrom: string, per: number, floor: number): Set<number> {
+  const f = data.tracks.find((t) => t.key === 'father')
+  const m = data.tracks.find((t) => t.key === 'mother')
+  const rate = data.tracks.find((t) => t.key === 'call-rate')
+  if (!f || !m || !rate) return new Set()
+  return guardedBars(barsOf(data, f, chrom, per), barsOf(data, m, chrom, per), rate.bins.get(chrom) ?? [], floor)
+}
+
+const copyLine = (t: Track, chrom: string, b: Bin, guarded: boolean): string[] => [
   `chr${chrom} ${mb(b.startBp)} to ${mb(b.endBp)} Mb`,
-  t.kind === 'share' ? `${b.n} markers, ${pct(b.k / b.n)} ${WORD[t.key] ?? ''}` : `${b.n} markers, ${b.k > 0 ? '+' : ''}${b.k.toFixed(2)} from the cell's level`,
+  guarded ? 'Both parents read none here while the markers are still calling, so no level is drawn.'
+    : `${b.n} markers, ${copyWord(b.k)} (${b.k.toFixed(2)})`,
   t.tech,
 ]
 
-/* --- the whole cell ------------------------------------------------------------------------- */
+/** The bars of one track, drawn from none upward; a guarded bar is an empty outline. */
+function Bars({ bars, guard, x, y, colour, muted, inside }: {
+  bars: readonly Bin[]; guard: ReadonlySet<number>; x: (bp: number) => number; y: (v: number) => number
+  colour: string; muted?: boolean; inside?: (b: Bin) => boolean
+}) {
+  return (
+    <g opacity={muted ? 0.3 : 1}>
+      {bars.map((b, i) => {
+        if (!Number.isFinite(b.k)) return null
+        const x0 = x(b.startBp); const x1 = Math.max(x0 + 0.8, x(b.endBp))
+        if (guard.has(i)) {
+          return (
+            <rect key={i} x={x0 + 0.5} y={y(1)} width={Math.max(1, x1 - x0 - 1)} height={Math.max(1, y(0) - y(1))}
+              fill="none" stroke={colour} strokeWidth={1} strokeDasharray="2,2" opacity={0.7} />
+          )
+        }
+        const top = y(Math.min(b.k, COPY_MAX))
+        return (
+          <rect key={i} x={x0 + 0.4} y={top} width={Math.max(0.8, x1 - x0 - 0.8)} height={Math.max(0.8, y(0) - top)}
+            fill={colour} opacity={inside && !inside(b) ? 0.45 : 1} />
+        )
+      })}
+    </g>
+  )
+}
 
-export function WholeCell({ data, marks, name, focus }: {
+/** The level lines of a track: none, one copy, two copies. */
+function Levels({ x0, w, y, words, dim }: {
+  x0: number; w: number; y: (v: number) => number; words: boolean; dim: boolean
+}) {
+  return (
+    <g>
+      {[0, 1, 2].map((v) => (
+        <g key={v}>
+          <line x1={x0} x2={x0 + w} y1={y(v)} y2={y(v)} stroke={v === 1 ? (dim ? LINE : DIM) : LINE} />
+          {words ? <text x={x0 - 6} y={y(v) + 4} textAnchor="end" fontSize={10} fill={DIM}>{LEVEL_WORD[v]}</text> : null}
+        </g>
+      ))}
+    </g>
+  )
+}
+
+const LEVEL_WORD: Record<number, string> = { 0: 'none', 1: 'one copy', 2: 'two copies' }
+
+/* --- the whole cell, the top deck -------------------------------------------------------------- */
+
+export function WholeCell({ data, marks, name, numbers, focus }: {
   data: PlotData; marks: readonly Mark[]; name: string
-  /** A chromosome to bring forward; the others are muted. */
+  /** The number each zoomed change carries below, by chromosome. */
+  numbers?: ReadonlyMap<string, number>
+  /** A chromosome to bring forward on its own, for a single call's view. */
   focus?: string
 }) {
   const [ref, W] = useWidth()
   const svg = useRef<SVGSVGElement>(null)
   const [tip, setTip] = useState<{ x: number; y: number; lines: string[] } | null>(null)
-  const tracks = data.tracks.filter((t) => t.shown)
+  const tracks = drawnTracks(data)
   if (!tracks.length) return null
-  const pers = tracks.map(cellPer)
   const called = new Set(marks.filter((m) => !m.withheld).map((m) => m.chrom))
-  const ranges = tracks.map((t, i) => normalRange(t, pers[i], called))
-  const tops = tracks.map((t, i) => (t.kind === 'share' ? shareTop(ranges[i].mid) : 1))
-  // A parent's row reads "present" at the cell's normal level and "missing" at zero, so nobody has to
-  // know what a bar is made of. How it is made is in the hover and under "How this was read".
-  const copyRow = (t: Track) => t.kind === 'share' && (!!t.parent || !!t.indirect)
-  const GUT = tracks.some(copyRow) ? 50 : 0
+  const changed = new Set(marks.map((m) => m.chrom))
+  const pers = tracks.map(cellPer)
+  const ranges = tracks.map((t, i) => copyRange(data, t, pers[i], called))
+  const floor = rateFloor(data, pers[0], called)
+  const GUT = 70
   const rows = W >= 760 ? [AUTOSOMES] : [AUTOSOMES.slice(0, 11), AUTOSOMES.slice(11)]
   const G = 3
-  const TH = 58
-  const block = tracks.length * (TH + 18) + 20
-  const H = 6 + rows.length * block + 4
+  const TH = 74
+  // The label sits at its chromosome; neighbours take the next lane so the words never overlap.
+  const lanes = new Map<string, number>()
+  const LANES = 4
   const len = (c: string) => data.endBp.get(c) ?? 1
-  type Panel = { c: string; x: number; w: number; top: number }
+  type Panel = { c: string; x: number; w: number; top: number; row: number }
   const panels: Panel[] = []
+  const labelOf = (c: string) => marks.filter((m) => m.chrom === c).map((m) => m.word).find(Boolean) ?? ''
+  const laneCount = (row: readonly string[]) => Math.max(1, ...row.filter((c) => changed.has(c)).map((c) => (lanes.get(c) ?? 0) + 1))
+  const wordLines = (row: readonly string[]) => Math.max(1, ...row.filter((c) => changed.has(c) && (lanes.get(c) ?? -1) >= 0)
+    .map((c) => wrap(labelOf(c), 15).length))
+  // Below the tracks: the chromosome number, the mark, the badge, and the label in its lane.
+  const blockOf = (row: readonly string[]) => tracks.length * (TH + 20) + 21
+    + (row.some((c) => changed.has(c)) ? 20 + 15 * (laneCount(row) - 1) + 12 * wordLines(row) + 10 : 10)
   rows.forEach((row, r) => {
     const total = row.reduce((s, c) => s + len(c), 0)
     const usable = W - 2 - GUT - G * (row.length - 1)
     let x = 1 + GUT
+    const top = 6 + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0)
+    // A label sits at its own chromosome; a neighbour whose words would run into it takes the next
+    // lane down, so the words never overlap however many changes a cell carries.
+    const laneEnd = new Array<number>(LANES).fill(0)
     for (const c of row) {
       const w = usable * len(c) / total
-      panels.push({ c, x, w, top: 6 + r * block })
+      panels.push({ c, x, w, top, row: r })
+      if (changed.has(c)) {
+        const words = wrap(labelOf(c), 15)
+        const half = 3.3 * Math.max(...words.map((l) => l.length))
+        const left = x + w / 2 - half
+        // Where no lane has room, the chromosome keeps its badge and its mark and the words are
+        // left to the zoom's title or to the line of changes that are not zoomed: a label that
+        // overlaps its neighbour is worse than one the reader finds just below.
+        const lane = laneEnd.findIndex((end) => end <= left)
+        lanes.set(c, lane)
+        if (lane >= 0) laneEnd[lane] = x + w / 2 + half + 6
+      }
       x += w + G
     }
   })
-  const yOf = (t: Track, top: number, v: number) => (t.kind === 'share' ? top + TH * (1 - Math.max(0, Math.min(1, v / tops[tracks.indexOf(t)])))
-    : top + TH * (LEVEL_HI - Math.max(LEVEL_LO, Math.min(LEVEL_HI, v))) / (LEVEL_HI - LEVEL_LO))
-  const marksFor = (c: string, t: Track) => marks.filter((m) => m.chrom === c && (!m.parent || !t.parent || m.parent === t.parent))
+  const H = 6 + rows.reduce((s, row) => s + blockOf(row), 0) + 4
+  const yOf = (top: number, v: number) => top + TH * (1 - Math.max(0, Math.min(COPY_MAX, v)) / COPY_MAX)
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     const px = e.clientX - r.left; const py = e.clientY - r.top
-    const p = panels.find((q) => px >= q.x && px <= q.x + q.w && py >= q.top && py <= q.top + block)
+    const p = panels.find((q) => px >= q.x && px <= q.x + q.w && py >= q.top && py <= q.top + tracks.length * (TH + 20))
     if (!p) { setTip(null); return }
-    const ti = Math.floor((py - p.top) / (TH + 18))
+    const ti = Math.floor((py - p.top) / (TH + 20))
     const t = tracks[ti]
     if (!t) { setTip(null); return }
     const bp = (px - p.x) / p.w * len(p.c)
-    const m = marksFor(p.c, t).find((q) => bp >= q.startBp && bp <= q.endBp)
+    const m = marks.find((q) => q.chrom === p.c && bp >= q.startBp && bp <= q.endBp)
     if (m) { setTip({ x: px, y: py, lines: [m.sentence, ...m.lines.slice(0, 3)] }); return }
-    const b = mergeBins(t.bins.get(p.c) ?? [], pers[ti], t.kind === 'level').find((q) => bp >= q.startBp && bp <= q.endBp)
-    if (!b) { setTip(null); return }
-    // A bar under the cell's normal range with no call over it: say it is not a call, and why.
-    const below = t.kind === 'share' ? valueOf(t, b) < ranges[ti].lo : valueOf(t, b) < -0.3
-    setTip({ x: px, y: py, lines: [...binLine(t, p.c, b), ...(below ? [
-      "Below this cell's normal range, but not a call: the stretch did not pass the tool's tests (too short, too few markers, or a score under the bar)."] : [])] })
+    const bars = barsOf(data, t, p.c, pers[ti])
+    const i = bars.findIndex((q) => bp >= q.startBp && bp <= q.endBp)
+    if (i < 0) { setTip(null); return }
+    setTip({ x: px, y: py, lines: copyLine(t, p.c, bars[i], guardOf(data, p.c, pers[ti], floor).has(i)) })
   }
   return (
     <div ref={ref} style={{ position: 'relative', margin: '8px 0 2px', maxWidth: '100%' }}>
       <svg ref={svg} xmlns="http://www.w3.org/2000/svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`}
         fontFamily="system-ui, -apple-system, sans-serif" fontSize={11} role="img"
-        aria-label="Every chromosome of this cell, each parent's copy"
+        aria-label="Every chromosome of this cell, how many copies came from each parent"
         style={{ display: 'block', touchAction: 'pan-y' }}
         onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setTip(null)}
       >
         <rect width={W} height={H} fill="#fff" />
-        {rows.map((_, r) => tracks.map((t, ti) => {
-          const top = 6 + r * block + ti * (TH + 18) + 14
+        {rows.map((_row, r) => tracks.map((t, ti) => {
+          const top = 6 + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0) + ti * (TH + 20) + 16
           return (
-            <g key={`l${r}${ti}`}>
-              <text x={1 + GUT} y={top - 4} fontWeight={600} fill={colourOf(t.parent)}>{t.label}</text>
-              {copyRow(t) ? (
-                <>
-                  <text x={GUT - 4} y={Math.max(top + 9, yOf(t, top, ranges[ti].mid) + 4)} textAnchor="end" fontSize={10} fill={DIM}>present</text>
-                  <text x={GUT - 4} y={top + TH} textAnchor="end" fontSize={10} fill={DIM}>missing</text>
-                </>
-              ) : null}
-            </g>
+            <text key={`l${r}${ti}`} x={1} y={top - 5} fontWeight={700} fill={colourOf(t.parent)}>{t.label}</text>
           )
         }))}
         {panels.map((p) => {
-          const muted = focus && p.c !== focus
+          const on = changed.has(p.c) && (!focus || p.c === focus)
+          const guards = tracks.map((t, ti) => (t.kind === 'share' && ti === 0 ? guardOf(data, p.c, pers[ti], floor) : new Set<number>()))
           return (
-            <g key={p.c} opacity={muted ? 0.35 : 1}>
+            <g key={p.c}>
               {tracks.map((t, ti) => {
-                const top = p.top + ti * (TH + 18) + 14
+                const top = p.top + ti * (TH + 20) + 16
                 const x = (bp: number) => p.x + p.w * bp / len(p.c)
                 const rg = ranges[ti]
+                const y = (v: number) => yOf(top, v)
                 return (
                   <g key={t.key}>
-                    <rect x={p.x} y={top} width={p.w} height={TH} fill="none" stroke={LINE} />
+                    <rect x={p.x} y={top} width={p.w} height={TH} fill="#fafbfc" />
                     {Number.isFinite(rg.lo) ? (
-                      <rect x={p.x} y={yOf(t, top, rg.hi)} width={p.w} height={Math.max(1, yOf(t, top, rg.lo) - yOf(t, top, rg.hi))} fill={RANGE} />
+                      <rect x={p.x} y={y(rg.hi)} width={p.w} height={Math.max(1, y(rg.lo) - y(rg.hi))}
+                        fill={RANGE} opacity={on ? 0.9 : 0.4} />
                     ) : null}
-                    {marksFor(p.c, t).map((m, i) => (
-                      <rect key={i} x={x(m.startBp)} y={top} width={Math.max(2, x(m.endBp) - x(m.startBp))} height={TH}
-                        fill={m.withheld ? 'none' : CALL} opacity={m.withheld ? 1 : 0.1}
-                        stroke={m.withheld ? DIM : 'none'} strokeDasharray={m.withheld ? '3,2' : undefined} />
-                    ))}
-                    <path fill={colourOf(t.parent)} d={mergeBins(t.bins.get(p.c) ?? [], pers[ti], t.kind === 'level').map((b) => {
-                      const y0 = t.kind === 'share' ? top + TH : yOf(t, top, 0)
-                      const y1 = yOf(t, top, valueOf(t, b))
-                      const x0 = x(b.startBp); const x1 = Math.max(x0 + 0.6, x(b.endBp))
-                      const ya = Math.min(y0, y1); const yb = Math.max(ya + 0.6, Math.max(y0, y1))
-                      return `M${x0.toFixed(1)} ${ya.toFixed(1)}H${x1.toFixed(1)}V${yb.toFixed(1)}H${x0.toFixed(1)}Z`
-                    }).join('')} />
+                    <Levels x0={p.x} w={p.w} y={y} words={p.c === AUTOSOMES[0] || (p.row > 0 && p.c === '12')} dim={!on} />
+                    <Bars bars={barsOf(data, t, p.c, pers[ti])} guard={guards[ti]} x={x} y={y}
+                      colour={colourOf(t.parent)} muted={!on} />
                   </g>
                 )
               })}
-              {marks.filter((m) => m.chrom === p.c).map((m, i) => {
-                const x0 = p.x + p.w * m.startBp / len(p.c)
-                const x1 = p.x + p.w * m.endBp / len(p.c)
-                const y = p.top + tracks.length * (TH + 18) + 4
+              {(() => {
+                const axis = p.top + tracks.length * (TH + 20) + 4
+                const ms = marks.filter((m) => m.chrom === p.c)
+                const lane = lanes.get(p.c) ?? -1
+                const words = wrap(labelOf(p.c), 15)
+                const colour = ms.length ? (ms[0].withheld ? DIM : ms[0].gain ? GAINC : CALL) : DIM
                 return (
-                  <line key={i} x1={x0} x2={Math.max(x0 + 2, x1)} y1={y} y2={y} strokeWidth={4}
-                    stroke={m.withheld ? DIM : colourOf(m.parent) === NEUTRAL ? CALL : colourOf(m.parent)}
-                    strokeDasharray={m.withheld ? '3,2' : undefined} />
+                  <g>
+                    <text x={p.x + p.w / 2} y={axis + 12} textAnchor="middle" fontWeight={ms.length ? 700 : 400}
+                      fill={ms.length ? colour : '#aeb4bb'}>{p.c}</text>
+                    {ms.length ? <rect x={p.x} y={axis + 17} width={p.w} height={3} fill={colour} /> : null}
+                    {ms.length && numbers?.has(p.c) ? (
+                      <g>
+                        <circle cx={p.x + p.w / 2} cy={axis + 34 + lane * 15} r={8} fill={colour} />
+                        <text x={p.x + p.w / 2} y={axis + 38 + lane * 15} textAnchor="middle" fontSize={10}
+                          fontWeight={700} fill="#fff">{numbers.get(p.c)}</text>
+                      </g>
+                    ) : null}
+                    {ms.length && lane >= 0 ? words.map((l, i) => (
+                      <text key={i} x={p.x + p.w / 2} y={axis + (numbers?.has(p.c) ? 54 : 34) + lane * 15 + i * 12}
+                        textAnchor="middle" fontSize={10} fontWeight={600} fill={colour}>{l}</text>
+                    )) : null}
+                  </g>
                 )
-              })}
-              <text x={p.x + p.w / 2} y={p.top + tracks.length * (TH + 18) + 18} textAnchor="middle"
-                fontWeight={p.c === focus || called.has(p.c) ? 700 : 400} fill={called.has(p.c) ? INK : DIM}
-              >
-                {p.c}
-              </text>
+              })()}
             </g>
           )
         })}
@@ -252,8 +352,9 @@ export function WholeCell({ data, marks, name, focus }: {
       <Tip tip={tip} w={W} />
       <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
         <span>
-          Grey band: this cell&apos;s normal range. A line under a chromosome marks a change; a dip with no line under it is not one.
-          {marks.some((m) => m.withheld) ? ' Dashed: found, not reported.' : ''}
+          Grey band: the range this cell itself holds on the chromosomes with no change. Chromosomes with no
+          change are muted.
+          {marks.some((m) => m.withheld) ? ' Dashed line: found, not reported.' : ''}
         </span>
         <SaveSvg svg={svg} name={`${name}-cell`} />
       </div>
@@ -261,200 +362,176 @@ export function WholeCell({ data, marks, name, focus }: {
   )
 }
 
-/* --- one call ------------------------------------------------------------------------------- */
+/* --- one change, the zoom ---------------------------------------------------------------------- */
 
-export function CallFigure({ mark, data, marks, name }: {
-  mark: Mark; data: PlotData | undefined; marks: readonly Mark[]; name: string
+export function Zoom({ data, mark, marks, number, width }: {
+  data: PlotData; mark: Mark; marks: readonly Mark[]; number?: number; width?: number
 }) {
-  const [ref, W] = useWidth()
+  const [ref, auto] = useWidth()
   const svg = useRef<SVGSVGElement>(null)
-  const clip = useId().replace(/:/g, '')
   const [tip, setTip] = useState<{ x: number; y: number; lines: string[] } | null>(null)
-  if (!data) return null
-  const pick = drawable({ whole: mark.whole, spanBp: mark.endBp - mark.startBp, gain: mark.gain, parent: mark.parent }, data)
+  const W = width ?? auto
+  const tracks = drawnTracks(data)
   const called = new Set(marks.filter((m) => !m.withheld).map((m) => m.chrom))
-  const quote = (t: Track | null): string => {
-    if (!t || t.kind !== 'share' || mark.quoted) return ''
-    const ins = shareIn(t.bins.get(mark.chrom) ?? [], mark.startBp, mark.endBp)
-    const rg = normalRange(t, cellPer(t), called)
-    return Number.isFinite(ins.share)
-      ? `Inside the stretch ${pct(ins.share)} of these markers ${WORD[t.key]}; on this cell's chromosomes with no call, ${pct(rg.mid)} (normal range ${pct(rg.lo)} to ${pct(rg.hi)}).`
-      : ''
-  }
-  if (!pick.draw || !pick.track) {
-    const t = pick.track ?? data.tracks.find((x) => x.key === (mark.parent ? (mark.parent === 'paternal' ? 'father' : 'mother') : ''))
-      ?? data.tracks.find((x) => x.key === 'two-letter' || x.key === 'call-rate') ?? null
-    const intensity = data.tracks.find((x) => x.key === 'intensity')
-    const lvl = intensity ? mergeBins(intensity.bins.get(mark.chrom) ?? [], 1, true)
-      .filter((b) => b.startBp >= mark.startBp && b.endBp <= mark.endBp).map((b) => b.k) : []
-    const lvlText = mark.lrr !== undefined ? ` Intensity inside it sits ${mark.lrr.toFixed(2)} from the cell's level.`
-      : !mark.quoted && lvl.length ? ` Intensity inside it sits ${lvl.sort((a, b) => a - b)[lvl.length >> 1].toFixed(2)} from the cell's level.` : ''
-    return (
-      <div ref={ref} style={{ margin: '8px 0 2px' }}>
-        <div style={{ fontSize: 14, fontWeight: 700, color: INK, lineHeight: 1.35 }}>{mark.sentence}</div>
-        <div style={{ fontSize: 12, color: INK, lineHeight: 1.5, marginTop: 3, maxWidth: 780 }}>
-          {mark.said ?? quote(t)}{lvlText} A single cell cannot show this stretch by eye
-          {mark.endBp - mark.startBp < 6e6 ? ': it is shorter than one band' : ''}, so it is not drawn on its own.
-        </div>
-        <WholeCell data={data} marks={marks.filter((m) => m.chrom === mark.chrom)} name={name} focus={mark.chrom} />
-      </div>
-    )
-  }
-  const t = pick.track
-  const bins = t.bins.get(mark.chrom) ?? []
   const chromEnd = Math.max(data.endBp.get(mark.chrom) ?? 0, mark.outHiBp ?? mark.endBp)
   const { loBp, hiBp } = mark.whole ? { loBp: 0, hiBp: chromEnd } : viewOf(mark.startBp, mark.endBp, chromEnd)
-  const per = mark.whole ? cellPer(t) : perForStretch(bins, mark.startBp, mark.endBp)
-  const bars = mergeBins(bins, per, t.kind === 'level').filter((b) => b.endBp >= loBp && b.startBp <= hiBp)
-  const rg = normalRange(t, per, called)
-  const colour = mark.withheld ? DIM : colourOf(t.parent ?? mark.parent)
-  const L = 46; const R = 8; const PW = W - L - R
+  const first = tracks[0]
+  const per = mark.whole ? cellPer(first) : perForStretch(first.bins.get(mark.chrom) ?? [], mark.startBp, mark.endBp)
+  const floor = rateFloor(data, per, called)
+  const guard = guardOf(data, mark.chrom, per, floor)
+  const L = 66; const R = 8; const PW = Math.max(40, W - L - R)
   const x = (bp: number) => L + PW * Math.max(0, Math.min(1, (bp - loBp) / (hiBp - loBp)))
-  const head = wrap(mark.sentence, Math.max(30, Math.floor(W / 8)))
-  let y = 8 + head.length * 19
-  // A whole chromosome first, against the cell's others.
-  const strip = mark.whole ? { top: y + 20, h: 70 } : null
-  const pooled = strip ? AUTOSOMES.map((c) => {
-    const bs = t.bins.get(c) ?? []
-    return t.kind === 'share' ? shareIn(bs, 0, Infinity).share
-      : (() => { const v = bs.map((b) => b.k).sort((a, b) => a - b); return v.length ? v[v.length >> 1] : NaN })()
-  }) : []
-  if (strip) y = strip.top + strip.h + 26
-  const top = y + 44
-  const TH = 120
-  const vTop = t.kind === 'share' ? shareTop(rg.mid) : 1
-  const yv = (v: number) => (t.kind === 'share' ? top + TH * (1 - Math.max(0, Math.min(1, v / vTop)))
-    : top + TH * (LEVEL_HI - Math.max(LEVEL_LO, Math.min(LEVEL_HI, v))) / (LEVEL_HI - LEVEL_LO))
-  const score = !mark.whole && t.kind === 'share' && Number.isFinite(data.dropIn) && t.parent
-    ? runningScore(bars, rg.mid, data.dropIn) : null
-  const scoreOk = !!score && risesInside(score, bars, mark.startBp, mark.endBp)
-  const sTop = top + TH + 34
-  const SH = 44
-  const smax = scoreOk ? Math.max(...score!.filter(Number.isFinite), 1) : 1
-  const words = mark.said ?? quote(t)
-  const under = wrap(words, Math.max(40, Math.floor((W - L) / 6.6)))
-  const uTop = (scoreOk ? sTop + SH + 8 : top + TH + 8) + 16
-  const axisY = uTop + under.length * 15 + 4
-  const H = axisY + 32
+  const head = wrap(`Chromosome ${mark.chrom}: ${mark.word}`, Math.max(22, Math.floor(W / 7)))
+  const TH = W < 420 ? 66 : 78
+  const top0 = (number ? 6 : 0) + head.length * 15 + 12
+  const colour = mark.withheld ? DIM : mark.gain ? GAINC : CALL
+  const H = top0 + tracks.length * (TH + 20) + 44
   const span = hiBp - loBp
   const step = tickStepMb(span)
   const ticks: number[] = []
   for (let v = Math.ceil(loBp / 1e6 / step) * step; v * 1e6 <= hiBp; v += step) ticks.push(v)
-  const xs = (i: number) => L + PW * (i + 0.5) / 22
-  const ys = (v: number) => strip!.top + strip!.h * (1 - Math.max(0, Math.min(1, v / vTop)))
-  const ysl = (v: number) => strip!.top + strip!.h * (LEVEL_HI - Math.max(LEVEL_LO, Math.min(LEVEL_HI, v))) / (LEVEL_HI - LEVEL_LO)
-  const sy = (v: number) => (t.kind === 'share' ? ys(v) : ysl(v))
-  const stripOthers = pooled.filter((v, i) => Number.isFinite(v) && !called.has(AUTOSOMES[i])).sort((a, b) => a - b)
-  const sLo = stripOthers[Math.floor(stripOthers.length * 0.1)]
-  const sHi = stripOthers[Math.min(stripOthers.length - 1, Math.floor(stripOthers.length * 0.9))]
+  const axisY = top0 + (tracks.length - 1) * (TH + 20) + TH
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
     const px = e.clientX - r.left; const py = e.clientY - r.top
-    if (strip && py >= strip.top && py <= strip.top + strip.h + 14) {
-      const i = Math.floor((px - L) / (PW / 22))
-      const v = pooled[i]
-      setTip(i >= 0 && i < 22 && Number.isFinite(v) ? { x: px, y: py, lines: [`chr${AUTOSOMES[i]}`,
-        t.kind === 'share' ? `${pct(v)} ${WORD[t.key]}` : `${v.toFixed(2)} from the cell's level`, t.tech] } : null)
-      return
-    }
-    if (px < L || px > L + PW || py < top - 26 || py > top + TH) { setTip(null); return }
+    const ti = Math.floor((py - top0) / (TH + 20))
+    const t = tracks[ti]
+    if (!t || px < L || px > L + PW) { setTip(null); return }
     const bp = loBp + (px - L) / PW * span
-    if (bp >= mark.startBp && bp <= mark.endBp && py < top + 4) { setTip({ x: px, y: py, lines: [mark.sentence, ...mark.lines] }); return }
-    const b = bars.find((q) => bp >= q.startBp && bp <= q.endBp)
-    setTip(b ? { x: px, y: py, lines: binLine(t, mark.chrom, b) } : null)
+    const bars = barsOf(data, t, mark.chrom, per)
+    const i = bars.findIndex((q) => bp >= q.startBp && bp <= q.endBp)
+    if (i < 0) { setTip(null); return }
+    setTip({ x: px, y: py, lines: copyLine(t, mark.chrom, bars[i], ti === 0 && guard.has(i)) })
   }
-  const label = mark.withheld ? `found, not reported: ${mark.withheld}` : 'called stretch'
-  const labelRight = x(mark.startBp) > L + PW * 0.55
   return (
-    <div ref={ref} style={{ position: 'relative', margin: '8px 0 2px', maxWidth: '100%' }}>
+    <div ref={ref} style={{ position: 'relative', maxWidth: '100%' }}>
       <svg ref={svg} xmlns="http://www.w3.org/2000/svg" width={W} height={H} viewBox={`0 0 ${W} ${H}`}
-        fontFamily="system-ui, -apple-system, sans-serif" fontSize={12} role="img" aria-label={mark.sentence}
+        fontFamily="system-ui, -apple-system, sans-serif" fontSize={11} role="img" aria-label={mark.sentence}
         style={{ display: 'block', touchAction: 'pan-y' }}
         onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setTip(null)}
       >
-        <defs>
-          <pattern id={`h${clip}`} width={6} height={6} patternUnits="userSpaceOnUse" patternTransform="rotate(45)">
-            <line x1={0} y1={0} x2={0} y2={6} stroke={DIM} strokeWidth={1.5} opacity={0.35} />
-          </pattern>
-        </defs>
         <rect width={W} height={H} fill="#fff" />
-        {head.map((l, i) => <text key={i} x={2} y={18 + i * 19} fontSize={15} fontWeight={700} fill={INK}>{l}</text>)}
-        {strip ? (
+        {number ? (
           <g>
-            <text x={L} y={strip.top - 6} fontWeight={600} fill={INK}>{t.label}, each chromosome of this cell</text>
-            {Number.isFinite(sLo) ? <rect x={L} y={sy(sHi)} width={PW} height={Math.max(1, sy(sLo) - sy(sHi))} fill={RANGE} /> : null}
-            {pooled.map((v, i) => {
-              if (!Number.isFinite(v)) return null
-              const me = AUTOSOMES[i] === mark.chrom
-              const y0 = t.kind === 'share' ? strip.top + strip.h : ysl(0)
-              return (
-                <g key={i}>
-                  <rect x={xs(i) - PW / 22 * 0.3} y={Math.min(y0, sy(v))} width={PW / 22 * 0.6} height={Math.max(1, Math.abs(sy(v) - y0))}
-                    fill={me ? colour : '#c4c9cf'} />
-                  <text x={xs(i)} y={strip.top + strip.h + 13} textAnchor="middle" fontSize={me ? 12 : 10}
-                    fontWeight={me ? 700 : 400} fill={me ? INK : DIM}>{AUTOSOMES[i]}</text>
-                </g>
-              )
-            })}
+            <circle cx={9} cy={9} r={8} fill={colour} />
+            <text x={9} y={13} textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{number}</text>
           </g>
         ) : null}
-        <text x={L} y={top - 30} fontWeight={600} fill={INK}>{t.label}{mark.whole ? `, along chromosome ${mark.chrom}` : ''}</text>
-        {/* The cell's normal range, then the call, then the bars. */}
-        {Number.isFinite(rg.lo) ? <rect x={L} y={yv(rg.hi)} width={PW} height={Math.max(1, yv(rg.lo) - yv(rg.hi))} fill={RANGE} /> : null}
-        {mark.outLoBp !== undefined ? <rect x={x(mark.outLoBp)} y={top - 4} width={Math.max(0, x(mark.startBp) - x(mark.outLoBp))} height={TH + 4} fill={colour} opacity={0.06} /> : null}
-        {mark.outHiBp !== undefined ? <rect x={x(mark.endBp)} y={top - 4} width={Math.max(0, x(mark.outHiBp) - x(mark.endBp))} height={TH + 4} fill={colour} opacity={0.06} /> : null}
-        <rect x={x(mark.startBp)} y={top - 4} width={Math.max(3, x(mark.endBp) - x(mark.startBp))} height={TH + 4}
-          fill={mark.withheld ? `url(#h${clip})` : colour} opacity={mark.withheld ? 1 : 0.12} />
-        {[mark.startBp, mark.endBp].map((v, i) => (
-          <line key={i} x1={x(v)} x2={x(v)} y1={top - 18} y2={top + TH} stroke={colour} strokeWidth={1.5}
-            strokeDasharray={mark.withheld ? '4,3' : undefined} />
+        {head.map((l, i) => (
+          <text key={i} x={number ? 23 : 1} y={13 + i * 15} fontSize={12} fontWeight={700} fill={INK}>{l}</text>
         ))}
-        <text x={labelRight ? x(mark.endBp) : x(mark.startBp)} y={top - 7} textAnchor={labelRight ? 'end' : 'start'}
-          fontWeight={700} fill={colour}>{label}</text>
-        {t.kind === 'share' && (t.parent || t.indirect) ? (
-          <>
-            <text x={L - 5} y={yv(rg.mid) + 4} textAnchor="end" fontSize={10} fill={DIM}>present</text>
-            <text x={L - 5} y={yv(0) + 4} textAnchor="end" fontSize={10} fill={DIM}>missing</text>
-          </>
-        ) : [0, vTop / 2, vTop].map((v) => (t.kind === 'share' ? (
-          <text key={v} x={L - 5} y={yv(v) + 4} textAnchor="end" fill={DIM}>{pct(v)}</text>
-        ) : null))}
-        {t.kind === 'level' ? <text x={L - 5} y={yv(0) + 4} textAnchor="end" fill={DIM}>level</text> : null}
-        {bars.map((b, i) => {
-          const v = valueOf(t, b)
-          const inside = b.startBp >= mark.startBp && b.endBp <= mark.endBp
-          const y0 = t.kind === 'share' ? top + TH : yv(0)
+        {tracks.map((t, ti) => {
+          const top = top0 + ti * (TH + 20)
+          const y = (v: number) => top + TH * (1 - Math.max(0, Math.min(COPY_MAX, v)) / COPY_MAX)
+          const rg = copyRange(data, t, per, called)
+          const bars = barsOf(data, t, mark.chrom, per).filter((b) => b.endBp >= loBp && b.startBp <= hiBp)
           return (
-            <rect key={i} x={x(b.startBp) + 0.4} y={Math.min(y0, yv(v))} width={Math.max(0.8, x(b.endBp) - x(b.startBp) - 0.8)}
-              height={Math.max(0.8, Math.abs(yv(v) - y0))} fill={colourOf(t.parent)} opacity={inside || mark.whole ? 1 : 0.5} />
+            <g key={t.key}>
+              <text x={L} y={top - 6} fontWeight={700} fill={colourOf(t.parent)}>{t.label}</text>
+              {Number.isFinite(rg.lo) ? (
+                <rect x={L} y={y(rg.hi)} width={PW} height={Math.max(1, y(rg.lo) - y(rg.hi))} fill={RANGE} />
+              ) : null}
+              <rect x={x(mark.startBp)} y={top} width={Math.max(3, x(mark.endBp) - x(mark.startBp))} height={TH}
+                fill={colour} opacity={0.07} />
+              <Levels x0={L} w={PW} y={y} words dim={false} />
+              <Bars bars={bars} guard={ti === 0 ? guard : new Set()} x={x} y={y} colour={colourOf(t.parent)}
+                inside={(b) => b.startBp >= mark.startBp && b.endBp <= mark.endBp} />
+              {[mark.startBp, mark.endBp].map((v, i) => (
+                <line key={i} x1={x(v)} x2={x(v)} y1={top} y2={top + TH} stroke={colour} strokeWidth={1}
+                  strokeDasharray="4,3" />
+              ))}
+              <line x1={L} x2={L + PW} y1={top + TH} y2={top + TH} stroke={DIM} />
+            </g>
           )
         })}
-        {scoreOk ? (
-          <g>
-            <text x={L} y={sTop - 6} fontWeight={600} fill={INK}>
-              Evidence the copy is missing
-            </text>
-            <line x1={L} x2={L + PW} y1={sTop + SH} y2={sTop + SH} stroke={LINE} />
-            <path fill="none" stroke={colour} strokeWidth={2}
-              d={bars.map((b, i) => `${i ? 'L' : 'M'}${x(b.startBp).toFixed(1)} ${(sTop + SH * (1 - (score![i] || 0) / smax)).toFixed(1)}H${x(b.endBp).toFixed(1)}`).join('')} />
-          </g>
-        ) : null}
-        {under.map((l, i) => <text key={i} x={L} y={uTop + i * 15} fill={INK}>{l}</text>)}
-        <line x1={L} x2={L + PW} y1={axisY} y2={axisY} stroke="#8a9099" />
         {ticks.map((v) => (
-          <g key={v}>
-            <line x1={x(v * 1e6)} x2={x(v * 1e6)} y1={axisY} y2={axisY + 4} stroke={DIM} />
-            <text x={x(v * 1e6)} y={axisY + 16} textAnchor="middle" fill={DIM}>{v}</text>
-          </g>
+          <text key={v} x={x(v * 1e6)} y={axisY + 14} textAnchor="middle" fontSize={10} fill={DIM}>{v}</text>
         ))}
-        <text x={L + PW} y={axisY + 29} textAnchor="end" fill={DIM}>
-          {loBp > 0 || hiBp < chromEnd ? `${mb(loBp)} to ${mb(hiBp)} Mb of chromosome ${mark.chrom}` : `chromosome ${mark.chrom}, Mb`}
+        <text x={L - 6} y={axisY + 14} textAnchor="end" fontSize={10} fill={DIM}>Mb</text>
+        <rect x={x(mark.startBp)} y={axisY + 22} width={Math.max(3, x(mark.endBp) - x(mark.startBp))} height={3} fill={colour} />
+        <text x={x(mark.startBp)} y={axisY + 38} fontSize={10} fontWeight={600} fill={colour}>
+          {mark.withheld ? `found, not reported: ${mark.withheld}` : 'called here'}
         </text>
       </svg>
       <Tip tip={tip} w={W} />
+    </div>
+  )
+}
+
+/** One change on its own, for the expanders beside the change list and the segment table. */
+export function CallFigure({ mark, data, marks, name }: {
+  mark: Mark; data: PlotData | undefined; marks: readonly Mark[]; name: string
+}) {
+  const svg = useRef<SVGSVGElement>(null)
+  if (!data) return null
+  return (
+    <div style={{ margin: '8px 0 2px', maxWidth: '100%' }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: INK, lineHeight: 1.35 }}>{mark.sentence}</div>
+      {mark.said ? <div style={{ fontSize: 12, color: INK, lineHeight: 1.5, marginTop: 3, maxWidth: 780 }}>{mark.said}</div> : null}
+      <Zoom data={data} mark={mark} marks={marks} />
       <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
-        <span>Grey band: this cell&apos;s normal range.</span>
+        <span>{CAPTION_SCALE}</span>
         <SaveSvg svg={svg} name={`${name}-chr${mark.chrom}`} />
+      </div>
+    </div>
+  )
+}
+
+const CAPTION_SCALE = 'Each bar is a stretch of DNA and its height is how many copies of it came from that '
+  + 'parent. One from each is a normal chromosome, and the grey band is the range this cell itself holds '
+  + 'on the chromosomes with no change.'
+const CAPTION_GUARD = 'Where both parents read none while the markers are still calling at this cell\'s own '
+  + 'rate, the bar is an empty outline rather than a confident zero: a stretch with no DNA left still '
+  + 'returns calls, so the call rate is the guard on a level of none.'
+const CAPTION_LEVELS = 'None against one copy is read from the alleles, which need no reference level; one '
+  + 'copy against two is read from the amount of DNA, which needs one.'
+const CAPTION_GAIN = 'Read the doubled track: in a single cell a doubled copy takes more than its share of '
+  + 'what is read, so the other parent\'s track dips below one copy although that copy is present. A '
+  + 'surviving copy beside a lost one reads a little high for the same reason.'
+const CAPTION_SOLO = 'With one parent or none the figure draws the copies in all and names nobody: the '
+  + 'markers that say whose DNA is here are the ones where the parents carry different alleles, and they '
+  + 'cannot be built from one parent.'
+
+/** The figure for a result card: the whole cell, then a zoom for each change, numbered to match. */
+export function CellFigure({ data, marks, name, title }: {
+  data: PlotData | undefined; marks: readonly Mark[]; name: string
+  /** What the figure shows, in one sentence: pageSays.figureTitle. */
+  title: string
+}): ReactNode {
+  const [ref, W] = useWidth()
+  if (!data) return null
+  const { shown, rest } = zoomPicks(marks.filter((m) => !m.withheld))
+  // A chromosome carrying two calls keeps the first badge; both zooms are numbered in order.
+  const numbers = new Map<string, number>()
+  shown.forEach((m, i) => { if (!numbers.has(m.chrom)) numbers.set(m.chrom, i + 1) })
+  const cols = W >= 980 ? 3 : W >= 640 ? 2 : 1
+  const colW = Math.floor((W - 18 * (cols - 1)) / cols)
+  const hasGain = marks.some((m) => m.gain)
+  return (
+    <div ref={ref} style={{ marginTop: 14 }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{title}</div>
+      <WholeCell data={data} marks={marks} name={name} numbers={numbers} />
+      {rest.length ? (
+        <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>
+          Also changed, not zoomed: {rest.map((m) => `${m.chrom} (${m.word})`).join(', ')}.
+        </div>
+      ) : null}
+      {shown.length ? (
+        <>
+          <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginTop: 12 }}>
+            Each change along its own chromosome, numbered as above
+          </div>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 6 }}>
+            {shown.map((m, i) => (
+              <Zoom key={`${m.chrom}:${m.startBp}`} data={data} mark={m} marks={marks}
+                number={i + 1} width={colW} />
+            ))}
+          </div>
+        </>
+      ) : null}
+      <div style={{ fontSize: 11, color: DIM, marginTop: 6, lineHeight: 1.5, maxWidth: 900 }}>
+        {CAPTION_SCALE} {data.split ? CAPTION_GUARD : CAPTION_SOLO} {data.split ? CAPTION_LEVELS : ''}
+        {data.split && hasGain ? ` ${CAPTION_GAIN}` : ''}
       </div>
     </div>
   )
@@ -465,6 +542,13 @@ export function CallFigure({ mark, data, marks, name }: {
 const WHOSE: Record<Role, string> = { paternal: "the father's", maternal: "the mother's" }
 const where = (chrom: string, s: number, e: number) =>
   `Chromosome ${chrom}, ${mb(s)} to ${mb(e)} Mb (${((e - s) / 1e6).toFixed(1)} Mb)`
+
+/** The finding in two or three words, for the label at its chromosome and the zoom's title. */
+function wordOf(gain: boolean, parent: Role | null, both: boolean, withheld?: string): string {
+  if (withheld) return gain ? 'extra copy, not reported' : 'copy gone, not reported'
+  if (parent) return `${parent === 'paternal' ? "father's" : "mother's"} ${gain ? 'doubled' : 'gone'}`
+  return both ? (gain ? 'both doubled' : 'both gone') : gain ? 'extra copy' : 'copy gone'
+}
 
 /** A segment row as a mark. */
 export function segmentMark(
@@ -491,6 +575,7 @@ export function segmentMark(
   return {
     chrom: sg.chrom, startBp: co.start, endBp: co.end, outLoBp: r?.startLoBp, outHiBp: r?.endHiBp, whole: false, gain,
     parent, sentence: `${where(sg.chrom, co.start, co.end)}: ${what}.`, lines,
+    word: wordOf(gain, parent, !!sg.contested),
   }
 }
 
@@ -501,7 +586,7 @@ export function withheldMark(sg: Segment, loaded: Role | null): Mark {
   const m = segmentMark(sg, loaded, [])
   const reason = `under ${OTHER_MIN_SPAN_BP / 1e6} Mb, no second line`
   return {
-    ...m, withheld: reason,
+    ...m, withheld: reason, word: wordOf(m.gain, m.parent, false, reason),
     sentence: `${where(sg.chrom, m.startBp, m.endBp)}: ${m.parent ? WHOSE[m.parent] : "a parent's"} copy looks missing, but this is not reported: it is ${reason} of evidence.`,
     lines: [`${sg.markers.toLocaleString('en-US')} markers, score ${sg.score.toFixed(0)}`
       + (sg.lrrZ !== undefined ? `, intensity z ${sg.lrrZ.toFixed(2)}` : '')],
@@ -526,6 +611,7 @@ export function defectMark(
     : d.kind === 'parental-absence' ? "one parent's copy is missing" : headline(d)
   return {
     chrom: d.chrom, startBp: whole ? 0 : d.startBp, endBp: end, whole, gain, parent: named,
+    word: wordOf(gain, named, !!deeper),
     sentence: whole ? `Whole chromosome ${d.chrom} (${(end / 1e6).toFixed(0)} Mb): ${what}${named ? `, ${WHOSE[named]}` : ', parent not named'}.`
       : `${where(d.chrom, d.startBp, d.endBp)}: ${what}${named ? `, ${WHOSE[named]}` : ''}.`,
     lines: [headline(d), ...lines],
@@ -551,19 +637,4 @@ export function rowMark(
     sentence: `${where(first.chrom, startBp, end)}${tail}`,
     lines: pieces.flatMap((p) => defectMark(p, segments, loaded, endBp, deeper)?.lines ?? []),
   }
-}
-
-/** The whole-cell figure with its heading, for a result card. */
-export function CellFigure({ data, marks, name, title }: {
-  data: PlotData | undefined; marks: readonly Mark[]; name: string
-  /** What the figure shows, in one sentence: pageSays.figureTitle. */
-  title: string
-}): ReactNode {
-  if (!data) return null
-  return (
-    <div style={{ marginTop: 14 }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{title}</div>
-      <WholeCell data={data} marks={marks} name={name} />
-    </div>
-  )
 }

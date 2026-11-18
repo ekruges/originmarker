@@ -1,10 +1,19 @@
 /**
- * What the cell figures draw: for each parent whose alleles can be read, the share of the markers where
- * that parent's allele could be seen at which it is, in bins along every chromosome.
+ * What the cell figure draws: how many copies each parent gave, at each place in the genome.
+ *
+ * One copy from each parent is a normal chromosome. A lost copy takes that parent's track to none, a
+ * doubled copy takes it to two, a chromosome lost outright takes both to none, so losses and gains are
+ * the same picture in opposite directions and whose copy it is is which track moves.
+ *
+ * A parent's copies are that parent's share of the DNA times the copies in all: the share comes from
+ * the alleles at the markers where the parents carry different alleles and needs no reference level,
+ * and only the total needs one. The product was measured against each part on the open public cells
+ * with stated karyotypes (audit/truth/gain-figure-levers-2026-11-17.txt): it matches the better part
+ * everywhere and beats the total alone in the cells carrying many changes, where the level the cell is
+ * measured against is itself shifted.
  *
  * Built once per sample from the accumulator the one scoring pass filled, over every marker; only the
- * bins are kept, so memory is bounded by markers over bin size. Measured on the open public cells with
- * stated karyotypes (audit/truth/call-plot-levers-2026-11-17.txt).
+ * bins are kept, so memory is bounded by markers over bin size.
  *
  * Bins hold a fixed number of the track's own markers, so every bar is equally trustworthy and a thin
  * region never makes a ragged bar. The base bin is BASE markers; a figure merges whole base bins.
@@ -28,43 +37,61 @@ export function cellPer(t: Track): number {
 
 /** Fewest bars a stretch gets on its own figure; the bar is shrunk to BASE markers at most to reach it. */
 export const MIN_STRETCH_BARS = 6
-/** Under this a stretch is not drawn on its own: no measure separated one band (about 6 Mb) by eye. */
-export const MIN_DRAWN_SPAN_BP = 6e6
-
 export type Role = 'paternal' | 'maternal'
+
+/**
+ * The levels a track is read at, fixed from the labelled stretches before the figure was drawn and
+ * never tuned afterwards: 117 stretches where a parent's copy is missing, 1,075 published-normal
+ * tracks and 6 published gains, on 28 open cells with both parents measured
+ * (audit/truth/gain-figure-levers-2026-11-17.txt, 17 November 2026). On these boundaries a missing
+ * copy lands in "none" 96% of the time, a normal track in "one copy" 92%, and a doubled copy in
+ * "two" five times of six.
+ *
+ * The two boundaries do not rest on the same signal. None against one copy rests on the alleles:
+ * the share puts a lost copy outside the cell's own band on 86% of whole losses against 42% for
+ * intensity alone. One copy against two rests on intensity, where a doubled copy shows as more DNA
+ * and heterozygosity makes the comparison worse (audit/truth/het-and-copies-2026-11-17.txt).
+ */
+export const COPY_NONE_BELOW = 0.68
+export const COPY_TWO_ABOVE = 1.65
+/** The top of a track's axis: above four copies in one cell the reading is amplification, not count. */
+export const COPY_MAX = 2.9
+
+/** What a track's level says, in the figure's own words. */
+export function copyWord(copies: number): 'none' | 'one copy' | 'two copies' {
+  return copies < COPY_NONE_BELOW ? 'none' : copies > COPY_TWO_ABOVE ? 'two copies' : 'one copy'
+}
 
 export interface Bin {
   startBp: number
   endBp: number
   /** Markers in the bin. */
   n: number
-  /** Share tracks: markers where the allele is found. Intensity: the median log R less the normal. */
+  /** Share tracks: the parent's share of the DNA, added over the bin's markers. Level tracks: the
+   *  median of the bin's readings (log R less the cell's own level, or copies). */
   k: number
 }
 
 /** One row of the figure. */
 export interface Track {
-  key: 'father' | 'mother' | 'two-letter' | 'call-rate' | 'intensity'
+  key: 'father' | 'mother' | 'call-rate' | 'intensity'
   /** In words, for the figure. */
   label: string
   /** How the bar is computed, in one sentence, for the hover and "How this was read". */
   tech: string
-  /** The row stands in for a parent's copy without measuring it directly. */
-  indirect?: boolean
-  /** The parent whose alleles it counts, for its colour; none for the parent-free tracks. */
+  /** The parent whose alleles it reads, for its colour; none for the parent-free tracks. */
   parent: Role | null
-  /** 'share' bars from 0 to 1; 'level' bars around 0. */
+  /** 'share' bars from 0 to 1; 'level' bars that already hold their own value. */
   kind: 'share' | 'level'
-  /** Drawn as a row of the whole-cell figure. Intensity is kept for every run, for gains and the
-   *  one-line notes, and drawn only with no parent loaded. */
+  /** Drawn as a track of the figure: the two parents where both are measured, the total otherwise. */
   shown: boolean
   bins: Map<string, Bin[]>
 }
 
 export interface PlotData {
   tracks: Track[]
-  /** The cell's rate of false heterozygous calls, where both parents are measured; NaN otherwise. */
-  dropIn: number
+  /** Both parents measured, so copies can be split between them. */
+  split: boolean
   /** Last marker position per chromosome. */
   endBp: Map<string, number>
 }
@@ -73,6 +100,7 @@ export interface PlotData {
 export interface PlotSource {
   markerPos: ReadonlyMap<string, { chrom: string; pos: number }>
   myGt: ReadonlyMap<string, string>
+  myBaf: ReadonlyMap<string, number>
   cnByChrom: ReadonlyMap<string, readonly { pos: number; called: boolean; log2R: number | null }[]>
 }
 
@@ -127,16 +155,16 @@ export const valueOf = (t: Pick<Track, 'kind'>, b: Bin): number => (t.kind === '
 /**
  * The tracks for one sample.
  *
- * Both parents measured: each parent's allele found where the parents are opposite homozygotes. One
- * parent loaded: that parent's allele found where the other allele shows; the other parent's allele
- * found where the run's other embryos read her as the opposite homozygote (`otherOpposite`), or else
- * the heterozygous calls. No parent: call rate, heterozygous calls and intensity.
+ * Both parents measured: each parent's share of the DNA at the markers where the parents carry
+ * different alleles, which the figure turns into that parent's copies. One parent or none: the
+ * copies in all and no claim about whose. With one parent the share cannot be built from the
+ * markers that matter, and his track then reads three quarters of a copy where a copy is missing
+ * against none with both parents, so the figure draws no parent track rather than a level it cannot
+ * measure (audit/truth/gain-figure-levers-2026-11-17.txt).
  */
 export function plotData(src: PlotSource, x: {
   loaded: { role: Role; gt: ReadonlyMap<string, string> } | null
   second: ReadonlyMap<string, string> | null
-  /** Probe ids where the run's other draws read the other parent as the loaded one's opposite homozygote. */
-  otherOpposite?: ReadonlySet<string> | null
   genomeLrr?: number
 }): PlotData {
   type Acc = Map<string, { p: number[]; x: number[] }>
@@ -151,34 +179,25 @@ export function plotData(src: PlotSource, x: {
   const endBp = new Map<string, number>()
   const loaded = x.loaded
   const other: Role | null = loaded ? (loaded.role === 'paternal' ? 'maternal' : 'paternal') : null
-  let sameHom = 0; let sameHomAB = 0
+  const split = !!(loaded && x.second)
   for (const [id, { chrom, pos }] of src.markerPos) {
     if (!isAuto(chrom)) continue
     if (pos > (endBp.get(chrom) ?? 0)) endBp.set(chrom, pos)
-    const s = src.myGt.get(id)
-    if (!loaded) continue
-    const p = loaded.gt.get(id)
-    if (!s || !hom(p)) continue
-    if (x.second) {
-      const q = x.second.get(id)
-      if (!hom(q)) continue
-      if (q === p) { sameHom += 1; if (s === 'AB') sameHomAB += 1; continue }
-      put(loaded.role, chrom, pos, s === 'AB' || s === p ? 1 : 0)
-      put(other!, chrom, pos, s === 'AB' || s === q ? 1 : 0)
-      continue
-    }
-    if (s !== p) put(loaded.role, chrom, pos, s === 'AB' ? 1 : 0)
-    if (x.otherOpposite?.has(id)) put(other!, chrom, pos, s !== p ? 1 : 0)
-  }
-  if (!loaded || (!x.second && !x.otherOpposite)) {
-    for (const [id, { chrom, pos }] of src.markerPos) {
-      if (!isAuto(chrom)) continue
-      const s = src.myGt.get(id)
-      if (s) put('two-letter', chrom, pos, s === 'AB' ? 1 : 0)
-    }
+    if (!split) continue
+    // Only a marker where the parents carry DIFFERENT alleles says whose DNA is here: there the
+    // loaded parent's allele fraction is his share of what the array read.
+    const p = loaded!.gt.get(id)
+    const q = x.second!.get(id)
+    if (!hom(p) || !hom(q) || p === q) continue
+    const baf = src.myBaf.get(id)
+    if (baf === undefined || !Number.isFinite(baf)) continue
+    const mine = p === 'BB' ? baf : 1 - baf
+    put(loaded!.role, chrom, pos, Math.max(0, Math.min(1, mine)))
+    put(other!, chrom, pos, Math.max(0, Math.min(1, 1 - mine)))
   }
   {
-    // The cell's own level: the median over every autosomal reading.
+    // The cell's own level: the median over every autosomal reading. The call rate is kept in every
+    // setup, because it is the only guard on a level of none.
     const all: number[] = []
     for (const [chrom, ms] of src.cnByChrom) if (isAuto(chrom)) for (const m of ms) if (m.log2R !== null) all.push(m.log2R)
     const sorted = Float64Array.from(all).sort()
@@ -186,7 +205,7 @@ export function plotData(src: PlotSource, x: {
     for (const [chrom, ms] of src.cnByChrom) {
       if (!isAuto(chrom)) continue
       for (const m of ms) {
-        if (!loaded) put('call-rate', chrom, m.pos, m.called ? 1 : 0)
+        put('call-rate', chrom, m.pos, m.called ? 1 : 0)
         if (m.log2R !== null) put('intensity', chrom, m.pos, m.log2R - normal)
       }
     }
@@ -195,31 +214,27 @@ export function plotData(src: PlotSource, x: {
   const spec = (key: string): Omit<Track, 'bins' | 'shown'> | null => {
     if (key === 'paternal' || key === 'maternal') {
       const who = NAME[key as Role]
-      const both = !!x.second
-      const own = loaded?.role === key
       return {
         key: who as 'father' | 'mother', parent: key as Role, kind: 'share',
-        label: `${who[0].toUpperCase()}${who.slice(1)}'s copy`,
-        tech: both ? `Each bar is the share of markers where the parents carry different alleles at which the ${who}'s allele is found.`
-          : own ? `Each bar is the share of markers where the ${who} is homozygous and the other parent's allele shows at which the ${who}'s allele is found too.`
-            : `Each bar is the share of markers where the run's other cells read the ${who} as homozygous for the allele the loaded parent lacks at which that allele is found.`,
+        label: `Copies from the ${who}`,
+        tech: `Each bar is the share of the DNA that is the ${who}'s, at the markers where the parents `
+          + 'carry different alleles, times how many copies are here in all. One from each parent is a '
+          + 'normal chromosome.',
       }
     }
-    if (key === 'two-letter') {
-      // With one parent loaded and nothing reading the other, heterozygous calls stand for her copy.
-      const stands = loaded && !x.second && !x.otherOpposite ? NAME[loaded.role === 'paternal' ? 'maternal' : 'paternal'] : null
-      return {
-        key, parent: null, kind: 'share', indirect: !!stands,
-        label: stands ? `${stands[0].toUpperCase()}${stands.slice(1)}'s copy, indirect` : 'Heterozygous calls',
-        tech: `Each bar is the share of read markers that carry two alleles${stands
-          ? `; a heterozygous call needs the ${stands}'s allele, so with one parent loaded this row stands in for the ${stands}'s copy` : ''}.`,
-      }
+    if (key === 'call-rate') {
+      return { key, parent: null, kind: 'share', label: 'Markers read',
+        tech: 'Each bar is the share of markers the array read at all. It is not drawn as a track: it is '
+          + 'the guard on a level of none, because a stretch with no DNA left still returns calls.' }
     }
-    if (key === 'call-rate') return { key, parent: null, kind: 'share', label: 'DNA present', tech: 'Each bar is the share of markers the array read at all.' }
-    if (key === 'intensity') return { key, parent: null, kind: 'level', label: 'Copy number', tech: 'Each bar is the signal strength against this cell\'s own level (median log R ratio).' }
+    if (key === 'intensity') {
+      return { key, parent: null, kind: 'level', label: 'Copies in all',
+        tech: 'Each bar is how many copies are here in all, from the signal strength against this cell\'s '
+          + 'own level (median log R ratio). Two in all is a normal chromosome.' }
+    }
     return null
   }
-  const order = ['paternal', 'maternal', 'two-letter', 'call-rate', 'intensity']
+  const order = ['paternal', 'maternal', 'call-rate', 'intensity']
   const tracks: Track[] = []
   for (const key of order) {
     const a = acc.get(key)
@@ -227,9 +242,54 @@ export function plotData(src: PlotSource, x: {
     if (!a || !sp) continue
     const bins = new Map<string, Bin[]>()
     for (const [chrom, c] of a) bins.set(chrom, binBase(Float64Array.from(c.p), Float64Array.from(c.x), sp.kind === 'level'))
-    tracks.push({ ...sp, shown: sp.key !== 'intensity' || !loaded, bins })
+    tracks.push({ ...sp, shown: sp.key === 'call-rate' ? false : split ? sp.key !== 'intensity' : sp.key === 'intensity', bins })
   }
-  return { tracks, dropIn: sameHom > 200 ? sameHomAB / sameHom : NaN, endBp }
+  return { tracks, split, endBp }
+}
+
+/**
+ * One track's copies along a chromosome: the parent's share of the DNA times the copies in all,
+ * both over the same bars. `level` is the intensity track's own bins, in position order.
+ */
+export function copyBars(share: readonly Bin[], level: readonly Bin[]): Bin[] {
+  const out: Bin[] = []
+  let i = 0
+  for (const b of share) {
+    while (i < level.length && (level[i].startBp + level[i].endBp) / 2 < b.startBp) i += 1
+    const v: number[] = []
+    for (let j = i; j < level.length && (level[j].startBp + level[j].endBp) / 2 <= b.endBp; j += 1) v.push(level[j].k)
+    const lvl = median(v)
+    const copies = Number.isFinite(lvl) ? 2 * 2 ** lvl : NaN
+    out.push({ ...b, k: (b.n ? b.k / b.n : NaN) * copies })
+  }
+  return out
+}
+
+/** The copies in all along a chromosome, for the setups that name no parent. */
+export const totalBars = (level: readonly Bin[]): Bin[] =>
+  level.map((b) => ({ ...b, k: 2 * 2 ** b.k }))
+
+/**
+ * Bars where both parents' tracks read none while the markers are still calling at the rate this
+ * cell holds elsewhere. A stretch with no template reads background in both channels and the caller
+ * still emits calls, at 0.665 heterozygous against 0.151 at two copies, so neither intensity nor the
+ * alleles can say "none" on their own; what marks it is the call rate collapsing, 0.438 against
+ * 0.852 (audit/truth/het-and-copies-2026-11-17.txt). The figure draws these bars as an empty
+ * outline rather than a confident zero.
+ */
+export function guardedBars(
+  father: readonly Bin[], mother: readonly Bin[], rate: readonly Bin[], floor: number,
+): Set<number> {
+  const out = new Set<number>()
+  if (!Number.isFinite(floor)) return out
+  for (let i = 0; i < father.length; i += 1) {
+    const f = father[i]; const m = mother[i]
+    if (!m || !(f.k < COPY_NONE_BELOW) || !(m.k < COPY_NONE_BELOW)) continue
+    const over = rate.filter((b) => (b.startBp + b.endBp) / 2 >= f.startBp && (b.startBp + b.endBp) / 2 <= f.endBp)
+    const r = median(over.map((b) => (b.n ? b.k / b.n : NaN)))
+    if (Number.isFinite(r) && r >= floor) out.add(i)
+  }
+  return out
 }
 
 /** The middle 80% of a track's bars on the chromosomes with no call: the cell's own normal range. */
@@ -255,42 +315,6 @@ export function perForStretch(bins: readonly Bin[], startBp: number, endBp: numb
   return Math.max(1, Math.min(CELL_BAR / BASE, Math.floor(inside / MIN_STRETCH_BARS)))
 }
 
-/**
- * Evidence that the parent's copy is missing, added along the chromosome and held at zero from below,
- * so it is flat where the copy is there and climbs where it is not. Per marker the log ratio of the
- * marker's reading with the copy missing (present at `missing`, the cell's false heterozygous rate) to with
- * it there (present at `present`, the cell's normal level); summed per bar from its counts.
- */
-export function runningScore(bins: readonly Bin[], present: number, missing: number): number[] {
-  const r1 = Math.max(missing, 0.02)
-  if (!(present > r1 && present < 1)) return bins.map(() => NaN)
-  const up = Math.log(r1 / present)
-  const dn = Math.log((1 - r1) / (1 - present))
-  let s = 0
-  return bins.map((b) => (s = Math.max(0, s + b.k * up + (b.n - b.k) * dn)))
-}
-
-/**
- * The top of a share row's axis. A row whose normal level sits under a quarter (heterozygous calls) is
- * drawn against twice that level, so its normal range sits mid-row instead of in a thin strip at the
- * floor; no value changes, only where the axis ends. A row whose normal level is high keeps 0 to 100%,
- * since its drop toward zero is the event and a cut axis would make a partial drop read as a full one.
- */
-export function shareTop(normal: number): number {
-  return Number.isFinite(normal) && normal < 0.25 ? Math.min(1, Math.max(0.05, 2 * normal)) : 1
-}
-
-/** Whether a running score climbs inside the called stretch: by half its height or more between the
- *  bar before the stretch and its last bar. A score that rises only outside the stretch is not drawn. */
-export function risesInside(score: readonly number[], bins: readonly Bin[], startBp: number, endBp: number): boolean {
-  const inside = bins.map((b, i) => (b.startBp >= startBp && b.endBp <= endBp ? i : -1)).filter((i) => i >= 0)
-  if (!inside.length) return false
-  const top = Math.max(0, ...score.filter(Number.isFinite))
-  const from = inside[0] > 0 ? score[inside[0] - 1] : 0
-  const rise = (score[inside[inside.length - 1]] || 0) - (from || 0)
-  return top > 0 && rise >= top / 2
-}
-
 /** The stretch a figure shows: a call under a sixth of its chromosome in a window around it. */
 export function viewOf(startBp: number, endBp: number, chromEndBp: number): { loBp: number; hiBp: number } {
   const span = endBp - startBp
@@ -303,19 +327,19 @@ export function viewOf(startBp: number, endBp: number, chromEndBp: number): { lo
   return { loBp, hiBp }
 }
 
-/**
- * Whether a call's own figure is drawn, from what separated on the open public cells. Not drawn: a
- * stretch under MIN_DRAWN_SPAN_BP; a gain on part of a chromosome; a partial loss with no parent; the
- * other parent's copy on part of a chromosome where only heterozygous calls stand for her.
- */
-export function drawable(call: { whole: boolean; spanBp: number; gain: boolean; parent: Role | null },
-  data: PlotData): { draw: boolean; track: Track | null } {
-  const pick = (k: Track['key']) => data.tracks.find((t) => t.key === k) ?? null
-  const own = call.parent === 'paternal' ? pick('father') : call.parent === 'maternal' ? pick('mother') : null
-  if (call.whole) return { draw: true, track: own ?? pick('intensity') ?? pick('two-letter') }
-  if (call.spanBp < MIN_DRAWN_SPAN_BP || call.gain) return { draw: false, track: null }
-  if (own) return { draw: true, track: own }
-  return { draw: false, track: null }
+/** Most changes the figure zooms. Three zooms fit across a page and stay readable, so six is two
+ *  rows; every change past that is named in one line instead. */
+export const MAX_ZOOMS = 6
+
+/** The changes the figure zooms: the biggest called stretches, laid out in chromosome order. */
+export function zoomPicks<T extends { chrom: string; startBp: number; endBp: number }>(
+  calls: readonly T[], max = MAX_ZOOMS,
+): { shown: T[]; rest: T[] } {
+  const by = [...calls].sort((a, b) => (b.endBp - b.startBp) - (a.endBp - a.startBp))
+  const shown = by.slice(0, max)
+  const rest = by.slice(max).sort((a, b) => +a.chrom - +b.chrom)
+  shown.sort((a, b) => +a.chrom - +b.chrom || a.startBp - b.startBp)
+  return { shown, rest }
 }
 
 /** Tick spacing in Mb for an axis of this length: about six ticks. */

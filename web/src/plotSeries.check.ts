@@ -1,9 +1,11 @@
-// Tracks, bins, the normal range, the running score and which calls are drawn.
+// Tracks, bins, copies from each parent, the level bands, the guard on a level of none, and which
+// changes the figure zooms.
 import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
 import {
-  BASE, binBase, CELL_BAR, drawable, mergeBins, MIN_DRAWN_SPAN_BP, normalRange, perForStretch, plotData,
-  risesInside, runningScore, shareIn, shareTop, tickStepMb, valueOf, viewOf, wrap, type PlotData, type Track,
+  BASE, binBase, CELL_BAR, copyBars, COPY_NONE_BELOW, COPY_TWO_ABOVE, copyWord, guardedBars, mergeBins,
+  normalRange, perForStretch, plotData, tickStepMb, totalBars, valueOf, viewOf, wrap, zoomPicks,
+  type Bin, type PlotData, type PlotSource, type Track,
 } from './plotSeries.ts'
 
 // ---------------------------------------------------------------- binning
@@ -22,106 +24,188 @@ import {
   assert.equal(lv[0].k, 2, 'a level bin is a median')
 }
 
-// ---------------------------------------------------------------- tracks
-// Two chromosomes; on chromosome 1 from marker 2,000 the father's copy is gone.
-const N = 4000
-const markerPos = new Map<string, { chrom: string; pos: number }>()
-const myGt = new Map<string, string>()
-const F = new Map<string, string>()
-const M = new Map<string, string>()
-let seed = 3
-const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000 }
-for (const chrom of ['1', '2']) {
-  for (let i = 0; i < N; i += 1) {
-    const id = `${chrom}:${i}`
-    markerPos.set(id, { chrom, pos: i * 1000 })
-    const f = i % 3 === 0 ? 'AA' : 'BB'
-    const m = i % 2 === 0 ? 'BB' : f
-    F.set(id, f); M.set(id, m)
-    const lost = chrom === '1' && i >= 2000
-    const het = f !== m && !lost
-    myGt.set(id, het ? (rnd() < 0.15 ? f : 'AB') : lost ? m : f)
+// ---------------------------------------------------------------- a cell to read
+/**
+ * One synthetic cell, built marker by marker so every case the figure must draw is in it.
+ *
+ * `plan` gives each chromosome what it carries: how many copies came from each parent, and whether
+ * the array still reads its markers. The alleles follow from the copies, the intensity follows from
+ * their sum, and the call rate follows from `read`.
+ */
+type Plan = { fat: number; mot: number; read?: number; from?: number }
+const MARKERS = 2400
+const PITCH = 50_000
+
+function cell(plan: Record<string, Plan>): {
+  src: PlotSource; F: Map<string, string>; M: Map<string, string>
+} {
+  const markerPos = new Map<string, { chrom: string; pos: number }>()
+  const myGt = new Map<string, string>()
+  const myBaf = new Map<string, number>()
+  const cnByChrom = new Map<string, { chrom: string; pos: number; called: boolean; log2R: number | null }[]>()
+  const F = new Map<string, string>(); const M = new Map<string, string>()
+  let seed = 7
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000 }
+  for (const [chrom, p] of Object.entries(plan)) {
+    const cn: { chrom: string; pos: number; called: boolean; log2R: number | null }[] = []
+    for (let i = 0; i < MARKERS; i += 1) {
+      const id = `${chrom}:${i}`
+      const pos = i * PITCH
+      const after = i >= (p.from ?? 0)
+      const fat = after ? p.fat : 1
+      const mot = after ? p.mot : 1
+      const read = after ? p.read ?? 1 : 1
+      markerPos.set(id, { chrom, pos })
+      // Half the markers are opposite homozygotes, which is where whose DNA this is can be read.
+      const f = i % 2 === 0 ? 'AA' : 'BB'
+      const m = i % 2 === 0 ? 'BB' : 'AA'
+      F.set(id, f); M.set(id, m)
+      const total = fat + mot
+      const called = rnd() < read
+      // The father's allele fraction is his copies over the copies in all; with nothing left the
+      // array reads background, which lands near a half and still returns calls.
+      const bFromFather = f === 'BB' ? fat : mot
+      const baf = total ? bFromFather / total : 0.5
+      myBaf.set(id, Math.max(0, Math.min(1, baf + (rnd() - 0.5) * 0.04)))
+      if (called) myGt.set(id, baf > 0.8 ? 'BB' : baf < 0.2 ? 'AA' : 'AB')
+      cn.push({ chrom, pos, called, log2R: Math.log2(Math.max(0.05, total) / 2) + (rnd() - 0.5) * 0.04 })
+    }
+    cnByChrom.set(chrom, cn)
   }
-}
-const src = { markerPos, myGt, cnByChrom: new Map() }
-{
-  const d = plotData(src, { loaded: { role: 'paternal', gt: F }, second: M })
-  assert.deepEqual(d.tracks.filter((t) => t.shown).map((t) => t.key), ['father', 'mother'], 'both parents: one track each')
-  const fa = d.tracks[0]
-  const c1 = fa.bins.get('1')!
-  assert.ok(c1.every((b) => b.n >= BASE && b.n <= BASE * 1.5), 'equal-count bars')
-  const inside = shareIn(c1, 2_000_000, 4_000_000)
-  const outside = shareIn(fa.bins.get('2')!, 0, 4e6)
-  assert.ok(inside.share < 0.05 && outside.share > 0.9, `father inside ${inside.share} outside ${outside.share}`)
-  assert.ok(shareIn(d.tracks[1].bins.get('1')!, 2e6, 4e6).share > 0.95, "the mother's alleles stay")
-  assert.equal(d.endBp.get('1'), (N - 1) * 1000)
-  const r = normalRange(fa, 1, new Set(['1']))
-  assert.ok(r.lo <= r.mid && r.mid <= r.hi && r.lo > 0.7, 'the cell\'s normal range from chromosomes with no call')
-}
-{
-  // Father alone: his allele found where the other shows; heterozygous calls stand for the mother.
-  const d = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null })
-  assert.deepEqual(d.tracks.filter((t) => t.shown).map((t) => t.key), ['father', 'two-letter'])
-  assert.ok(Number.isNaN(d.dropIn))
-  // With the run reading her: her track replaces the heterozygous calls.
-  const opp = new Set([...markerPos.keys()].filter((id) => F.get(id) !== M.get(id)))
-  const r = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null, otherOpposite: opp })
-  assert.deepEqual(r.tracks.filter((t) => t.shown).map((t) => t.key), ['father', 'mother'])
-}
-{
-  const cn = new Map([['1', Array.from({ length: 400 }, (_, i) => ({ pos: i * 1000, called: i < 200, log2R: i < 200 ? 0 : -1 }))]])
-  const d = plotData({ markerPos: new Map(), myGt: new Map(), cnByChrom: cn }, { loaded: null, second: null })
-  assert.deepEqual(d.tracks.map((t) => t.key), ['call-rate', 'intensity'])
-  const it = d.tracks[1]
-  assert.ok(valueOf(it, it.bins.get('1')!.at(-1)!) < -0.5, 'intensity against the cell\'s own level')
+  return { src: { markerPos, myGt, myBaf, cnByChrom }, F, M }
 }
 
-// ---------------------------------------------------------------- running score
-{
-  const bins = [...Array(10)].map((_, i) => ({ startBp: i, endBp: i, n: 100, k: i >= 5 ? 5 : 85 }))
-  const s = runningScore(bins, 0.85, 0.03)
-  assert.ok(s.slice(0, 5).every((v) => v === 0), 'flat where the copy is there')
-  assert.ok(s[9] > s[6] && s[6] > s[5] && s[5] > 0, 'climbs where it is not')
-  assert.ok(runningScore(bins, 0.01, 0.03).every(Number.isNaN), 'no score where present is not above missing')
+const PLAN: Record<string, Plan> = {
+  1: { fat: 1, mot: 1 },
+  2: { fat: 1, mot: 1 },
+  3: { fat: 1, mot: 1 },
+  4: { fat: 0, mot: 1 },                      // a whole chromosome, the father's copy gone
+  5: { fat: 1, mot: 2 },                      // the mother's copy doubled
+  6: { fat: 0, mot: 1, from: MARKERS / 2 },   // half of it, the father's copy gone
+  7: { fat: 0, mot: 0, read: 0.45 },          // both copies gone, the markers fall silent
+  8: { fat: 0, mot: 0, read: 1 },             // reads none with the markers still calling: guarded
+}
+const { src, F, M } = cell(PLAN)
+const both = plotData(src, { loaded: { role: 'paternal', gt: F }, second: M })
+
+const barsOf = (d: PlotData, key: Track['key'], chrom: string, per = 1): Bin[] => {
+  const t = d.tracks.find((x) => x.key === key)!
+  const level = d.tracks.find((x) => x.key === 'intensity')!.bins.get(chrom) ?? []
+  return t.kind === 'level' ? totalBars(mergeBins(t.bins.get(chrom) ?? [], per, true))
+    : copyBars(mergeBins(t.bins.get(chrom) ?? [], per), level)
+}
+const levelOf = (d: PlotData, key: Track['key'], chrom: string): string => {
+  const v = barsOf(d, key, chrom).map((b) => b.k).filter(Number.isFinite).sort((a, b) => a - b)
+  return copyWord(v[v.length >> 1])
 }
 
-// ---------------------------------------------------------------- axis top and when the score is drawn
-assert.equal(shareTop(0.12), 0.24, 'a low row is drawn against twice its normal level')
-assert.equal(shareTop(0.85), 1, 'a high row keeps 0 to 100%')
-assert.equal(shareTop(NaN), 1)
+// ---------------------------------------------------------------- both parents: the two tracks
 {
-  const bins = [...Array(10)].map((_, i) => ({ startBp: i * 10, endBp: i * 10 + 9, n: 100, k: 0 }))
-  const climbsInside = [0, 0, 0, 2, 4, 6, 8, 8, 7, 6]
-  const climbsAfter = [0, 0, 0, 0, 0, 0, 0, 3, 6, 9]
-  assert.equal(risesInside(climbsInside, bins, 30, 69), true)
-  assert.equal(risesInside(climbsAfter, bins, 30, 69), false, 'a rise after the stretch ends is not drawn')
+  assert.deepEqual(both.tracks.filter((t) => t.shown).map((t) => t.key), ['father', 'mother'],
+    'both parents measured: one track each')
+  assert.equal(both.split, true)
+  assert.deepEqual(both.tracks.filter((t) => t.shown).map((t) => t.label),
+    ['Copies from the father', 'Copies from the mother'])
+  for (const c of ['1', '2', '3']) {
+    assert.equal(levelOf(both, 'father', c), 'one copy', `chr${c} father`)
+    assert.equal(levelOf(both, 'mother', c), 'one copy', `chr${c} mother`)
+  }
+  const fa = both.tracks[0]
+  assert.ok((fa.bins.get('1') ?? []).every((b) => b.n >= BASE && b.n <= BASE * 1.5), 'equal-count bars')
+  assert.equal(both.endBp.get('1'), (MARKERS - 1) * PITCH)
 }
 
-// ---------------------------------------------------------------- which calls are drawn
+// ---------------------------------------------------------------- a loss, a gain, a whole chromosome
 {
-  const t = (key: Track['key'], parent: Track['parent']): Track => ({ key, parent, label: '', tech: '', kind: 'share', shown: true, bins: new Map() })
-  const both: PlotData = { tracks: [t('father', 'paternal'), t('mother', 'maternal')], dropIn: 0.02, endBp: new Map() }
-  const alone: PlotData = { tracks: [t('father', 'paternal'), t('two-letter', null)], dropIn: NaN, endBp: new Map() }
-  const none: PlotData = { tracks: [t('call-rate', null), t('intensity', null)], dropIn: NaN, endBp: new Map() }
-  const piece = (parent: 'paternal' | 'maternal' | null, gain = false, spanBp = 20e6) => ({ whole: false, spanBp, gain, parent })
-  assert.equal(drawable(piece('maternal'), both).track?.key, 'mother')
-  assert.equal(drawable(piece('maternal'), alone).draw, false, "her copy on a piece, father alone, no run: not drawn")
-  assert.equal(drawable(piece('paternal'), alone).track?.key, 'father')
-  assert.equal(drawable(piece('paternal', true), both).draw, false, 'a gain on a piece: not drawn')
-  assert.equal(drawable(piece(null), none).draw, false, 'a piece with no parent: not drawn')
-  assert.equal(drawable(piece('paternal', false, MIN_DRAWN_SPAN_BP - 1), both).draw, false, 'under one band: not drawn')
-  assert.equal(drawable({ whole: true, spanBp: 1e8, gain: false, parent: null }, none).track?.key, 'intensity')
-  assert.equal(drawable({ whole: true, spanBp: 1e8, gain: false, parent: 'maternal' }, alone).track?.key, 'two-letter')
+  // A whole chromosome whose paternal copy is gone: his track at none, hers still at one copy.
+  assert.equal(levelOf(both, 'father', '4'), 'none', 'whole chromosome, the father\'s copy gone')
+  assert.equal(levelOf(both, 'mother', '4'), 'one copy', "the mother's copy stays")
+  // A gain: the doubled track reaches two copies, and the figure's caption says to read that one.
+  assert.equal(levelOf(both, 'mother', '5'), 'two copies', "the mother's copy doubled")
+  // Half a chromosome: the called half reads none, the other half one copy.
+  const half = (MARKERS / 2) * PITCH
+  const inside = barsOf(both, 'father', '6').filter((b) => b.startBp >= half)
+  const before = barsOf(both, 'father', '6').filter((b) => b.endBp < half)
+  const mid = (xs: Bin[]) => xs.map((b) => b.k).sort((a, b) => a - b)[xs.length >> 1]
+  assert.ok(mid(inside) < COPY_NONE_BELOW, `the called half reads none (${mid(inside).toFixed(2)})`)
+  assert.ok(mid(before) > COPY_NONE_BELOW, `the rest of it does not (${mid(before).toFixed(2)})`)
+  // A chromosome lost outright: both tracks at none.
+  assert.equal(levelOf(both, 'father', '7'), 'none', 'both copies gone, the father\'s track')
+  assert.equal(levelOf(both, 'mother', '7'), 'none', 'both copies gone, the mother\'s track')
 }
 
-// ---------------------------------------------------------------- geometry and text
+// ---------------------------------------------------------------- the level bands
 {
-  const bins = [...Array(40)].map((_, i) => ({ startBp: i * 1e6, endBp: i * 1e6 + 9e5, n: 50, k: 25 }))
+  assert.equal(copyWord(0), 'none')
+  assert.equal(copyWord(COPY_NONE_BELOW - 0.01), 'none')
+  assert.equal(copyWord(COPY_NONE_BELOW), 'one copy')
+  assert.equal(copyWord(1), 'one copy')
+  assert.equal(copyWord(COPY_TWO_ABOVE), 'one copy')
+  assert.equal(copyWord(COPY_TWO_ABOVE + 0.01), 'two copies')
+  assert.ok(COPY_NONE_BELOW === 0.68 && COPY_TWO_ABOVE === 1.65,
+    'the measured bands, from audit/truth/gain-figure-levers-2026-11-17.txt')
+}
+
+// ---------------------------------------------------------------- the guard on a level of none
+{
+  const rate = both.tracks.find((t) => t.key === 'call-rate')!
+  assert.ok(rate && !rate.shown, 'the call rate is kept in every setup and drawn as no track')
+  const floor = normalRange(rate, 1, new Set(['7', '8'])).lo
+  const guardSilent = guardedBars(barsOf(both, 'father', '7'), barsOf(both, 'mother', '7'),
+    rate.bins.get('7') ?? [], floor)
+  const guardCalling = guardedBars(barsOf(both, 'father', '8'), barsOf(both, 'mother', '8'),
+    rate.bins.get('8') ?? [], floor)
+  assert.equal(guardSilent.size, 0, 'a chromosome whose markers fell silent is drawn as none')
+  assert.ok(guardCalling.size > barsOf(both, 'father', '8').length * 0.8,
+    `both tracks read none while the markers keep calling: ${guardCalling.size} bars held back`)
+  const kept = guardedBars(barsOf(both, 'father', '4'), barsOf(both, 'mother', '4'),
+    rate.bins.get('4') ?? [], floor)
+  assert.equal(kept.size, 0, 'one parent at none with the other at one copy is never guarded')
+}
+
+// ---------------------------------------------------------------- one parent, and none
+{
+  const alone = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null })
+  assert.equal(alone.split, false)
+  assert.deepEqual(alone.tracks.filter((t) => t.shown).map((t) => t.key), ['intensity'],
+    'one parent: the copies in all, and no parent named')
+  assert.deepEqual(alone.tracks.filter((t) => t.shown).map((t) => t.label), ['Copies in all'])
+  const none = plotData(src, { loaded: null, second: null })
+  assert.deepEqual(none.tracks.filter((t) => t.shown).map((t) => t.key), ['intensity'], 'no parent: the same')
+  assert.equal(levelOf(alone, 'intensity', '1'), 'two copies', 'two in all is a normal chromosome')
+  assert.equal(levelOf(alone, 'intensity', '4'), 'one copy', 'a lost copy leaves one in all')
+  assert.equal(levelOf(alone, 'intensity', '7'), 'none', 'both copies gone')
+  assert.ok(none.tracks.find((t) => t.key === 'call-rate'), 'the guard is kept with no parent too')
+}
+
+// ---------------------------------------------------------------- which changes are zoomed
+{
+  const call = (chrom: string, mbSpan: number) => ({ chrom, startBp: 0, endBp: mbSpan * 1e6 })
+  const many = [call('1', 5), call('2', 90), call('3', 20), call('4', 60), call('5', 7), call('6', 40),
+    call('7', 11), call('8', 120), call('9', 3)]
+  const { shown, rest } = zoomPicks(many)
+  assert.equal(shown.length, 6, 'at most six zooms fit across a page')
+  assert.deepEqual(shown.map((m) => m.chrom), ['2', '3', '4', '6', '7', '8'], 'the biggest stretches, in chromosome order')
+  assert.deepEqual(rest.map((m) => m.chrom), ['1', '5', '9'], 'the rest are named in one line, in chromosome order')
+  assert.equal(zoomPicks(many.slice(0, 3)).rest.length, 0, 'a cell with few changes zooms them all')
+  assert.equal(zoomPicks([]).shown.length, 0, 'a cell with no change zooms nothing')
+}
+
+// ---------------------------------------------------------------- the normal range and bar widths
+{
+  const fa = both.tracks[0]
+  const r = normalRange(fa, 1, new Set(['4', '5', '6', '7', '8']))
+  assert.ok(r.lo <= r.mid && r.mid <= r.hi, 'the range is ordered')
+  const bins = Array.from({ length: 40 }, (_, i) => ({ startBp: i * 1e6, endBp: (i + 1) * 1e6, n: BASE, k: 1 }))
   assert.equal(perForStretch(bins, 0, 40e6), CELL_BAR / BASE, 'a long stretch takes the whole-cell bar')
   assert.equal(perForStretch(bins, 0, 12e6), 2, 'a shorter one keeps six bars')
   assert.equal(perForStretch(bins, 0, 3e6), 1)
+  assert.equal(valueOf({ kind: 'share' }, { startBp: 0, endBp: 1, n: 4, k: 1 }), 0.25)
 }
-assert.deepEqual(viewOf(143.1e6, 144.7e6, 159e6), { loBp: 137.9e6, hiBp: 149.9e6 })
+
+// ---------------------------------------------------------------- the window a zoom shows
+assert.deepEqual(viewOf(10e6, 12e6, 135e6), { loBp: 4e6, hiBp: 18e6 })
+assert.deepEqual(viewOf(0, 2e6, 135e6), { loBp: 0, hiBp: 14e6 })
 assert.deepEqual(viewOf(80e6, 117e6, 135e6), { loBp: 0, hiBp: 135e6 })
 assert.equal(tickStepMb(249e6), 50)
 assert.deepEqual(wrap('one two three four', 9), ['one two', 'three', 'four'])
@@ -130,15 +214,22 @@ assert.deepEqual(wrap('one two three four', 9), ['one two', 'three', 'four'])
 // A real array is about 825,000 markers. Four times the markers costs about four times the time; a
 // per-marker rescan would cost sixteen. Best of three draws.
 {
+  let seed = 11
+  const rnd = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x80000000 }
   const sized = (total: number) => {
     const mp = new Map<string, { chrom: string; pos: number }>(); const g = new Map<string, string>()
+    const baf = new Map<string, number>()
     const fa = new Map<string, string>(); const mo = new Map<string, string>()
+    const cn = new Map<string, { chrom: string; pos: number; called: boolean; log2R: number | null }[]>()
     for (let i = 0; i < total; i += 1) {
       const id = `p${i}`; const chrom = String(1 + (i % 22))
-      mp.set(id, { chrom, pos: i * 30 }); g.set(id, rnd() < 0.3 ? 'AB' : 'AA')
+      mp.set(id, { chrom, pos: i * 30 }); g.set(id, rnd() < 0.3 ? 'AB' : 'AA'); baf.set(id, rnd())
       fa.set(id, rnd() < 0.5 ? 'AA' : 'BB'); mo.set(id, rnd() < 0.5 ? 'AA' : 'BB')
+      const c = cn.get(chrom) ?? []
+      c.push({ chrom, pos: i * 30, called: true, log2R: 0 })
+      cn.set(chrom, c)
     }
-    return { src: { markerPos: mp, myGt: g, cnByChrom: new Map() }, fa, mo }
+    return { src: { markerPos: mp, myGt: g, myBaf: baf, cnByChrom: cn }, fa, mo }
   }
   const small = sized(206_000); const large = sized(825_000)
   const best = (s: ReturnType<typeof sized>) => Math.min(...[0, 1, 2].map(() => {
@@ -149,43 +240,32 @@ assert.deepEqual(wrap('one two three four', 9), ['one two', 'three', 'four'])
   const d = plotData(large.src, { loaded: { role: 'paternal', gt: large.fa }, second: large.mo })
   let bars = 0
   for (const t of d.tracks) for (const b of t.bins.values()) bars += b.length
-  assert.ok(bars <= 2 * 825_000 / BASE, `${bars} bins kept`)
+  assert.ok(bars <= 4 * 825_000 / BASE, `${bars} bins kept`)
   if (process.env.OM_TIMING) console.log(`plotData: ${ts.toFixed(0)} ms at 206k, ${tl.toFixed(0)} ms at 825k, ${bars} bins`)
   assert.ok(tl / ts < 8, `four times the markers took ${(tl / ts).toFixed(1)}x the time`)
 }
 
 console.log('plotSeries: ok')
 
-// ---------------------------------------------------------------- what the rows are called (P8)
-// A row label says what the row is, never how it is computed, and no reader-facing string of the
-// figures says "letter" for an allele.
+// ---------------------------------------------------------------- what the tracks are called (P8)
+// A track label says what the track is, never how it is computed, and no reader-facing string of the
+// figure says "letter" for an allele.
 {
   const CALC = /share|median|log ?R|homozyg|\bAB\b|against|%|intensity|letter/i
-  const labels = (d: PlotData) => d.tracks.filter((t) => t.shown).map((t) => t.label)
-  const both = plotData(src, { loaded: { role: 'paternal', gt: F }, second: M })
   const alone = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null })
-  const opp = new Set([...markerPos.keys()].filter((id) => F.get(id) !== M.get(id)))
-  const run = plotData(src, { loaded: { role: 'paternal', gt: F }, second: null, otherOpposite: opp })
-  const cn = new Map([['1', Array.from({ length: 400 }, (_, i) => ({ pos: i * 1000, called: true, log2R: 0 }))]])
-  const none = plotData({ markerPos: new Map(), myGt: new Map(), cnByChrom: cn }, { loaded: null, second: null })
-  const noneAll = none.tracks.map((t) => t.label)
-  assert.deepEqual(labels(both), ["Father's copy", "Mother's copy"])
-  assert.deepEqual(labels(alone), ["Father's copy", "Mother's copy, indirect"])
-  assert.deepEqual(labels(run), ["Father's copy", "Mother's copy"])
-  assert.deepEqual(noneAll, ['DNA present', 'Copy number'])
-  for (const d of [both, alone, run, none]) {
+  const none = plotData(src, { loaded: null, second: null })
+  for (const d of [both, alone, none]) {
     for (const t of d.tracks) {
-      assert.ok(!CALC.test(t.label), `a row label names a calculation: ${t.label}`)
+      if (t.shown) assert.ok(!CALC.test(t.label), `a track label names a calculation: ${t.label}`)
       assert.ok(!/letter/i.test(t.tech), `"letter" in a hover: ${t.tech}`)
     }
   }
-  // Every reader-facing string literal and JSX text of the figure files.
   for (const f of ['CallPlot.tsx', 'plotSeries.ts', 'DefectCallout.tsx', 'pageSays.ts']) {
     const code = readFileSync(new URL(`./${f}`, import.meta.url), 'utf8')
       .split('\n').filter((l) => !/^\s*(\/\/|\*|\/\*\*)/.test(l)).join('\n')
     const said = [...code.matchAll(/(['"`])((?:(?!\1).)*)\1|>([^<>{}]+)</g)].map((m) => (m[2] ?? m[3] ?? '').replace(/\$\{[^}]*\}/g, ''))
-    const bad = said.filter((x) => /letter/i.test(x) && !/^two-letter$/.test(x) && !/letterSpacing/.test(x))
+    const bad = said.filter((x) => /letter/i.test(x) && !/letterSpacing/.test(x))
     assert.deepEqual(bad, [], `"letter" in a reader-facing string of ${f}`)
   }
-  console.log('  row labels say what each row is; no figure string says "letter"')
+  console.log('  track labels say what each track is; no figure string says "letter"')
 }
