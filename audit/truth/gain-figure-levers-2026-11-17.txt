@@ -1,0 +1,146 @@
+Which quantity makes an extra copy show, and which says whose copy it is
+=======================================================================
+
+Offline measurement for plan item 3.8b, step 1. No tool code was changed and nothing here is a call.
+
+What was measured
+-----------------
+Every candidate is binned at 2.5 Mb and 5 Mb (at least 8 markers a bin) and the bins inside a gain are
+scored against the bins of the same cell's chromosomes published normal. Three numbers per event:
+
+  out    the event's median sits outside the cell's own 10-90% range on its normal chromosomes
+         (this is the band the figure draws, so "out" is what a reader sees)
+  allc   the event's median is past every normal chromosome's median in the same cell
+  auc    chance a bin inside the gain sits further out than a bin outside it
+
+Event sets, all open arrays, each checked against units.tsv before it was read:
+  built      the 60 open constructions (5 cells, chromosomes published normal, an extra copy of the
+             measured father or of the mother added by re-weighting that cell's own allele intensities)
+  published  53 stated gains on 30 open cells: 8 with both parents measured, 45 with no parent on file
+Cells are given by number. The numbers are this study's own and the key is not in the repo.
+Setups: both parents, measured father alone, rebuilt father alone, no parent.
+"noisy" is a cell whose log R step-to-step noise is above the median of the 30 cells (0.385).
+
+Candidates
+----------
+  copies (log R against the cell's own level)  how much DNA sits in a bin, drawn as copies
+  baf spread at middle markers / at AB calls   how far the allele fractions sit from a half
+  spread at the father's homozygous markers    the same, only where he carries one allele twice
+  het share                                    share of markers the cell calls as two alleles
+  father's share at opposite homozygotes       both parents: his allele's fraction where the parents
+                                               differ. Even = 1/2, his extra copy = 2/3
+  father's share at his homozygous markers      one parent: the same where only he is known, at markers
+                                               read as two alleles (fhom_ab) or any middle marker (fhom_mid)
+
+(a) THERE IS AN EXTRA COPY. Ranked, 2.5 Mb bins
+-----------------------------------------------
+built, every setup, whole chromosome (n 60)
+  copies            out 1.00  allc 1.00  auc 0.97  shift +0.588
+  baf spread mid    out 0.43  allc 0.75  auc 0.88  shift +0.135
+  spread at F hom   out 0.42  allc 0.52  auc 0.82  shift +0.073
+  baf spread AB     out 0.38  allc 0.53  auc 0.81  shift +0.060
+  spread opp hom    out 0.22  allc 0.43  auc 0.62  shift +0.041
+  het share         out 0.00  allc 0.10  auc 0.52  shift +0.003
+
+published, both parents, piece (n 7)
+  copies            out 0.57  allc 0.86  auc 0.93  shift +0.315
+  spread opp hom    out 0.43  allc 0.43  auc 0.76  shift +0.079
+  spread at F hom   out 0.29  allc 0.43  auc 0.56  shift +0.084
+  baf spread mid    out 0.29  allc 0.43  auc 0.55  shift +0.028
+  het share         out 0.00  allc 0.00  auc 0.25  shift -0.032   (moves the wrong way)
+
+published, no parent, piece (n 13)
+  copies            out 1.00  allc 1.00  auc 0.97  shift +0.617
+  baf spread mid    out 0.69  allc 0.92  auc 0.92  shift +0.069
+  baf spread AB     out 0.69  allc 0.85  auc 0.86  shift +0.092
+  het share         out 0.00  allc 0.00  auc 0.05  shift -0.105   (moves the wrong way)
+
+published, no parent, whole chromosome (n 31)
+  copies            out 0.71  allc 0.97  auc 0.89  shift +0.423
+  baf spread AB     out 0.03  allc 0.23  auc 0.49  shift +0.004   (flat)
+  baf spread mid    out 0.00  allc 0.19  auc 0.50  shift -0.000   (flat)
+  het share         out 0.00  allc 0.00  auc 0.30  shift -0.030   (moves the wrong way)
+
+Easy against hard, copies, same table split:
+  noisy cells, no parent, whole      out 1.00  auc 0.96  shift +0.491  (n 13)
+  quiet cells, no parent, whole      out 0.50  auc 0.86  shift +0.372  (n 18)
+  noisy cells, both parents, piece   out 0.67  auc 0.93  shift +0.335  (n 3)
+  quiet cells, both parents, piece   out 0.50  auc 0.81  shift +0.244  (n 4)
+Noise in the cell is not what decides this: the noisy half reads better in both splits, because the
+events there happen to be larger. What hurts is the reference. The quiet half of the no-parent cells
+carries many extra chromosomes at once, so the cell's own level is raised and the band the figure
+draws swallows the event. That is a limit of the reference, not of the quantity.
+
+5 Mb bins beat 2.5 Mb slightly on published gains (out 0.78 against 0.72, same auc 0.93).
+
+(b) WHOSE COPY IT IS. Ranked, 2.5 Mb bins
+-----------------------------------------
+Only two setups can answer. With no parent nothing here can.
+
+built, both parents (n 60)
+  father's share, opp hom   out 0.63  allc 0.65  auc 0.91  shift +0.167  right side 57 of 60
+  father's share, F hom AB  out 0.48  allc 0.67  auc 0.84  shift +0.086
+  father's share, F hom mid out 0.20  allc 0.30  auc 0.19  shift -0.083  (inverted on built gains)
+
+built, father alone (n 60)
+  father's share, F hom AB  out 0.48  allc 0.67  auc 0.84  shift +0.086
+built, rebuilt father (n 60)
+  father's share, F hom AB  out 0.50  allc 0.65  auc 0.83  shift +0.069  right side 52 of 60
+
+published, both parents, piece (n 7)
+  father's share, F hom mid out 0.71  allc 0.57  auc 0.85  shift +0.193
+  father's share, F hom AB  out 0.57  allc 1.00  auc 0.83  shift +0.109
+  father's share, opp hom   out 0.57  allc 0.86  auc 0.82  shift +0.334
+
+published, father alone or rebuilt father, piece (n 7)
+  father's share, F hom AB  out 0.57  allc 0.86  auc 0.92 (rebuilt) / 0.83 (measured)  shift +0.11
+
+Side called right, published gains: father's share at opposite homozygotes 8 of 8 with both parents;
+father's share at his homozygous markers 7 of 8 with the father alone.
+
+False alarms
+------------
+Every chromosome published normal, scored against the cell's other normals, gain side, 2.5 Mb bins:
+  copies            out 0.01   (n 179 with parents, 369 with none)
+  father's share    out 0.01 to 0.03 either side
+  every baf spread  out 0.00 to 0.02
+So the band itself is quiet: a stretch that leaves it is not a routine event.
+
+Where the built gains flatter a quantity
+----------------------------------------
+The construction adds exactly one copy's worth of intensity at every marker and splits the alleles
+exactly, so:
+  - copies lands on 3.0 with none of the spread a real extra copy shows (built shift +0.588 against
+    +0.315 on the real pieces with both parents);
+  - the father's share lands on exactly two thirds or one third, where real cells overshoot or fall
+    short (real pieces reach +0.33 on the same scale, built +0.167);
+  - the genotype calls are not rebuilt, so het share cannot move at all on a built gain. Its real
+    behaviour had to be read off the published gains, where it moves the WRONG way.
+No picture should be drawn on built gains alone. They are kept here only as the clean case.
+
+Does any quantity show the gains the tool misses?
+-------------------------------------------------
+Copies does, for most of them. Of the 53 published gains, the tool found 13 and missed 40 (28 under
+the bar, 8 with no intensity reference, 3 printed as something else, plus one case below). The copies
+median sits outside the cell's own band for 13 of 13 found and for 27 of the 39 missed, so a reader
+would see the stretch standing clear on most of what the tool leaves alone. The 12 that stay inside
+the band are nearly all in cells carrying many extra chromosomes at once, where the cell's own level
+is no longer a flat reference.
+
+One published gain reads the other way on its own array: a stated duplication of a 16q piece whose
+intensity in that cell is 0.62 BELOW the cell's own level over the stated stretch, with the tool
+printing a copy loss there. The figure would show a loss. That cell's label should not be used as a
+missed gain.
+
+What does not separate
+----------------------
+  het share            flat on built gains by construction, and on real gains it FALLS, the opposite
+                       of what an extra copy should do (auc 0.05 to 0.30). Do not draw it.
+  baf spread, whole chromosome, no parent   flat (auc 0.49 to 0.51, shift 0.000). In these single
+                       cells the allele fractions already sit about 0.3 away from a half on normal
+                       chromosomes, so a real one-third/two-thirds split is smaller than the cell's
+                       own scatter and vanishes. It only works on the 16q pieces (auc 0.92).
+  spread at opposite homozygotes   weak with both parents (auc 0.62 on built, 0.76 on published).
+  father's share at middle markers (fhom_mid)   good on published pieces but inverted on built gains
+                       (auc 0.19): the markers the extra copy drags into the middle window carry the
+                       other parent's allele. Unstable, do not draw it.
