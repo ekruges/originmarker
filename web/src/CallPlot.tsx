@@ -233,12 +233,13 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
   type Panel = { c: string; x: number; w: number; top: number; row: number }
   const panels: Panel[] = []
   const labelOf = (c: string) => marks.filter((m) => m.chrom === c).map((m) => m.word).find(Boolean) ?? ''
+  const halfOf = (c: string) => 3.3 * Math.max(...wrap(labelOf(c), 15).map((l) => l.length))
   const laneCount = (row: readonly string[]) => Math.max(1, ...row.filter((c) => changed.has(c)).map((c) => (lanes.get(c) ?? 0) + 1))
   const wordLines = (row: readonly string[]) => Math.max(1, ...row.filter((c) => changed.has(c) && (lanes.get(c) ?? -1) >= 0)
     .map((c) => wrap(labelOf(c), 15).length))
   // Below the tracks: the chromosome number, the mark, the badge, and the label in its lane.
   const blockOf = (row: readonly string[]) => tracks.length * (TH + 20) + 21
-    + (row.some((c) => changed.has(c)) ? 20 + 15 * (laneCount(row) - 1) + 12 * wordLines(row) + 10 : 10)
+    + (row.some((c) => changed.has(c)) ? 20 + 26 * (laneCount(row) - 1) + 12 * wordLines(row) + 10 : 10)
   rows.forEach((row, r) => {
     const total = row.reduce((s, c) => s + len(c), 0)
     const usable = W - 2 - GUT - G * (row.length - 1)
@@ -252,7 +253,7 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
       panels.push({ c, x, w, top, row: r })
       if (changed.has(c)) {
         const words = wrap(labelOf(c), 15)
-        const half = 3.3 * Math.max(...words.map((l) => l.length))
+        const half = 3.3 * Math.max(...words.map((l) => l.length)) + 18
         const left = x + w / 2 - half
         // Where no lane has room, the chromosome keeps its badge and its mark and the words are
         // left to the zoom's title or to the line of changes that are not zoomed: a label that
@@ -333,13 +334,15 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
                     {ms.length ? <rect x={p.x} y={axis + 17} width={p.w} height={3} fill={colour} /> : null}
                     {ms.length && numbers?.has(p.c) ? (
                       <g>
-                        <circle cx={p.x + p.w / 2} cy={axis + 34 + lane * 15} r={8} fill={colour} />
-                        <text x={p.x + p.w / 2} y={axis + 38 + lane * 15} textAnchor="middle" fontSize={10}
+                        <circle cx={p.x + p.w / 2 - (lane >= 0 ? halfOf(p.c) + 9 : 0)}
+                          cy={axis + 34 + Math.max(0, lane) * 26} r={8} fill={colour} />
+                        <text x={p.x + p.w / 2 - (lane >= 0 ? halfOf(p.c) + 9 : 0)}
+                          y={axis + 38 + Math.max(0, lane) * 26} textAnchor="middle" fontSize={10}
                           fontWeight={700} fill="#fff">{numbers.get(p.c)}</text>
                       </g>
                     ) : null}
                     {ms.length && lane >= 0 ? words.map((l, i) => (
-                      <text key={i} x={p.x + p.w / 2} y={axis + (numbers?.has(p.c) ? 54 : 34) + lane * 15 + i * 12}
+                      <text key={i} x={p.x + p.w / 2} y={axis + 38 + lane * 26 + i * 12}
                         textAnchor="middle" fontSize={10} fontWeight={600} fill={colour}>{l}</text>
                     )) : null}
                   </g>

@@ -176,6 +176,18 @@ const levelOf = (d: PlotData, key: Track['key'], chrom: string): string => {
   assert.equal(levelOf(alone, 'intensity', '4'), 'one copy', 'a lost copy leaves one in all')
   assert.equal(levelOf(alone, 'intensity', '7'), 'none', 'both copies gone')
   assert.ok(none.tracks.find((t) => t.key === 'call-rate'), 'the guard is kept with no parent too')
+  // Which setup it is decides nothing but how many tracks: two where both parents' alleles are
+  // known, one otherwise. The mother alone and a rebuilt father behave as any single parent does,
+  // and a rebuilt father beside a measured mother splits like any measured pair.
+  const motherAlone = plotData(src, { loaded: { role: 'maternal', gt: M }, second: null })
+  assert.deepEqual(motherAlone.tracks.filter((t) => t.shown).map((t) => t.key), ['intensity'],
+    'the mother alone: the copies in all')
+  const rebuilt = new Map([...F].map(([id, g]) => [id, g]))   // a reconstruction is homozygous throughout
+  const rebuiltPair = plotData(src, { loaded: { role: 'paternal', gt: rebuilt }, second: M })
+  assert.deepEqual(rebuiltPair.tracks.filter((t) => t.shown).map((t) => t.key), ['father', 'mother'],
+    'a rebuilt father beside a measured mother: two tracks')
+  assert.equal(plotData(src, { loaded: { role: 'paternal', gt: rebuilt }, second: null }).split, false,
+    'a rebuilt father alone: one track')
 }
 
 // ---------------------------------------------------------------- which changes are zoomed
