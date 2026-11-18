@@ -9,6 +9,50 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.12.0 "Karyogram"
+
+**The result card says what was found, and the figure shows it.** Correct calls used to sit
+under an "UNCLEAR" headline, "no call" chips and "0 of N at band A or B", and the plot for each
+call drew raw points that showed no finding. No call, parent or coordinate changed in this
+release; what changed is how a result is stated and drawn.
+
+- **Headline.** It reads each loaded parent's genome chromosome by chromosome. On the 31
+  published cells it reads BOTH PARENTS on 24 with both parents loaded (was BIPARENTAL on 10,
+  UNCLEAR on 21) and FATHER + SECOND PARENT on 26 with the father alone (was UNCLEAR on 26 and
+  GYNOGENETIC on 2, which the paper contradicts; those 2 now read UNCLEAR with the disagreement
+  named). The headline counts the changes found two ways or consistent. A stretch one reading
+  reports is listed as seen once, not confirmed, and is not counted.
+- **One word per change, from measured accuracy.** "found two ways", "consistent", "one
+  reading", "also seen" or "position only", by the kind of call, with that kind's agreement with
+  the published karyotype one click away and in the PDF. What tracks right and wrong is the
+  kind of call, not the old band: a whole chromosome with a parent's copy missing agrees on 89
+  of 96, 93 of 103 and 92 of 102 (both parents, the measured father, a rebuilt father); a
+  stretch from the newer allele scans on 3 of 17, 5 of 21 and 7 of 24. Where a stretch sits
+  where the paper states a change, the parent named was right on 59 of 59.
+- **One count, one set of coordinates and one pair of numbers per change**, on the card, in
+  the PDF and in the figure. A loss printed as adjacent pieces is one change. A stretch the
+  copy scan and an allele scan both report is one row, still "one reading": the two scans read
+  one signal, and on the published cells the second confirmed nothing.
+- **The figure.** Under the list, one figure of the whole cell: each loaded parent's copy,
+  present or missing, across the 22 chromosomes, in bars of 200 markers, with the cell's own
+  normal range drawn behind them and a line under each change. With one parent the other
+  parent's copy is drawn where the run's other cells give her; with none, heterozygous calls,
+  DNA present and copy number. An opened change shows the same quantity along its chromosome.
+  A change the cell cannot show by eye is not drawn on its own, and says so. Titles and row
+  labels state the finding, not how it is computed; the computation is in the hover and under
+  "How this was read".
+- **A widely disturbed genome is one sentence**, not a row among the changes.
+- **With one parent loaded, an opened whole-chromosome change quotes the one-parent score it
+  rests on.** It used to print a count of opposite-homozygote markers, which needs both parents.
+- **Layout.** One aligned list; confirmed changes carry the strong treatment and unconfirmed
+  rows are plain; an opened change states its finding once and folds coordinates and method
+  under "Details".
+
+Known shortfall: with one parent loaded, on a biopsy of several cells, a true whole-chromosome
+loss can show as a small dip (the father's copy at 72% on the lost chromosome against 86% on the
+rest, where 41% against 86% is the middle case with a rebuilt father). The call is unaffected. An extra copy has no figure yet.
+Results: `audit/truth/page-says-2026-11-17.txt`, `audit/truth/call-plot-levers-2026-11-17.txt`.
+
 ## 6.11.0 "Barr Body"
 
 **With a parent loaded, 47,XXY is printed only where the X level can carry it, and a woman's
