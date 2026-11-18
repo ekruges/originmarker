@@ -1195,8 +1195,8 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt }: {
               {r.unmeasured.length} not measured
             </Badge>
           )}
-          {m && <Badge size="sm" variant="light" color="genomeBlue">both parents measured</Badge>}
-          {rebuilt && !m && <Badge size="sm" variant="light" color="genomeBlue">father rebuilt</Badge>}
+          {m && <Badge size="sm" variant="outline" color="genomeGrey">both parents measured</Badge>}
+          {rebuilt && !m && <Badge size="sm" variant="outline" color="genomeGrey">father rebuilt</Badge>}
         </Group>
         <Text size="sm" mt={3}>{head.line}</Text>
         <RunAlerts r={r} />

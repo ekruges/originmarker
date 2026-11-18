@@ -90,8 +90,8 @@ function SaveSvg({ svg, name }: { svg: React.RefObject<SVGSVGElement | null>; na
         setTimeout(() => URL.revokeObjectURL(a.href), 1000)
       }}
       style={{
-        border: '1px solid var(--om-border-strong)', background: '#fff', font: 'inherit', fontSize: 11,
-        padding: '0 6px', cursor: 'pointer', marginLeft: 'auto',
+        border: 0, background: 'none', font: 'inherit', fontSize: 11, padding: 0, cursor: 'pointer',
+        marginLeft: 'auto', paddingLeft: 12, whiteSpace: 'nowrap', color: 'var(--om-blue)', textDecoration: 'underline',
       }}
     >
       Save SVG
@@ -550,7 +550,7 @@ export function CellFigure({ data, marks, name, title }: {
 }): ReactNode {
   if (!data) return null
   return (
-    <div style={{ marginTop: 10 }}>
+    <div style={{ marginTop: 14 }}>
       <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{title}</div>
       <WholeCell data={data} marks={marks} name={name} />
     </div>

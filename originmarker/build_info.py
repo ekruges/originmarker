@@ -315,10 +315,14 @@ RELEASES: tuple[Release, ...] = (
             "edge of the nucleus, the Barr body. That spot is how two X were first told from "
             "one. With a parent on an array, a second X is now printed only where the cell "
             "shows it."),
+    Release("Karyogram",
+            "A karyogram lays a cell's chromosomes out in order, so a missing or extra one is "
+            "seen at a glance. The result card now draws each parent's copy across the "
+            "chromosomes that way, and its headline says what was found."),
 )
 
-VERSION = "6.11.0"
-CODENAME = "Barr Body"
+VERSION = "6.12.0"
+CODENAME = "Karyogram"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
