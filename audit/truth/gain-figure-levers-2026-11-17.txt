@@ -144,3 +144,76 @@ What does not separate
   father's share at middle markers (fhom_mid)   good on published pieces but inverted on built gains
                        (auc 0.19): the markers the extra copy drags into the middle window carry the
                        other parent's allele. Unstable, do not draw it.
+
+
+COPIES FROM EACH PARENT: the product against its ingredients
+============================================================
+One quantity for the whole figure: how many copies each parent gave at each place.
+  total copies      2 * 2 ** (log R - this cell's own median log R on its normal chromosomes)
+  parent's share    the share of the DNA that is that parent's, from the alleles alone
+  parent's copies   total copies * that parent's share
+Normal is one copy from each parent. Measured on the 28 open cells with both parents measured and at
+least three chromosomes published normal: 107 whole losses, 20 loss pieces, 6 published gains and
+954 stated-normal tracks. 2.5 Mb bins. "out" is the stretch median leaving the range the cell holds
+on its own normal chromosomes; "auc" is a bin inside the stretch against a bin on a normal one.
+
+setup    kind         parent copies      parent's share     total copies
+both     loss piece   out 1.00 auc 1.00  out 1.00 auc 1.00  out 0.80 auc 0.96   (n 20)
+both     loss whole   out 0.82 auc 0.97  out 0.86 auc 0.99  out 0.42 auc 0.81   (n 107)
+both     gain piece   out 0.80 auc 0.98  out 0.80 auc 0.98  out 0.60 auc 0.93   (n 5)
+both     gain whole   out 1.00 auc 0.98  out 1.00 auc 0.97  out 1.00 auc 0.87   (n 1)
+father   loss whole   out 0.49 auc 0.81  out 0.43 auc 0.76  out 0.42 auc 0.81   (n 107)
+father   loss piece   out 0.80 auc 0.97  out 0.75 auc 0.97  out 0.80 auc 0.96   (n 20)
+father   gain piece   out 0.60 auc 0.94  out 0.80 auc 0.93  out 0.60 auc 0.93   (n 5)
+rebuilt  loss whole   out 0.46 auc 0.80  out 0.52 auc 0.82  out 0.42 auc 0.81   (n 107)
+
+The product holds with both parents: it matches the better ingredient everywhere and never falls
+below it. Where it earns its place is the cells carrying many changes, where the level the cell is
+measured against is itself shifted: loss pieces in those cells read out 1.00 against 0.43 for the
+total alone, gains 1.00 against 0.50. The split between the parents is read off the alleles and
+needs no reference level, so only the total depends on one.
+
+LEVEL BANDS, fixed before any picture was drawn
+-----------------------------------------------
+Boundaries chosen on the labelled stretches (expected none, one, two), weighting the three classes
+equally so the 954 normal tracks do not swamp the 6 gains:
+    none      below 0.68 copies
+    one copy  0.68 to 1.65
+    two       above 1.65
+On that rule, with both parents: a copy that should be missing lands in "none" 96% of the time
+(112 of 117), a normal track lands in "one copy" 92% (986 of 1075), and a doubled copy lands in
+"two" 5 times of 6. The levels behind it:
+    expected 0   median 0.20  (10-90% 0.10 to 0.61)
+    expected 1   median 0.96  (0.77 to 1.18) on normal chromosomes
+    expected 2   median 1.76  (0.97 to 3.19)
+
+Two honest failures, both in the picture captions:
+  - on a gain, the UNTOUCHED parent's track dips to about half a copy (median 0.46 over the 5 gain
+    pieces) instead of holding at one. In one cell the doubled copy takes more than its share of
+    what is read. The doubled track is the one to read; the other is not a level there.
+  - the surviving copy beside a lost one reads a little high (median 1.32 on whole losses), because
+    the cell's own level is pulled down by the losses themselves.
+
+WITH ONE PARENT the two-track form must not be drawn
+-----------------------------------------------------
+Measured, father alone (and the same for the rebuilt father):
+    a copy that should be missing   median 0.74 (10-90% 0.58 to 1.04)
+    a normal track                  median 1.00 (0.84 to 1.12)
+    a doubled copy                  median 1.29 (0.65 to 2.04)
+The levels overlap almost completely, and the inferred other-parent track is no better (0.74 where
+it should be none). The reason is in the markers: with both parents the split is read where the
+parents carry DIFFERENT alleles, and with one parent that set cannot be built. At his homozygous
+markers the mother often carries his allele too, and those markers carry no information but still
+count. Restricting to markers the cell reads as two alleles is worse still (auc 0.42 on whole
+losses, below chance), because a chromosome down to one copy has almost no two-allele calls left.
+So with one parent the figure drops to the single total-copies track and names no parent, which is
+the same form as the no-parent case. The total track is the same in every setup
+(out 0.42 whole losses, 0.80 loss pieces, 0.60 gain pieces).
+
+HETEROZYGOSITY, measured and left out of the figure
+----------------------------------------------------
+Taken from the same bins, as the share of markers a cell calls as two alleles, against that cell's
+own rate: about 0.5 where one copy is missing, 1.0 on a normal chromosome, 0.8 on a gain. It falls
+on a gain instead of rising, so it cannot separate a gain from a normal stretch, and in the
+no-parent series it RISES to 1.4 where a copy is missing, because a chromosome with almost no
+intensity left returns noisy genotype calls. It is not drawn.
