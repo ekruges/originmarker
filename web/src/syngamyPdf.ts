@@ -462,7 +462,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   7.4, 'Helvetica', 2.4, GREY)
   {
     const kinds = ['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity',
-      'gain-parent', 'imbalance'] as const
+      'gain-parent', 'imbalance', 'doubled'] as const
     const cellOf = (c: readonly [number, number] | undefined): string => (c ? `${c[0]} of ${c[1]}` : '-')
     table(
       [{ head: 'Word', w: 70 }, { head: 'Kind of call', w: 236 },

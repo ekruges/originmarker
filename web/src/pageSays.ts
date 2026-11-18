@@ -170,7 +170,7 @@ export type Setup = 'two' | 'measured' | 'rebuilt' | 'mother' | 'none'
 export const setupOf = (r: ParentageResult, m: ParentageResult | undefined, rebuilt: boolean): Setup =>
   (r.noParent ? 'none' : m ? 'two' : r.role === 'maternal' ? 'mother' : rebuilt ? 'rebuilt' : 'measured')
 
-export type CallKind = 'whole' | 'two-ways' | 'run-only' | 'second-test' | 'allele-scan' | 'unnamed'
+export type CallKind = 'whole' | 'two-ways' | 'run-only' | 'second-test' | 'allele-scan' | 'unnamed' | 'doubled'
   | 'intensity' | 'gain-parent' | 'imbalance' | 'finding' | 'inherited' | 'no-parent'
 
 export type Word = 'found two ways' | 'consistent' | 'one reading' | 'also seen' | 'position only'
@@ -207,6 +207,7 @@ export const WORD: Record<CallKind, Word> = {
   finding: 'one reading',
   imbalance: 'also seen',
   'no-parent': 'position only',
+  doubled: 'one reading',
 }
 
 /** A change is counted in the headline when its word is one of these. */
@@ -230,6 +231,7 @@ export const MEASURED: Partial<Record<CallKind, Partial<Record<'two' | 'measured
   intensity: { two: [3, 7], measured: [4, 8], rebuilt: [4, 9] },
   'gain-parent': { two: [1, 4] },
   imbalance: { two: [10, 24], measured: [5, 10], rebuilt: [3, 4] },
+  doubled: { two: [0, 3], measured: [0, 3], rebuilt: [0, 1] },
 }
 
 /** On a stretch in the place the paper states, the parent named: right, of named, three setups. */
@@ -256,6 +258,7 @@ export const KIND_SAYS: Record<CallKind, string> = {
   inherited: 'The parent follows from the genome-level call: 12 of 12 right against dissection.',
   imbalance: 'The parents\' alleles read unbalanced along the chromosome. Not counted as a change.',
   'no-parent': 'Read from copy number, with no parent loaded.',
+  doubled: 'One reading: a copy lost here, reported by the copy scan and by an allele scan over the same stretch.',
 }
 
 /** The measured count behind a word, in one sentence, or what stands in for it. */
@@ -338,7 +341,7 @@ export function changeList(defects: readonly Defect[], setup: Setup): ChangeList
       })
     }
   }
-  const rows = [...groups.values()]
+  const rows = mergeDoubled([...groups.values()])
   for (const g of rows) g.pieces.sort((a, b) => a.startBp - b.startBp)
   for (const g of rows) {
     g.deeper = !g.whole && g.pieces.every((p) => p.kind === 'copy-loss' && p.step === 'intensity')
@@ -360,6 +363,38 @@ export function disturbedText(l: ChangeList): string {
   return `${Number.isFinite(on) ? `${on} of ${of}` : 'Many'} chromosomes carry a change: this cell's genome is widely disturbed.`
 }
 
+const ABSENCE_STEPS = new Set(['run', 'window', 'allele-scan'])
+
+/**
+ * One loss reported by the copy scan and by an absence or allele scan over the same stretch is one
+ * row: each covers at least half of the longer of the two, the counting rule's overlap. Both calls
+ * stay in `pieces`. The row names the parent where one call does; two calls naming different parents,
+ * or an absence call already confirmed, stay two rows.
+ */
+function mergeDoubled(rows: ChangeRow[]): ChangeRow[] {
+  const piece = (g: ChangeRow) => !g.whole && !g.gain && g.chrom !== 'genome'
+  const copy = (g: ChangeRow) => piece(g) && g.pieces.every((p) => p.kind === 'copy-loss' && p.step === 'intensity')
+  const absence = (g: ChangeRow) => piece(g) && g.pieces.every((p) => p.kind === 'parental-absence' && ABSENCE_STEPS.has(p.step ?? ''))
+  const gone = new Set<ChangeRow>()
+  for (const c of rows.filter(copy)) {
+    const a = rows.find((x) => !gone.has(x) && absence(x) && x.chrom === c.chrom
+      && Math.max(0, Math.min(x.endBp, c.endBp) - Math.max(x.startBp, c.startBp))
+        >= 0.5 * Math.max(x.endBp - x.startBp, c.endBp - c.startBp)
+      && x.word === 'one reading'
+      && (c.origin === 'unclear' || x.origin === 'unclear' || c.origin === x.origin))
+    if (!a) continue
+    gone.add(c)
+    a.pieces.push(...c.pieces)
+    a.origin = a.origin !== 'unclear' ? a.origin : c.origin
+    a.startBp = Math.min(a.startBp, c.startBp)
+    a.endBp = Math.max(a.endBp, c.endBp)
+    // Never found two ways: the two scans read one signal, a lost copy takes its alleles with it.
+    a.call = 'doubled'
+    a.word = WORD.doubled
+  }
+  return rows.filter((g) => !gone.has(g))
+}
+
 /** The count line used under every headline. */
 export function changesText(l: ChangeList): string {
   const n = l.counted.length
@@ -377,7 +412,7 @@ export function whoseText(g: ChangeRow): string {
   if (g.call === 'finding') return (g.pieces[0].kind ?? '').replace(/-/g, ' ')
   if (g.gain) return who ? `extra copy, the ${who}` : 'extra copy, parent not named'
   if (g.deeper) return 'second copy lost too'
-  if (g.pieces[0].kind === 'copy-loss' && !who) return 'copy lost, parent not named'
+  if ((g.call === 'doubled' || g.pieces[0].kind === 'copy-loss') && !who) return 'copy lost, parent not named'
   return who ? `${who} copy missing` : "a parent's copy missing, parent not named"
 }
 
@@ -385,12 +420,18 @@ export function whoseText(g: ChangeRow): string {
 export function whereText(g: ChangeRow): string {
   if (g.chrom === 'genome') return 'whole genome'
   if (g.whole) return `chr${g.chrom}, whole chromosome`
-  return `chr${g.chrom} ${g.pieces.map((p) => `${mb1(p.startBp)}-${mb1(p.endBp)}`).join(', ')} Mb`
+  return `chr${g.chrom} ${[...new Set(g.pieces.map((p) => `${mb1(p.startBp)}-${mb1(p.endBp)}`))].join(', ')} Mb`
 }
 
-/** The span of a row in Mb, summed over its pieces. */
-export const spanMb = (g: ChangeRow): string =>
-  (g.pieces.reduce((a, p) => a + (p.endBp - p.startBp), 0) / 1e6).toFixed(1)
+/** The span of a row in Mb: the length its pieces cover, overlaps counted once. */
+export const spanMb = (g: ChangeRow): string => {
+  let total = 0; let end = -Infinity
+  for (const p of [...g.pieces].sort((a, b) => a.startBp - b.startBp)) {
+    total += Math.max(0, p.endBp - Math.max(p.startBp, end))
+    end = Math.max(end, p.endBp)
+  }
+  return (total / 1e6).toFixed(1)
+}
 
 /** The scan's own pair of numbers for one piece, or nothing where the call has no pair. */
 export function pairText(d: Defect): string {
