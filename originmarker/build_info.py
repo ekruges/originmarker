@@ -331,10 +331,14 @@ RELEASES: tuple[Release, ...] = (
             "An allele that makes no product at all, and shows only by what is missing. A reading "
             "taken without the reference panel is the same thing: an answer with nothing behind "
             "it. The panel is now read, or the file is refused."),
+    Release("Concordance",
+            "Two readings of the same cell that agree. A card is one reading made of many parts, "
+            "and where its headline, its badge, its notice and the figure under it disagreed, one "
+            "of them was wrong. They are made to agree, or the card says it cannot tell."),
 )
 
-VERSION = "6.15.0"
-CODENAME = "Null Allele"
+VERSION = "6.16.0"
+CODENAME = "Concordance"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

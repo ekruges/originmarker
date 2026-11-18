@@ -9,6 +9,44 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.16.0 "Concordance"
+
+**A result card no longer says two things about one sample.** Six places where parts of one card
+contradicted each other, found by reading every result the card can print and shooting each one.
+No call, parent, coordinate or count changes: the 600-row harness output is byte-identical on both
+lists, same checksum.
+
+- **The figure named a parent the row withheld.** A stretch whose row read "a parent's copy
+  missing, parent not named" drew a figure headed "the father's copy is missing", because the
+  figure composed its own sentence and fell back to whichever parent's array was in the slot. The
+  scoring settles it: that stretch carries no parent. One function now builds the words for the
+  row and for the figure's title from the row's own reading, so the two cannot disagree whatever
+  draws them. Which track the figure draws still follows the loaded array, because that is the
+  evidence the call rests on, and the track keeps its own label.
+- **A row printed an internal code word**, "segmental upd", where every other row speaks plainly.
+  It now reads "segment from one parent only", and names the parent where there is one.
+- **A one-genome cell could be headed BIPARENTAL**, beside its own badge reading uniparental and
+  its own notice saying none of the loaded mother's genome is in the array. A cell that reads one
+  genome cannot be biparental; that combination now reads unclear, with the disagreement named.
+- **A damaged sample no longer gets a parental verdict.** The integrity grade already said "do not
+  read parental calls from this sample" and the headline is a parental call. Below the call rate
+  this tool can reference against, the card says so instead. The changes, positions and badges
+  stand, which is what that grade leaves standing. **This also moves one published cell** (call
+  rate 67.5%, the only published cell graded uninterpretable) from both parents to unclear in all
+  three setups; no other published cell and no bundled example changes.
+- **With only the mother loaded the header ended in "vs" and nothing**, because the name printed
+  there was always the sperm donor's. It names the array that was actually loaded.
+- **A gzipped array is read by both pages.** The drop zone refused a `.probes.gz` as having no
+  columns although the file picker offers it and the other page's own text says a table may be
+  gzipped. Both pages now read a file by its first two bytes rather than its name, through one
+  reader shared with the panel and the examples, where there were four copies of that test before.
+
+Left as it stands, with the reason recorded: a pronucleus is headed gynogenetic against one adult
+and androgenetic against another who is not its parent. Both cards already carry the caveat that
+the reading holds only if the loaded array is this sample's parent, and the header now names which
+array that is. Reading it as unclear instead would be the only verdict a pronucleus could get with
+one parent loaded.
+
 ## 6.15.0 "Null Allele"
 
 **A file is refused when the founder panel cannot be read, instead of being scored without it.**
