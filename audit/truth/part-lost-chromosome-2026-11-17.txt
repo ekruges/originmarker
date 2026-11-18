@@ -139,8 +139,21 @@ RESULT (rerun with 2' and 4', the same 636 rows, scored the same way)
       piece; 4 stated whole loss (one cell, every setup), where the whole call stands and a deeper
       piece over the distal third of the chromosome is printed beside it. None on a stated normal.
       No whole-chromosome gain moved. No call outside chromosomes called lost whole moved.
-  B5  checks: tsc, scripts/checks.sh, scripts/release-check.sh pass by exit code. Suite: not run
-      here (it starts nine census jobs at once); browser run and release still to do.
+  B5  met. Checks: tsc, scripts/checks.sh, scripts/release-check.sh pass by exit code on this
+      branch merged with 6.12.0. Suite: run on the branch merged with 6.11.0, scored against the
+      6.11.0 scorecard: NOTHING MOVED SINCE PREVIOUS (records on tesla, /root/pieces1117-records).
+      Browser run on the build merged with 6.12.0 (headless, real arrays):
+        - a published cell with a stated 16q deletion, no parent: one change, "chr16 65.8 Mb copy
+          lost, parent not named", marked on the figure.
+        - the published cell with a stated monosomy 6, no parent: "chr6 whole copy lost, parent not
+          named" and "chr6 50.4 Mb second copy lost too", 4 changes in the headline and 4 rows in
+          the list; with the father: "chr6 whole father's copy missing" counted and "chr6 50.4 Mb
+          second copy lost too" under seen once, 2 changes and 7 stretches, as listed. No loss row
+          reads "extra copy". The opened "second copy lost too" row gives its evidence sentence
+          and the chromosome in the whole-cell figure; no figure of its own is drawn ("A single
+          cell cannot show this stretch by eye, so it is not drawn on its own").
+        - cell-A of the page check, both parents: card text identical to 6.12.0.
+        - console: only the /api/health 502 of the dev server.
 
 What the edges show. On the published-break cells the new pieces end at the cut: 14 of the 24
 coordinates on changed chromosomes lie inside the edge interval, 8 more within 3 Mb of it, and 2 are other cuts on a chromosome where one piece is printed. The Turocy chr16 pieces
@@ -231,15 +244,20 @@ THE CHANGED CHROMOSOMES (cells numbered within their source; the key stays in au
                                    published: 34.179-34.197 Mb: 11.32 Mb off
   Turocy cell 11                   chr16  rebuilt father (stand-in)  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
 
-DRAFT CHANGELOG PARAGRAPH
+FINAL CHANGELOG PARAGRAPH
 -------------------------
-**A chromosome lost in part is no longer called lost whole.** A deep loss over a third of a
-chromosome can move the chromosome's median past both whole-chromosome gates, and the tool then
+**A chromosome lost in part is no longer called lost whole.** Since 6.0.0 a deep loss over part of
+a chromosome could move that chromosome's median past both whole-chromosome gates; the tool then
 called the whole chromosome lost and never looked for the piece or the edge where it was cut. A
-chromosome called lost whole is now read again in pieces (`partLost.ts`): where the rest of it reads
-at the cell's own level (shift under the floor the array earned, calls not collapsed) the pieces are
-reported instead of the whole call; where the rest is a copy down as well the whole call stands,
-with any piece a further copy down printed beside it; pieces over 80% of the chromosome are the whole
-loss. No constant is new. On the open rows, with no parent, an edge lies within 5 Mb of 29 of the 195
-published break coordinates (was 12), including the 7 lost since 5.54.0; stated whole losses found
-and stated normals left alone are unchanged in every setup, and no stated whole loss becomes a piece.
+chromosome called lost whole is now read again in pieces. Where the rest of it reads at the cell's
+own level, the pieces are printed instead of the whole call; where the rest is a copy down as well,
+the whole call stands and a piece a further copy down is printed beside it as "second copy lost
+too"; pieces covering 80% of the chromosome are the whole loss. No constant is new. On the open
+rows the 7 published break coordinates lost since 5.54.0 have an edge within 5 Mb again (7 of 7),
+and 29 of all 195 published coordinates do, against 12. Stated whole losses found and stated
+normals left alone are identical in every setup. 48 chromosome-rows change; 17 of them are a stated
+piece that had printed as a whole loss. A first run turned 7 stated whole-loss rows into pieces; the
+rest test was corrected to read the cell's own level without asking for significance, and to treat
+pieces over 80% of the chromosome as the whole loss, and the rerun turned none. Shortfall: on the
+stated chr16 pieces the printed start is a raw window edge 11 to 12 Mb from the published
+coordinate, so the kind of change is now right and that edge is not.
