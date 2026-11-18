@@ -114,6 +114,31 @@ const cellA: Defect[] = [
   assert.equal(disturbedText(changeList(cellA, 'two')), '')
 }
 
+// ---------------------------------------------------------------- a second copy lost on a lost chromosome
+// partLost.ts prints a copy-loss piece beside a whole-chromosome loss only a further copy down, so
+// the piece reads as a second copy lost, with or without a parent; an allele-scan stretch does not.
+{
+  const wholeLoss = (origin: 'paternal' | 'unclear'): Defect => ({
+    chrom: '6', startBp: 0, endBp: 170_000_000, kind: 'copy-loss', locus: 'chr6', origin, why: 'x',
+    step: origin === 'unclear' ? 'whole-intensity' : 'whole-alleles',
+  })
+  const copyPiece: Defect = {
+    chrom: '6', startBp: 120_000_000, endBp: 170_400_000, kind: 'copy-loss', locus: 'chr6:120,000,000-170,400,000',
+    origin: 'unclear', why: 'x', step: 'intensity', rate: 0.4, nullRate: 0.1,
+  }
+  for (const [setup, origin] of [['none', 'unclear'], ['measured', 'paternal']] as const) {
+    const l = changeList([wholeLoss(origin), copyPiece], setup)
+    const all = [...l.counted, ...l.once]
+    assert.equal(whoseText(all.find((g) => !g.whole)!), 'second copy lost too', setup)
+    assert.notEqual(whoseText(all.find((g) => g.whole)!), 'second copy lost too')
+  }
+  const alleleStretch: Defect = { ...copyPiece, kind: 'parental-absence', step: 'allele-scan', origin: 'maternal' }
+  const l = changeList([wholeLoss('paternal'), alleleStretch], 'measured')
+  assert.equal(whoseText([...l.counted, ...l.once].find((g) => !g.whole)!), "mother's copy missing")
+  // Without a whole-chromosome loss the piece keeps its own wording.
+  assert.equal(whoseText(changeList([copyPiece], 'none').counted[0]), 'copy lost, parent not named')
+}
+
 // ---------------------------------------------------------------- one stretch, two scans
 // A loss from the copy scan and from an absence scan over the same stretch is one row with both
 // readings; a different stretch on the same chromosome stays its own row.

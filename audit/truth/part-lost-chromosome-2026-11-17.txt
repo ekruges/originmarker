@@ -1,0 +1,263 @@
+A part-lost chromosome is called lost as a whole
+================================================
+Written 17 November 2026 BEFORE the code below is built or run. Open arrays only. Plan item 3.4a.
+The trace behind it is recorded outside the repository (per-array tables stay under audit/local/);
+this file carries the rule, the pass tests, the prediction and, after the run, the scored result.
+
+WHAT IS WRONG
+-------------
+The copy scans in scoreSample.ts do not look at a chromosome the intensity test already called
+whole:
+    const wholeByIntensity = new Set(result.chroms.filter((c) => c.aneuploidy).map((c) => c.chrom))
+    const scannedCopyRaw = [...cnByChrom].filter(([c]) => !wholeByIntensity.has(c))
+The comment above `whole` gives the reason: "a chromosome already called whole is not scanned for a
+segment inside it, since that is the same event described twice." That holds while the whole test
+fires only on whole events. Since 6.0.0 it fires more often: the whole-chromosome null is taken
+inside the largest gap-connected group of chromosome medians (intensityNull.majorityScale), which
+tightened the spread on chaotic cells, so the same median shift reads a much larger z (on the cells
+of the trace: -2.6 to -9.4, -4.6 to -15.5, -1.0 to -16.6, -0.67 to -11.1). A deep loss on a third of
+a chromosome now pulls the chromosome's median over both whole-chromosome gates, the chromosome is
+called lost whole, and the piece, whose edge sits at a published cut, is never looked for.
+On the 195 published break coordinates this took 7 edges within 5 Mb that 5.54.0 printed (two
+blastomeres of one published embryo).
+
+THE RULE
+--------
+Every test below is one the tool already has, with its existing constant.
+1. The copy-number scan (scanCopyNumber, the no-call channel) also runs on an autosome the intensity
+   test called LOST whole, with the same reference and bars. Only its copy-loss pieces are kept
+   there. Chromosomes called gained whole are not scanned, as today.
+2. The rest of that chromosome is its markers outside those loss pieces. It is put to the
+   whole-chromosome test exactly as parentage.ts puts a chromosome to it: the median log R of the
+   rest, against the same null (lrrNull: centre, scale, units), is a change when
+   intensityDetects(calibratedZ(median, lrrNull), true) (z beyond Z_CHROMOSOME 5.49) AND
+   |median - centre| >= the floor the array earned (COPY_SHIFT_FLOOR 0.40, or COPY_SHIFT_FLOOR_BULK
+   0.14 on unamplified bulk); OR the rest's call rate over the genome's median chromosome call rate
+   is under CALL_COLLAPSE 0.60. The rest needs at least 200 markers, the minimum the whole test
+   asks of a chromosome.
+3. Where loss pieces were found and the rest is NOT a change by (2), the pieces account for the
+   chromosome's shift: the pieces are reported and the whole-chromosome loss is not (its
+   `aneuploidy` and `aneuploidyParent` are cleared).
+4. Where the rest IS a change by (2), or has fewer than 200 markers, the whole-chromosome loss
+   stands. A loss piece is reported beside it only where its own median sits at least
+   SEGMENT_LRR_SHIFT (1.0, the depth the scan asks of any loss piece below its baseline) below the
+   rest's median: a further copy lost inside a chromosome already down one, which is a second event
+   with its own edges. Other pieces there are the whole loss described twice and are dropped, as
+   today.
+5. Nothing else changes. The allele claims, the sets the likelihood scans and the homozygosity
+   filter read (`whole`, `lost`, taken before the scan), the gain scan, every withholding gate (a
+   withheld array records these pieces as withheld, like any other piece), the 80% restatement
+   filter against allele-named losses: all as in 6.10.0.
+
+PASS TESTS (plan item 3.4a, written there before this file)
+  B1. The 7 published break coordinates lost since 5.54.0 have an edge within 5 Mb again.
+  B2. Stated whole-chromosome losses found: not lower than 6.10.0 in any setup. No stated whole
+      loss is turned into a piece.
+  B3. Stated-normal chromosomes left alone: not lower than 6.10.0 in any setup.
+  B4. Every chromosome whose call changes from whole to piece is listed with the stated answer
+      beside it, and the published coordinate against the printed edge interval.
+  B5. All checks pass; suite no worse; browser run; released as its own version.
+  Counting: score.py's per-chromosome rule (a stated whole loss is found when a loss is printed on
+  that chromosome, whole or piece; a stated normal is left alone when nothing is printed on it) and,
+  for B1, the 6.0.0 break definition (nearest raw window edge, printed or withheld, within 5 Mb).
+
+PREDICTION FROM THE RECORDS (before the run)
+  B1. Turning the skip off on the four trace arrays brought back the same 5.54.0 pieces, at 0.9 to
+      3.4 Mb from the 7 coordinates, deltas -1.8 to -2.1 against the reference, on chromosomes whose
+      whole median reads -0.42 to -0.72. The records do not hold the rest's median. Estimated from
+      the share each piece covers (16% to 36% of the chromosome): two to four of the five
+      chromosomes have a rest under the 0.40 floor and convert by rule 3; one or two (the
+      chromosome with a 31 Mb piece and a whole median of -0.69 most likely) keep the whole call and
+      report the piece by rule 4, since the piece sits more than 1.0 below a rest near -0.6.
+      Prediction: 7 of 7 by the B1 count either way. Certain only after the run.
+  B2. A whole-loss call becomes a piece only where the scan finds a piece at least 1.0 below the
+      reference inside it. Most stated whole losses are monosomies reading -0.4 to -0.7 with no such
+      piece, and nullisomies are covered end to end by their pieces (rest under 200 markers or
+      itself lost). Prediction: 0 stated whole losses become pieces; the count of found stated whole
+      losses cannot fall, since a converted chromosome still prints a loss.
+  B3. The rule touches only chromosomes already called lost whole and only replaces or adds loss
+      claims there. A stated-normal chromosome with no whole call is untouched. Prediction: no
+      change in any setup (certain, short of a fault in the build).
+  B4. Expected: the five trace chromosomes, plus a few on chaotic arrays where a deep piece sits in
+      a monosomy (they would show under rule 4, not as conversions).
+
+FIRST RUN, AND THE FAULT IT FOUND (written before any rerun)
+------------------------------------------------------------
+Run once on tesla, 636 open rows (270 with a parent, 330 with none, 36 more with none that carry
+published break coordinates or hand calls), against the 6.10.0 records of the same rows.
+  B1 met: all 7 coordinates have an edge within 5 Mb again (0.88 to 3.43 Mb); 30 of 195 in all,
+     against 12.
+  B3 met: stated normals left alone identical in every setup.
+  B2 FAILED on its second clause. Found counts are identical in every setup, but 4 stated whole
+     losses were turned into pieces (one of them in all four setups): 7 chromosome-rows.
+Cause, measured on those chromosomes with the build plus a debug line (no parent):
+  1. The rest test reads "no change" where the rest is a full copy down but noisy. A monosomy with
+     a deeper stretch on its distal 30%: rest shift -0.594, past the 0.40 floor, z -4.17 under 5.49.
+     Rule 2 asked the rest to fail the whole-chromosome test, which needs BOTH the z and the floor
+     to call a change; a noisy cell's rest fails the z and was then read as "at the cell's level".
+     Failing to be significant is not reading at the level.
+  2. Pieces covering nearly the whole chromosome leave a sliver near a telomere (543 to 1,129
+     markers, 1 to 3% of the chromosome), and the sliver was taken as "the rest". On chr8 of two
+     cells the sliver read -0.95 at z -2.93, so the whole call was dropped for a piece from 0.16 to
+     144.4 Mb. The same flaw printed a whole-length piece BESIDE a whole call by rule 4 (chr7 of one
+     cell, 0.04 to 146.19 Mb): the whole loss described twice.
+Change (existing constants only; the bars do not move):
+  2'. The rest reads at the cell's own level when |median - centre| is under the floor the array
+      earned (COPY_SHIFT_FLOOR 0.40, or COPY_SHIFT_FLOOR_BULK 0.14) and its call rate over the
+      genome median is not under CALL_COLLAPSE 0.60. The z is not asked: it tests whether a change
+      is bigger than the array's noise, not whether there is none.
+  4'. Where the loss pieces together cover 80% or more of the chromosome's span (first to last
+      marker), they are the whole loss: the whole call stands and no piece is reported there. 80% is
+      the restatement share the copy scan already uses against an allele-named loss.
+Every other line of the rule is unchanged. Rerun on the same 636 rows, scored the same way.
+
+RESULT (rerun with 2' and 4', the same 636 rows, scored the same way)
+--------------------------------------------------------------------
+                                     6.10.0              this build
+  B1  the 7 lost coordinates          0 of 7              7 of 7 within 5 Mb (0.88 to 3.43 Mb raw
+                                                          window); with refined edges 5 of 7 lie
+                                                          inside the printed edge interval, the
+                                                          other two 0.16 and 0.56 Mb off
+      all 195 coordinates             12 of 195           29 of 195 (6.0.0 break definition)
+  B2  stated whole losses found
+      no parent                       56 of 200           56 of 200
+      measured father                 104 of 150          104 of 150
+      rebuilt father                  102 of 150          102 of 150
+      both parents                    102 of 150          102 of 150
+      rebuilt father, lab stand-in    28 of 45            28 of 45
+      stated whole loss turned into a piece               0 (was 7 rows on the first run)
+  B3  stated normals left alone
+      no parent                       1653 of 1677        1653 of 1677
+      measured father                 436 of 477          436 of 477
+      rebuilt father                  445 of 477          445 of 477
+      both parents                    433 of 477          433 of 477
+      rebuilt father, lab stand-in    913 of 915          913 of 915
+  B4  48 chromosome-rows change (listed below): 34 whole to piece, 14 a piece beside a whole call.
+      By stated answer: 21 + 5 no stated answer (published-break cells and lab cells whose tables
+      give no per-chromosome state); 12 + 5 stated segmental loss (chr16 of Turocy cells, "del 16q"),
+      now printed as a piece where they were a whole loss; 1 stated dup 16p plus del 16q, now a loss
+      piece; 4 stated whole loss (one cell, every setup), where the whole call stands and a deeper
+      piece over the distal third of the chromosome is printed beside it. None on a stated normal.
+      No whole-chromosome gain moved. No call outside chromosomes called lost whole moved.
+  B5  met. Checks: tsc, scripts/checks.sh, scripts/release-check.sh pass by exit code on this
+      branch merged with 6.12.0. Suite: run on the branch merged with 6.11.0, scored against the
+      6.11.0 scorecard: NOTHING MOVED SINCE PREVIOUS (records on tesla, /root/pieces1117-records).
+      Browser run on the build merged with 6.12.0 (headless, real arrays):
+        - a published cell with a stated 16q deletion, no parent: one change, "chr16 65.8 Mb copy
+          lost, parent not named", marked on the figure.
+        - the published cell with a stated monosomy 6, no parent: "chr6 whole copy lost, parent not
+          named" and "chr6 50.4 Mb second copy lost too", 4 changes in the headline and 4 rows in
+          the list; with the father: "chr6 whole father's copy missing" counted and "chr6 50.4 Mb
+          second copy lost too" under seen once, 2 changes and 7 stretches, as listed. No loss row
+          reads "extra copy". The opened "second copy lost too" row gives its evidence sentence
+          and the chromosome in the whole-cell figure; no figure of its own is drawn ("A single
+          cell cannot show this stretch by eye, so it is not drawn on its own").
+        - cell-A of the page check, both parents: card text identical to 6.12.0.
+        - console: only the /api/health 502 of the dev server.
+
+What the edges show. On the published-break cells the new pieces end at the cut: 14 of the 24
+coordinates on changed chromosomes lie inside the edge interval, 8 more within 3 Mb of it, and 2 are other cuts on a chromosome where one piece is printed. The Turocy chr16 pieces
+start at 22.86 Mb, a raw window edge, 11 to 12 Mb short of the published 16p11.2 coordinates: the
+kind is now right (a segmental loss) and the edge is not.
+
+Not expected. The cell whose stated monosomy now carries a deeper piece (rest of the chromosome
+-0.59, the distal third about 1.4 lower) reads a second copy lost there that its table does not
+state. It is printed with the whole call, not instead of it; it goes to the Phase 5 list.
+
+Edge intervals for B4 come from the same build rerun on the 25 no-parent rows with a changed
+chromosome, with run.ts also recording each segment's refined interval (a harness-only change).
+
+THE CHANGED CHROMOSOMES (cells numbered within their source; the key stays in audit/local/)
+  lab cell (no published table) 1  chr9   no parent                  whole to piece      copy-loss 110.35-138.38  | stated: no stated answer
+  lab cell (no published table) 2  chr10  no parent                  whole to piece      copy-loss 51.57-122.41; copy-loss 122.41-134.31  | stated: no stated answer
+  Jerabek cell 1                   chr12  no parent                  whole to piece      copy-loss 51.07-122.69; copy-loss 125.91-131.26; copy-loss 39.62-49.13  | stated: no stated answer
+                                   published: 39.400-39.405 Mb: 0.22 Mb off
+  Jerabek cell 2                   chr12  no parent                  whole to piece      copy-loss 51.07-122.69; copy-loss 125.91-131.26; copy-loss 41.48-51.06  | stated: no stated answer
+                                   published: 39.365-39.386 Mb: 2.10 Mb off
+  Jerabek cell 3                   chr12  no parent                  whole to piece      copy-loss 51.07-122.69; copy-loss 125.91-131.26; copy-loss 41.48-51.06  | stated: no stated answer
+                                   published: 38.700-38.900 Mb: 2.58 Mb off
+  Jerabek cell 3                   chr12  rebuilt father (stand-in)  whole to piece      copy-loss 51.07-122.69; copy-loss 125.91-131.26; copy-loss 41.48-51.06  | stated: no stated answer
+  Jerabek cell 4                   chr9   no parent                  whole to piece      copy-loss 76.04-138.38  | stated: no stated answer
+                                   published: 70.974-70.984 Mb: INSIDE the edge interval
+  Jerabek cell 5                   chr9   no parent                  whole to piece      copy-loss 101.68-133.87  | stated: no stated answer
+                                   published: 104.704-104.713 Mb: 2.93 Mb off
+  Jerabek cell 5                   chr9   rebuilt father (stand-in)  whole to piece      copy-loss 101.68-133.87  | stated: no stated answer
+  Jerabek cell 6                   chr1   no parent                  whole to piece      copy-loss 0.09-57.88  | stated: no stated answer
+                                   published: 55.549-55.554 Mb: INSIDE the edge interval; 55.681-55.696 Mb: 0.16 Mb off
+  Jerabek cell 6                   chr3   no parent                  piece beside whole  copy-loss 5.58-36.97  | stated: no stated answer
+                                   published: 4.500-4.700 Mb: INSIDE the edge interval; 34.800-35.000 Mb: INSIDE the edge interval
+  Jerabek cell 6                   chr9   no parent                  piece beside whole  copy-loss 101.68-133.87; copy-loss 133.88-138.38  | stated: no stated answer
+                                   published: 100.911-100.916 Mb: 0.76 Mb off
+  Jerabek cell 6                   chr10  no parent                  whole to piece      copy-loss 104.62-134.31  | stated: no stated answer
+                                   published: 95.056-95.061 Mb: INSIDE the edge interval
+  Jerabek cell 7                   chr1   no parent                  piece beside whole  copy-loss 0.09-57.88  | stated: no stated answer
+                                   published: 55.525-55.529 Mb: INSIDE the edge interval; 55.614-55.634 Mb: INSIDE the edge interval
+  Jerabek cell 8                   chr1   no parent                  whole to piece      copy-loss 0.09-57.88; copy-loss 209.83-241.28  | stated: no stated answer
+                                   published: 55.524-55.529 Mb: INSIDE the edge interval; 206.200-206.400 Mb: 0.56 Mb off
+  Jerabek cell 8                   chr2   no parent                  whole to piece      copy-loss 0.01-62.78  | stated: no stated answer
+                                   published: 73.119-73.138 Mb: INSIDE the edge interval
+  Jerabek cell 8                   chr9   no parent                  whole to piece      copy-loss 101.68-133.87  | stated: no stated answer
+                                   published: 104.644-104.649 Mb: INSIDE the edge interval
+  Jerabek cell 8                   chr1   rebuilt father (stand-in)  whole to piece      copy-loss 0.09-57.88; copy-loss 209.83-241.28  | stated: no stated answer
+  Jerabek cell 8                   chr2   rebuilt father (stand-in)  whole to piece      copy-loss 0.01-62.78  | stated: no stated answer
+  Jerabek cell 8                   chr9   rebuilt father (stand-in)  whole to piece      copy-loss 101.68-133.87  | stated: no stated answer
+  Jerabek cell 9                   chr11  no parent                  piece beside whole  copy-loss 0.19-61.25  | stated: no stated answer
+                                   published: 50.700-50.900 Mb: INSIDE the edge interval
+  Jerabek cell 10                  chr3   no parent                  piece beside whole  copy-loss 0.07-28.37  | stated: no stated answer
+                                   published: 4.742-4.751 Mb: INSIDE the edge interval; 23.473-23.507 Mb: INSIDE the edge interval
+  Jerabek cell 10                  chr9   no parent                  whole to piece      copy-loss 110.35-138.38  | stated: no stated answer
+                                   published: 36.700-36.900 Mb: 67.83 Mb off; 90.300-90.500 Mb: 14.23 Mb off; 104.683-104.713 Mb: INSIDE the edge interval
+  Jerabek cell 11                  chr1   no parent                  whole to piece      copy-loss 12.20-78.06; copy-loss 0.09-12.20  | stated: no stated answer
+                                   published: 78.064-78.067 Mb: 0.00 Mb off
+  Jerabek cell 11                  chr1   rebuilt father (stand-in)  whole to piece      copy-loss 12.20-78.06; copy-loss 0.09-12.20  | stated: no stated answer
+  Zuccaro cell 1                   chr6   measured father            piece beside whole  copy-loss 137.86-169.07; copy-loss 118.64-137.86  | stated: loss:whole
+  Zuccaro cell 1                   chr6   no parent                  piece beside whole  copy-loss 137.86-169.07; copy-loss 118.64-137.86  | stated: loss:whole
+  Zuccaro cell 1                   chr6   rebuilt father             piece beside whole  copy-loss 137.86-169.07; copy-loss 118.64-137.86  | stated: loss:whole
+  Zuccaro cell 1                   chr6   both parents               piece beside whole  copy-loss 137.86-169.07; copy-loss 118.64-137.86  | stated: loss:whole
+  Turocy cell 1                    chr16  no parent                  whole to piece      copy-loss 22.86-88.69  | stated: gain+loss:segmental
+                                   published: 33.547-33.555 Mb: 10.69 Mb off
+  Turocy cell 2                    chr16  no parent                  whole to piece      copy-loss 22.86-88.69  | stated: no stated answer
+  Turocy cell 3                    chr16  no parent                  piece beside whole  copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 35.257-46.502 Mb: 12.40 Mb off
+  Turocy cell 3                    chr16  rebuilt father (stand-in)  piece beside whole  copy-loss 22.86-88.69  | stated: loss:segmental
+  Turocy cell 4                    chr16  no parent                  piece beside whole  copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 35.257-46.502 Mb: 12.40 Mb off
+  Turocy cell 5                    chr16  no parent                  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 34.179-34.197 Mb: 11.32 Mb off
+  Turocy cell 5                    chr16  rebuilt father (stand-in)  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+  Turocy cell 6                    chr16  no parent                  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 35.175-35.257 Mb: 12.32 Mb off
+  Turocy cell 6                    chr16  rebuilt father (stand-in)  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+  Turocy cell 7                    chr16  no parent                  piece beside whole  copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 35.257-46.502 Mb: 12.40 Mb off
+  Turocy cell 7                    chr16  rebuilt father (stand-in)  piece beside whole  copy-loss 22.86-88.69  | stated: loss:segmental
+  Turocy cell 8                    chr16  no parent                  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 35.257-46.502 Mb: 12.40 Mb off
+  Turocy cell 8                    chr16  rebuilt father (stand-in)  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+  Turocy cell 9                    chr16  no parent                  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 34.179-34.197 Mb: 11.32 Mb off
+  Turocy cell 9                    chr16  rebuilt father (stand-in)  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+  Turocy cell 10                   chr16  no parent                  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 35.257-46.502 Mb: 12.40 Mb off
+  Turocy cell 10                   chr16  rebuilt father (stand-in)  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+  Turocy cell 11                   chr16  no parent                  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+                                   published: 34.179-34.197 Mb: 11.32 Mb off
+  Turocy cell 11                   chr16  rebuilt father (stand-in)  whole to piece      copy-loss 22.86-88.69  | stated: loss:segmental
+
+FINAL CHANGELOG PARAGRAPH
+-------------------------
+**A chromosome lost in part is no longer called lost whole.** Since 6.0.0 a deep loss over part of
+a chromosome could move that chromosome's median past both whole-chromosome gates; the tool then
+called the whole chromosome lost and never looked for the piece or the edge where it was cut. A
+chromosome called lost whole is now read again in pieces. Where the rest of it reads at the cell's
+own level, the pieces are printed instead of the whole call; where the rest is a copy down as well,
+the whole call stands and a piece a further copy down is printed beside it as "second copy lost
+too"; pieces covering 80% of the chromosome are the whole loss. No constant is new. On the open
+rows the 7 published break coordinates lost since 5.54.0 have an edge within 5 Mb again (7 of 7),
+and 29 of all 195 published coordinates do, against 12. Stated whole losses found and stated
+normals left alone are identical in every setup. 48 chromosome-rows change; 17 of them are a stated
+piece that had printed as a whole loss. A first run turned 7 stated whole-loss rows into pieces; the
+rest test was corrected to read the cell's own level without asking for significance, and to treat
+pieces over 80% of the chromosome as the whole loss, and the rerun turned none. Shortfall: on the
+stated chr16 pieces the printed start is a raw window edge 11 to 12 Mb from the published
+coordinate, so the kind of change is now right and that edge is not.

@@ -319,10 +319,14 @@ RELEASES: tuple[Release, ...] = (
             "A karyogram lays a cell's chromosomes out in order, so a missing or extra one is "
             "seen at a glance. The result card now draws each parent's copy across the "
             "chromosomes that way, and its headline says what was found."),
+    Release("Deletion",
+            "A deletion takes part of a chromosome and leaves the rest. A chromosome whose "
+            "median the whole-chromosome test pushed over the line was called lost entire, "
+            "and the cut was never looked for. It is now read again in pieces."),
 )
 
-VERSION = "6.12.0"
-CODENAME = "Karyogram"
+VERSION = "6.13.0"
+CODENAME = "Deletion"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

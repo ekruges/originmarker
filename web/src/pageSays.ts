@@ -288,6 +288,12 @@ export interface ChangeRow {
   whole: boolean
   startBp: number
   endBp: number
+  /**
+   * A copy-loss piece from the copy scan on a chromosome that also carries a whole-chromosome loss:
+   * partLost.ts prints such a piece only where it sits a further copy below the rest, so it is a
+   * second copy lost there, not the whole loss again.
+   */
+  deeper?: boolean
 }
 
 export interface ChangeList {
@@ -337,6 +343,10 @@ export function changeList(defects: readonly Defect[], setup: Setup): ChangeList
   }
   const rows = mergeDoubled([...groups.values()])
   for (const g of rows) g.pieces.sort((a, b) => a.startBp - b.startBp)
+  for (const g of rows) {
+    g.deeper = !g.whole && g.pieces.every((p) => p.kind === 'copy-loss' && p.step === 'intensity')
+      && rows.some((w) => w.whole && w.chrom === g.chrom && !w.gain && w.call !== 'imbalance')
+  }
   rows.sort((a, b) => chromOrder(a.chrom) - chromOrder(b.chrom) || a.startBp - b.startBp)
   return {
     counted: rows.filter((g) => COUNTED.has(g.word)),
@@ -401,6 +411,7 @@ export function whoseText(g: ChangeRow): string {
   if (g.call === 'imbalance') return 'parents unbalanced'
   if (g.call === 'finding') return (g.pieces[0].kind ?? '').replace(/-/g, ' ')
   if (g.gain) return who ? `extra copy, the ${who}` : 'extra copy, parent not named'
+  if (g.deeper) return 'second copy lost too'
   if ((g.call === 'doubled' || g.pieces[0].kind === 'copy-loss') && !who) return 'copy lost, parent not named'
   return who ? `${who} copy missing` : "a parent's copy missing, parent not named"
 }

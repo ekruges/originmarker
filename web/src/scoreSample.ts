@@ -27,6 +27,7 @@ import {
   segmentCoords, type MarkerAbsence,
   type Segment, RECIPROCAL_OVERLAP, MIN_SEGMENT_SPAN_BP, canDetectLoss,
 } from './segments.ts'
+import { readLostChromosome, RESTATED_SHARE, type PartLost } from './partLost.ts'
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground, scanAlleleGains,
   type ChromShare,
@@ -1522,7 +1523,19 @@ export async function scoreSample(input: {
   // differ with how many parents are loaded, so the scan itself depended on the parents. A segment that
   // restates an allele-named loss across most of the chromosome is dropped below, at reporting, not here.
   const wholeByIntensity = new Set(result.chroms.filter((c) => c.aneuploidy).map((c) => c.chrom))
-  const scannedCopyRaw = [...cnByChrom].filter(([c]) => !wholeByIntensity.has(c))
+  // A CHROMOSOME CALLED LOST WHOLE IS READ AGAIN IN PIECES: see partLost.ts. Where its loss pieces
+  // account for the shift the pieces are reported and the whole call is not; where the rest is lost
+  // as well the whole call stands, with any piece a further copy down beside it.
+  const partLost = new Map<string, PartLost>()
+  if (result.copyNull) {
+    for (const c of result.chroms) {
+      if (c.aneuploidy !== 'loss' || !isAutosome(c.chrom)) continue
+      const ms = cnByChrom.get(c.chrom)
+      if (ms) partLost.set(c.chrom, readLostChromosome(ms, externalNull(noCall, c.chrom), genomeLrr, result.copyNull))
+    }
+  }
+  const scannedCopyRaw = [...[...partLost.values()].flatMap((p) => p.pieces), ...[...cnByChrom]
+    .filter(([c]) => !wholeByIntensity.has(c))
     .flatMap(([c, ms]) => {
       const byNoCall = scanCopyNumber(ms, externalNull(noCall, c), genomeLrr)
       return [
@@ -1531,7 +1544,13 @@ export async function scoreSample(input: {
         ...(unresolved.has(c) ? []
           : scanCopyGain(ms, externalNull(gainProfile.byChrom, c), genomeLrr, gainProfile, byNoCall)),
       ]
-    })
+    })]
+  for (const [chrom, p] of partLost) {
+    if (p.whole) continue
+    const c = result.chroms.find((x) => x.chrom === chrom)!
+    c.aneuploidy = undefined
+    c.aneuploidyParent = undefined
+  }
   // ONE EVENT, TWO LINES OF EVIDENCE. A copy loss covering 80% or more of a chromosome the alleles already
   // name as missing a parent's copy is that same loss, so the chromosome row carries it and the segment
   // is not printed a second time. A partial segment inside it is a different claim and stands.
@@ -1543,7 +1562,7 @@ export async function scoreSample(input: {
   }
   const alleleLost = new Set(result.chroms.filter((c) => c.lostParent).map((c) => c.chrom))
   const scannedCopy = scannedCopyRaw.filter((sg) => !(sg.kind === 'copy-loss' && alleleLost.has(sg.chrom)
-    && (sg.endBp - sg.startBp) >= 0.8 * spanOf(sg.chrom)))
+    && (sg.endBp - sg.startBp) >= RESTATED_SHARE * spanOf(sg.chrom)))
   // RUN EVEN WHERE WITHHELD, and recorded rather than reported, so the census can score what the
   // withholding cost. Nothing below reads `scannedCopy` except through `copy`.
   const copyWithheld = uninterpretable || chaoticGenome || intensityWithheld
@@ -2083,7 +2102,8 @@ export async function scoreSample(input: {
       kind,
       origin: c.verdict === 'other homologue'
         ? 'this parent, other homologue (meiotic)' : 'not determinable',
-      why: mat ? c.why
+      // The extra-copy sentence is about a gain; a loss here carries the homologue reading alone.
+      why: mat || event === 'loss' ? c.why
         : `${c.why}. Which PARENT supplied it is not in question: this cell carries one `
           + 'parent\'s genome, so the extra copy is that parent\'s. Naming a parent for a '
           + 'gain needs a biparental cell and both parents loaded.',
