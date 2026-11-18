@@ -4,6 +4,8 @@ public GSE186441 genotype matrix.
 Run on the machine that holds the arrays:
     python3 audit/make-examples.py <units.tsv> <src-dir> <out-dir> <stride> GSM:name [GSM:name ...]
     python3 audit/make-examples.py --check <src-dir> <stride> <example.csv.gz> [...]
+    python3 audit/make-examples.py --one <units.tsv> <array-id> <src> <stride> <out.csv.gz>
+    python3 audit/make-examples.py --check-one <array-id> <src> <stride> <out.csv.gz>
     python3 audit/make-examples.py --matrix <units.tsv> <matrix.gz> <sample> <platform.probes.gz> <stride> <out.csv.gz>
     python3 audit/make-examples.py --check-matrix <matrix.gz> <sample> <platform.probes.gz> <stride> <out.csv.gz>
 
@@ -16,6 +18,9 @@ same rows as the GSE148488 files, with the marker's chromosome and position from
 the same platform, and the adult's call copied as text. A marker the matrix does not carry is left
 out. The adult is refused if units.tsv lists the sample at all, sealed or open.
 
+`--one` takes any array the answer key lists open, by the id the key uses, and the file to read,
+which is how a public array of another series becomes an example. Everything else is the same.
+
 Only arrays listed open under GSE148488 in units.tsv are read. Anything else, a sealed array or
 a laboratory array, is refused before its file is opened.
 """
@@ -25,6 +30,9 @@ import sys
 
 OUT_COLS = ["probeset_id", "copy_number", "chr", "position", "log2R", "baf", "genotype"]
 SRC_COL = {"log2R": "normalized_intensity"}
+# Kept where the source has it: the tool excludes a marker this column marks as not the best probe,
+# so a file written without it is not the file that was scored.
+BEST = "BestProbeset"
 
 
 def open_public(units_path):
@@ -33,12 +41,24 @@ def open_public(units_path):
                 if r["series"] == "GSE148488" and r["split"] == "open"}
 
 
-def rows(path, stride):
+def reader(f):
+    """The header decides the delimiter and the spelling of the intensity column."""
+    head = f.readline()
+    delim = "\t" if head.count("\t") > head.count(",") else ","
+    names = head.rstrip("\n").split(delim)
+    f.seek(0)
+    next(f)
+    col = {c: (c if c in names else SRC_COL.get(c)) for c in OUT_COLS}
+    return csv.DictReader(f, fieldnames=names, delimiter=delim), col, names
+
+
+def rows(path, stride, keep_best=False):
     with gzip.open(path, "rt", newline="") as f:
-        r = csv.DictReader(f)
+        r, col, names = reader(f)
+        out = list(OUT_COLS) + ([BEST] if keep_best and BEST in names else [])
         for i, row in enumerate(r):
             if i % stride == 0:
-                yield [row[SRC_COL.get(c, c)] for c in OUT_COLS]
+                yield [row.get(col.get(c, c)) or "" if c in col else row[c] for c in out]
 
 
 def write(units, src, out, stride, pairs):
@@ -68,6 +88,38 @@ def check(src, stride, files):
         want = list(rows(f"{src}/{gsm}.probes.gz", stride))
         assert got[1:] == want, f"{path}: rows differ from every {stride}th row of {gsm}"
         print(f"{path}: {len(want)} rows equal the source")
+
+
+def open_any(units_path):
+    with open(units_path) as f:
+        return {r["array"] for r in csv.DictReader(f, delimiter="\t") if r["split"] == "open"}
+
+
+def write_one(units, array_id, src, stride, dest):
+    if array_id not in open_any(units):
+        sys.exit(f"{array_id}: not listed open in {units}, refused")
+    n = 0
+    with gzip.GzipFile(dest, "wb", compresslevel=9, mtime=0) as g:
+        g.write((",".join(want_header(src)) + "\n").encode())
+        for row in rows(src, stride, keep_best=True):
+            g.write((",".join(row) + "\n").encode())
+            n += 1
+    print(f"{dest}\t{n} markers")
+
+
+def want_header(src):
+    with gzip.open(src, "rt", newline="") as f:
+        _, _, names = reader(f)
+    return list(OUT_COLS) + ([BEST] if BEST in names else [])
+
+
+def check_one(array_id, src, stride, path):
+    with gzip.open(path, "rt", newline="") as f:
+        got = list(csv.reader(f))
+    want = list(rows(src, stride, keep_best=True))
+    assert got[0] == want_header(src), f"{path}: header {got[0]}"
+    assert got[1:] == want, f"{path}: rows differ from every {stride}th row of {array_id}"
+    print(f"{path}: {len(want)} rows equal the source")
 
 
 MATRIX_COLS = ["probeset_id", "chr", "position", "genotype"]
@@ -115,7 +167,11 @@ def check_matrix(matrix, sample, platform, stride, path):
 
 if __name__ == "__main__":
     a = sys.argv[1:]
-    if a and a[0] == "--matrix":
+    if a and a[0] == "--one":
+        write_one(a[1], a[2], a[3], int(a[4]), a[5])
+    elif a and a[0] == "--check-one":
+        check_one(a[1], a[2], int(a[3]), a[4])
+    elif a and a[0] == "--matrix":
         write_matrix(a[1], a[2], a[3], a[4], int(a[5]), a[6])
     elif a and a[0] == "--check-matrix":
         check_matrix(a[1], a[2], a[3], int(a[4]), a[5])

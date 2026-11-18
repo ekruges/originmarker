@@ -2129,7 +2129,7 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           </Text>
           <Text mb={8}>
             Each file is every {ordinal(EXAMPLE_STRIDE)} marker of the release file,{' '}
-            {int(EXAMPLE_MARKERS)} per file, the same rows in each. The probe classification, which
+            {int(EXAMPLE_MARKERS)} per file, the same rows in each, on the same chip. The probe classification, which
             this tool never reads, is dropped. <b>No value is rounded or altered.</b> This is the
             thinnest density at which every card prints what the full arrays print. At every third
             marker the ten-change cell has lost too many chromosomes for the oocyte donor&apos;s

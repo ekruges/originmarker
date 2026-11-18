@@ -97,6 +97,10 @@ const PIN: Record<string, Record<string, {
     },
   },
   none: {
+    'GSM5651119_z14_biopsy.half.csv': {
+      head: 'TROPHECTODERM', sex: 'XY',
+      counted: ['chr16 46.8-88.5Mb loss unclear | position only'], once: [], seen: [],
+    },
     'GSM4472412_embryoE_TE.half.csv': {
       head: 'BULK', sex: 'XY',
       counted: ['chr6 66.4-170.9Mb loss unclear | position only'], once: [], seen: [],

@@ -41,7 +41,8 @@ export const EXAMPLE_SERIES = 'GSE148488'
 export const EXAMPLE_CITATION =
   'Zuccaro MV et al. Allele-specific chromosome removal after Cas9 cleavage in human embryos. '
   + 'Cell 2020;183(6):1650-1664. GEO GSE148488, Affymetrix Axiom, GRCh37. The second file labelled '
-  + 'sperm is an unrelated adult of GEO GSE186441, the series the founder panel is built from.'
+  + 'sperm is an unrelated adult of GEO GSE186441, the series the founder panel is built from. The '
+  + 'cell read with no parent and no family is of GEO GSE186407, Turocy J et al. Nat Commun 2026.'
 export const EXAMPLE_STRIDE = 2
 export const EXAMPLE_MARKERS = 412_828
 export const EXAMPLE_DENSITY = `Every second marker, ${EXAMPLE_MARKERS.toLocaleString('en-US')} per file. `
@@ -114,6 +115,22 @@ const ONE_PARENT_FATHER_LOSS = 'FATHER + SECOND PARENT, 1 change: the father\'s 
 const ONE_PARENT_TEN = 'FATHER + SECOND PARENT, 8 changes: five on the father\'s copy and three on '
   + 'the other parent\'s, read against his array alone.'
 
+/**
+ * A cell of a second study, read with nothing loaded at all: the copy-number channel alone.
+ *
+ * The full array calls this stretch from 22.9 Mb, which reaches 14 Mb into the short arm; at this
+ * density it is called from 46.8 Mb, inside the arm the paper states. Both are the same loss.
+ */
+const NO_PARENT_COPY_LOST: Example = {
+  gsm: 'GSM5651119',
+  file: 'GSM5651119_z14_biopsy.half.csv.gz',
+  role: 'sample',
+  what: 'a blastomere of a second study, GSE186407',
+  expect: 'TROPHECTODERM, 1 change: chromosome 16 has lost copy over 41.7 Mb of its long arm, '
+    + 'read from the intensity and the calls with no parent on file.',
+  source: 'Turocy et al. 2026, Table S2: del 16q',
+}
+
 /** The same two cells read with nothing loaded, where the headline is the material. */
 const NO_PARENT_CHANGE: Example = {
   ...FATHER_LOSS,
@@ -148,8 +165,9 @@ export const EXAMPLE_SETS: ExampleSet[] = [
   {
     id: 'none',
     label: 'No parent',
-    line: 'No parent on file: the material, the sex chromosomes and copy number, with no parent named.',
-    examples: [NO_PARENT_CHANGE, NO_PARENT_NORMAL],
+    line: 'No parent on file: the material, the sex chromosomes and copy number, with no parent '
+      + 'named. The first cell is of another study, so nothing in this run shares a family.',
+    examples: [NO_PARENT_COPY_LOST, NO_PARENT_CHANGE, NO_PARENT_NORMAL],
   },
 ]
 
