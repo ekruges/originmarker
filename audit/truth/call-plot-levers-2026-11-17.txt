@@ -1,5 +1,6 @@
 Levers for the hard cases of the "letters present" figure. Rules written before any count.
-17 November 2026. Open GSE148488 cells with a published karyotype (the 30 of the study), stated
+17 November 2026. Open cells of the public Zuccaro 2020 series with a published karyotype (the 30 of
+the study), stated
 stretches as in study.py (band to GRCh37, guard at each edge). Never a sealed array.
 
 THE FIGURE (what is drawn, per setup)

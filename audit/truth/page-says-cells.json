@@ -1,73 +1,15 @@
 [
 {
-"accession": "GSM4472401",
+"cell": "cell 1",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
-"cls": "unclear",
+"cls": "biparental",
 "loaded": [
 {
 "who": "father",
 "check": "carries",
-"present": 17,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 19,
-"read": 22,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4472401",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 17,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472401",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 15,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472403",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 19,
+"present": 1,
 "read": 22,
 "absent": false
 },
@@ -82,7 +24,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4472403",
+"cell": "cell 1",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -91,7 +33,7 @@
 {
 "who": "father",
 "check": "carries",
-"present": 19,
+"present": 1,
 "read": 22,
 "absent": false
 }
@@ -99,65 +41,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472403",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 17,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472405",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 13,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 7,
-"read": 14,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4472405",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 13,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472405",
+"cell": "cell 1",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -167,122 +51,6 @@
 "who": "father",
 "check": "carries",
 "present": 8,
-"read": 14,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472409",
-"setup": "two",
-"failed": false,
-"zygosity": "unknown",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 7,
-"read": 12,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 4,
-"read": 12,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4472409",
-"setup": "father",
-"failed": false,
-"zygosity": "unknown",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 7,
-"read": 12,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4472409",
-"setup": "recon",
-"failed": false,
-"zygosity": "unknown",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 7,
-"read": 12,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4472410",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 15,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 0,
-"read": 22,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4472410",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 15,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472410",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 14,
 "read": 21,
 "absent": false
 }
@@ -290,65 +58,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472412",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 20,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 0,
-"read": 21,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4472412",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 20,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472412",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 18,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472413",
+"cell": "cell 2",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -372,7 +82,7 @@
 "expected": "UNCLEAR"
 },
 {
-"accession": "GSM4472413",
+"cell": "cell 2",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -389,7 +99,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472413",
+"cell": "cell 2",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -406,7 +116,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472421",
+"cell": "cell 3",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -415,14 +125,72 @@
 {
 "who": "father",
 "check": "carries",
-"present": 1,
+"present": 20,
 "read": 22,
 "absent": false
 },
 {
 "who": "mother",
 "check": "carries",
-"present": 21,
+"present": 0,
+"read": 21,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 3",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 20,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 3",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 18,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 4",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 15,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 0,
 "read": 22,
 "absent": false
 }
@@ -430,7 +198,123 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4472421",
+"cell": "cell 4",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 15,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 4",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 14,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 5",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 20,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 14,
+"read": 22,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 5",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 20,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 5",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 15,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 6",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 10,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 1,
+"read": 21,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 6",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -439,7 +323,7 @@
 {
 "who": "father",
 "check": "carries",
-"present": 1,
+"present": 10,
 "read": 22,
 "absent": false
 }
@@ -447,7 +331,123 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472421",
+"cell": "cell 6",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 11,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 7",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 13,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 0,
+"read": 21,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 7",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 13,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 7",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 9,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 8",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 12,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "unshown",
+"present": 0,
+"read": 22,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 8",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 12,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 8",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -464,23 +464,23 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472422",
+"cell": "cell 9",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
-"cls": "biparental",
+"cls": "unclear",
 "loaded": [
 {
 "who": "father",
 "check": "carries",
-"present": 17,
+"present": 14,
 "read": 22,
 "absent": false
 },
 {
 "who": "mother",
 "check": "carries",
-"present": 20,
+"present": 0,
 "read": 22,
 "absent": false
 }
@@ -488,7 +488,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4472422",
+"cell": "cell 9",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -497,7 +497,7 @@
 {
 "who": "father",
 "check": "carries",
-"present": 17,
+"present": 14,
 "read": 22,
 "absent": false
 }
@@ -505,7 +505,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472422",
+"cell": "cell 9",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -514,7 +514,7 @@
 {
 "who": "father",
 "check": "carries",
-"present": 17,
+"present": 11,
 "read": 21,
 "absent": false
 }
@@ -522,7 +522,181 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472423",
+"cell": "cell 10",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 0,
+"read": 22,
+"absent": true
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 7,
+"read": 22,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 10",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "gynogenetic",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 0,
+"read": 22,
+"absent": true
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 10",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 0,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 11",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 14,
+"read": 20,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 4,
+"read": 20,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 11",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 14,
+"read": 20,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 11",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 12,
+"read": 19,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 12",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 10,
+"read": 18,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 5,
+"read": 17,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 12",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 10,
+"read": 18,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 12",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 10,
+"read": 17,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 13",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -546,7 +720,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4472423",
+"cell": "cell 13",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -563,7 +737,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472423",
+"cell": "cell 13",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -580,587 +754,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4472448",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 20,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 14,
-"read": 22,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4472448",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 20,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4472448",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 15,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552364",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 4,
-"read": 21,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4552364",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552364",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 11,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552365",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 17,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 0,
-"read": 22,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4552365",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 17,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552365",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "biparental",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 11,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552367",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 12,
-"read": 22,
-"absent": true
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 4,
-"read": 22,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4552367",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "gynogenetic",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 12,
-"read": 22,
-"absent": true
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4552367",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 14,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552369",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 13,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 0,
-"read": 22,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4552369",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 13,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552369",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 14,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552371",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 1,
-"read": 21,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4552371",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552371",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 11,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552372",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 13,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 0,
-"read": 21,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4552372",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 13,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552372",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 9,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552374",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 12,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "unshown",
-"present": 0,
-"read": 22,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4552374",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 12,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552374",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 8,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552376",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 14,
-"read": 22,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 0,
-"read": 22,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4552376",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 14,
-"read": 22,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552376",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 11,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552378",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 18,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 5,
-"read": 17,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4552378",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 18,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552378",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 10,
-"read": 17,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552380",
+"cell": "cell 14",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -1184,7 +778,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4552380",
+"cell": "cell 14",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -1201,7 +795,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552380",
+"cell": "cell 14",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -1218,7 +812,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552382",
+"cell": "cell 15",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -1242,7 +836,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4552382",
+"cell": "cell 15",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -1259,7 +853,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552382",
+"cell": "cell 15",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -1276,123 +870,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552384",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 0,
-"read": 22,
-"absent": true
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 7,
-"read": 22,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4552384",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "gynogenetic",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 0,
-"read": 22,
-"absent": true
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4552384",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 0,
-"read": 21,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552385",
-"setup": "two",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 14,
-"read": 20,
-"absent": false
-},
-{
-"who": "mother",
-"check": "carries",
-"present": 4,
-"read": 20,
-"absent": false
-}
-],
-"expected": "BOTH PARENTS"
-},
-{
-"accession": "GSM4552385",
-"setup": "father",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 14,
-"read": 20,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552385",
-"setup": "recon",
-"failed": false,
-"zygosity": "diploid",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "carries",
-"present": 12,
-"read": 19,
-"absent": false
-}
-],
-"expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552386",
+"cell": "cell 16",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -1416,7 +894,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4552386",
+"cell": "cell 16",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -1433,7 +911,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552386",
+"cell": "cell 16",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -1450,7 +928,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552387",
+"cell": "cell 17",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -1474,7 +952,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4552387",
+"cell": "cell 17",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -1491,7 +969,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552387",
+"cell": "cell 17",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -1508,7 +986,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552388",
+"cell": "cell 18",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -1532,7 +1010,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4552388",
+"cell": "cell 18",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -1549,7 +1027,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552388",
+"cell": "cell 18",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -1566,7 +1044,65 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552389",
+"cell": "cell 19",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 17,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 20,
+"read": 22,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 19",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 17,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 19",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 17,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 20",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -1590,7 +1126,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4552389",
+"cell": "cell 20",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -1607,7 +1143,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552389",
+"cell": "cell 20",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -1624,7 +1160,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552418",
+"cell": "cell 21",
 "setup": "two",
 "failed": true,
 "zygosity": "unknown",
@@ -1648,7 +1184,7 @@
 "expected": "UNCLEAR"
 },
 {
-"accession": "GSM4552418",
+"cell": "cell 21",
 "setup": "father",
 "failed": true,
 "zygosity": "unknown",
@@ -1665,7 +1201,7 @@
 "expected": "UNCLEAR"
 },
 {
-"accession": "GSM4552418",
+"cell": "cell 21",
 "setup": "recon",
 "failed": true,
 "zygosity": "unknown",
@@ -1682,7 +1218,529 @@
 "expected": "UNCLEAR"
 },
 {
-"accession": "GSM4552420",
+"cell": "cell 22",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 10,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 4,
+"read": 21,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 22",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 10,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 22",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 11,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 23",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 17,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 0,
+"read": 22,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 23",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 17,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 23",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 11,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 24",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 12,
+"read": 22,
+"absent": true
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 4,
+"read": 22,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 24",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "gynogenetic",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 12,
+"read": 22,
+"absent": true
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 24",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 14,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 25",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 13,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 0,
+"read": 22,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 25",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 13,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 25",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 14,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 26",
+"setup": "two",
+"failed": false,
+"zygosity": "unknown",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 7,
+"read": 12,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 4,
+"read": 12,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 26",
+"setup": "father",
+"failed": false,
+"zygosity": "unknown",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 7,
+"read": 12,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 26",
+"setup": "recon",
+"failed": false,
+"zygosity": "unknown",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 7,
+"read": 12,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 27",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 17,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 19,
+"read": 22,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 27",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 17,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 27",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 15,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 28",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 19,
+"read": 22,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 21,
+"read": 22,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 28",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 19,
+"read": 22,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 28",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 17,
+"read": 21,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 29",
+"setup": "two",
+"failed": true,
+"zygosity": "unknown",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "unshown",
+"present": 0,
+"read": 0,
+"absent": false
+},
+{
+"who": "mother",
+"check": "unshown",
+"present": 0,
+"read": 0,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 29",
+"setup": "father",
+"failed": true,
+"zygosity": "unknown",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "unshown",
+"present": 0,
+"read": 0,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 29",
+"setup": "recon",
+"failed": true,
+"zygosity": "unknown",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "unshown",
+"present": 0,
+"read": 0,
+"absent": false
+}
+],
+"expected": "UNCLEAR"
+},
+{
+"cell": "cell 30",
+"setup": "two",
+"failed": false,
+"zygosity": "diploid",
+"cls": "biparental",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 10,
+"read": 13,
+"absent": false
+},
+{
+"who": "mother",
+"check": "carries",
+"present": 7,
+"read": 14,
+"absent": false
+}
+],
+"expected": "BOTH PARENTS"
+},
+{
+"cell": "cell 30",
+"setup": "father",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 10,
+"read": 13,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 30",
+"setup": "recon",
+"failed": false,
+"zygosity": "diploid",
+"cls": "unclear",
+"loaded": [
+{
+"who": "father",
+"check": "carries",
+"present": 8,
+"read": 14,
+"absent": false
+}
+],
+"expected": "FATHER + SECOND PARENT"
+},
+{
+"cell": "cell 31",
 "setup": "two",
 "failed": false,
 "zygosity": "diploid",
@@ -1706,7 +1764,7 @@
 "expected": "BOTH PARENTS"
 },
 {
-"accession": "GSM4552420",
+"cell": "cell 31",
 "setup": "father",
 "failed": false,
 "zygosity": "diploid",
@@ -1723,7 +1781,7 @@
 "expected": "FATHER + SECOND PARENT"
 },
 {
-"accession": "GSM4552420",
+"cell": "cell 31",
 "setup": "recon",
 "failed": false,
 "zygosity": "diploid",
@@ -1738,63 +1796,5 @@
 }
 ],
 "expected": "FATHER + SECOND PARENT"
-},
-{
-"accession": "GSM4552422",
-"setup": "two",
-"failed": true,
-"zygosity": "unknown",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "unshown",
-"present": 0,
-"read": 0,
-"absent": false
-},
-{
-"who": "mother",
-"check": "unshown",
-"present": 0,
-"read": 0,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4552422",
-"setup": "father",
-"failed": true,
-"zygosity": "unknown",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "unshown",
-"present": 0,
-"read": 0,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
-},
-{
-"accession": "GSM4552422",
-"setup": "recon",
-"failed": true,
-"zygosity": "unknown",
-"cls": "unclear",
-"loaded": [
-{
-"who": "father",
-"check": "unshown",
-"present": 0,
-"read": 0,
-"absent": false
-}
-],
-"expected": "UNCLEAR"
 }
 ]

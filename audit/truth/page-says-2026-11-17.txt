@@ -1,7 +1,7 @@
 The page says what it found (plan item 3.14)
 ============================================
 17 November 2026. Branch page-says, built on call-plot-3 merged with 6.10.0. Measured on the 31
-published cells of Zuccaro 2020 Table S3 (GEO GSE148488), every one a child of both donors, in
+published cells of Zuccaro 2020 Table S3, every one a child of both donors, in
 three setups: both parents loaded, the father measured, the father rebuilt from his haploid cells.
 
 Sources: run.ts records of 6.10.0 (tags two, father, recon), the change lists the page itself builds
@@ -9,9 +9,11 @@ with both parents (cli/cardrun.ts over cli/exampleRun.ts), and the answer key
 audit/local/truth/truth.tsv. Produced by:
 
   python3 audit/truth/page_says.py --truth audit/local/truth --records <h.jsonl> --cards <cards.jsonl>
-    --fixture audit/truth/page-says-cells.json
+    --key audit/local/page-says-2026-11-17/cell-key.tsv --fixture audit/truth/page-says-cells.json
 
-The fixture holds, per accession and setup, what the headline reads and the word expected; the
+Cells are named by number, cell 1 to cell 31 in the order of the source table; the key to the
+arrays is kept untracked in audit/local/page-says-2026-11-17/cell-key.tsv. The fixture holds, per
+cell and setup, what the headline reads and the word expected; the
 check web/src/pageSays.check.ts replays it through pageSays.headlineOf and reads the MEASURED lines
 below against pageSays.MEASURED.
 
@@ -33,20 +35,21 @@ HEADLINE, expected word by setup
   rebuilt father   28 FATHER + SECOND PARENT, 3 UNCLEAR
 
   UNCLEAR, with the rule that keeps it
-    GSM4472409  two     copy number not read
-    GSM4472409  father  copy number not read
-    GSM4472409  recon   copy number not read
-    GSM4472413  two     a parent not shown
-    GSM4552367  two     two readings disagree (parent check carries, genome-wide absent)
-    GSM4552367  father  two readings disagree (parent check carries, genome-wide absent)
-    GSM4552374  two     a parent not shown
-    GSM4552384  two     two readings disagree (parent check carries, genome-wide absent)
-    GSM4552384  father  two readings disagree (parent check carries, genome-wide absent)
-    GSM4552418  two     failed array
-    GSM4552418  father  failed array
-    GSM4552418  recon   failed array
-    GSM4552422  two     failed array
-    GSM4552422  father  failed array
+    cell 2    two     a parent not shown
+    cell 8    two     a parent not shown
+    cell 10   two     two readings disagree (parent check carries, genome-wide absent)
+    cell 10   father  two readings disagree (parent check carries, genome-wide absent)
+    cell 21   two     failed array
+    cell 21   father  failed array
+    cell 21   recon   failed array
+    cell 24   two     two readings disagree (parent check carries, genome-wide absent)
+    cell 24   father  two readings disagree (parent check carries, genome-wide absent)
+    cell 26   two     copy number not read
+    cell 26   father  copy number not read
+    cell 26   recon   copy number not read
+    cell 29   two     failed array
+    cell 29   father  failed array
+    cell 29   recon   failed array
 
   Before this build the same cells read UNCLEAR on 21 (both parents), 26 (measured father) and 27
   (rebuilt father), and GYNOGENETIC on 2 with the measured father, which the paper contradicts.

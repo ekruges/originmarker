@@ -1068,7 +1068,8 @@ export async function scoreSample(input: {
       + 'separable here.')
   }
   for (const c of result.chroms) {
-    if (!c.lostParent || !c.contribution) continue
+    // The opposite-homozygote count needs both parents' arrays.
+    if (!c.lostParent || !c.contribution || !two) continue
     const k = c.contribution
     const [father, mother] = soloRole === 'paternal' ? [k.onlyA, k.onlyB] : [k.onlyB, k.onlyA]
     log('DONE', `chr${c.chrom}: the ${c.lostParent} copy is absent. Of ${k.informative} markers `

@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  changeList, changesText, COUNTED, disturbedText, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, rowLine,
+  changeList, changesText, COUNTED, defectsForResult, disturbedText, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, rowLine,
   saidOf, spanMb, whereText, whoseText, WORD, type HeadInput,
 } from './pageSays.ts'
 import type { Defect } from './defects.ts'
@@ -13,20 +13,20 @@ const root = new URL('../../audit/truth/', import.meta.url)
 // ---------------------------------------------------------------- P1, the 31 published cells
 {
   const cells = JSON.parse(readFileSync(new URL('page-says-cells.json', root), 'utf8')) as
-    (HeadInput & { accession: string; setup: string; expected: string })[]
+    (HeadInput & { cell: string; setup: string; expected: string })[]
   assert.equal(cells.length, 93, '31 cells in three setups')
   const words: Record<string, Record<string, number>> = {}
   for (const c of cells) {
     const h = headlineOf(c, '')
-    assert.equal(h.word, c.expected, `${c.accession} ${c.setup}: ${h.word}, expected ${c.expected}`)
-    if (h.word === 'UNCLEAR') assert.ok(h.reason && h.line.length > 20, `an unclear card says why: ${c.accession}`)
+    assert.equal(h.word, c.expected, `${c.cell} ${c.setup}: ${h.word}, expected ${c.expected}`)
+    if (h.word === 'UNCLEAR') assert.ok(h.reason && h.line.length > 20, `an unclear card says why: ${c.cell}`)
     ;(words[c.setup] ??= {})[h.word] = (words[c.setup][h.word] ?? 0) + 1
   }
   assert.equal(words.two['BOTH PARENTS'], 24)
   assert.equal(words.father['FATHER + SECOND PARENT'], 26)
   assert.equal(words.recon['FATHER + SECOND PARENT'], 28)
   // No cell gets a headline the paper contradicts: all 31 are children of both donors.
-  for (const c of cells) assert.ok(!['GYNOGENETIC', 'ANDROGENETIC', 'NEITHER PARENT'].includes(headlineOf(c, '').word), c.accession)
+  for (const c of cells) assert.ok(!['GYNOGENETIC', 'ANDROGENETIC', 'NEITHER PARENT'].includes(headlineOf(c, '').word), c.cell)
   console.log('  P1: 24 both parents, 26 father + second parent, 28 with the rebuilt father; the rest unclear with a reason')
 }
 
@@ -164,6 +164,32 @@ const cellA: Defect[] = [
   assert.equal(named.once.length, 1)
   assert.equal(whoseText(named.once[0]), "father's copy missing", 'the row names the parent the call names')
   assert.ok(!named.counted.length, 'never found two ways')
+}
+
+// ---------------------------------------------------------------- one parent, no two-parent count
+// The opposite-homozygote count needs both parents' arrays; a one-parent row quotes the copy-state
+// score instead, with the father measured, the father rebuilt or the mother alone.
+{
+  const chrom = (c: string, over: object = {}) => ({
+    chrom: c, aneuploidy: undefined, lostParent: undefined, callFraction: 1, lrrShift: 0,
+    copyState: { state: 'disomic', base: 0.2, r: 0.45, n1: 500, n2: 500 }, ...over,
+  })
+  const result = (role: 'paternal' | 'maternal', twoParents: boolean) => ({
+    role, twoParents, segments: [], gains: [], losses: [], oneParent: [], dosageCalls: [], findings: [],
+    chroms: [chrom('6', {
+      aneuploidy: 'loss', lostParent: role, callFraction: 0.75, lrrShift: -0.87,
+      contribution: { informative: 26930, fraction: 0.314, onlyA: 0, onlyB: 0 },
+      copyState: { state: 'parent-lost', base: 0.26, r: 0.97, n1: 4376, n2: 3238 },
+    }), ...['1', '2', '3'].map((c) => chrom(c))],
+  }) as never
+  for (const role of ['paternal', 'maternal'] as const) {
+    const one = defectsForResult(result(role, false)).find((d) => d.chrom === '6')!
+    assert.ok(!one.why.includes('opposite homozygotes'), `a one-parent row carries a two-parent count: ${one.why}`)
+    const who = role === 'paternal' ? 'father' : 'mother'
+    assert.ok(one.why.includes(`Read with the ${who} alone`) && one.why.includes('0.97') && one.why.includes('0.45'), one.why)
+    const two = defectsForResult(result(role, true)).find((d) => d.chrom === '6')!
+    assert.ok(two.why.includes('Of 26,930 markers where the parents are opposite homozygotes'), two.why)
+  }
 }
 
 // ---------------------------------------------------------------- P3: the table is the results file
