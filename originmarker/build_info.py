@@ -323,10 +323,14 @@ RELEASES: tuple[Release, ...] = (
             "A deletion takes part of a chromosome and leaves the rest. A chromosome whose "
             "median the whole-chromosome test pushed over the line was called lost entire, "
             "and the cut was never looked for. It is now read again in pieces."),
+    Release("Trophectoderm",
+            "The outer cells of a blastocyst, the few a clinic takes for testing and puts on an "
+            "array. The examples are now real trophectoderm biopsies and the donors beside them, "
+            "read three ways: both parents, one parent, and none."),
 )
 
-VERSION = "6.13.0"
-CODENAME = "Deletion"
+VERSION = "6.14.0"
+CODENAME = "Trophectoderm"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

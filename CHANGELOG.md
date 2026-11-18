@@ -9,6 +9,32 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.14.0 "Trophectoderm"
+
+**The Examples button becomes three, one per setup, and every card names a result.** The old
+set was built to show refusals: five of its nine samples were meant to read "neither parent",
+one was the father's own second array, and a new reader saw one clean pass in nine. The new
+set holds no negative control and no refusal.
+
+- **Both parents.** A sperm donor, an unrelated man, an egg donor and three of her cells. The
+  run finds the father: his genome is in 3 of 3 cells and the other man's in none. The cells
+  then read: a child with nothing changed; a child missing the father's copy of 6q, found two
+  ways; and a blastomere with ten changes, five naming the mother's copy and five the
+  father's, six of them whole chromosomes. Each matches what the published karyotype states.
+- **One parent**, the laboratory's everyday setup: the same three cells with the sperm donor
+  alone. The father is still found among the two candidates, and the two changes that only the
+  mother can settle are listed as seen once, not confirmed, instead of being dropped or
+  claimed.
+- **No parent**: a cell alone, read for its stage, its sex chromosomes and copy number,
+  including a published 16q deletion that this version prints as a piece rather than a whole
+  chromosome.
+- The files are every second marker where the old set was every eighth. At every third, the
+  ten-change cell has lost too many chromosomes for the egg donor's check to read her genome,
+  and at every fourth the cards fall further; thinning the parent files alone fails the same
+  way, because the parent check reads markers where that parent carries one allele twice.
+  A press downloads 49.9, 40.5 or 26.0 MB.
+- `cli/examples.check.ts` runs all three sets and pins every row of every change list.
+
 ## 6.13.0 "Deletion"
 
 **A chromosome lost in part is no longer called lost whole.** Since 6.0.0 a deep loss over part of
