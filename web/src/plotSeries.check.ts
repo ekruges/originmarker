@@ -3,23 +3,30 @@
 import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
 import {
-  BASE, binBase, CELL_BAR, copyBars, COPY_NONE_BELOW, COPY_TWO_ABOVE, copyWord, guardedBars, mergeBins,
-  normalRange, perForStretch, plotData, tickStepMb, totalBars, valueOf, viewOf, wrap, zoomPicks,
+  BASE_BP, binBase, CELL_PER, copyBars, COPY_NONE_BELOW, COPY_TWO_ABOVE, copyWord, guardedBars,
+  MIN_BIN_MARKERS, mergeBins, normalRange, perForStretch, plotData, tickStepMb, totalBars, valueOf,
+  viewOf, wrap, zoomPicks,
   type Bin, type PlotData, type PlotSource, type Track,
 } from './plotSeries.ts'
 
 // ---------------------------------------------------------------- binning
 {
-  const pos = Float64Array.from({ length: 260 }, (_, i) => (259 - i) * 10)
+  // A base bin is a stretch of the genome: markers inside one 2.5 Mb stretch make one bin.
+  const pos = Float64Array.from({ length: 260 }, (_, i) => (259 - i) * 40_000)
   const x = Float64Array.from({ length: 260 }, (_, i) => ((259 - i) % 2 ? 1 : 0))
   const b = binBase(pos, x)
-  assert.deepEqual(b.map((y) => y.n), [50, 50, 50, 50, 60], 'a remainder of half a bin or less joins the last')
+  assert.ok(b.every((y) => y.endBp - y.startBp >= BASE_BP), 'a bin covers at least one stretch')
   assert.equal(b[0].startBp, 0)
-  assert.equal(b[0].k, 25)
-  const m = mergeBins(b, 4)
-  assert.deepEqual(m.map((y) => y.n), [260], 'a short tail joins the bar before it')
-  assert.equal(m[0].k, 130, 'counts add exactly')
-  assert.deepEqual(mergeBins(b, 2).map((y) => y.n), [100, 100, 60])
+  assert.equal(b[0].endBp, BASE_BP)
+  assert.equal(b.reduce((s, y) => s + y.n, 0), 260, 'every marker lands in one bin')
+  assert.ok(b.every((y) => y.n >= MIN_BIN_MARKERS), 'no bin stands on almost nothing')
+  const m = mergeBins(b, CELL_PER)
+  assert.ok(m.length <= b.length, 'bars merge whole base bins')
+  assert.equal(m.reduce((s, y) => s + y.n, 0), 260, 'merging keeps every marker')
+  // A thin stretch widens its bin instead of making a bar out of two markers.
+  const sparse = binBase(Float64Array.from([0, 1e6, 2e6, 9e6, 9.1e6]), Float64Array.from([1, 1, 1, 1, 1]))
+  assert.ok(sparse.every((y) => y.n >= MIN_BIN_MARKERS || sparse.length === 1), 'a thin stretch widens')
+  assert.equal(sparse.reduce((s, y) => s + y.n, 0), 5)
   const lv = binBase(Float64Array.from([1, 2, 3]), Float64Array.from([5, -1, 2]), true)
   assert.equal(lv[0].k, 2, 'a level bin is a median')
 }
@@ -111,7 +118,10 @@ const levelOf = (d: PlotData, key: Track['key'], chrom: string): string => {
     assert.equal(levelOf(both, 'mother', c), 'one copy', `chr${c} mother`)
   }
   const fa = both.tracks[0]
-  assert.ok((fa.bins.get('1') ?? []).every((b) => b.n >= BASE && b.n <= BASE * 1.5), 'equal-count bars')
+  const c1 = fa.bins.get('1') ?? []
+  assert.ok(c1.every((b) => b.endBp - b.startBp >= BASE_BP), 'bars are stretches of the genome')
+  // The run of bars along a chromosome is what the reader is asked to see, so there must be a run.
+  assert.ok(mergeBins(c1, CELL_PER).length >= 8, `chromosome 1 draws ${mergeBins(c1, CELL_PER).length} bars`)
   assert.equal(both.endBp.get('1'), (MARKERS - 1) * PITCH)
 }
 
@@ -208,8 +218,8 @@ const levelOf = (d: PlotData, key: Track['key'], chrom: string): string => {
   const fa = both.tracks[0]
   const r = normalRange(fa, 1, new Set(['4', '5', '6', '7', '8']))
   assert.ok(r.lo <= r.mid && r.mid <= r.hi, 'the range is ordered')
-  const bins = Array.from({ length: 40 }, (_, i) => ({ startBp: i * 1e6, endBp: (i + 1) * 1e6, n: BASE, k: 1 }))
-  assert.equal(perForStretch(bins, 0, 40e6), CELL_BAR / BASE, 'a long stretch takes the whole-cell bar')
+  const bins = Array.from({ length: 40 }, (_, i) => ({ startBp: i * 1e6, endBp: (i + 1) * 1e6, n: 20, k: 1 }))
+  assert.equal(perForStretch(bins, 0, 40e6), CELL_PER, 'a long stretch takes the whole-cell bar')
   assert.equal(perForStretch(bins, 0, 12e6), 2, 'a shorter one keeps six bars')
   assert.equal(perForStretch(bins, 0, 3e6), 1)
   assert.equal(valueOf({ kind: 'share' }, { startBp: 0, endBp: 1, n: 4, k: 1 }), 0.25)
@@ -252,7 +262,7 @@ assert.deepEqual(wrap('one two three four', 9), ['one two', 'three', 'four'])
   const d = plotData(large.src, { loaded: { role: 'paternal', gt: large.fa }, second: large.mo })
   let bars = 0
   for (const t of d.tracks) for (const b of t.bins.values()) bars += b.length
-  assert.ok(bars <= 4 * 825_000 / BASE, `${bars} bins kept`)
+  assert.ok(bars <= 22 * 4 * 3.1e9 / (22 * BASE_BP), `${bars} bins kept`)
   if (process.env.OM_TIMING) console.log(`plotData: ${ts.toFixed(0)} ms at 206k, ${tl.toFixed(0)} ms at 825k, ${bars} bins`)
   assert.ok(tl / ts < 8, `four times the markers took ${(tl / ts).toFixed(1)}x the time`)
 }

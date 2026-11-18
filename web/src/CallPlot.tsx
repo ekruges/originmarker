@@ -234,6 +234,12 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
   const panels: Panel[] = []
   const labelOf = (c: string) => marks.filter((m) => m.chrom === c).map((m) => m.word).find(Boolean) ?? ''
   const halfOf = (c: string) => 3.3 * Math.max(...wrap(labelOf(c), 15).map((l) => l.length))
+  /** A label sits at its chromosome, pulled inside the box where the chromosome is near an edge. */
+  const labelX = (p: { c: string; x: number; w: number }) => {
+    const half = halfOf(p.c)
+    const badge = numbers?.has(p.c) ? half + 18 : half
+    return Math.max(badge + 2, Math.min(W - half - 2, p.x + p.w / 2))
+  }
   const laneCount = (row: readonly string[]) => Math.max(1, ...row.filter((c) => changed.has(c)).map((c) => (lanes.get(c) ?? 0) + 1))
   const wordLines = (row: readonly string[]) => Math.max(1, ...row.filter((c) => changed.has(c) && (lanes.get(c) ?? -1) >= 0)
     .map((c) => wrap(labelOf(c), 15).length))
@@ -294,8 +300,12 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
         <rect width={W} height={H} fill="#fff" />
         {rows.map((_row, r) => tracks.map((t, ti) => {
           const top = 6 + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0) + ti * (TH + 20) + 16
-          return (
+          // One cell has two tracks however many rows of chromosomes it takes, so the title is
+          // written once and a later row carries a quiet continuation mark instead.
+          return r === 0 ? (
             <text key={`l${r}${ti}`} x={1} y={top - 5} fontWeight={700} fill={colourOf(t.parent)}>{t.label}</text>
+          ) : (
+            <text key={`l${r}${ti}`} x={1} y={top - 5} fontSize={10} fill={DIM}>{t.label}, continued</text>
           )
         }))}
         {panels.map((p) => {
@@ -334,15 +344,15 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
                     {ms.length ? <rect x={p.x} y={axis + 17} width={p.w} height={3} fill={colour} /> : null}
                     {ms.length && numbers?.has(p.c) ? (
                       <g>
-                        <circle cx={p.x + p.w / 2 - (lane >= 0 ? halfOf(p.c) + 9 : 0)}
+                        <circle cx={labelX(p) - (lane >= 0 ? halfOf(p.c) + 9 : 0)}
                           cy={axis + 34 + Math.max(0, lane) * 26} r={8} fill={colour} />
-                        <text x={p.x + p.w / 2 - (lane >= 0 ? halfOf(p.c) + 9 : 0)}
+                        <text x={labelX(p) - (lane >= 0 ? halfOf(p.c) + 9 : 0)}
                           y={axis + 38 + Math.max(0, lane) * 26} textAnchor="middle" fontSize={10}
                           fontWeight={700} fill="#fff">{numbers.get(p.c)}</text>
                       </g>
                     ) : null}
                     {ms.length && lane >= 0 ? words.map((l, i) => (
-                      <text key={i} x={p.x + p.w / 2} y={axis + 38 + lane * 26 + i * 12}
+                      <text key={i} x={labelX(p)} y={axis + 38 + lane * 26 + i * 12}
                         textAnchor="middle" fontSize={10} fontWeight={600} fill={colour}>{l}</text>
                     )) : null}
                   </g>

@@ -19,23 +19,26 @@
  * region never makes a ragged bar. The base bin is BASE markers; a figure merges whole base bins.
  */
 
-/** Markers in a base bin. Figures merge these into bars of BASE * k markers. */
-export const BASE = 50
-/** Markers per bar on the whole-cell figure: equal-count bins of 200 separated stated losses in noisy
- *  cells better than 5 Mb bins or smaller counts (0.47 against 0.30 of inside bars past every other). */
-export const CELL_BAR = 200
-/** Most bars a track draws across the whole cell. A dense track (heterozygous calls, call rate) gets bars of
- *  more markers, so the figure stays one bar per few pixels and each bar is no less trustworthy. */
-export const CELL_MAX_BARS = 300
+/**
+ * A base bin is a stretch of the genome, not a count of markers: the measurement this figure rests on
+ * binned by position (audit/truth/gain-figure-levers-2026-11-17.txt), and a run of bars along a
+ * chromosome is what the reader is asked to see. Markers where the parents carry different alleles are
+ * a small share of the array, about 3 in 100 on the arrays shipped as examples, so bars of a fixed
+ * marker count would each cover tens of megabases and the run would collapse into two or three blocks.
+ */
+export const BASE_BP = 2.5e6
+/** Base bins per bar across the whole cell: the 10 Mb bar of the measured figure. */
+export const CELL_PER = 4
+/** Fewest markers a bar may hold. Under this the bar joins the one before it, so a thin stretch makes
+ *  a wider bar rather than a bar that reads as a level on almost nothing. */
+export const MIN_BIN_MARKERS = 8
 
 /** Base bins per bar for a track on the whole-cell figure. */
-export function cellPer(t: Track): number {
-  let n = 0
-  for (const bs of t.bins.values()) for (const b of bs) n += b.n
-  return Math.max(CELL_BAR / BASE, Math.ceil(n / (BASE * CELL_MAX_BARS)))
+export function cellPer(_t: Track): number {
+  return CELL_PER
 }
 
-/** Fewest bars a stretch gets on its own figure; the bar is shrunk to BASE markers at most to reach it. */
+/** Fewest bars a stretch gets on its own figure. */
 export const MIN_STRETCH_BARS = 6
 export type Role = 'paternal' | 'maternal'
 
@@ -116,19 +119,35 @@ export function median(xs: readonly number[]): number {
 
 /** Base bins of BASE markers in position order; a last remainder of half a bin or less joins the bin
  *  before it. `level` gives the bin a median instead of a count. */
-export function binBase(pos: Float64Array, x: Float64Array, level = false, size = BASE): Bin[] {
+export function binBase(pos: Float64Array, x: Float64Array, level = false, size = BASE_BP): Bin[] {
   const o = [...pos.keys()].sort((a, b) => pos[a] - pos[b])
   const out: Bin[] = []
-  for (let i = 0; i < o.length;) {
-    let j = Math.min(o.length, i + size)
-    if (o.length - j <= size / 2) j = o.length
+  let i = 0
+  while (i < o.length) {
+    const startBp = Math.floor(pos[o[i]] / size) * size
+    let edge = startBp + size
+    let j = i
+    // One bin is one stretch of the genome, widened a stretch at a time until it holds enough markers.
+    while (j < o.length) {
+      if (pos[o[j]] < edge) { j += 1; continue }
+      if (j - i >= MIN_BIN_MARKERS) break
+      edge += size
+    }
     const part = o.slice(i, j)
     const k = level ? median(part.map((t) => x[t])) : part.reduce((s, t) => s + x[t], 0)
-    out.push({ startBp: pos[part[0]], endBp: pos[part[part.length - 1]], n: part.length, k })
+    out.push({ startBp, endBp: edge, n: part.length, k })
     i = j
+  }
+  // A last bin too thin to stand on its own joins the one before it.
+  if (out.length > 1 && out[out.length - 1].n < MIN_BIN_MARKERS) {
+    const last = out.pop()!
+    const prev = out[out.length - 1]
+    out[out.length - 1] = { startBp: prev.startBp, endBp: last.endBp, n: prev.n + last.n,
+      k: level ? (prev.k * prev.n + last.k * last.n) / (prev.n + last.n) : prev.k + last.k }
   }
   return out
 }
+
 
 /** Bars of `per` base bins each. Counts add exactly; a level bar takes the median of its bins. */
 export function mergeBins(bins: readonly Bin[], per: number, level = false): Bin[] {
@@ -312,7 +331,7 @@ export function shareIn(bins: readonly Bin[], startBp: number, endBp: number): {
  *  the whole-cell bar. */
 export function perForStretch(bins: readonly Bin[], startBp: number, endBp: number): number {
   const inside = bins.filter((b) => b.startBp >= startBp && b.endBp <= endBp).length
-  return Math.max(1, Math.min(CELL_BAR / BASE, Math.floor(inside / MIN_STRETCH_BARS)))
+  return Math.max(1, Math.min(CELL_PER, Math.floor(inside / MIN_STRETCH_BARS)))
 }
 
 /** The stretch a figure shows: a call under a sixth of its chromosome in a window around it. */
