@@ -464,6 +464,12 @@ async function run(declaredStage?: 'failed', withMother = false) {
   const one = await run()
   const two = await run(undefined, true)
 
+  // A LOSS NEVER CARRIES THE ONE-PARENT GAIN SENTENCE, which says whose the extra copy is.
+  assert.ok((one.losses ?? []).length > 0, 'the one-parent run has loss rows to read')
+  for (const l of one.losses ?? []) {
+    assert.ok(!/the extra copy is that parent/.test(l.why ?? ''), `a loss row names whose extra copy it is: ${l.where}: ${l.why}`)
+  }
+
   // DETECTION MUST NOT MOVE. Loading a second array changes who is named, never what was found.
   const found = (r: Awaited<ReturnType<typeof run>>) =>
     (r.chroms ?? []).filter((c) => c.aneuploidy).map((c) => `${c.chrom}:${c.aneuploidy}`).sort()

@@ -2097,7 +2097,8 @@ export async function scoreSample(input: {
       kind,
       origin: c.verdict === 'other homologue'
         ? 'this parent, other homologue (meiotic)' : 'not determinable',
-      why: mat ? c.why
+      // The extra-copy sentence is about a gain; a loss here carries the homologue reading alone.
+      why: mat || event === 'loss' ? c.why
         : `${c.why}. Which PARENT supplied it is not in question: this cell carries one `
           + 'parent\'s genome, so the extra copy is that parent\'s. Naming a parent for a '
           + 'gain needs a biparental cell and both parents loaded.',
