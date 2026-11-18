@@ -9,6 +9,26 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.13.0 "Deletion"
+
+**A chromosome lost in part is no longer called lost whole.** Since 6.0.0 a deep loss over part of
+a chromosome could move that chromosome's median past both whole-chromosome gates; the tool then
+called the whole chromosome lost and never looked for the piece or the edge where it was cut. A
+chromosome called lost whole is now read again in pieces. Where the rest of it reads at the cell's
+own level, the pieces are printed instead of the whole call; where the rest is a copy down as well,
+the whole call stands and a piece a further copy down is printed beside it as "second copy lost
+too"; pieces covering 80% of the chromosome are the whole loss. No constant is new. On the open
+rows the 7 published break coordinates lost since 5.54.0 have an edge within 5 Mb again (7 of 7),
+and 29 of all 195 published coordinates do, against 12. Stated whole losses found and stated
+normals left alone are identical in every setup. 48 chromosome-rows change; 17 of them are a stated
+piece that had printed as a whole loss. A first run turned 7 stated whole-loss rows into pieces; the
+rest test was corrected to read the cell's own level without asking for significance, and to treat
+pieces over 80% of the chromosome as the whole loss, and the rerun turned none. Shortfall: on the
+stated chr16 pieces the printed start is a raw window edge 11 to 12 Mb from the published
+coordinate, so the kind of change is now right and that edge is not.
+
+Results: `audit/truth/part-lost-chromosome-2026-11-17.txt`.
+
 ## 6.12.0 "Karyogram"
 
 **The result card says what was found, and the figure shows it.** Correct calls used to sit
