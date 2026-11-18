@@ -620,16 +620,31 @@ export function defectsForResult(r: ParentageResult): Defect[] {
     const k = c.contribution
     const [father, mother] = k
       ? (r.role === 'paternal' ? [k.onlyA, k.onlyB] : [k.onlyB, k.onlyA]) : [NaN, NaN]
-    const lettersWhy = letters && k
-      ? ` Of ${int(k.informative)} markers where the parents are opposite homozygotes, `
-        + `${pct(k.fraction, 1)} read both alleles, ${pct(father, 1)} the father's alone and `
-        + `${pct(mother, 1)} the mother's alone, so `
-        + (c.aneuploidy === 'gain' ? `every copy present is ${letters}.`
-          : `the ${c.lostParent} copy is the one missing.`)
-        + (c.aneuploidy ? '' : ' Whether one copy remains or two is a question for the intensity, '
-          + 'which did not reach a verdict on this chromosome: a monosomy and an isodisomy read '
-          + 'the same at these markers.')
-      : ''
+    const notOneOrTwo = c.aneuploidy ? '' : ' Whether one copy remains or two is a question for the intensity, '
+      + 'which did not reach a verdict on this chromosome: a monosomy and an isodisomy read '
+      + 'the same at these markers.'
+    // The opposite-homozygote count needs both parents' arrays; with one parent the call rests on the
+    // copy-state score (oneParentState.ts), so that is what the row quotes, or nothing.
+    const loadedWho = r.role === 'paternal' ? 'father' : 'mother'
+    const otherWho = r.role === 'paternal' ? 'mother' : 'father'
+    const scoreHere = c.copyState?.r
+    const scoreRest = (r.chroms ?? []).filter((x) => x.chrom !== c.chrom && /^\d+$/.test(x.chrom))
+      .map((x) => x.copyState?.r).filter((x): x is number => x !== undefined && Number.isFinite(x)).sort((a, b) => a - b)
+    const lettersWhy = !letters ? ''
+      : r.twoParents && k
+        ? ` Of ${int(k.informative)} markers where the parents are opposite homozygotes, `
+          + `${pct(k.fraction, 1)} read both alleles, ${pct(father, 1)} the father's alone and `
+          + `${pct(mother, 1)} the mother's alone, so `
+          + (c.aneuploidy === 'gain' ? `every copy present is ${letters}.`
+            : `the ${c.lostParent} copy is the one missing.`)
+          + notOneOrTwo
+        : !r.twoParents && c.aneuploidy !== 'gain' && scoreHere !== undefined && Number.isFinite(scoreHere) && scoreRest.length
+          ? ` Read with the ${loadedWho} alone: the alleles the ${loadedWho} lacks score `
+            + `${scoreHere.toFixed(2)} on this chromosome, against a median of `
+            + `${scoreRest[scoreRest.length >> 1].toFixed(2)} on this cell's other autosomes; near 1 means `
+            + `the ${loadedWho}'s copy is gone and near 0 the ${otherWho}'s, so the ${c.lostParent === 'paternal' ? 'father' : 'mother'}'s `
+            + 'copy is the one missing.' + notOneOrTwo
+          : ''
     // WHY THE ALLELE CHANNEL IS SILENT ON A ROW THAT EXISTS. The intensity channel can reach a
     // verdict on a chromosome the alleles declined, and until now the row simply carried no allele
     // sentence: a reader comparing the two channels could not tell a chromosome with nothing to

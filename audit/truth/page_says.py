@@ -13,8 +13,12 @@ Inputs: run.ts records with tags two, father and recon (the setups), the change 
 itself builds with both parents loaded (cli/cardrun.ts output, one JSON card per line), and
 audit/local/truth/truth.tsv. The kind of call follows pageSays.kindOf; keep the two in step.
 
+Cells are named by number ("cell 1" to "cell 31", in the order of the source table); the key from
+number to array lives untracked in audit/local/page-says-2026-11-17/cell-key.tsv, so no tracked
+file names an array.
+
 Run: python3 audit/truth/page_says.py --truth audit/local/truth --records h.jsonl --cards cards.jsonl
-       [--fixture audit/truth/page-says-cells.json]
+       --key audit/local/page-says-2026-11-17/cell-key.tsv [--fixture audit/truth/page-says-cells.json]
 """
 import argparse
 import collections
@@ -230,11 +234,11 @@ def judge(i, rows, state, parent, verb):
     return rows
 
 
-def headline_inputs(i, setup, rec, card):
+def headline_inputs(i, setup, rec, card, key):
     """What headlineOf reads, from a record. The mother's genome-wide verdict is not in these
     records: taken as not absent until the harness writes it."""
     return {
-        'accession': i, 'setup': setup,
+        'cell': key[i], 'setup': setup,
         'failed': rec['stage']['stage'] == 'failed',
         'zygosity': rec['zygosity'],
         'cls': card['origin'] if setup == 'two' else rec['originClass'],
@@ -267,10 +271,12 @@ def main():
     ap.add_argument('--truth', required=True)
     ap.add_argument('--records', required=True)
     ap.add_argument('--cards', required=True)
+    ap.add_argument('--key', required=True)
     ap.add_argument('--fixture')
     a = ap.parse_args()
     recs, cards, state, parent, verb = load(a)
-    ids = sorted(cards)
+    key = {r['accession']: r['cell'] for r in csv.DictReader(open(a.key), delimiter='\t')}
+    ids = sorted(cards, key=lambda i: int(key[i].split()[1]))
     fixture = []
     words = collections.defaultdict(collections.Counter)
     tally = collections.defaultdict(collections.Counter)
@@ -278,7 +284,7 @@ def main():
     for i in ids:
         for setup, _ in SETUPS:
             rec = recs[setup][i]
-            h = headline_inputs(i, setup, rec, cards[i])
+            h = headline_inputs(i, setup, rec, cards[i], key)
             h['expected'] = expected_word(h)
             fixture.append(h)
             words[setup][h['expected']] += 1
@@ -310,7 +316,7 @@ def main():
                'two readings disagree (parent check carries, genome-wide absent)' if any(p['absent'] for p in h['loaded']) else
                'a parent not shown' if any(p['check'] != 'carries' for p in h['loaded']) else
                'copy number not read')
-        print(f"    {h['accession']}  {h['setup']:6s}  {why}")
+        print(f"    {h['cell']:8s}  {h['setup']:6s}  {why}")
     print('\nMEASURED COUNT BEHIND EACH CHIP WORD (right / scored; wrong parent; unscored)')
     for kind in ('whole', 'two-ways', 'run-only', 'second-test', 'allele-scan', 'unnamed', 'intensity',
                  'gain-parent', 'imbalance', 'finding'):
