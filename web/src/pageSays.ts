@@ -294,6 +294,11 @@ export interface ChangeList {
   once: ChangeRow[]
   /** Read, not counted as a change. */
   seen: ChangeRow[]
+  /**
+   * Set where changes sit on so many autosomes that the genome has no undisturbed remainder
+   * (abnormalities.detectComplex). A property of the whole genome, so it is a sentence, not a row.
+   */
+  disturbed?: { on: number; of: number }
 }
 
 const chromOrder = (c: string): number => (/^\d+$/.test(c) ? Number(c) : c === 'X' ? 23 : c === 'Y' ? 24 : 99)
@@ -304,7 +309,13 @@ const chromOrder = (c: string): number => (/^\d+$/.test(c) ? Number(c) : c === '
  */
 export function changeList(defects: readonly Defect[], setup: Setup): ChangeList {
   const groups = new Map<string, ChangeRow>()
+  let disturbed: ChangeList['disturbed']
   for (const d of defects) {
+    if (d.kind === 'complex' && d.chrom === 'genome') {
+      const m = (d.why ?? '').match(/(\d+) of (\d+) autosomes/)
+      disturbed = { on: m ? Number(m[1]) : NaN, of: m ? Number(m[2]) : NaN }
+      continue
+    }
     const call = kindOf(d, setup)
     const gain = d.kind === 'copy-gain' || d.kind === 'trisomy' || d.kind === 'segmental-duplication'
     const whole = d.locus === `chr${d.chrom}` || d.chrom === 'genome'
@@ -328,7 +339,15 @@ export function changeList(defects: readonly Defect[], setup: Setup): ChangeList
     counted: rows.filter((g) => COUNTED.has(g.word)),
     once: rows.filter((g) => g.word === 'one reading'),
     seen: rows.filter((g) => g.word === 'also seen'),
+    disturbed,
   }
+}
+
+/** The disturbed-genome finding in one plain sentence, or nothing. */
+export function disturbedText(l: ChangeList): string {
+  if (!l.disturbed) return ''
+  const { on, of } = l.disturbed
+  return `${Number.isFinite(on) ? `${on} of ${of}` : 'Many'} chromosomes carry a change: this cell's genome is widely disturbed.`
 }
 
 /** The count line used under every headline. */

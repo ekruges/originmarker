@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  changeList, changesText, COUNTED, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, rowLine,
+  changeList, changesText, COUNTED, disturbedText, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, rowLine,
   saidOf, whereText, WORD, type HeadInput,
 } from './pageSays.ts'
 import type { Defect } from './defects.ts'
@@ -94,6 +94,24 @@ const cellA: Defect[] = [
   assert.ok(detail.includes('19 of 26'), 'the measured count is in the PDF')
   // P3: no named, printed call carries a band word.
   for (const g of [...l.counted, ...l.once]) assert.ok(!/no call|weak|no parent|\b[A-F]\b/.test(g.word), g.word)
+}
+
+// ---------------------------------------------------------------- a disturbed genome is a sentence
+// The complex finding (abnormalities.detectComplex) is a property of the whole genome: no row, not
+// counted, said once.
+{
+  const complex: Defect = {
+    chrom: 'genome', startBp: 0, endBp: 0, kind: 'complex', locus: 'whole genome', origin: 'unclear', step: 'finding',
+    why: '9 of 22 autosomes deviate from this array\'s own centre, a share of 0.41 over the 0.3 at which self-reference fails',
+  }
+  for (const setup of ['two', 'measured', 'none'] as const) {
+    const l = changeList([...cellA, complex], setup)
+    assert.ok(![...l.counted, ...l.once, ...l.seen].some((g) => g.chrom === 'genome'), `no genome row (${setup})`)
+    assert.equal(l.counted.length + l.once.length, changeList(cellA, setup).counted.length + changeList(cellA, setup).once.length)
+    assert.equal(disturbedText(l), '9 of 22 chromosomes carry a change: this cell\'s genome is widely disturbed.')
+    assert.ok(!/letter|\u2014/.test(disturbedText(l)))
+  }
+  assert.equal(disturbedText(changeList(cellA, 'two')), '')
 }
 
 // ---------------------------------------------------------------- P3: the table is the results file

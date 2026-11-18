@@ -16,7 +16,7 @@ import {
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import {
-  cardSays, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, spanMb, WORD, whoseText,
+  cardSays, disturbedText, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, spanMb, WORD, whoseText,
   type CardSays, type ChangeRow,
 } from './pageSays.ts'
 import { locus } from './stage.ts'
@@ -527,6 +527,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       text('Also read, not counted as a change', 7.6, 'Helvetica-Bold', 2, GREY)
       changeTable(list.seen)
     }
+    if (list.disturbed) text(disturbedText(list), 7.6, 'Helvetica', 2, GREY)
 
     // THE FEATURE COMPARISON IS NO LONGER PRINTED HERE. It answers a different question from the
     // rest of this report: everything else asks whose a change is, that asks whether the change

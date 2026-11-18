@@ -12,7 +12,7 @@
 import { useState, type ReactNode } from 'react'
 import { Text } from '@mantine/core'
 import {
-  KIND_SAYS, lrrText, locusText, measuredSentence, pairText, spanMb, whereText, whoseText,
+  disturbedText, KIND_SAYS, lrrText, locusText, measuredSentence, pairText, spanMb, whereText, whoseText,
   type ChangeList, type ChangeRow, type Setup,
 } from './pageSays.ts'
 import { sentences } from './defects.ts'
@@ -86,7 +86,7 @@ export function DefectCallout({ list, setup, plot }: {
   /** The plot for a row, shown when the row is open. */
   plot?: (g: ChangeRow) => ReactNode
 }) {
-  if (!list.counted.length && !list.once.length && !list.seen.length) return null
+  if (!list.counted.length && !list.once.length && !list.seen.length && !list.disturbed) return null
   return (
     <div style={{ margin: '8px 0 2px' }}>
       {list.counted.length ? <Grid rows={list.counted} setup={setup} plot={plot} /> : null}
@@ -102,6 +102,7 @@ export function DefectCallout({ list, setup, plot }: {
           <Grid rows={list.seen} setup={setup} plot={plot} />
         </>
       ) : null}
+      {list.disturbed ? <Text size="xs" c="dimmed" mt={8}>{disturbedText(list)}</Text> : null}
     </div>
   )
 }
