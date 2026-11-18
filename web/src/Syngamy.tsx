@@ -35,7 +35,7 @@ import {
 } from './segments'
 import type { Health } from './api'
 import { int, utc } from './fmt'
-import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_DENSITY, loadExample } from './examples'
+import { EXAMPLE_CITATION, EXAMPLE_DENSITY, EXAMPLE_SETS, exampleFor, loadExample, type ExampleSet } from './examples'
 import { analyseRuns, measureClustering, parseLocus, type RunResult } from './runlength'
 import type { GainAnnotation } from './parentage'
 import { type FeatureTrack } from './features'
@@ -324,7 +324,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   const [lines, setLines] = useState<Line[]>([])
   const [busy, setBusy] = useState(false)
   const [startedAt, setStartedAt] = useState<string | null>(null)
-  const [examples, setExamples] = useState(false)
+  const [examples, setExamples] = useState<ExampleSet | null>(null)
   const [saving, setSaving] = useState(false)
   const [locus, setLocus] = useState<LocusRun | null>(null)
   /** A file was removed since the last Run press. */
@@ -456,13 +456,13 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     setStage(null)
   }
 
-  const loadExamples = async () => {
+  const loadExamples = async (set: ExampleSet) => {
     setBusy(true)
-    setExamples(true)
-    log('READ', `fetching ${EXAMPLES.length} public example arrays, GEO GSE148488`)
+    setExamples(set)
+    log('READ', `fetching the example "${set.label}": ${set.examples.length} public arrays`)
     try {
-      const files = await Promise.all(EXAMPLES.map((x) => loadExample(x)))
-      const roles = new Map(EXAMPLES.map((x) => [x.file.replace(/\.gz$/, ''), x.role]))
+      const files = await Promise.all(set.examples.map((x) => loadExample(x)))
+      const roles = new Map(set.examples.map((x) => [x.file.replace(/\.gz$/, ''), x.role]))
       setBusy(false)
       await add(files, (n) => roles.get(n))
     } catch (e) {
@@ -505,7 +505,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         tool: health ? `OriginMarker ${health.version} (${health.release_codename})`
           : 'OriginMarker',
         reportId: id,
-        fromExamples: examples,
+        fromExamples: !!examples,
         locus,
         fatherSearch,
         // The run-wide feature comparison, if someone ran it. Without this line the field exists,
@@ -837,13 +837,14 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             >
               Add files&hellip;
             </Button>
-            {entries.length === 0 && (
-              <Button variant="default" size="xs" disabled={busy}
-                onClick={() => { void loadExamples() }}
+            {entries.length === 0 && <Text size="xs" c="dimmed">Examples:</Text>}
+            {entries.length === 0 && EXAMPLE_SETS.map((set) => (
+              <Button key={set.id} variant="default" size="xs" disabled={busy} title={set.line}
+                onClick={() => { void loadExamples(set) }}
               >
-                Examples
+                {set.label}
               </Button>
-            )}
+            ))}
             <Button size="xs" disabled={busy || !pending} onClick={() => { void run() }}>
               Run
             </Button>
@@ -869,7 +870,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 variant="subtle" size="xs" disabled={busy}
                 onClick={() => {
                   setEntries([]); setDonor(null); setOocyte(null); setLines([]); setFatherSearch(null)
-                  setStartedAt(null); setExamples(false); setLocus(null); setRemoved(false)
+                  setStartedAt(null); setExamples(null); setLocus(null); setRemoved(false)
                 }}
               >
                 Clear
@@ -958,6 +959,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           donorName={fatherEntry?.file.name ?? ''}
           oocyteName={entries.find((x) => x.role === 'oocyte')?.file.name ?? ''}
           rebuilt={!!fatherEntry?.inferred}
+          expect={exampleFor(examples, e.file.name)?.expect}
         />
       ))}
 
@@ -999,7 +1001,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       )}
 
       <RunInformation
-        entries={entries} startedAt={startedAt} health={health} examples={examples}
+        entries={entries} startedAt={startedAt} health={health} examples={!!examples}
         father={fatherEntry?.state === 'done' ? fatherEntry.file.name : undefined}
       />
     </>
@@ -1133,8 +1135,10 @@ function Axis({ label, r }: { label: string; r: ParentageResult }) {
  * The word and its line come from pageSays.headlineOf, the changes from pageSays.changeList; the
  * PDF and the summary table read the same two, so the three cannot disagree.
  */
-function ResultCard({ entry, donorName, oocyteName, rebuilt }: {
+function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
   entry: Entry; donorName: string; oocyteName: string; rebuilt: boolean
+  /** The bundled example's own line: what this card should say. */
+  expect?: string
 }) {
   const [open, setOpen] = useState(false)
   const r = entry.result!
@@ -1199,6 +1203,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt }: {
           {rebuilt && !m && <Badge size="sm" variant="outline" color="genomeGrey">father rebuilt</Badge>}
         </Group>
         <Text size="sm" mt={3}>{head.line}</Text>
+        {expect && <Text size="sm" mt={3}><b>Example.</b> {expect}</Text>}
         <RunAlerts r={r} />
       </div>
       <div style={{ padding: '2px 16px 12px' }}>

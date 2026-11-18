@@ -1,18 +1,20 @@
 /**
  * Public arrays that load with one click, so the tool can be tried without a family's data.
  *
- * Every one is a GEO release file, from two series on the same Affymetrix Axiom platform:
- * GSE148488, an Egli lab study of human zygotes, and GSE290961, a later deposit from the same
- * laboratory that carries a second family. They are subsets at every eighth marker, except the
- * three arrays of the trio that demonstrates the allele count, which are at every second: a
- * per-chromosome count needs 200 informative markers, and at an eighth no chromosome reaches it.
- * No value is rounded or altered.
+ * Three runs, each one button: both parents, the father alone, and no parent. The cells are of
+ * GSE148488 (Zuccaro et al. 2020) and were picked by scoring every open cell of that study's
+ * karyotype table (Table S3) on this code, in all three setups, and keeping the cells whose card
+ * states what the table states with nothing else added. Every card names a result; the sets hold
+ * no negative control and no refusal.
  *
- * WHAT THE SUBSET COSTS, since it is not nothing. Linkage, stage inference and whole-chromosome
- * events all survive it, because each uses either the whole genome or a whole chromosome. A
- * SEGMENTAL change does not: the caller's resolution floor is 2,400 informative markers, and a
- * 12 Mb region holds about 390 at this density. So no example here shows a segmental call, and
- * that is a property of the download size rather than of the samples.
+ * The second file labelled sperm is an unrelated man of GSE186441, the public series of adults the
+ * founder panel is built from. The run reads each candidate against every cell and names the
+ * father, which is the laboratory's own question when several men are on file.
+ *
+ * Every second marker, the same rows in every file, values unaltered (audit/make-examples.py).
+ * That is the thinnest density at which each card prints what the full arrays print. At every
+ * third marker the ten-change cell has lost too many chromosomes for the oocyte donor's check to
+ * read her genome, and the card falls to unclear.
  */
 export interface Example {
   /** GEO sample accession, which is also the filename stem. */
@@ -20,131 +22,146 @@ export interface Example {
   file: string
   role: 'donor' | 'oocyte' | 'sample'
   what: string
+  /** One plain line, true of what the run prints for this file. */
   expect: string
+  /** The published statement the example rests on. */
+  source: string
+}
+
+export interface ExampleSet {
+  id: string
+  /** The button. */
+  label: string
+  /** What this run shows, one line. */
+  line: string
+  examples: Example[]
 }
 
 export const EXAMPLE_SERIES = 'GSE148488'
-/** The second series, which supplies the donor-and-two-children family. */
-export const EXAMPLE_SERIES_2 = 'GSE290961'
 export const EXAMPLE_CITATION =
   'Zuccaro MV et al. Allele-specific chromosome removal after Cas9 cleavage in human embryos. '
-  + 'Cell 2020;183(6):1650-1664. GEO GSE148488, Affymetrix Axiom, GRCh37. '
-  + 'Second family from GEO GSE290961, same platform and laboratory, cited by accession because '
-  + 'no associated publication was confirmed for it.'
-export const EXAMPLE_STRIDE = 8
-export const EXAMPLE_MARKERS = 103_207
-/** The trio for the allele count: every second marker. */
-export const EXAMPLE_TRIO_STRIDE = 2
-export const EXAMPLE_TRIO_MARKERS = 412_828
-export const EXAMPLE_DENSITY = `Every eighth marker, ${EXAMPLE_MARKERS.toLocaleString('en-US')} per file, `
-  + `except the sperm donor, oocyte donor D and embryo C at every second, `
-  + `${EXAMPLE_TRIO_MARKERS.toLocaleString('en-US')} per file. Values unaltered.`
+  + 'Cell 2020;183(6):1650-1664. GEO GSE148488, Affymetrix Axiom, GRCh37. The second file labelled '
+  + 'sperm is an unrelated adult of GEO GSE186441, the series the founder panel is built from.'
+export const EXAMPLE_STRIDE = 2
+export const EXAMPLE_MARKERS = 412_828
+export const EXAMPLE_DENSITY = `Every second marker, ${EXAMPLE_MARKERS.toLocaleString('en-US')} per file. `
+  + 'Values unaltered.'
 
-export const EXAMPLES: Example[] = [
+const TABLE_S3 = 'Zuccaro et al. 2020, Table S3'
+
+const FATHER: Example = {
+  gsm: 'GSM4472397',
+  file: 'GSM4472397_sperm_donor.half.csv.gz',
+  role: 'donor',
+  what: 'the sperm donor, bulk DNA',
+  expect: 'the father of every cell in this run.',
+  source: 'GEO GSE148488: the study\'s one sperm donor',
+}
+
+const OTHER_MAN: Example = {
+  gsm: 'GSE186441',
+  file: 'GSE186441_Sample_003_man.half.csv.gz',
+  role: 'donor',
+  what: 'an unrelated man, Sample_003 of GSE186441',
+  expect: 'a second candidate father. The run reads both candidates against every cell and names '
+    + 'the sperm donor; this man\'s genome is in none of them.',
+  source: 'GEO GSE186441: constitutional blood DNA of unrelated adults, same chip',
+}
+
+const MOTHER: Example = {
+  gsm: 'GSM4472408',
+  file: 'GSM4472408_egg_donor_D.half.csv.gz',
+  role: 'oocyte',
+  what: 'egg donor D, bulk DNA',
+  expect: 'the mother of every cell in this run.',
+  source: 'GEO GSE148488: the three cells below are egg donor D\'s',
+}
+
+const NORMAL: Example = {
+  gsm: 'GSM4472410',
+  file: 'GSM4472410_embryoD_TE.half.csv.gz',
+  role: 'sample',
+  what: 'embryo D, a trophectoderm biopsy',
+  expect: 'BOTH PARENTS, no change: both genomes are in the cell and every chromosome is whole.',
+  source: `${TABLE_S3}: normal on all 22 autosomes`,
+}
+
+const FATHER_LOSS: Example = {
+  gsm: 'GSM4472412',
+  file: 'GSM4472412_embryoE_TE.half.csv.gz',
+  role: 'sample',
+  what: 'embryo E, a trophectoderm biopsy',
+  expect: 'BOTH PARENTS, 1 change: the father\'s copy of the long arm of chromosome 6 is missing. '
+    + 'Two readings agree.',
+  source: `${TABLE_S3}: del 6q, paternal`,
+}
+
+const TEN_CHANGES: Example = {
+  gsm: 'GSM4552364',
+  file: 'GSM4552364_embryoA_biopsy1.half.csv.gz',
+  role: 'sample',
+  what: 'embryo A, a cleavage-stage blastomere',
+  expect: 'BOTH PARENTS, 10 changes, each naming the parent whose copy is missing: five of the '
+    + 'mother\'s and five of the father\'s.',
+  source: `${TABLE_S3}: ten changes on this cell, each with its parent`,
+}
+
+/** The same cells against the sperm donor alone, which is the laboratory's usual case. */
+const ONE_PARENT_NORMAL = 'FATHER + SECOND PARENT, no change: his genome is in the cell, a second '
+  + 'parent\'s copy is there with it, and every chromosome is whole.'
+const ONE_PARENT_FATHER_LOSS = 'FATHER + SECOND PARENT, 1 change: the father\'s copy of the long arm '
+  + 'of chromosome 6 is missing, named from his array alone.'
+const ONE_PARENT_TEN = 'FATHER + SECOND PARENT, 8 changes: five on the father\'s copy and three on '
+  + 'the other parent\'s, read against his array alone.'
+
+/** The same two cells read with nothing loaded, where the headline is the material. */
+const NO_PARENT_CHANGE: Example = {
+  ...FATHER_LOSS,
+  expect: 'BULK, 1 change: chromosome 6 loses copy over its long arm. With no parent the position '
+    + 'is read and no parent is named.',
+}
+const NO_PARENT_NORMAL: Example = {
+  ...NORMAL,
+  expect: 'TROPHECTODERM, no change: the material, XX, and every chromosome at two copies.',
+}
+
+export const EXAMPLE_SETS: ExampleSet[] = [
   {
-    gsm: 'GSM4472397',
-    file: 'GSM4472397_sperm_DNA_71.half.csv.gz',
-    role: 'donor',
-    what: 'sperm donor, bulk sperm DNA',
-    expect: 'the paternal genome every sample below is measured against',
+    id: 'two',
+    label: 'Both parents',
+    line: 'Both parents loaded: a cell with nothing changed, a cell missing the father\'s copy of '
+      + 'a chromosome arm, and a cell with ten changes each named to a parent.',
+    examples: [FATHER, OTHER_MAN, MOTHER, NORMAL, FATHER_LOSS, TEN_CHANGES],
   },
   {
-    gsm: 'GSM4472409',
-    file: 'GSM4472409_A8_45.subset.csv.gz',
-    role: 'sample',
-    what: 'embryo A8, a child of both donors',
-    expect: 'refused, and the refusal is the point. Both parents are there, 9.88% paternal and '
-      + '9.27% maternal absence under a 10.91% ceiling, but at a 53% call rate the array does not '
-      + 'resolve to any material, so nothing on it is reportable and no chromosome is read',
+    id: 'father',
+    label: 'One parent',
+    line: 'The laboratory\'s usual case: only the sperm donor on file. The run names him among the '
+      + 'candidates and reads each cell against him alone.',
+    examples: [
+      FATHER, OTHER_MAN,
+      { ...NORMAL, expect: ONE_PARENT_NORMAL },
+      { ...FATHER_LOSS, expect: ONE_PARENT_FATHER_LOSS },
+      { ...TEN_CHANGES, expect: ONE_PARENT_TEN },
+    ],
   },
   {
-    gsm: 'GSM4472408',
-    file: 'GSM4472408_donor_D.half.csv.gz',
-    role: 'oocyte',
-    what: 'oocyte donor D, the mother of embryo C below, loaded as the oocyte donor',
-    expect: 'her array is over the diploid heterozygosity ceiling against the sperm donor, 34.5% '
-      + 'heterozygous where one person reads 14 to 17%, and the run says so as a limit. Nothing is '
-      + 'withheld on that account: her homozygous calls still make markers informative, and the '
-      + 'allele count reads only those. Every sample here is read against both parents',
-  },
-  {
-    gsm: 'GSM4552385',
-    file: 'GSM4552385_embryoC_blastomere3.half.csv.gz',
-    role: 'sample',
-    what: 'embryo C, blastomere 3, a child of both donors, Cas9 injected at fertilisation',
-    expect: 'the case both parents exist for. The source study\'s hand karyotype records twelve '
-      + 'monosomies on this cell. At the markers where the parents are opposite homozygotes, '
-      + 'eleven of them read one parent\'s allele alone: the maternal copy absent on 1, 2, 4, 7, '
-      + '8, 17 and 20, the paternal on 5, 6, 10 and 19, each confirmed by the Mendelian channel. '
-      + 'Chromosome 22 has too few markers at this density. The intensity reaches none of the '
-      + 'eleven and flags 12 and 13 instead, where the file\'s copy number collapses to nothing '
-      + 'and the alleles still read both parents',
-  },
-  {
-    gsm: 'GSM4472407',
-    file: 'GSM4472407_donor_A_47.subset.csv.gz',
-    role: 'sample',
-    what: 'oocyte donor A, unrelated to both donors above',
-    expect: 'neither parent: 5.53% paternal absence against a 0.72% ceiling, and donor D is not '
-      + 'her either',
-  },
-  {
-    gsm: 'GSM4472415',
-    file: 'GSM4472415_donor_C_70.subset.csv.gz',
-    role: 'sample',
-    what: 'oocyte donor C, unrelated to the sperm donor and the mother of embryo 4',
-    expect: 'neither parent: 5.22% paternal absence against a 1.07% ceiling, and donor D is not '
-      + 'her either. As a sample she is the negative control; as the oocyte she is embryo 4\'s mother',
-  },
-  {
-    gsm: 'GSM4472424',
-    file: 'GSM4472424_embryo4_TE.subset.csv.gz',
-    role: 'sample',
-    what: 'embryo 4, a trophectoderm biopsy, the sperm donor\'s child by oocyte donor C',
-    expect: 'his child at a 0.66% opposite-homozygote rate with a second parental contribution at '
-      + '14.7% of 74,399 informative markers, and no chromosomal change anywhere. Its mother is '
-      + 'donor C, loaded here as a sample, so against donor D as the oocyte it reads unclear; make '
-      + 'donor C the oocyte and it is a clean pass against both parents',
-  },
-  {
-    gsm: 'GSM8826446',
-    file: 'GSM8826446_donor_bulk.subset.csv.gz',
-    role: 'sample',
-    what: 'a second family: bulk DNA of a different donor, from GSE290961',
-    expect: 'neither parent, as it should be: unrelated to both donors above. Load it as the sperm '
-      + 'donor instead and the two samples below become its children. It is here so the set '
-      + 'contains a second family rather than one donor and a row of negatives',
-  },
-  {
-    gsm: 'GSM8826445',
-    file: 'GSM8826445_child_bulk.subset.csv.gz',
-    role: 'sample',
-    what: 'that donor\'s child, as bulk DNA',
-    expect: 'against GSE290961\'s donor: a child at a 1.11% opposite-homozygote rate with a second '
-      + 'parental contribution at 9.0% of 81,217 informative markers. Read as bulk material, '
-      + '98.5% called and 17.5% heterozygous, so the dropout inferred from it is 0.008',
-  },
-  {
-    gsm: 'GSM8826436',
-    file: 'GSM8826436_child_singlecell.subset.csv.gz',
-    role: 'sample',
-    what: 'the same donor\'s child, as a single amplified cell',
-    expect: 'the same relationship read from far worse material, which is the comparison worth '
-      + 'making. A child at 1.82% opposite-homozygote with a 8.7% second contribution, but 91.4% '
-      + 'called and 13.6% heterozygous, so the inferred dropout is 0.193 rather than 0.008. '
-      + 'Nothing was declared: the tool reads the amplification off the array itself, and every '
-      + 'threshold downstream moves with it',
-  },
-  {
-    gsm: 'GSM4472398',
-    file: 'GSM4472398_sperm_DNA_79.subset.csv.gz',
-    role: 'sample',
-    what: 'a second array of the same sperm donor',
-    expect: 'every allele traces back: 0.15% absence against a 1.45% ceiling. Reported as '
-      + 'androgenetic because that is what a genome carrying only this donor\'s alleles is; '
-      + 'on a bulk sperm sample read it as an identity match, not an embryo',
+    id: 'none',
+    label: 'No parent',
+    line: 'No parent on file: the material, the sex chromosomes and copy number, with no parent named.',
+    examples: [NO_PARENT_CHANGE, NO_PARENT_NORMAL],
   },
 ]
+
+/** Every file any set loads, once. */
+export const EXAMPLE_FILES: Example[] = [...new Map(
+  EXAMPLE_SETS.flatMap((s) => s.examples).map((e) => [e.file, e]),
+).values()]
+
+/** The example a loaded file came from, by its name once inflated. The set that was pressed
+ *  decides the line, because the no-parent set reads two of the same files. */
+export const exampleFor = (set: ExampleSet | null, name: string): Example | undefined =>
+  set?.examples.find((x) => x.file.replace(/\.gz$/, '') === name)
 
 /**
  * Fetch one example and hand back a File the drop zone cannot tell from a dropped one.

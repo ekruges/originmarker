@@ -1,222 +1,158 @@
-// The bundled examples still produce what they claim. Run: node cli/examples.check.ts
+// The bundled examples still print what their own lines say. Run: node cli/examples.check.ts
 //
-// This is the only check in the repo that guards an ANSWER rather than a build. Every example
-// carries an `expect` string making specific numeric claims: an opposite-homozygote rate, a second
-// parental contribution, an inferred dropout. Those are prose, nothing verified them, and every
-// threshold moved in this project could falsify one silently. A user's first contact with the tool
-// is clicking one of these, so an example whose text no longer matches its output is the worst
-// place for the numbers to be wrong.
+// This guards an ANSWER rather than a build. A new person's first contact with the tool is an
+// Examples button, and each card shows its example's line beside what the run printed, so a line
+// that has stopped being true is the first thing they read wrong.
 //
-// It runs the real modules over the real bundled files. No fixtures: the point is that the file a
-// user downloads still behaves as advertised.
+// It runs each set through cli/exampleRun.ts, which assembles the page's run from the page's own
+// modules and words the card with pageSays, and pins every card. No fixtures: the files a user
+// downloads are the files under test.
 import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
-import { readFileSync, existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
-import { EXAMPLES, EXAMPLE_MARKERS, EXAMPLE_TRIO_MARKERS } from '../web/src/examples.ts'
-import {
-  headerMap, parseRow, emptyBafSums, accumulateBaf, accumulate, finishProfile,
-} from '../web/src/ingest.ts'
-import { isAutosome } from '../web/src/parentage.ts'
-import { inferStage } from '../web/src/stage.ts'
-import { emptyHet, addOneParent, hetCall } from '../web/src/obligateHet.ts'
-import type { AB } from '../web/src/informativity.ts'
+import { EXAMPLE_FILES, EXAMPLE_MARKERS, EXAMPLE_SETS } from '../web/src/examples.ts'
+import { runExamples, summary } from './exampleRun.ts'
 
 const DIR = new URL('../web/public/examples/', import.meta.url).pathname
 
-interface Loaded { gt: Map<string, AB>; markers: number; callRate: number; hetRate: number }
-
-function load(file: string): Loaded {
-  const path = `${DIR}${file}`
-  assert.ok(existsSync(path), `${file} is listed in examples.ts but not present in public/examples`)
-  const raw = readFileSync(path)
-  const text = (file.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8')
-  const lines = text.split('\n')
-  let h = -1
-  for (let i = 0; i < 60; i += 1) if (lines[i] && !lines[i].startsWith('#')) { h = i; break }
-  const map = headerMap(lines[h])
-  assert.ok(map, `${file}: header not recognised by the shipped ingest`)
-  const gt = new Map<string, AB>()
-  const byChrom = new Map()
-  const baf = emptyBafSums()
-  let first = ''
-  let markers = 0
-  for (let i = h + 1; i < lines.length; i += 1) {
-    const r = parseRow(lines[i], map as never)
-    if (!r) continue
-    markers += 1
-    if (!first) first = r.probesetId
-    accumulate(r as never, byChrom as never)
-    accumulateBaf(r as never, baf as never)
-    if (isAutosome(r.chrom) && r.genotype !== 'NC') gt.set(r.probesetId, r.genotype as AB)
-  }
-  const p = finishProfile(file, byChrom as never, baf as never, first)
-  return { gt, markers, callRate: p.callRate, hetRate: p.hetRate }
+// --- 1. every listed file is there, at the advertised density -----------------------------------
+for (const e of EXAMPLE_FILES) {
+  const path = `${DIR}${e.file}`
+  assert.ok(existsSync(path), `${e.file} is listed in examples.ts but not present in public/examples`)
+  assert.ok(e.file.startsWith(`${e.gsm}_`), `${e.file}: the name must start with its accession`)
+  const rows = gunzipSync(readFileSync(path)).toString('utf8').split('\n').filter(Boolean).length - 1
+  assert.equal(rows, EXAMPLE_MARKERS, `${e.gsm}: ${rows} markers, examples.ts advertises ${EXAMPLE_MARKERS}`)
 }
-
-const oppositeHom = (a: Map<string, AB>, b: Map<string, AB>) => {
-  let n = 0
-  let o = 0
-  for (const [probe, ga] of a) {
-    if (ga !== 'AA' && ga !== 'BB') continue
-    const gb = b.get(probe)
-    if (gb !== 'AA' && gb !== 'BB') continue
-    n += 1
-    if (ga !== gb) o += 1
-  }
-  return n ? o / n : NaN
-}
-
-const secondParent = (ref: Map<string, AB>, s: Map<string, AB>) => {
-  const t = emptyHet()
-  for (const [probe, pg] of ref) {
-    const cg = s.get(probe)
-    if (cg) addOneParent(pg as never, cg as never, t as never)
-  }
-  return hetCall(t as never, 1) as { ploidy: string; fraction: number }
-}
-
-// --- 1. every listed file exists, parses, and is the advertised size ----------------------------
-const loaded = new Map<string, Loaded>()
-for (const e of EXAMPLES) {
-  const l = load(e.file)
-  loaded.set(e.gsm, l)
-  // The trio for the allele count ships at every second marker, the rest at every eighth.
-  const advertised = e.file.includes('.half.') ? EXAMPLE_TRIO_MARKERS : EXAMPLE_MARKERS
-  assert.equal(l.markers, advertised,
-    `${e.gsm}: ${l.markers} markers, but examples.ts advertises ${advertised}`)
-  assert.ok(l.gt.size > 50_000, `${e.gsm}: only ${l.gt.size} autosomal calls, which is not an array`)
-}
-
-// --- 2. the numeric claims in each `expect` string still hold ------------------------------------
-//
-// Only claims that can be checked from the files themselves are asserted. A claim about a rate is
-// pulled out of the prose by pattern, so adding a number to an `expect` string automatically puts
-// it under test rather than needing a second edit here.
-const pct = (s: string, label: RegExp): number | null => {
-  const m = label.exec(s)
-  if (!m) return null
-  // The first DEFINED group, not group 1: an alternation captures into different slots, and
-  // reading group 1 blindly yields undefined and then NaN, which compares false against every
-  // bound and so passes silently. That is the failure mode this whole file exists to prevent.
-  const hit = m.slice(1).find((g) => g !== undefined)
-  const v = hit === undefined ? NaN : Number(hit)
-  return Number.isFinite(v) ? v : null
+const rank = { donor: 0, oocyte: 1, sample: 2 }
+for (const set of EXAMPLE_SETS) {
+  const order = set.examples.map((e) => rank[e.role])
+  assert.deepEqual(order, [...order].sort(), `${set.id}: parents must load before samples`)
 }
 
 /**
- * Pairs whose `expect` text makes numeric claims, as reference -> samples measured against it.
- *
- * This is NOT a table of who is whose parent. An earlier version of it was, and it pinned
- * GSM8826446 as the parent of the other two arrays in its series while asserting only that the
- * opposite-homozygote rate was low, which is a first-degree rate and not a parent-child one. All
- * three of those arrays are mutual siblings; the relationships are asserted below, by measurement.
+ * Per sample, what its card must print: the headline word, the parent checks, the sex chromosomes,
+ * and every row of the change list with the word on it. The quiet rows are pinned too, because an
+ * unconfirmed row a reader sees is part of what the card says.
  */
-const FAMILIES: [string, string[]][] = [
-  ['GSM4472397', ['GSM4472424']],
-  ['GSM8826446', ['GSM8826445', 'GSM8826436']],
-]
+const PIN: Record<string, Record<string, {
+  head: string; father?: string; mother?: string; sex: string
+  counted: string[]; once: string[]; seen: string[]
+}>> = {
+  two: {
+    'GSM4472410_embryoD_TE.half.csv': {
+      head: 'BOTH PARENTS', father: 'carries', mother: 'carries', sex: 'XX',
+      counted: [], once: [], seen: [],
+    },
+    'GSM4472412_embryoE_TE.half.csv': {
+      head: 'BOTH PARENTS', father: 'carries', mother: 'carries', sex: 'XY',
+      counted: ['chr6 64.6-170.9Mb loss paternal | found two ways'],
+      once: ['chr6 66.4-170.9Mb loss maternal | one reading'], seen: [],
+    },
+    'GSM4552364_embryoA_biopsy1.half.csv': {
+      head: 'BOTH PARENTS', father: 'carries', mother: 'carries', sex: 'XX',
+      counted: [
+        'chr2 whole loss paternal | consistent',
+        'chr5 149.4-180.7Mb loss maternal | found two ways',
+        'chr6 112.0-170.7Mb loss maternal | found two ways',
+        'chr7 whole loss maternal | consistent',
+        'chr9 whole loss maternal | consistent',
+        'chr11 whole loss paternal | consistent',
+        'chr15 whole loss paternal | consistent',
+        'chr16 47.8-87.7Mb loss paternal | found two ways',
+        'chr17 whole loss maternal | consistent',
+        'chr19 whole loss paternal | consistent',
+      ],
+      once: ['chr4 184.6-190.8Mb loss paternal | one reading'],
+      seen: ['chr16 whole loss unclear | also seen'],
+    },
+  },
+  father: {
+    'GSM4472410_embryoD_TE.half.csv': {
+      head: 'FATHER + SECOND PARENT', father: 'carries', sex: 'XX', counted: [], once: [], seen: [],
+    },
+    'GSM4472412_embryoE_TE.half.csv': {
+      head: 'FATHER + SECOND PARENT', father: 'carries', sex: 'XY',
+      counted: ['chr6 64.6-170.9Mb loss paternal | consistent'],
+      once: ['chr6 66.4-170.9Mb loss maternal | one reading'],
+      seen: ['chr6 whole loss unclear | also seen'],
+    },
+    'GSM4552364_embryoA_biopsy1.half.csv': {
+      head: 'FATHER + SECOND PARENT', father: 'carries', sex: 'XX',
+      counted: [
+        'chr2 whole loss paternal | consistent',
+        'chr7 whole loss maternal | consistent',
+        'chr9 whole loss maternal | consistent',
+        'chr11 whole loss paternal | consistent',
+        'chr15 whole loss paternal | consistent',
+        'chr16 47.8-87.7Mb loss paternal | consistent',
+        'chr17 whole loss maternal | consistent',
+        'chr19 whole loss paternal | consistent',
+      ],
+      once: [
+        'chr4 184.6-190.8Mb loss paternal | one reading',
+        'chr5 151.0-175.3Mb loss maternal | one reading',
+        'chr6 112.0-170.9Mb loss maternal | one reading',
+      ],
+      seen: [],
+    },
+  },
+  none: {
+    'GSM4472412_embryoE_TE.half.csv': {
+      head: 'BULK', sex: 'XY',
+      counted: ['chr6 66.4-170.9Mb loss unclear | position only'], once: [], seen: [],
+    },
+    'GSM4472410_embryoD_TE.half.csv': {
+      head: 'TROPHECTODERM', sex: 'XX', counted: [], once: [], seen: [],
+    },
+  },
+}
 
-for (const [ref, kids] of FAMILIES) {
-  const r = loaded.get(ref)
-  if (!r) continue
-  for (const kid of kids) {
-    const k = loaded.get(kid)
-    if (!k) continue
-    const e = EXAMPLES.find((x) => x.gsm === kid)!
-    const opp = oppositeHom(r.gt, k.gt)
-    const link = secondParent(r.gt, k.gt)
+// --- 2. every set runs, and every card prints what its line says --------------------------------
+for (const set of EXAMPLE_SETS) {
+  const run = await runExamples(set.examples.map((e) => ({ path: `${DIR}${e.file}`, role: e.role })))
+  const samples = set.examples.filter((e) => e.role === 'sample')
+  const cards = run.cards.map(summary)
+  assert.equal(cards.length, samples.length, `${set.id}: ${cards.length} cards for ${samples.length} samples`)
 
-    assert.ok(opp < 0.03,
-      `${kid}: opposite-homozygote ${opp.toFixed(4)} against ${ref} is not a first-degree rate`)
-    assert.equal(link.ploidy, 'biparental',
-      `${kid}: reads as one genome only against ${ref}, so the second contribution its text `
-      + 'claims is not there')
-
-    // "a 1.11% opposite-homozygote rate"
-    const claimedOpp = pct(e.expect, /([\d.]+)%\s+opposite-homozygote/)
-    if (claimedOpp !== null) {
-      assert.ok(Math.abs(100 * opp - claimedOpp) < 0.25,
-        `${kid}: text claims ${claimedOpp}% opposite-homozygote, measured ${(100 * opp).toFixed(2)}%`)
-    }
-    // "second parental contribution at 9.0%" or "a 8.7% second contribution"
-    const claimedSecond = pct(e.expect, /([\d.]+)%\s+of\s+[\d,]+\s+informative/)
-      ?? pct(e.expect, /contribution at ([\d.]+)%/)
-      ?? pct(e.expect, /([\d.]+)%\s+second contribution/)
-    if (claimedSecond !== null) {
-      assert.ok(Math.abs(100 * link.fraction - claimedSecond) < 0.4,
-        `${kid}: text claims ${claimedSecond}% second contribution, measured `
-        + `${(100 * link.fraction).toFixed(1)}%`)
-    }
-    // "the inferred dropout is 0.193"
-    const m = /dropout (?:is |of )?(0\.\d+)/.exec(e.expect)
-    if (m) {
-      const got = inferStage({ hetRate: k.hetRate, callRate: k.callRate } as never)
-      assert.ok(Math.abs(got.dropout - Number(m[1])) < 0.01,
-        `${kid}: text claims dropout ${m[1]}, the stage module now infers ${got.dropout.toFixed(3)}`)
-    }
+  // Two files labelled sperm: the run has to name the father, and name the right one.
+  const candidates = set.examples.filter((e) => e.role === 'donor')
+  if (candidates.length > 1) {
+    assert.equal(run.father?.named, candidates[0].file.replace(/\.gz$/, ''),
+      `${set.id}: the search says ${run.father?.line}`)
+    const other = run.father!.rows.find((r) => r.name.startsWith('GSE186441_'))!
+    assert.equal(other.carries, 0, `${set.id}: the second man carries in ${other.carries}`)
   }
+
+  samples.forEach((e, i) => {
+    const c = cards[i]
+    const pin = PIN[set.id]?.[e.file.replace(/\.gz$/, '')]
+    assert.ok(pin, `${set.id}/${e.gsm}: no pin for this example`)
+    const where = `${set.id}/${e.gsm}`
+    assert.equal(c.head, pin.head, `${where}: the headline reads ${c.head}`)
+    // 'unread' is what the check reports for a parent that was not loaded at all.
+    assert.equal(c.father, pin.father ?? 'unread', `${where}: the father's check reads ${c.father}`)
+    assert.equal(c.mother, pin.mother, `${where}: the mother's check reads ${c.mother}`)
+    assert.equal(c.sex, pin.sex, `${where}: the sex chromosomes read ${c.sex}`)
+    assert.ok(c.decided, `${where}: the headline is not a result`)
+    // A card that warns is not an example: the sets exist to show the tool reading, not refusing.
+    assert.deepEqual(c.alerts, [], `${where}: ${c.alerts.join(' | ')}`)
+    assert.deepEqual(c.counted, pin.counted, `${where}: counted ${c.counted.join('; ')}`)
+    assert.deepEqual(c.once, pin.once, `${where}: seen once ${c.once.join('; ')}`)
+    assert.deepEqual(c.seen, pin.seen, `${where}: read, not counted: ${c.seen.join('; ')}`)
+
+    // The line starts with the headline the card prints, carries its count of changes, and names
+    // no chromosome the card does not.
+    assert.ok(e.expect.startsWith(pin.head), `${where}: line "${e.expect}" but the card reads ${pin.head}`)
+    const n = pin.counted.length
+    const said = /, (\d+|no) changes?[:,]/.exec(e.expect)
+    assert.ok(said, `${where}: the line states no count of changes`)
+    assert.equal(said[1] === 'no' ? 0 : Number(said[1]), n, `${where}: the card counts ${n}`)
+    for (const m of e.expect.matchAll(/chromosome (\d+)/g)) {
+      assert.ok(pin.counted.some((r) => r.startsWith(`chr${m[1]} `)),
+        `${where}: the line names chromosome ${m[1]}, which the card does not`)
+    }
+  })
 }
 
-// --- 2b. what the bundled arrays are to each other, through the shipped command ------------------
-//
-// Measured, not assumed, and read out of `om link` rather than out of a second implementation
-// living here. Three facts are pinned.
-//
-//   THE STATISTIC IS SYMMETRIC. Opposite homozygotes are the same count whichever file is named
-//   first, so `link A B` and `link B A` must agree. They once both answered "child", which cannot
-//   be true of both orderings of one pair. Direction is not recoverable from two genotype files:
-//   under Hardy-Weinberg P(a)P(b|a) = P(b)P(a|b), so the two orderings are one hypothesis.
-//
-//   GSE290961'S THREE ARRAYS ARE MUTUAL SIBLINGS. Every pair of them carries stretches where the
-//   two genomes share no allele at all, which a parent and a child cannot produce. The pair that
-//   includes the single amplified cell twice over is left unresolved rather than called, because
-//   its error floor is higher than the segmental signal it would have to show.
-//
-//   THE ONE PARENT-CHILD PAIR STILL READS AS ONE. The sperm donor and embryo 4 share an allele in
-//   every window, at both orderings.
-const om = new URL('om.ts', import.meta.url).pathname
-const link = (ref: string, sample: string) => {
-  const f = (g: string) => `${DIR}${EXAMPLES.find((x) => x.gsm === g)!.file}`
-  const r = execFileSync(process.execPath,
-    ['--experimental-strip-types', om, 'link', f(ref), f(sample), '--json'],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] })
-  return (JSON.parse(r).samples as { relationship: string, windowSpread: number }[])[0]
-}
-
-const PARENT_CHILD = 'parent and child, direction not resolved'
-const SIBLINGS = 'not parent and child: stretches sharing no allele (full siblings)'
-
-for (const [a, b, expect] of [
-  ['GSM4472397', 'GSM4472424', PARENT_CHILD],
-  ['GSM8826446', 'GSM8826445', SIBLINGS],
-  ['GSM8826445', 'GSM8826436', SIBLINGS],
-  // The third pair of that family is the two hardest arrays against each other. It must not read
-  // as a parent and a child; at this error floor the segmental test cannot go further than that.
-  ['GSM8826446', 'GSM8826436', 'first-degree, parent-child and sibling not separated'],
-] as [string, string, string][]) {
-  const forward = link(a, b)
-  const back = link(b, a)
-  assert.equal(forward.relationship, expect, `om link ${a} ${b}: ${forward.relationship}`)
-  assert.equal(back.relationship, expect,
-    `om link ${b} ${a} answers ${back.relationship} while ${a} ${b} answers `
-    + `${forward.relationship}. A relationship read off opposite homozygotes cannot depend on `
-    + 'which file was named first')
-  assert.equal(forward.windowSpread.toFixed(4), back.windowSpread.toFixed(4),
-    `${a}/${b}: the window spread changed when the two files were swapped`)
-}
-
-// --- 3. the unrelated examples are still unrelated ------------------------------------------------
-//
-// Half the set exists to show the tool saying no. If one of these quietly started reading as a
-// child, the example would teach the opposite of its text.
-for (const gsm of ['GSM4472407', 'GSM4472415', 'GSM8826446']) {
-  const s = loaded.get(gsm)
-  const r = loaded.get('GSM4472397')
-  if (!s || !r) continue
-  assert.ok(oppositeHom(r.gt, s.gt) > 0.03,
-    `${gsm} now reads related to the sperm donor, but its text says unrelated`)
-}
-
-console.log(`examples.check.ts: ${EXAMPLES.length} examples load, parse and still produce the `
-  + 'rates their own text claims')
+console.log(`examples.check.ts: ${EXAMPLE_SETS.length} example runs, `
+  + `${EXAMPLE_FILES.length} files, every card prints what its line says`)

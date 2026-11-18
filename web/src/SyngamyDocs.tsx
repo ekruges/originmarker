@@ -2,7 +2,7 @@ import { type ReactNode } from 'react'
 import { Alert, Anchor, Code, List, Table, Text, Title } from '@mantine/core'
 import { CITATIONS, formatCitation } from './citations'
 import type { Health } from './api'
-import { EXAMPLES, EXAMPLE_CITATION, EXAMPLE_MARKERS, EXAMPLE_STRIDE, EXAMPLE_TRIO_MARKERS } from './examples'
+import { EXAMPLE_CITATION, EXAMPLE_FILES, EXAMPLE_MARKERS, EXAMPLE_SETS, EXAMPLE_STRIDE } from './examples'
 import { DocsShell, docsHelpers, docsSectionFromHash, type DocSection } from './DocsShell'
 
 /**
@@ -310,7 +310,7 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             donor, which is why it can run on drop.
           </Text>
           <Text mb={8}>
-            <b>Examples</b> loads five public arrays instead. See <SecRef id="examples" />.
+            The <b>Examples</b> buttons load a public run instead. See <SecRef id="examples" />.
           </Text>
 
           <Title order={3} mt={14} mb={4}>2. Label them</Title>
@@ -2123,69 +2123,54 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
         {/* --- 19 ------------------------------------------------------------------------ */}
         <Section id="examples" title="The bundled example data">
           <Text mb={8}>
-            <b>Examples</b> loads {EXAMPLES.length} public arrays so the tool can be tried without
+            Three buttons, three runs: <b>Both parents</b>, <b>One parent</b> and <b>No parent</b>.
+            They load {EXAMPLE_FILES.length} public arrays in all, so the tool can be tried without
             a family&apos;s data. They come from {EXAMPLE_CITATION}
           </Text>
           <Text mb={8}>
-            Each is a subset: every {ordinal(EXAMPLE_STRIDE)} marker, {int(EXAMPLE_MARKERS)} per
-            file, except the sperm donor, oocyte donor D and embryo C at every second marker,
-            {int(EXAMPLE_TRIO_MARKERS)} per file, because a per-chromosome allele count needs 200
-            informative markers and at an eighth no chromosome reaches it. The two columns this
-            tool never reads are dropped. <b>No value is rounded or
-            altered</b>, and the calls below are the ones the full 825,657-marker files produce, so
-            the demonstration is the real one at a tenth of the download.
+            Each file is every {ordinal(EXAMPLE_STRIDE)} marker of the release file,{' '}
+            {int(EXAMPLE_MARKERS)} per file, the same rows in each. The probe classification, which
+            this tool never reads, is dropped. <b>No value is rounded or altered.</b> This is the
+            thinnest density at which every card prints what the full arrays print. At every third
+            marker the ten-change cell has lost too many chromosomes for the oocyte donor&apos;s
+            check to read her genome there, and that card falls to unclear.
           </Text>
-          <Wide>
-            <Table striped withTableBorder>
-              <Table.Thead>
-                <Table.Tr>
-                  <Table.Th style={{ width: 110 }}>Accession</Table.Th>
-                  <Table.Th style={{ width: 70 }}>Role</Table.Th>
-                  <Table.Th>What it is, and what it should say</Table.Th>
-                </Table.Tr>
-              </Table.Thead>
-              <Table.Tbody>
-                {EXAMPLES.map((e) => (
-                  <Table.Tr key={e.gsm}>
-                    <Table.Td className="om-mono">{e.gsm}</Table.Td>
-                    <Table.Td>{e.role === 'donor' ? 'sperm' : e.role}</Table.Td>
-                    <Table.Td>
-                      <Text size="sm">{e.what}</Text>
-                      <Text size="xs" c="dimmed">{e.expect}</Text>
-                    </Table.Td>
-                  </Table.Tr>
-                ))}
-              </Table.Tbody>
-            </Table>
-          </Wide>
-          <Title order={3} mt={14} mb={4}>Try the oocyte path on them</Title>
           <Text mb={8}>
-            Relabel <Code>GSM4472407_donor_A_47</Code> from sample to oocyte and run again. Two
-            results change in instructive ways:
+            The cells were picked by measurement, not by hand: every open cell of the study&apos;s
+            karyotype table was scored on this code in all three setups, and the cells kept are the
+            ones whose card states what the table states with nothing else added. The second file
+            labelled sperm is an unrelated man, so the run has to find the father.
           </Text>
-          <List size="sm" spacing={4} mb={10}>
-            <List.Item>
-              <Code>donor_C_70</Code> moves from <b>gynogenetic</b> to <b>neither parent</b>. She
-              is unrelated to both, and only measuring a second parent can say so.
-            </List.Item>
-            <List.Item>
-              <Code>A8_45</Code> stays <b>unclear</b>, and the oocyte donor shows a second reason
-              why. Against the sperm donor alone its zygosity is already withheld: its drop-in fills
-              the heterozygous band, and no chromosome carries both parents&rsquo; alleles. Add
-              her and the maternal side lands at 12.84% against a 10.91% ceiling, 1.2x, inside the
-              uncalled band as well. That array has 47% dropout and resolves neither parent. See{' '}
-              <SecRef id="band" />.
-            </List.Item>
-          </List>
-          <Alert color="blue" p="xs">
-            <Text size="xs">
-              One example is labelled androgenetic and is not an embryo. GSM4472398 is a second
-              array of the same sperm donor, so every allele traces back to him and the classifier
-              says so correctly. On a bulk sperm sample read that as an identity match. It is in
-              the set because it demonstrates the absence axis at its cleanest: 0.15% against a
-              1.45% ceiling.
-            </Text>
-          </Alert>
+          {EXAMPLE_SETS.map((set) => (
+            <div key={set.id} style={{ marginBottom: 14 }}>
+              <Title order={3} mb={4}>{set.label}</Title>
+              <Text size="sm" mb={6}>{set.line}</Text>
+              <Wide>
+                <Table striped withTableBorder>
+                  <Table.Thead>
+                    <Table.Tr>
+                      <Table.Th style={{ width: 110 }}>Accession</Table.Th>
+                      <Table.Th style={{ width: 70 }}>Role</Table.Th>
+                      <Table.Th>What it is, what the card says, and the published statement</Table.Th>
+                    </Table.Tr>
+                  </Table.Thead>
+                  <Table.Tbody>
+                    {set.examples.map((e) => (
+                      <Table.Tr key={e.gsm}>
+                        <Table.Td className="om-mono">{e.gsm}</Table.Td>
+                        <Table.Td>{e.role === 'donor' ? 'sperm' : e.role}</Table.Td>
+                        <Table.Td>
+                          <Text size="sm">{e.what}</Text>
+                          <Text size="xs">{e.expect}</Text>
+                          <Text size="xs" c="dimmed">{e.source}</Text>
+                        </Table.Td>
+                      </Table.Tr>
+                    ))}
+                  </Table.Tbody>
+                </Table>
+              </Wide>
+            </div>
+          ))}
         </Section>
 
         {/* --- 20 ------------------------------------------------------------------------ */}
