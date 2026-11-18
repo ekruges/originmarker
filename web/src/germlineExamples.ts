@@ -13,6 +13,8 @@
  * The series has only one father, so it cannot demonstrate the split that a second father
  * produces. That case is real and is documented rather than staged.
  */
+import { isGzip } from './fileLines.ts'
+
 export interface ProductExample {
   gsm: string
   file: string
@@ -74,8 +76,7 @@ export async function loadProductExample(
   const res = await fetch(base + ex.file)
   if (!res.ok) throw new Error(`${ex.file}: HTTP ${res.status}`)
   let blob = await res.blob()
-  const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer())
-  if (head[0] === 0x1f && head[1] === 0x8b) {
+  if (isGzip(new Uint8Array(await blob.slice(0, 2).arrayBuffer()))) {
     blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob()
   }
   return new File([blob], ex.file.replace(/\.gz$/, ''), { type: 'text/csv' })

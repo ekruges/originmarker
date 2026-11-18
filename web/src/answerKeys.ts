@@ -20,6 +20,7 @@
  * markers where the real one is not, and those markers would read as errors that are not.
  */
 import type { AB } from './informativity.ts'
+import { isGzip } from './fileLines.ts'
 
 export interface SameHomTally {
   /** Called sample genotypes at markers where both parents are the same homozygote. */
@@ -158,8 +159,7 @@ export const FOUNDER_PANEL_PATH = 'panel/founders-gse186441.tsv.gz'
  * silent in the sense that matters, because the result is kept for the page: see loadFounderPanel.
  */
 export async function panelText(body: ArrayBuffer): Promise<string> {
-  const head = new Uint8Array(body, 0, Math.min(2, body.byteLength))
-  if (head[0] === 0x1f && head[1] === 0x8b) {
+  if (isGzip(new Uint8Array(body, 0, Math.min(2, body.byteLength)))) {
     return new Response(new Blob([body]).stream().pipeThrough(new DecompressionStream('gzip'))).text()
   }
   return new TextDecoder().decode(body)

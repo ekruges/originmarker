@@ -3,6 +3,7 @@
 "cell": "cell 1",
 "setup": "two",
 "failed": false,
+"damaged": "DAMAGED SAMPLE: call rate 67.5% is below the 70% this tool can reference against",
 "zygosity": "diploid",
 "cls": "biparental",
 "loaded": [
@@ -21,12 +22,13 @@
 "absent": false
 }
 ],
-"expected": "BOTH PARENTS"
+"expected": "UNCLEAR"
 },
 {
 "cell": "cell 1",
 "setup": "father",
 "failed": false,
+"damaged": "DAMAGED SAMPLE: call rate 67.5% is below the 70% this tool can reference against",
 "zygosity": "diploid",
 "cls": "unclear",
 "loaded": [
@@ -38,12 +40,13 @@
 "absent": false
 }
 ],
-"expected": "FATHER + SECOND PARENT"
+"expected": "UNCLEAR"
 },
 {
 "cell": "cell 1",
 "setup": "recon",
 "failed": false,
+"damaged": "DAMAGED SAMPLE: call rate 67.5% is below the 70% this tool can reference against",
 "zygosity": "diploid",
 "cls": "unclear",
 "loaded": [
@@ -55,7 +58,7 @@
 "absent": false
 }
 ],
-"expected": "FATHER + SECOND PARENT"
+"expected": "UNCLEAR"
 },
 {
 "cell": "cell 2",

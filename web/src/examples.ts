@@ -16,6 +16,8 @@
  * third marker the ten-change cell has lost too many chromosomes for the oocyte donor's check to
  * read her genome, and the card falls to unclear.
  */
+import { isGzip } from './fileLines.ts'
+
 export interface Example {
   /** GEO sample accession, which is also the filename stem. */
   gsm: string
@@ -192,8 +194,7 @@ export async function loadExample(ex: Example, base = 'examples/'): Promise<File
   const res = await fetch(base + ex.file)
   if (!res.ok) throw new Error(`${ex.file}: HTTP ${res.status}`)
   let blob = await res.blob()
-  const head = new Uint8Array(await blob.slice(0, 2).arrayBuffer())
-  if (head[0] === 0x1f && head[1] === 0x8b) {
+  if (isGzip(new Uint8Array(await blob.slice(0, 2).arrayBuffer()))) {
     blob = await new Response(blob.stream().pipeThrough(new DecompressionStream('gzip'))).blob()
   }
   return new File([blob], ex.file.replace(/\.gz$/, ''), { type: 'text/csv' })

@@ -20,7 +20,7 @@ import { int } from './fmt.ts'
 import { pct, type ParentageResult } from './parentage.ts'
 import type { DosageVerdict } from './dosageOrigin.ts'
 import {
-  defectsFrom, findingToDefect, mendelParent, parentNamed, withMechanism, type Defect,
+  defectsFrom, findingToDefect, KIND_WORD, mendelParent, parentNamed, withMechanism, type Defect,
 } from './defects.ts'
 import { segmentCoords } from './segments.ts'
 
@@ -38,6 +38,16 @@ export interface HeadInput {
   zygosity: string
   /** The class the genome-wide ratio gives: the pair's with both parents, else the loaded one's. */
   cls: string
+  /**
+   * The sample's own damaged-sample flag, where it reads uninterpretable (integrity.ts).
+   *
+   * Carried as the words it printed, because the headline has to say which of the three
+   * conditions fired. A sample this flag is set on must not have a parent read from it: each of
+   * the three branches says so in its own limits, from "nothing on this sample is reportable" to
+   * "do not read parental calls from this sample". The card used to print the flag in its notices
+   * and a parental verdict above them at the same time.
+   */
+  damaged?: string
   /** True where the loaded parent is the mother alone. */
   motherAlone?: boolean
   loaded: {
@@ -60,7 +70,7 @@ export interface Headline {
   /** One plain line under the word. */
   line: string
   /** Set where the word is "unclear": which rule kept it. */
-  reason?: 'failed' | 'not-shown' | 'disagree' | 'copy-number' | 'class'
+  reason?: 'failed' | 'not-shown' | 'disagree' | 'copy-number' | 'class' | 'damaged'
 }
 
 const GLOSS_WORD: Record<string, string> = {
@@ -90,6 +100,7 @@ export function headInput(r: ParentageResult, m: ParentageResult | undefined, cl
     failed: r.stage?.stage === 'failed',
     zygosity: r.zygosity,
     cls,
+    damaged: r.integrity?.level === 'uninterpretable' ? r.integrity.headline : undefined,
     motherAlone: !m && r.role === 'maternal',
     loaded: r.noParent ? [] : [
       one(r, loadedWho, r.parentGenome),
@@ -103,9 +114,10 @@ export function headInput(r: ParentageResult, m: ParentageResult | undefined, cl
  *
  * Both parents (or the loaded parent and a second copy) where every loaded parent's check carries
  * that parent's genome, the cell reads two copies, and no loaded parent is called absent
- * genome-wide. Unclear, with its reason, on a failed array, a parent not shown, a parent check and
- * an absence ratio that disagree, or a copy number not read. A genome read as one copy keeps the
- * class the ratio gives, which is where that ratio is the right instrument.
+ * genome-wide. Unclear, with its reason, on a failed array, a sample the run calls uninterpretable,
+ * a parent not shown, a parent check and an absence ratio that disagree, or a copy number not read.
+ * A genome read as one copy keeps the class the ratio gives, which is where that ratio is the right
+ * instrument, unless that class is biparental, which a one-genome cell cannot be.
  */
 export function headlineOf(h: HeadInput, changes: string): Headline {
   if (h.noParent) {
@@ -121,7 +133,20 @@ export function headlineOf(h: HeadInput, changes: string): Headline {
   if (h.failed) {
     return unclear('failed', 'The array failed: its calls are noise, so no parent\'s genome can be measured in it.')
   }
+  // A SAMPLE THE RUN ITSELF CALLS UNINTERPRETABLE GETS NO PARENTAL VERDICT. The flag and the
+  // verdict used to be printed on one card: a cell at a 55.7% call rate read BIPARENTAL above its
+  // own notice saying "do not read parental calls from this sample". The notice is the one that
+  // is measured, so the headline says it instead of speaking over it. The changes keep their
+  // positions, which is what that flag's limits leave standing.
+  if (h.damaged) return unclear('damaged', `${h.damaged}, so no parent is read from this sample.`)
   if (h.zygosity === 'uniparental_homozygous' || h.cls === 'neither_parent') {
+    // ONE GENOME AND BOTH PARENTS IN IT ARE TWO READINGS OF ONE CELL THAT CANNOT BOTH HOLD, and
+    // the card said both: the pair's class printed BIPARENTAL beside the cell's own badge reading
+    // uniparental homozygous. Neither reading is dropped; the headline says they disagree.
+    if (h.zygosity === 'uniparental_homozygous' && h.cls === 'biparental') {
+      return unclear('disagree', 'Two readings disagree. This cell reads one genome, and the '
+        + 'genome-wide rates place both parents in it.')
+    }
     const notIn = h.loaded.length === 1 && h.loaded[0].check === 'none'
     const word = h.cls.replace(/_/g, ' ').toUpperCase()
     return {
@@ -409,11 +434,38 @@ const mb1 = (bp: number): string => (bp / 1e6).toFixed(1)
 export function whoseText(g: ChangeRow): string {
   const who = g.origin === 'paternal' ? "father's" : g.origin === 'maternal' ? "mother's" : ''
   if (g.call === 'imbalance') return 'parents unbalanced'
-  if (g.call === 'finding') return (g.pieces[0].kind ?? '').replace(/-/g, ' ')
+  // THE TAXONOMY'S PLAIN PHRASE, NOT ITS CODE WORD. A row from the taxonomy printed its class as
+  // the code spells it, so a copy-neutral stretch read "segmental upd" in a column whose other
+  // rows read "the father's copy missing". defects.KIND_WORD already holds a phrase for every
+  // class and is what the rest of the page prints.
+  if (g.call === 'finding') {
+    const kind = g.pieces[0].kind ?? ''
+    // With the parent where the row has one, so the row does not withhold what its own figure
+    // prints: the figure's heading is defects.headline, which names it.
+    return `${KIND_WORD[kind] ?? kind.replace(/-/g, ' ')}${who ? `, the ${who}` : ''}`
+  }
   if (g.gain) return who ? `extra copy, the ${who}` : 'extra copy, parent not named'
   if (g.deeper) return 'second copy lost too'
   if ((g.call === 'doubled' || g.pieces[0].kind === 'copy-loss') && !who) return 'copy lost, parent not named'
   return who ? `${who} copy missing` : "a parent's copy missing, parent not named"
+}
+
+/**
+ * The title over one change's own figure: where it is and whose copy, in one sentence.
+ *
+ * IT READS THE ROW, so the two cannot name different parents. The figure used to compose its own
+ * sentence and fell back to whichever parent was loaded where the call named none, so a row reading
+ * "a parent's copy missing, parent not named" drew a figure under it headed "the father's copy is
+ * missing", on the strength of the father being the array in the slot. Which track that figure
+ * draws is a different question and still follows the loaded array: the track is the evidence the
+ * call was made on, whoever turns out to own the missing copy, and it carries its own label.
+ */
+export function callTitle(g: ChangeRow): string {
+  const where = g.chrom === 'genome' ? 'The whole genome'
+    : g.whole ? `Whole chromosome ${g.chrom} (${(g.endBp / 1e6).toFixed(0)} Mb)`
+      : `Chromosome ${g.chrom}, ${mb1(g.startBp)} to ${mb1(g.endBp)} Mb `
+        + `(${((g.endBp - g.startBp) / 1e6).toFixed(1)} Mb)`
+  return `${where}: ${whoseText(g)}.`
 }
 
 /** Where, in Mb, one entry per joined piece; the refined coordinates every surface prints. */
@@ -458,6 +510,22 @@ export function pdfCells(g: ChangeRow, setup: Setup): [string, string, string, s
   const pieces = g.whole ? '' : g.pieces.map((p) => [`${p.locus}${p.interval ? ` (edges ${p.interval})` : ''}`,
     pairText(p), lrrText(p)].filter(Boolean).join(', ')).join('; ')
   return [whereText(g), whoseText(g), g.word, [pieces, measuredSentence(g.call, setup)].filter(Boolean).join('. ')]
+}
+
+/**
+ * The line above the headline: which loaded arrays this sample was read against.
+ *
+ * THE NAME IS THE ONE THAT WAS LOADED. It used to be the sperm donor's slot whatever was in it, so
+ * a run with the mother alone printed "<file> vs " and named nobody. Either parent alone is enough
+ * everywhere else in this tool, and this line is the only place a reader can see which array the
+ * card's words are held against, which is what the one-parent caveat on a headline depends on.
+ */
+export function readAgainst(
+  r: { noParent?: boolean; role: Parent }, bothLoaded: boolean, donorName: string, oocyteName: string,
+): string {
+  if (r.noParent) return 'no parent loaded'
+  if (bothLoaded) return `vs ${donorName} and ${oocyteName}`
+  return `vs ${r.role === 'maternal' ? oocyteName : donorName}`
 }
 
 /** One line per row, the same text on the card, in the PDF and in the check. */

@@ -46,13 +46,15 @@ import { isInferredFile, parseInferredBanner, MARK_BYTES } from './inferredArray
 import { receiveHandoff, wantsHandoff } from './handoff'
 import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
+import { eachLine } from './fileLines'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
 import { plotData, type PlotData } from './plotSeries'
 import { CallFigure, CellFigure, defectMark, rowMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
 import { runAlerts } from './defects'
 import {
-  cardSays, defectsForResult, KIND_SAYS, kindOf, MEASURED_SOURCE, measuredSentence, PARENT_SENTENCE, WORD,
+  callTitle, cardSays, defectsForResult, KIND_SAYS, kindOf, MEASURED_SOURCE, measuredSentence,
+  PARENT_SENTENCE, readAgainst, WORD,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
 import { timeGroup } from './timing'
@@ -193,31 +195,6 @@ function grab(blob: Blob, filename: string): void {
   URL.revokeObjectURL(url)
 }
 
-
-async function eachLine(
-  file: File, fn: (line: string) => void, onChunk?: (bytesRead: number) => void,
-): Promise<void> {
-  const reader = file.stream().getReader()
-  const decoder = new TextDecoder()
-  let carry = ''
-  let read = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    read += value.byteLength
-    carry += decoder.decode(value, { stream: true })
-    let i = carry.indexOf('\n')
-    while (i >= 0) {
-      fn(carry.slice(0, i))
-      carry = carry.slice(i + 1)
-      i = carry.indexOf('\n')
-    }
-    onChunk?.(read)
-    // Yield, so the log and the bars paint while a large file streams.
-    await new Promise((r) => { setTimeout(r, 0) })
-  }
-  if (carry) fn(carry)
-}
 
 /**
  * Profile one file and run its sample gates. `inferred` is forwarded to `gates` and comes from the
@@ -1161,7 +1138,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
       }}
       >
         <Text size="xs" c="dimmed" mb={2}>
-          {entry.file.name} &middot; {r.noParent ? 'no parent loaded' : `vs ${donorName}`}{m && ` and ${oocyteName}`}
+          {entry.file.name} &middot; {readAgainst(r, !!m, donorName, oocyteName)}
         </Text>
         <Group gap={10} align="baseline">
           <Text
@@ -1212,7 +1189,9 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
           list={list} setup={setup}
           plot={(g) => {
             const mk = rowMark(g.pieces, r.segments, loadedRole(r), entry.series?.endBp.get(g.chrom), g.deeper)
-            return mk ? <CallFigure mark={mk} data={entry.series} marks={marks} name={plotName(entry)} /> : null
+            // The title comes from the row, not from the figure: pageSays.callTitle, which reads
+            // the same origin the row does, so the two cannot name different parents.
+            return mk ? <CallFigure mark={{ ...mk, sentence: callTitle(g) }} data={entry.series} marks={marks} name={plotName(entry)} /> : null
           }}
         />
         <CellFigure data={entry.series} marks={marks} name={plotName(entry)} title={title} />

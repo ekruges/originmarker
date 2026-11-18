@@ -35,6 +35,7 @@ import { TriageTable, ConcordanceMatrix, triage, type Triage } from './ProductPa
 import { Stage, Summary, Why } from './InferredShell'
 import { int } from './fmt'
 import { FeatureHeader, DropZone } from './FeatureHeader'
+import { eachLine } from './fileLines'
 import { RunLog, type LogLine } from './RunLog'
 import {
   GERMLINE_EXAMPLES, GERMLINE_CITATION, loadProductExample,
@@ -119,31 +120,6 @@ const breathe = (): Promise<void> => new Promise((r) => { setTimeout(r, 0) })
 
 /** Chunk size for the pairwise pass. At roughly 3ms per pair this paints about every 40ms. */
 const PAIR_CHUNK = 12
-
-async function eachLine(
-  file: File, fn: (line: string) => void, onChunk?: (bytes: number) => void,
-): Promise<void> {
-  const reader = file.stream().getReader()
-  const decoder = new TextDecoder()
-  let carry = ''
-  let read = 0
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    read += value.byteLength
-    carry += decoder.decode(value, { stream: true })
-    let i = carry.indexOf('\n')
-    while (i >= 0) {
-      fn(carry.slice(0, i))
-      carry = carry.slice(i + 1)
-      i = carry.indexOf('\n')
-    }
-    onChunk?.(read)
-    // Yield, so the progress bar paints while a 40 MB file streams.
-    await new Promise((r) => { setTimeout(r, 0) })
-  }
-  if (carry) fn(carry)
-}
 
 /**
  * Why a file is not from the proven chip, or null when it is. Read in its own pass, before the file

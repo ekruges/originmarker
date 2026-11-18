@@ -3,10 +3,10 @@
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
-  changeList, changesText, COUNTED, defectsForResult, disturbedText, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, rowLine,
+  callTitle, changeList, changesText, COUNTED, defectsForResult, disturbedText, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, readAgainst, rowLine,
   saidOf, spanMb, whereText, whoseText, WORD, type HeadInput,
 } from './pageSays.ts'
-import type { Defect } from './defects.ts'
+import { KIND_WORD, type Defect } from './defects.ts'
 
 const root = new URL('../../audit/truth/', import.meta.url)
 
@@ -22,12 +22,18 @@ const root = new URL('../../audit/truth/', import.meta.url)
     if (h.word === 'UNCLEAR') assert.ok(h.reason && h.line.length > 20, `an unclear card says why: ${c.cell}`)
     ;(words[c.setup] ??= {})[h.word] = (words[c.setup][h.word] ?? 0) + 1
   }
-  assert.equal(words.two['BOTH PARENTS'], 24)
-  assert.equal(words.father['FATHER + SECOND PARENT'], 26)
-  assert.equal(words.recon['FATHER + SECOND PARENT'], 28)
+  // One fewer in each setup than the 6.10.0 measurement: cell 1 is the one published cell the run
+  // itself calls uninterpretable, at a 0.675 call rate against the 0.70 bound, and a sample that
+  // reads "do not read parental calls from this sample" no longer gets a parental word. Its
+  // `damaged` input is taken from the same records the rest of this fixture is, where it carries an
+  // integrity.uninterpretable refusal in all three setups.
+  assert.equal(words.two['BOTH PARENTS'], 23)
+  assert.equal(words.father['FATHER + SECOND PARENT'], 25)
+  assert.equal(words.recon['FATHER + SECOND PARENT'], 27)
+  assert.equal(cells.filter((c) => c.damaged && headlineOf(c, '').reason === 'damaged').length, 3)
   // No cell gets a headline the paper contradicts: all 31 are children of both donors.
   for (const c of cells) assert.ok(!['GYNOGENETIC', 'ANDROGENETIC', 'NEITHER PARENT'].includes(headlineOf(c, '').word), c.cell)
-  console.log('  P1: 24 both parents, 26 father + second parent, 28 with the rebuilt father; the rest unclear with a reason')
+  console.log('  P1: 23 both parents, 25 father + second parent, 27 with the rebuilt father; the rest unclear with a reason')
 }
 
 // ---------------------------------------------------------------- the headline rule on its own
@@ -45,7 +51,36 @@ const root = new URL('../../audit/truth/', import.meta.url)
   assert.ok(dis.line.includes('17 of 22') && dis.line.includes('3.4x'), dis.line)
   // A genome read as one copy keeps the class the ratio gives: a pronucleus is still a pronucleus.
   assert.equal(headlineOf({ ...base, zygosity: 'uniparental_homozygous', cls: 'androgenetic' }, '').word, 'ANDROGENETIC')
-  assert.ok(!/—/.test(JSON.stringify([headlineOf(base, ''), dis])), 'no em dashes')
+  // Except biparental, which a one-genome cell cannot be: the card said BIPARENTAL beside its own
+  // badge reading uniparental homozygous. Both readings stand; the headline says they disagree.
+  const one = headlineOf({ ...base, zygosity: 'uniparental_homozygous', cls: 'biparental' }, '')
+  assert.equal(one.word, 'UNCLEAR')
+  assert.equal(one.reason, 'disagree')
+  assert.ok(one.line.includes('one genome') && one.line.includes('both parents'), one.line)
+  // A sample the run calls uninterpretable gets no parental word at all, whatever the class says.
+  for (const cls of ['biparental', 'androgenetic', 'gynogenetic', 'neither_parent']) {
+    const d = headlineOf({ ...base, cls, damaged: 'DAMAGED SAMPLE: call rate 55.7% is below the 70% this tool can reference against' }, '')
+    assert.equal(d.word, 'UNCLEAR', cls)
+    assert.equal(d.reason, 'damaged', cls)
+    assert.ok(d.line.startsWith('DAMAGED SAMPLE: call rate 55.7%') && d.line.includes('no parent is read'), d.line)
+    assert.equal(d.decided, false)
+  }
+  assert.ok(!/—/.test(JSON.stringify([headlineOf(base, ''), dis, one])), 'no em dashes')
+}
+
+// ---------------------------------------------------------------- the line above the headline
+// It names the arrays that were LOADED. With the mother alone it used to print the sperm donor's
+// slot, which is empty, so the line ended in "vs " and named nobody.
+{
+  const father = { noParent: false, role: 'paternal' } as const
+  const mother = { noParent: false, role: 'maternal' } as const
+  assert.equal(readAgainst(father, true, 'dad.probes', 'mum.probes'), 'vs dad.probes and mum.probes')
+  assert.equal(readAgainst(father, false, 'dad.probes', ''), 'vs dad.probes')
+  assert.equal(readAgainst(mother, false, '', 'mum.probes'), 'vs mum.probes')
+  assert.equal(readAgainst({ noParent: true, role: 'paternal' }, false, '', ''), 'no parent loaded')
+  for (const line of [readAgainst(mother, false, '', 'mum.probes'), readAgainst(father, false, 'dad.probes', '')]) {
+    assert.ok(!line.endsWith('vs '), `the line never ends in a bare "vs": ${line}`)
+  }
 }
 
 // ---------------------------------------------------------------- P2 to P4 on one cell
@@ -164,6 +199,57 @@ const cellA: Defect[] = [
   assert.equal(named.once.length, 1)
   assert.equal(whoseText(named.once[0]), "father's copy missing", 'the row names the parent the call names')
   assert.ok(!named.counted.length, 'never found two ways')
+}
+
+// ------------------------------------------------- a change's figure says what its row says
+// The figure under an opened row used to compose its own sentence and fell back to whichever
+// parent was loaded where the call named none, so a row reading "a parent's copy missing, parent
+// not named" drew a figure headed "the father's copy is missing". One function now writes both.
+{
+  const stretch = (origin: 'paternal' | 'maternal' | 'unclear'): Defect => ({
+    chrom: '6', startBp: 31_326_410, endBp: 168_848_043, kind: 'parental-absence',
+    locus: 'chr6:31,326,410-168,848,043', origin, why: 'x', step: 'window',
+    rate: 0.068, nullRate: 0.017,
+  })
+  const row = changeList([stretch('unclear')], 'measured').once[0]
+  assert.equal(whoseText(row), "a parent's copy missing, parent not named")
+  assert.equal(callTitle(row),
+    "Chromosome 6, 31.3 to 168.8 Mb (137.5 Mb): a parent's copy missing, parent not named.")
+  // Whatever the row says about a parent, the title says the same, on every kind of row.
+  const rows = [stretch('unclear'), stretch('paternal'), stretch('maternal'),
+    { ...stretch('paternal'), kind: 'copy-loss' as const, step: 'intensity' as const },
+    { ...stretch('unclear'), kind: 'copy-gain' as const, step: 'intensity' as const },
+    { ...stretch('maternal'), locus: 'chr6', startBp: 0, step: 'whole-alleles' as const }]
+    .flatMap((d) => { const l = changeList([d], 'measured'); return [...l.counted, ...l.once, ...l.seen] })
+  for (const g of rows) {
+    const named = /father|mother/.test(whoseText(g))
+    assert.equal(/father|mother/.test(callTitle(g)), named,
+      `row "${whoseText(g)}" and title "${callTitle(g)}" disagree about naming a parent`)
+    assert.ok(callTitle(g).includes(whoseText(g)), callTitle(g))
+  }
+  assert.ok(callTitle(rows[rows.length - 1]).startsWith('Whole chromosome 6 ('), callTitle(rows[rows.length - 1]))
+}
+
+// ---------------------------------------------------------------- the taxonomy's rows, in words
+// A row from the taxonomy printed the class as the code spells it: "segmental upd" in a column
+// whose other rows read "the father's copy missing". Every class has a phrase in defects.KIND_WORD.
+{
+  const finding = (cls: Defect['kind']): Defect => ({
+    chrom: '6', startBp: 66_421_442, endBp: 170_907_734, kind: cls,
+    locus: 'chr6:66,421,442-170,907,734', origin: 'unclear', why: 'x', step: 'finding',
+  })
+  assert.equal(whoseText(changeList([finding('segmental-upd')], 'two').once[0]), 'segment from one parent only')
+  // And the parent where the row has one, which its own figure heading prints.
+  assert.equal(whoseText(changeList([{ ...finding('segmental-upd'), origin: 'maternal' }], 'two').once[0]),
+    "segment from one parent only, the mother's")
+  assert.equal(whoseText(changeList([finding('cnn-loh')], 'two').once[0]), 'both copies from one parent, copy number normal')
+  assert.equal(whoseText(changeList([finding('isodisomy')], 'two').once[0]), 'both copies are the same parental homologue')
+  for (const cls of Object.keys(KIND_WORD) as Defect['kind'][]) {
+    if (cls === 'complex') continue // genome-scoped: a sentence under the list, never a row
+    const row = changeList([finding(cls)], 'two')
+    const text = whoseText([...row.counted, ...row.once, ...row.seen][0])
+    assert.ok(!/\b(upd|loh|cnn|de novo)\b/.test(text), `${cls} prints a code word: ${text}`)
+  }
 }
 
 // ---------------------------------------------------------------- one parent, no two-parent count
