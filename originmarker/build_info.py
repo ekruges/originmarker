@@ -327,10 +327,14 @@ RELEASES: tuple[Release, ...] = (
             "The outer cells of a blastocyst, the few a clinic takes for testing and puts on an "
             "array. The examples are now real trophectoderm biopsies and the donors beside them, "
             "read three ways: both parents, one parent, and none."),
+    Release("Null Allele",
+            "An allele that makes no product at all, and shows only by what is missing. A reading "
+            "taken without the reference panel is the same thing: an answer with nothing behind "
+            "it. The panel is now read, or the file is refused."),
 )
 
-VERSION = "6.14.0"
-CODENAME = "Trophectoderm"
+VERSION = "6.15.0"
+CODENAME = "Null Allele"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

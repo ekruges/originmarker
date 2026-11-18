@@ -9,6 +9,38 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.15.0 "Null Allele"
+
+**A file is refused when the founder panel cannot be read, instead of being scored without it.**
+The panel was fetched with a deliberate fallback: null on any failure, because "without a panel
+the stage behaves exactly as it did before panels existed." That stopped being true. The chip
+check of 6.8.0, the per-chromosome parent check, the one-parent copy states, the other-parent
+scan, the drop-in rate the material is read with, the sex line that follows the material, and
+finding the father among several files all rest on the panel now. Scored without it, a run
+reports different changes with different coordinates, a different material, a different sex and
+a confident one-genome verdict where the correct run says unclear, and says none of it.
+
+- **Why it failed, which is not where it looked.** The panel was read with `Response.blob()`,
+  which stages a body of this size through the browser's blob store, and that needs room on the
+  volume holding the browser profile. On a nearly full volume the call fails outright: measured
+  with 6.9 MB free, `blob()` fails where `arrayBuffer()` on the same file in the same page
+  succeeds three times out of three. It is read as a buffer now, which stays in the page. The
+  file is still inflated from its first two bytes rather than its name, because a host that sends
+  it with `Content-Encoding: gzip` delivers it already inflated.
+- **What a reader saw before.** The page fell to UNCLEAR and printed "too few chromosomes could
+  be read to show the father's genome in this cell": a sentence about the cell, for a shipped
+  file that did not load.
+- **What happens now.** Every file is refused on its own card, with the reason and the list of
+  readings that are not being reported. Nothing is scored unchecked, which is the point of the
+  chip check: without the panel the tool cannot show a file came from the chip its thresholds
+  were measured on.
+- No call, parent, coordinate or count changes where the panel loads: the 600-row harness output
+  is byte-identical on both lists, and the harness reads the panel from disk rather than through
+  the browser.
+
+Also in this release: `audit/catalogue-2026-11-17/`, one entry per result the card can print, with
+what each case needs and the six that no open public array produces.
+
 ## 6.14.0 "Trophectoderm"
 
 **The Examples button becomes three, one per setup, and every card names a result.** The old
