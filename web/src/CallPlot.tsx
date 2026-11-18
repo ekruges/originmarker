@@ -205,12 +205,18 @@ const LEVEL_WORD: Record<number, string> = { 0: 'none', 1: 'one copy', 2: 'two c
 
 /* --- the whole cell, the top deck -------------------------------------------------------------- */
 
-export function WholeCell({ data, marks, name, numbers, focus }: {
+export function WholeCell({ data, marks, name, numbers, focus, title, also, caption }: {
   data: PlotData; marks: readonly Mark[]; name: string
   /** The number each zoomed change carries below, by chromosome. */
   numbers?: ReadonlyMap<string, number>
   /** A chromosome to bring forward on its own, for a single call's view. */
   focus?: string
+  /** What the figure shows, the changes it does not zoom, and what the reader must know to read it.
+   *  They are drawn inside the picture: the card offers the file for saving, and a figure that
+   *  travels without its caption claims more than it measured. */
+  title?: string
+  also?: string
+  caption?: string
 }) {
   const [ref, W] = useWidth()
   const svg = useRef<SVGSVGElement>(null)
@@ -246,11 +252,17 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
   // Below the tracks: the chromosome number, the mark, the badge, and the label in its lane.
   const blockOf = (row: readonly string[]) => tracks.length * (TH + 20) + 21
     + (row.some((c) => changed.has(c)) ? 20 + 26 * (laneCount(row) - 1) + 12 * wordLines(row) + 10 : 10)
+  const headLines = title ? wrap(title, Math.max(24, Math.floor(W / 7.6))) : []
+  const headH = headLines.length ? 8 + headLines.length * 19 + 6 : 0
+  const alsoLines = also ? wrap(also, Math.max(30, Math.floor(W / 5.6))) : []
+  const capLines = caption ? wrap(caption, Math.max(30, Math.floor(W / 5.6))) : []
+  const footH = (alsoLines.length ? alsoLines.length * 14 + 6 : 0) + (capLines.length ? capLines.length * 14 + 8 : 0)
+  const bodyTop = 6 + headH
   rows.forEach((row, r) => {
     const total = row.reduce((s, c) => s + len(c), 0)
     const usable = W - 2 - GUT - G * (row.length - 1)
     let x = 1 + GUT
-    const top = 6 + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0)
+    const top = bodyTop + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0)
     // A label sits at its own chromosome; a neighbour whose words would run into it takes the next
     // lane down, so the words never overlap however many changes a cell carries.
     const laneEnd = new Array<number>(LANES).fill(0)
@@ -271,7 +283,7 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
       x += w + G
     }
   })
-  const H = 6 + rows.reduce((s, row) => s + blockOf(row), 0) + 4
+  const H = bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 4 + footH
   const yOf = (top: number, v: number) => top + TH * (1 - Math.max(0, Math.min(COPY_MAX, v)) / COPY_MAX)
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -298,8 +310,11 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
         onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setTip(null)}
       >
         <rect width={W} height={H} fill="#fff" />
+        {headLines.map((l, i) => (
+          <text key={`h${i}`} x={1} y={20 + i * 19} fontSize={15} fontWeight={700} fill={INK}>{l}</text>
+        ))}
         {rows.map((_row, r) => tracks.map((t, ti) => {
-          const top = 6 + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0) + ti * (TH + 20) + 16
+          const top = bodyTop + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0) + ti * (TH + 20) + 16
           // One cell has two tracks however many rows of chromosomes it takes, so the title is
           // written once and a later row carries a quiet continuation mark instead.
           return r === 0 ? (
@@ -361,14 +376,19 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
             </g>
           )
         })}
+        {alsoLines.map((l, i) => (
+          <text key={`a${i}`} x={1} y={bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 10 + i * 14}
+            fontSize={11} fill={DIM}>{l}</text>
+        ))}
+        {capLines.map((l, i) => (
+          <text key={`c${i}`} x={1}
+            y={bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 10 + alsoLines.length * 14
+              + (alsoLines.length ? 6 : 0) + i * 14}
+            fontSize={11} fill={DIM}>{l}</text>
+        ))}
       </svg>
       <Tip tip={tip} w={W} />
       <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
-        <span>
-          Grey band: the range this cell itself holds on the chromosomes with no change. Chromosomes with no
-          change are muted.
-          {marks.some((m) => m.withheld) ? ' Dashed line: found, not reported.' : ''}
-        </span>
         <SaveSvg svg={svg} name={`${name}-cell`} />
       </div>
     </div>
@@ -377,8 +397,13 @@ export function WholeCell({ data, marks, name, numbers, focus }: {
 
 /* --- one change, the zoom ---------------------------------------------------------------------- */
 
-export function Zoom({ data, mark, marks, number, width }: {
+export function Zoom({ data, mark, marks, number, width, title, caption, saveName }: {
   data: PlotData; mark: Mark; marks: readonly Mark[]; number?: number; width?: number
+  /** The zoom's own words, drawn inside it so the saved file says what it shows and what it does not. */
+  title?: string
+  caption?: string
+  /** Offer this zoom as a file. The button sits beside the picture, never inside it. */
+  saveName?: string
 }) {
   const [ref, auto] = useWidth()
   const svg = useRef<SVGSVGElement>(null)
@@ -394,11 +419,12 @@ export function Zoom({ data, mark, marks, number, width }: {
   const guard = guardOf(data, mark.chrom, per, floor)
   const L = 66; const R = 8; const PW = Math.max(40, W - L - R)
   const x = (bp: number) => L + PW * Math.max(0, Math.min(1, (bp - loBp) / (hiBp - loBp)))
-  const head = wrap(`Chromosome ${mark.chrom}: ${mark.word}`, Math.max(22, Math.floor(W / 7)))
+  const head = wrap(title ?? `Chromosome ${mark.chrom}: ${mark.word}`, Math.max(22, Math.floor(W / 7)))
+  const capLines = caption ? wrap(caption, Math.max(28, Math.floor(W / 5.3))) : []
   const TH = W < 420 ? 66 : 78
   const top0 = (number ? 6 : 0) + head.length * 15 + 12
   const colour = mark.withheld ? DIM : mark.gain ? GAINC : CALL
-  const H = top0 + tracks.length * (TH + 20) + 44
+  const H = top0 + tracks.length * (TH + 20) + 44 + (capLines.length ? capLines.length * 13 + 6 : 0)
   const span = hiBp - loBp
   const step = tickStepMb(span)
   const ticks: number[] = []
@@ -465,8 +491,16 @@ export function Zoom({ data, mark, marks, number, width }: {
         <text x={x(mark.startBp)} y={axisY + 38} fontSize={10} fontWeight={600} fill={colour}>
           {mark.withheld ? `found, not reported: ${mark.withheld}` : 'called here'}
         </text>
+        {capLines.map((l, i) => (
+          <text key={`c${i}`} x={1} y={axisY + 56 + i * 13} fontSize={10} fill={DIM}>{l}</text>
+        ))}
       </svg>
       <Tip tip={tip} w={W} />
+      {saveName ? (
+        <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
+          <SaveSvg svg={svg} name={saveName} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -475,17 +509,12 @@ export function Zoom({ data, mark, marks, number, width }: {
 export function CallFigure({ mark, data, marks, name }: {
   mark: Mark; data: PlotData | undefined; marks: readonly Mark[]; name: string
 }) {
-  const svg = useRef<SVGSVGElement>(null)
   if (!data) return null
   return (
     <div style={{ margin: '8px 0 2px', maxWidth: '100%' }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: INK, lineHeight: 1.35 }}>{mark.sentence}</div>
-      {mark.said ? <div style={{ fontSize: 12, color: INK, lineHeight: 1.5, marginTop: 3, maxWidth: 780 }}>{mark.said}</div> : null}
-      <Zoom data={data} mark={mark} marks={marks} />
-      <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
-        <span>{CAPTION_SCALE}</span>
-        <SaveSvg svg={svg} name={`${name}-chr${mark.chrom}`} />
-      </div>
+      <Zoom data={data} mark={mark} marks={marks} title={mark.sentence}
+        caption={`${mark.said ? `${mark.said} ` : ''}${zoomCaption(data, mark)}`}
+        saveName={`${name}-chr${mark.chrom}`} />
     </div>
   )
 }
@@ -505,6 +534,24 @@ const CAPTION_SOLO = 'With one parent or none the figure draws the copies in all
   + 'markers that say whose DNA is here are the ones where the parents carry different alleles, and they '
   + 'cannot be built from one parent.'
 
+/** What a zoom must carry on its own: the scale, the band, and the caveat that bears on it. */
+function zoomCaption(data: PlotData, mark: Mark): string {
+  const scale = data.split
+    ? 'Each bar is a stretch of DNA and its height is how many copies of it came from that parent. '
+      + "One from each is a normal chromosome; the grey band is this cell's own range on the "
+      + 'chromosomes with no change.'
+    : 'Each bar is a stretch of DNA and its height is how many copies are here in all, against the '
+      + "level this cell holds on its chromosomes with no change, which is the grey band. No parent "
+      + 'is named.'
+  const gain = data.split && mark.gain
+    ? ' Read the doubled track: in a single cell a doubled copy takes more than its share of what is '
+      + "read, so the other parent's track dips below one copy although that copy is present." : ''
+  const guard = data.split
+    ? ' A bar drawn as an empty outline is a stretch both parents read as none while the markers are '
+      + 'still calling, which the call rate does not support as a zero.' : ''
+  return scale + gain + guard
+}
+
 /** The figure for a result card: the whole cell, then a zoom for each change, numbered to match. */
 export function CellFigure({ data, marks, name, title }: {
   data: PlotData | undefined; marks: readonly Mark[]; name: string
@@ -520,15 +567,16 @@ export function CellFigure({ data, marks, name, title }: {
   const cols = W >= 980 ? 3 : W >= 640 ? 2 : 1
   const colW = Math.floor((W - 18 * (cols - 1)) / cols)
   const hasGain = marks.some((m) => m.gain)
+  // One source of words, and it lives inside the picture: the card offers the figure for saving and
+  // a file that travels without its caption claims more than the measurement supports.
+  const caption = `${CAPTION_SCALE} ${data.split ? CAPTION_GUARD : CAPTION_SOLO}`
+    + `${data.split ? ` ${CAPTION_LEVELS}` : ''}${data.split && hasGain ? ` ${CAPTION_GAIN}` : ''}`
+  const also = rest.length
+    ? `Also changed, not zoomed: ${rest.map((m) => `${m.chrom} (${m.word})`).join(', ')}.` : undefined
   return (
     <div ref={ref} style={{ marginTop: 14 }}>
-      <div style={{ fontSize: 14, fontWeight: 700, color: INK }}>{title}</div>
-      <WholeCell data={data} marks={marks} name={name} numbers={numbers} />
-      {rest.length ? (
-        <div style={{ fontSize: 11, color: DIM, marginTop: 2 }}>
-          Also changed, not zoomed: {rest.map((m) => `${m.chrom} (${m.word})`).join(', ')}.
-        </div>
-      ) : null}
+      <WholeCell data={data} marks={marks} name={name} numbers={numbers}
+        title={title} also={also} caption={caption} />
       {shown.length ? (
         <>
           <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginTop: 12 }}>
@@ -537,15 +585,11 @@ export function CellFigure({ data, marks, name, title }: {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 6 }}>
             {shown.map((m, i) => (
               <Zoom key={`${m.chrom}:${m.startBp}`} data={data} mark={m} marks={marks}
-                number={i + 1} width={colW} />
+                number={i + 1} width={colW} caption={zoomCaption(data, m)} />
             ))}
           </div>
         </>
       ) : null}
-      <div style={{ fontSize: 11, color: DIM, marginTop: 6, lineHeight: 1.5, maxWidth: 900 }}>
-        {CAPTION_SCALE} {data.split ? CAPTION_GUARD : CAPTION_SOLO} {data.split ? CAPTION_LEVELS : ''}
-        {data.split && hasGain ? ` ${CAPTION_GAIN}` : ''}
-      </div>
     </div>
   )
 }
