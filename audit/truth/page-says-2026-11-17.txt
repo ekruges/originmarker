@@ -1,0 +1,165 @@
+The page says what it found (plan item 3.14)
+============================================
+17 November 2026. Branch page-says, built on call-plot-3 merged with 6.10.0. Measured on the 31
+published cells of Zuccaro 2020 Table S3 (GEO GSE148488), every one a child of both donors, in
+three setups: both parents loaded, the father measured, the father rebuilt from his haploid cells.
+
+Sources: run.ts records of 6.10.0 (tags two, father, recon), the change lists the page itself builds
+with both parents (cli/cardrun.ts over cli/exampleRun.ts), and the answer key
+audit/local/truth/truth.tsv. Produced by:
+
+  python3 audit/truth/page_says.py --truth audit/local/truth --records <h.jsonl> --cards <cards.jsonl>
+    --fixture audit/truth/page-says-cells.json
+
+The fixture holds, per accession and setup, what the headline reads and the word expected; the
+check web/src/pageSays.check.ts replays it through pageSays.headlineOf and reads the MEASURED lines
+below against pageSays.MEASURED.
+
+THE HEADLINE RULE (P1, pageSays.headlineOf)
+  Failed array                                   UNCLEAR: the array failed.
+  Genome read as one copy, or neither parent     the class the genome-wide ratio gives, as before.
+  A loaded parent's check does not carry them    UNCLEAR: that parent's genome is not shown.
+  A loaded parent called absent genome-wide      UNCLEAR: two readings disagree.
+  Copy number not read                           UNCLEAR: one genome cannot be told from two.
+  Otherwise                                      BOTH PARENTS, or FATHER (MOTHER) + SECOND PARENT.
+  The check is the per-chromosome parent check (parentGenome.ts). The genome-wide absence ratio is
+  pooled over every autosome, the changed ones included, so it decides only where it calls a
+  parent absent. The mother's genome-wide verdict is not in the 6.10.0 records; the fixture takes
+  it as not absent, and the harness writes it from now on (genomeVerdicts, P6).
+
+HEADLINE, expected word by setup
+  both parents     24 BOTH PARENTS, 7 UNCLEAR
+  measured father  26 FATHER + SECOND PARENT, 5 UNCLEAR
+  rebuilt father   28 FATHER + SECOND PARENT, 3 UNCLEAR
+
+  UNCLEAR, with the rule that keeps it
+    GSM4472409  two     copy number not read
+    GSM4472409  father  copy number not read
+    GSM4472409  recon   copy number not read
+    GSM4472413  two     a parent not shown
+    GSM4552367  two     two readings disagree (parent check carries, genome-wide absent)
+    GSM4552367  father  two readings disagree (parent check carries, genome-wide absent)
+    GSM4552374  two     a parent not shown
+    GSM4552384  two     two readings disagree (parent check carries, genome-wide absent)
+    GSM4552384  father  two readings disagree (parent check carries, genome-wide absent)
+    GSM4552418  two     failed array
+    GSM4552418  father  failed array
+    GSM4552418  recon   failed array
+    GSM4552422  two     failed array
+    GSM4552422  father  failed array
+
+  Before this build the same cells read UNCLEAR on 21 (both parents), 26 (measured father) and 27
+  (rebuilt father), and GYNOGENETIC on 2 with the measured father, which the paper contradicts.
+  Both of those now read UNCLEAR with the disagreement named.
+
+THE WORD ON EACH CHANGE (P2, P3, pageSays.kindOf)
+  found two ways   a stretch the absence scan names, which the Mendelian test over the same
+                   stretch also names for the same parent (both parents loaded)
+  consistent       a whole chromosome with one parent's copy missing by the alleles; a stretch the
+                   Mendelian test names with one parent loaded; a parent inherited from the
+                   genome-level call
+  one reading      every other printed stretch: the absence scan alone, the newer allele scans,
+                   a stretch naming no parent, copy number from intensity, a parent named for a gain
+  also seen        a whole-chromosome allele imbalance or mixed signal: listed, not a change
+  Changes found two ways or consistent are counted in the headline. One-reading stretches are
+  listed under them as "seen once, not confirmed" and are not counted. The record keeps every call.
+
+
+MEASURED COUNT BEHIND EACH CHIP WORD (right / scored; wrong parent; unscored)
+  whole         89 of 96  (parent wrong 2, unscored 0)    93 of 103 (parent wrong 2, unscored 0)    92 of 102 (parent wrong 2, unscored 0)
+  two-ways      19 of 26  (parent wrong 0, unscored 1)                                          -                                          -
+  run-only       7 of 20  (parent wrong 0, unscored 0)                                          -                                          -
+  second-test                                         -    13 of 15  (parent wrong 0, unscored 0)     7 of 11  (parent wrong 0, unscored 0)
+  allele-scan    3 of 17  (parent wrong 0, unscored 0)     5 of 21  (parent wrong 0, unscored 1)     7 of 24  (parent wrong 0, unscored 1)
+  unnamed       22 of 38  (parent wrong 0, unscored 0)    16 of 36  (parent wrong 0, unscored 0)    12 of 21  (parent wrong 0, unscored 0)
+  intensity      3 of 7   (parent wrong 0, unscored 0)     4 of 8   (parent wrong 0, unscored 0)     4 of 9   (parent wrong 0, unscored 0)
+  gain-parent    1 of 4   (parent wrong 0, unscored 0)                                          -                                          -
+  imbalance     10 of 24  (parent wrong 0, unscored 0)     5 of 10  (parent wrong 0, unscored 0)     3 of 4   (parent wrong 0, unscored 0)
+  finding        0 of 2   (parent wrong 1, unscored 1)     1 of 2   (parent wrong 0, unscored 1)     1 of 2   (parent wrong 0, unscored 1)
+
+  Machine-read by web/src/pageSays.check.ts (kind, setup, right, scored):
+  MEASURED whole two 89 96
+  MEASURED whole measured 93 103
+  MEASURED whole rebuilt 92 102
+  MEASURED two-ways two 19 26
+  MEASURED run-only two 7 20
+  MEASURED second-test measured 13 15
+  MEASURED second-test rebuilt 7 11
+  MEASURED allele-scan two 3 17
+  MEASURED allele-scan measured 5 21
+  MEASURED allele-scan rebuilt 7 24
+  MEASURED unnamed two 22 38
+  MEASURED unnamed measured 16 36
+  MEASURED unnamed rebuilt 12 21
+  MEASURED intensity two 3 7
+  MEASURED intensity measured 4 8
+  MEASURED intensity rebuilt 4 9
+  MEASURED gain-parent two 1 4
+  MEASURED imbalance two 10 24
+  MEASURED imbalance measured 5 10
+  MEASURED imbalance rebuilt 3 4
+
+  "Right" is right place and, where the call and the paper both name one, right parent.
+  For unnamed, intensity and imbalance rows, right is right place.
+
+PARENT ON A STRETCH IN THE RIGHT PLACE, all three setups: right 59, wrong 0
+
+  Against the table in the plan (step 1 audit): whole chromosomes read 89 of 96, 93 of 103 and
+  92 of 102 here where the audit had 88 of 95, 92 of 102 and 91 of 101: a whole-chromosome
+  intensity loss whose alleles also name the parent now counts as "whole", as the page groups it.
+  The one-reading stretch with both parents is 7 of 20, where the audit's 5 of 17 counted only the
+  stretches the Mendelian test refused; the other 3 are stretches it read with both copies present.
+  The parent on a stretch in the right place is right on 59 of 59, not 70 of 70: the audit's 70
+  was not counted by this rule. Whole chromosomes carry 2 wrong parents in each setup.
+
+ONE COUNT, ONE SET OF COORDINATES, ONE PAIR OF NUMBERS (P4)
+  The card's headline count, its change list, the PDF's summary and change table, and the figure's
+  marks are all built from pageSays.cardSays. Pieces of one chromosome, gain or loss, parent and
+  kind of call join into one row (the counting rule's unit). Every surface prints the refined
+  coordinates (segmentCoords) with their edge intervals; the segment list that printed raw window
+  edges is gone. The pair of numbers is the scan's own (rate against null rate), printed at one
+  decimal on the card, the PDF and the figure's line; the figure no longer quotes a pair of its own
+  where the call has one, and its intensity is the scan's. "0 of N measured at band A or B" is gone;
+  the integrity alert that counted segments is no longer shown for a usable (disturbed) genome.
+
+WHERE THE FIGURE SITS (P5)
+  Head (headline, one line), the change list, the whole-cell figure, then "How this was read"
+  folded: how sure each word is, what each figure row shows, the absence axes, material, the
+  scans' explanation, extra copies, both-parent notes, sample detail.
+
+THE HARNESS (P6)
+  audit/truth/run.ts writes two fields more: genomeVerdicts (the loaded parent's genome-wide verdict
+  and, with both parents, the mother's) and changes (each printed change with its band and the
+  Mendelian test's verdict over it). On the Mac, two public cells (three rows) scored on main and on
+  this branch are identical in every other field.
+
+  The 600 rows on tesla (270 with a parent, list-h; 330 with none, list-np), scored on this branch
+  and compared with the 6.10.0 records (sexnp9): 600 of 600 identical in every field but the two
+  added; no call, parent or coordinate moved. With OM_SURFACES=1 the card, the PDF and the figure
+  agree on all 600 (one count, refined coordinates, one pair of numbers).
+
+  The fixture's one assumption, checked from the new field on the 31 published cells: the mother's
+  genome-wide verdict is present on 12 and unclear on 19, absent on none, so no headline moves. The
+  father's is absent on 2 with the measured father (the two cells read UNCLEAR, disagreement) and
+  on none with the rebuilt father, as the fixture took it.
+
+FIGURE LABELS (P8)
+  Row labels say what the row is: "Father's copy", "Mother's copy" (whatever markers they are
+  computed from), "Mother's copy, indirect" where heterozygous calls stand in for her, "Heterozygous
+  calls", "DNA present", "Copy number". A parent's row reads "present" at the cell's normal level
+  and "missing" at zero. The whole-cell figure's title states the finding from the same change list
+  as the headline. The line under a stretch's bars states its own pair in plain words. How a bar is
+  computed is in the hover and under "How this was read". No figure string says "letter";
+  web/src/plotSeries.check.ts fails if one does, or if a row label names a calculation.
+
+DRAFT CHANGELOG PARAGRAPH
+  The result card says what was found. The headline reads each parent's genome chromosome by
+  chromosome: on the 31 published cells it reads BOTH PARENTS on 24 with both parents loaded
+  (was BIPARENTAL on 10, UNCLEAR on 21) and FATHER + SECOND PARENT on 26 with the father alone
+  (was UNCLEAR on 26 and GYNOGENETIC on 2, which the paper contradicts; those 2 now read UNCLEAR
+  with the disagreement named). The headline counts changes found two ways or consistent; a stretch
+  seen by one reading is listed as seen once, not confirmed. Each change carries one word, with its
+  measured agreement with the published karyotype one click away and in the PDF. One count, one
+  set of coordinates and one pair of numbers per change on the card, the PDF and the figure. The
+  figure sits under the change list, with a title that states the finding and rows named for what
+  they show. No call, parent or coordinate changed.

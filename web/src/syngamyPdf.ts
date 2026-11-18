@@ -11,10 +11,14 @@ import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
 import { BAND_WORD, KIND_WORD, runAlerts } from './defects.ts'
 import { unanswerable } from './abnormalities.ts'
 import {
-  GLOSS, pct,
-  type ChromResult, type PairClass, type PairResult, type ParentageResult,
+  pct,
+  type ChromResult, type PairResult, type ParentageResult,
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
+import {
+  cardSays, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, spanMb, WORD, whoseText,
+  type CardSays, type ChangeRow,
+} from './pageSays.ts'
 import { locus } from './stage.ts'
 import { sexGates, shownSex } from './sexMaterial.ts'
 import { DEFAULT_PERMUTATIONS, MIN_REGIONS } from './features.ts'
@@ -318,9 +322,15 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const builds = [...new Set(input.files.map((f) => f.profile?.build.build ?? 'undetermined'))]
   const oocyte = input.files.find((f) => f.role === 'oocyte')
   const paired = results.some((f) => f.maternal)
-  const classOf = (f: ReportFile): PairClass => f.paired?.originClass ?? f.result!.originClass
-  const counts = new Map<PairClass, number>()
-  for (const f of results) counts.set(classOf(f), (counts.get(classOf(f)) ?? 0) + 1)
+  // The headline and the change list, from the module the card reads, so the two cannot differ.
+  const fatherRebuilt = !!donor?.inferred
+  const saysOf = new Map<ReportFile, CardSays>()
+  for (const f of results) {
+    saysOf.set(f, cardSays(f.result!, f.maternal, f.paired?.originClass ?? f.result!.originClass, fatherRebuilt))
+  }
+  const says = (f: ReportFile) => saysOf.get(f)!
+  const counts = new Map<string, number>()
+  for (const f of results) counts.set(says(f).head.word, (counts.get(says(f).head.word) ?? 0) + 1)
 
   card([
     ['Report:', input.reportId],
@@ -336,7 +346,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ['Donor heterozygosity:', Number.isFinite(input.donorHeterozygosity)
       ? `${pct(input.donorHeterozygosity, 3)} autosomal, of called markers` : 'not measured'],
     ['Samples:', `${results.length} analysed  (`
-      + `${[...counts].map(([k, v]) => `${v} ${k.replace(/_/g, ' ')}`).join(', ')
+      + `${[...counts].map(([k, v]) => `${v} ${k.toLowerCase()}`).join(', ')
         || 'none called'})`],
     ['Assembly:', builds.join(', ')],
     ['Data handling:', 'every file was read in the browser that produced this report. No '
@@ -378,31 +388,18 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const times = (a: number, b: number): string =>
     (Number.isFinite(a / b) ? `${(a / b).toFixed(1)}x` : '-')
 
-  /** Whole chromosomes first, then regions, in the fewest words that stay unambiguous. */
-  const changeOf = (r: ParentageResult): string => {
-    const originOf = (chrom: string): string => {
-      const g = r.gains.find((x) => x.where === `chr${chrom}`)
-      return g && g.called ? ` (${g.origin})` : ''
-    }
-    const whole = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed
-      || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance')
-      .map((c) => `chr${c.chrom} ${c.aneuploidy ?? (c.lostParent ? `${c.lostParent} copy absent`
-        : c.mixed ? 'mixed signal'
-          : c.alleleGain?.verdict === 'gain' ? `extra copy, ${c.alleleGain.parent}` : 'allele imbalance')}`
-        + `${c.aneuploidy === 'gain' ? originOf(c.chrom) : ''}`)
-    const copy = r.segments.filter((sg) => sg.kind !== 'parental-absence')
-      .map((sg) => `chr${sg.chrom} ${sg.kind === 'copy-gain' ? 'gain' : 'loss'} `
-        + `${(segmentCoords(sg).spanBp / 1e6).toFixed(0)}Mb`)
-    const parental = r.segments.filter((sg) => sg.kind === 'parental-absence')
-      .map((sg) => `chr${sg.chrom} paternal ${(segmentCoords(sg).spanBp / 1e6).toFixed(0)}Mb`)
-    return [...whole, ...copy, ...parental].join(', ')
+  /** The counted changes, then how many more were seen once, in the fewest words. */
+  const rowShort = (g: ChangeRow): string => `chr${g.chrom} ${g.whole ? 'whole' : `${spanMb(g)}Mb`} ${whoseText(g)}`
+  const changeOf = (f: ReportFile): string => {
+    const l = says(f).list
+    return [...l.counted.map(rowShort), ...(l.once.length ? [`${l.once.length} more seen once`] : [])].join(', ')
   }
-  const flagged = results.filter((f) => changeOf(f.result!))
+  const flagged = results.filter((f) => changeOf(f))
   if (flagged.length) {
     // Said before the table as well as inside it. A reader who takes only the first section must
     // not miss a chromosome-scale finding because it sat in a column they skimmed past.
     const msg = `Chromosomal change in ${flagged.length} of ${results.length} sample(s): `
-      + flagged.map((f) => `${f.name} ${changeOf(f.result!)}`).join('; ')
+      + flagged.map((f) => `${f.name} ${changeOf(f)}`).join('; ')
       + '. Coordinates and evidence per sample below.'
     const h = wrap(msg, 'Helvetica-Bold', 9, R - L - 10).length * 11 + 3
     need(h + 4)
@@ -428,14 +425,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   ], results.map((f) => {
     const r = f.result!
     const m = f.maternal
-    const cls = classOf(f)
+    const head = says(f).head
     return [
       f.name,
-      {
-        v: cls.replace(/_/g, ' '),
-        colour: cls === 'unclear' || cls === 'neither_parent' ? WARN : INK,
-      },
-      { v: changeOf(r) || 'none detected', colour: changeOf(r) ? WARN : GREY },
+      { v: head.word.toLowerCase(), colour: head.decided ? INK : WARN },
+      { v: changeOf(f) || 'none detected', colour: changeOf(f) ? WARN : GREY },
       ...(paired
         ? [pct(r.genomeRate), times(r.genomeRate, r.explainable),
           m ? pct(m.genomeRate) : '-', m ? times(m.genomeRate, m.explainable) : '-']
@@ -457,11 +451,39 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'left uncalled. No confidence percentage is reported, deliberately: see Interpretation.',
   6.5, 'Helvetica-Oblique', 2, GREY)
 
+  // --- how sure each word is: the measured count behind every word printed below ---------------
+  heading('How sure each word is', 8.6)
+  text('The headline reads each loaded parent\'s genome chromosome by chromosome, and the cell\'s '
+    + 'copy number; the genome-wide absence ratio above is pooled over every autosome, the changed '
+    + 'ones included, so it decides the headline only where it calls a parent absent. Each change '
+    + 'carries one word for its kind of call. A change found two ways or consistent is counted; a '
+    + 'stretch seen by one reading is listed, not counted. Measured on the 31 published cells of '
+    + 'Zuccaro 2020 Table S3 (GSE148488): right of scored, by kind of call and setup.',
+  7.4, 'Helvetica', 2.4, GREY)
+  {
+    const kinds = ['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity',
+      'gain-parent', 'imbalance'] as const
+    const cellOf = (c: readonly [number, number] | undefined): string => (c ? `${c[0]} of ${c[1]}` : '-')
+    table(
+      [{ head: 'Word', w: 70 }, { head: 'Kind of call', w: 236 },
+        { head: 'Both parents', w: 72, right: true }, { head: 'Father measured', w: 76, right: true },
+        { head: 'Father rebuilt', w: 76, right: true }],
+      kinds.map((k) => [WORD[k], KIND_SAYS[k], cellOf(MEASURED[k]?.two), cellOf(MEASURED[k]?.measured),
+        cellOf(MEASURED[k]?.rebuilt)]),
+    )
+  }
+  text(PARENT_SENTENCE, 7.6, 'Helvetica-Bold', 2.4)
+  text(`Counts from ${MEASURED_SOURCE}. Right is the right place by the counting rule (calls and the `
+    + 'stated region joined per chromosome overlap by half of the longer) and, where both name one, '
+    + 'the right parent. Wrong means the paper states no change there; some may be the paper\'s misses.',
+  6.5, 'Helvetica-Oblique', 2, GREY)
+
   // --- one block per sample -------------------------------------------------------------------
   for (const f of results) {
     const r = f.result!
     const m = f.maternal
-    const cls = classOf(f)
+    const { setup, list, head } = says(f)
+    const n = list.counted.length
     need(96)
     y -= 8
     pdf.setStrokeColor(RULE)
@@ -476,51 +498,34 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     // the call has to survive losing its colour.
     const bar = 22
     need(bar + 4)
-    pdf.setFillColor(cls === 'unclear' || cls === 'neither_parent' ? WARN : BLUE)
+    pdf.setFillColor(head.decided ? BLUE : WARN)
     pdf.rect(L, y - bar, R - L, bar, true)
     pdf.setFillColor('#ffffff')
     pdf.setFont('Helvetica-Bold', 15)
-    pdf.drawString(L + 7, y - bar + 6.5, cls.replace(/_/g, ' ').toUpperCase())
-    pdf.setFont('Helvetica', 8)
-    pdf.drawRightString(R - 7, y - bar + 8, cls === 'neither_parent'
-      ? 'Neither declared parent accounts for this genome.' : GLOSS[cls])
+    pdf.drawString(L + 7, y - bar + 6.5, `${head.word}${n ? ` · ${n} change${n === 1 ? '' : 's'}` : ''}`)
     pdf.setFillColor(INK)
     y -= bar + 5
+    text(head.line, 8.4, 'Helvetica-Bold', 3)
 
-    if (r.segments.length) {
-      // A banded callout rather than a line of text: a partly lost chromosome reads as "unclear"
-      // in the whole-chromosome table, which looks like missing information rather than a located
-      // event, and a reader skimming the report will not go looking for it.
-      const chroms = [...new Set(r.segments.map((sg) => `chr${sg.chrom}`))].join(', ')
-      const total = r.segments.reduce((a, sg) => a + sg.spanBp, 0)
-      // The two channels answer different questions and a reader must not be told the wrong one.
-      // Counted rather than assumed: a sample can carry both at once.
-      const nAbs = r.segments.filter((sg) => sg.kind === 'parental-absence').length
-      const nCn = r.segments.length - nAbs
-      const span = (n: number): string => (n === 1 ? 'one region' : `${n} regions`)
-      need(20)
-      pdf.setFillColor(WARN)
-      pdf.rect(L, y - 15, 3, 15, true)
-      pdf.setFillColor(INK)
-      pdf.setFont('Helvetica-Bold', 9.5)
-      pdf.drawString(L + 8, y - 11, `Chromosomal change on ${chroms}`)
-      y -= 17
-      text(`${r.segments.length === 1 ? 'One region' : `${r.segments.length} regions`} totalling `
-        + `${(total / 1e6).toFixed(1)} Mb, at a rate the rest of this genome does not reach. The `
-        + 'whole-chromosome verdict cannot show this: a chromosome that is partly changed reads '
-        + 'as neither present nor absent. '
-        // Only said when both are actually here. Announcing two kinds of finding above a list
-        // containing one reads as a missing section rather than as a distinction being drawn.
-        + (nAbs && nCn ? 'Two DIFFERENT findings are reported here and they are labelled rather '
-          + 'than merged. ' : '')
-        + (nAbs ? `PATERNAL ALLELES ABSENT (${span(nAbs)}): the donor's alleles are missing over `
-          + 'that region, which a region can be while its DNA is entirely present, if it came '
-          + 'from the other parent alone. This is not a statement about physical copy number. ' : '')
-        + (nCn ? `COPY LOSS or COPY GAIN (${span(nCn)}): the DNA itself is absent or present in `
-          + 'extra copies, called only where the array stopped genotyping AND the intensity '
-          + 'agrees by at least 1.0 log2. ' : '')
-        + 'The regions are listed in full below.', 7.6, 'Helvetica', 2.6, INK, L + 8)
-      y -= 2
+    // The changes as the card lists them: one row per change, each piece with its own refined
+    // coordinates and the scan's own pair of numbers.
+    const changeTable = (rows: ChangeRow[]) => table(
+      [{ head: 'Where', w: 118 }, { head: 'Whose', w: 92 }, { head: 'Word', w: 62 },
+        { head: 'Coordinates and signal', w: 260 }],
+      rows.map((g) => {
+        const [where, whose, word, detail] = pdfCells(g, setup)
+        return [where, whose, { v: word, colour: word === 'one reading' || word === 'also seen' ? GREY : INK },
+          { v: detail, colour: GREY }]
+      }),
+    )
+    if (list.counted.length) changeTable(list.counted)
+    if (list.once.length) {
+      text('Seen once, not confirmed', 7.6, 'Helvetica-Bold', 2, GREY)
+      changeTable(list.once)
+    }
+    if (list.seen.length) {
+      text('Also read, not counted as a change', 7.6, 'Helvetica-Bold', 2, GREY)
+      changeTable(list.seen)
     }
 
     // THE FEATURE COMPARISON IS NO LONGER PRINTED HERE. It answers a different question from the
@@ -771,7 +776,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { v: segmentCoords(sg).interval,
             colour: segmentCoords(sg).localised ? GREY : WARN },
           `${(segmentCoords(sg).spanBp / 1e6).toFixed(1)} Mb`,
-          int(sg.markers), pct(sg.rate, 2), pct(sg.nullRate, 2), sg.score.toFixed(0),
+          int(sg.markers), pct(sg.rate, 1), pct(sg.nullRate, 1), sg.score.toFixed(0),
         ]),
       )
     }

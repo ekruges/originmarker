@@ -26,7 +26,7 @@ import {
 } from './ingest'
 import { type AB } from './informativity'
 import {
-  agreement, classify, GLOSS, isAutosome, pair, pct,
+  agreement, classify, isAutosome, pair, pct,
   type ChromResult, type PairResult, type ParentageResult,
 } from './parentage'
 import {
@@ -47,10 +47,12 @@ import { syngamyLogText } from './logfile'
 import { FeatureHeader, DropZone } from './FeatureHeader'
 import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
-import { callSeries, cellLrr, segmentBox, type ChromSeries } from './plotSeries'
-import { CallPlot, DefectPlot, withheldBox, withheldRuns } from './CallPlot'
-import { defectsFrom, findingToDefect, mendelParent, parentNamed, runAlerts, withMechanism } from './defects'
-import type { DosageVerdict } from './dosageOrigin'
+import { plotData, type PlotData } from './plotSeries'
+import { CallFigure, CellFigure, defectMark, rowMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
+import { runAlerts } from './defects'
+import {
+  cardSays, defectsForResult, KIND_SAYS, kindOf, MEASURED_SOURCE, measuredSentence, PARENT_SENTENCE, WORD,
+} from './pageSays'
 import { groupUnits } from './abnormalities'
 import { timeGroup } from './timing'
 import { stageFacts } from './stage'
@@ -77,173 +79,6 @@ const TAG_COLOR: Record<Tag, string> = {
   WARN: 'var(--om-higher)',
   DONE: 'var(--om-blue)',
   SCAN: 'var(--om-text-dim)',
-}
-
-/**
- * An F-grade call for a finding that covers the whole genome rather than an interval.
- *
- * There is no interval to measure, so the evidence is the array-wide absence of the loaded parent,
- * which is the right evidence for a genome-scoped statement and the wrong evidence for a located
- * one. Graded F because it is a direction and not a measurement of anything in particular.
- */
-const genomeGrade = (r: {
-  genomeRate?: number; explainable?: number
-}): { verdict: string; shift: number; z: number; impliedF: number; why: string
-  confidence: number; band: string } | undefined => {
-  const { genomeRate, explainable } = r
-  if (!Number.isFinite(genomeRate) || !Number.isFinite(explainable)) return undefined
-  return {
-    verdict: (genomeRate as number) > (explainable as number) ? 'other-parent' : 'loaded-parent',
-    // No interval, so there is no interval statistic. Left absent rather than filled with the
-    // array-wide numbers, which would read as a measurement of this finding.
-    shift: NaN,
-    z: NaN,
-    impliedF: NaN,
-    confidence: 0.5,
-    band: 'F',
-    why: 'Graded F and named anyway: this finding covers the whole genome and has no interval to '
-      + `measure, so the direction is the array's own, from absence of the loaded parent at `
-      + `${((genomeRate as number) * 100).toFixed(2)}% against a `
-      + `${((explainable as number) * 100).toFixed(2)}% ceiling. Do not report or count this row`,
-  }
-}
-
-/**
- * The change list for one sample, built once so the panel and the export cannot disagree.
- *
- * Previously assembled inline in the render, which meant any machine-readable output would have
- * had to reassemble it and could have drifted from what the reader was looking at.
- */
-/** The last marker position seen on a chromosome, for a whole-chromosome event's extent. */
-function chromEndOf(r: ParentageResult, chrom: string): number {
-  const pos = r.markerPositions?.get(chrom)
-  return pos && pos.length ? pos[pos.length - 1] : 0
-}
-
-function defectsForResult(r: ParentageResult) {
-  // WHOLE-CHROMOSOME ANEUPLOIDY IS A CHROMOSOMAL CHANGE, and belongs in the one list with the rest.
-  // It used to have a panel of its own, so a reader comparing a whole-chromosome loss against a
-  // segmental one was comparing two boxes with different vocabularies and no shared ordering.
-  // AND A CHROMOSOME THE ALLELES READ AS MISSING ONE PARENT, with no intensity verdict: that is a
-  // parental absence rather than a copy loss, because one parent's allele alone is what a
-  // monosomy and an isodisomy both read. See ChromResult.lostParent.
-  // AND AN EXTRA COPY OR AN IMBALANCE THE ALLELES FOUND: see ChromResult.alleleGain. A gain the
-  // intensity detector also flagged keeps its row, and the alleles supply the parent where they
-  // name one the dosage channel does not or name it better; where the two name different parents
-  // the row names nobody.
-  const alleleEvent = (c: { alleleGain?: { verdict: string } }) =>
-    c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance'
-  const aneu = (r.chroms ?? []).filter((c) => c.aneuploidy || c.lostParent || c.mixed
-    || alleleEvent(c)).map((c) => {
-    const scored = (r.dosageCalls ?? []).find((d: { where: string }) => d.where === `chr${c.chrom}`)
-    const other = r.role === 'paternal' ? 'maternal' : 'paternal'
-    // THE MENDELIAN CHANNEL FIRST, measured at 0.920 on obvious whole-chromosome events against
-    // the dosage channel's band D on the same material. It asks whether an allele is there at all
-    // rather than whether a mean has moved, so it needs no detection floor.
-    const mendel = (r.oneParent ?? []).find((o: { where: string }) => o.where === `chr${c.chrom}`)
-    const named = mendel ? mendelParent(mendel, r.role, c.aneuploidy === 'gain') : null
-    // THE ALLELES ALONE, with two bulk parents loaded: see ChromResult.lostParent. Where the
-    // Mendelian channel also names a parent the two must agree, or the row names nobody. Two
-    // readings of one genome that disagree are a fact about the genome, not a tie to break.
-    // On a GAIN the origin is the parent who supplied the extra copy. One parent's allele alone on
-    // a three-copy chromosome means every copy is that parent's, so the absent parent is inverted.
-    const letters = !c.lostParent ? null
-      : c.aneuploidy === 'gain' ? (c.lostParent === 'paternal' ? 'maternal' : 'paternal')
-        : c.lostParent
-    const ag = c.alleleGain
-    const gainParent = ag?.verdict === 'gain' ? ag.parent ?? null : null
-    const dosageParent = scored ? parentNamed(scored.verdict as DosageVerdict, r.role) : null
-    const gainConflict = !!(gainParent && c.aneuploidy === 'gain' && dosageParent
-      && dosageParent !== gainParent)
-    const conflict = !!(named && letters && named !== letters)
-    const origin = conflict || c.mixed || gainConflict
-      || (ag?.verdict === 'imbalance' && !c.aneuploidy && !c.lostParent) ? 'unclear'
-      : gainParent && !letters ? gainParent
-      : named ?? letters
-      ?? (c.aneuploidyParent === 'this' ? r.role
-        : c.aneuploidyParent === 'other' ? other
-          : (scored && parentNamed(scored.verdict as DosageVerdict, r.role)) || 'unclear')
-    const k = c.contribution
-    const [father, mother] = k
-      ? (r.role === 'paternal' ? [k.onlyA, k.onlyB] : [k.onlyB, k.onlyA]) : [NaN, NaN]
-    const lettersWhy = letters && k
-      ? ` Of ${int(k.informative)} markers where the parents are opposite homozygotes, `
-        + `${pct(k.fraction, 1)} read both alleles, ${pct(father, 1)} the father's alone and `
-        + `${pct(mother, 1)} the mother's alone, so `
-        + (c.aneuploidy === 'gain' ? `every copy present is ${letters}.`
-          : `the ${c.lostParent} copy is the one missing.`)
-        + (c.aneuploidy ? '' : ' Whether one copy remains or two is a question for the intensity, '
-          + 'which did not reach a verdict on this chromosome: a monosomy and an isodisomy read '
-          + 'the same at these markers.')
-      : ''
-    // WHY THE ALLELE CHANNEL IS SILENT ON A ROW THAT EXISTS. The intensity channel can reach a
-    // verdict on a chromosome the alleles declined, and until now the row simply carried no allele
-    // sentence: a reader comparing the two channels could not tell a chromosome with nothing to
-    // read from one the array failed on. The refusal states which.
-    const withheldWhy = !k && c.contributionWithheld
-      ? ` The alleles reached no verdict here: ${c.contributionWithheld}.`
-      : ''
-    const conflictWhy = conflict
-      ? ` The allele count and the Mendelian channel name different parents, so no parent is named.`
-      : ''
-    const mixedWhy = c.mixed && k
-      ? ` Mixed signal, not called. Of ${int(k.informative)} markers where the parents are opposite `
-        + `homozygotes, ${pct(k.fraction, 1)} read both alleles, ${pct(father, 1)} the father's alone `
-        + `and ${pct(mother, 1)} the mother's alone: between the boundaries with one parent dominant. `
-        + 'A mosaic, a partial loss or noise, not separable here.'
-      : ''
-    return {
-      chrom: c.chrom,
-      startBp: 0,
-      endBp: chromEndOf(r, c.chrom),
-      kind: c.aneuploidy === 'gain' || (!c.aneuploidy && !c.lostParent && gainParent) ? 'copy-gain'
-        : c.aneuploidy === 'loss' ? 'copy-loss'
-          : !c.aneuploidy && !c.lostParent && ag?.verdict === 'imbalance' ? 'whole-chromosome'
-            : 'parental-absence',
-      locus: `chr${c.chrom}`,
-      origin,
-      band: gainParent && !named ? 'C' : named ? mendel?.band : scored?.band,
-      confidence: named ? mendel?.posterior : gainParent ? undefined : scored?.confidence,
-      inheritedMargin: (scored as { inheritedMargin?: number } | undefined)?.inheritedMargin,
-      stage: r.stage?.stage,
-      why: (!c.aneuploidy && !c.lostParent && !c.mixed && ag
-        ? `${ag.why[0].toUpperCase()}${ag.why.slice(1)}.`
-        : c.aneuploidy
-        ? `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
-          + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest. An intact `
-          + 'chromosome calls at 0.78x to 1.16x of its genome median and never leaves -0.79 to '
-          + '+0.42 log2, measured over 1,012 chromosomes.'
-        : `calls at ${c.callFraction.toFixed(2)}x the genome rate with intensity `
-          + `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2 from the rest, neither of `
-          + 'which reached a whole-chromosome verdict; the alleles did.')
-        + `${lettersWhy}${withheldWhy}${conflictWhy}${mixedWhy}`
-        + (c.aneuploidy === 'gain' && ag && alleleEvent(c) ? ` By the alleles: ${ag.why}.` : '')
-        + (gainConflict ? ' The alleles and the dosage channel name different parents, so no parent is named.' : '')
-        + `${named ? ` ${mendel?.why}` : ''}${scored?.why ? ` ${scored.why}` : ''}`,
-    } as never
-  })
-
-  return withMechanism([
-    ...aneu,
-      ...defectsFrom(r.segments, r.gains, r.losses ?? [], r.oneParent ?? [], r.role,
-        r.stage, r.dosageCalls ?? []),
-      // One list, not two. A copy-neutral event and a deletion are different measurements
-      // of the same kind of thing and a reader compares them against each other.
-      ...(r.findings ?? []).map((f) => findingToDefect(f, r.stage,
-        // The call scored over THIS finding's own interval, matched by the same label the
-        // scorer wrote, so a finding shows the origin that was actually measured for it
-        // rather than one borrowed from its chromosome.
-        // A GENOME-SCOPED FINDING HAS NO INTERVAL TO SCORE, so it never reached the
-        // scorer and was the one row still leaving without a grade. Its evidence is the
-        // whole array's, which is exactly what a genome-scoped finding should be judged
-        // on, so it is graded F from the same array-wide absence measurement the other
-        // ungradable rows fall back to.
-        f.chrom === 'genome'
-          ? genomeGrade(r)
-          : (r.dosageCalls ?? []).find((d: { where: string }) => d.where
-            === `chr${f.chrom} ${(f.startBp / 1e6).toFixed(1)}-${(f.endBp / 1e6).toFixed(1)}Mb`),
-        r.role)),
-    ], r.uniformity)
 }
 
 /**
@@ -326,7 +161,7 @@ interface Entry {
   /** This file is a genotype Germline reconstructed, not an array anyone measured. */
   inferred?: boolean
   /** Per-chromosome markers for the call plots, from the scoring pass. See plotSeries.ts. */
-  series?: Map<string, ChromSeries>
+  series?: PlotData
 }
 
 /** One parent held as a call per marker. The shape is scoreSample's, so the two cannot diverge.
@@ -511,8 +346,12 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
     setLines((p) => [...p, ...add].slice(-LOG_LINES))
   }
   const downloadTable = () => {
-    const rows = entries.filter((e) => e.result).map((e) => ({
+    const rebuilt = !!entries.find((x) => x.role === 'donor')?.inferred
+    const rows = entries.filter((e) => e.result).map((e) => {
+      const says = cardSays(e.result!, e.maternal, e.paired?.originClass ?? e.result!.originClass, rebuilt)
+      return {
       name: e.file.name,
+      headline: says.head.word,
       originClass: e.result!.originClass,
       zygosity: e.result!.zygosity,
       role: e.result!.role,
@@ -520,13 +359,14 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       explainable: e.result!.explainable,
       informative: e.result!.informative,
       stage: e.result!.stage?.stage,
-      changes: defectsForResult(e.result!).map((d) => ({
+      changes: says.defects.map((d) => ({
         chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
         origin: d.origin, band: d.band, confidence: d.confidence,
         inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
-        why: d.why,
+        why: d.why, word: WORD[kindOf(d, says.setup)],
       })),
-    }))
+      }
+    })
     const blob = new Blob([syngamyTable(rows)], { type: 'text/tab-separated-values' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -845,9 +685,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         const maternal = acc.tm && mat
           ? classify(acc.tm, mat.heterozygosity, { role: 'maternal' }) : undefined
         const paired = maternal ? pair(result, maternal, agree) : undefined
-        const loaded = pat.absent ? null : pat.gt
-        const series = soloRole === 'paternal'
-          ? callSeries(acc, loaded, mat?.gt ?? null) : callSeries(acc, null, loaded)
+        const series = plotData(acc, {
+          loaded: pat.absent ? null : { role: soloRole, gt: pat.gt }, second: mat?.gt ?? null,
+          otherOpposite: acc.otherOpposite ?? null,
+        })
         return { calls: acc.myGt, profile, gates, result, maternal, paired, series }
       }
       const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
@@ -1116,6 +957,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           key={e.id} entry={e}
           donorName={fatherEntry?.file.name ?? ''}
           oocyteName={entries.find((x) => x.role === 'oocyte')?.file.name ?? ''}
+          rebuilt={!!fatherEntry?.inferred}
         />
       ))}
 
@@ -1285,37 +1127,32 @@ function Axis({ label, r }: { label: string; r: ParentageResult }) {
   )
 }
 
-/** The verdict, at the size it deserves, with the detail folded underneath it. */
-function ResultCard({ entry, donorName, oocyteName }: {
-  entry: Entry; donorName: string; oocyteName: string
+/**
+ * One sample: what was found in the first two lines, the changes, the figure, then how it was read.
+ *
+ * The word and its line come from pageSays.headlineOf, the changes from pageSays.changeList; the
+ * PDF and the summary table read the same two, so the three cannot disagree.
+ */
+function ResultCard({ entry, donorName, oocyteName, rebuilt }: {
+  entry: Entry; donorName: string; oocyteName: string; rebuilt: boolean
 }) {
   const [open, setOpen] = useState(false)
   const r = entry.result!
   const m = entry.maternal
-  // With both arrays the class comes from the pair: each parent is measured, so a maternal
-  // origin is a presence rather than the shape left behind by a paternal absence.
   const originClass = entry.paired?.originClass ?? r.originClass
-  // WITH NO PARENT THE HEADLINE IS WHAT WAS READ: the stage. A parental class has nothing behind it.
-  // ONE PARENT LOADED AND NONE OF ITS GENOME IN THE ARRAY is a uniparental genome only if that adult
-  // is the parent. With both loaded, the other's genome being present is what says so.
-  const parentAbsentAlone = !m && r.parentGenome?.verdict === 'none'
-  const decided = r.noParent ? r.stage?.stage !== 'failed' : originClass !== 'unclear' && !parentAbsentAlone
-  const gloss = r.noParent
-    ? 'Read with no parent: the stage, the sex chromosomes and copy number. No chromosome is given a parent.'
-    : parentAbsentAlone
-      ? `${GLOSS[originClass as keyof typeof GLOSS] ?? ''} That holds if the loaded array is this sample's `
-        + 'parent, which the alleles cannot show: see the notice below.'
-    : originClass === 'neither_parent'
-      ? 'Neither declared parent accounts for this genome.'
-      : GLOSS[originClass as keyof typeof GLOSS]
+  const { setup, list, head, title } = cardSays(r, m, originClass, rebuilt)
+  const n = list.counted.length
+  const marks = marksOf(r, entry.series)
+  // The ratio is kept for the reader and said to be what it is: pooled over every autosome, the
+  // changed ones included, so a cell's own losses raise it.
+  const pooled = [r, m].filter((x): x is ParentageResult => !!x && !x.noParent)
+    .map((x) => `the ${x.role === 'paternal' ? 'father' : 'mother'}'s ${(x.genomeRate / x.explainable).toFixed(1)}x`)
 
   return (
     <Paper p={0} mb={12}>
       <div style={{
-        padding: '13px 16px',
-        borderBottom: open ? '1px solid var(--mantine-color-gray-3)' : undefined,
-        background: decided
-          ? 'var(--mantine-color-genomeBlue-0)' : 'var(--mantine-color-orange-0)',
+        padding: '13px 16px 10px',
+        background: head.decided ? 'var(--mantine-color-genomeBlue-0)' : 'var(--mantine-color-orange-0)',
       }}
       >
         <Text size="xs" c="dimmed" mb={2}>
@@ -1324,20 +1161,21 @@ function ResultCard({ entry, donorName, oocyteName }: {
         <Group gap={10} align="baseline">
           <Text
             style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.1 }}
-            c={decided ? 'genomeBlue.9' : 'orange.9'}
+            c={head.decided ? 'genomeBlue.9' : 'orange.9'}
           >
-            {(r.noParent ? r.stage?.stage ?? 'unread' : originClass).replace(/[_-]/g, ' ').toUpperCase()}
+            {head.word}{n ? ` · ${n} change${n === 1 ? '' : 's'}` : ''}
           </Text>
           {r.spermType !== 'unknown' && (
             <Badge size="sm" variant="outline" color="genomeGrey">
               {r.spermType.replace('_', '-')} sperm
             </Badge>
           )}
-          <Badge size="sm" variant="outline" color="genomeGrey">
-            {r.zygosity.replace(/_/g, ' ')}
-          </Badge>
-          {/* The sex chromosomes, where they were resolved. An aneuploid one is an abnormality
-              like any other and is coloured as one; XX and XY are just what the sample is. */}
+          {!r.noParent && (
+            <Badge size="sm" variant="outline" color="genomeGrey">
+              {r.zygosity.replace(/_/g, ' ')}
+            </Badge>
+          )}
+          {/* An aneuploid sex chromosome is an abnormality like any other and is coloured as one. */}
           {r.sexChromosome && r.sexChromosome.constitution !== 'unresolved' && (
             <Badge
               size="sm"
@@ -1348,118 +1186,109 @@ function ResultCard({ entry, donorName, oocyteName }: {
               {r.sexChromosome.constitution}
             </Badge>
           )}
-          {r.chroms.some((c) => c.aneuploidy) && (
-            <Badge size="sm" variant="filled" color="orange">
-              {r.chroms.filter((c) => c.aneuploidy).map((c) =>
-                `chr${c.chrom} ${c.aneuploidy}`).join(', ')}
-            </Badge>
-          )}
-          {r.segments.length > 0 && (
-            <Badge size="sm" variant="filled" color="orange">
-              {r.segments.length} chromosomal change{r.segments.length === 1 ? '' : 's'}
-            </Badge>
-          )}
-          {r.chroms.some((c) => c.lostParent && !c.aneuploidy) && (
-            <Badge size="sm" variant="filled" color="orange">
-              {r.chroms.filter((c) => c.lostParent && !c.aneuploidy).length} missing one
-              parent's copy by the alleles
-            </Badge>
-          )}
-          {r.chroms.some((c) => c.mixed) && (
-            <Badge size="sm" variant="outline" color="orange">
-              {r.chroms.filter((c) => c.mixed).length} mixed signal
-            </Badge>
-          )}
-          {/* A CHROMOSOME WITH NO ROW IS THE ONE RESULT A READER CANNOT SEE. An array that failed to
-              genotype a chromosome left it out of `chroms` entirely, so the panel looked exactly
-              like a panel on which that chromosome was fine. The badge names them, and its tooltip
-              says for each whether the parents had nothing to offer there or the array did not read
-              what they offered: the first is a limit of the family, the second is fixed by a rerun. */}
+          {/* A chromosome with no row is the one result a reader cannot see, so it is named here. */}
           {(r.unmeasured ?? []).length > 0 && (
             <Badge
-              size="sm"
-              variant="outline"
-              color="genomeGrey"
+              size="sm" variant="outline" color="genomeGrey"
               title={r.unmeasured.map((u) => `chr${u.chrom}: ${u.why}`).join('\n')}
             >
               {r.unmeasured.length} not measured
             </Badge>
           )}
-          {r.chroms.some((c) => c.alleleGain?.verdict === 'gain') && (
-            <Badge size="sm" variant="filled" color="orange">
-              {r.chroms.filter((c) => c.alleleGain?.verdict === 'gain').map((c) =>
-                `chr${c.chrom} extra copy, ${c.alleleGain!.parent}`).join(', ')}
-            </Badge>
-          )}
-          {r.chroms.some((c) => c.alleleGain?.verdict === 'imbalance') && (
-            <Badge size="sm" variant="outline" color="orange">
-              {r.chroms.filter((c) => c.alleleGain?.verdict === 'imbalance').length} allele imbalance
-            </Badge>
-          )}
-          {m && (
-            <Badge size="sm" variant="light" color="genomeBlue">both parents measured</Badge>
-          )}
+          {m && <Badge size="sm" variant="light" color="genomeBlue">both parents measured</Badge>}
+          {rebuilt && !m && <Badge size="sm" variant="light" color="genomeBlue">father rebuilt</Badge>}
         </Group>
-        <Text size="sm" mt={3}>{gloss}</Text>
+        <Text size="sm" mt={3}>{head.line}</Text>
         <RunAlerts r={r} />
-        <div style={{ marginTop: 6 }}>
-          {!r.noParent && <Axis label={m ? 'paternal' : ''} r={r} />}
-          {m && <Axis label="maternal" r={m} />}
-        </div>
-        <Group gap={12} align="center" mt={4}>
+      </div>
+      <div style={{ padding: '2px 16px 12px' }}>
+        <DefectCallout
+          list={list} setup={setup}
+          plot={(g) => {
+            const mk = rowMark(g.pieces, r.segments, loadedRole(r), entry.series?.endBp.get(g.chrom))
+            return mk ? <CallFigure mark={mk} data={entry.series} marks={marks} name={plotName(entry)} /> : null
+          }}
+        />
+        <CellFigure data={entry.series} marks={marks} name={plotName(entry)} title={title} />
+        <Group gap={12} align="center" mt={8}>
           <button
             type="button" className="om-primer-toggle" aria-expanded={open}
             onClick={() => setOpen((o) => !o)}
           >
             <span className="om-primer-toggle-caret">{open ? '▾' : '▸'}</span>
-            <span>{open ? 'Hide detail' : 'Detail'}</span>
+            <span>How this was read</span>
           </button>
         </Group>
-      </div>
-      {open && (
-        <div style={{ padding: '2px 16px 14px' }}>
-          <StageCallout facts={r.stage && entry.profile
-            ? stageFacts(r.stage, entry.profile) : null}
-          />
-          {r.gains.length > 0 && (
-            <div style={{ marginTop: 10 }}>
-              <Text size="xs" fw={700} mb={4}>Extra copies, and where they came from</Text>
-              {r.gains.map((g) => (
-                <div key={g.where} style={{ fontSize: 11, marginBottom: 5, lineHeight: 1.45 }}>
-                  <span style={{ fontFamily: 'var(--om-mono)', fontWeight: 600 }}>{g.where}</span>
-                  {'  '}
-                  <span style={{ color: g.called ? 'var(--om-blue)' : 'var(--om-higher)' }}>
-                    {g.origin}
-                  </span>
-                  <div style={{ color: 'var(--om-text-dim)' }}>{g.why}</div>
-                </div>
-              ))}
-            </div>
-          )}
-          <SegmentCallout segments={r.segments} role={r.role} />
-          <DefectCallout
-            defects={defectsForResult(r)}
-            plot={(d) => (
-              <DefectPlot d={d} segments={r.segments} refusals={r.refusals} series={entry.series} name={plotName(entry)} />
-            )}
-          />
-          <GainCallout gains={r.gains} />
-          {entry.paired && entry.paired.notes.length > 0 && (
-            <Section title="Both parents">
-              {entry.paired.notes.map((n) => <Text key={n} size="xs" mb={3}>{n}</Text>)}
-              {Number.isFinite(entry.paired.agreement) && (
-                <Text size="xs" c="dimmed" mt={3}>
-                  The two parents agree at {pct(entry.paired.agreement, 1)} of shared markers.
+        {open && (
+          <div style={{ paddingTop: 4 }}>
+            <Section title="How sure each word is">
+              {!r.noParent && (
+                <Text size="xs" mb={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
+                  The headline reads each loaded parent&apos;s genome chromosome by chromosome, and the
+                  cell&apos;s copy number. The genome-wide absence ratio
+                  {pooled.length ? ` (${pooled.join(', ')} the noise ceiling)` : ''} is pooled over every
+                  autosome, the changed ones included, so it decides the headline only where it calls a
+                  parent absent.
                 </Text>
               )}
+              {!r.noParent && <Text size="xs" mb={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>{PARENT_SENTENCE}</Text>}
+              {(['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity', 'gain-parent', 'imbalance'] as const)
+                .filter((k) => !r.noParent && measuredSentence(k, setup) !== 'Not measured on the answer key in this setup.')
+                .map((k) => (
+                  <Text key={k} size="xs" mb={2} style={{ maxWidth: 780, lineHeight: 1.45 }}>
+                    <b>{WORD[k]}</b>: {KIND_SAYS[k]} {measuredSentence(k, setup)}
+                  </Text>
+                ))}
+              <Text size="xs" c="dimmed" mt={4}>Counts from {MEASURED_SOURCE}.</Text>
             </Section>
-          )}
-          <SampleDetail
-            result={r} maternal={m} profile={entry.profile!} gates={entry.gates!}
-            series={entry.series} name={plotName(entry)}
-          />
-        </div>
-      )}
+            {entry.series && (
+              <Section title="What each row of the figure shows">
+                {entry.series.tracks.filter((t) => t.shown).map((t) => (
+                  <Text key={t.key} size="xs" mb={2} style={{ maxWidth: 780, lineHeight: 1.45 }}>
+                    <b>{t.label}</b>: {t.tech}
+                  </Text>
+                ))}
+                <Text size="xs" c="dimmed" mt={2}>Every bar of a row holds as many markers; the grey band is the middle 80% of this cell&apos;s chromosomes with no change.</Text>
+              </Section>
+            )}
+            <div style={{ marginTop: 6 }}>
+              {!r.noParent && <Axis label={m ? 'paternal' : ''} r={r} />}
+              {m && <Axis label="maternal" r={m} />}
+            </div>
+            <StageCallout facts={r.stage && entry.profile ? stageFacts(r.stage, entry.profile) : null} />
+            {r.gains.length > 0 && (
+              <div style={{ marginTop: 10 }}>
+                <Text size="xs" fw={700} mb={4}>Extra copies, and where they came from</Text>
+                {r.gains.map((g) => (
+                  <div key={g.where} style={{ fontSize: 11, marginBottom: 5, lineHeight: 1.45 }}>
+                    <span style={{ fontFamily: 'var(--om-mono)', fontWeight: 600 }}>{g.where}</span>
+                    {'  '}
+                    <span style={{ color: g.called ? 'var(--om-blue)' : 'var(--om-higher)' }}>{g.origin}</span>
+                    <div style={{ color: 'var(--om-text-dim)' }}>{g.why}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <SegmentCallout segments={r.segments} />
+            <GainCallout gains={r.gains} />
+            {entry.paired && entry.paired.notes.length > 0 && (
+              <Section title="Both parents">
+                {entry.paired.notes.filter((x) => !head.decided || !/cannot be classified/.test(x))
+                  .map((x) => <Text key={x} size="xs" mb={3}>{x}</Text>)}
+                {Number.isFinite(entry.paired.agreement) && (
+                  <Text size="xs" c="dimmed" mt={3}>
+                    The two parents agree at {pct(entry.paired.agreement, 1)} of shared markers.
+                  </Text>
+                )}
+              </Section>
+            )}
+            <SampleDetail
+              result={r} maternal={m} profile={entry.profile!} gates={entry.gates!}
+              series={entry.series} name={plotName(entry)}
+            />
+          </div>
+        )}
+      </div>
     </Paper>
   )
 }
@@ -1728,12 +1557,26 @@ const segmentLines = (sg: Segment, role: 'paternal' | 'maternal'): string[] => {
     `${kindLabel(sg.kind, role, sg)}, chr${sg.chrom}`,
     `${int(co.start)}-${int(co.end)}, ${co.interval}`,
     `${(co.spanBp / 1e6).toFixed(1)} Mb, ${int(sg.markers)} markers`,
-    `absent ${pct(sg.rate, 2)} against ${pct(sg.nullRate, 2)}`,
+    `missing-copy signal ${pct(sg.rate, 1)} inside, ${pct(sg.nullRate, 1)} with both copies present`,
     `score ${sg.score.toFixed(0)} against ${thresholdOf(sg)}, intensity ${intensityText(sg)}`,
   ]
 }
 
 const plotName = (e: Entry): string => e.file.name.replace(/\.[^.]*$/, '')
+
+/** The loaded parent's role, or none. */
+const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.noParent ? null : r.role)
+
+/** Every printed change and every run found and withheld, as the cell figures mark them. */
+function marksOf(r: ParentageResult, data: PlotData | undefined): Mark[] {
+  const marks: Mark[] = []
+  for (const d of defectsForResult(r)) {
+    const m = defectMark(d, r.segments, loadedRole(r), data?.endBp.get(d.chrom))
+    if (m) marks.push(m)
+  }
+  for (const sg of withheldRuns(r.refusals)) marks.push(withheldMark(sg, loadedRole(r)))
+  return marks
+}
 
 /** Opens or closes a row's chromosome plot. */
 const PlotToggle = ({ open, onClick }: { open: boolean; onClick: () => void }) => (
@@ -1825,61 +1668,33 @@ function RunAlerts({ r }: { r: ParentageResult }) {
   )
 }
 
-function SegmentCallout({ segments, role }: {
-  segments: Segment[], role: 'paternal' | 'maternal'
-}) {
+function SegmentCallout({ segments }: { segments: Segment[] }) {
   if (!segments.length) return null
-  const mb = (x: number): string => `${(x / 1e6).toFixed(1)} Mb`
-  const total = segments.reduce((a, sg) => a + sg.spanBp, 0)
-  const chroms = [...new Set(segments.map((sg) => `chr${sg.chrom}`))]
   return (
-    <div style={{
-      border: '1px solid var(--om-higher)', borderLeft: '4px solid var(--om-higher)',
-      background: 'var(--om-warn-bg)', padding: '11px 14px', margin: '10px 0 4px',
-    }}
-    >
-      <Text style={{ fontSize: 15, fontWeight: 700, color: 'var(--om-higher)', lineHeight: 1.25 }}>
-        Chromosomal change on {chroms.join(', ')}
+    <Section title="What the scans read">
+      <Text size="xs" mb={4} style={{ maxWidth: 760, lineHeight: 1.5 }}>
+        A partly changed chromosome reads as neither present nor absent as a whole, so it is scanned
+        in stretches. Two different things are read. <b>A parent&apos;s copy missing</b> means that
+        parent&apos;s alleles are absent over the stretch: the DNA there came from the other parent.
+        <b> Copy lost</b> or <b>extra copy</b> means the DNA itself is absent or added, called only
+        where the array stopped genotyping and the intensity agrees by at least 1.0 log2.
       </Text>
-      <Text size="sm" mt={3} style={{ maxWidth: 760, lineHeight: 1.5 }}>
-        {segments.length === 1 ? 'One region' : `${segments.length} regions`} totalling{' '}
-        {mb(total)}, at a rate the rest of this genome does not reach. The whole-chromosome verdict
-        cannot show this: a chromosome that is partly changed reads as neither present nor absent.
-        Two different things are listed and the difference matters: <b>DNA absent</b> means the
-        region is not there at all, read from the array no longer calling it with the intensity
-        agreeing, while <b>alleles absent</b> means the DNA is present but came from the other
-        parent. Each row names the parent whose alleles are the missing ones, which is the run
-        that found it: the scan is performed once per parent, against that parent's own
-        homozygous markers.
+      <Text size="xs" c="dimmed" style={{ maxWidth: 760, lineHeight: 1.5 }}>
+        Measured over 46 arrays, that intensity requirement takes the copy-number scan from 31 regions,
+        including a 44.9 Mb one on a bulk diploid adult who cannot have it, to 17 with none on any of
+        the six bulk arrays. Extra copies are found by the same machinery with the shift reversed,
+        validated on a constructed positive class: a block of a whole-chromosome-gain array spliced
+        into a clean one is called copy-gain at all four sizes tested, and the same splice from a
+        euploid array returns nothing.
       </Text>
-      <div style={{ marginTop: 7, display: 'grid', gap: 3 }}>
-        {segments.map((sg, i) => (
-          <Text key={`${sg.chrom}:${sg.startBp}:${i}`} size="xs" ff="monospace">
-            chr{sg.chrom}&nbsp;{int(sg.startBp)}&ndash;{int(sg.endBp)}
-            {'  '}&middot;{'  '}{mb(sg.spanBp)}
-            {'  '}&middot;{'  '}{kindLabel(sg.kind, role, sg)}
-            {'  '}&middot;{'  '}{pct(sg.rate, 1)} against {pct(sg.nullRate, 1)}
-            {fromAlleleScan(sg) && <>{'  '}&middot;{'  '}intensity {intensityText(sg) === '–' ? 'not measured' : `${intensityText(sg)} log2`}</>}
-          </Text>
-        ))}
-      </div>
-      <Text size="xs" c="dimmed" mt={6} style={{ maxWidth: 760, lineHeight: 1.5 }}>
-        A copy-number region is called only where the array stopped genotyping AND the intensity
-        agrees by at least 1.0 log2. Measured over 46 arrays that requirement takes the scan from
-        31 regions, including a 44.9 Mb one on a bulk diploid adult who cannot have it, to 17 with
-        none on any of the six bulk arrays. Extra copies are found by the same machinery with the
-        shift reversed, validated on a constructed positive class since no segmental gain occurs in
-        those 46 arrays: a block of a whole-chromosome-gain array spliced into a clean one is
-        called copy-gain at all four sizes tested, and the same splice from a euploid array returns
-        nothing.
-      </Text>
-    </div>
+    </Section>
   )
 }
 
+
 function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: {
   result: ParentageResult; maternal?: ParentageResult; profile: SampleProfile; gates: Gate[]
-  series?: Map<string, ChromSeries>; name: string
+  series?: PlotData; name: string
 }) {
   const sex = r.chroms.filter((c) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
   const [plotAt, setPlotAt] = useState<number | null>(null)
@@ -2016,10 +1831,9 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
           </Table>
           </Scroll>
           {plotSg && series ? (
-            <CallPlot
-              chrom={plotSg.chrom} series={series.get(plotSg.chrom)} name={name} cellLrr={cellLrr(series)}
-              boxes={[segmentBox(plotSg, kindLabel(plotSg.kind, r.role, plotSg), segmentLines(plotSg, r.role)),
-                ...held.filter((w) => w.chrom === plotSg.chrom).map(withheldBox)]}
+            <CallFigure
+              mark={segmentMark(plotSg, loadedRole(r), segmentLines(plotSg, r.role))}
+              data={series} marks={marksOf(r, series)} name={name}
             />
           ) : null}
           <Text size="xs" c="dimmed" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
@@ -2055,10 +1869,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
                 {' '}{(segmentCoords(sg).spanBp / 1e6).toFixed(2)} Mb, {int(sg.markers)} markers, withheld
               </Text>
               {heldAt === i ? (
-                <CallPlot
-                  chrom={sg.chrom} series={series.get(sg.chrom)} boxes={[withheldBox(sg)]} name={name}
-                  cellLrr={cellLrr(series)}
-                />
+                <CallFigure mark={withheldMark(sg, loadedRole(r))} data={series} marks={marksOf(r, series)} name={name} />
               ) : null}
             </div>
           ))}

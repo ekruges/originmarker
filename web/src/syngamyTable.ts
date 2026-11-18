@@ -25,11 +25,15 @@ export type TableChange = {
   stage?: string
   informative?: number
   why?: string
+  /** The word the result card puts on this change (pageSays.WORD). */
+  word?: string
 }
 
 export type TableSample = {
   name: string
   originClass?: string
+  /** The result card's headline word (pageSays.headlineOf). */
+  headline?: string
   zygosity?: string
   role?: string
   genomeRate?: number
@@ -40,8 +44,8 @@ export type TableSample = {
 }
 
 export const COLUMNS = [
-  'sample', 'sample_origin_class', 'sample_zygosity', 'loaded_parent', 'material',
-  'chrom', 'start_bp', 'end_bp', 'span_mb', 'class',
+  'sample', 'sample_headline', 'sample_origin_class', 'sample_zygosity', 'loaded_parent', 'material',
+  'chrom', 'start_bp', 'end_bp', 'span_mb', 'class', 'word',
   'parent', 'parent_basis', 'band', 'confidence', 'inherited_margin',
   'independent_determination', 'informative_markers', 'evidence',
 ] as const
@@ -81,10 +85,10 @@ export function syngamyTable(samples: readonly TableSample[]): string {
         inheritedSeen = true
       } else if (basis === 'none') independent = '0'
       lines.push([
-        cell(s.name), cell(s.originClass), cell(s.zygosity), cell(s.role), cell(c.stage ?? s.stage),
+        cell(s.name), cell(s.headline), cell(s.originClass), cell(s.zygosity), cell(s.role), cell(c.stage ?? s.stage),
         cell(c.chrom), cell(c.startBp), cell(c.endBp),
         cell(Number.isFinite(c.endBp - c.startBp) ? ((c.endBp - c.startBp) / 1e6).toFixed(3) : ''),
-        cell(c.kind),
+        cell(c.kind), cell(c.word),
         cell(c.origin === 'unclear' ? '' : c.origin), cell(basis), cell(c.band),
         // A CONFIDENCE ONLY WHERE ONE IS REPORTABLE. Bands C and D suppress their digits in the
         // interface for the reason the mosaicism episode established, and a table that carried

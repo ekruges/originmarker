@@ -72,21 +72,18 @@ const seg = (chrom: string, startBp: number, endBp: number, kind: Segment['kind'
   assert.ok(out.every((d) => d.origin === 'unclear'), 'no annotations means no named parents')
 }
 
-// --- THE CONFIDENCE TRAVELS WITH THE PARENT --------------------------------------------------------
+// --- THE HEADLINE OF A ROW NAMES WHAT AND WHOSE, NOT A BAND ---------------------------------------
 //
-// A named parent with no number reads as certain. On amplified material most are not: a top-band
-// call measures 0.995 and the weakest band 0.62, and those must not look alike at a glance.
+// The band does not track whether a call is right on the answer key; the kind of call does
+// (audit/truth/page-says-2026-11-17.txt). So the row's word comes from pageSays.kindOf and no band
+// number or band word sits in its headline.
 {
   const base = { chrom: '7', startBp: 1_000_000, endBp: 9_000_000, locus: 'chr7:1,000,000-9,000,000',
     kind: 'copy-loss' as const, origin: 'paternal' as const, why: 'x' }
   const strong = headline({ ...base, confidence: 0.9961, band: 'A' })
-  assert.ok(strong.includes('0.996'), `the number must be in the headline: ${strong}`)
-  assert.ok(strong.includes('very confident'), `and its band word: ${strong}`)
-
+  assert.ok(!strong.includes('0.996') && !strong.includes('confident'), `no band in the headline: ${strong}`)
   const weak = headline({ ...base, confidence: 0.6184, band: 'D' })
-  assert.ok(weak.includes('0.618'))
-  assert.ok(weak.includes('not for reporting'),
-    'the weakest band must say so in the headline, not only in a chip')
+  assert.ok(!weak.includes('0.618') && !weak.includes('not for reporting'), weak)
 
   // Dimmed for C and D, inked for A and B, so weak and strong differ before anything is read.
   assert.equal(bandColour({ ...base, band: 'A' }), 'var(--om-defect)')

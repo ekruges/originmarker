@@ -103,6 +103,19 @@ export interface Defect {
    * re-deriving it.
    */
   originBlocked?: string
+  /**
+   * Which step printed the row. The measured accuracy of a call follows the step, not the band,
+   * so the chip word is chosen from this (pageSays.kindOf).
+   */
+  step?: 'whole-alleles' | 'whole-intensity' | 'imbalance' | 'run' | 'allele-scan' | 'window'
+    | 'intensity' | 'finding'
+  /** The one-parent Mendelian test over the same interval, where it ran. */
+  second?: { verdict: string; parent?: 'paternal' | 'maternal' | null }
+  /** The scan's own pair: the missing-copy signal inside the call and with both copies present. */
+  rate?: number
+  nullRate?: number
+  /** Intensity shift across the call in log2, as the scan measured it. */
+  lrr?: number
 }
 
 /** Build the display list from a run's segments and whatever origin annotations exist for them. */
@@ -247,6 +260,12 @@ export function defectsFrom(
       stage: stage?.stage,
       dropout: stage && Number.isFinite(stage.dropout) ? stage.dropout : undefined,
       dropoutBasis: stage?.basis === 'none' ? undefined : stage?.basis,
+      step: sg.kind !== 'parental-absence' ? 'intensity'
+        : sg.lrrShift !== undefined ? 'allele-scan' : byRun ? 'run' : 'window',
+      second: one ? { verdict: one.verdict, parent: one.parent } : undefined,
+      rate: Number.isFinite(sg.rate) ? sg.rate : undefined,
+      nullRate: Number.isFinite(sg.nullRate) ? sg.nullRate : undefined,
+      lrr: sg.lrrShift !== undefined && sg.lrrShift !== null && Number.isFinite(sg.lrrShift) ? sg.lrrShift : undefined,
     } as Defect
   })
 }
@@ -307,14 +326,11 @@ export const headline = (d: Defect): string => {
       ? 'no parental origin exists for this class'
       : 'origin not determined'}`
   }
-  const conf = d.confidence !== undefined && Number.isFinite(d.confidence)
-    ? ` · ${d.confidence.toFixed(3)}${d.band ? ` ${BAND_WORD[d.band] ?? d.band}` : ''}`
-    : ''
   // A gamete-borne change and one that arose after fertilisation are different findings for a
   // patient, so the timing sits in the headline beside the parent rather than in a chip below.
   const when = d.mechanism === 'meiotic' ? ' · from the gamete'
     : d.mechanism === 'post-zygotic' ? ' · after fertilisation' : ''
-  return `${d.origin.toUpperCase()} ${what} · ${where}${conf}${when}`
+  return `${d.origin.toUpperCase()} ${what} · ${where}${when}`
 }
 
 /** Bands C and D are dimmed, so a weak number cannot be mistaken for a strong one at a glance. */
@@ -383,6 +399,7 @@ export function findingToDefect(
     z: use && Number.isFinite(use.z) ? use.z : undefined,
     impliedF: use && Number.isFinite(use.impliedF) ? use.impliedF : undefined,
     stage: stage?.stage,
+    step: 'finding',
   }
 }
 
@@ -496,7 +513,9 @@ export function runAlerts(r: {
   }
   // Whose genome this is comes before anything read against the parent. See parentGenome.ts.
   for (const n of r.parentGenomeNotices ?? []) out.push({ key: n.headline, ...n })
-  if (r.integrity && r.integrity.level !== 'intact') {
+  // A disturbed genome is usable: its alert only counts changes, and the change list already does,
+  // by the counting rule. Only an uninterpretable one stops a reader.
+  if (r.integrity && r.integrity.level !== 'intact' && r.integrity.level !== 'disturbed') {
     out.push({
       key: `integrity-${r.integrity.level}`,
       headline: r.integrity.headline,
