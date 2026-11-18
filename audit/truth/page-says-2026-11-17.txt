@@ -98,6 +98,9 @@ MEASURED COUNT BEHIND EACH CHIP WORD (right / scored; wrong parent; unscored)
   MEASURED imbalance two 10 24
   MEASURED imbalance measured 5 10
   MEASURED imbalance rebuilt 3 4
+  MEASURED doubled two 0 3
+  MEASURED doubled measured 0 3
+  MEASURED doubled rebuilt 0 1
 
   "Right" is right place and, where the call and the paper both name one, right parent.
   For unnamed, intensity and imbalance rows, right is right place.
@@ -142,6 +145,15 @@ THE HARNESS (P6)
   genome-wide verdict is present on 12 and unclear on 19, absent on none, so no headline moves. The
   father's is absent on 2 with the measured father (the two cells read UNCLEAR, disagreement) and
   on none with the rebuilt father, as the fixture took it.
+
+ONE STRETCH, TWO SCANS
+  A loss the copy scan and an absence or allele scan both report over the same stretch is one row
+  (each covers at least half of the longer of the two). On the 31 published cells this happens on 2
+  cells, 3 stretches, 7 pairs over the three setups (copy scan with the window absence scan 6, with
+  the allele scan 1). None of the 7 is right by the paper; a stretch one scan reports alone is right
+  on 42 of 78 (both parents), 37 of 70 (measured father) and 30 of 62 (rebuilt father). The second
+  scan reads the same signal, so the row keeps "one reading". The doubled lines above are these
+  pairs, counted by hand from the same rows.
 
 FIGURE LABELS (P8)
   Row labels say what the row is: "Father's copy", "Mother's copy" (whatever markers they are

@@ -4,7 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import {
   changeList, changesText, COUNTED, disturbedText, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, rowLine,
-  saidOf, whereText, WORD, type HeadInput,
+  saidOf, spanMb, whereText, whoseText, WORD, type HeadInput,
 } from './pageSays.ts'
 import type { Defect } from './defects.ts'
 
@@ -112,6 +112,33 @@ const cellA: Defect[] = [
     assert.ok(!/letter|\u2014/.test(disturbedText(l)))
   }
   assert.equal(disturbedText(changeList(cellA, 'two')), '')
+}
+
+// ---------------------------------------------------------------- one stretch, two scans
+// A loss from the copy scan and from an absence scan over the same stretch is one row with both
+// readings; a different stretch on the same chromosome stays its own row.
+{
+  const at = (s: number, e: number, over: Partial<Defect>): Defect => ({
+    chrom: '15', startBp: s, endBp: e, kind: 'copy-loss', locus: `chr15:${s}-${e}`, origin: 'unclear', why: 'x', ...over,
+  })
+  const copy15 = at(71_500_000, 100_000_000, { step: 'intensity', rate: 0.3, nullRate: 0.1 })
+  const abs15 = at(76_600_000, 98_900_000, { kind: 'parental-absence', step: 'window', rate: 0.2, nullRate: 0.02 })
+  const copy11 = { ...at(18_600_000, 26_300_000, { step: 'intensity' }), chrom: '11' }
+  const abs11 = { ...at(17_400_000, 130_300_000, { kind: 'parental-absence', step: 'window' }), chrom: '11' }
+  const l = changeList([copy15, abs15, copy11, abs11], 'measured')
+  const fifteen = l.once.filter((g) => g.chrom === '15')
+  assert.equal(fifteen.length, 1, 'one stretch read by two scans is one row')
+  assert.equal(fifteen[0].pieces.length, 2, 'both readings kept')
+  assert.equal(fifteen[0].word, 'one reading')
+  assert.equal(whoseText(fifteen[0]), 'copy lost, parent not named')
+  assert.equal(spanMb(fifteen[0]), '28.5', 'overlapping readings counted once')
+  assert.equal(whereText(fifteen[0]), 'chr15 71.5-100.0, 76.6-98.9 Mb')
+  assert.equal(l.once.filter((g) => g.chrom === '11').length, 2, 'different stretches stay two rows')
+  assert.ok(changesText(l).includes('3 more stretches'), changesText(l))
+  const named = changeList([copy15, { ...abs15, origin: 'paternal', step: 'allele-scan' }], 'measured')
+  assert.equal(named.once.length, 1)
+  assert.equal(whoseText(named.once[0]), "father's copy missing", 'the row names the parent the call names')
+  assert.ok(!named.counted.length, 'never found two ways')
 }
 
 // ---------------------------------------------------------------- P3: the table is the results file

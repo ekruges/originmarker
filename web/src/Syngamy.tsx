@@ -1232,7 +1232,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt }: {
                 </Text>
               )}
               {!r.noParent && <Text size="xs" mb={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>{PARENT_SENTENCE}</Text>}
-              {(['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity', 'gain-parent', 'imbalance'] as const)
+              {(['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity', 'gain-parent', 'imbalance', 'doubled'] as const)
                 .filter((k) => !r.noParent && measuredSentence(k, setup) !== 'Not measured on the answer key in this setup.')
                 .map((k) => (
                   <Text key={k} size="xs" mb={2} style={{ maxWidth: 780, lineHeight: 1.45 }}>
