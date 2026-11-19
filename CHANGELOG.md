@@ -9,6 +9,49 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.17.0 "Dosage"
+
+**One figure for every change the tool calls, drawing how many copies each parent gave.** The page
+used to draw a loss one way and had no picture for a gain at all. There is now a single quantity
+behind every bar, and the same picture shows a loss, a gain and a normal chromosome.
+
+- **The quantity.** Total copies, from how much DNA sits in a bin against the level that cell holds
+  on its own chromosomes the paper calls normal, multiplied by that parent's share of the DNA,
+  which is read off the alleles alone. One copy from each parent is normal, so a missing copy draws
+  as a bar that falls to nothing on one parent's side and stays put on the other, and an extra copy
+  draws as a bar that rises on the side that gave it.
+- **The product earns its place on the hard cells.** Measured on 28 open cells with both parents
+  measured: 107 whole losses, 20 loss pieces, 6 published gains, 954 stated-normal tracks. It
+  matches the better of its two ingredients everywhere and never falls below either. On cells
+  carrying many changes, where the level the cell is measured against is itself shifted, loss
+  pieces separate 1.00 of the time against 0.43 for intensity alone, and gains 1.00 against 0.50.
+  The split between the parents needs no reference level, so only the total depends on one
+  (`audit/truth/gain-figure-levers-2026-11-17.txt`).
+- **Level bands fixed before any picture was drawn**, weighting the three classes equally so the
+  954 normal tracks do not swamp the 6 gains: none below 0.68 copies, one copy from 0.68 to 1.65,
+  two above that. A missing copy lands in "none" 96% of the time, a normal track in "one copy" 92%,
+  a doubled copy in "two" five times of six. The axis stops at 2.9: above four copies in one cell
+  the reading is amplification, not a count.
+- **Bars are binned by position, not by marker count.** Markers where the parents carry different
+  alleles are about 3 in 100 of the array, so a bar of a fixed marker count covered tens of
+  megabases and a whole cell collapsed into two or three blocks. Bars are 10 Mb across the cell,
+  2.5 Mb on a single stretch, and a bar holding fewer than 8 markers joins the one before it rather
+  than reading as a level measured on almost nothing.
+- **A deck, then a zoom on each change.** The whole cell first, then one figure per called change at
+  2.5 Mb. Each changed chromosome carries one number beneath it, and the deck carries a numbered
+  list of the changes as chips, so a cell with many changes reads without the labels piling up.
+- **Colour says the direction, weight says whether the card counts it.** A loss and a gain carry
+  different colours, and a reading the card does not count is drawn in the same colour at lower
+  weight rather than greyed out, which previously hid every gain. A class that is neither a loss
+  nor a gain takes neutral grey.
+- **A saved figure stands alone.** It carries its own title and caption, and the whole deck saves as
+  one file.
+
+Also added, as the record behind the above: what heterozygosity and intensity each contribute to
+telling 0, 1, 2 and 3 copies apart (`audit/truth/het-and-copies-2026-11-17.txt`). Heterozygosity
+alone does not separate an extra copy at all, and moves the wrong way on pieces, which is why no
+row of the figure draws it.
+
 ## 6.16.0 "Concordance"
 
 **A result card no longer says two things about one sample.** Six places where parts of one card

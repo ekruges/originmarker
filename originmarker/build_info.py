@@ -335,10 +335,17 @@ RELEASES: tuple[Release, ...] = (
             "Two readings of the same cell that agree. A card is one reading made of many parts, "
             "and where its headline, its badge, its notice and the figure under it disagreed, one "
             "of them was wrong. They are made to agree, or the card says it cannot tell."),
+    Release("Dosage",
+            "How many copies of a stretch of chromosome are present. It is the quantity the "
+            "intensity channel reads, and splitting it by parent is what the figure draws."),
+    Release("Duplication",
+            "An extra copy of a stretch of chromosome. The counterpart of a deletion, and the "
+            "harder of the two to see, because an extra copy raises a reading less than a "
+            "missing one lowers it."),
 )
 
-VERSION = "6.16.0"
-CODENAME = "Concordance"
+VERSION = "6.17.0"
+CODENAME = "Dosage"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
