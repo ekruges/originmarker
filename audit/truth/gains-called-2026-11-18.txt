@@ -197,7 +197,25 @@ decides.
 
 DIAGNOSTIC, before the rule was built (measurement only, main at 6.16.0)
 -----------------------------------------------------------------------
-(filled in by the run)
+The three constructions that print as a lost parent, on main, with everything the rule could key
+on. Taken from the constructed records with the chromosome's own intensity added to them; no tool
+code was changed for it.
+
+  cell 2369 chr22, an extra MATERNAL copy built on it
+      copy state parent-lost, r 0.764; intensity +0.382, z 3.01; no gain called
+      the same cell and chromosome unmodified: state disomic, r 0.667, intensity -0.172
+  cell 2421 chr22, an extra MATERNAL copy built on it
+      copy state parent-lost, r 0.839; intensity +0.166, z 1.96; no gain called
+      unmodified: state disomic, r 0.703, intensity -0.366
+  cell 2365 chr22, an extra PATERNAL copy built on it
+      copy state other-lost, r 0.159; intensity -0.001, z -0.01; no gain called
+      unmodified: state disomic, r 0.255, intensity -0.555
+
+So the construction adds +0.554, +0.532 and +0.554, which is a third copy attenuated as this
+material attenuates it, and all three sit on the chromosome that reads lowest before anything is
+built on it. None of the three is anywhere near the relative bar a gain CALL needs (z 5.49), which
+is why the guard keyed on the call never fired on them. Rule 4 is keyed on the magnitude instead
+and reaches the first. What the other two need is under "G3 cannot be met as written".
 
 C1, THE SISTER CELL'S LOSS, MEASURED (no tool code; the module of 14 November, unwired)
 ---------------------------------------------------------------------------------------
