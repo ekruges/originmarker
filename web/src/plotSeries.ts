@@ -434,3 +434,22 @@ export function badgeX(wanted: readonly number[], gap: number, lo: number, hi: n
 export function drawable(tracks: readonly Track[], chrom: string): boolean {
   return tracks.some((t) => (t.bins.get(chrom) ?? []).length > 0)
 }
+
+/**
+ * What a change's colour says, and what its weight says.
+ *
+ * COLOUR IS THE DIRECTION, ALWAYS: red for a copy gone, teal for an extra copy, on the mark under
+ * the chromosome, on the badge, on the chip and in the zoom. Whether the card counts the reading is
+ * carried by weight instead: a counted badge is filled, an uncounted one is drawn as an outline and
+ * its chip keeps its pale ground and the card's own words. One channel, one meaning. A reading the
+ * card does not count is the one a reader most needs to read, so it must not lose its direction.
+ *
+ * A class that is neither a loss nor a gain takes neither colour: 'none' is the neutral grey, so an
+ * imbalance the intensity cannot resolve is never painted as a copy gone.
+ */
+export const directionColour = (d: 'gain' | 'loss' | 'none'): string =>
+  (d === 'gain' ? 'var(--om-gain)' : d === 'loss' ? 'var(--om-defect)' : '#6b727b')
+
+/** Whether the card counts this reading as a change: a filled badge, rather than an outline. */
+export const isCounted = (m: { withheld?: string; status?: string }): boolean =>
+  !m.withheld && (m.status === undefined || m.status === 'counted')

@@ -9,11 +9,11 @@
  */
 import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import {
-  badgeX, cellPer, copyBars, COPY_MAX, copyWord, drawable, guardedBars, mergeBins, normalRange,
-  perForStretch, sheet,
-  tickStepMb, totalBars, viewOf, wrap, zoomOrder, type Bin, type PlotData, type Role, type Track,
+  badgeX, cellPer, copyBars, COPY_MAX, copyWord, directionColour, drawable, guardedBars, isCounted,
+  mergeBins, normalRange, perForStretch, sheet, tickStepMb, totalBars, viewOf, wrap, zoomOrder,
+  type Bin, type PlotData, type Role, type Track,
 } from './plotSeries.ts'
-import { headline, KIND_WORD, type Defect } from './defects.ts'
+import { direction, headline, KIND_WORD, type Defect, type Direction } from './defects.ts'
 import { saidOf } from './pageSays.ts'
 import { segmentCoords, type Segment } from './segments.ts'
 import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
@@ -22,16 +22,33 @@ import type { Refusal } from './refusals.ts'
 const FATHER = 'var(--om-blue)'
 const MOTHER = 'var(--om-higher)'
 const NEUTRAL = '#6b727b'
-const CALL = 'var(--om-defect)'
-const GAINC = 'var(--om-gain)'
 const DIM = 'var(--om-text-dim)'
 const INK = '#1d2126'
 const RANGE = '#e9ecef'
 const LINE = '#e3e6ea'
 const colourOf = (p: Role | null | undefined) => (p === 'paternal' ? FATHER : p === 'maternal' ? MOTHER : NEUTRAL)
-/** A loss, a gain, or a reading the card does not count: one rule, used by every part of the figure. */
-const markColour = (m: { gain: boolean; withheld?: string; status?: string }) =>
-  (m.withheld || (m.status !== undefined && m.status !== 'counted') ? DIM : m.gain ? GAINC : CALL)
+/** The direction, in colour: one rule, used by every part of the figure. */
+const markColour = (m: { gain: boolean; dir?: Direction }) =>
+  directionColour(m.dir ?? (m.gain ? 'gain' : 'loss'))
+
+/**
+ * The numbered badge, under its chromosome, on its chip and in its zoom.
+ *
+ * Filled where the card counts the reading, an outline where it does not. The colour says the
+ * direction either way, so a gain the card does not count still reads as a gain.
+ */
+function Badge({ cx, cy, n, colour, filled, r = 7.5 }: {
+  cx: number; cy: number; n: number; colour: string; filled: boolean; r?: number
+}) {
+  return (
+    <g>
+      <circle cx={cx} cy={cy} r={r} fill={filled ? colour : '#fff'} stroke={colour}
+        strokeWidth={filled ? 0 : 1.8} />
+      <text x={cx} y={cy + r * 0.47} textAnchor="middle" fontSize={10} fontWeight={700}
+        fill={filled ? '#fff' : colour}>{n}</text>
+    </g>
+  )
+}
 const AUTOSOMES = Array.from({ length: 22 }, (_, i) => String(i + 1))
 const mb = (bp: number) => (bp / 1e6).toFixed(1)
 
@@ -63,6 +80,8 @@ export interface Mark {
   outHiBp?: number
   whole: boolean
   gain: boolean
+  /** Which way the copies went, where the class says: a class that is neither carries 'none'. */
+  dir?: Direction
   parent: Role | null
   withheld?: string
   /** What the call is, in one plain sentence. */
@@ -285,7 +304,7 @@ const LEVEL_WORD: Record<number, string> = { 0: 'none', 1: 'one copy', 2: 'two c
 
 /* --- the whole cell, the top deck -------------------------------------------------------------- */
 
-export function WholeCell({ data, marks, name, numbers, focus, title, chips, caption, save = true }: {
+export function WholeCell({ data, marks, name, numbers, focus, title, note, chips, caption, save = true }: {
   data: PlotData; marks: readonly Mark[]; name: string
   /** Each mark's number in the list below, keyed `chrom:startBp`. */
   numbers?: ReadonlyMap<string, number>
@@ -295,6 +314,8 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
    *  are drawn inside the picture: the card offers the file for saving, and a figure that travels
    *  without its caption claims more than it measured. */
   title?: string
+  /** One quiet line under the title: how many readings are drawn against how many the card counts. */
+  note?: string
   /** One chip per mark, already numbered, in chromosome order. */
   chips?: readonly Chip[]
   caption?: string
@@ -323,14 +344,27 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
   const blockOf = (row: readonly string[]) => tracks.length * (TH + 20) + 21
     + (row.some((c) => changed.has(c)) ? 24 : 6)
   const headLines = title ? wrap(title, Math.max(24, Math.floor(W / 7.6))) : []
-  const headH = headLines.length ? 8 + headLines.length * 19 + 6 : 0
+  // THE TITLE CARRIES THE CARD'S COUNT, the figure draws every reading, and beside a dozen chips
+  // the two read as a contradiction unless the figure says both numbers itself. Neither number is
+  // changed here; the line only states which is which.
+  const noteLines = note ? wrap(note, Math.max(30, Math.floor(W / 6.4))) : []
+  const headH = headLines.length || noteLines.length
+    ? 8 + headLines.length * 19 + noteLines.length * 15 + 6 : 0
   // THE LIST READS AS CHIPS, NOT AS A PARAGRAPH. Twelve lines of one weight read as prose and the
   // eye cannot land on one; each entry gets the badge it carries under its chromosome and its own
-  // line. Two columns where the width carries the longest chip, one where it does not.
+  // line. A chip states its class in full, and some classes need a sentence, so the list takes two
+  // columns only where the width carries the longest of them and one column otherwise.
   const chipList = chips ?? []
   const CHIP_H = 19
-  const chipCols = W >= 2 * CHIP_MIN_W + 18 ? 2 : 1
+  const chipText = (c: Chip) => `chr${c.chrom} ${c.where}: ${c.what}${c.note ? `, ${c.note}` : ''}`
+  const CHAR = 5.6
+  const longest = chipList.reduce((n, c) => Math.max(n, chipText(c).length), 0)
+  const twoUp = W >= 2 * CHIP_MIN_W + 18 && longest * CHAR + 30 <= (W - 18) / 2
+  const chipCols = twoUp ? 2 : 1
   const chipW = (W - 18 * (chipCols - 1)) / chipCols
+  // A line that still will not fit is set smaller rather than cut, down to a floor: the end of what
+  // the card said is the part a reader needs, and `textLength` is not honoured by every renderer.
+  const chipFont = Math.max(8.5, Math.min(11, (chipW - 30) / Math.max(1, longest * (CHAR / 11))))
   const chipRows = Math.ceil(chipList.length / chipCols)
   const capLines = caption ? wrap(caption, Math.max(30, Math.floor(W / 5.6))) : []
   const footH = (chipList.length ? chipRows * CHIP_H + 14 : 0) + (capLines.length ? capLines.length * 14 + 10 : 0)
@@ -396,6 +430,9 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
         {headLines.map((l, i) => (
           <text key={`h${i}`} x={1} y={20 + i * 19} fontSize={15} fontWeight={700} fill={INK}>{l}</text>
         ))}
+        {noteLines.map((l, i) => (
+          <text key={`n${i}`} x={1} y={20 + headLines.length * 19 + i * 15} fontSize={12} fill={DIM}>{l}</text>
+        ))}
         {rows.map((_row, r) => tracks.map((t, ti) => {
           const top = bodyTop + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0) + ti * (TH + 20) + 16
           // One cell has two tracks however many rows of chromosomes it takes, so the title is
@@ -437,7 +474,8 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
                 const seg = ms.length ? p.w / ms.length : p.w
                 return (
                   <g>
-                    <text x={p.x + p.w / 2} y={axis + 12} textAnchor="middle" fontWeight={ms.length ? 700 : 400}
+                    <text x={p.x + p.w / 2} y={axis + 12} textAnchor="middle"
+                      fontWeight={ms.some(isCounted) ? 700 : ms.length ? 600 : 400}
                       fill={ms.length ? markColour(ms[0]) : '#aeb4bb'}>{p.c}</text>
                     {ms.map((m, i) => (
                       <rect key={`b${i}`} x={p.x + i * seg + (i ? 1 : 0)} y={axis + 17}
@@ -449,11 +487,8 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
                       const cx = badgeAt.get(`${m.chrom}:${m.startBp}`)
                         ?? p.x + p.w / 2 + (i - (ms.length - 1) / 2) * BADGE_GAP
                       return (
-                        <g key={n}>
-                          <circle cx={cx} cy={axis + 32} r={7.5} fill={markColour(m)} />
-                          <text x={cx} y={axis + 36} textAnchor="middle" fontSize={10} fontWeight={700}
-                            fill="#fff">{n}</text>
-                        </g>
+                        <Badge key={n} cx={cx} cy={axis + 32} n={n} colour={markColour(m)}
+                          filled={isCounted(m)} />
                       )
                     })}
                   </g>
@@ -471,10 +506,9 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
             <g key={`chip${c.n}`}>
               <rect x={x0} y={y0 - 1} width={chipW} height={CHIP_H - 3} rx={3}
                 fill={c.muted ? '#f6f7f8' : c.bg} />
-              <circle cx={x0 + 11} cy={y0 + 7} r={7.5} fill={c.colour} />
-              <text x={x0 + 11} y={y0 + 11} textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{c.n}</text>
+              <Badge cx={x0 + 11} cy={y0 + 7} n={c.n} colour={c.colour} filled={!c.muted} />
               {/* One text run, so the chromosome and its words cannot overlap at any width. */}
-              <text x={x0 + 24} y={y0 + 11} fontSize={11} fill={c.muted ? DIM : INK}>
+              <text x={x0 + 24} y={y0 + 11} fontSize={chipFont} fill={c.muted ? DIM : INK}>
                 <tspan fontWeight={700}>{`chr${c.chrom}`}</tspan>
                 {` ${c.where}: ${c.what}${c.note ? `, ${c.note}` : ''}`}
               </text>
@@ -557,12 +591,7 @@ export function Zoom({ data, mark, marks, number, width, title, caption, saveNam
         onPointerMove={onMove} onPointerDown={onMove} onPointerLeave={() => setTip(null)}
       >
         <rect width={W} height={H} fill="#fff" />
-        {number ? (
-          <g>
-            <circle cx={9} cy={9} r={8} fill={colour} />
-            <text x={9} y={13} textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{number}</text>
-          </g>
-        ) : null}
+        {number ? <Badge cx={9} cy={9} n={number} colour={colour} filled={isCounted(mark)} r={8} /> : null}
         {head.map((l, i) => (
           <text key={i} x={number ? 23 : 1} y={13 + i * 15} fontSize={12} fontWeight={700} fill={INK}>{l}</text>
         ))}
@@ -697,6 +726,13 @@ export function CellFigure({ data, marks, name, title }: {
   const cols = W >= 980 ? 3 : W >= 640 ? 2 : 1
   const colW = Math.floor((W - 18 * (cols - 1)) / cols)
   const hasGain = marks.some((m) => m.gain)
+  // The title carries the card's count of changes; the figure draws every reading it has. Both
+  // numbers, in the card's own words, so a dozen chips under "one change" is not read as a fault.
+  const kept = ordered.filter(isCounted).length
+  const note = ordered.length === kept ? undefined
+    : `${ordered.length} readings are drawn and numbered below; the card counts ${kept} of them as `
+      + `${kept === 1 ? 'a change' : 'changes'}. The rest are drawn as outlines and say on their own `
+      + 'line why they are not counted.'
   // One source of words, and it lives inside the picture: the card offers the figure for saving and
   // a file that travels without its caption claims more than the measurement supports.
   const caption = `${CAPTION_SCALE} ${data.split ? CAPTION_GUARD : CAPTION_SOLO}`
@@ -705,7 +741,7 @@ export function CellFigure({ data, marks, name, title }: {
     <div ref={ref} style={{ marginTop: 14 }}>
       <div ref={box}>
         <WholeCell data={data} marks={marks} name={name} numbers={numbers}
-          title={title} chips={chips} caption={caption} save={false} />
+          title={title} note={note} chips={chips} caption={caption} save={false} />
         {ordered.length ? (
           <>
             <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginTop: 12 }}>{SHEET_HEAD}</div>
@@ -810,6 +846,7 @@ export function defectMark(
     : d.kind === 'parental-absence' ? "one parent's copy is missing" : headline(d)
   return {
     chrom: d.chrom, startBp: whole ? 0 : d.startBp, endBp: end, whole, gain, parent: named,
+    dir: direction(gain, d.kind),
     word: wordOf(gain, named, !!deeper, undefined, d.kind),
     sentence: whole ? `Whole chromosome ${d.chrom} (${(end / 1e6).toFixed(0)} Mb): ${what}${named ? `, ${WHOSE[named]}` : ', parent not named'}.`
       : `${where(d.chrom, d.startBp, d.endBp)}: ${what}${named ? `, ${WHOSE[named]}` : ''}.`,

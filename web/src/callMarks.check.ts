@@ -3,7 +3,8 @@
 import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
 import { changeList, defectsForResult, type ChangeList } from './pageSays.ts'
-import type { Defect } from './defects.ts'
+import { directionColour, isCounted } from './plotSeries.ts'
+import { direction, type Defect } from './defects.ts'
 
 /** The figure's rule, as CellFigure applies it: every mark numbered in chromosome order. */
 function numbering(marks: readonly { chrom: string; startBp: number }[]) {
@@ -80,9 +81,10 @@ const defect = (chrom: string, kind: Defect['kind'], step: string, extra: Partia
   assert.ok(l.counted.length < all.length, 'this cell has readings the headline does not count')
 }
 
-// ---------------------------------------------------------------- a loss and a gain differ in colour
-// The figure says which is which without a word: one rule gives the axis mark, the badge, the chip
-// and the zoom the same colour, and a reading the card does not count is set quietly in grey.
+// ---------------------------------------------------------------- colour is the direction, always
+// One channel, one meaning: colour says which way the copies went, weight says whether the card
+// counts the reading. A gain the card does not count is still drawn as a gain, because that is the
+// reading a reader most needs to understand; its badge is an outline and its chip says why.
 {
   const css = readFileSync(new URL('./index.css', import.meta.url), 'utf8')
   const token = (name: string) => (css.match(new RegExp(`--${name}:\\s*([^;]+);`)) ?? [])[1]?.trim()
@@ -115,5 +117,31 @@ const defect = (chrom: string, kind: Defect['kind'], step: string, extra: Partia
   const blue = Math.abs(hue(token('om-blue')!) - hue(loss!))
   assert.ok(Math.min(blue, 360 - blue) > 25, "the loss colour stays clear of the father's track")
 }
+
+// ---------------------------------------------------------------- and weight carries the counting
+{
+  assert.notEqual(directionColour('gain'), directionColour('loss'), 'the two directions never share a colour')
+  // A class that is neither a loss nor a gain is neither colour: an imbalance the card cannot call
+  // either way must not be painted as a copy gone.
+  assert.equal(direction(false, 'whole-chromosome'), 'none', 'an imbalance has no direction')
+  assert.equal(direction(true, 'trisomy'), 'gain', 'three copies is a gain')
+  assert.equal(direction(false, 'copy-loss'), 'loss', 'a lost copy is a loss')
+  assert.ok(![directionColour('gain'), directionColour('loss')].includes(directionColour('none')),
+    'and it is drawn in neither direction colour')
+  // The colour rule reads the direction and nothing else, so no status can grey a direction out.
+  // That matters most on the readings the card does not count: those are the lines where a reader
+  // needs to see whether a copy was doubled or lost.
+  const marks: [{ status?: string; withheld?: string }, boolean][] = [
+    [{}, true], [{ status: 'counted' }, true], [{ status: 'one reading' }, false],
+    [{ status: 'also seen' }, false], [{ withheld: 'too little evidence' }, false],
+  ]
+  for (const [m, counts] of marks) {
+    assert.equal(directionColour('gain'), 'var(--om-gain)', 'an extra copy is teal')
+    assert.equal(directionColour('loss'), 'var(--om-defect)', 'and a copy gone is red')
+    assert.equal(isCounted(m), counts,
+      'and whether the card counts it is a separate question, answered on its own')
+  }
+}
+
 
 console.log('callMarks: ok')
