@@ -406,6 +406,55 @@ Every no-parent row is identical in all three arms by construction: the block ru
 only with a parent shown. The arms are therefore run on the 270 with-parent rows of the harness,
 the 20 with-parent rows of the gain list, and the constructed gains.
 
+G3 CANNOT BE MET AS WRITTEN, AND HERE IS WHY, with what would be needed
+------------------------------------------------------------------------
+Traced 19 November on the constructed records, which now carry each chromosome's own intensity.
+All three reversed constructions are on chromosome 22, and the construction is not at fault: it
+adds +0.554, +0.532 and +0.554 log2 to the three, which is the 0.585 of a third copy attenuated as
+this material attenuates it. What differs is where the chromosome starts. Chromosome 22 reads BELOW
+each cell's own level before anything is built on it: -0.313 median over the five cells, from
+-0.555 to +0.051. It is not alone. Over the same cells, as they read:
+
+    chr22 -0.313    chr19 -0.258    chr20 -0.185    chr17 -0.186    chr16 -0.046
+    every other autosome sits within 0.06 of the cell's own level
+
+That is the probe-density and GC bias every array of a platform shares, and this tool does not take
+it out: it reads each chromosome against the cell's own genome-wide level and nothing else. So the
+three constructions land at +0.382, +0.166 and -0.001, and rule 4, which asks an absolute +0.30,
+reaches the first and cannot reach the other two. The rule is asking one question and getting the
+answer to two: how much was added, and where the chromosome already sat.
+
+WHAT WOULD REACH THEM. Not the calls: the construction re-weights intensities and B-allele
+frequencies and does NOT rebuild the genotype calls, so heterozygosity cannot move on a built gain
+by construction, and an allele-based rule would score 0 of 3 here whether or not it works on a real
+cell. What would reach them is the per-chromosome bias itself: subtract the cohort's own median
+offset for each chromosome, as the figure study already does bin by bin, and the three built gains
+read +0.70, +0.48 and +0.31 against the same +0.30, with all three reached. That is possible with
+the channels this tool has and it is NOT a small change: the same correction moves every intensity
+reading in the tool, the loss side included, so it has to be built and scored on its own.
+The same bias limits the new gain floor: a true third copy on chromosome 22 reads 0.585 - 0.31 =
++0.27 against a 0.30 bar and is missed for the chromosome it sits on rather than for its size.
+
+THE HONEST VERSION OF THE GATE, for the owner to set. "No built gain prints as a loss" is partly a
+property of the fixture, not of the tool: it is unreachable while the extra copy is built on a
+chromosome whose own baseline sits a third of a copy low and the only channel is an absolute
+intensity shift. Either state it against a bias-corrected intensity, which makes it reachable and
+which is a separate item; or state it as "no built gain prints as a loss where the construction
+raises the chromosome to the cell's own level", which is 1 of 1 today and 0 of 1 on main, and carry
+the rest as a limit of the fixture with these numbers beside it.
+
+WHAT THE ALLELE CHANNEL WOULD BE, for the nine pieces (not built)
+------------------------------------------------------------------
+Per nominated gain piece, take the same bins the figure already draws and measure the allele side
+over them: with no parent, the B-allele spread at middle markers, which separates a real gain piece
+at 0.92 where the intensity alone is flat; with a parent, that parent's share at the markers where
+the parents differ, which called the side right 8 times of 8 on the published pieces. Read it
+against the same band the figure draws from the cell's own reference chromosomes, whose false-alarm
+rate on chromosomes published normal is measured at 0.00 to 0.02. Then a piece under the full
+magnitude of a third copy is admitted only where the allele side ALSO leaves that band, which is
+the second, independent sign the 17 November report asked for. It is perhaps a day's work plus its
+own gate run on the nine pieces, the 72 quiet arrays and the 1,656 published-normal chromosomes.
+
 THE THREE-WAY TABLE
 -------------------
 (filled in by the run)
