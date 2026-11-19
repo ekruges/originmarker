@@ -22,14 +22,36 @@ const FATHER = 'var(--om-blue)'
 const MOTHER = 'var(--om-higher)'
 const NEUTRAL = '#6b727b'
 const CALL = 'var(--om-defect)'
-const GAINC = 'var(--om-ok, #1f7a4d)'
+const GAINC = 'var(--om-gain)'
 const DIM = 'var(--om-text-dim)'
 const INK = '#1d2126'
 const RANGE = '#e9ecef'
 const LINE = '#e3e6ea'
 const colourOf = (p: Role | null | undefined) => (p === 'paternal' ? FATHER : p === 'maternal' ? MOTHER : NEUTRAL)
+/** A loss, a gain, or a reading the card does not count: one rule, used by every part of the figure. */
+const markColour = (m: { gain: boolean; withheld?: string; status?: string }) =>
+  (m.withheld || (m.status !== undefined && m.status !== 'counted') ? DIM : m.gain ? GAINC : CALL)
 const AUTOSOMES = Array.from({ length: 22 }, (_, i) => String(i + 1))
 const mb = (bp: number) => (bp / 1e6).toFixed(1)
+
+/** One entry of the list under the deck: the badge it carries under its chromosome, then its words. */
+export interface Chip {
+  n: number
+  chrom: string
+  /** Whole chromosome, or the stretch in Mb. */
+  where: string
+  /** What happened and whose copy, in the figure's own short words. */
+  what: string
+  /** Why the card does not count this reading, where it does not. */
+  note?: string
+  zoomed?: boolean
+  colour: string
+  bg: string
+  muted?: boolean
+}
+
+/** The width a chip needs before the list is worth setting in two columns. */
+const CHIP_MIN_W = 430
 
 /** One call as the figures mark it. */
 export interface Mark {
@@ -207,7 +229,7 @@ const LEVEL_WORD: Record<number, string> = { 0: 'none', 1: 'one copy', 2: 'two c
 
 /* --- the whole cell, the top deck -------------------------------------------------------------- */
 
-export function WholeCell({ data, marks, name, numbers, focus, title, list, caption }: {
+export function WholeCell({ data, marks, name, numbers, focus, title, chips, caption }: {
   data: PlotData; marks: readonly Mark[]; name: string
   /** Each mark's number in the list below, keyed `chrom:startBp`. */
   numbers?: ReadonlyMap<string, number>
@@ -217,8 +239,8 @@ export function WholeCell({ data, marks, name, numbers, focus, title, list, capt
    *  are drawn inside the picture: the card offers the file for saving, and a figure that travels
    *  without its caption claims more than it measured. */
   title?: string
-  /** One line per mark, already numbered, in chromosome order. */
-  list?: readonly string[]
+  /** One chip per mark, already numbered, in chromosome order. */
+  chips?: readonly Chip[]
   caption?: string
 }) {
   const [ref, W] = useWidth()
@@ -238,17 +260,22 @@ export function WholeCell({ data, marks, name, numbers, focus, title, list, capt
   const len = (c: string) => data.endBp.get(c) ?? 1
   type Panel = { c: string; x: number; w: number; top: number; row: number }
   const panels: Panel[] = []
-  const numbersOn = (c: string) => marks.filter((m) => m.chrom === c)
-    .map((m) => numbers?.get(`${m.chrom}:${m.startBp}`)).filter((n): n is number => n !== undefined)
   // Below the tracks: the chromosome number, the mark, and the mark's number in the list. One lane,
   // so a reader never has to work out which chromosome a label belongs to.
   const blockOf = (row: readonly string[]) => tracks.length * (TH + 20) + 21
     + (row.some((c) => changed.has(c)) ? 24 : 6)
   const headLines = title ? wrap(title, Math.max(24, Math.floor(W / 7.6))) : []
   const headH = headLines.length ? 8 + headLines.length * 19 + 6 : 0
-  const listLines = (list ?? []).flatMap((l) => wrap(l, Math.max(30, Math.floor(W / 5.6))))
+  // THE LIST READS AS CHIPS, NOT AS A PARAGRAPH. Twelve lines of one weight read as prose and the
+  // eye cannot land on one; each entry gets the badge it carries under its chromosome and its own
+  // line. Two columns where the width carries the longest chip, one where it does not.
+  const chipList = chips ?? []
+  const CHIP_H = 19
+  const chipCols = W >= 2 * CHIP_MIN_W + 18 ? 2 : 1
+  const chipW = (W - 18 * (chipCols - 1)) / chipCols
+  const chipRows = Math.ceil(chipList.length / chipCols)
   const capLines = caption ? wrap(caption, Math.max(30, Math.floor(W / 5.6))) : []
-  const footH = (listLines.length ? listLines.length * 14 + 10 : 0) + (capLines.length ? capLines.length * 14 + 8 : 0)
+  const footH = (chipList.length ? chipRows * CHIP_H + 14 : 0) + (capLines.length ? capLines.length * 14 + 10 : 0)
   const bodyTop = 6 + headH
   rows.forEach((row, r) => {
     const total = row.reduce((s, c) => s + len(c), 0)
@@ -327,35 +354,62 @@ export function WholeCell({ data, marks, name, numbers, focus, title, list, capt
               {(() => {
                 const axis = p.top + tracks.length * (TH + 20) + 4
                 const ms = marks.filter((m) => m.chrom === p.c)
-                const colour = ms.length ? (ms[0].withheld ? DIM : ms[0].gain ? GAINC : CALL) : DIM
-                const ns = numbersOn(p.c)
+                  .sort((a, b) => (numbers?.get(`${a.chrom}:${a.startBp}`) ?? 0) - (numbers?.get(`${b.chrom}:${b.startBp}`) ?? 0))
+                // A chromosome carrying a loss and a gain says so: each mark draws its own piece of
+                // the line in its own colour, and the number badge beneath it takes the same colour.
+                const seg = ms.length ? p.w / ms.length : p.w
                 return (
                   <g>
                     <text x={p.x + p.w / 2} y={axis + 12} textAnchor="middle" fontWeight={ms.length ? 700 : 400}
-                      fill={ms.length ? colour : '#aeb4bb'}>{p.c}</text>
-                    {ms.length ? <rect x={p.x} y={axis + 17} width={p.w} height={3} fill={colour} /> : null}
-                    {ns.map((n, i) => (
-                      <g key={n}>
-                        <circle cx={p.x + p.w / 2 + (i - (ns.length - 1) / 2) * 17} cy={axis + 32} r={7.5}
-                          fill={marks.find((m) => numbers?.get(`${m.chrom}:${m.startBp}`) === n)?.withheld ? DIM : colour} />
-                        <text x={p.x + p.w / 2 + (i - (ns.length - 1) / 2) * 17} y={axis + 36}
-                          textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{n}</text>
-                      </g>
+                      fill={ms.length ? markColour(ms[0]) : '#aeb4bb'}>{p.c}</text>
+                    {ms.map((m, i) => (
+                      <rect key={`b${i}`} x={p.x + i * seg + (i ? 1 : 0)} y={axis + 17}
+                        width={Math.max(2, seg - (ms.length > 1 ? 2 : 0))} height={3} fill={markColour(m)} />
                     ))}
+                    {ms.map((m, i) => {
+                      const n = numbers?.get(`${m.chrom}:${m.startBp}`)
+                      if (n === undefined) return null
+                      const cx = p.x + p.w / 2 + (i - (ms.length - 1) / 2) * 17
+                      return (
+                        <g key={n}>
+                          <circle cx={cx} cy={axis + 32} r={7.5} fill={markColour(m)} />
+                          <text x={cx} y={axis + 36} textAnchor="middle" fontSize={10} fontWeight={700}
+                            fill="#fff">{n}</text>
+                        </g>
+                      )
+                    })}
                   </g>
                 )
               })()}
             </g>
           )
         })}
-        {listLines.map((l, i) => (
-          <text key={`i${i}`} x={1} y={bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 12 + i * 14}
-            fontSize={11} fill={INK}>{l}</text>
-        ))}
+        {chipList.map((c, i) => {
+          const col = i % chipCols
+          const row = Math.floor(i / chipCols)
+          const x0 = col * (chipW + 18)
+          const y0 = bodyTop + rows.reduce((s, q) => s + blockOf(q), 0) + 12 + row * CHIP_H
+          return (
+            <g key={`chip${c.n}`}>
+              <rect x={x0} y={y0 - 1} width={chipW} height={CHIP_H - 3} rx={3}
+                fill={c.muted ? '#f6f7f8' : c.bg} />
+              <circle cx={x0 + 11} cy={y0 + 7} r={7.5} fill={c.colour} />
+              <text x={x0 + 11} y={y0 + 11} textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{c.n}</text>
+              {/* One text run, so the chromosome and its words cannot overlap at any width. */}
+              <text x={x0 + 24} y={y0 + 11} fontSize={11} fill={c.muted ? DIM : INK}>
+                <tspan fontWeight={700}>{`chr${c.chrom}`}</tspan>
+                {` ${c.where}: ${c.what}${c.note ? `, ${c.note}` : ''}`}
+              </text>
+              {c.zoomed ? (
+                <text x={x0 + chipW - 4} y={y0 + 11} textAnchor="end" fontSize={9} fill={DIM}>shown below</text>
+              ) : null}
+            </g>
+          )
+        })}
         {capLines.map((l, i) => (
           <text key={`c${i}`} x={1}
-            y={bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 12 + listLines.length * 14
-              + (listLines.length ? 10 : 0) + i * 14}
+            y={bodyTop + rows.reduce((s, q) => s + blockOf(q), 0) + 12 + (chipList.length ? chipRows * CHIP_H + 12 : 0)
+              + i * 14}
             fontSize={11} fill={DIM}>{l}</text>
         ))}
       </svg>
@@ -395,7 +449,7 @@ export function Zoom({ data, mark, marks, number, width, title, caption, saveNam
   const capLines = caption ? wrap(caption, Math.max(28, Math.floor(W / 5.3))) : []
   const TH = W < 420 ? 66 : 78
   const top0 = (number ? 6 : 0) + head.length * 15 + 12
-  const colour = mark.withheld ? DIM : mark.gain ? GAINC : CALL
+  const colour = markColour(mark)
   const H = top0 + tracks.length * (TH + 20) + 44 + (capLines.length ? capLines.length * 13 + 6 : 0)
   const span = hiBp - loBp
   const step = tickStepMb(span)
@@ -541,15 +595,26 @@ export function CellFigure({ data, marks, name, title }: {
   const numbers = new Map<string, number>()
   ordered.forEach((m, i) => numbers.set(`${m.chrom}:${m.startBp}`, i + 1))
   const zoomed = new Set(shown.map((m) => `${m.chrom}:${m.startBp}`))
+  // The card's own three kinds, in the card's own words: a counted change at full strength, and a
+  // reading it does not count set quietly, so the two are told apart at a glance without a legend.
   const NOTE: Record<string, string> = {
-    'one reading': ', seen once, not counted as a change',
-    'also seen': ', read but not counted as a change',
+    'one reading': 'seen once, not counted as a change',
+    'also seen': 'read but not counted as a change',
   }
-  const list = ordered.map((m) => {
-    const n = numbers.get(`${m.chrom}:${m.startBp}`)
-    const where = m.whole ? 'whole chromosome' : `${mb(m.startBp)} to ${mb(m.endBp)} Mb`
-    const note = m.withheld ? ', found but not reported' : NOTE[m.status ?? 'counted'] ?? ''
-    return `${n}. chr${m.chrom}, ${where}: ${m.word}${note}${zoomed.has(`${m.chrom}:${m.startBp}`) ? ' (zoomed below)' : ''}.`
+  const chips: Chip[] = ordered.map((m) => {
+    const key = `${m.chrom}:${m.startBp}`
+    const quiet = !!m.withheld || (m.status !== undefined && m.status !== 'counted')
+    return {
+      n: numbers.get(key)!,
+      chrom: m.chrom,
+      where: m.whole ? 'whole chromosome' : `${mb(m.startBp)} to ${mb(m.endBp)} Mb`,
+      what: m.word,
+      note: m.withheld ? 'found but not reported' : NOTE[m.status ?? 'counted'],
+      zoomed: zoomed.has(key),
+      colour: markColour(m),
+      bg: quiet ? '#f6f7f8' : m.gain ? 'var(--om-gain-bg)' : 'var(--om-defect-bg)',
+      muted: quiet,
+    }
   })
   const cols = W >= 980 ? 3 : W >= 640 ? 2 : 1
   const colW = Math.floor((W - 18 * (cols - 1)) / cols)
@@ -561,7 +626,7 @@ export function CellFigure({ data, marks, name, title }: {
   return (
     <div ref={ref} style={{ marginTop: 14 }}>
       <WholeCell data={data} marks={marks} name={name} numbers={numbers}
-        title={title} list={list} caption={caption} />
+        title={title} chips={chips} caption={caption} />
       {shown.length ? (
         <>
           <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginTop: 12 }}>

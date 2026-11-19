@@ -1,6 +1,7 @@
 // What the figure marks against what the card counts: one number a change, nothing marked twice,
 // nothing marked that the card does not list, and the list saying which readings do not count.
 import assert from 'node:assert'
+import { readFileSync } from 'node:fs'
 import { changeList, defectsForResult, type ChangeList } from './pageSays.ts'
 import type { Defect } from './defects.ts'
 
@@ -77,6 +78,42 @@ const defect = (chrom: string, kind: Defect['kind'], step: string, extra: Partia
   const pieces = all.flatMap((g) => g.pieces)
   assert.equal(new Set(pieces).size, defects.length, 'every change reaches exactly one row')
   assert.ok(l.counted.length < all.length, 'this cell has readings the headline does not count')
+}
+
+// ---------------------------------------------------------------- a loss and a gain differ in colour
+// The figure says which is which without a word: one rule gives the axis mark, the badge, the chip
+// and the zoom the same colour, and a reading the card does not count is set quietly in grey.
+{
+  const css = readFileSync(new URL('./index.css', import.meta.url), 'utf8')
+  const token = (name: string) => (css.match(new RegExp(`--${name}:\\s*([^;]+);`)) ?? [])[1]?.trim()
+  const loss = token('om-defect')
+  const gain = token('om-gain')
+  assert.ok(loss && gain && loss !== gain, 'a loss and a gain have their own colours')
+  const hue = (hex: string) => {
+    const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255)
+    const max = Math.max(r, g, b); const min = Math.min(r, g, b)
+    if (max === min) return 0
+    const d = max - min
+    const h = max === r ? ((g - b) / d) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4
+    return (h * 60 + 360) % 360
+  }
+  const light = (hex: string) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16))
+    .reduce((s, v, i) => s + v * [0.2126, 0.7152, 0.0722][i], 0)
+  const apart = Math.abs(hue(loss!) - hue(gain!))
+  assert.ok(Math.min(apart, 360 - apart) > 90, `a loss and a gain are far apart in hue (${apart.toFixed(0)} degrees)`)
+  assert.ok(Math.abs(light(loss!) - light(gain!)) > 10,
+    'and differ in lightness too, so they survive a reader who sees no colour')
+  // The gain colour is the new one, so it must clear both colours the parent tracks use. The loss
+  // colour is the page's own defect red, which shares a hue family with the mother's brown: it is
+  // told apart by lightness instead, and it never appears inside a panel where a track is drawn.
+  for (const track of ['om-blue', 'om-higher']) {
+    const d = Math.abs(hue(token(track)!) - hue(gain!))
+    assert.ok(Math.min(d, 360 - d) > 25, `the gain colour stays clear of --${track}`)
+  }
+  assert.ok(Math.abs(light(loss!) - light(token('om-higher')!)) > 25,
+    "the loss colour is told from the mother's track by lightness")
+  const blue = Math.abs(hue(token('om-blue')!) - hue(loss!))
+  assert.ok(Math.min(blue, 360 - blue) > 25, "the loss colour stays clear of the father's track")
 }
 
 console.log('callMarks: ok')
