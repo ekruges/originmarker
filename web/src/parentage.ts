@@ -1757,7 +1757,7 @@ export function classify(
     nonParentalRate, secondParentExpected, hetBand, homBand, homPinnedRate,
     noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, unmeasured: [], notes, limits,
-    copyReference: reference, copyUnresolved, copyOffPole: medianExact(referenceOffPole.filter((x) => Number.isFinite(x))),
+    copyReference: reference, copyUnresolved, copyOffPole: offPoleRatio({ off: 0, n: 0 }, referenceOffPole).centre,
     copyNull: { centre: lrrNull.centre, scale: lrrNull.scale, units: lrrNull.units,
       floor: opts.bulk === true && lrrNull.scale < BULK_SPREAD_MAX ? COPY_SHIFT_FLOOR_BULK : COPY_SHIFT_FLOOR,
       callMedian },

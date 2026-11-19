@@ -52,9 +52,16 @@ says whose copy it is and never makes the call.
    (expected ratio about 1); one homologue doubled keeps none (about 0). 0.5 is the midpoint, and it
    was set before any score (audit/local/lab-2026-11-16/report.txt section 1, written 16 November;
    a bar of 0.3 was also looked at there and is NOT used, because its score was seen first).
-   READABLE ONLY WITH A REFERENCE: fewer than 200 markers with a B allele fraction in the stretch,
-   or fewer than 4 reference chromosomes, and the gain is withheld rather than printed, which is the
-   same direction every other guard in this tool fails in.
+   READABLE ONLY WITH A REFERENCE: fewer than 200 markers with a B allele frequency in the stretch,
+   or fewer than 4 reference chromosomes, and the test cannot be read.
+   CORRECTED WHILE BUILDING, before any array was run: this said the gain is then WITHHELD. Building
+   it against a fixture whose B-allele frequencies all sit at the poles showed what that does: an
+   array whose B allele frequency is clamped to its endpoints, which is how a cluster-file BAF is
+   defined, has no off-pole markers anywhere, so every gain on it would be refused for a file format
+   rather than for anything measured. The test is a veto, not the evidence the call rests on, so
+   where it cannot be read it does not act and the limits say so. 25 of the 218 rows of the gain
+   list have fewer than 4 reference chromosomes; on those the piece arm's test does not act either,
+   by the same minimum.
    The existing veto is untouched and still fires on a raised GROUP carrying more heterozygous calls
    than the majority. This is its missing other end, per chromosome rather than per group.
 
