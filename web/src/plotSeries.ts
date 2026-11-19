@@ -350,11 +350,17 @@ export function viewOf(startBp: number, endBp: number, chromEndBp: number): { lo
  *  rows; every change past that is named in one line instead. */
 export const MAX_ZOOMS = 6
 
-/** The changes the figure zooms: the biggest called stretches, laid out in chromosome order. */
-export function zoomPicks<T extends { chrom: string; startBp: number; endBp: number }>(
+/**
+ * The changes the figure zooms: the biggest called stretches, laid out in chromosome order.
+ *
+ * A reading the card does not count as a change never takes a zoom from one it does: the panels
+ * below are there to show the changes the headline reports.
+ */
+export function zoomPicks<T extends { chrom: string; startBp: number; endBp: number; status?: string }>(
   calls: readonly T[], max = MAX_ZOOMS,
 ): { shown: T[]; rest: T[] } {
-  const by = [...calls].sort((a, b) => (b.endBp - b.startBp) - (a.endBp - a.startBp))
+  const counts = (c: T) => (c.status === undefined || c.status === 'counted' ? 0 : 1)
+  const by = [...calls].sort((a, b) => counts(a) - counts(b) || (b.endBp - b.startBp) - (a.endBp - a.startBp))
   const shown = by.slice(0, max)
   const rest = by.slice(max).sort((a, b) => +a.chrom - +b.chrom)
   shown.sort((a, b) => +a.chrom - +b.chrom || a.startBp - b.startBp)

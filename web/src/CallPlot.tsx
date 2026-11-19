@@ -12,7 +12,7 @@ import {
   cellPer, copyBars, COPY_MAX, copyWord, guardedBars, mergeBins, normalRange, perForStretch, tickStepMb,
   totalBars, viewOf, wrap, zoomPicks, type Bin, type PlotData, type Role, type Track,
 } from './plotSeries.ts'
-import { headline, type Defect } from './defects.ts'
+import { headline, KIND_WORD, type Defect } from './defects.ts'
 import { saidOf } from './pageSays.ts'
 import { segmentCoords, type Segment } from './segments.ts'
 import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
@@ -45,8 +45,10 @@ export interface Mark {
   withheld?: string
   /** What the call is, in one plain sentence. */
   sentence: string
-  /** The same finding in two or three words, for the label at its chromosome and the zoom's title. */
+  /** The same finding in two or three words, for the list under the deck and the zoom's title. */
   word: string
+  /** What the card's counting rule made of it: a counted change, or a reading it does not count. */
+  status?: 'counted' | 'one reading' | 'also seen'
   /** What the row shows, for the hover. */
   lines: string[]
   /** The call states its own numbers beside the figure, so the caption quotes none of its own. */
@@ -205,17 +207,18 @@ const LEVEL_WORD: Record<number, string> = { 0: 'none', 1: 'one copy', 2: 'two c
 
 /* --- the whole cell, the top deck -------------------------------------------------------------- */
 
-export function WholeCell({ data, marks, name, numbers, focus, title, also, caption }: {
+export function WholeCell({ data, marks, name, numbers, focus, title, list, caption }: {
   data: PlotData; marks: readonly Mark[]; name: string
-  /** The number each zoomed change carries below, by chromosome. */
+  /** Each mark's number in the list below, keyed `chrom:startBp`. */
   numbers?: ReadonlyMap<string, number>
   /** A chromosome to bring forward on its own, for a single call's view. */
   focus?: string
-  /** What the figure shows, the changes it does not zoom, and what the reader must know to read it.
-   *  They are drawn inside the picture: the card offers the file for saving, and a figure that
-   *  travels without its caption claims more than it measured. */
+  /** What the figure shows, every change it marks, and what the reader must know to read it. They
+   *  are drawn inside the picture: the card offers the file for saving, and a figure that travels
+   *  without its caption claims more than it measured. */
   title?: string
-  also?: string
+  /** One line per mark, already numbered, in chromosome order. */
+  list?: readonly string[]
   caption?: string
 }) {
   const [ref, W] = useWidth()
@@ -232,54 +235,29 @@ export function WholeCell({ data, marks, name, numbers, focus, title, also, capt
   const rows = W >= 760 ? [AUTOSOMES] : [AUTOSOMES.slice(0, 11), AUTOSOMES.slice(11)]
   const G = 3
   const TH = 74
-  // The label sits at its chromosome; neighbours take the next lane so the words never overlap.
-  const lanes = new Map<string, number>()
-  const LANES = 4
   const len = (c: string) => data.endBp.get(c) ?? 1
   type Panel = { c: string; x: number; w: number; top: number; row: number }
   const panels: Panel[] = []
-  const labelOf = (c: string) => marks.filter((m) => m.chrom === c).map((m) => m.word).find(Boolean) ?? ''
-  const halfOf = (c: string) => 3.3 * Math.max(...wrap(labelOf(c), 15).map((l) => l.length))
-  /** A label sits at its chromosome, pulled inside the box where the chromosome is near an edge. */
-  const labelX = (p: { c: string; x: number; w: number }) => {
-    const half = halfOf(p.c)
-    const badge = numbers?.has(p.c) ? half + 18 : half
-    return Math.max(badge + 2, Math.min(W - half - 2, p.x + p.w / 2))
-  }
-  const laneCount = (row: readonly string[]) => Math.max(1, ...row.filter((c) => changed.has(c)).map((c) => (lanes.get(c) ?? 0) + 1))
-  const wordLines = (row: readonly string[]) => Math.max(1, ...row.filter((c) => changed.has(c) && (lanes.get(c) ?? -1) >= 0)
-    .map((c) => wrap(labelOf(c), 15).length))
-  // Below the tracks: the chromosome number, the mark, the badge, and the label in its lane.
+  const numbersOn = (c: string) => marks.filter((m) => m.chrom === c)
+    .map((m) => numbers?.get(`${m.chrom}:${m.startBp}`)).filter((n): n is number => n !== undefined)
+  // Below the tracks: the chromosome number, the mark, and the mark's number in the list. One lane,
+  // so a reader never has to work out which chromosome a label belongs to.
   const blockOf = (row: readonly string[]) => tracks.length * (TH + 20) + 21
-    + (row.some((c) => changed.has(c)) ? 20 + 26 * (laneCount(row) - 1) + 12 * wordLines(row) + 10 : 10)
+    + (row.some((c) => changed.has(c)) ? 24 : 6)
   const headLines = title ? wrap(title, Math.max(24, Math.floor(W / 7.6))) : []
   const headH = headLines.length ? 8 + headLines.length * 19 + 6 : 0
-  const alsoLines = also ? wrap(also, Math.max(30, Math.floor(W / 5.6))) : []
+  const listLines = (list ?? []).flatMap((l) => wrap(l, Math.max(30, Math.floor(W / 5.6))))
   const capLines = caption ? wrap(caption, Math.max(30, Math.floor(W / 5.6))) : []
-  const footH = (alsoLines.length ? alsoLines.length * 14 + 6 : 0) + (capLines.length ? capLines.length * 14 + 8 : 0)
+  const footH = (listLines.length ? listLines.length * 14 + 10 : 0) + (capLines.length ? capLines.length * 14 + 8 : 0)
   const bodyTop = 6 + headH
   rows.forEach((row, r) => {
     const total = row.reduce((s, c) => s + len(c), 0)
     const usable = W - 2 - GUT - G * (row.length - 1)
     let x = 1 + GUT
     const top = bodyTop + rows.slice(0, r).reduce((s, q) => s + blockOf(q), 0)
-    // A label sits at its own chromosome; a neighbour whose words would run into it takes the next
-    // lane down, so the words never overlap however many changes a cell carries.
-    const laneEnd = new Array<number>(LANES).fill(0)
     for (const c of row) {
       const w = usable * len(c) / total
       panels.push({ c, x, w, top, row: r })
-      if (changed.has(c)) {
-        const words = wrap(labelOf(c), 15)
-        const half = 3.3 * Math.max(...words.map((l) => l.length)) + 18
-        const left = x + w / 2 - half
-        // Where no lane has room, the chromosome keeps its badge and its mark and the words are
-        // left to the zoom's title or to the line of changes that are not zoomed: a label that
-        // overlaps its neighbour is worse than one the reader finds just below.
-        const lane = laneEnd.findIndex((end) => end <= left)
-        lanes.set(c, lane)
-        if (lane >= 0) laneEnd[lane] = x + w / 2 + half + 6
-      }
       x += w + G
     }
   })
@@ -349,41 +327,35 @@ export function WholeCell({ data, marks, name, numbers, focus, title, also, capt
               {(() => {
                 const axis = p.top + tracks.length * (TH + 20) + 4
                 const ms = marks.filter((m) => m.chrom === p.c)
-                const lane = lanes.get(p.c) ?? -1
-                const words = wrap(labelOf(p.c), 15)
                 const colour = ms.length ? (ms[0].withheld ? DIM : ms[0].gain ? GAINC : CALL) : DIM
+                const ns = numbersOn(p.c)
                 return (
                   <g>
                     <text x={p.x + p.w / 2} y={axis + 12} textAnchor="middle" fontWeight={ms.length ? 700 : 400}
                       fill={ms.length ? colour : '#aeb4bb'}>{p.c}</text>
                     {ms.length ? <rect x={p.x} y={axis + 17} width={p.w} height={3} fill={colour} /> : null}
-                    {ms.length && numbers?.has(p.c) ? (
-                      <g>
-                        <circle cx={labelX(p) - (lane >= 0 ? halfOf(p.c) + 9 : 0)}
-                          cy={axis + 34 + Math.max(0, lane) * 26} r={8} fill={colour} />
-                        <text x={labelX(p) - (lane >= 0 ? halfOf(p.c) + 9 : 0)}
-                          y={axis + 38 + Math.max(0, lane) * 26} textAnchor="middle" fontSize={10}
-                          fontWeight={700} fill="#fff">{numbers.get(p.c)}</text>
+                    {ns.map((n, i) => (
+                      <g key={n}>
+                        <circle cx={p.x + p.w / 2 + (i - (ns.length - 1) / 2) * 17} cy={axis + 32} r={7.5}
+                          fill={marks.find((m) => numbers?.get(`${m.chrom}:${m.startBp}`) === n)?.withheld ? DIM : colour} />
+                        <text x={p.x + p.w / 2 + (i - (ns.length - 1) / 2) * 17} y={axis + 36}
+                          textAnchor="middle" fontSize={10} fontWeight={700} fill="#fff">{n}</text>
                       </g>
-                    ) : null}
-                    {ms.length && lane >= 0 ? words.map((l, i) => (
-                      <text key={i} x={labelX(p)} y={axis + 38 + lane * 26 + i * 12}
-                        textAnchor="middle" fontSize={10} fontWeight={600} fill={colour}>{l}</text>
-                    )) : null}
+                    ))}
                   </g>
                 )
               })()}
             </g>
           )
         })}
-        {alsoLines.map((l, i) => (
-          <text key={`a${i}`} x={1} y={bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 10 + i * 14}
-            fontSize={11} fill={DIM}>{l}</text>
+        {listLines.map((l, i) => (
+          <text key={`i${i}`} x={1} y={bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 12 + i * 14}
+            fontSize={11} fill={INK}>{l}</text>
         ))}
         {capLines.map((l, i) => (
           <text key={`c${i}`} x={1}
-            y={bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 10 + alsoLines.length * 14
-              + (alsoLines.length ? 6 : 0) + i * 14}
+            y={bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 12 + listLines.length * 14
+              + (listLines.length ? 10 : 0) + i * 14}
             fontSize={11} fill={DIM}>{l}</text>
         ))}
       </svg>
@@ -560,10 +532,25 @@ export function CellFigure({ data, marks, name, title }: {
 }): ReactNode {
   const [ref, W] = useWidth()
   if (!data) return null
-  const { shown, rest } = zoomPicks(marks.filter((m) => !m.withheld))
-  // A chromosome carrying two calls keeps the first badge; both zooms are numbered in order.
+  const { shown } = zoomPicks(marks.filter((m) => !m.withheld))
+  // EVERY mark is numbered, in chromosome order, and the list below holds every number: a number
+  // under its own chromosome and a line that names it cannot be read onto the wrong chromosome,
+  // which three lanes of floating labels could. Whether a change is zoomed is a quiet note on its
+  // line, never the presence or absence of a badge.
+  const ordered = [...marks].sort((a, b) => +a.chrom - +b.chrom || a.startBp - b.startBp)
   const numbers = new Map<string, number>()
-  shown.forEach((m, i) => { if (!numbers.has(m.chrom)) numbers.set(m.chrom, i + 1) })
+  ordered.forEach((m, i) => numbers.set(`${m.chrom}:${m.startBp}`, i + 1))
+  const zoomed = new Set(shown.map((m) => `${m.chrom}:${m.startBp}`))
+  const NOTE: Record<string, string> = {
+    'one reading': ', seen once, not counted as a change',
+    'also seen': ', read but not counted as a change',
+  }
+  const list = ordered.map((m) => {
+    const n = numbers.get(`${m.chrom}:${m.startBp}`)
+    const where = m.whole ? 'whole chromosome' : `${mb(m.startBp)} to ${mb(m.endBp)} Mb`
+    const note = m.withheld ? ', found but not reported' : NOTE[m.status ?? 'counted'] ?? ''
+    return `${n}. chr${m.chrom}, ${where}: ${m.word}${note}${zoomed.has(`${m.chrom}:${m.startBp}`) ? ' (zoomed below)' : ''}.`
+  })
   const cols = W >= 980 ? 3 : W >= 640 ? 2 : 1
   const colW = Math.floor((W - 18 * (cols - 1)) / cols)
   const hasGain = marks.some((m) => m.gain)
@@ -571,21 +558,19 @@ export function CellFigure({ data, marks, name, title }: {
   // a file that travels without its caption claims more than the measurement supports.
   const caption = `${CAPTION_SCALE} ${data.split ? CAPTION_GUARD : CAPTION_SOLO}`
     + `${data.split ? ` ${CAPTION_LEVELS}` : ''}${data.split && hasGain ? ` ${CAPTION_GAIN}` : ''}`
-  const also = rest.length
-    ? `Also changed, not zoomed: ${rest.map((m) => `${m.chrom} (${m.word})`).join(', ')}.` : undefined
   return (
     <div ref={ref} style={{ marginTop: 14 }}>
       <WholeCell data={data} marks={marks} name={name} numbers={numbers}
-        title={title} also={also} caption={caption} />
+        title={title} list={list} caption={caption} />
       {shown.length ? (
         <>
           <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginTop: 12 }}>
             Each change along its own chromosome, numbered as above
           </div>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 6 }}>
-            {shown.map((m, i) => (
+            {shown.map((m) => (
               <Zoom key={`${m.chrom}:${m.startBp}`} data={data} mark={m} marks={marks}
-                number={i + 1} width={colW} caption={zoomCaption(data, m)} />
+                number={numbers.get(`${m.chrom}:${m.startBp}`)} width={colW} caption={zoomCaption(data, m)} />
             ))}
           </div>
         </>
@@ -600,9 +585,18 @@ const WHOSE: Record<Role, string> = { paternal: "the father's", maternal: "the m
 const where = (chrom: string, s: number, e: number) =>
   `Chromosome ${chrom}, ${mb(s)} to ${mb(e)} Mb (${((e - s) / 1e6).toFixed(1)} Mb)`
 
-/** The finding in two or three words, for the label at its chromosome and the zoom's title. */
-function wordOf(gain: boolean, parent: Role | null, both: boolean, withheld?: string): string {
+/**
+ * The finding in two or three words, for the list under the deck and the zoom's title.
+ *
+ * A class that is neither a plain loss nor a plain gain keeps its own words: a row the card calls
+ * an imbalance must not read in the figure as a copy gone.
+ */
+function wordOf(gain: boolean, parent: Role | null, both: boolean, withheld?: string, kind?: string): string {
   if (withheld) return gain ? 'extra copy, not reported' : 'copy gone, not reported'
+  const plain = !kind || kind === 'copy-loss' || kind === 'copy-gain' || kind === 'parental-absence'
+    || kind === 'monosomy' || kind === 'trisomy' || kind === 'segmental-deletion'
+    || kind === 'segmental-duplication'
+  if (!plain) return KIND_WORD[kind] ?? (gain ? 'extra copy' : 'copy gone')
   if (parent) return `${parent === 'paternal' ? "father's" : "mother's"} ${gain ? 'doubled' : 'gone'}`
   return both ? (gain ? 'both doubled' : 'both gone') : gain ? 'extra copy' : 'copy gone'
 }
@@ -668,7 +662,7 @@ export function defectMark(
     : d.kind === 'parental-absence' ? "one parent's copy is missing" : headline(d)
   return {
     chrom: d.chrom, startBp: whole ? 0 : d.startBp, endBp: end, whole, gain, parent: named,
-    word: wordOf(gain, named, !!deeper),
+    word: wordOf(gain, named, !!deeper, undefined, d.kind),
     sentence: whole ? `Whole chromosome ${d.chrom} (${(end / 1e6).toFixed(0)} Mb): ${what}${named ? `, ${WHOSE[named]}` : ', parent not named'}.`
       : `${where(d.chrom, d.startBp, d.endBp)}: ${what}${named ? `, ${WHOSE[named]}` : ''}.`,
     lines: [headline(d), ...lines],

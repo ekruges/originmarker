@@ -210,6 +210,11 @@ const levelOf = (d: PlotData, key: Track['key'], chrom: string): string => {
   assert.deepEqual(shown.map((m) => m.chrom), ['2', '3', '4', '6', '7', '8'], 'the biggest stretches, in chromosome order')
   assert.deepEqual(rest.map((m) => m.chrom), ['1', '5', '9'], 'the rest are named in one line, in chromosome order')
   assert.equal(zoomPicks(many.slice(0, 3)).rest.length, 0, 'a cell with few changes zooms them all')
+  // A reading the card does not count waits behind every counted change, however long it is.
+  const mixed = [{ chrom: '1', startBp: 0, endBp: 200e6, status: 'also seen' },
+    { chrom: '2', startBp: 0, endBp: 9e6, status: 'counted' }]
+  assert.deepEqual(zoomPicks(mixed, 1).shown.map((m) => m.chrom), ['2'],
+    'the counted change is zoomed, not the longer reading that is not counted')
   assert.equal(zoomPicks([]).shown.length, 0, 'a cell with no change zooms nothing')
 }
 
