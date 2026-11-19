@@ -532,6 +532,28 @@ export const GAIN_NOMINATION_QUANTILE = 0.70
  */
 export const MIN_SEGMENT_SPAN_BP = 1_000_000
 
+/**
+ * The same floor for a GAIN piece, which is the one the likelihood loss scans already use.
+ *
+ * MEASURED ON THE OPEN ROWS, 19 November, over 636 records of 391 arrays carrying 43 printed gain
+ * pieces. Of the 6 printed under 3 Mb, none is right by the paper, and every one sits in a probe
+ * cluster: 9.4x, 3.1x and 2.9x the genome's own markers per megabase. Of the pieces that ARE right,
+ * none is under 10 Mb and every one sits at ordinary density, 0.7x to 1.7x. One of the six is on a
+ * chromosome a paper states NORMAL and the other two are on arrays with no stated karyotype.
+ *
+ * So the floor costs nothing measurable on this corpus and removes the last false gain on the 72
+ * arrays stated free of variation. It is the figure `otherParentLoss.OTHER_MIN_SPAN_BP` already
+ * applies to a likelihood loss, not a new one, and it is a measured rule rather than a declared
+ * limit: it rests on the six against the zero, not on a view about how small a claim may be.
+ *
+ * THE LOSS ARM KEEPS 1 MB. Nothing here touches it.
+ *
+ * The figure is written out rather than imported from `otherParentLoss`, which imports this
+ * module: a value read across a cycle at module-init time is undefined half the time depending on
+ * which side the bundler enters first. `segments.check.ts` pins the two to each other instead.
+ */
+export const MIN_GAIN_SPAN_BP = 3_000_000
+
 /** A sample's intensity-high cut and the per-chromosome rates it produces, for `scanCopyGain`. */
 export interface HighLrrProfile {
   /** The log R above which a marker counts, taken from this sample's own autosomes. */
@@ -620,8 +642,9 @@ export function scanCopyGain(
       .map((m) => m.log2R as number)
     if (!inside.length) continue
     inside.sort((a, b) => a - b)
-    // A segmental call has to span enough to be segmental, measured on what it reports.
-    if (segmentCoords(h).spanBp < MIN_SEGMENT_SPAN_BP) continue
+    // A segmental call has to span enough to be segmental, measured on what it reports, and a gain
+    // has to span what a gain that was ever right spans. See MIN_GAIN_SPAN_BP.
+    if (segmentCoords(h).spanBp < MIN_GAIN_SPAN_BP) continue
     const delta = inside[inside.length >> 1] - genomeLrr
     if (delta < gainShift) continue
     // TWO DIFFERENT ALLELES OVER THE SAME STRETCH, which one homologue at twice the intensity does
@@ -678,8 +701,11 @@ export function scanCopyNumber(
     // place and looked like the floor having no effect.
     if (segmentCoords(h).spanBp < MIN_SEGMENT_SPAN_BP) continue
     // THE TWO ARMS ASK DIFFERENT MAGNITUDES, because the events are different sizes: see
-    // GAIN_SHIFT_FRACTION. A symmetric test here refused four real gains at 0.815 to 0.998.
-    if (delta >= gainShift) out.push({ ...h, kind: 'copy-gain' })
+    // GAIN_SHIFT_FRACTION. A symmetric test here refused four real gains at 0.815 to 0.998. They
+    // ask different spans too: see MIN_GAIN_SPAN_BP.
+    if (delta >= gainShift) {
+      if (segmentCoords(h).spanBp >= MIN_GAIN_SPAN_BP) out.push({ ...h, kind: 'copy-gain' })
+    }
     else if (delta <= -shift) out.push({ ...h, kind: 'copy-loss' })
   }
   return out

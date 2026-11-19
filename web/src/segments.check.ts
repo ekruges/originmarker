@@ -27,9 +27,10 @@ import {
   RECIPROCAL_OVERLAP,
   canDetectLoss,
   externalNull,
-  scanChromosome, scanCopyNumber, scanCopyGain, highLrrProfile, segmentCoords,
+  scanChromosome, scanCopyNumber, scanCopyGain, highLrrProfile, segmentCoords, MIN_GAIN_SPAN_BP,
   type MarkerAbsence,
 } from './segments.ts'
+import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
 import { COPY_SHIFT_GAIN_FLOOR } from './parentage.ts'
 
 /** Markers on one chromosome, with absence planted over a given index range. */
@@ -377,4 +378,55 @@ console.log('segments.check.ts: all assertions passed, including that every surf
     'an unreadable off-pole reference withholds nothing')
 }
 
+// --- A GAIN PIECE SPANS WHAT A GAIN THAT WAS EVER RIGHT SPANS ---------------------------------
+//
+// Measured over 636 records of 391 open arrays carrying 43 printed gain pieces: of the 6 under
+// 3 Mb none is right by the paper and every one sits at 2.9x to 9.4x the genome's probe density,
+// while no piece that IS right is under 10 Mb and all of them sit at 0.7x to 1.7x.
+{
+  assert.equal(MIN_GAIN_SPAN_BP, OTHER_MIN_SPAN_BP,
+    'the gain floor is the figure the likelihood loss scans already use, not a new one; they are '
+    + 'written out separately only because importing one from the other is a module cycle')
+  assert.ok(MIN_GAIN_SPAN_BP > MIN_SEGMENT_SPAN_BP,
+    'and it is above the span floor the LOSS arm keeps, which this does not touch')
+
+  const N = 12_000
+  const markers = (from: number, to: number, delta: number, chromName = '2') =>
+    Array.from({ length: N }, (_, i) => {
+      const inSeg = i >= from && i <= to
+      const jitter = ((i * 7919) % 11 - 5) / 200
+      return { chrom: chromName, pos: 1_000_000 + i * 5_000, log2R: (inSeg ? delta : 0) + jitter,
+        baf: i % 3 === 0 ? 0.5 : (i % 2 ? 0.02 : 0.98) }
+    })
+  const run = (from: number, to: number) => {
+    const ms = markers(from, to, 0.9)
+    const byChrom = new Map<string, typeof ms>([['2', ms]])
+    for (const c of ['3', '4']) byChrom.set(c, markers(0, -1, 0, c))
+    const profile = highLrrProfile(byChrom)
+    return scanCopyGain(ms, externalNull(profile.byChrom, '2'), 0, profile, [], 1 / 3)
+  }
+  // 2,401 markers over 12 Mb: it clears the marker floor and the span floor.
+  assert.equal(run(4_000, 7_000).length, 1, 'a 15 Mb gain piece is printed')
+  // The same marker count packed into 2.4 Mb, which is what a probe cluster looks like.
+  const dense = (() => {
+    const ms = Array.from({ length: N }, (_, i) => {
+      const inSeg = i >= 4_000 && i <= 7_000
+      // 800 bp apart inside the window, 5 kb outside: a 9x cluster, as the HLA region reads.
+      const pos = i <= 4_000 ? 1_000_000 + i * 5_000
+        : i <= 7_000 ? 1_000_000 + 4_000 * 5_000 + (i - 4_000) * 800
+          : 1_000_000 + 4_000 * 5_000 + 3_000 * 800 + (i - 7_000) * 5_000
+      return { chrom: '2', pos, log2R: (inSeg ? 0.9 : 0) + ((i * 7919) % 11 - 5) / 200,
+        baf: i % 3 === 0 ? 0.5 : (i % 2 ? 0.02 : 0.98) }
+    })
+    const byChrom = new Map<string, typeof ms>([['2', ms]])
+    for (const c of ['3', '4']) byChrom.set(c, markers(0, -1, 0, c))
+    const profile = highLrrProfile(byChrom)
+    return scanCopyGain(ms, externalNull(profile.byChrom, '2'), 0, profile, [], 1 / 3)
+  })()
+  assert.equal(dense.length, 0,
+    'and the same markers packed into 2.4 Mb are not: every gain piece under 3 Mb on the open '
+    + 'corpus is a probe cluster and none of them is right')
+}
+
+console.log('segments.check (the gain span floor): ok')
 console.log('segments.check (intensity gain arm): ok')
