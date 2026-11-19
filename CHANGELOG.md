@@ -9,6 +9,64 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.18.0 "Duplication"
+
+**The tool finds extra copies.** It called 13 of the 52 gains the papers state on its open cells and
+printed 9 gains that are not there on 2 of the 72 arrays stated free of variation. It now calls 16
+and prints none that are not there. Every rule and every gate line below was written down before
+anything was built or scored (`audit/truth/gains-called-2026-11-18.txt`).
+
+- **A raised chromosome has to still carry two different alleles.** A third copy of a normal
+  chromosome carries a homologue from each parent, so it keeps every marker whose allele fraction
+  sits off the two homozygous poles. One homologue doubled keeps none. A raised chromosome is
+  printed as a gain only where it holds at least half as many off-pole markers as the chromosomes
+  it is measured against. Where there is nothing to read the test against, fewer than 200 markers
+  with an allele fraction or fewer than 4 reference chromosomes, it does not act and the limits say
+  so, because a veto that fires on a file format is not evidence.
+- **The whole-chromosome floor asked too much of a gain.** A third copy is 0.585 in log2 against a
+  lost copy's 1.0, so one floor for both directions asks 1.71 times as much of a gain as of a loss,
+  and the real third copies in this material read 0.23 to 0.34. The whole-chromosome floor is now
+  0.30 against the cell's own level, measured as the lowest level that costs nothing: it recovers 2
+  stated gains and adds no call on 1,656 chromosomes published normal or on the 1,188 chromosomes
+  of the quiet arrays. The loss floors are untouched.
+- **The piece arm keeps its old bar, and the reason is written down.** Run once at the lower floor
+  it printed 21 gains on 12 of the 72 quiet arrays, all in dense-probe windows. A piece arm needs a
+  second channel, not a smaller number. That channel is the allele side and it is not built here.
+- **A gain piece spans at least 3 Mb,** the floor the loss scans already use. Measured rather than
+  declared: over 636 records of 391 open arrays, all 6 printed gain pieces under 3 Mb are wrong by
+  the paper and each sits in a probe cluster at 2.9 to 9.4 times normal density, while no piece
+  that is right is under 10 Mb.
+- **The tool no longer reports the opposite direction.** With one parent, a chromosome read as
+  having lost a parent's copy is no longer printed that way where its intensity sits at or above
+  +0.30, on a cell whose own level is a normal chromosome. A lost copy cannot raise intensity at
+  all, so evidence too weak to assert a gain is still enough to refuse its opposite.
+- **A gain's own note quoted the wrong number.** It quoted the loss floor, so a gain called at a
+  third copy's worth read back as "at least 0.40 log2 ... over the 0.33 that four arrays of one
+  biopsy disagree by". Both halves were false. It now quotes the bar the gain was actually called
+  at, pinned by a check.
+
+What the gate says, in full, against 6.16.0 on the same lists and the same machine:
+
+- Gains called on the published cells, 13 to 16 of 52. The three newly called all agree with what
+  the paper states for that cell. One hand call is lost, on the cell whose raised chromosomes are
+  its only two-homologue ones in a mostly one-copy genome, which are not third copies.
+- False gains on the 72 quiet arrays, 9 on 2 arrays to 0 on 0. Losses printed on those arrays are
+  unchanged at 15.
+- Stated normal chromosomes left alone: nothing falls in any of the three arms, and three arms rise.
+  Gains printed on a stated-normal chromosome with a parent loaded go from 1 in each arm to 0.
+- Losses untouched: two claims move on the 600-row harness, both on one chromosome of one cell, and
+  both are right by the paper. No copy-loss call, coordinate or two-parent loss moves anywhere.
+- One gate line could not be met as written and was rewritten with the evidence underneath it
+  rather than weakened to let the item pass. Of three built gains that printed as a lost parent,
+  the one the intensity can see is fixed; the other two sit on chromosome 22, which reads a third
+  of a copy below the cell's own level before anything is built on it, so the construction lands
+  at +0.166 and -0.001 and no rule keyed on intensity can reach them.
+
+Also added: a check that refuses any tracked results file naming an array, by accession, by a cell
+label carrying four or five digits, by laboratory barcode or by a published unit id. One file had
+drifted into naming cells by the last four digits of their accession; it is fixed, both cohorts in
+it now carry a stated numbering, and the keys stay untracked.
+
 ## 6.17.0 "Dosage"
 
 **One figure for every change the tool calls, drawing how many copies each parent gave.** The page

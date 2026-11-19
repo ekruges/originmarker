@@ -344,8 +344,8 @@ RELEASES: tuple[Release, ...] = (
             "missing one lowers it."),
 )
 
-VERSION = "6.17.0"
-CODENAME = "Dosage"
+VERSION = "6.18.0"
+CODENAME = "Duplication"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
