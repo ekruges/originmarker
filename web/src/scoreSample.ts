@@ -246,7 +246,8 @@ export interface Collected {
   matAbsenceByChrom: Map<string, MarkerAbsence[]>
   matAbsenceTally: Map<string, [number, number]>
   absenceByChrom: Map<string, MarkerAbsence[]>
-  cnByChrom: Map<string, { chrom: string; pos: number; called: boolean; log2R: number | null }[]>
+  cnByChrom: Map<string, { chrom: string; pos: number; called: boolean; log2R: number | null;
+    baf: number | null }[]>
   myGt: Map<string, string>
   myBaf: Map<string, number>
   markerPos: Map<string, { chrom: string; pos: number }>
@@ -453,7 +454,9 @@ export function collectRow(
     markerPos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
     if (r.baf !== null && Number.isFinite(r.baf)) myBaf.set(r.probesetId, r.baf)
     const cn = cnByChrom.get(r.chrom) ?? []
-    cn.push({ chrom: r.chrom, pos: r.pos, called: r.genotype !== 'NC', log2R: r.log2R })
+    // The B-allele frequency rides along: the gain arm reads it to ask whether a raised stretch
+    // holds two different alleles (parentage.GAIN_OFF_POLE_MIN).
+    cn.push({ chrom: r.chrom, pos: r.pos, called: r.genotype !== 'NC', log2R: r.log2R, baf: r.baf })
     cnByChrom.set(r.chrom, cn)
     // The SAMPLE's own zygosity, which is a different tally from hetByChrom above: that
     // one counts markers where the PARENT is homozygous. Copy-neutral LOH and runs of
@@ -926,9 +929,20 @@ export async function scoreSample(input: {
       const sc = shareCalls.get(c.chrom)
       if (!sc || c.verdict === 'not_measured') continue
       const lost = sc.state === 'other-lost' ? otherRole : sc.state === 'parent-lost' ? soloRole : undefined
-      // A lost copy cannot raise intensity: on a chromosome the intensity scan calls gained, the loss
-      // state is the extra copy's share, and the gain test reads it. See oneParentGain.ts rule 1.
-      if (!lost || gainReadAsLoss(sc.state, c.aneuploidy === 'gain')) continue
+      // A lost copy cannot raise intensity: on a chromosome whose intensity reads more DNA than this
+      // cell's own level, the loss state is the extra copy's share, and the gain test reads it. The
+      // intensity does not have to clear the bar a gain CALL needs; see oneParentGain.ts rule 1.
+      if (!lost) continue
+      if (gainReadAsLoss(sc.state, c.aneuploidy === 'gain', c.lrrShift)) {
+        if (c.aneuploidy !== 'gain') {
+          result.limits.push(`chr${c.chrom}: the alleles read only one parent's copy here, but this `
+            + `chromosome's intensity sits ${c.lrrShift.toFixed(2)} log2 ABOVE the chromosomes this `
+            + 'array is measured against, and a copy that is missing cannot do that. No lost parent '
+            + 'is reported on it. The intensity does not clear the bar an extra copy is called at, '
+            + 'so no gain is reported either.')
+        }
+        continue
+      }
       c.lostParent = lost
       if (c.aneuploidy === 'loss') c.aneuploidyParent = lost === soloRole ? 'this' : 'other'
     }
@@ -987,7 +1001,7 @@ export async function scoreSample(input: {
           share: soloRole === 'paternal' ? own : 1 - own,
           informative: sc?.n2 ?? 0,
           biparental: measured && (sc?.state === 'disomic'
-            || (rules && gainReadAsLoss(sc?.state, c.aneuploidy === 'gain'))),
+            || (rules && gainReadAsLoss(sc?.state, c.aneuploidy === 'gain', c.lrrShift))),
           reference: measured && sc?.state === 'disomic',
           lrrShift: c.lrrShift,
         }
@@ -1542,7 +1556,8 @@ export async function scoreSample(input: {
         ...byNoCall,
         // `byNoCall` is passed so a region both channels see is reported once, not twice.
         ...(unresolved.has(c) ? []
-          : scanCopyGain(ms, externalNull(gainProfile.byChrom, c), genomeLrr, gainProfile, byNoCall)),
+          : scanCopyGain(ms, externalNull(gainProfile.byChrom, c), genomeLrr, gainProfile, byNoCall,
+            result.copyOffPole ?? NaN)),
       ]
     })]
   for (const [chrom, p] of partLost) {

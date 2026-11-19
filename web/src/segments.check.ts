@@ -27,9 +27,10 @@ import {
   RECIPROCAL_OVERLAP,
   canDetectLoss,
   externalNull,
-  scanChromosome, scanCopyNumber, segmentCoords,
+  scanChromosome, scanCopyNumber, scanCopyGain, highLrrProfile, segmentCoords,
   type MarkerAbsence,
 } from './segments.ts'
+import { COPY_SHIFT_GAIN_FLOOR } from './parentage.ts'
 
 /** Markers on one chromosome, with absence planted over a given index range. */
 const chrom = (n: number, from = -1, to = -1, rate = 0.11, bg = 0.005): MarkerAbsence[] =>
@@ -313,3 +314,62 @@ console.log('segments.check.ts: all assertions passed, including that every surf
   assert.ok(SEGMENT_GAIN_SHIFT < SEGMENT_LRR_SHIFT,
     'a third copy is a smaller deviation than a lost copy, so its gate is lower')
 }
+
+// --- THE INTENSITY-NOMINATED GAIN ARM: ITS FLOOR AND ITS OFF-POLE TEST ------------------------
+//
+// Two changes of 18 November, both in audit/truth/gains-called-2026-11-18.txt:
+//   - the magnitude bar on this arm is the whole-chromosome gain floor, not the full 0.585 a third
+//     copy carries in theory. Real gain pieces of this corpus read 0.23 to 0.50, so the old bar sat
+//     above the entire observed population and stopped 9 pieces whose region test already cleared.
+//   - a raised stretch must carry markers OFF the homozygous poles, which one homologue at twice
+//     the intensity does not, and which an isodisomic third copy does not either: hence the bound
+//     at ONE_EXTRA_COPY_MAX, above which the test applies and below which it does not.
+{
+  const N = 12_000
+  const FROM = 4_000
+  const TO = 7_000
+  /** One chromosome: `delta` over the window, `off` whether the window's BAF sits off the poles. */
+  const markers = (delta: number, off: boolean, chromName = '2') =>
+    Array.from({ length: N }, (_, i) => {
+      const inSeg = i >= FROM && i <= TO
+      const jitter = ((i * 7919) % 11 - 5) / 200
+      return {
+        chrom: chromName,
+        pos: 1_000_000 + i * 5_000,
+        log2R: (inSeg ? delta : 0) + jitter,
+        // Off the poles only inside the window when asked; the rest of the genome always carries
+        // its own off-pole share, so the reference below is a real one.
+        baf: inSeg && !off ? (i % 2 ? 0.02 : 0.98) : (i % 3 === 0 ? 0.5 : (i % 2 ? 0.02 : 0.98)),
+      }
+    })
+  /** The reference share the caller passes: a third of the genome's markers sit off the poles. */
+  const REFERENCE_OFF_POLE = 1 / 3
+  const run = (delta: number, off: boolean, reference = REFERENCE_OFF_POLE) => {
+    const ms = markers(delta, off)
+    const byChrom = new Map<string, typeof ms>([['2', ms]])
+    // Two quiet chromosomes so the nomination null is not this chromosome's own rate.
+    for (const c of ['3', '4']) byChrom.set(c, markers(0, true, c))
+    const profile = highLrrProfile(byChrom)
+    return scanCopyGain(ms, externalNull(profile.byChrom, '2'), 0, profile, [], reference)
+  }
+
+  assert.equal(run(0.35, true).length, 1,
+    'a gain piece at 0.35 clears the region test and is inside the measured population of real '
+    + 'third copies: the old 0.585 bar refused it')
+  assert.equal(run(COPY_SHIFT_GAIN_FLOOR - 0.05, true).length, 0, 'under the gain floor, nothing')
+  assert.ok(COPY_SHIFT_GAIN_FLOOR < SEGMENT_GAIN_SHIFT,
+    'this arm asks less than the full magnitude of a third copy, which is what it cost')
+
+  // The off-pole test, above the one-extra-copy bound.
+  assert.equal(run(1.1, true).length, 1, 'a doubled stretch that still carries two alleles stands')
+  assert.equal(run(1.1, false).length, 0,
+    'and one at the poles is withheld: one homologue at twice the intensity reads the same step')
+  // Below the bound it does not apply: an isodisomic third copy is at the poles and is real.
+  assert.equal(run(SEGMENT_GAIN_SHIFT, false).length, 1,
+    'one extra copy of the same homologue carries one allele and must still be reported')
+  // No reference to read against: the veto does not act, because it is not the evidence.
+  assert.equal(run(1.1, false, NaN).length, 1,
+    'an unreadable off-pole reference withholds nothing')
+}
+
+console.log('segments.check (intensity gain arm): ok')

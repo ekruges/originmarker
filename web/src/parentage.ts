@@ -381,6 +381,140 @@ export const LRR_SHIFT = 1.0
 export const COPY_SHIFT_FLOOR = 0.40
 
 /**
+ * The same floor for a GAIN, which is a smaller event than a loss and must not be held to a loss's
+ * magnitude.
+ *
+ * ONE ABSOLUTE FLOOR IS NOT SYMMETRIC. A lost copy is log2(1/2) = -1.0 and a third copy is
+ * log2(3/2) = +0.585, so COPY_SHIFT_FLOOR at 0.40 asks 40% of a loss and 68% of a gain. The same
+ * argument `segments.GAIN_SHIFT_FRACTION` already makes for a piece applies to a whole chromosome.
+ *
+ * WHAT THE OLD FLOOR COST, measured on the stated gains of the open corpus (17 November,
+ * audit/local/gains-breaks-2026-11-17/report.txt): the real-looking third copies read 0.23 to 0.34
+ * on a whole chromosome and 0.23 to 0.50 on a piece, so half the observed population sat under
+ * 0.40 and all of it under the 0.585 a piece was held to.
+ *
+ * WHERE 0.30 COMES FROM. Measured on the whole-chromosome arm with the relative test unchanged
+ * (z >= Z_CHROMOSOME): a floor of 0.30 recovers 2 stated gains and adds 0 calls on the 1,656
+ * chromosomes published normal and 0 on the 1,188 chromosomes of the 72 arrays stated free of
+ * variation; 0.25 recovers 3 and adds 1 on a published-normal chromosome; 0.20 recovers 3 and adds
+ * 3. The requirement it answers is that nothing published normal moves, so the floor sits at the
+ * lowest level measured to cost nothing rather than at the 0.234 the fraction alone would give.
+ *
+ * IT DOES NOT SCALE THE BULK FLOOR. COPY_SHIFT_FLOOR_BULK is 0.14 and a stated trisomy on bulk
+ * material shifts 0.299 to 0.357, so the bulk arm already sits far below the event; nothing here
+ * is measured on bulk and nothing here moves it.
+ *
+ * See audit/truth/gains-called-2026-11-18.txt, rule 2.
+ */
+export const COPY_SHIFT_GAIN_FLOOR = 0.30
+
+/**
+ * The window a B-allele frequency sits in when it is OFF the two homozygous poles, so the marker
+ * is showing two different alleles rather than one.
+ *
+ * The cut is the one the measurement used (audit/local/lab-2026-11-16/report.txt, 16 November),
+ * which is wider than BAF_EXTREME_FLOOR's 0.15/0.85 because it is answering a different question:
+ * that one asks whether the genotype calls can be trusted at all, this one how much of the
+ * chromosome carries a second allele.
+ */
+export const OFF_POLE_LO = 0.2
+export const OFF_POLE_HI = 0.8
+
+/**
+ * Share of the reference chromosomes' off-pole markers that a raised stretch must keep before it is
+ * reported as an extra copy.
+ *
+ * WHY A SECOND CHANNEL AT ALL. Intensity reads one step up for two different things: a third copy
+ * of a chromosome, and one homologue of it at twice the intensity. The first keeps both parents'
+ * alleles, so it keeps every marker that sat off the poles; the second keeps none. Measured on the
+ * array that carries eight of the nine false gains on the 72 quiet arrays: its 14 reference
+ * chromosomes read 0.083 off the poles and its 8 raised chromosomes 0.013, which is one homologue,
+ * and all eight read a ratio of 0.09 to 0.26 here.
+ *
+ * WHERE THE BAR COMES FROM. A third copy's expected ratio is about 1 and one homologue's about 0,
+ * so 0.5 is the midpoint. It was fixed before any score (same report, section 1). A bar of 0.3 was
+ * also looked at there and is deliberately not used: its score was seen first.
+ *
+ * WHAT IT COSTS, measured on the 78 gains printed on 365 open arrays: 32 go, of which 26 carry no
+ * stated answer, 5 are stated gains (4 of them one blastomere whose raised chromosomes are its only
+ * two-homologue ones, not third copies) and 1 is a chromosome published normal. The quiet arrays'
+ * false gains go from 9 to 1.
+ *
+ * WHAT IT IS NOT. A copy number. Above a drop-in of about 0.17 nothing measured says what one
+ * homologue reads, and on one pair of arrays of a single genome the measure points opposite ways.
+ * It is therefore used only to WITHHOLD a gain, never to assert one, and refusing a claim needs
+ * less than making one.
+ *
+ * WHERE IT CANNOT BE READ IT DOES NOT ACT, and the limits say so. A veto is not the evidence the
+ * call rests on: the intensity gates are, and they are unchanged. An array whose B-allele
+ * frequencies are all at the poles, which is how a cluster-file BAF is defined (BAF_CLAMPED_FLOOR),
+ * gives this test no reference, and refusing its gains would be refusing them for a file format.
+ *
+ * IT CANNOT SEE AN ISODISOMIC THIRD COPY, and that is why it is bounded by ONE_EXTRA_COPY_MAX.
+ * Three copies of the SAME homologue carry one allele and sit at the poles exactly as a doubled
+ * homologue does. Nothing in the alleles separates those two; the step does, because an isodisomic
+ * third copy is still one extra copy and a doubled homologue is not.
+ *
+ * See GAIN_HET_RATIO_MAX, which is the same guard at the other end and on a group rather than a
+ * chromosome, and audit/truth/gains-called-2026-11-18.txt, rule 1.
+ */
+export const GAIN_OFF_POLE_MIN = 0.5
+
+/**
+ * The intensity step up to which a raised stretch is read as ONE extra copy, so the off-pole test
+ * above does not apply to it.
+ *
+ * WHY A BOUND AT ALL. The off-pole test asks whether a raised stretch carries two different
+ * alleles. A third copy of a chromosome usually does, and an isodisomic third copy does not: three
+ * copies of one homologue sit at the poles like a single homologue doubled. Vetoing every raised
+ * stretch with no second allele would therefore refuse a real class of gain, isodisomic trisomy,
+ * which is the mechanism behind trisomy rescue and the imprinting disorders.
+ *
+ * WHERE THE FIGURE COMES FROM. A third copy is log2(3/2) = 0.585 and a fourth is log2(4/2) = 1.0,
+ * so the midpoint is where a step stops being closer to one extra copy than to two. It is derived
+ * from the two copy states, like the 0.5 off-pole bar, and is not fitted to any score.
+ *
+ * WHAT IT LEAVES THE OFF-POLE TEST TO DO. The eight whole-chromosome false gains of the quiet
+ * arrays sit at +0.90 to +1.12 log2 above their array's reference chromosomes, which is 3.7 to 4.3
+ * copies and no single extra copy, and they carry 0.09 to 0.26 of the reference's off-pole markers.
+ * Every real third copy measured in this corpus reads 0.23 to 0.50, and a trisomy constructed on
+ * real arrays of it reads 0.559 to 0.615, so both populations sit clear of this bound on opposite
+ * sides.
+ */
+export const ONE_EXTRA_COPY_MAX = (Math.log2(3) - 1 + 1) / 2
+
+/** B-allele frequencies a stretch needs before its off-pole share is read at all. */
+export const OFF_POLE_MIN_MARKERS = 200
+/** Reference chromosomes needed before an off-pole share has something to be read against. */
+export const OFF_POLE_MIN_REFERENCE = 4
+
+/**
+ * The off-pole share of one stretch against the reference chromosomes', and whether it keeps
+ * enough of theirs to be an extra copy. NaN ratio where either side cannot be read, which
+ * withholds the gain: see GAIN_OFF_POLE_MIN.
+ */
+export function offPoleRatio(
+  stretch: { off: number; n: number }, reference: readonly number[],
+): { ratio: number; centre: number; share: number } {
+  const refs = reference.filter((x) => Number.isFinite(x))
+  return offPoleAgainst(stretch, refs.length >= OFF_POLE_MIN_REFERENCE ? medianExact(refs) : NaN)
+}
+
+/** The same against a reference share already taken over the reference chromosomes. */
+export function offPoleAgainst(
+  stretch: { off: number; n: number }, centre: number,
+): { ratio: number; centre: number; share: number } {
+  const share = stretch.n >= OFF_POLE_MIN_MARKERS ? stretch.off / stretch.n : NaN
+  return { ratio: centre > 0 ? share / centre : NaN, centre, share }
+}
+
+/**
+ * Whether a raised stretch keeps the markers off the poles that an extra copy has to keep. An
+ * unreadable ratio (NaN) does NOT withhold: see GAIN_OFF_POLE_MIN.
+ */
+export const keepsOffPole = (ratio: number): boolean => !(ratio < GAIN_OFF_POLE_MIN)
+
+/**
  * The same floor on UNAMPLIFIED material, where the drift it guards against does not happen.
  *
  * COPY_SHIFT_FLOOR is 0.40 because four arrays of one biopsy disagree with each other by 0.33, and
@@ -517,9 +651,12 @@ export interface Tally {
    *  never lands on an endpoint, so a large share here means the file's BAF is clamped and
    *  `homInBand` cannot measure anything. See BAF_CLAMPED_FLOOR. */
   homPinned: number
-  /** Per chromosome: [B-allele frequencies at an extreme, B-allele frequencies read]. The
-   *  mis-clustering check; see BAF_EXTREME_FLOOR. */
-  bafByChrom: Map<string, [number, number]>
+  /** Per chromosome: [B-allele frequencies at an extreme, frequencies OFF the homozygous poles,
+   *  frequencies read]. The first is the mis-clustering check, BAF_EXTREME_FLOOR; the second is
+   *  what says a raised chromosome carries two different alleles, GAIN_OFF_POLE_MIN. The two cuts
+   *  differ (0.15/0.85 and 0.2/0.8) because they were measured apart and neither is re-derived
+   *  from the other. */
+  bafByChrom: Map<string, [number, number, number]>
   /** Per chromosome: [sum of |BAF - 0.5| over heterozygous calls, count]. The mosaic contrast;
    *  see MOSAIC_Z. Heterozygous calls only, because a homozygous site sits at an extreme
    *  already and its deviation says nothing about a mixture. */
@@ -593,9 +730,10 @@ export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
       if (inBand) t.homInBand += 1
       if (row.baf === 0 || row.baf === 1) t.homPinned += 1
     }
-    const b = t.bafByChrom.get(row.chrom) ?? [0, 0]
-    b[1] += 1
+    const b = t.bafByChrom.get(row.chrom) ?? [0, 0, 0]
+    b[2] += 1
     if (row.baf < 0.15 || row.baf > 0.85) b[0] += 1
+    if (row.baf >= OFF_POLE_LO && row.baf <= OFF_POLE_HI) b[1] += 1
     t.bafByChrom.set(row.chrom, b)
     if (row.genotype === 'AB') {
       const d = t.hetDevByChrom.get(row.chrom) ?? [0, 0]
@@ -637,6 +775,9 @@ export interface ChromResult {
     | 'not_measured'
   /** Fraction of this chromosome's B-allele frequencies at an extreme. The mis-clustering check. */
   bafExtreme: number
+  /** Fraction of them sitting OFF the two homozygous poles: what an extra copy keeps and a doubled
+   *  single homologue does not. NaN under OFF_POLE_MIN_MARKERS. See GAIN_OFF_POLE_MIN. */
+  offPole: number
   /** How far this chromosome's heterozygous allelic ratio sits from the sample's own others, in
    *  standard deviations. NaN unless the sample is diploid; see MOSAIC_Z. */
   mosaicZ: number
@@ -881,8 +1022,12 @@ export interface ParentageResult {
   noParent?: boolean
   /** The autosomes that share this array's commonest copy state, which copy number is read against. */
   copyReference?: string[]
-  /** Autosomes above that state by intensity and not reported as gained. See GAIN_HET_RATIO_MAX. */
+  /** Autosomes above that state by intensity and not reported as gained. See GAIN_HET_RATIO_MAX
+   *  and GAIN_OFF_POLE_MIN. */
   copyUnresolved?: string[]
+  /** Median share of B-allele frequencies off the two homozygous poles over the reference
+   *  chromosomes: what a raised piece's own share is read against. See GAIN_OFF_POLE_MIN. */
+  copyOffPole?: number
   /** The whole-chromosome test's own null, floor and call-rate median, so a part of a chromosome can
    *  be put to the same test (scoreSample, a part-lost chromosome). */
   copyNull?: { centre: number; scale: number; units: number; floor: number; callMedian: number }
@@ -1280,6 +1425,16 @@ export function classify(
     const called = t.callByChrom.get(c)?.[0] ?? 0
     return called ? (t.hetDevByChrom.get(c)?.[1] ?? 0) / called : NaN
   }
+  // The share of a chromosome's B-allele frequencies sitting OFF the two homozygous poles, which is
+  // what an extra copy keeps and a doubled single homologue does not. See GAIN_OFF_POLE_MIN.
+  const offPoleOf = (c: string): { off: number; n: number } => {
+    const b = t.bafByChrom.get(c) ?? t.bafByChrom.get(c.replace(':PAR', '')) ?? [0, 0, 0]
+    return { off: b[1], n: b[2] }
+  }
+  const offPoleShare = (c: string): number => {
+    const { off, n } = offPoleOf(c)
+    return n >= OFF_POLE_MIN_MARKERS ? off / n : NaN
+  }
   const autosomeLrr = [...chromLrr].filter(([c]) => isAutosome(c))
   const withTemplate = autosomeLrr.filter(([c]) => !(hetShare(c) >= NO_TEMPLATE_HET))
   const lrrNull = withTemplate.length >= 8
@@ -1308,6 +1463,10 @@ export function classify(
     // AND whose own spread says it was not amplified. See BULK_SPREAD_MAX.
     const floor = opts.bulk === true && lrrNull.scale < BULK_SPREAD_MAX
       ? COPY_SHIFT_FLOOR_BULK : COPY_SHIFT_FLOOR
+    // AND THE SMALLER ONE UPWARD. A third copy is 0.585 of a lost copy's magnitude, so one floor
+    // for both directions asks 1.71x as much of a gain. The gain floor never raises a bar: on bulk
+    // material, where the floor is already 0.14, it leaves it alone. See COPY_SHIFT_GAIN_FLOOR.
+    const need = shift > 0 ? Math.min(floor, COPY_SHIFT_GAIN_FLOOR) : floor
     // AUTOSOMES ONLY, AND THAT IS BOTH GATES. One X is the normal state of half of all samples and
     // no X at all is the normal state of a Y-bearing sperm, so on chrX the same shift and the same
     // collapsed call rate that are events on an autosome are ordinary sex determination. The
@@ -1316,7 +1475,7 @@ export function classify(
     // product.
     if (!isAutosome(c)) continue
     const byIntensity = intensityDetects(z, true)
-      && Number.isFinite(shift) && Math.abs(shift) >= floor
+      && Number.isFinite(shift) && Math.abs(shift) >= need
     if (!(frac < CALL_COLLAPSE) && !byIntensity) continue
     // Which way it went. A GAIN is asserted where the intensity cleared BOTH gates and points
     // upward. The magnitude gate is COPY_SHIFT_FLOOR at 0.40 and not LRR_SHIFT at 1.0: a trisomy
@@ -1347,6 +1506,37 @@ export function classify(
         + `others' heterozygous calls, where a third copy carries fewer. Most chromosomes of this array may `
         + 'be at one copy and these at two.')
     }
+  }
+  // AND THE OTHER END OF THE SAME GUARD, per chromosome. The group test above refuses a raised group
+  // carrying MORE heterozygous calls than the majority, which is two copies over a majority at one.
+  // A chromosome carrying FAR FEWER is the other thing intensity reads as one step up: one homologue
+  // at twice the level, which keeps no marker off the homozygous poles, where a third copy keeps
+  // them all. Measured on the array holding eight of the nine false gains of the 72 quiet arrays:
+  // reference chromosomes 0.083 off the poles, the eight raised ones 0.013. See GAIN_OFF_POLE_MIN.
+  const referenceOffPole = reference.map(offPoleShare)
+  for (const c of [...aneuploidy].filter(([, v]) => v === 'gain').map(([x]) => x)) {
+    // ONE EXTRA COPY IS NOT ASKED THIS QUESTION: an isodisomic third copy carries one allele and
+    // sits at the poles, like a doubled homologue, and only the step tells them apart. See
+    // ONE_EXTRA_COPY_MAX.
+    if ((lrrShift.get(c) as number) < ONE_EXTRA_COPY_MAX) continue
+    const { ratio, centre, share } = offPoleRatio(offPoleOf(c), referenceOffPole)
+    if (!Number.isFinite(ratio)) {
+      limits.push(`chr${c} is reported as gained on its intensity alone: whether it carries two `
+        + 'different alleles, which is what separates a third copy from one homologue at twice the '
+        + "intensity, cannot be read on this file. Its B-allele frequencies, or those of the "
+        + 'chromosomes it would be measured against, sit at the homozygous poles throughout.')
+      continue
+    }
+    if (keepsOffPole(ratio)) continue
+    aneuploidy.delete(c)
+    if (!copyUnresolved.includes(c)) copyUnresolved = [...copyUnresolved, c]
+    limits.push(`chr${c} sits above the other chromosomes of this array by intensity and is not `
+      + `reported as gained: ${pct(share, 1)} of its B-allele frequencies sit off the two homozygous `
+      + `poles against ${pct(centre, 1)} on the chromosomes this array is measured against, a ratio of `
+      + `${ratio.toFixed(2)} where a third copy keeps about all of them and `
+      + `${GAIN_OFF_POLE_MIN.toFixed(2)} is the bar. One homologue at twice the intensity reads the `
+      + 'same step up and carries no second allele, so what the copy number is here cannot be said '
+      + 'from these numbers.')
   }
 
   const chroms: ChromResult[] = []
@@ -1386,6 +1576,7 @@ export function classify(
       informative: n,
       absent: a,
       bafExtreme: extreme,
+      offPole: offPoleShare(c),
       mosaicZ: mosaicZ.get(c) ?? NaN,
       aneuploidy: aneu,
       // Whose copy went. LOSSES ONLY, and this is the direction of the whole tool. The statistic
@@ -1484,6 +1675,7 @@ export function classify(
       informative: 0,
       absent: 0,
       bafExtreme: NaN,
+      offPole: offPoleShare(c),
       mosaicZ: mosaicZ.get(c) ?? NaN,
       aneuploidy: aneu,
       callFraction: callFrac.get(c) ?? NaN,
@@ -1565,7 +1757,7 @@ export function classify(
     nonParentalRate, secondParentExpected, hetBand, homBand, homPinnedRate,
     noCallRate, hetFraction,
     dispersion, minChromRate: minChrom, chroms, unmeasured: [], notes, limits,
-    copyReference: reference, copyUnresolved,
+    copyReference: reference, copyUnresolved, copyOffPole: medianExact(referenceOffPole.filter((x) => Number.isFinite(x))),
     copyNull: { centre: lrrNull.centre, scale: lrrNull.scale, units: lrrNull.units,
       floor: opts.bulk === true && lrrNull.scale < BULK_SPREAD_MAX ? COPY_SHIFT_FLOOR_BULK : COPY_SHIFT_FLOOR,
       callMedian },

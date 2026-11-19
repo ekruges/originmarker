@@ -12,7 +12,8 @@ import {
   ABSENCE_MARGIN, BAF_EXTREME_FLOOR, CALL_COLLAPSE, COPY_SHIFT_FLOOR, MOSAIC_Z, absenceExplainable,
   agreement,
   classify,
-  emptyTally, COPY_SHIFT_FLOOR_BULK, BULK_SPREAD_MAX,
+  emptyTally, COPY_SHIFT_FLOOR_BULK, BULK_SPREAD_MAX, COPY_SHIFT_GAIN_FLOOR,
+  GAIN_OFF_POLE_MIN, ONE_EXTRA_COPY_MAX,
   HET_BAND_DIPLOID,
   isAutosome, pair, pct, secondParentSignal, tallyRow, type Tally,
   BAF_CLAMPED_FLOOR, GT_FALLBACK_HAPLOID_MAX, GT_FALLBACK_DIPLOID_MIN,
@@ -663,18 +664,35 @@ console.log('parentage.check.ts OK')
     'a shift inside the array\'s own spread is not an event')
 
   // THE FLOOR, and this is the one the corpus paid for. A relative threshold has no physical
-  // scale: 0.30 log2 on this fixture clears the calibrated z several times over, and no
-  // whole-chromosome copy state lives there. Over all 137 arrays of GSE148488 the z alone added
-  // four events at |log2R| 0.20 to 0.33, and four arrays of ONE trophectoderm biopsy read +0.174,
-  // +0.201, +0.163 and +0.168 on chr19 with exactly one called a gain. See COPY_SHIFT_FLOOR.
-  const belowFloor = build(0.30)
+  // scale: 0.30 log2 on this fixture clears the calibrated z several times over. Over all 137
+  // arrays of GSE148488 the z alone added four events at |log2R| 0.20 to 0.33, and four arrays of
+  // ONE trophectoderm biopsy read +0.174, +0.201, +0.163 and +0.168 on chr19 with exactly one
+  // called a gain. See COPY_SHIFT_FLOOR.
+  //
+  // THE TWO DIRECTIONS DO NOT CARRY THE SAME MAGNITUDE, so they do not share one floor. A lost
+  // copy is -1.0 and a third copy is +0.585, so a single absolute floor asks 1.71x as much of a
+  // gain, and the gains of this corpus read 0.23 to 0.34 whole: half the real population sat under
+  // 0.40. The loss side keeps 0.40 and the gain side is COPY_SHIFT_GAIN_FLOOR, measured to add no
+  // call on 1,656 chromosomes published normal or 1,188 chromosomes of arrays stated free of
+  // variation. See audit/truth/gains-called-2026-11-18.txt.
   assert.ok(zClears(0.30), 'the calibrated z alone would admit 0.30, which is the whole point')
-  assert.equal(belowFloor.aneuploidy, undefined,
-    'a shift no copy state can produce is not an event, however far it sits from this array\'s '
-    + 'own noise')
+  assert.equal(build(-0.30).aneuploidy, undefined,
+    'a shift no LOST copy can produce is not an event, however far it sits from this array\'s '
+    + 'own noise: the loss floor is unchanged')
+  assert.equal(build(-0.39).aneuploidy, undefined, 'and that holds right up to the loss floor')
+  // The margin is the fixture's own per-chromosome offset, which is up to 0.05 either way: the
+  // reported shift is the chromosome's median against the null's centre, not the nominal figure.
+  assert.equal(build(COPY_SHIFT_GAIN_FLOOR - 0.05).aneuploidy, undefined,
+    'under the gain floor nothing is reported upward either')
+  assert.equal(build(COPY_SHIFT_GAIN_FLOOR).aneuploidy, 'gain',
+    'a third copy on amplified material reads 0.23 to 0.50 and must be reachable')
   assert.ok(0.33 < COPY_SHIFT_FLOOR && COPY_SHIFT_FLOOR < 0.559,
     'the floor must sit above the largest false shift measured on real arrays and below the '
     + 'smallest true one, which is a trisomy read on trophectoderm')
+  assert.ok(COPY_SHIFT_GAIN_FLOOR < COPY_SHIFT_FLOOR
+    && COPY_SHIFT_GAIN_FLOOR > COPY_SHIFT_FLOOR * (Math.log2(3) - 1),
+    'the gain floor sits under the loss floor and above the 0.234 the fraction alone would give, '
+    + 'which is where the measurement put it rather than the arithmetic')
   // And the smallest event that physically exists still gets through, on all three materials.
   for (const observed of [0.585, 0.559, 0.615]) {
     assert.equal(build(observed).aneuploidy, 'gain',
@@ -943,4 +961,63 @@ console.log('parentage.check.ts OK')
   assert.ok(COPY_SHIFT_FLOOR_BULK >= 2 * 0.070 && COPY_SHIFT_FLOOR_BULK < 0.299)
   assert.ok(BULK_SPREAD_MAX > 0.0249 && BULK_SPREAD_MAX < 0.0302,
     'the boundary sits between the largest bulk spread and the smallest amplified one')
+}
+
+// --- 29. A RAISED CHROMOSOME MUST CARRY TWO DIFFERENT ALLELES, ABOVE ONE EXTRA COPY -----------
+//
+// Eight of the nine false gains on the 72 arrays stated free of variation are one array's
+// chromosomes sitting +0.90 to +1.12 log2 above its reference chromosomes with their markers AT the
+// homozygous poles: one homologue at about twice the intensity, which no single extra copy
+// produces. The heterozygous-call veto below could not see it, because it refuses a raised group
+// only where it carries MORE heterozygous calls than the majority and this group carries 0.42x.
+// Measured: reference chromosomes 0.083 off the poles, the eight raised ones 0.013.
+//
+// The bound matters as much as the test. An ISODISOMIC third copy is three copies of one homologue:
+// one allele, markers at the poles, and a real gain. Only the step tells it from a doubled
+// homologue, so at or under ONE_EXTRA_COPY_MAX the question is not asked.
+// See audit/truth/gains-called-2026-11-18.txt rule 1 and GAIN_OFF_POLE_MIN.
+{
+  /** 22 autosomes: `shift` on chr7, and its markers off the poles or at them. */
+  const build = (shift: number, offPole: boolean) => {
+    const t = emptyTally()
+    for (let c = 1; c <= 22; c += 1) {
+      const target = c === 7
+      const noise = ((c * 37) % 11 - 5) / 100
+      for (let i = 0; i < 2_000; i += 1) {
+        const s = (i * 7919) % 1000
+        // A fifth of every chromosome's markers sit off the poles, which is the reference share;
+        // on the target they do or do not, which is the thing under test.
+        const off = (target && !offPole) ? false : s % 5 === 0
+        const baf = off ? 0.5 : (s % 2 ? 0.02 : 0.98)
+        tallyRow('AA', row(String(c), 1000 + i * 1000, off ? 'AB' : 'AA', baf,
+          noise + (target ? shift : 0) + (s % 7 - 3) / 200), t)
+      }
+    }
+    const r = classify(t, 0.17)
+    return { call: r.chroms.find((x) => x.chrom === '7')!, result: r }
+  }
+
+  const doubled = build(1.0, false)
+  assert.equal(doubled.call.aneuploidy, undefined,
+    'a chromosome at twice the intensity with no second allele is not reported as gained: one '
+    + 'homologue reads the same step and the copy number cannot be told from these numbers')
+  assert.ok(doubled.result.copyUnresolved?.includes('7'),
+    'and it is recorded as unresolved, so no piece of it is scanned for a gain either')
+  assert.ok(doubled.result.limits.some((l) => /chr7/.test(l) && /off the two homozygous poles/.test(l)),
+    'with the cause in the limits, not silence')
+  assert.ok(doubled.call.offPole < 0.01 && build(1.0, true).call.offPole > 0.15,
+    'the measurement itself is reported either way')
+
+  assert.equal(build(1.0, true).call.aneuploidy, 'gain',
+    'the same step WITH a second allele stands: four copies of two homologues is a gain')
+  assert.equal(build(Math.log2(3 / 2), false).call.aneuploidy, 'gain',
+    'and one extra copy at the poles stands: an isodisomic third copy carries one allele and is '
+    + 'still a gain, which is why the test is bounded')
+  assert.ok(ONE_EXTRA_COPY_MAX > Math.log2(3 / 2) && ONE_EXTRA_COPY_MAX < 1.0,
+    'the bound sits between a third copy and a fourth, which is where the midpoint of the two '
+    + 'copy states is')
+  assert.equal(GAIN_OFF_POLE_MIN, 0.5)
+  // A LOSS IS NEVER TOUCHED BY THIS: the test is asked of raised stretches only.
+  assert.equal(build(-1.0, false).call.aneuploidy, 'loss',
+    'a lost copy carries one allele by definition and must still be a loss')
 }

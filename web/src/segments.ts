@@ -30,7 +30,10 @@
  *
  * Self-check:  node src/segments.check.ts
  */
-import { isAutosome } from './parentage.ts'
+import {
+  isAutosome, COPY_SHIFT_GAIN_FLOOR, OFF_POLE_LO, OFF_POLE_HI, offPoleAgainst, keepsOffPole,
+  ONE_EXTRA_COPY_MAX,
+} from './parentage.ts'
 
 /**
  * Smallest segment that can be called, in CALLED informative markers.
@@ -125,6 +128,30 @@ export const SEGMENT_LRR_SHIFT = 1.0
 export const GAIN_SHIFT_FRACTION = Math.log2(3) - 1
 
 export const SEGMENT_GAIN_SHIFT = SEGMENT_LRR_SHIFT * GAIN_SHIFT_FRACTION
+
+/**
+ * The intensity a gain piece nominated ON INTENSITY must carry, which is not the same bar as the
+ * one nominated on the no-call rate.
+ *
+ * WHAT THE 0.585 BAR COST. It is the whole magnitude of a third copy, so it admits only a third
+ * copy that reads its full theoretical value. Measured on the stated gains of the open corpus
+ * (17 November): real gain pieces read 0.23 to 0.50, so the bar sat above the entire observed
+ * population, and 9 pieces whose region test clears by 3 to 20 times (797 to 5,056 against 250)
+ * were stopped by it alone.
+ *
+ * WHY THIS ARM AND NOT THE OTHER. `scanCopyNumber`'s gain arm nominates a region where the array
+ * STOPPED CALLING and the intensity went up; its region test reads the no-call rate, so the
+ * magnitude test is the only thing between it and a region the array merely failed on, and it
+ * keeps SEGMENT_GAIN_SHIFT. This arm nominates on the intensity itself, so its region test and its
+ * magnitude test read the same quantity and the magnitude is not the only guard. It also carries
+ * MIN_SEGMENT_SPAN_BP and, through its caller, the off-pole test that says the stretch holds two
+ * different alleles (parentage.GAIN_OFF_POLE_MIN).
+ *
+ * The figure is parentage.COPY_SHIFT_GAIN_FLOOR, the one the whole-chromosome arm uses, because a
+ * piece is not a weaker event than a whole chromosome per copy and it carries a test the whole
+ * chromosome does not. Where that floor comes from is written there.
+ */
+export const SEGMENT_GAIN_SHIFT_INTENSITY = COPY_SHIFT_GAIN_FLOOR
 
 /**
  * Reciprocal overlap at which two opposite-parent absence windows are taken to describe ONE
@@ -570,14 +597,17 @@ export function highLrrProfile(
  * the same event seen twice and is dropped, not reported again.
  */
 export function scanCopyGain(
-  markers: readonly { chrom: string; pos: number; log2R: number | null }[],
+  markers: readonly { chrom: string; pos: number; log2R: number | null; baf?: number | null }[],
   nullHighRate: number,
   genomeLrr: number,
   profile: HighLrrProfile,
   already: readonly Segment[] = [],
+  /** Median off-pole share of the cell's reference chromosomes. NaN withholds every piece here:
+   *  see parentage.GAIN_OFF_POLE_MIN. */
+  offPoleReference = NaN,
   minMarkers = MIN_SEGMENT_MARKERS,
   threshold = SEGMENT_LRT,
-  gainShift = SEGMENT_LRR_SHIFT * GAIN_SHIFT_FRACTION,
+  gainShift = SEGMENT_GAIN_SHIFT_INTENSITY,
 ): Segment[] {
   const ms = [...markers].sort((a, b) => a.pos - b.pos)
   const hits = scanChromosome(
@@ -595,6 +625,16 @@ export function scanCopyGain(
     if (segmentCoords(h).spanBp < MIN_SEGMENT_SPAN_BP) continue
     const delta = inside[inside.length >> 1] - genomeLrr
     if (delta < gainShift) continue
+    // TWO DIFFERENT ALLELES OVER THE SAME STRETCH, which one homologue at twice the intensity does
+    // not have. The same test the whole-chromosome arm applies, on this window's own markers, and
+    // with the same bound: a step no larger than one extra copy is not asked, because an isodisomic
+    // third copy carries one allele too. See parentage.GAIN_OFF_POLE_MIN and ONE_EXTRA_COPY_MAX.
+    if (delta >= ONE_EXTRA_COPY_MAX) {
+      const bafs = ms.filter((m) => m.pos >= h.startBp && m.pos <= h.endBp
+        && m.baf !== null && m.baf !== undefined && Number.isFinite(m.baf)).map((m) => m.baf as number)
+      const off = bafs.filter((v) => v >= OFF_POLE_LO && v <= OFF_POLE_HI).length
+      if (!keepsOffPole(offPoleAgainst({ off, n: bafs.length }, offPoleReference).ratio)) continue
+    }
     const dup = already.some((s) => s.chrom === h.chrom && reciprocalOverlap(
       h.startBp, h.endBp, s.startBp, s.endBp) >= RECIPROCAL_OVERLAP)
     if (dup) continue

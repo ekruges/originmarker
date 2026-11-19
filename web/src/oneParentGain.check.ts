@@ -9,6 +9,7 @@ import {
   hetCallShare, otherCopyFromHetCalls,
 } from './oneParentGain.ts'
 import { emptyShareTally, addShare, shareCall } from './oneParentState.ts'
+import { COPY_SHIFT_GAIN_FLOOR } from './parentage.ts'
 
 // Rule 1. A loss state under an intensity gain call is the extra copy's share; without the call it
 // stays a loss, and a disomic state is not touched.
@@ -80,3 +81,24 @@ const flat = Array.from({ length: 7 }, () => cluster(0.5, 200, 0))
 assert.equal(otherCopyFromHetCalls(cluster(0.52, 200, 0), flat)?.named, false)
 
 console.log('oneParentGain.check: ok')
+
+// --- RULE 1'S TRIGGER IS THE INTENSITY, NOT THE GAIN CALL -------------------------------------
+//
+// 3 of 158 built gains printed as a lost parent with the measured father because the guard was
+// keyed on the gain CALL: the intensity on those chromosomes is up, but not far enough past the
+// array's own spread for a gain to be asserted. A lost copy cannot raise intensity at all.
+// See audit/truth/gains-called-2026-11-18.txt rule 4.
+assert.equal(gainReadAsLoss('other-lost', true), true, 'a called gain still triggers it')
+assert.equal(gainReadAsLoss('parent-lost', true), true)
+assert.equal(gainReadAsLoss('other-lost', false, COPY_SHIFT_GAIN_FLOOR), true,
+  'and so does an intensity at the gain floor with no call made')
+assert.equal(gainReadAsLoss('parent-lost', false, 0.9), true)
+assert.equal(gainReadAsLoss('other-lost', false, COPY_SHIFT_GAIN_FLOOR - 0.01), false,
+  'under the floor the copy state stands: the loss reading is not withheld on nothing')
+assert.equal(gainReadAsLoss('other-lost', false, -0.5), false, 'a copy DOWN is a loss, not a gain')
+assert.equal(gainReadAsLoss('other-lost', false, NaN), false,
+  'an unmeasurable intensity withholds nothing')
+assert.equal(gainReadAsLoss('disomic', false, 0.9), false, 'and no loss state is nothing to withhold')
+assert.equal(gainReadAsLoss(undefined, true, 0.9), false)
+
+console.log('oneParentGain.check (rule 1 trigger): ok')
