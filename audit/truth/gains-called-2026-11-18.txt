@@ -181,6 +181,52 @@ DIAGNOSTIC, before the rule was built (measurement only, main at 6.16.0)
 -----------------------------------------------------------------------
 (filled in by the run)
 
+C1, THE SISTER CELL'S LOSS, MEASURED (no tool code; the module of 14 November, unwired)
+---------------------------------------------------------------------------------------
+Readings: every interval a cell of the same embryo shows lost, read in this cell against its own
+reference chromosomes, on the 257 open cells of 72 embryos the run records cover, on chromosomes the
+cell does not already call. The same intervals read in cells of OTHER embryos are the null.
+At the module's own bars (shift >= 0.25 and z >= 3):
+
+  readings      sister 2,095, other embryos 77,480
+  sister arm    called on 21 readings of stated GAINS (9 distinct cell-and-chromosome events),
+                0 of 70 readings on chromosomes published NORMAL,
+                0 of 17 on stated segmental losses, 0 of 2 on stated whole losses,
+                91 on chromosomes with no stated answer
+  null arm      47 of 12,131 readings on published-normal chromosomes (0.4%), and 1,265 of 58,446
+                with no stated answer. The null is not clean on the gain classes: these embryos are
+                one laboratory's chromosome-16 cutting experiments, so cells of DIFFERENT embryos
+                share the same target region, and a between-embryo reading there is not a true null.
+
+THE SAME-GENOME RULE, measured on the 18 arrays carrying those 9 events (153 pairs):
+  within one published embryo   27 pairs, opposite homozygotes 0.0072 to 0.1160 of shared calls
+  between embryos              126 pairs, 0.0330 to 0.1177
+  At the rule's bar of 0.02, 7 of the 27 within-embryo pairs read as one genome and no
+  between-embryo pair does.
+  So the bar admits no stranger here, and it rejects most of the publication's own embryo-mates.
+  The bar was set on the laboratory's arrays, where same-genome groups read 0.000 to 0.012 and the
+  closest different pair 0.027. It does not transfer to these cells, whose within-embryo pairs
+  overlap the between-embryo range almost entirely. That is a finding about the bar, not a reason
+  to move it.
+
+WHAT C1 WOULD ADD, with the same-genome rule applied: 4 of the 9 events survive, every one a stated
+gain the tool misses today (a 9q piece and three chromosome-16 pieces, each from a sister whose
+pair rate is 0.0072 to 0.0194). The other 5 are rejected because the publication's own embryo-mates
+do not read as one genome (0.0202 to 0.1160). No stated-normal chromosome is called in either case.
+
+SO C1 EARNS ITS PLACE AND IS NOT WIRED HERE. What wiring it needs, and why it is a build of its own:
+the page keeps a run's other arrays as genotype calls only, one byte per probe, with no intensity,
+so what a sister shows lost cannot be read from them as the tool reads it on the cell in hand. Seven
+of the nine events come from a sister's WHOLE-chromosome loss, which a collapsed call rate shows
+from calls alone, so that is the shape to build; the segment case needs the sister's intensity.
+One more caution, measured: on the cell whose intensity reference the tool refuses, the harness fell
+back to all 22 autosomes as the reference, and that is where one of the 9 events comes from. A wired
+version must use the tool's own reference or refuse, as every other reading here does.
+
+C2, MARKERS WHERE THE PARENT CARRIES TWO DIFFERENT ALLELES, MEASURED
+---------------------------------------------------------------------
+(filled in by the run)
+
 RESULT
 ------
 (filled in by the run)
