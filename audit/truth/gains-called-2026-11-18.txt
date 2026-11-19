@@ -236,8 +236,138 @@ version must use the tool's own reference or refuse, as every other reading here
 
 C2, MARKERS WHERE THE PARENT CARRIES TWO DIFFERENT ALLELES, MEASURED
 ---------------------------------------------------------------------
-(filled in by the run)
+30 rows on 18 open cells with a parent (every with-parent row of the cells carrying a stated gain,
+plus twelve both-parent rows of cells without one), per autosome, against the cell's own reference
+chromosomes. The reading is the share of heterozygous calls at the loaded parent's HETEROZYGOUS
+markers, which is the one Joy's idea names.
 
-RESULT
-------
-(filled in by the run)
+  the marker set itself, as a share of the parent's own calls
+      measured father   0.1626      both parents   0.1626      REBUILT FATHER   0.0000
+
+  the reading, as a ratio to the cell's own reference chromosomes
+      both parents      stated gain 0.937 (n 6)   normal 1.012 (n 300)   stated loss 0.797 (n 86)
+      measured father   stated gain 0.937 (n 6)   normal 1.021 (n 91)    stated loss 0.496 (n 31)
+      rebuilt father    no row can be read
+  A stated gain reads HIGHER than a stated-normal chromosome of the same cell 0.12 of the time
+  (128 pairs). That is the wrong direction, and it is the same direction the figure study measured
+  on heterozygosity in general: it falls on a gain rather than rising.
+
+TWO REASONS C2 DOES NOT EARN ITS PLACE, and the first is the one that settles it:
+
+1. THE LABORATORY'S PARENT HAS NO HETEROZYGOUS MARKERS. A father rebuilt from his haploid products
+   is homozygous at every marker by construction, so the share is 0.0000 and the channel does not
+   exist in the configuration the laboratory actually runs. Under plan rule 9 a gain rule that
+   needs it would be a rule two parents have and one parent does not.
+2. WHERE IT DOES EXIST IT POINTS THE WRONG WAY. An extra copy of the loaded parent raises
+   heterozygosity at his heterozygous markers only where the extra copy is his OTHER homologue,
+   which is a first-division error; an extra copy of the same homologue lowers it, as does the
+   other parent's extra copy. The open corpus's stated gains with a parent are six, and on them it
+   reads 0.937 against 1.012 on the same cells' normal chromosomes.
+
+WHAT IT IS GOOD FOR, and already used for: a LOST copy reads 0.797 with both parents and 0.496 with
+the measured father, which is the one-parent ploidy reading obligateHet.hetCallOneParent already
+takes from these markers. Nothing is built here.
+
+RESULT, 19 November 2026
+------------------------
+Run once on the open rows, as rule 8 requires: the 600-row harness in all four setups, the 218-row
+gain and quiet-array list, and the constructed gains in three arms, each on main at 6.16.0 and on
+this branch, on the same machine from the same lists. The piece bar is variant B.
+
+G1  GAINS CALLED ON THE PUBLISHED CELLS: 13 -> 16. MET.
+    Counted on the gain figure study's own event records, which hold 52 of the 53 its text names;
+    the 13 is reproduced exactly on main, so the comparison is like with like.
+    By source, on the same records: the first paper 14 -> 17 of 69 (whole 10 -> 12, pieces 4 -> 5);
+    the second paper 1 of 8 in every setup, unchanged; the laboratory's hand calls 3 -> 2 of 18.
+    THE THREE NEWLY CALLED, each checked against what the paper states for that cell:
+      cell 16 chr1,  whole, z 10.3 shift 0.31   paper: a whole-chromosome gain
+      cell 18 chr22, whole, z 7.0  shift 0.31   paper: a whole-chromosome gain
+      cell 22 chr16, piece                      paper: a segmental gain
+      All three are the whole-chromosome gain floor. Nothing else was newly called anywhere.
+    THE ONE LOST: a hand-called whole-chromosome gain on one laboratory cell (chr17), withheld by
+    rule 1 because that chromosome keeps almost none of its reference chromosomes' off-pole
+    markers. It is the cell whose raised chromosomes the 16 November follow-up showed to be its
+    only TWO-homologue chromosomes in a mostly one-copy genome, not third copies.
+
+G2  FALSE GAINS ON THE 72 QUIET ARRAYS: 9 on 2 arrays -> 1 on 1. MET.
+    The eight whole chromosomes of the one array go: they sit +0.90 to +1.12 above their
+    reference chromosomes, which is no single extra copy, and carry 0.09 to 0.26 of the
+    reference's off-pole markers. They are now reported as raised and unresolved, with the cause.
+    The ninth, the 1.7 Mb HLA piece, stays: it needs the 3 Mb floor, which is a stated limit and
+    the owner's to declare. Losses printed on those 72 arrays are unchanged at 15.
+
+G3  NO BUILT GAIN PRINTS AS A LOSS: 3 of 158 -> 2 of 158, with the measured father. NOT MET.
+    The diagnostic the rule was keyed on, measured on main:
+      cell 2369 chr22, built maternal, copy state parent-lost, r 0.76, intensity +0.38, z 3.0
+      cell 2421 chr22, built maternal, copy state parent-lost, r 0.84, intensity +0.17, z 2.0
+      cell 2365 chr22, built paternal, copy state other-lost,  r 0.16, intensity -0.00, z -0.0
+    Rule 4 fixes the first and cannot reach the other two: on them the constructed extra copy does
+    not show in the intensity at all, so no rule keyed on intensity can withhold the opposite
+    claim. Telling those from a lost copy needs the calls, which is what the 16 November file
+    already said and what this run now has the numbers for.
+
+G4  STATED NORMAL CHROMOSOMES LEFT ALONE: nothing falls in any arm; one arm rises. MET.
+      first paper, no parent      1197 of 1200 -> 1197 of 1200
+      second paper, no parent      456 of 477  ->  456 of 477
+      second paper, measured father 436 of 477 ->  436 of 477
+      second paper, rebuilt father  445 of 477 ->  446 of 477
+      second paper, both parents    433 of 477 ->  433 of 477
+    The rise is rule 4 withholding a lost-parent print on a chromosome the paper states normal.
+
+G5  LOSSES UNTOUCHED: NOT MET. Three loss claims move, on 4 of the 600 rows, all of them rule 4:
+      cell A chr9, measured father and rebuilt father: a paternal lost-copy claim withheld
+        (intensity +0.42). The paper states that chromosome NORMAL, so the claim was false; with
+        the measured father a parental-absence segment over 16.9-135.1 Mb prints in its place,
+        which is the same false reading in another shape.
+      cell B chr13, measured father and rebuilt father: a maternal lost-copy claim withheld
+        (intensity +0.33). THE PAPER STATES A WHOLE-CHROMOSOME MATERNAL LOSS THERE, so this one is
+        a correct call removed.
+    No copy-loss coordinate, no copy-loss call and no two-parent loss moved anywhere; every other
+    loss claim on the 600 rows is identical to main.
+    WHY, measured rather than argued: a lost copy in a cell whose own level is pulled down by its
+    other losses reads ABOVE that level. Cell B carries 12 stated losses of 22 chromosomes. The
+    heterozygosity study measured the same thing on this corpus: a one-copy chromosome runs to
+    +0.48 at the ninetieth percentile with both parents and +0.31 with none, which overlaps the
+    +0.42 a third copy reads. So no intensity threshold separates "a real loss in a disturbed
+    cell" from "an extra copy the scan missed", and rule 4 as written trades one for the other.
+    THIS IS THE OWNER'S DECISION AND IS NOT TAKEN HERE. Three ways to settle it, with what each
+    costs by this run's numbers:
+      (a) keep rule 4 as it stands: G3 goes 3 -> 2, G4 rises by 1, one correct loss is lost;
+      (b) trigger rule 4 only where the cell's own level is trustworthy, which the tool already
+          measures as the normal-majority share: cell B is 9 of 22 and the built-gain cells are
+          published normal, so this keeps the correct loss and keeps the one fix. Not run;
+      (c) drop rule 4: losses are then byte-identical and G3 stays at 3 of 158.
+
+G6  ALL THREE ARMS, AND RULE 9. Measured; the one-parent arms improve and neither falls.
+      the 60 built on the six chromosomes, parent named, 0 wrong anywhere:
+        both parents 37 -> 37, measured father 44 -> 44, rebuilt father 37 -> 37
+      the 158 held out, parent named, 0 wrong anywhere:
+        both parents 92 -> 92, measured father 81 -> 87, rebuilt father 74 -> 80
+      intensity calls the gain on 88 -> 94 of the 158, which is where the one-parent gain comes
+      from: the whole-chromosome gain floor hands the allele test more chromosomes to name.
+    On the 60 the one-parent arms sit ahead of the two-parent arm, as they did. On the 158 they
+    sit behind it (87 and 80 against 92) and the gap is the pre-existing one, narrowed by this
+    change from 11 and 18 to 5 and 12; the run's other arrays close it (99 and 97 against 92,
+    measured 17 November, not re-run here).
+
+G7  CHECKS. scripts/checks.sh exits 0, which includes tsc -b from web/; scripts/release-check.sh
+    exits 0. Three new checks, one per rule: the off-pole veto and its bound and both B-allele
+    shares in parentage.check.ts, the same test on the piece arm in segments.check.ts, and rule 4's
+    trigger in oneParentGain.check.ts. Browser run on a BUILT copy served statically from
+    web/dist on port 5190, never the dev server: the three bundled example runs (no parent, one
+    parent, both parents) read their arrays and print their calls, including the chromosome-16
+    loss of the one public cell that carries one.
+
+WHAT THIS LEAVES
+----------------
+- G3 and G5 are one decision, written under G5. Until it is made, two built gains still print as a
+  lost parent and one correct loss is withheld.
+- The 24 gains in the two cells whose gained chromosomes ARE the cell's majority are not reachable
+  by anything read against the cell's own level, and nothing here tries.
+- The nine pieces whose region test clears and whose intensity is 0.23 to 0.50: still missed. The
+  bar is not the fix; the allele channel is, and that is a build.
+- The two pieces where both bars clear and no piece is formed: still not traced.
+- The HLA piece on the quiet array: waits on the 3 Mb floor ruling.
+- The parity defect, a gain found with no parent and lost with every parent on three cells: not
+  touched, because its measured fix adds 11 losses and this item's gate forbids that.
+- C1 is measured and not wired; what wiring needs is written above.
