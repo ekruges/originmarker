@@ -3,8 +3,16 @@ Finding the extra copies: the rule, the gate, and what it scored
 Written 18 November 2026 BEFORE the rule below was built or run, as plan rule 8 requires. Plan items
 3.1, 3.2 and 3.3. Open arrays only: every list row is checked against audit/local/truth/units.tsv
 before a file is opened, and a run holding a sealed or exposed array is refused. The 123 sealed
-arrays were not read. Cells are given by number or by the array id of a published series; no
-laboratory barcode is in this file.
+arrays were not read.
+
+CELLS ARE NAMED BY NUMBER AND NEVER BY THEIR ARRAY, and two cohorts are read here, so each carries
+its own scheme and neither is left to be guessed. The cells of the SECOND PAPER take the numbering
+audit/truth/page_says.py sets, "cell 1" to "cell 31" in the order of the source table, whose key
+lives untracked at audit/local/page-says-2026-11-17/cell-key.tsv. The cells of the FIRST PAPER have
+no entry in that key, and no tracked file has ever named them, so they take their own numbering
+here: "first-paper cell 1" to "first-paper cell 22" over the first paper's open cells carrying a
+stated gain, in the order their ids sort in the answer key, whose key lives untracked at
+audit/local/gains-2026-11-18/first-paper-cell-key.tsv. No laboratory barcode is in this file.
 
 WHAT IS WRONG TODAY, with the cause of each
 -------------------------------------------
@@ -156,7 +164,8 @@ NOT IN THIS RULE, and why
   found with no parent is lost in every parent setup"). Measured on the 36 refused rows it adds 11
   losses that agree with the paper. G5 forbids changing a loss call here, so it is not built in this
   item; the defect stays open with its cause recorded.
-- THE 2 PIECES WHERE BOTH BARS ALREADY CLEAR AND NO PIECE IS FORMED (z10:1 and z13:25, both 16q).
+- THE 2 PIECES WHERE BOTH BARS ALREADY CLEAR AND NO PIECE IS FORMED (first-paper cells 7 and 14,
+  both 16q).
   Not traced on 17 November and not traced here.
 - A STATED 16Q DUPLICATION whose intensity reads 0.62 BELOW that cell's own level over the stated
   stretch. The figure study measured it; the tool prints a copy loss there. It is not a missed gain
@@ -201,13 +210,13 @@ The three constructions that print as a lost parent, on main, with everything th
 on. Taken from the constructed records with the chromosome's own intensity added to them; no tool
 code was changed for it.
 
-  cell 2369 chr22, an extra MATERNAL copy built on it
+  cell 25 chr22, an extra MATERNAL copy built on it
       copy state parent-lost, r 0.764; intensity +0.382, z 3.01; no gain called
       the same cell and chromosome unmodified: state disomic, r 0.667, intensity -0.172
-  cell 2421 chr22, an extra MATERNAL copy built on it
+  cell 1 chr22, an extra MATERNAL copy built on it
       copy state parent-lost, r 0.839; intensity +0.166, z 1.96; no gain called
       unmodified: state disomic, r 0.703, intensity -0.366
-  cell 2365 chr22, an extra PATERNAL copy built on it
+  cell 23 chr22, an extra PATERNAL copy built on it
       copy state other-lost, r 0.159; intensity -0.001, z -0.01; no gain called
       unmodified: state disomic, r 0.255, intensity -0.555
 
@@ -306,9 +315,9 @@ G1  GAINS CALLED ON THE PUBLISHED CELLS: 13 -> 16 of 52. MET.
     By source: the first paper 14 -> 17 of 69 (whole 10 -> 12, pieces 4 -> 5); the second paper
     1 of 8 in every setup, unchanged; the laboratory's hand calls 3 -> 2 of 18; the lab sheet 0 of 1.
     THE THREE NEWLY CALLED, each checked against what the paper states for that cell:
-      cell 16 chr1,  whole, z 10.3 shift 0.31   the paper states a whole-chromosome gain
-      cell 18 chr22, whole, z 7.0  shift 0.31   the paper states a whole-chromosome gain
-      cell 22 chr16, piece                      the paper states a segmental gain
+      first-paper cell 6  chr1,  whole, z 10.3 shift 0.31   the paper states a whole-chromosome gain
+      first-paper cell 10 chr22, whole, z 7.0  shift 0.31   the paper states a whole-chromosome gain
+      first-paper cell 14 chr16, piece                      the paper states a segmental gain
     All three are the whole-chromosome gain floor; the piece is covered by the whole-chromosome
     call the floor now makes on it. Nothing that was found is lost on the published cells.
     THE ONE LOST, on the laboratory's hand calls: a whole-chromosome gain on one cell (chr17),
@@ -345,13 +354,13 @@ G4  STATED NORMAL CHROMOSOMES LEFT ALONE: nothing falls in any arm; three arms r
 
 G5  LOSSES UNTOUCHED: two claims move on the 600 rows, both on one chromosome of one cell, both
     RIGHT by the paper. MET in substance, and the moves are named rather than counted:
-      cell 2369 chr9, measured father   a paternal lost copy withheld, intensity +0.42
-                                        RIGHT: the paper states this chromosome NORMAL
-      cell 2369 chr9, measured father   a parental-absence stretch over 16.9-135.1 Mb printed in
-                                        its place: the whole-chromosome claim was what had
-                                        suppressed it, so the cell still reads wrong there in
-                                        another shape. Counted against this arm, not for it
-      cell 2369 chr9, rebuilt father    the same claim withheld, nothing printed in its place
+      cell 25 chr9, measured father   a paternal lost copy withheld, intensity +0.42
+                                      RIGHT: the paper states this chromosome NORMAL
+      cell 25 chr9, measured father   a parental-absence stretch over 16.9-135.1 Mb printed in
+                                      its place: the whole-chromosome claim was what had
+                                      suppressed it, so the cell still reads wrong there in
+                                      another shape. Counted against this arm, not for it
+      cell 25 chr9, rebuilt father    the same claim withheld, nothing printed in its place
     Nothing else moves. No copy-loss call, no copy-loss coordinate, no parental-absence segment
     elsewhere and no two-parent loss differs from main anywhere in the 600 rows. The correct
     whole-chromosome maternal loss on the chaotic cell, which the UNSCOPED rule 4 withheld, is
@@ -558,21 +567,21 @@ between these arms and are shown for completeness.
 EVERY LOSS CLAIM THAT MOVES, with what the paper says about it
 
   (a) UNSCOPED, three claims on four rows
-      cell 2369 chr9, measured father   a paternal lost copy withheld   RIGHT: the paper states
-                                        this chromosome normal
-      cell 2369 chr9, measured father   a parental-absence stretch over 16.9-135.1 Mb printed in
-                                        its place, which is the same false reading in another
-                                        shape: the whole-chromosome claim was what suppressed it
-      cell 2369 chr9, rebuilt father    a paternal lost copy withheld   RIGHT, as above
-      cell 2420 chr13, measured father  a maternal lost copy withheld   WRONG: the paper states a
-                                        whole-chromosome maternal LOSS there
-      cell 2420 chr13, rebuilt father   a maternal lost copy withheld   WRONG, as above
+      cell 25 chr9, measured father   a paternal lost copy withheld   RIGHT: the paper states
+                                      this chromosome normal
+      cell 25 chr9, measured father   a parental-absence stretch over 16.9-135.1 Mb printed in
+                                      its place, which is the same false reading in another
+                                      shape: the whole-chromosome claim was what suppressed it
+      cell 25 chr9, rebuilt father    a paternal lost copy withheld   RIGHT, as above
+      cell 31 chr13, measured father  a maternal lost copy withheld   WRONG: the paper states a
+                                      whole-chromosome maternal LOSS there
+      cell 31 chr13, rebuilt father   a maternal lost copy withheld   WRONG, as above
 
-  (b) SCOPED, two claims on two rows: the two cell 2369 lines above, both RIGHT, and the stretch
-      printed in place of the first. Cell 2420 is untouched: its alleles read a lost copy on 13 of
+  (b) SCOPED, two claims on two rows: the two cell 25 lines above, both RIGHT, and the stretch
+      printed in place of the first. Cell 31 is untouched: its alleles read a lost copy on 13 of
       its 22 autosomes, so its normal majority is 0.318 with the rebuilt father and 0.364 with the
       measured one, far under the 0.80 the intensity reference is already gated on, and rule 4
-      does not act there. Cell 2369 reads 0.909 and 0.955, so it does.
+      does not act there. Cell 25 reads 0.909 and 0.955, so it does.
 
   (c) NO RULE 4, nothing moves: every loss claim, parent and coordinate is identical to main, and
       the false paternal loss on the chromosome the paper states normal stays printed.
@@ -584,9 +593,9 @@ and 0.96, with the gate at 0.80.
 
 FILES (untracked, audit/local/gains-2026-11-18/)
 ------------------------------------------------
-  main/, final/          the run records of main and of the adopted rule set: the 600-row harness (h, np), the 218-row
-                         gain and quiet-array list (gb), and the constructed gains (cg, cgh),
-                         with each arm's gains.tsv and fig52.json
+  main/, final/          the run records of main and of the adopted rule set: the 600-row
+                         harness (h, np), the 218-row gain and quiet-array list (gb), and the
+                         constructed gains (cg, cgh), with each arm's gains.tsv and fig52.json
   branchB/, branchC/, branchD/   the three arms of the rule-4 pricing, (a), (b) and (c)
   gains-arm.py, fig52.py, figdiff.py, armdiff.py, cgscore.py, phetscore.py, pricetable.py,
   smallpieces.py         the scoring
@@ -594,5 +603,6 @@ FILES (untracked, audit/local/gains-2026-11-18/)
   phet-*.jsonl           C2: the parent-heterozygous reading, per row and chromosome
   samegenome.tsv         C1: opposite homozygotes over the 153 pairs of the 18 arrays
   sister-readings.jsonl  C1: every sister reading and its null
+  first-paper-cell-key.tsv       the first paper's cell numbering used in this file
   list-gb.tsv, phet-list.tsv, sg-list.tsv, fig53.json                            the row lists
 tesla: /root/om-g holds the same records and the two code copies the arms were run from.
