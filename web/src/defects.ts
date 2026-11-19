@@ -303,7 +303,10 @@ export const KIND_WORD: Record<string, string> = {
   'copy-gain': 'extra copy',
   'copy-loss': 'copy lost',
   'parental-absence': "parent's alleles absent",
-  'whole-chromosome': 'whole chromosome affected',
+  // The allele channel reads the two parents' shares as uneven on this chromosome while the
+  // intensity stays at the cell's own level: an extra copy would read above it, so an extra copy
+  // and a partial loss of the other parent's copy cannot be told apart, and no parent is named.
+  'whole-chromosome': "the parents' shares are uneven, neither an extra copy nor a loss",
   monosomy: 'one copy only',
   trisomy: 'three copies',
   'segmental-deletion': 'segment deleted',
@@ -316,6 +319,14 @@ export const KIND_WORD: Record<string, string> = {
   complex: 'genome too disturbed to reference against',
   'gamete-de-novo': 'segment changed, gamete or post-fertilisation',
 }
+
+/** Which way the copies went. A class that is neither a plain loss nor a plain gain has no
+ *  direction, and the figure must not colour it as though it had one. */
+export type Direction = 'gain' | 'loss' | 'none'
+const PLAIN = new Set(['copy-loss', 'copy-gain', 'parental-absence', 'monosomy', 'trisomy',
+  'segmental-deletion', 'segmental-duplication'])
+export const direction = (gain: boolean, kind?: string): Direction =>
+  (!kind || PLAIN.has(kind) ? (gain ? 'gain' : 'loss') : 'none')
 
 export const headline = (d: Defect): string => {
   const what = KIND_WORD[d.kind] ?? (d.kind === 'copy-gain' ? 'extra copy' : 'copy lost')

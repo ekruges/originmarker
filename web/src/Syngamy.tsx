@@ -51,10 +51,10 @@ import { RunLog } from './RunLog'
 import { DefectCallout } from './DefectCallout'
 import { plotData, type PlotData } from './plotSeries'
 import { CallFigure, CellFigure, defectMark, rowMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
-import { runAlerts } from './defects'
+import { runAlerts, type Defect } from './defects'
 import {
   callTitle, cardSays, defectsForResult, KIND_SAYS, kindOf, MEASURED_SOURCE, measuredSentence,
-  PARENT_SENTENCE, readAgainst, WORD,
+  PARENT_SENTENCE, readAgainst, WORD, type ChangeList,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
 import { timeGroup } from './timing'
@@ -665,7 +665,6 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         const paired = maternal ? pair(result, maternal, agree) : undefined
         const series = plotData(acc, {
           loaded: pat.absent ? null : { role: soloRole, gt: pat.gt }, second: mat?.gt ?? null,
-          otherOpposite: acc.otherOpposite ?? null,
         })
         return { calls: acc.myGt, profile, gates, result, maternal, paired, series }
       }
@@ -1124,7 +1123,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
   const originClass = entry.paired?.originClass ?? r.originClass
   const { setup, list, head, title } = cardSays(r, m, originClass, rebuilt)
   const n = list.counted.length
-  const marks = marksOf(r, entry.series)
+  const marks = marksOf(r, entry.series, list)
   // The ratio is kept for the reader and said to be what it is: pooled over every autosome, the
   // changed ones included, so a cell's own losses raise it.
   const pooled = [r, m].filter((x): x is ParentageResult => !!x && !x.noParent)
@@ -1553,11 +1552,25 @@ const plotName = (e: Entry): string => e.file.name.replace(/\.[^.]*$/, '')
 const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.noParent ? null : r.role)
 
 /** Every printed change and every run found and withheld, as the cell figures mark them. */
-function marksOf(r: ParentageResult, data: PlotData | undefined): Mark[] {
+/**
+ * What the figure marks: every change the card lists, plus the runs it found and withheld.
+ *
+ * The card counts only some of those rows, so each mark carries the word the counting rule gave it
+ * and the figure's list says so on the line. A figure that marked eleven things under a headline of
+ * ten changes, with nothing to tell them apart, reads as a contradiction.
+ */
+function marksOf(r: ParentageResult, data: PlotData | undefined, list?: ChangeList): Mark[] {
+  // Matched on what a change IS, not on object identity: the card builds its own list from its own
+  // pass over the result, so the two sets of rows are equal in value and different in identity.
+  const key = (d: Defect) => `${d.chrom}|${d.startBp}|${d.endBp}|${d.kind}`
+  const status = new Map<string, Mark['status']>()
+  for (const g of list?.counted ?? []) for (const d of g.pieces) status.set(key(d), 'counted')
+  for (const g of list?.once ?? []) for (const d of g.pieces) status.set(key(d), 'one reading')
+  for (const g of list?.seen ?? []) for (const d of g.pieces) status.set(key(d), 'also seen')
   const marks: Mark[] = []
   for (const d of defectsForResult(r)) {
     const m = defectMark(d, r.segments, loadedRole(r), data?.endBp.get(d.chrom))
-    if (m) marks.push(m)
+    if (m) marks.push({ ...m, status: status.get(key(d)) })
   }
   for (const sg of withheldRuns(r.refusals)) marks.push(withheldMark(sg, loadedRole(r)))
   return marks

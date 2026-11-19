@@ -45,6 +45,14 @@
   --om-defect: #b12222;
   --om-defect-bg: #fdf3f3;
   --om-defect-chip: #f7e4e4;
+  /* A LOSS AND A GAIN MUST BE TOLD APART WITHOUT READING A WORD, and by more than hue: a reader
+     with deuteranopia or protanopia sees the red as a dark yellow-brown and this teal as a
+     blue-green, and the two differ in lightness as well, so they hold up in grey. Teal rather than
+     the obvious green, which that reader cannot separate from the red; and it sits clear of
+     --om-blue and --om-higher, the two colours the parent tracks already use. The direction of the
+     bars carries the same fact, so colour reinforces it rather than carrying it alone. */
+  --om-gain: #0f766e;
+  --om-gain-bg: #effaf8;
   --om-text-dim: #6b727b;
   /* The stack .om-mono uses, as a token, so inline styles get the same face. Numeric columns
      need `font-variant-numeric: tabular-nums` with it or digits will not align. */
