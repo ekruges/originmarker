@@ -372,6 +372,44 @@ WHAT THIS LEAVES
   touched, because its measured fix adds 11 losses and this item's gate forbids that.
 - C1 is measured and not wired; what wiring needs is written above.
 
+PRICING THE THREE WAYS TO SETTLE G3 AND G5, written 19 November BEFORE the arms were run
+=========================================================================================
+The decision under G5 is the owner's, and it is put to him as three measured outcomes rather than
+three descriptions. The arms:
+
+  (a) rule 4 as it stands: the lost-parent print is withheld wherever the chromosome's intensity
+      sits at or above +0.30 against the cell's own level.
+  (b) rule 4 SCOPED to cells whose own level can be trusted.
+  (c) no rule 4: the lost-parent print is withheld only where the intensity scan CALLS a gain,
+      which is what 6.16.0 does. Rules 1 and 2 stay in all three.
+
+THE SCOPE IN (b), AND WHERE ITS THRESHOLD COMES FROM. Rule 4 reads the intensity against the cell's
+own level, so it is only as good as that level. The tool already measures whether that level means
+anything: `oneParentState.normalFraction`, the share of decided autosomes in the genome's commonest
+copy state, against `NORMAL_MAJORITY_MIN` of 0.80. That is the same gate the tool already uses to
+decide whether copy number may be read against this array at all, and the figure behind it was
+measured on this corpus before any of this item: cells published chaotic read 0.000 to 0.727 and
+the rest 0.864 to 1.000. No new number is introduced and none is chosen here by its score. So:
+
+  (b) a lost-parent print is withheld on an intensity that does not clear the gain call only where
+      this cell shows a normal majority by that existing test. Below it the alleles stand, because
+      a cell that has lost a third of its chromosomes has no level for the intensity to be read
+      against, and the measurement says so: a one-copy chromosome in such a cell runs to +0.48.
+
+PREDICTED BEFORE THE RUN. (b) keeps the one reversed construction that rule 4 reaches, because the
+five cells the gains are built on are published normal and read a full normal majority; and it
+keeps the correct maternal loss on the chaotic cell, whose alleles read a lost copy on 13 of its 22
+autosomes. Whether it also keeps the FALSE paternal loss withheld is not predicted: that cell is
+published normal throughout, so its normal majority should be high, but its own alleles are what
+the fraction is computed from and two of them read a lost parent.
+Every no-parent row is identical in all three arms by construction: the block rule 4 sits in runs
+only with a parent shown. The arms are therefore run on the 270 with-parent rows of the harness,
+the 20 with-parent rows of the gain list, and the constructed gains.
+
+THE THREE-WAY TABLE
+-------------------
+(filled in by the run)
+
 FILES (untracked, audit/local/gains-2026-11-18/)
 ------------------------------------------------
   main/, branchB/        the run records of both arms: the 600-row harness (h, np), the 218-row
