@@ -353,19 +353,24 @@ console.log('segments.check.ts: all assertions passed, including that every surf
     return scanCopyGain(ms, externalNull(profile.byChrom, '2'), 0, profile, [], reference)
   }
 
-  assert.equal(run(0.35, true).length, 1,
-    'a gain piece at 0.35 clears the region test and is inside the measured population of real '
-    + 'third copies: the old 0.585 bar refused it')
-  assert.equal(run(COPY_SHIFT_GAIN_FLOOR - 0.05, true).length, 0, 'under the gain floor, nothing')
+  // THE MAGNITUDE BAR IS UNCHANGED, and this pins what that costs as well as what it buys. A piece
+  // at 0.35 is inside the population of real third copies measured on this corpus (0.23 to 0.50)
+  // and is still refused; lowering the bar to the whole-chromosome gain floor was run once and
+  // printed 21 gains on 12 of the 72 arrays stated free of variation, against 9 on 2 today, in the
+  // dense-probe windows this scan has always had to hold off.
+  assert.equal(run(0.35, true).length, 0,
+    'a gain piece under the full magnitude of a third copy is not printed')
+  assert.equal(run(SEGMENT_GAIN_SHIFT + 0.05, true).length, 1, 'and one over it is')
   assert.ok(COPY_SHIFT_GAIN_FLOOR < SEGMENT_GAIN_SHIFT,
-    'this arm asks less than the full magnitude of a third copy, which is what it cost')
+    'the whole-chromosome arm asks less, because a whole chromosome is not a window that probe '
+    + 'density can manufacture')
 
   // The off-pole test, above the one-extra-copy bound.
   assert.equal(run(1.1, true).length, 1, 'a doubled stretch that still carries two alleles stands')
   assert.equal(run(1.1, false).length, 0,
     'and one at the poles is withheld: one homologue at twice the intensity reads the same step')
   // Below the bound it does not apply: an isodisomic third copy is at the poles and is real.
-  assert.equal(run(SEGMENT_GAIN_SHIFT, false).length, 1,
+  assert.equal(run(SEGMENT_GAIN_SHIFT + 0.05, false).length, 1,
     'one extra copy of the same homologue carries one allele and must still be reported')
   // No reference to read against: the veto does not act, because it is not the evidence.
   assert.equal(run(1.1, false, NaN).length, 1,

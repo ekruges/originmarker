@@ -31,8 +31,7 @@
  * Self-check:  node src/segments.check.ts
  */
 import {
-  isAutosome, COPY_SHIFT_GAIN_FLOOR, OFF_POLE_LO, OFF_POLE_HI, offPoleAgainst, keepsOffPole,
-  ONE_EXTRA_COPY_MAX,
+  isAutosome, OFF_POLE_LO, OFF_POLE_HI, offPoleAgainst, keepsOffPole, ONE_EXTRA_COPY_MAX,
 } from './parentage.ts'
 
 /**
@@ -130,28 +129,28 @@ export const GAIN_SHIFT_FRACTION = Math.log2(3) - 1
 export const SEGMENT_GAIN_SHIFT = SEGMENT_LRR_SHIFT * GAIN_SHIFT_FRACTION
 
 /**
- * The intensity a gain piece nominated ON INTENSITY must carry, which is not the same bar as the
- * one nominated on the no-call rate.
+ * THE PIECE ARM KEEPS THE WHOLE MAGNITUDE OF A THIRD COPY, and here is the measurement that says so.
  *
- * WHAT THE 0.585 BAR COST. It is the whole magnitude of a third copy, so it admits only a third
- * copy that reads its full theoretical value. Measured on the stated gains of the open corpus
- * (17 November): real gain pieces read 0.23 to 0.50, so the bar sat above the entire observed
- * population, and 9 pieces whose region test clears by 3 to 20 times (797 to 5,056 against 250)
- * were stopped by it alone.
+ * WHAT IT COSTS. Real gain pieces of this corpus read 0.23 to 0.50 (17 November), so this bar sits
+ * above the entire observed population and stops 9 stated gains whose region test already clears by
+ * 3 to 20 times (797 to 5,056 against 250). Those nine stay missed.
  *
- * WHY THIS ARM AND NOT THE OTHER. `scanCopyNumber`'s gain arm nominates a region where the array
- * STOPPED CALLING and the intensity went up; its region test reads the no-call rate, so the
- * magnitude test is the only thing between it and a region the array merely failed on, and it
- * keeps SEGMENT_GAIN_SHIFT. This arm nominates on the intensity itself, so its region test and its
- * magnitude test read the same quantity and the magnitude is not the only guard. It also carries
- * MIN_SEGMENT_SPAN_BP and, through its caller, the off-pole test that says the stretch holds two
- * different alleles (parentage.GAIN_OFF_POLE_MIN).
+ * WHY IT IS NOT LOWERED ANYWAY. Run once at the whole-chromosome arm's gain floor, 0.30, on the 72
+ * arrays stated free of variation: gains printed go from 9 on 2 arrays to 21 on 12, and what it
+ * adds is the artefact class this scan has always had to hold off, dense-probe windows in the HLA
+ * region of chromosome 6, on chromosome 19, and at 17p13. The whole-chromosome arm's own floor
+ * carries no such cost (0 of 1,656 published-normal chromosomes, 0 of 1,188 on these arrays),
+ * because a whole chromosome is not a window the probe density can manufacture.
  *
- * The figure is parentage.COPY_SHIFT_GAIN_FLOOR, the one the whole-chromosome arm uses, because a
- * piece is not a weaker event than a whole chromosome per copy and it carries a test the whole
- * chromosome does not. Where that floor comes from is written there.
+ * SO THE PIECE ARM NEEDS A SECOND CHANNEL RATHER THAN A SMALLER NUMBER. The one measured to work
+ * on pieces is the allele side: on the published gain pieces with no parent, the B-allele spread at
+ * middle markers separates at 0.92 where the intensity alone is flat, and with both parents the
+ * father's share at opposite homozygotes calls the side right 8 times of 8
+ * (audit/truth/gain-figure-levers-2026-11-17.txt). That is a build, not a bar, and it is not in
+ * this item. A second figure tried after seeing this score would be the tuning plan rule 8 forbids.
+ *
+ * See audit/truth/gains-called-2026-11-18.txt, variant A and variant B.
  */
-export const SEGMENT_GAIN_SHIFT_INTENSITY = COPY_SHIFT_GAIN_FLOOR
 
 /**
  * Reciprocal overlap at which two opposite-parent absence windows are taken to describe ONE
@@ -607,7 +606,7 @@ export function scanCopyGain(
   offPoleReference = NaN,
   minMarkers = MIN_SEGMENT_MARKERS,
   threshold = SEGMENT_LRT,
-  gainShift = SEGMENT_GAIN_SHIFT_INTENSITY,
+  gainShift = SEGMENT_LRR_SHIFT * GAIN_SHIFT_FRACTION,
 ): Segment[] {
   const ms = [...markers].sort((a, b) => a.pos - b.pos)
   const hits = scanChromosome(

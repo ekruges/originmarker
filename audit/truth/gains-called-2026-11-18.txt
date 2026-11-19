@@ -66,9 +66,13 @@ says whose copy it is and never makes the call.
    than the majority. This is its missing other end, per chromosome rather than per group.
 
 2. THE INTENSITY IS UP BY AT LEAST A THIRD COPY'S WORTH ON THIS MATERIAL: 0.30 log2 against the
-   cell's own level, for a whole chromosome and for an intensity-nominated piece alike, with every
-   relative test unchanged (a whole chromosome still needs z >= 5.49 against the spread of the
-   array's own chromosomes; a piece still needs its region test at 250 and the 1 Mb span).
+   cell's own level, with every relative test unchanged (a whole chromosome still needs z >= 5.49
+   against the spread of the array's own chromosomes; a piece still needs its region test at 250
+   and the 1 Mb span).
+   WHOLE CHROMOSOMES ONLY, as variant B below. The piece arm was run once at this floor and is not
+   given it: it printed 21 gains on 12 of the 72 arrays stated free of variation against 9 on 2
+   today, in the dense-probe windows of the HLA region, chromosome 19 and 17p13. A piece arm needs
+   a second channel rather than a smaller number; the one measured to work is the allele side.
    WHERE 0.30 COMES FROM: measured on the whole-chromosome arm, 17 November (plan 3.3): a floor of
    0.30 recovers 2 stated gains and adds 0 calls on 1,656 chromosomes published normal and 0 on the
    1,188 chromosomes of the 72 quiet arrays; 0.25 adds 1 call on a published-normal chromosome and
