@@ -1,11 +1,11 @@
-// Tracks, bins, copies from each parent, the level bands, the guard on a level of none, and which
-// changes the figure zooms.
+// Tracks, bins, copies from each parent, the level bands, the guard on a level of none, and the
+// panels the figure draws: one for every change, each reachable, laid out so nothing collides.
 import assert from 'node:assert'
 import { readFileSync } from 'node:fs'
 import {
-  BASE_BP, binBase, CELL_PER, copyBars, COPY_NONE_BELOW, COPY_TWO_ABOVE, copyWord, guardedBars,
-  MIN_BIN_MARKERS, mergeBins, normalRange, perForStretch, plotData, tickStepMb, totalBars, valueOf,
-  viewOf, wrap, zoomPicks,
+  badgeX, BASE_BP, binBase, CELL_PER, copyBars, COPY_NONE_BELOW, COPY_TWO_ABOVE, copyWord, drawable,
+  guardedBars, MIN_BIN_MARKERS, mergeBins, normalRange, perForStretch, plotData, sheet, tickStepMb,
+  totalBars, valueOf, viewOf, wrap, zoomOrder,
   type Bin, type PlotData, type PlotSource, type Track,
 } from './plotSeries.ts'
 
@@ -200,22 +200,22 @@ const levelOf = (d: PlotData, key: Track['key'], chrom: string): string => {
     'a rebuilt father alone: one track')
 }
 
-// ---------------------------------------------------------------- which changes are zoomed
+// ---------------------------------------------------------------- every change gets its own panel
 {
-  const call = (chrom: string, mbSpan: number) => ({ chrom, startBp: 0, endBp: mbSpan * 1e6 })
+  const call = (chrom: string, mbSpan: number, status?: string) =>
+    ({ chrom, startBp: 0, endBp: mbSpan * 1e6, status })
   const many = [call('1', 5), call('2', 90), call('3', 20), call('4', 60), call('5', 7), call('6', 40),
-    call('7', 11), call('8', 120), call('9', 3)]
-  const { shown, rest } = zoomPicks(many)
-  assert.equal(shown.length, 6, 'at most six zooms fit across a page')
-  assert.deepEqual(shown.map((m) => m.chrom), ['2', '3', '4', '6', '7', '8'], 'the biggest stretches, in chromosome order')
-  assert.deepEqual(rest.map((m) => m.chrom), ['1', '5', '9'], 'the rest are named in one line, in chromosome order')
-  assert.equal(zoomPicks(many.slice(0, 3)).rest.length, 0, 'a cell with few changes zooms them all')
-  // A reading the card does not count waits behind every counted change, however long it is.
-  const mixed = [{ chrom: '1', startBp: 0, endBp: 200e6, status: 'also seen' },
-    { chrom: '2', startBp: 0, endBp: 9e6, status: 'counted' }]
-  assert.deepEqual(zoomPicks(mixed, 1).shown.map((m) => m.chrom), ['2'],
-    'the counted change is zoomed, not the longer reading that is not counted')
-  assert.equal(zoomPicks([]).shown.length, 0, 'a cell with no change zooms nothing')
+    call('7', 11), call('8', 120), call('9', 3), call('11', 8), call('14', 30), call('16', 4, 'also seen'),
+    call('17', 60), call('19', 59)]
+  const shown = zoomOrder(many)
+  assert.equal(shown.length, many.length, 'a cell with fourteen changes draws fourteen panels')
+  assert.deepEqual(shown.map((m) => m.chrom),
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '11', '14', '16', '17', '19'], 'in chromosome order')
+  assert.ok(shown.some((m) => m.status === 'also seen'),
+    'a reading the card does not count keeps its panel, so a chip is never left with nowhere to go')
+  const two = zoomOrder([{ chrom: '2', startBp: 5e6 }, { chrom: '2', startBp: 0 }])
+  assert.deepEqual(two.map((m) => m.startBp), [0, 5e6], 'two changes on one chromosome keep their order')
+  assert.equal(zoomOrder([]).length, 0, 'a cell with no change draws no panel')
 }
 
 // ---------------------------------------------------------------- the normal range and bar widths
@@ -272,7 +272,6 @@ assert.deepEqual(wrap('one two three four', 9), ['one two', 'three', 'four'])
   assert.ok(tl / ts < 8, `four times the markers took ${(tl / ts).toFixed(1)}x the time`)
 }
 
-console.log('plotSeries: ok')
 
 // ---------------------------------------------------------------- what the tracks are called (P8)
 // A track label says what the track is, never how it is computed, and no reader-facing string of the
@@ -296,3 +295,64 @@ console.log('plotSeries: ok')
   }
   console.log('  track labels say what each track is; no figure string says "letter"')
 }
+
+// ---------------------------------------------------------------- the saved file carries every panel
+// A saved figure has no control to click, so the one file it writes has to hold the cell and a panel
+// for every change. The layout is checked here rather than in the browser: every panel placed, none
+// overlapping, none outside the box, and every zoom below the cell.
+{
+  const sizes = [{ w: 1122, h: 520 }, ...Array.from({ length: 14 }, (_, i) => ({ w: 362, h: 200 + (i % 3) * 12 }))]
+  const { width, height, at } = sheet(sizes, 3, 18, 24)
+  assert.equal(at.length, sizes.length, 'every panel gets a place in the saved file')
+  assert.ok(width >= 1122 && height > 520, 'the box holds the cell and the zooms under it')
+  for (const [i, p] of at.entries()) {
+    assert.ok(p.x >= 0 && p.y >= 0 && p.x + sizes[i].w <= width && p.y + sizes[i].h <= height,
+      `panel ${i} sits inside the saved file`)
+    if (i > 0) assert.ok(p.y >= sizes[0].h, `zoom ${i} is below the cell, not over it`)
+  }
+  for (let i = 0; i < at.length; i += 1) {
+    for (let j = i + 1; j < at.length; j += 1) {
+      const a = { ...at[i], ...sizes[i] }; const b = { ...at[j], ...sizes[j] }
+      const over = a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h
+      assert.ok(!over, `panels ${i} and ${j} do not overlap in the saved file`)
+    }
+  }
+  // One change, one panel, and the grid still holds at a width that carries a single column.
+  const one = sheet([{ w: 642, h: 480 }, { w: 642, h: 210 }], 1, 18, 24)
+  assert.equal(one.at.length, 2, 'a cell with one change saves the cell and that one zoom')
+  assert.equal(one.width, 642, 'a single column is as wide as the cell')
+  assert.ok(one.at[1].y >= 480 + 24, 'the zoom clears the cell and the line that names the zooms')
+}
+// ---------------------------------------------------------------- no two badges sit on each other
+// Every change carries a number under its own chromosome, so a cell with many changes crowds the
+// short chromosomes at the right. A badge may move sideways; it may not land on its neighbour.
+{
+  const want = [900, 940, 948, 952, 1000, 1004]
+  const got = badgeX(want, 17, 9, 1113)
+  for (let i = 1; i < got.length; i += 1) {
+    assert.ok(got[i] - got[i - 1] >= 17 - 1e-9, `badge ${i} clears the one before it`)
+  }
+  assert.ok(got[0] >= 9 && got[got.length - 1] <= 1113, 'the badges stay inside the figure')
+  assert.deepEqual(badgeX([100, 300], 17, 9, 1113), [100, 300], 'badges that already clear are left alone')
+  // A row packed to the right edge is pulled back rather than drawn off the figure.
+  const tight = badgeX([1100, 1106, 1112, 1118], 17, 9, 1113)
+  assert.ok(tight[3] <= 1113 && tight[0] >= 9, 'a row that will not fit at the edge is pulled back')
+  for (let i = 1; i < tight.length; i += 1) assert.ok(tight[i] - tight[i - 1] >= 17 - 1e-9, 'and still clears')
+}
+
+// ---------------------------------------------------------------- a change with nothing to draw
+// A chromosome the array left with no bins still gets its panel: the caption says it cannot be
+// drawn, rather than the change going silently missing from a numbered list.
+{
+  const track = (bins: Map<string, Bin[]>): Track => ({
+    key: 'father', label: 'Copies from the father', tech: '', parent: 'paternal', kind: 'share',
+    shown: true, bins,
+  } as Track)
+  const bin: Bin = { startBp: 0, endBp: 1e6, value: 1, n: 10 } as Bin
+  const tracks = [track(new Map([['2', [bin]]]))]
+  assert.equal(drawable(tracks, '2'), true, 'a chromosome with bins is drawn')
+  assert.equal(drawable(tracks, '3'), false, 'a chromosome with no bins is not')
+  assert.equal(drawable([], '2'), false, 'and a figure with no tracks draws nothing')
+}
+
+console.log('plotSeries: ok')

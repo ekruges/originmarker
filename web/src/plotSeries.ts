@@ -346,25 +346,15 @@ export function viewOf(startBp: number, endBp: number, chromEndBp: number): { lo
   return { loBp, hiBp }
 }
 
-/** Most changes the figure zooms. Three zooms fit across a page and stay readable, so six is two
- *  rows; every change past that is named in one line instead. */
-export const MAX_ZOOMS = 6
-
 /**
- * The changes the figure zooms: the biggest called stretches, laid out in chromosome order.
+ * The changes a figure draws close up: every one of them, in chromosome order.
  *
- * A reading the card does not count as a change never takes a zoom from one it does: the panels
- * below are there to show the changes the headline reports.
+ * An overview and a panel for each change is the whole shape of the figure, so a cap would leave a
+ * reader with numbered entries that cannot be opened. The panels are laid out in the grid the width
+ * carries, so a cell with many changes makes the page longer rather than making the figure denser.
  */
-export function zoomPicks<T extends { chrom: string; startBp: number; endBp: number; status?: string }>(
-  calls: readonly T[], max = MAX_ZOOMS,
-): { shown: T[]; rest: T[] } {
-  const counts = (c: T) => (c.status === undefined || c.status === 'counted' ? 0 : 1)
-  const by = [...calls].sort((a, b) => counts(a) - counts(b) || (b.endBp - b.startBp) - (a.endBp - a.startBp))
-  const shown = by.slice(0, max)
-  const rest = by.slice(max).sort((a, b) => +a.chrom - +b.chrom)
-  shown.sort((a, b) => +a.chrom - +b.chrom || a.startBp - b.startBp)
-  return { shown, rest }
+export function zoomOrder<T extends { chrom: string; startBp: number }>(calls: readonly T[]): T[] {
+  return [...calls].sort((a, b) => +a.chrom - +b.chrom || a.startBp - b.startBp)
 }
 
 /** Tick spacing in Mb for an axis of this length: about six ticks. */
@@ -382,4 +372,65 @@ export function wrap(text: string, chars: number): string[] {
   }
   if (line) out.push(line)
   return out
+}
+
+/**
+ * Where each panel sits in the one file the figure saves: the cell first, then every zoom.
+ *
+ * A saved file has no control to click, so it has to carry every panel the page shows. The first
+ * size is the cell; the rest are the zooms, in the grid the page's own width carries.
+ */
+export function sheet(
+  sizes: readonly { w: number; h: number }[],
+  cols: number,
+  gap = 18,
+  head = 0,
+): { width: number; height: number; at: { x: number; y: number }[] } {
+  if (!sizes.length) return { width: 0, height: 0, at: [] }
+  const [deck, ...zooms] = sizes
+  const rowH: number[] = []
+  zooms.forEach((s, i) => {
+    const r = Math.floor(i / Math.max(1, cols))
+    rowH[r] = Math.max(rowH[r] ?? 0, s.h)
+  })
+  const top = deck.h + (zooms.length ? gap + head : 0)
+  const at = [{ x: 0, y: 0 }, ...zooms.map((s, i) => {
+    const r = Math.floor(i / Math.max(1, cols))
+    const c = i % Math.max(1, cols)
+    return {
+      x: c * (s.w + gap),
+      y: top + rowH.slice(0, r).reduce((t, v) => t + v + gap, 0),
+    }
+  })]
+  const width = Math.max(...at.map((p, i) => p.x + sizes[i].w))
+  const height = Math.max(...at.map((p, i) => p.y + sizes[i].h))
+  return { width, height, at }
+}
+
+/**
+ * Badge centres along one row of chromosomes, pushed apart so two numbers never sit on each other.
+ *
+ * Every change carries a number under its own chromosome, so a cell with many changes crowds the
+ * short chromosomes at the right. A badge moves sideways rather than disappearing: the line segment
+ * above it still marks where the change is.
+ */
+export function badgeX(wanted: readonly number[], gap: number, lo: number, hi: number): number[] {
+  const out = wanted.map((w) => w)
+  for (let i = 0; i < out.length; i += 1) {
+    out[i] = Math.max(out[i], lo, i ? out[i - 1] + gap : -Infinity)
+  }
+  for (let i = out.length - 1; i >= 0; i -= 1) {
+    out[i] = Math.min(out[i], hi, i < out.length - 1 ? out[i + 1] - gap : Infinity)
+  }
+  return out
+}
+
+/**
+ * Whether a chromosome has bars to draw.
+ *
+ * A change on a chromosome the array left with no bins still gets its own panel; the panel says in
+ * its caption that it cannot be drawn, rather than going silently missing from a numbered list.
+ */
+export function drawable(tracks: readonly Track[], chrom: string): boolean {
+  return tracks.some((t) => (t.bins.get(chrom) ?? []).length > 0)
 }

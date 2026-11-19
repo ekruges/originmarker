@@ -9,8 +9,9 @@
  */
 import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import {
-  cellPer, copyBars, COPY_MAX, copyWord, guardedBars, mergeBins, normalRange, perForStretch, tickStepMb,
-  totalBars, viewOf, wrap, zoomPicks, type Bin, type PlotData, type Role, type Track,
+  badgeX, cellPer, copyBars, COPY_MAX, copyWord, drawable, guardedBars, mergeBins, normalRange,
+  perForStretch, sheet,
+  tickStepMb, totalBars, viewOf, wrap, zoomOrder, type Bin, type PlotData, type Role, type Track,
 } from './plotSeries.ts'
 import { headline, KIND_WORD, type Defect } from './defects.ts'
 import { saidOf } from './pageSays.ts'
@@ -44,7 +45,6 @@ export interface Chip {
   what: string
   /** Why the card does not count this reading, where it does not. */
   note?: string
-  zoomed?: boolean
   colour: string
   bg: string
   muted?: boolean
@@ -94,30 +94,86 @@ function useWidth(): [React.RefObject<HTMLDivElement | null>, number] {
   return [ref, w]
 }
 
+/** The page's colour variables written out, so markup taken off the page stands on its own. */
+function fixVars(markup: string): string {
+  const css = getComputedStyle(document.documentElement)
+  return markup.replace(/var\((--[a-z0-9-]+)\)/g, (_, v: string) => css.getPropertyValue(v).trim() || '#888')
+}
+
 /** The page's colour variables written out, on a white ground, so the file stands on its own. */
 export function svgText(svg: SVGSVGElement): string {
-  const css = getComputedStyle(document.documentElement)
-  return svg.outerHTML.replace(/var\((--[a-z0-9-]+)\)/g, (_, v: string) => css.getPropertyValue(v).trim() || '#888')
+  return fixVars(svg.outerHTML)
+}
+
+/** Hand the reader a file. */
+function saveText(markup: string, name: string) {
+  const a = document.createElement('a')
+  a.href = URL.createObjectURL(new Blob([markup], { type: 'image/svg+xml' }))
+  a.download = `${name}.svg`
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000)
 }
 
 function SaveSvg({ svg, name }: { svg: React.RefObject<SVGSVGElement | null>; name: string }) {
   return (
     <button
       type="button"
-      onClick={() => {
-        if (!svg.current) return
-        const a = document.createElement('a')
-        a.href = URL.createObjectURL(new Blob([svgText(svg.current)], { type: 'image/svg+xml' }))
-        a.download = `${name}.svg`
-        a.click()
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000)
-      }}
+      onClick={() => { if (svg.current) saveText(svgText(svg.current), name) }}
       style={{
         border: 0, background: 'none', font: 'inherit', fontSize: 11, padding: 0, cursor: 'pointer',
         marginLeft: 'auto', paddingLeft: 12, whiteSpace: 'nowrap', color: 'var(--om-blue)', textDecoration: 'underline',
       }}
     >
       Save SVG
+    </button>
+  )
+}
+
+const SHEET_HEAD = 'Every change along its own chromosome, numbered as above'
+
+/**
+ * One file for the whole figure: the cell, then every zoom under it.
+ *
+ * The saved file has no control to click, so it cannot rely on the page's layout to reach a panel.
+ * Each `<svg>` on the page is placed in the sheet as it stands, keeping its own caption and words.
+ */
+function SaveFigure({ box, name, cols }: {
+  box: React.RefObject<HTMLDivElement | null>; name: string; cols: number
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const parts = box.current ? [...box.current.querySelectorAll('svg')] : []
+        if (!parts.length) return
+        const sizes = parts.map((s) => ({ w: +(s.getAttribute('width') ?? 0), h: +(s.getAttribute('height') ?? 0) }))
+        const head = parts.length > 1 ? 24 : 0
+        const { width, height, at } = sheet(sizes, cols, 18, head)
+        const placed = parts.map((s, i) => {
+          const c = s.cloneNode(true) as SVGSVGElement
+          c.setAttribute('x', String(at[i].x))
+          c.setAttribute('y', String(at[i].y))
+          c.removeAttribute('style')
+          return c.outerHTML
+        })
+        const label = 'Every chromosome of this cell, how many copies came from each parent,'
+          + ' and every change along its own chromosome'
+        saveText(fixVars(
+          `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}"`
+          + ` viewBox="0 0 ${width} ${height}" role="img" aria-label="${label}"`
+          + ' font-family="system-ui, -apple-system, sans-serif" font-size="11">'
+          + `<rect width="${width}" height="${height}" fill="#fff"/>`
+          + (head ? `<text x="1" y="${sizes[0].h + 31}" font-size="13" font-weight="700" fill="${INK}">${SHEET_HEAD}</text>` : '')
+          + placed.join('')
+          + '</svg>',
+        ), name)
+      }}
+      style={{
+        border: 0, background: 'none', font: 'inherit', fontSize: 11, padding: 0, cursor: 'pointer',
+        marginLeft: 'auto', paddingLeft: 12, whiteSpace: 'nowrap', color: 'var(--om-blue)', textDecoration: 'underline',
+      }}
+    >
+      Save SVG, the cell and every zoom
     </button>
   )
 }
@@ -229,7 +285,7 @@ const LEVEL_WORD: Record<number, string> = { 0: 'none', 1: 'one copy', 2: 'two c
 
 /* --- the whole cell, the top deck -------------------------------------------------------------- */
 
-export function WholeCell({ data, marks, name, numbers, focus, title, chips, caption }: {
+export function WholeCell({ data, marks, name, numbers, focus, title, chips, caption, save = true }: {
   data: PlotData; marks: readonly Mark[]; name: string
   /** Each mark's number in the list below, keyed `chrom:startBp`. */
   numbers?: ReadonlyMap<string, number>
@@ -242,6 +298,8 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
   /** One chip per mark, already numbered, in chromosome order. */
   chips?: readonly Chip[]
   caption?: string
+  /** False where the figure around it saves the cell and every zoom as one file instead. */
+  save?: boolean
 }) {
   const [ref, W] = useWidth()
   const svg = useRef<SVGSVGElement>(null)
@@ -277,6 +335,9 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
   const capLines = caption ? wrap(caption, Math.max(30, Math.floor(W / 5.6))) : []
   const footH = (chipList.length ? chipRows * CHIP_H + 14 : 0) + (capLines.length ? capLines.length * 14 + 10 : 0)
   const bodyTop = 6 + headH
+  /** The marks on one chromosome, in the order the list numbers them. */
+  const marksOn = (c: string) => marks.filter((m) => m.chrom === c)
+    .sort((a, b) => (numbers?.get(`${a.chrom}:${a.startBp}`) ?? 0) - (numbers?.get(`${b.chrom}:${b.startBp}`) ?? 0))
   rows.forEach((row, r) => {
     const total = row.reduce((s, c) => s + len(c), 0)
     const usable = W - 2 - GUT - G * (row.length - 1)
@@ -289,6 +350,23 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
     }
   })
   const H = bodyTop + rows.reduce((s, row) => s + blockOf(row), 0) + 4 + footH
+  // THE BADGES ARE SPACED ACROSS THE WHOLE ROW, not within one chromosome. Every change carries a
+  // number, so on a cell with many of them the short chromosomes at the right crowd into each
+  // other; a badge pushed sideways still sits under the line segment that marks its change.
+  const BADGE_GAP = 17
+  const badgeAt = new Map<string, number>()
+  rows.forEach((_row, r) => {
+    const want: number[] = []
+    const keys: string[] = []
+    for (const p of panels.filter((q) => q.row === r)) {
+      const ms = marksOn(p.c)
+      ms.forEach((m, i) => {
+        keys.push(`${m.chrom}:${m.startBp}`)
+        want.push(p.x + p.w / 2 + (i - (ms.length - 1) / 2) * BADGE_GAP)
+      })
+    }
+    badgeX(want, BADGE_GAP, 9, W - 9).forEach((x, i) => badgeAt.set(keys[i], x))
+  })
   const yOf = (top: number, v: number) => top + TH * (1 - Math.max(0, Math.min(COPY_MAX, v)) / COPY_MAX)
   const onMove = (e: PointerEvent<SVGSVGElement>) => {
     const r = e.currentTarget.getBoundingClientRect()
@@ -353,8 +431,7 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
               })}
               {(() => {
                 const axis = p.top + tracks.length * (TH + 20) + 4
-                const ms = marks.filter((m) => m.chrom === p.c)
-                  .sort((a, b) => (numbers?.get(`${a.chrom}:${a.startBp}`) ?? 0) - (numbers?.get(`${b.chrom}:${b.startBp}`) ?? 0))
+                const ms = marksOn(p.c)
                 // A chromosome carrying a loss and a gain says so: each mark draws its own piece of
                 // the line in its own colour, and the number badge beneath it takes the same colour.
                 const seg = ms.length ? p.w / ms.length : p.w
@@ -369,7 +446,8 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
                     {ms.map((m, i) => {
                       const n = numbers?.get(`${m.chrom}:${m.startBp}`)
                       if (n === undefined) return null
-                      const cx = p.x + p.w / 2 + (i - (ms.length - 1) / 2) * 17
+                      const cx = badgeAt.get(`${m.chrom}:${m.startBp}`)
+                        ?? p.x + p.w / 2 + (i - (ms.length - 1) / 2) * BADGE_GAP
                       return (
                         <g key={n}>
                           <circle cx={cx} cy={axis + 32} r={7.5} fill={markColour(m)} />
@@ -400,9 +478,6 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
                 <tspan fontWeight={700}>{`chr${c.chrom}`}</tspan>
                 {` ${c.where}: ${c.what}${c.note ? `, ${c.note}` : ''}`}
               </text>
-              {c.zoomed ? (
-                <text x={x0 + chipW - 4} y={y0 + 11} textAnchor="end" fontSize={9} fill={DIM}>shown below</text>
-              ) : null}
             </g>
           )
         })}
@@ -414,9 +489,11 @@ export function WholeCell({ data, marks, name, numbers, focus, title, chips, cap
         ))}
       </svg>
       <Tip tip={tip} w={W} />
-      <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
-        <SaveSvg svg={svg} name={`${name}-cell`} />
-      </div>
+      {save ? (
+        <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
+          <SaveSvg svg={svg} name={`${name}-cell`} />
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -446,7 +523,11 @@ export function Zoom({ data, mark, marks, number, width, title, caption, saveNam
   const L = 66; const R = 8; const PW = Math.max(40, W - L - R)
   const x = (bp: number) => L + PW * Math.max(0, Math.min(1, (bp - loBp) / (hiBp - loBp)))
   const head = wrap(title ?? `Chromosome ${mark.chrom}: ${mark.word}`, Math.max(22, Math.floor(W / 7)))
-  const capLines = caption ? wrap(caption, Math.max(28, Math.floor(W / 5.3))) : []
+  const drawn = drawable(tracks, mark.chrom)
+  const capLines = caption ? wrap(drawn ? caption
+    : 'This change has no bars to draw: the array read no markers on this chromosome that the figure '
+      + 'can bin. The change itself stands on what the scans measured, which the card states.',
+  Math.max(28, Math.floor(W / 5.3))) : []
   const TH = W < 420 ? 66 : 78
   const top0 = (number ? 6 : 0) + head.length * 15 + 12
   const colour = markColour(mark)
@@ -485,7 +566,7 @@ export function Zoom({ data, mark, marks, number, width, title, caption, saveNam
         {head.map((l, i) => (
           <text key={i} x={number ? 23 : 1} y={13 + i * 15} fontSize={12} fontWeight={700} fill={INK}>{l}</text>
         ))}
-        {tracks.map((t, ti) => {
+        {(drawn ? tracks : []).map((t, ti) => {
           const top = top0 + ti * (TH + 20)
           const y = (v: number) => top + TH * (1 - Math.max(0, Math.min(COPY_MAX, v)) / COPY_MAX)
           const rg = copyRange(data, t, per, called)
@@ -585,16 +666,14 @@ export function CellFigure({ data, marks, name, title }: {
   title: string
 }): ReactNode {
   const [ref, W] = useWidth()
+  const box = useRef<HTMLDivElement | null>(null)
   if (!data) return null
-  const { shown } = zoomPicks(marks.filter((m) => !m.withheld))
-  // EVERY mark is numbered, in chromosome order, and the list below holds every number: a number
-  // under its own chromosome and a line that names it cannot be read onto the wrong chromosome,
-  // which three lanes of floating labels could. Whether a change is zoomed is a quiet note on its
-  // line, never the presence or absence of a badge.
-  const ordered = [...marks].sort((a, b) => +a.chrom - +b.chrom || a.startBp - b.startBp)
+  // EVERY mark is numbered, in chromosome order, and every one of them has its own panel below: a
+  // number under its own chromosome, a chip that names it and a panel that draws it. A reader who
+  // can see twelve entries can open all twelve.
+  const ordered = zoomOrder(marks)
   const numbers = new Map<string, number>()
   ordered.forEach((m, i) => numbers.set(`${m.chrom}:${m.startBp}`, i + 1))
-  const zoomed = new Set(shown.map((m) => `${m.chrom}:${m.startBp}`))
   // The card's own three kinds, in the card's own words: a counted change at full strength, and a
   // reading it does not count set quietly, so the two are told apart at a glance without a legend.
   const NOTE: Record<string, string> = {
@@ -610,7 +689,6 @@ export function CellFigure({ data, marks, name, title }: {
       where: m.whole ? 'whole chromosome' : `${mb(m.startBp)} to ${mb(m.endBp)} Mb`,
       what: m.word,
       note: m.withheld ? 'found but not reported' : NOTE[m.status ?? 'counted'],
-      zoomed: zoomed.has(key),
       colour: markColour(m),
       bg: quiet ? '#f6f7f8' : m.gain ? 'var(--om-gain-bg)' : 'var(--om-defect-bg)',
       muted: quiet,
@@ -625,21 +703,26 @@ export function CellFigure({ data, marks, name, title }: {
     + `${data.split ? ` ${CAPTION_LEVELS}` : ''}${data.split && hasGain ? ` ${CAPTION_GAIN}` : ''}`
   return (
     <div ref={ref} style={{ marginTop: 14 }}>
-      <WholeCell data={data} marks={marks} name={name} numbers={numbers}
-        title={title} chips={chips} caption={caption} />
-      {shown.length ? (
-        <>
-          <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginTop: 12 }}>
-            Each change along its own chromosome, numbered as above
-          </div>
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 6 }}>
-            {shown.map((m) => (
-              <Zoom key={`${m.chrom}:${m.startBp}`} data={data} mark={m} marks={marks}
-                number={numbers.get(`${m.chrom}:${m.startBp}`)} width={colW} caption={zoomCaption(data, m)} />
-            ))}
-          </div>
-        </>
-      ) : null}
+      <div ref={box}>
+        <WholeCell data={data} marks={marks} name={name} numbers={numbers}
+          title={title} chips={chips} caption={caption} save={false} />
+        {ordered.length ? (
+          <>
+            <div style={{ fontSize: 13, fontWeight: 700, color: INK, marginTop: 12 }}>{SHEET_HEAD}</div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 18, marginTop: 6 }}>
+              {ordered.map((m) => (
+                <Zoom key={`${m.chrom}:${m.startBp}`} data={data} mark={m} marks={marks}
+                  number={numbers.get(`${m.chrom}:${m.startBp}`)} width={colW} caption={zoomCaption(data, m)} />
+              ))}
+            </div>
+          </>
+        ) : null}
+      </div>
+      {/* ONE FILE, EVERY PANEL. A saved figure cannot have a control to click, so the file carries
+          the cell and every zoom rather than the overview on its own. */}
+      <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 4 }}>
+        <SaveFigure box={box} name={`${name}-cell`} cols={cols} />
+      </div>
     </div>
   )
 }
@@ -662,8 +745,8 @@ function wordOf(gain: boolean, parent: Role | null, both: boolean, withheld?: st
     || kind === 'monosomy' || kind === 'trisomy' || kind === 'segmental-deletion'
     || kind === 'segmental-duplication'
   if (!plain) return KIND_WORD[kind] ?? (gain ? 'extra copy' : 'copy gone')
-  if (parent) return `${parent === 'paternal' ? "father's" : "mother's"} ${gain ? 'doubled' : 'gone'}`
-  return both ? (gain ? 'both doubled' : 'both gone') : gain ? 'extra copy' : 'copy gone'
+  if (parent) return `${parent === 'paternal' ? "father's" : "mother's"} copy ${gain ? 'doubled' : 'gone'}`
+  return both ? (gain ? 'both copies doubled' : 'both copies gone') : gain ? 'an extra copy' : 'a copy gone'
 }
 
 /** A segment row as a mark. */
