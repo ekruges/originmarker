@@ -365,6 +365,28 @@ G7  CHECKS. scripts/checks.sh exits 0, which includes tsc -b from web/; scripts/
     parent, both parents) read their arrays and print their calls, including the chromosome-16
     loss of the one public cell that carries one.
 
+WHAT IS NOT IN THIS RELEASE, and what each would take
+-----------------------------------------------------
+- JOY'S SISTER-CELL IDEA, WIRED (plan 3.1). Out because the page keeps a run's other arrays as
+  genotype calls with no intensity, so what a sister shows lost cannot be read from them the way
+  it is read on the cell in hand. It would take: a per-chromosome call rate for each of the run's
+  other arrays, which calls alone give and which shows a whole-chromosome loss; the same-genome
+  check on those calls; then the reading the module already does, on the cell's own windows. Seven
+  of the nine events it finds come from a sister's whole chromosome, so that shape is most of the
+  value. Measured here at +4 stated gains with the same-genome rule and 0 of 70 on stated normals.
+- THE NINE PIECES THAT NEED THE ALLELE CHANNEL. Out because the fix is a second channel, not a
+  smaller bar, and the bar was measured once and rejected. The sketch is above; about a day plus
+  its own gate run.
+- THE 24 GAINS IN THE TWO CELLS WHOSE GAINED CHROMOSOMES ARE THE MAJORITY. Out because nothing
+  read against the cell's own level can see them: those chromosomes ARE the cell's level. It would
+  take an absolute anchor, and the one tried on 16 November (an anchored zero from the alleles)
+  was measured and failed. The heterozygosity study's finding stands as the open route: the call
+  rate collapsing is what marks a stretch with no template, and it is not a copy axis.
+- THE PARITY DEFECT, a gain found with no parent and lost with every parent on three cells. Out
+  because its measured fix reads pieces against the 8 or more two-copy chromosomes and adds 11
+  losses, and this item's gate forbids changing a loss call. It belongs with whatever item is
+  allowed to move the loss side.
+
 WHAT THIS LEAVES
 ----------------
 - G3 and G5 are one decision, written under G5. Until it is made, two built gains still print as a
