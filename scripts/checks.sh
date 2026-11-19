@@ -38,6 +38,9 @@ echo "requirements, against the shipped code"
 # each test exercised a fixture the application never sees.
 run 'requirements audit' . audit/requirements.check.ts
 run 'joy-common line reader' . audit/joy-common.check.ts
+# THE RESULTS FILES ARE READ BY PEOPLE WITHOUT THE CORPUS, and one of them drifted into naming
+# arrays by the tail of their accession. See the header of the check.
+run 'no tracked results file names an array' . audit/no-array-names.check.ts
 
 # TYPESCRIPT IS TYPE-CHECKED HERE, NOT ONLY AT DEPLOY TIME. The self-checks above run through
 # tsx, which strips types without checking them, so this script reported "all checks passed" on a

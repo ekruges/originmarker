@@ -22,12 +22,26 @@
  *    nothing.
  */
 import { mad, median } from './intensityNull.ts'
+import { COPY_SHIFT_GAIN_FLOOR } from './parentage.ts'
 import { COMMON_ALLELE_MIN, MIN_SHARE_MARKERS, type ShareTally, type CopyState } from './oneParentState.ts'
 import { ONE_PARENT_ORIENT_Z, ALLELE_GAIN_SCALE_FLOOR, ALLELE_GAIN_MIN_REFERENCE } from './gainOrigin.ts'
 
-/** Rule 1: a copy state that reads a lost parent on a chromosome intensity calls gained. */
-export const gainReadAsLoss = (state: CopyState | undefined, intensityGain: boolean): boolean =>
-  intensityGain && (state === 'other-lost' || state === 'parent-lost')
+/**
+ * Rule 1: a copy state that reads a lost parent where the intensity reads MORE DNA than the cell's
+ * own level, whether or not a gain can be called there.
+ *
+ * THE TRIGGER IS THE INTENSITY, NOT THE CALL. Keyed on the gain CALL alone it left 3 of 158 built
+ * gains printing as a lost parent with the measured father (the D2 line of
+ * audit/truth/extra-copy-one-parent-2026-11-16.txt): the intensity on those chromosomes is up, but
+ * not far enough past the array's own spread for a gain to be asserted, so the guard never fired
+ * and the opposite direction was printed instead. A lost copy cannot raise intensity at all, so
+ * evidence too weak to assert a gain is still enough to refuse its opposite. The magnitude asked
+ * is the gain floor, parentage.COPY_SHIFT_GAIN_FLOOR.
+ */
+export const gainReadAsLoss = (
+  state: CopyState | undefined, intensityGain: boolean, lrrShift = NaN,
+): boolean => (state === 'other-lost' || state === 'parent-lost')
+  && (intensityGain || lrrShift >= COPY_SHIFT_GAIN_FLOOR)
 
 /** Rule 2: the chance a rebuilt homozygote is really homozygous. q: founder frequency of the allele
  *  it lacks. m: the fewest pronuclei the rebuild requires per marker. 1 where m is not known. */

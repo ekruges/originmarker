@@ -30,7 +30,9 @@
  *
  * Self-check:  node src/segments.check.ts
  */
-import { isAutosome } from './parentage.ts'
+import {
+  isAutosome, OFF_POLE_LO, OFF_POLE_HI, offPoleAgainst, keepsOffPole, ONE_EXTRA_COPY_MAX,
+} from './parentage.ts'
 
 /**
  * Smallest segment that can be called, in CALLED informative markers.
@@ -125,6 +127,30 @@ export const SEGMENT_LRR_SHIFT = 1.0
 export const GAIN_SHIFT_FRACTION = Math.log2(3) - 1
 
 export const SEGMENT_GAIN_SHIFT = SEGMENT_LRR_SHIFT * GAIN_SHIFT_FRACTION
+
+/**
+ * THE PIECE ARM KEEPS THE WHOLE MAGNITUDE OF A THIRD COPY, and here is the measurement that says so.
+ *
+ * WHAT IT COSTS. Real gain pieces of this corpus read 0.23 to 0.50 (17 November), so this bar sits
+ * above the entire observed population and stops 9 stated gains whose region test already clears by
+ * 3 to 20 times (797 to 5,056 against 250). Those nine stay missed.
+ *
+ * WHY IT IS NOT LOWERED ANYWAY. Run once at the whole-chromosome arm's gain floor, 0.30, on the 72
+ * arrays stated free of variation: gains printed go from 9 on 2 arrays to 21 on 12, and what it
+ * adds is the artefact class this scan has always had to hold off, dense-probe windows in the HLA
+ * region of chromosome 6, on chromosome 19, and at 17p13. The whole-chromosome arm's own floor
+ * carries no such cost (0 of 1,656 published-normal chromosomes, 0 of 1,188 on these arrays),
+ * because a whole chromosome is not a window the probe density can manufacture.
+ *
+ * SO THE PIECE ARM NEEDS A SECOND CHANNEL RATHER THAN A SMALLER NUMBER. The one measured to work
+ * on pieces is the allele side: on the published gain pieces with no parent, the B-allele spread at
+ * middle markers separates at 0.92 where the intensity alone is flat, and with both parents the
+ * father's share at opposite homozygotes calls the side right 8 times of 8
+ * (audit/truth/gain-figure-levers-2026-11-17.txt). That is a build, not a bar, and it is not in
+ * this item. A second figure tried after seeing this score would be the tuning plan rule 8 forbids.
+ *
+ * See audit/truth/gains-called-2026-11-18.txt, variant A and variant B.
+ */
 
 /**
  * Reciprocal overlap at which two opposite-parent absence windows are taken to describe ONE
@@ -506,6 +532,28 @@ export const GAIN_NOMINATION_QUANTILE = 0.70
  */
 export const MIN_SEGMENT_SPAN_BP = 1_000_000
 
+/**
+ * The same floor for a GAIN piece, which is the one the likelihood loss scans already use.
+ *
+ * MEASURED ON THE OPEN ROWS, 19 November, over 636 records of 391 arrays carrying 43 printed gain
+ * pieces. Of the 6 printed under 3 Mb, none is right by the paper, and every one sits in a probe
+ * cluster: 9.4x, 3.1x and 2.9x the genome's own markers per megabase. Of the pieces that ARE right,
+ * none is under 10 Mb and every one sits at ordinary density, 0.7x to 1.7x. One of the six is on a
+ * chromosome a paper states NORMAL and the other two are on arrays with no stated karyotype.
+ *
+ * So the floor costs nothing measurable on this corpus and removes the last false gain on the 72
+ * arrays stated free of variation. It is the figure `otherParentLoss.OTHER_MIN_SPAN_BP` already
+ * applies to a likelihood loss, not a new one, and it is a measured rule rather than a declared
+ * limit: it rests on the six against the zero, not on a view about how small a claim may be.
+ *
+ * THE LOSS ARM KEEPS 1 MB. Nothing here touches it.
+ *
+ * The figure is written out rather than imported from `otherParentLoss`, which imports this
+ * module: a value read across a cycle at module-init time is undefined half the time depending on
+ * which side the bundler enters first. `segments.check.ts` pins the two to each other instead.
+ */
+export const MIN_GAIN_SPAN_BP = 3_000_000
+
 /** A sample's intensity-high cut and the per-chromosome rates it produces, for `scanCopyGain`. */
 export interface HighLrrProfile {
   /** The log R above which a marker counts, taken from this sample's own autosomes. */
@@ -570,11 +618,14 @@ export function highLrrProfile(
  * the same event seen twice and is dropped, not reported again.
  */
 export function scanCopyGain(
-  markers: readonly { chrom: string; pos: number; log2R: number | null }[],
+  markers: readonly { chrom: string; pos: number; log2R: number | null; baf?: number | null }[],
   nullHighRate: number,
   genomeLrr: number,
   profile: HighLrrProfile,
   already: readonly Segment[] = [],
+  /** Median off-pole share of the cell's reference chromosomes. NaN withholds every piece here:
+   *  see parentage.GAIN_OFF_POLE_MIN. */
+  offPoleReference = NaN,
   minMarkers = MIN_SEGMENT_MARKERS,
   threshold = SEGMENT_LRT,
   gainShift = SEGMENT_LRR_SHIFT * GAIN_SHIFT_FRACTION,
@@ -591,10 +642,21 @@ export function scanCopyGain(
       .map((m) => m.log2R as number)
     if (!inside.length) continue
     inside.sort((a, b) => a - b)
-    // A segmental call has to span enough to be segmental, measured on what it reports.
-    if (segmentCoords(h).spanBp < MIN_SEGMENT_SPAN_BP) continue
+    // A segmental call has to span enough to be segmental, measured on what it reports, and a gain
+    // has to span what a gain that was ever right spans. See MIN_GAIN_SPAN_BP.
+    if (segmentCoords(h).spanBp < MIN_GAIN_SPAN_BP) continue
     const delta = inside[inside.length >> 1] - genomeLrr
     if (delta < gainShift) continue
+    // TWO DIFFERENT ALLELES OVER THE SAME STRETCH, which one homologue at twice the intensity does
+    // not have. The same test the whole-chromosome arm applies, on this window's own markers, and
+    // with the same bound: a step no larger than one extra copy is not asked, because an isodisomic
+    // third copy carries one allele too. See parentage.GAIN_OFF_POLE_MIN and ONE_EXTRA_COPY_MAX.
+    if (delta >= ONE_EXTRA_COPY_MAX) {
+      const bafs = ms.filter((m) => m.pos >= h.startBp && m.pos <= h.endBp
+        && m.baf !== null && m.baf !== undefined && Number.isFinite(m.baf)).map((m) => m.baf as number)
+      const off = bafs.filter((v) => v >= OFF_POLE_LO && v <= OFF_POLE_HI).length
+      if (!keepsOffPole(offPoleAgainst({ off, n: bafs.length }, offPoleReference).ratio)) continue
+    }
     const dup = already.some((s) => s.chrom === h.chrom && reciprocalOverlap(
       h.startBp, h.endBp, s.startBp, s.endBp) >= RECIPROCAL_OVERLAP)
     if (dup) continue
@@ -639,8 +701,11 @@ export function scanCopyNumber(
     // place and looked like the floor having no effect.
     if (segmentCoords(h).spanBp < MIN_SEGMENT_SPAN_BP) continue
     // THE TWO ARMS ASK DIFFERENT MAGNITUDES, because the events are different sizes: see
-    // GAIN_SHIFT_FRACTION. A symmetric test here refused four real gains at 0.815 to 0.998.
-    if (delta >= gainShift) out.push({ ...h, kind: 'copy-gain' })
+    // GAIN_SHIFT_FRACTION. A symmetric test here refused four real gains at 0.815 to 0.998. They
+    // ask different spans too: see MIN_GAIN_SPAN_BP.
+    if (delta >= gainShift) {
+      if (segmentCoords(h).spanBp >= MIN_GAIN_SPAN_BP) out.push({ ...h, kind: 'copy-gain' })
+    }
     else if (delta <= -shift) out.push({ ...h, kind: 'copy-loss' })
   }
   return out
