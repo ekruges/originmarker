@@ -532,7 +532,56 @@ own gate run on the nine pieces, the 72 quiet arrays and the 1,656 published-nor
 
 THE THREE-WAY TABLE
 -------------------
-(filled in by the run)
+Run 19 November. Three arms differing in rule 4 alone, each against main at 6.16.0, on the 270
+with-parent rows of the harness, the 20 with-parent rows of the gain list, and the constructed
+gains. Every no-parent row is identical in all three and is not re-run: the block rule 4 sits in
+runs only where a parent's genome is shown, and the one-parent gain test it also feeds is reached
+only where the copy states exist, which needs a parent. The constructed gains were taken on
+chromosome 22 for all five cells in arms (b) and (c), which is where all three reversed
+constructions sit; arm (a) has the full set.
+
+                                           (a) unscoped   (b) scoped    (c) no rule 4
+  gains called on the published cells          16 of 52     16 of 52      16 of 52
+    of which with a parent, per setup           1 of 8       1 of 8        1 of 8
+  false gains on the 72 quiet arrays            1 on 1       1 on 1        1 on 1
+  built gains printed as a loss, of 158          2             2            3
+    the reversed gain the rule can reach       FIXED         FIXED        not fixed
+  stated normals left alone, no parent      1197 of 1200  1197 of 1200  1197 of 1200
+    second paper, no parent                   456 of 477    456 of 477    456 of 477
+    second paper, measured father             436 of 477    436 of 477    436 of 477
+    second paper, rebuilt father              446 of 477    446 of 477    445 of 477
+    second paper, both parents                433 of 477    433 of 477    433 of 477
+  loss claims that move against main            3             2            0
+
+The published-gain count, the quiet arrays and the two no-parent normal lines cannot differ
+between these arms and are shown for completeness.
+
+EVERY LOSS CLAIM THAT MOVES, with what the paper says about it
+
+  (a) UNSCOPED, three claims on four rows
+      cell 2369 chr9, measured father   a paternal lost copy withheld   RIGHT: the paper states
+                                        this chromosome normal
+      cell 2369 chr9, measured father   a parental-absence stretch over 16.9-135.1 Mb printed in
+                                        its place, which is the same false reading in another
+                                        shape: the whole-chromosome claim was what suppressed it
+      cell 2369 chr9, rebuilt father    a paternal lost copy withheld   RIGHT, as above
+      cell 2420 chr13, measured father  a maternal lost copy withheld   WRONG: the paper states a
+                                        whole-chromosome maternal LOSS there
+      cell 2420 chr13, rebuilt father   a maternal lost copy withheld   WRONG, as above
+
+  (b) SCOPED, two claims on two rows: the two cell 2369 lines above, both RIGHT, and the stretch
+      printed in place of the first. Cell 2420 is untouched: its alleles read a lost copy on 13 of
+      its 22 autosomes, so its normal majority is 0.318 with the rebuilt father and 0.364 with the
+      measured one, far under the 0.80 the intensity reference is already gated on, and rule 4
+      does not act there. Cell 2369 reads 0.909 and 0.955, so it does.
+
+  (c) NO RULE 4, nothing moves: every loss claim, parent and coordinate is identical to main, and
+      the false paternal loss on the chromosome the paper states normal stays printed.
+
+SO (b) IS STRICTLY BETTER THAN BOTH, which is why the owner's trade did not have to be made. It
+keeps the reversed construction fixed and the false loss withheld, as (a) does, and it keeps the
+correct maternal loss, as (c) does. The separation is not near the bar: 0.32 and 0.36 against 0.91
+and 0.96, with the gate at 0.80.
 
 FILES (untracked, audit/local/gains-2026-11-18/)
 ------------------------------------------------
