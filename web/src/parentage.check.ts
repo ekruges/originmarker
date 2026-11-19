@@ -684,8 +684,17 @@ console.log('parentage.check.ts OK')
   // reported shift is the chromosome's median against the null's centre, not the nominal figure.
   assert.equal(build(COPY_SHIFT_GAIN_FLOOR - 0.05).aneuploidy, undefined,
     'under the gain floor nothing is reported upward either')
-  assert.equal(build(COPY_SHIFT_GAIN_FLOOR).aneuploidy, 'gain',
+  const atFloor = build(COPY_SHIFT_GAIN_FLOOR)
+  assert.equal(atFloor.aneuploidy, 'gain',
     'a third copy on amplified material reads 0.23 to 0.50 and must be reachable')
+  // AND THE CARD MUST QUOTE THE BAR THE CALL WAS ACTUALLY MADE AT. It quoted the loss floor on
+  // both directions, so a gain called at 0.30 read "at least 0.40 log2 ... over the 0.33 that four
+  // arrays of one biopsy disagree by", which is two false statements about the call in front of it.
+  assert.ok(atFloor.note!.includes(COPY_SHIFT_GAIN_FLOOR.toFixed(2))
+    && !atFloor.note!.includes(`at least ${COPY_SHIFT_FLOOR.toFixed(2)} log2`),
+    `a gain's note must quote the gain floor and not the loss floor: ${atFloor.note}`)
+  assert.ok(build(-1.0).note!.includes(`at least ${COPY_SHIFT_FLOOR.toFixed(2)} log2`),
+    'and a loss keeps the floor it was called at')
   assert.ok(0.33 < COPY_SHIFT_FLOOR && COPY_SHIFT_FLOOR < 0.559,
     'the floor must sit above the largest false shift measured on real arrays and below the '
     + 'smallest true one, which is a trisomy read on trophectoderm')

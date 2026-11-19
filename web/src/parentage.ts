@@ -1625,8 +1625,13 @@ export function classify(
               + 'threshold measured on chromosomes carrying nothing.'} `
           + `The direction is the sign of a shift that cleared both gates: wider than this `
           + `array's own spread between its chromosomes, and at least `
-          + `${COPY_SHIFT_FLOOR.toFixed(2)} log2, which sits under the 0.585 a third copy produces `
-          + 'and over the 0.33 that four arrays of one biopsy disagree by.'
+          + (aneu === 'gain'
+            ? `${COPY_SHIFT_GAIN_FLOOR.toFixed(2)} log2, which is what a third copy is worth on `
+              + 'this material. A third copy is log2(3/2) = 0.585 where a lost copy is 1.0, so one '
+              + 'floor for both directions asks far more of a gain, and the third copies measured '
+              + 'on this corpus read 0.23 to 0.34.'
+            : `${COPY_SHIFT_FLOOR.toFixed(2)} log2, which sits under the 0.585 a third copy `
+              + 'produces and over the 0.33 that four arrays of one biopsy disagree by.')
           + (aneu === 'gain'
             ? ' WHICH PARENT SUPPLIED THE EXTRA COPY IS NOT RESOLVED. What names a parent on a '
               + 'loss is absence: how often this sample lacks an allele the parent had to '
