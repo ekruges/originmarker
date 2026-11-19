@@ -1,0 +1,169 @@
+Finding the extra copies: the rule, the gate, and what it scored
+================================================================
+Written 18 November 2026 BEFORE the rule below was built or run, as plan rule 8 requires. Plan items
+3.1, 3.2 and 3.3. Open arrays only: every list row is checked against audit/local/truth/units.tsv
+before a file is opened, and a run holding a sealed or exposed array is refused. The 123 sealed
+arrays were not read. Cells are given by number or by the array id of a published series; no
+laboratory barcode is in this file.
+
+WHAT IS WRONG TODAY, with the cause of each
+-------------------------------------------
+Measured on 6.9.0 (audit/local/gains-breaks-2026-11-17/report.txt) and on 6.4.1
+(audit/local/lab-2026-11-16/report.txt). Nothing below is new work; it is the lead this rule follows.
+
+1. GAINS ARE MISSED. Of the 53 stated gains on the 30 open cells the gain figure study scores
+   (audit/truth/gain-figure-levers-2026-11-17.txt), 13 are called. Causes, per event:
+     - 28 under the bar. The whole-chromosome arm asks |shift| >= 0.40 log2 and the piece arm
+       >= 0.585. Real third copies in this material read 0.23 to 0.34 whole and 0.23 to 0.50 on a
+       piece, so the entire observed population of real third copies sits under the piece bar and
+       half of it under the whole-chromosome bar. 9 pieces whose region test already clears (797 to
+       5056 against a bar of 250) are stopped by that bar alone.
+     - 8 have no intensity reference.
+     - 3 print as something else.
+     - 24 of the 28 are in two cells whose gained chromosomes ARE the cell's majority, where no test
+       read against the cell's own level can see them. Those are not reachable here and are not
+       counted as reachable.
+2. FALSE GAINS ON THE QUIET ARRAYS. 9 on 2 of the 72. Eight are whole chromosomes on one array at
+   about twice the majority's intensity, with their markers AT the homozygous poles: one homologue,
+   not three copies. The heterozygous-call veto (GAIN_HET_RATIO_MAX) refuses a raised group only
+   where it carries MORE heterozygous calls than the majority, and this group carries 0.42x, so the
+   veto reads one homologue as confirming a third copy. The ninth is a 1.7 Mb piece in the HLA
+   region at 9.4x mean probe density.
+3. A BUILT GAIN PRINTS AS A LOSS. 3 of 158 held-out constructions with the measured father
+   (audit/truth/extra-copy-one-parent-2026-11-16.txt, gate D2). Cause, traced there: an extra copy
+   of the loaded parent puts the copy-state share r at 2/3 of the cell's disomic level and an extra
+   copy of the other parent's at 4/3, which on some cells crosses OTHER_LOST_MAX or PARENT_LOST_MIN.
+   The guard against that (oneParentGain rule 1) acts only where the intensity scan CALLS a gain, so
+   a gain the intensity sees but cannot call still prints as a lost parent.
+
+THE RULE
+--------
+An extra copy is printed only on this evidence, in this order. 1 and 2 are both required; 3 only
+says whose copy it is and never makes the call.
+
+1. THE STRETCH STILL CARRIES TWO DIFFERENT ALLELES. P is the share of a stretch's markers whose B
+   allele fraction lies between 0.2 and 0.8, which is the share sitting OFF the two homozygous
+   poles. A raised whole chromosome or a nominated gain piece is printed only where
+
+       P(stretch) >= 0.5 x median P(the chromosomes the intensity reference is taken among)
+
+   and is otherwise withheld with its cause. WHERE THE BAR COMES FROM: a third copy of a normal
+   chromosome carries both parents' homologues, so it keeps every marker that was off the poles
+   (expected ratio about 1); one homologue doubled keeps none (about 0). 0.5 is the midpoint, and it
+   was set before any score (audit/local/lab-2026-11-16/report.txt section 1, written 16 November;
+   a bar of 0.3 was also looked at there and is NOT used, because its score was seen first).
+   READABLE ONLY WITH A REFERENCE: fewer than 200 markers with a B allele fraction in the stretch,
+   or fewer than 4 reference chromosomes, and the gain is withheld rather than printed, which is the
+   same direction every other guard in this tool fails in.
+   The existing veto is untouched and still fires on a raised GROUP carrying more heterozygous calls
+   than the majority. This is its missing other end, per chromosome rather than per group.
+
+2. THE INTENSITY IS UP BY AT LEAST A THIRD COPY'S WORTH ON THIS MATERIAL: 0.30 log2 against the
+   cell's own level, for a whole chromosome and for an intensity-nominated piece alike, with every
+   relative test unchanged (a whole chromosome still needs z >= 5.49 against the spread of the
+   array's own chromosomes; a piece still needs its region test at 250 and the 1 Mb span).
+   WHERE 0.30 COMES FROM: measured on the whole-chromosome arm, 17 November (plan 3.3): a floor of
+   0.30 recovers 2 stated gains and adds 0 calls on 1,656 chromosomes published normal and 0 on the
+   1,188 chromosomes of the 72 quiet arrays; 0.25 adds 1 call on a published-normal chromosome and
+   0.20 adds 3. It is the lowest level the existing measurement shows to cost nothing, and the
+   requirement it answers is this item's own gate line ("stated normal chromosomes left alone does
+   not fall"). Why it is under 0.40: a third copy is log2(3/2) = 0.585 against a lost copy's 1.0, so
+   one absolute floor for both directions asks 1.71x as much of a gain as of a loss.
+   THE LOSS FLOORS ARE NOT TOUCHED: 0.40 whole, 1.0 on a piece, 0.14 on unamplified material. The
+   bulk floor is not scaled either: 0.14 already sits under every bulk trisomy measured (0.299 to
+   0.357), and nothing here measures bulk.
+   THE OTHER PIECE ARM IS NOT TOUCHED. A piece nominated because the array STOPPED CALLING there
+   and whose intensity went up (scanCopyNumber's gain arm) keeps the 0.585 bar: its region test is
+   on the no-call rate, so the magnitude test is the only thing standing between it and a region the
+   array merely failed on. The arm this rule lowers (scanCopyGain) nominates on the intensity
+   itself, so its region test and its magnitude test read the same quantity.
+
+3. WHOSE COPY IT IS. Unchanged. With both parents, the father's share at opposite homozygotes; with
+   one parent, his share at his homozygous markers, and the heterozygous-call route upward only.
+
+WHAT WITHHOLDS A GAIN, and what is withheld rather than reversed
+----------------------------------------------------------------
+4. A LOST PARENT IS NOT PRINTED WHERE THE INTENSITY SAYS THERE IS MORE DNA. With one parent, a
+   chromosome whose copy-state share reads a lost parent is not printed as one where its intensity
+   sits at or above +0.30 log2 against the cell's own level, whether or not the relative test lets a
+   gain be CALLED there. It is scored as carrying both parents and goes to the gain test, exactly as
+   rule 1 of audit/truth/extra-copy-one-parent-2026-11-16.txt already does on a called gain, and the
+   limits say why no parent is named. WHY THE WEAKER TRIGGER IS RIGHT: a lost copy cannot raise
+   intensity at all, so evidence that is not enough to assert a gain is still enough to refuse its
+   opposite. A tool that reports the opposite direction is worse than one that says nothing.
+5. Nothing above changes a loss call, a loss coordinate or a named lost parent anywhere the
+   intensity does not read above the cell's own level by a third copy's worth.
+
+JOY'S TWO CANDIDATES, measured here and kept only if they earn their place
+--------------------------------------------------------------------------
+C1. A GAIN READ FROM A SISTER CELL'S LOSS (plan 3.1, ask 4). The module and its bars exist and are
+    not wired (audit/local/pending-3.1/sisterGain.ts, 14 November: an interval a sister shows lost
+    is read in this cell against its own reference chromosomes, called at shift >= 0.25 and z >= 3).
+    THE SAME-GENOME RULE IS PART OF THE CANDIDATE, as plan 3.1 states it: a sister counts only
+    where the two arrays read as one genome, opposite homozygotes at or under 0.02 of their shared
+    calls. Without it the reading trusts the embryo label, and on the laboratory's own cells only
+    129 of 431 pairs sharing a label are one genome; 29 of its 30 calls came from a "sister" that is
+    not. KEPT only if, with the same-genome rule, it adds stated gains and adds no call on a
+    chromosome published normal.
+C2. MARKERS WHERE THE PARENT CARRIES TWO DIFFERENT ALLELES (plan 3.2, ask 3). At a marker where the
+    loaded parent is heterozygous, a cell carrying TWO of that parent's homologues must carry both
+    of his alleles and so must read heterozygous; a cell carrying one reads heterozygous only where
+    the other parent differs. So the share of heterozygous calls at the parent's heterozygous
+    markers, against the same cell's reference chromosomes, should RISE on an extra copy of that
+    parent that came from his two different homologues, and not move on one that is a single
+    homologue doubled. Measured here as a candidate detector and as a candidate namer. KEPT only if
+    it separates on the open stated gains that have a parent.
+
+THE GATE, written before the run
+--------------------------------
+G1. Gains called on the published cells goes UP from 13 of 53, every newly called one named and
+    checked against what the paper states for that cell.
+G2. False gains on the 72 quiet arrays goes DOWN from 9 on 2 arrays.
+G3. No built gain prints as a loss (3 of 158 today, with the measured father).
+G4. Stated normal chromosomes left alone does not fall in any of the three arms.
+G5. Losses untouched: every loss call, parent and coordinate identical to main on the 600-row
+    harness.
+G6. All three arms measured (both parents, the measured father, a rebuilt father), and rule 9 holds:
+    the one-parent arm does not sit behind the two-parent arm.
+G7. tsc -b from web/, scripts/checks.sh and scripts/release-check.sh all exit 0; a check covers each
+    new rule; a browser run on a BUILT copy served statically, never the dev server.
+
+NOT IN THIS RULE, and why
+-------------------------
+- A 3 MB FLOOR ON GAIN PIECES, which is what removes the ninth quiet-array false gain (the HLA
+  piece). The loss scans use 3 Mb; the gain scan has only 1 Mb. That is a stated limit on what the
+  tool will claim, so it is the owner's to declare (plan ledger line 17) and it is not built here.
+- READING PIECES AGAINST THE 8 OR MORE TWO-COPY CHROMOSOMES where the normal-majority gate has
+  removed the intensity reference, which is the measured candidate for the parity defect ("a gain
+  found with no parent is lost in every parent setup"). Measured on the 36 refused rows it adds 11
+  losses that agree with the paper. G5 forbids changing a loss call here, so it is not built in this
+  item; the defect stays open with its cause recorded.
+- THE 2 PIECES WHERE BOTH BARS ALREADY CLEAR AND NO PIECE IS FORMED (z10:1 and z13:25, both 16q).
+  Not traced on 17 November and not traced here.
+- A STATED 16Q DUPLICATION whose intensity reads 0.62 BELOW that cell's own level over the stated
+  stretch. The figure study measured it; the tool prints a copy loss there. It is not a missed gain
+  and is not counted as one in G1.
+
+PREDICTED BEFORE THE RUN
+------------------------
+G1 met: 13 + 2 whole (the two at shift 0.31 with z 10.3 and 7.0) + 2 to 4 pieces (those at 0.33 to
+0.50 of the 9 the piece bar alone stops) - 1 (a Turocy segmental gain on chr16 whose P ratio is 0.37
+and which rule 1 removes) = 16 to 18 of 53.
+G2 met: 9 goes to 1. All eight whole-chromosome false gains of the quiet array read P ratios of 0.09
+to 0.26 against the 0.5 bar. The HLA piece stays.
+G3 met if the three constructions' intensity reads at or above +0.30 on the built chromosome, which
+is what rule 4 keys on; the diagnostic below records the figure before the rule is built.
+G4 met on the whole-chromosome arm, where 0.30 is measured to cost nothing. NOT PREDICTED on the
+piece arm: the cost of a lower piece bar on published-normal chromosomes and on the quiet arrays has
+never been measured, and this run is the first measurement of it.
+G6 met: nothing in rules 1, 2 and 4 reads how many parents are loaded, and rule 4 can only help the
+one-parent arm.
+C1 and C2: not predicted.
+
+DIAGNOSTIC, before the rule was built (measurement only, main at 6.16.0)
+-----------------------------------------------------------------------
+(filled in by the run)
+
+RESULT
+------
+(filled in by the run)
