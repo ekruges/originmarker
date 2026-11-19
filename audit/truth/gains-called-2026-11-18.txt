@@ -130,7 +130,14 @@ THE GATE, written before the run
 G1. Gains called on the published cells goes UP from 13 of 53, every newly called one named and
     checked against what the paper states for that cell.
 G2. False gains on the 72 quiet arrays goes DOWN from 9 on 2 arrays.
-G3. No built gain prints as a loss (3 of 158 today, with the measured father).
+G3. No built gain prints as a loss where the intensity can see it (3 of 158 today, with the
+    measured father). REWRITTEN 19 November because the line as first written is impossible, not
+    to let it pass: two of the three constructions carry no intensity trace at all (+0.17 and
+    -0.00 where a copy is worth +0.55), so no rule keyed on intensity reaches them, and the
+    channel that could is one the fixture cannot test because it rebuilds intensities and not
+    calls. The two are named under the result with the reason. The evidence is the section
+    "G3 cannot be met as written" below, which is what the plan requires of a gate brought back
+    as impossible.
 G4. Stated normal chromosomes left alone does not fall in any of the three arms.
 G5. Losses untouched: every loss call, parent and coordinate identical to main on the 600-row
     harness.
@@ -405,6 +412,34 @@ the fraction is computed from and two of them read a lost parent.
 Every no-parent row is identical in all three arms by construction: the block rule 4 sits in runs
 only with a parent shown. The arms are therefore run on the 270 with-parent rows of the harness,
 the 20 with-parent rows of the gain list, and the constructed gains.
+
+THE DECISIONS, 19 November 2026
+================================
+Taken by the owner on 19 November, through the coordinator, after the pricing below was measured.
+Recorded here with the reasoning and with the option not taken and its cost, so a reader is never
+left guessing which way a rule went or why.
+
+DECISION 1, RULE 4: ADOPT THE SCOPED RULE, option (b). A lost-parent print is withheld on an
+intensity that does not clear the gain call only where this cell shows a normal majority by the
+test the intensity reference is already gated on. The owner's reasoning, given before the numbers
+and recorded as he gave it: a reversed gain is a confident backwards answer, which this project
+treats as worse than silence, while a withheld loss sits on a cell already carrying twelve losses
+whose own baseline is measurably untrustworthy, and the card still shows the change in its figure.
+The measurement made the trade unnecessary: (b) keeps both. The option not taken is (a), the
+unscoped rule, whose cost is one correct whole-chromosome maternal loss on the chaotic cell,
+withheld on an intensity of +0.33 that a real one-copy chromosome reaches in such a cell. Option
+(c), no rule 4, costs the reversed gain and the false paternal loss. The three are priced below.
+
+DECISION 2, THE GATE: G3 IS REWRITTEN BECAUSE IT WAS IMPOSSIBLE AS WRITTEN, not weakened to pass.
+The evidence is the section below, and the new line is in the gate.
+
+DECISION 3, THE LAST FALSE GAIN: MEASURED, NOT DECLARED. The owner declares limits; this is not
+one. Over 636 records of 391 open arrays carrying 43 printed gain pieces, every one of the 6
+printed under 3 Mb is wrong by the paper and every one sits in a probe cluster at 2.9x to 9.4x the
+genome's markers per megabase, while no piece that IS right is under 10 Mb and all of them sit at
+0.7x to 1.7x. One of the six is on a chromosome the second paper states NORMAL. So a gain piece is
+required to span at least 3 Mb, which is the figure the likelihood loss scans already use. It
+rests on six against zero, not on a view about how small a claim may be.
 
 G3 CANNOT BE MET AS WRITTEN, AND HERE IS WHY, with what would be needed
 ------------------------------------------------------------------------
