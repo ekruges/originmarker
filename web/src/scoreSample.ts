@@ -913,6 +913,9 @@ export async function scoreSample(input: {
   }
   // Against no parent, or an adult whose genome is not in the array, the states show no majority.
   const normal = allelesReadable ? normalFraction([...shareCalls.values()]) : NaN
+  /** Whether this cell's own intensity level is a normal chromosome, by the test the intensity
+   *  reference is already gated on. Rule 4 of oneParentGain.ts is scoped to it. */
+  const trustedLevel = Number.isFinite(normal) && normal >= NORMAL_MAJORITY_MIN
   // BOTH PARENTS SOMEWHERE, FROM ONE PARENT'S ALLELES. Where neither the band nor the genome-wide
   // reading decides, as on a chaotic genome that lost chromosomes of both parents, chromosomes reading
   // as a second copy reads say a second contribution exists. The copy state cancels drop-in, so this
@@ -933,7 +936,12 @@ export async function scoreSample(input: {
       // cell's own level, the loss state is the extra copy's share, and the gain test reads it. The
       // intensity does not have to clear the bar a gain CALL needs; see oneParentGain.ts rule 1.
       if (!lost) continue
-      if (gainReadAsLoss(sc.state, c.aneuploidy === 'gain', c.lrrShift)) {
+      // AND ONLY WHERE THIS CELL'S OWN LEVEL MEANS SOMETHING. Rule 4 reads the intensity against
+      // the cell's own level, so it is worth no more than that level is. On a cell that has lost a
+      // third of its chromosomes the level is dragged down and a one-copy chromosome reads ABOVE
+      // it, up to +0.48 measured on this corpus, which is where a third copy reads. The test for
+      // that is the one the tool already applies before reading copy number at all.
+      if (gainReadAsLoss(sc.state, c.aneuploidy === 'gain', trustedLevel ? c.lrrShift : NaN)) {
         if (c.aneuploidy !== 'gain') {
           result.limits.push(`chr${c.chrom}: the alleles read only one parent's copy here, but this `
             + `chromosome's intensity sits ${c.lrrShift.toFixed(2)} log2 ABOVE the chromosomes this `
@@ -1001,7 +1009,8 @@ export async function scoreSample(input: {
           share: soloRole === 'paternal' ? own : 1 - own,
           informative: sc?.n2 ?? 0,
           biparental: measured && (sc?.state === 'disomic'
-            || (rules && gainReadAsLoss(sc?.state, c.aneuploidy === 'gain', c.lrrShift))),
+            || (rules && gainReadAsLoss(sc?.state, c.aneuploidy === 'gain',
+              trustedLevel ? c.lrrShift : NaN))),
           reference: measured && sc?.state === 'disomic',
           lrrShift: c.lrrShift,
         }
