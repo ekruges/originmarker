@@ -1559,7 +1559,7 @@ export function classify(
     }
     // Mis-clustering first, because every genotype-derived measure below reads the same broken
     // calls and would agree with each other about a chromosome that was never measured.
-    const [ext, nBaf] = t.bafByChrom.get(c) ?? t.bafByChrom.get(c.replace(':PAR', '')) ?? [0, 0]
+    const [ext, , nBaf] = t.bafByChrom.get(c) ?? t.bafByChrom.get(c.replace(':PAR', '')) ?? [0, 0, 0]
     const extreme = nBaf ? ext / nBaf : NaN
     // A collapsed call rate says the chromosome is not there, which ALSO depresses the allelic
     // ratio. Both look identical to the ratio alone, so the ratio may only diagnose mis-clustering

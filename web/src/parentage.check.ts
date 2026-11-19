@@ -1008,6 +1008,15 @@ console.log('parentage.check.ts OK')
   assert.ok(doubled.call.offPole < 0.01 && build(1.0, true).call.offPole > 0.15,
     'the measurement itself is reported either way')
 
+  // THE TWO BAF SHARES ARE DIFFERENT NUMBERS AND LIVE IN ONE TALLY. Adding the off-pole count to
+  // it shifted the mis-clustering share's slot, and every chromosome of the corpus then read a
+  // false extreme share: a loss moved on 13 rows before it was caught. Both are pinned here.
+  const both = build(1.0, true).call
+  assert.ok(Math.abs(both.offPole - 0.2) < 0.01,
+    `a fifth of this fixture's markers sit off the poles, so offPole is 0.2, not ${both.offPole}`)
+  assert.ok(Math.abs(both.bafExtreme - 0.8) < 0.01,
+    `and four fifths sit outside 0.15 to 0.85, so bafExtreme is 0.8, not ${both.bafExtreme}`)
+
   assert.equal(build(1.0, true).call.aneuploidy, 'gain',
     'the same step WITH a second allele stands: four copies of two homologues is a gain')
   assert.equal(build(Math.log2(3 / 2), false).call.aneuploidy, 'gain',

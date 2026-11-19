@@ -160,6 +160,23 @@ G6 met: nothing in rules 1, 2 and 4 reads how many parents are loaded, and rule 
 one-parent arm.
 C1 and C2: not predicted.
 
+TWO VARIANTS OF RULE 2's PIECE BAR, declared before the valid run
+-----------------------------------------------------------------
+The first run of rule 2 was thrown away: adding the off-pole count to the B-allele tally moved the
+mis-clustering share's slot in the same tuple, so every chromosome read a false extreme share and a
+loss moved on 13 rows. The fault was mine, in the harness sense, not the rule's; it is fixed, both
+shares are now pinned by a check, and nothing was scored off that run. What it did show, before it
+was thrown away, is that the piece arm at 0.30 prints gain pieces on the quiet arrays, which is the
+cost this item's own gate forbids and which has never been measured. So the piece bar is run as two
+variants, both written here before either is scored, and the one that meets the gate is kept:
+
+  A  one gain floor for both arms, 0.30, as rule 2 above states it.
+  B  the whole-chromosome arm at 0.30 and the intensity-nominated piece arm left at 0.585.
+
+Whichever loses is recorded with its measured cost and is not tried again at a third figure: a bar
+chosen by its score is what rule 8 forbids. If both fail a gate line, the item stops and the owner
+decides.
+
 DIAGNOSTIC, before the rule was built (measurement only, main at 6.16.0)
 -----------------------------------------------------------------------
 (filled in by the run)
