@@ -371,3 +371,16 @@ WHAT THIS LEAVES
 - The parity defect, a gain found with no parent and lost with every parent on three cells: not
   touched, because its measured fix adds 11 losses and this item's gate forbids that.
 - C1 is measured and not wired; what wiring needs is written above.
+
+FILES (untracked, audit/local/gains-2026-11-18/)
+------------------------------------------------
+  main/, branchB/        the run records of both arms: the 600-row harness (h, np), the 218-row
+                         gain and quiet-array list (gb), and the constructed gains (cg, cgh),
+                         with each arm's gains.tsv and fig52.json
+  gains-arm.py, fig52.py, figdiff.py, armdiff.py, cgscore.py, phetscore.py      the scoring
+  gb-main.ts, gb-branchB.ts, phet.ts, samegenome.ts, sisters.ts, sisterGain.ts  the harnesses
+  phet-*.jsonl           C2: the parent-heterozygous reading, per row and chromosome
+  samegenome.tsv         C1: opposite homozygotes over the 153 pairs of the 18 arrays
+  sister-readings.jsonl  C1: every sister reading and its null
+  list-gb.tsv, phet-list.tsv, sg-list.tsv, fig53.json                            the row lists
+tesla: /root/om-g holds the same records and the two code copies the arms were run from.
