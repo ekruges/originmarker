@@ -641,7 +641,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       // map per sample rather than streamed twice, since the run already holds every file.
       const sampleGt = new Map<string, Map<string, string>>()
       /** Finished samples, kept locally because patch() writes React state we cannot read back. */
-      const finished: { id: string; result: ParentageResult; windows: LrrWindow[] }[] = []
+      const finished: {
+        id: string; result: ParentageResult; windows: LrrWindow[]
+        pos: Map<string, { chrom: string; pos: number }>
+      }[] = []
       // A RUN IS READ WHOLE. Sister arrays, units of one embryo and the parents are properties of
       // every array in the run, and Run is offered only after the files or their labels change, so
       // each press reads every sample again against the files loaded now.
@@ -670,7 +673,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         // The 5 Mb window medians, kept because the sister reading in the post-pass needs this
         // cell's intensity after every cell's calls are known, and `acc` does not outlive this pass.
         return { calls: acc.myGt, profile, gates, result, maternal, paired, series,
-          windows: lrrWindows(acc.cnByChrom) }
+          windows: lrrWindows(acc.cnByChrom), pos: acc.markerPos }
       }
       const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
       let doneCount = 0
@@ -682,7 +685,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { calls, profile, gates: g, result, maternal, paired, series, windows } = await readSample(s, othersOf(s.id))
+          const { calls, profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
           sampleGt.set(s.id, calls)
           // With no parent loaded there is no parent's absence to report, and soloRole is a placeholder.
           log('DONE', result.noParent
@@ -691,7 +694,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               + `absent ${pct(result.genomeRate)} vs ceiling ${pct(result.explainable)}`
               + (maternal ? `, maternal absent ${pct(maternal.genomeRate)} vs ceiling `
                 + `${pct(maternal.explainable)}` : ''))
-          finished.push({ id: s.id, result, windows })
+          finished.push({ id: s.id, result, windows, pos })
           await breathe()
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
         } catch (e) {
@@ -712,9 +715,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         log('READ', `${s.file.name}: read again, now that the run holds every array`)
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { profile, gates: g, result, maternal, paired, series, windows } = await readSample(s, othersOf(s.id))
+          const { profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
           f.result = result
           f.windows = windows
+          f.pos = pos
           await breathe()
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
         } catch (e) {
@@ -747,7 +751,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       // avoid, and on blastomeres that gate almost never opens.
       if (finished.length > 1) {
         const sisterUnits = finished.map((u) => sisterUnitOf(u.result as never, u.windows,
-          (sampleGt.get(u.id) ?? new Map()) as never))
+          (sampleGt.get(u.id) ?? new Map()) as never, u.pos))
         const found = sisterGains(sisterUnits)
         finished.forEach((u, i) => {
           u.result.sisterGains = found[i].map((g) => ({

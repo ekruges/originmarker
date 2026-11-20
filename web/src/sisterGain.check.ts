@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict'
 import {
   lrrWindows, readInterval, sisterGains, oneGenome, sisterUnitOf, WHOLE, WINDOW_BP,
-  MIN_WINDOW_MARKERS, SISTER_SHIFT, SISTER_MIN_SHARED, type LrrWindow, type SisterUnit,
+  MIN_WINDOW_MARKERS, SISTER_SHIFT, type LrrWindow, type SisterUnit,
 } from './sisterGain.ts'
 import type { AB } from './informativity.ts'
 
@@ -32,27 +32,45 @@ const genome = (n: number): Map<string, AB> => {
   for (let i = 0; i < n; i += 1) g.set(`p${i}`, i % 2 ? 'BB' : 'AA')
   return g
 }
-/** The same genome with every `every`-th call flipped to the OPPOSITE homozygote, so the pair's
- *  opposite-homozygote rate is about 1/every. */
+/** The same genome with every `every`-th call flipped, so it agrees with `genome` at 1 - 1/every. */
 const flipped = (n: number, every: number): Map<string, AB> => {
   const g = genome(n)
   for (let i = 0; i < n; i += every) g.set(`p${i}`, g.get(`p${i}`) === 'AA' ? 'BB' : 'AA')
   return g
 }
+/** Probe k on chromosome (k mod 22) + 1, so a chromosome can be left out of the comparison. */
+const CHROM_OF = new Map(Array.from({ length: 12_000 },
+  (_, i) => [`p${i}`, { chrom: String((i % 22) + 1) }] as const))
 const N = 12_000
 const ONE = genome(N)
-const ONE_NOISY = flipped(N, 200)   // 0.005 opposite: one genome read twice through dropout
-const OTHER = flipped(N, 25)        // 0.040 opposite: a different genome
-/** Under SISTER_MIN_SHARED, so the pair is unmeasurable however identical it is. */
-const THIN = genome(SISTER_MIN_SHARED - 1)
+const ONE_NOISY = flipped(N, 20)    // agrees 0.95: one genome read twice through dropout
+const OTHER = flipped(N, 4)         // agrees 0.75: a different genome
+/** Under the floor `agreement` refuses below, so the pair is unmeasurable however identical. */
+const THIN = genome(1000)
 
 // One genome read twice counts; two genomes do not; and an unmeasurable pair does not, however
 // identical, because the fault this rule stops is reading a gain off a cell of another genome.
 {
-  const u = (gt: Map<string, AB>): SisterUnit => ({ windows: [], gt, reference: [], losses: [], changed: new Set() })
+  const u = (gt: Map<string, AB>, changed: string[] = []): SisterUnit => ({
+    windows: [], gt, pos: CHROM_OF, reference: [], losses: [], changed: new Set(changed),
+  })
   assert.ok(oneGenome(u(ONE), u(ONE_NOISY)))
   assert.ok(!oneGenome(u(ONE), u(OTHER)))
   assert.ok(!oneGenome(u(THIN), u(THIN)), 'identical but unmeasurable is not a sister')
+
+  // THE RECIPROCAL EVENT MUST NOT COST THE PAIR ITS SISTERHOOD. A real pair of sisters sits just
+  // above the threshold on dropout alone, so chromosomes reading opposite end to end, as two cells
+  // that lost opposite parental copies there do, push it under. Compared whole it fails; compared off
+  // the chromosomes each cell reports a change on it passes.
+  const RECIP = ['7', '9', '11', '13', '15']
+  const recip = new Map(ONE_NOISY)
+  for (const [probe, c] of CHROM_OF) {
+    if (RECIP.includes(c.chrom)) recip.set(probe, ONE.get(probe) === 'AA' ? 'BB' : 'AA')
+  }
+  assert.ok(!oneGenome(u(ONE), u(recip)), 'chromosomes read opposite sink the whole-genome comparison')
+  assert.ok(oneGenome(u(ONE, RECIP), u(recip, RECIP)), 'left out, the pair is one genome again')
+  // Only a chromosome a cell actually reports is left out: unreported ones still count against it.
+  assert.ok(!oneGenome(u(ONE, ['9']), u(recip, ['9'])), 'leaving out one of the three is not enough')
 }
 
 // One derivation of a unit, so the page and the harness cannot drift. A reported change takes its
@@ -63,7 +81,7 @@ const THIN = genome(SISTER_MIN_SHARED - 1)
       { chrom: '7', aneuploidy: null }, { chrom: 'X', aneuploidy: 'loss' }],
     segments: [{ chrom: '16', kind: 'copy-loss', start: 60e6, end: 90e6 },
       { chrom: '2', kind: 'parental-absence', start: 0, end: 1e6 }],
-  }, [], ONE)
+  }, [], ONE, CHROM_OF)
   assert.deepEqual(u.losses.map((l) => [l.chrom, l.whole]), [['5', true], ['16', false]],
     'a gain is not a loss, a sex chromosome is not asked, and an absence is not a copy change')
   assert.deepEqual([...u.changed].sort(), ['16', '5', '9'])
@@ -102,7 +120,7 @@ const THIN = genome(SISTER_MIN_SHARED - 1)
 // lost; the third holds neither. Only the second reports gains, and only over what the first lost.
 {
   const unit = (windows: LrrWindow[], over: Partial<SisterUnit> = {}): SisterUnit => ({
-    windows, gt: ONE, reference: all, losses: [], changed: new Set(), ...over,
+    windows, gt: ONE, pos: CHROM_OF, reference: all, losses: [], changed: new Set(), ...over,
   })
   const loser = unit(cell(0.1), {
     reference: without('5', '16'),
@@ -130,11 +148,12 @@ const THIN = genome(SISTER_MIN_SHARED - 1)
 // pair too thin to measure, reports nothing.
 {
   const loser = (gt: Map<string, AB>): SisterUnit => ({
-    windows: cell(0.1), gt, reference: without('5'), losses: [WHOLE('5')], changed: new Set(['5']),
+    windows: cell(0.1), gt, pos: CHROM_OF, reference: without('5'), losses: [WHOLE('5')],
+    changed: new Set(['5']),
   })
   const gainer: SisterUnit = {
     windows: cell(0.1, [{ chrom: '5', from: 0, to: 20, by: 0.4 }]),
-    gt: ONE, reference: without('5'), losses: [], changed: new Set(),
+    gt: ONE, pos: CHROM_OF, reference: without('5'), losses: [], changed: new Set(),
   }
   const read = (gt: Map<string, AB>) => sisterGains([loser(gt), gainer])[1].map((g) => g.chrom)
   assert.deepEqual(read(ONE_NOISY), ['5'], 'one genome read twice: the gain is read')

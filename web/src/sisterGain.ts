@@ -28,29 +28,39 @@
  * WHICH CELLS COUNT AS SISTERS. The embryo label is not evidence: of 431 pairs sharing a label on the
  * laboratory's own arrays only 129 read as one genome, and 29 of the draft's 30 calls came from a
  * "sister" that was a different genome. A pair counts only where the two arrays read as ONE genome, by
- * relatedness.oppositeHom at SISTER_OPP_HOM_MAX, with SISTER_MIN_SHARED shared homozygous calls needed
- * before the rate is read at all. An unmeasurable pair is not a sister.
+ * parentage.agreement at SISTER_AGREE_MIN, taken OFF the chromosomes either cell reports a change on.
+ * agreement returns NaN under its own floor of shared calls, so an unmeasurable pair is not a sister.
  *
- * WHY NOT parentage.agreement, WHICH IS THE PAGE'S OWN DEFINITION OF A UNIT OF ONE EMBRYO. Identity of
- * calls is FIRST order in dropout: one cell dropping an allele breaks it. An opposite homozygote is
- * SECOND order: it needs both cells to drop at the same heterozygous marker in opposite directions. On
- * these single cells, where dropout runs at a median of 0.324, that difference decides the measure.
- * Measured over 14,365 pairs of 170 open arrays (audit/truth/sister-gain-2026-11-19.txt): identity
- * correlates +0.772 with the pair's lower call rate and separates same-label from different-label pairs
- * by 1.12x in the median, while the opposite-homozygote rate correlates -0.445 and separates them by
- * 3.3x. abnormalities.SAME_EMBRYO_AGREEMENT is 0.90 because two TROPHECTODERM BIOPSIES concord at
- * 95.8%; two blastomeres of one embryo sit at 0.68 to 0.85, under that threshold, so identity cannot
- * carry this rule on the material it is for.
+ * THE EXCLUSION IS THE POINT, NOT A DETAIL. Two cells of one embryo that lost opposite parental copies
+ * of a region read as opposite homozygotes across that whole region (relatedness.ts: four of 122
+ * same-embryo blastomere pairs, at 0.053 to 0.056). That is FIRST order and it is the very reciprocal
+ * event this rule hunts, so a genome-wide comparison pushes exactly the pairs worth reading above any
+ * gate, while two ordinary siblings with quiet genomes stay under it. Measured on the published cells,
+ * the worst false pair genome-wide is two trophectoderm biopsies of different embryos of one egg donor.
  *
- * SO THIS RULE AND THE PAGE'S UNIT GROUPING USE DIFFERENT MEASURES, which is a thing to know rather
- * than a thing to like. The grouping drives the gamete-borne against post-zygotic call and fails
- * closed on blastomeres: it reports fewer units and withholds, rather than grouping wrongly.
+ * WHY NOT relatedness.oppositeHom, WHICH THE PLAN FIRST NAMED. It admits siblings at every threshold.
+ * Measured against the 31 published cells' own embryo labels, 51 true sister pairs against 414 others:
+ * an opposite-homozygote gate of 0.02 admits 23 sisters and 7 non-sisters, and its best threshold still
+ * admits 5. relatedness.ts says why: over 106 published trios sibling pairs sit at 0.0114, under the
+ * 0.020 gate, so the rate alone cannot make that split.
+ *
+ * WHY THE THRESHOLD IS NOT abnormalities.SAME_EMBRYO_AGREEMENT. That is 0.90 because two TROPHECTODERM
+ * BIOPSIES concord at 95.8%. Blastomeres of one embryo sit lower, and on the published truth 0.90
+ * admits 4 of 51 true sisters while 0.86 admits 16 with no false pair of the 414. The page keeps 0.90
+ * for its unit grouping, which drives the gamete-borne against post-zygotic call; that grouping fails
+ * closed on blastomeres, reporting fewer units rather than grouping wrongly, and its calibration is
+ * its own item.
+ *
+ * WHAT WAS TRIED AND DOES NOT WORK. 8*oo*hh/hx^2 is one under a dropout model of a single genome and
+ * is measurably free of dropout (correlation -0.064 with the implied rate, against -0.383 for
+ * identity), but it carries no genome-sharing signal at all: 0.380 on true sisters against 0.345 on
+ * the rest. It measures how the arrays behave, not whether they are one genome.
  *
  * WHAT IT IS NOT. Evidence about a cell with no sister on the array, and a claim about which division
  * made the pair. A cell is only asked about intervals a sister shows lost; the gain it reports stands
  * on its own intensity.
  */
-import { oppositeHom } from './relatedness.ts'
+import { agreement } from './parentage.ts'
 import type { AB } from './informativity.ts'
 
 export const WINDOW_BP = 5_000_000
@@ -155,6 +165,10 @@ export interface SisterUnit {
   windows: readonly LrrWindow[]
   /** Genotype calls by probe id. Required: a pair whose genomes cannot be compared is not a pair. */
   gt: ReadonlyMap<string, AB>
+  /** Where each probe sits, so the same-genome comparison can leave out the changed chromosomes.
+   *  The shape parentage and relatedness already use, so no second map is built. A probe missing
+   *  here is left out rather than compared. */
+  pos: ReadonlyMap<string, { chrom: string }>
   /** Chromosomes sharing the cell's commonest copy state, with no copy change reported on them. */
   reference: readonly string[]
   /** What this cell shows lost: whole chromosomes and segments. */
@@ -173,28 +187,27 @@ export interface SisterGain extends Interval, IntervalReading {
  * Where several sisters show a loss on one chromosome the strongest reading is kept.
  */
 /**
- * Opposite-homozygote rate at or under which two arrays read as one genome.
+ * Share of shared called markers, off the changed chromosomes, above which two arrays read as one
+ * genome.
  *
- * Measured on these single cells: pairs sharing a laboratory label sit at a median of 0.0366 and pairs
- * that do not at 0.1208, and the groups the plan's own earlier measurement read as one genome sat at
- * 0.000 to 0.012 against 0.027 for the closest pair of different genomes.
+ * Calibrated on the 31 published cells of one series against their own embryo labels, 51 true sister
+ * pairs and 414 others: no pair of different embryos reaches 0.8577, and this admits 16 of the 51
+ * sisters with none of the 414. The cost is sensitivity, which is the right way to be wrong here,
+ * because a pair that is not read leaves every call untouched while a pair wrongly admitted can print
+ * a gain that is not there.
  *
- * This rule's own number. relatedness.OPPOSITE_HOM_MAX happens to be the same 0.020 and answers a
- * different question, parent against stranger; retuning that one must not move this one.
+ * This rule's own number, deliberately not abnormalities.SAME_EMBRYO_AGREEMENT.
  */
-export const SISTER_OPP_HOM_MAX = 0.020
-/**
- * Shared homozygous calls a pair needs before its rate is read at all, as relatedness.relate requires.
- *
- * A pair under it is NOT a sister. The fault this rule exists to stop is reading a gain off a cell of
- * another genome, so an unmeasurable pair must not supply an interval.
- */
-export const SISTER_MIN_SHARED = 10_000
+export const SISTER_AGREE_MIN = 0.86
 
-/** Whether two arrays read as one genome. Unmeasurable is not a sister. */
+/** Whether two arrays read as one genome, off the chromosomes either reports a change on.
+ *  Unmeasurable is not a sister: NaN fails the comparison. */
 export function oneGenome(a: SisterUnit, b: SisterUnit): boolean {
-  const { rate, n } = oppositeHom(a.gt as Map<string, AB>, b.gt as Map<string, AB>)
-  return n >= SISTER_MIN_SHARED && Number.isFinite(rate) && rate <= SISTER_OPP_HOM_MAX
+  const skip = (probe: string): boolean => {
+    const c = a.pos.get(probe)?.chrom
+    return c === undefined || a.changed.has(c) || b.changed.has(c)
+  }
+  return agreement(a.gt as Map<string, AB>, b.gt as Map<string, AB>, skip) > SISTER_AGREE_MIN
 }
 
 /** The parts of a scored cell this rule reads, so the page and audit/truth/sisters.ts derive a unit
@@ -210,6 +223,7 @@ const AUTOSOMES = Array.from({ length: 22 }, (_, i) => String(i + 1))
 
 export function sisterUnitOf(
   cell: ScoredCell, windows: readonly LrrWindow[], gt: ReadonlyMap<string, AB>,
+  pos: ReadonlyMap<string, { chrom: string }>,
 ): SisterUnit {
   const autosome = (c: string) => /^\d+$/.test(c)
   const whole = cell.chroms.filter((c) => c.aneuploidy && autosome(c.chrom))
@@ -217,7 +231,7 @@ export function sisterUnitOf(
     (sg) => autosome(sg.chrom) && (sg.kind === 'copy-loss' || sg.kind === 'copy-gain'))
   const changed = new Set<string>([...whole.map((c) => c.chrom), ...segs.map((sg) => sg.chrom)])
   return {
-    windows, gt, changed,
+    windows, gt, pos, changed,
     reference: (cell.copyReference ?? AUTOSOMES).filter((c) => !changed.has(c)),
     losses: [
       ...whole.filter((c) => c.aneuploidy === 'loss').map((c) => WHOLE(c.chrom)),

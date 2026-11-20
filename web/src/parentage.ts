@@ -1806,7 +1806,9 @@ export interface PairResult {
  * marker, and that produces a confident "biparental" because both tests pass against the same
  * genome. The 1,000-marker floor is there because a handful of shared markers says nothing.
  */
-export function agreement(a: Map<string, AB>, b: Map<string, AB>): number {
+export function agreement(
+  a: Map<string, AB>, b: Map<string, AB>, skip?: (probe: string) => boolean,
+): number {
   let shared = 0
   let same = 0
   // Walk the smaller map: the intersection is the same either way and this is the cheaper scan.
@@ -1814,6 +1816,7 @@ export function agreement(a: Map<string, AB>, b: Map<string, AB>): number {
   for (const [k, v] of small) {
     const w = large.get(k)
     if (w === undefined || v === 'NC' || w === 'NC') continue
+    if (skip && skip(k)) continue
     shared += 1
     if (v === w) same += 1
   }
