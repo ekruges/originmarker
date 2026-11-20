@@ -342,10 +342,14 @@ RELEASES: tuple[Release, ...] = (
             "An extra copy of a stretch of chromosome. The counterpart of a deletion, and the "
             "harder of the two to see, because an extra copy raises a reading less than a "
             "missing one lowers it."),
+    Release("Sibling",
+            "A cell or embryo sharing both parents with another without sharing its genome. "
+            "Telling one from a second cell of the SAME embryo is what decides whether one "
+            "cell's loss may be read as another's gain."),
 )
 
-VERSION = "6.18.0"
-CODENAME = "Duplication"
+VERSION = "6.19.0"
+CODENAME = "Sibling"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

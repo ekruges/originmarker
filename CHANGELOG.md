@@ -9,6 +9,63 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.19.0 "Sibling"
+
+A gain read because another cell of the same embryo shows the loss over the same interval
+(plan item 3.1, the last of Joy's four gain asks). A copy one daughter cell lacks went to the
+other, so the loss and the gain sit over one interval. The loss stops the array genotyping and
+is the easy half; a genome-wide scan for the gain must clear a bar set for everywhere it might
+be, and told where to look it is one test.
+
+**Which cells count as sisters is measured, not declared.** The draft trusted the embryo label.
+On the laboratory's own arrays only 129 of 431 pairs sharing a label read as one genome, and 29
+of the draft's 30 calls came from a cell that was a different genome. A pair now counts only
+where the two arrays agree on more than 86% of their shared called markers, taken off the
+chromosomes either cell reports a change on.
+
+**The exclusion is the rule, not a detail.** Two cells of one embryo that lost opposite parental
+copies of a region read as opposite homozygotes across that whole region, which this project had
+already measured at 0.053 to 0.056 on four of 122 same-embryo blastomere pairs. That is exactly
+the reciprocal event this reading hunts, so comparing whole genomes pushes the pairs worth
+reading above any gate while two quiet siblings stay under it.
+
+**Calibrated against published embryo membership**, which is independent of the gain counts the
+item is gated on: 31 published cells, 51 true sister pairs and 414 pairs of different embryos,
+175 of them full siblings. No pair of different embryos reaches 0.8577, so the threshold admits
+16 of the 51 sisters and none of the 414. The two rules considered first both fail on this
+truth: an opposite-homozygote rate of 0.02 admits 23 sisters and 7 non-sisters, because sibling
+pairs sit under that gate, and the 0.90 agreement the page uses to group units of one embryo is
+set on trophectoderm biopsies and admits only 4 of 51 blastomere sisters.
+
+**What it finds on the open arrays: nothing, and the reason is in the data rather than the rule.**
+Over 257 arrays the rule finds 272 true sister pairs and reads 302 intervals, calling 12. None of
+the 12 falls on a chromosome any table states a value for, and no stated normal or stated loss is
+called. Of the 67 stated gains on these arrays only 11 sit on a cell that has a true sister, and
+for none of those 11 does the sister report that chromosome lost; ten of the eleven are whole
+chromosomes of one heavily aneuploid cell, which is not ten mis-segregations with a reciprocal
+sister. On the 31 published cells, in all three parent arms alike, it reads 3 intervals and calls
+nothing.
+
+**So nothing is printed on a card.** The readings are recorded on the result and written to the
+run log. A kind of call may only state how often it is right from a measured rate, and the rate
+here is 0 of 0: there is no stated gain to score it on. A card claim waits for a run that supplies
+one. A cell with no sister in the run, or whose only companion is another genome, is untouched.
+
+Measurements: `audit/truth/sister-gain-2026-11-19.txt`. The pair harness
+(`audit/truth/sister-pairs.ts`) checks its own byte loop against `parentage.agreement` on sampled
+pairs, so there is one definition of the measure.
+
+Also recorded, as tried and useless: `8*oo*hh/hx^2` is one under a single-genome dropout model
+whatever the dropout and whatever the genome's heterozygosity, and it behaves as derived,
+correlating -0.064 with the implied dropout against -0.383 for plain agreement. It carries no
+signal about genome sharing at all, 0.380 on true sister pairs against 0.345 on the rest.
+
+Found and not fixed here: `SAME_EMBRYO_AGREEMENT` is 0.90 because two trophectoderm biopsies
+concord at 95.8%, while two blastomeres of one embryo sit at 0.68 to 0.85. The page's unit
+grouping, which drives the gamete-borne against post-zygotic call, therefore does not group
+genuine sisters on cleavage-stage cells. It fails closed, reporting fewer units and withholding
+rather than answering wrongly. Its calibration is its own item.
+
 ## 6.18.0 "Duplication"
 
 **The tool finds extra copies.** It called 13 of the 52 gains the papers state on its open cells and

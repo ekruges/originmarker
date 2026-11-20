@@ -1,4 +1,5 @@
 import { breathe } from './scan'
+import { lrrWindows, sisterGains, sisterUnitOf, type LrrWindow } from './sisterGain'
 import {
   collectParentRow, collectRow, emptyCollected, emptyParent, finishParent, noParent, scoreSample,
   type ParentIndex,
@@ -640,7 +641,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       // map per sample rather than streamed twice, since the run already holds every file.
       const sampleGt = new Map<string, Map<string, string>>()
       /** Finished samples, kept locally because patch() writes React state we cannot read back. */
-      const finished: { id: string; result: ParentageResult }[] = []
+      const finished: {
+        id: string; result: ParentageResult; windows: LrrWindow[]
+        pos: Map<string, { chrom: string; pos: number }>
+      }[] = []
       // A RUN IS READ WHOLE. Sister arrays, units of one embryo and the parents are properties of
       // every array in the run, and Run is offered only after the files or their labels change, so
       // each press reads every sample again against the files loaded now.
@@ -666,7 +670,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         const series = plotData(acc, {
           loaded: pat.absent ? null : { role: soloRole, gt: pat.gt }, second: mat?.gt ?? null,
         })
-        return { calls: acc.myGt, profile, gates, result, maternal, paired, series }
+        // The 5 Mb window medians, kept because the sister reading in the post-pass needs this
+        // cell's intensity after every cell's calls are known, and `acc` does not outlive this pass.
+        return { calls: acc.myGt, profile, gates, result, maternal, paired, series,
+          windows: lrrWindows(acc.cnByChrom), pos: acc.markerPos }
       }
       const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
       let doneCount = 0
@@ -678,7 +685,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { calls, profile, gates: g, result, maternal, paired, series } = await readSample(s, othersOf(s.id))
+          const { calls, profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
           sampleGt.set(s.id, calls)
           // With no parent loaded there is no parent's absence to report, and soloRole is a placeholder.
           log('DONE', result.noParent
@@ -687,7 +694,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               + `absent ${pct(result.genomeRate)} vs ceiling ${pct(result.explainable)}`
               + (maternal ? `, maternal absent ${pct(maternal.genomeRate)} vs ceiling `
                 + `${pct(maternal.explainable)}` : ''))
-          finished.push({ id: s.id, result })
+          finished.push({ id: s.id, result, windows, pos })
           await breathe()
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
         } catch (e) {
@@ -708,8 +715,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         log('READ', `${s.file.name}: read again, now that the run holds every array`)
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { profile, gates: g, result, maternal, paired, series } = await readSample(s, othersOf(s.id))
+          const { profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
           f.result = result
+          f.windows = windows
+          f.pos = pos
           await breathe()
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
         } catch (e) {
@@ -729,6 +738,35 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       // genome and concord at 95.8% of shared called markers, against 54.9% for a parent-offspring
       // pair, so nobody has to label anything and a labelling slip cannot produce a confidently
       // wrong mechanism.
+      // A GAIN THE SISTER'S LOSS POINTS AT. A copy one cell of an embryo lacks went to the other, so
+      // the loss and the gain sit over one interval. The loss is the easy half: it stops the
+      // genotyping. The gain is the hard half, because a third copy moves intensity by a fraction of
+      // what a lost one does and a genome-wide scan for it must clear a bar set for everywhere it
+      // might be. Told where to look it is one test.
+      //
+      // RUN OVER EVERY CELL OF THE RUN, NOT OVER THE GROUPS BELOW. sisterGain pairs cells by their
+      // opposite-homozygote rate, because identity of calls is first order in dropout and these are
+      // single cells; the grouping below uses identity and its threshold is set on trophectoderm
+      // biopsies. Nesting this inside those groups would gate it behind the measure it exists to
+      // avoid, and on blastomeres that gate almost never opens.
+      if (finished.length > 1) {
+        const sisterUnits = finished.map((u) => sisterUnitOf(u.result as never, u.windows,
+          (sampleGt.get(u.id) ?? new Map()) as never, u.pos))
+        const found = sisterGains(sisterUnits)
+        finished.forEach((u, i) => {
+          u.result.sisterGains = found[i].map((g) => ({
+            chrom: g.chrom, startBp: g.startBp, endBp: g.endBp, whole: g.whole,
+            shift: g.shift, lrrZ: g.z, windows: g.windows,
+          }))
+          for (const g of found[i]) {
+            log('DONE', `chr${g.chrom}${g.whole ? '' : ` ${(g.startBp / 1e6).toFixed(1)}-${(g.endBp / 1e6).toFixed(1)} Mb`}`
+              + ' reads raised here and another array of this run, reading as the same genome, shows it'
+              + ` lost: ${g.shift.toFixed(2)} log2 above this cell's own level, ${g.z.toFixed(1)} spreads`)
+          }
+          if (found[i].length) patch(u.id, { result: { ...u.result } })
+        })
+      }
+
       if (finished.length > 1) {
         const groups = groupUnits(finished, (a, b) => {
           const ga = sampleGt.get(a.id)

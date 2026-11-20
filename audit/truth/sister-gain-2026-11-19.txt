@@ -1,0 +1,193 @@
+A gain read where a cell of the same embryo shows the loss
+==========================================================
+
+Plan item 3.1, the wiring step. The rules and the choice to be made are written here BEFORE the
+scoring run, and the results are appended under them. Nothing above the RESULTS line was edited
+after the run.
+
+CELLS ARE NAMED BY NUMBER AND NEVER BY THEIR ARRAY. The numbering is this file's own, "cell 1"
+upward, and the key from number to array lives untracked at
+audit/local/sister-2026-11-19/cell-key.tsv. No laboratory barcode, sample file name or accession
+is in this file.
+
+WHAT IS READ
+------------
+A copy that one daughter cell lacks went to the other, so the loss and the gain sit over one
+interval: a whole chromosome that failed to separate, or the piece beyond a break. The loss is the
+easy half, because it stops the array genotyping. The gain is the hard half: a third copy moves
+intensity by a fraction of what a lost one does, and a genome-wide scan for it must clear a bar set
+for every place it might be. Told where to look, it is one test.
+
+For a cell and an interval another cell of the same embryo shows lost, on a chromosome this cell
+reports no change on (web/src/sisterGain.ts):
+
+  shift  the median of this cell's 5 Mb window medians inside the interval, less the median over
+         the chromosomes sharing its commonest copy state
+  z      that shift over the spread of equally long runs of windows on those chromosomes, the
+         tested chromosome left out of its own null
+
+Called at shift >= 0.25 and z >= 3. Intervals under two windows, cells under 8 reference
+chromosomes and nulls under 20 runs are not read at all.
+
+THE RULE ADDED AT THIS STEP, AND WHY
+------------------------------------
+The draft trusted the embryo label. On the laboratory's own arrays only 129 of 431 pairs sharing a
+label read as one genome, and 29 of the draft's 30 calls came from a cell that was a different
+genome. A sister must therefore be measured, not declared.
+
+Two measures can do it with NO parent loaded, which is required because the cells this rule is for
+have no parent on disk:
+
+  agree     share of shared called markers that are identical (parentage.agreement). This is
+            already the page's definition of a unit of one embryo, at
+            abnormalities.SAME_EMBRYO_AGREEMENT = 0.90, strictly above. Measured separation when
+            that was set: 95.8% within an embryo against 54.9% for a parent-offspring pair.
+  opp rate  share of shared HOMOZYGOUS calls that are opposite (relatedness.oppositeHom). The rule
+            as first written in the plan, at 0.02 or under. Measured then: groups reading as one
+            genome at 0.000 to 0.012, the closest pair of different genomes at 0.027.
+
+A third measure, otherParentLoss.sameGenomeShare, is not a candidate here: it reads the loaded
+parent's homozygous markers and there is no parent.
+
+DECIDED BEFORE THE RUN: both measures are printed for every pair of the 170 arrays
+(audit/truth/sister-pairs.ts) and the one with the wider separation between pairs that read as one
+genome and pairs that do not is the one that ships. Where they separate equally well, `agree` ships,
+because a second measure would let one card call two cells sisters for this rule and a different
+embryo for the timing rule, and that class of contradiction is what 6.16.0 existed to remove.
+
+WHY AN OPPOSITE-HOMOZYGOTE RATE IS USABLE ON AMPLIFIED CELLS AT ALL
+-------------------------------------------------------------------
+relatedness.RELATEDNESS_SEPARABLE_MATERIALS admits bulk only, because dropout manufactures
+opposite homozygotes out of a real relative. That holds for a parent against a child, who share
+ONE allele at a marker, so a single dropout destroys the signal: first order. Two cells of one
+genome share BOTH alleles, so an opposite homozygote needs dropout in both cells in opposite
+directions at the same heterozygous marker: second order. Two different genomes differ at about a
+quarter of markers outright, which is first order again. So the same quantity can separate one
+genome from two on amplified cells while it cannot separate a parent from a stranger there. This is
+the reasoning behind reading either measure on single cells and it is a claim the pair table tests.
+
+ARRAYS READ
+-----------
+170 arrays, every one listed `open` in audit/local/truth/units.tsv, checked before the run. No
+sealed and no exposed array was opened. The arrays are those appearing in a sister reading of the
+257-cell run of 72 embryos.
+
+WHAT MUST NOT MOVE
+------------------
+A cell with no sister in the run keeps every call, parent and coordinate it had. The reading is
+additive and runs after every cell is scored.
+
+RESULTS
+-------
+
+THE PRE-REGISTERED CRITERION COULD NOT BE READ OFF THE DISTRIBUTIONS. Over 14,365 pairs of the 170
+arrays neither measure is bimodal at its threshold: identity runs continuously through 0.90 and the
+opposite-homozygote rate through 0.02, and the set identity admits is a strict SUBSET of the set the
+rate admits, 75 pairs against 220. So "wider separation" had nothing to read, and the question was
+settled against truth instead, below.
+
+IDENTITY OF CALLS IS FIRST ORDER IN DROPOUT AND THE RATE IS SECOND ORDER, MEASURED. Among the 624
+pairs of the 170 arrays that share a laboratory label, identity correlates +0.772 with the pair's
+lower call rate and the opposite-homozygote rate -0.445. Splitting those pairs at their median call
+rate, identity reads 0.681 on the low half and 0.848 on the high half: BOTH under
+abnormalities.SAME_EMBRYO_AGREEMENT, which is 0.90 because two trophectoderm biopsies concord at
+95.8%. So a threshold set on biopsies is unreachable for blastomeres whatever their genome.
+
+A DROPOUT-FREE STATISTIC WAS DERIVED AND IS USELESS. Under one genome with no copy change, at a
+heterozygous marker and a dropout rate d, both-heterozygous is (1-d)^2, one-heterozygous is 2d(1-d)
+and both-homozygous-opposite is d^2/2, so 8*oo*hh/hx^2 is 1 whatever d and whatever the genome's
+heterozygosity. It behaves as predicted, correlating -0.064 with the implied dropout against -0.383
+for identity, and it carries no signal about genome sharing at all: median 0.380 on true sister
+pairs against 0.345 on the rest. Not used. Recorded so nobody derives it again.
+
+THE CONFOUND THAT DECIDED THE RULE. Two cells of one embryo that lost opposite parental copies of a
+region read as opposite homozygotes across that whole region. relatedness.ts had already measured
+it: four of 122 same-embryo blastomere pairs do exactly that, at 0.053 to 0.056. That is FIRST
+order, and it is the reciprocal event this rule exists to find, so a genome-wide comparison pushes
+precisely the pairs worth reading above any gate while two siblings with quiet genomes stay under
+it. The comparison is therefore taken off the chromosomes either cell reports a change on. A median
+of 3 chromosomes per pair are left out, at most 10.
+
+CALIBRATED AGAINST PUBLISHED EMBRYO MEMBERSHIP, WHICH IS INDEPENDENT OF THE GAIN COUNTS THIS ITEM
+IS GATED ON. The 31 cells of the published series carry the paper's own embryo labels, giving 51
+true sister pairs and 414 pairs of different embryos, of which 175 share an egg donor and are full
+siblings. Numbering as audit/truth/page_says.py sets it, key untracked at
+audit/local/page-says-2026-11-17/cell-key.tsv.
+
+  rule                                     admits of 51 sisters   admits of 414 others
+  identity > 0.90, genome-wide                       3                      0
+  identity > 0.90, off changed chromosomes           4                      0
+  opposite homozygotes <= 0.02, genome-wide         19                      5
+  opposite homozygotes <= 0.02, off changed         23                      7
+  identity > 0.86, off changed chromosomes          16                      0
+
+  No pair of different embryos reaches 0.8577 off the changed chromosomes. That worst pair is
+  cell 4 and cell 3, two trophectoderm biopsies of different embryos of ONE egg donor, so full
+  siblings of good quality: exactly the case a rate cannot separate. The opposite-homozygote rate
+  reads 0.0119 for them, under the 0.02 the plan first wrote, which is the published-trio finding
+  of relatedness.ts repeating itself (sibling pairs at 0.0114, under the gate).
+
+  SHIPPED: identity above 0.86, off the chromosomes either cell reports a change on. Perfect
+  specificity on 414 pairs at the cost of sensitivity, which is the right way to be wrong: a pair
+  not read leaves every call untouched, while a pair wrongly admitted can print a gain that is not
+  there. This is a change from the rule the plan first wrote and from the threshold the page uses,
+  and both reasons are above.
+
+THE THREE ARMS, on the 31 published cells (S6). 89 readings, 86 rejected as not one genome, 3 read.
+Zero calls and zero stated gains in every arm, and the three arms are identical, so no one-parent
+arm is behind the two-parent arm. The reading uses no parent: a parent enters only through which
+chromosomes a cell reports changed and which its reference is, and on these cells that did not
+differ between arms.
+
+THE SEGMENT CASE (S4), measured on the 170-array set under the opposite-homozygote rule that was
+current when it was counted: 40 piece readings among sister pairs, 1 stated-gain test, called right,
+and 2 stated-normal tests, neither called. Pieces behave better than whole chromosomes generally:
+over every pair regardless of genome, 78 of 164 stated-gain piece tests are called against 207 of
+682 whole-chromosome tests, with a false rate on stated normals of 2 in 1,633 against 45 in 10,568.
+
+THE POINTER DOES REAL WORK, which is the one place the same-genome rule pays for itself. Putting the
+same intervals on cells that are definitely NOT one genome (opposite homozygotes above 0.05), 72,489
+readings give 1,693 calls: 14 distinct stated gains bought with 47 calls on stated normals and 66 on
+stated losses. Under the same-genome rule the wrong calls are none. So the rule is not bookkeeping;
+without it the reading is a low bar applied to arbitrary intervals.
+
+THE 257-ARRAY SET UNDER THE SHIPPED RULE (S2, S3). 73,859 readings on chromosomes the reading cell
+reports no change on. 73,557 rejected because the pair does not read as one genome; 302 read, 264
+whole chromosomes and 38 pieces. 12 calls. Of the 302 readings only 3 fall on a chromosome any table
+states a value for, 2 normal and 1 lost, and none of those three is called. So:
+
+  stated gains added:            0
+  calls on a stated normal:      0
+  calls on a stated loss:        0
+  calls on chromosomes no table states: 12
+
+For comparison, the rule the plan first wrote (opposite homozygotes at 0.02, genome-wide) admitted
+221 readings and 12 calls, of which 1 was a stated gain; that pair does not read as one genome under
+the shipped rule, which is the same judgement that rejected the published sibling pair.
+
+WHY THE YIELD IS ZERO, WHICH IS NOT THE GATE'S FAULT AND NOT THE RULE'S. The pairing is not the
+bottleneck: the shipped rule finds 272 true-sister pairs over these 257 arrays and 140 of the cells
+have at least one sister. The missing thing is the reciprocal configuration itself.
+
+  stated gains on these open arrays                                   67
+  of those, on a cell that has at least one true sister               11
+  of those 11, where a sister reports the same chromosome LOST         0
+  of those 11, where a sister reports that chromosome AT ALL           0
+  of those 11, already called by the tool                              1 (as a gain)
+
+  Ten of the eleven are whole-chromosome gains on cells whose sister says nothing whatever about
+  those chromosomes: chromosomes 3, 4, 5, 7, 10, 11, 13, 14, 15 and 18. A cell carrying ten extra
+  whole chromosomes is not ten independent mis-segregations with a reciprocal sister, so the premise
+  this reading rests on does not hold there, and no threshold would change that.
+
+WHAT THIS MEANS FOR THE READING. It is correct, it is conservative, and on every array open to it it
+adds nothing that any table can confirm or contradict. The 12 calls it makes sit on chromosomes no
+table states a value for, so they can be neither credited nor faulted here. The mechanism will fire
+on a run that holds a true reciprocal pair; the open set holds none for a published gain.
+
+WHAT IS NOT PRINTED, AND WHY. These readings are recorded on the result and written to the log, and
+nothing is printed on a card. A new kind of call may only state how often it is right from
+pageSays.MEASURED, and the measured rate here is 0 of 0: there is no stated gain to score it on. A
+card claim will wait for a run that supplies one. The reading is therefore additive in the strict
+sense, and gate S5 holds by construction as well as by its check: a cell with no sister in the run,
+or whose only companion is another genome, reports nothing.
