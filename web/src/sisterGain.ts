@@ -28,21 +28,29 @@
  * WHICH CELLS COUNT AS SISTERS. The embryo label is not evidence: of 431 pairs sharing a label on the
  * laboratory's own arrays only 129 read as one genome, and 29 of the draft's 30 calls came from a
  * "sister" that was a different genome. A pair counts only where the two arrays read as ONE genome, by
- * parentage.agreement at abnormalities.SAME_EMBRYO_AGREEMENT, which is the page's existing definition
- * of a unit of one embryo: two biopsies concord at 95.8% of shared called markers against 54.9% for a
- * parent-offspring pair. It needs no parent, and it returns NaN under its own floor of shared calls, so
- * an unmeasurable pair fails the comparison and is not a sister.
+ * relatedness.oppositeHom at SISTER_OPP_HOM_MAX, with SISTER_MIN_SHARED shared homozygous calls needed
+ * before the rate is read at all. An unmeasurable pair is not a sister.
  *
- * THE SAME MEASURE AS THE TIMING RULE, DELIBERATELY. The page already groups units of one embryo this
- * way to separate gamete-borne from post-zygotic changes. A second measure here would let one card call
- * two cells sisters for this rule and not for that one.
+ * WHY NOT parentage.agreement, WHICH IS THE PAGE'S OWN DEFINITION OF A UNIT OF ONE EMBRYO. Identity of
+ * calls is FIRST order in dropout: one cell dropping an allele breaks it. An opposite homozygote is
+ * SECOND order: it needs both cells to drop at the same heterozygous marker in opposite directions. On
+ * these single cells, where dropout runs at a median of 0.324, that difference decides the measure.
+ * Measured over 14,365 pairs of 170 open arrays (audit/truth/sister-gain-2026-11-19.txt): identity
+ * correlates +0.772 with the pair's lower call rate and separates same-label from different-label pairs
+ * by 1.12x in the median, while the opposite-homozygote rate correlates -0.445 and separates them by
+ * 3.3x. abnormalities.SAME_EMBRYO_AGREEMENT is 0.90 because two TROPHECTODERM BIOPSIES concord at
+ * 95.8%; two blastomeres of one embryo sit at 0.68 to 0.85, under that threshold, so identity cannot
+ * carry this rule on the material it is for.
+ *
+ * SO THIS RULE AND THE PAGE'S UNIT GROUPING USE DIFFERENT MEASURES, which is a thing to know rather
+ * than a thing to like. The grouping drives the gamete-borne against post-zygotic call and fails
+ * closed on blastomeres: it reports fewer units and withholds, rather than grouping wrongly.
  *
  * WHAT IT IS NOT. Evidence about a cell with no sister on the array, and a claim about which division
  * made the pair. A cell is only asked about intervals a sister shows lost; the gain it reports stands
  * on its own intensity.
  */
-import { agreement } from './parentage.ts'
-import { SAME_EMBRYO_AGREEMENT } from './abnormalities.ts'
+import { oppositeHom } from './relatedness.ts'
 import type { AB } from './informativity.ts'
 
 export const WINDOW_BP = 5_000_000
@@ -164,12 +172,29 @@ export interface SisterGain extends Interval, IntervalReading {
  * For each cell of one embryo, the intervals a sister shows lost that this cell reads as gained.
  * Where several sisters show a loss on one chromosome the strongest reading is kept.
  */
-/** Whether two arrays read as one genome. NaN from `agreement` fails this, so unmeasurable is not a
- *  sister: the fault this rule exists to stop is reading a gain off a cell of another genome. */
+/**
+ * Opposite-homozygote rate at or under which two arrays read as one genome.
+ *
+ * Measured on these single cells: pairs sharing a laboratory label sit at a median of 0.0366 and pairs
+ * that do not at 0.1208, and the groups the plan's own earlier measurement read as one genome sat at
+ * 0.000 to 0.012 against 0.027 for the closest pair of different genomes.
+ *
+ * This rule's own number. relatedness.OPPOSITE_HOM_MAX happens to be the same 0.020 and answers a
+ * different question, parent against stranger; retuning that one must not move this one.
+ */
+export const SISTER_OPP_HOM_MAX = 0.020
+/**
+ * Shared homozygous calls a pair needs before its rate is read at all, as relatedness.relate requires.
+ *
+ * A pair under it is NOT a sister. The fault this rule exists to stop is reading a gain off a cell of
+ * another genome, so an unmeasurable pair must not supply an interval.
+ */
+export const SISTER_MIN_SHARED = 10_000
+
+/** Whether two arrays read as one genome. Unmeasurable is not a sister. */
 export function oneGenome(a: SisterUnit, b: SisterUnit): boolean {
-  // Strictly above, which is abnormalities.groupUnits' own comparison: a pair at exactly the
-  // threshold must not be a sister here and a different embryo there.
-  return agreement(a.gt as Map<string, AB>, b.gt as Map<string, AB>) > SAME_EMBRYO_AGREEMENT
+  const { rate, n } = oppositeHom(a.gt as Map<string, AB>, b.gt as Map<string, AB>)
+  return n >= SISTER_MIN_SHARED && Number.isFinite(rate) && rate <= SISTER_OPP_HOM_MAX
 }
 
 /** The parts of a scored cell this rule reads, so the page and audit/truth/sisters.ts derive a unit

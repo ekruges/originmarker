@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict'
 import {
   lrrWindows, readInterval, sisterGains, oneGenome, sisterUnitOf, WHOLE, WINDOW_BP,
-  MIN_WINDOW_MARKERS, SISTER_SHIFT, type LrrWindow, type SisterUnit,
+  MIN_WINDOW_MARKERS, SISTER_SHIFT, SISTER_MIN_SHARED, type LrrWindow, type SisterUnit,
 } from './sisterGain.ts'
 import type { AB } from './informativity.ts'
 
@@ -32,7 +32,8 @@ const genome = (n: number): Map<string, AB> => {
   for (let i = 0; i < n; i += 1) g.set(`p${i}`, i % 2 ? 'BB' : 'AA')
   return g
 }
-/** The same genome with every `every`-th call flipped, so it agrees with `genome` at 1 - 1/every. */
+/** The same genome with every `every`-th call flipped to the OPPOSITE homozygote, so the pair's
+ *  opposite-homozygote rate is about 1/every. */
 const flipped = (n: number, every: number): Map<string, AB> => {
   const g = genome(n)
   for (let i = 0; i < n; i += every) g.set(`p${i}`, g.get(`p${i}`) === 'AA' ? 'BB' : 'AA')
@@ -40,10 +41,10 @@ const flipped = (n: number, every: number): Map<string, AB> => {
 }
 const N = 12_000
 const ONE = genome(N)
-const ONE_NOISY = flipped(N, 25)    // agrees 0.96: one genome read twice through dropout
-const OTHER = flipped(N, 2)         // agrees 0.50: a different genome
-/** At the floor `agreement` refuses below, so the pair is unmeasurable however identical it is. */
-const THIN = genome(1000)
+const ONE_NOISY = flipped(N, 200)   // 0.005 opposite: one genome read twice through dropout
+const OTHER = flipped(N, 25)        // 0.040 opposite: a different genome
+/** Under SISTER_MIN_SHARED, so the pair is unmeasurable however identical it is. */
+const THIN = genome(SISTER_MIN_SHARED - 1)
 
 // One genome read twice counts; two genomes do not; and an unmeasurable pair does not, however
 // identical, because the fault this rule stops is reading a gain off a cell of another genome.
