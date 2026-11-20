@@ -167,7 +167,9 @@ export interface SisterGain extends Interval, IntervalReading {
 /** Whether two arrays read as one genome. NaN from `agreement` fails this, so unmeasurable is not a
  *  sister: the fault this rule exists to stop is reading a gain off a cell of another genome. */
 export function oneGenome(a: SisterUnit, b: SisterUnit): boolean {
-  return agreement(a.gt as Map<string, AB>, b.gt as Map<string, AB>) >= SAME_EMBRYO_AGREEMENT
+  // Strictly above, which is abnormalities.groupUnits' own comparison: a pair at exactly the
+  // threshold must not be a sister here and a different embryo there.
+  return agreement(a.gt as Map<string, AB>, b.gt as Map<string, AB>) > SAME_EMBRYO_AGREEMENT
 }
 
 /** The parts of a scored cell this rule reads, so the page and audit/truth/sisters.ts derive a unit

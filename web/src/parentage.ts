@@ -1022,6 +1022,22 @@ export interface ParentageResult {
   noParent?: boolean
   /** The autosomes that share this array's commonest copy state, which copy number is read against. */
   copyReference?: string[]
+  /**
+   * Gains read because another array of this run, reading as the same genome, shows the loss over the
+   * same interval (sisterGain.ts). Plan item 3.1.
+   *
+   * Set by the page's post-pass, which is the only place holding every cell's finished calls: this
+   * reading needs a sister's losses and reference chromosomes, which are results rather than inputs.
+   * Absent on a run of one array, and empty where no sister shows a loss this cell reads as raised.
+   */
+  sisterGains?: {
+    chrom: string; startBp: number; endBp: number; whole: boolean
+    /** log2 above this cell's own level on its reference chromosomes, and that in units of the
+     *  spread of equally long runs there. */
+    shift: number; lrrZ: number
+    /** How many of the cell's 5 Mb windows the interval covered. */
+    windows: number
+  }[]
   /** Autosomes above that state by intensity and not reported as gained. See GAIN_HET_RATIO_MAX
    *  and GAIN_OFF_POLE_MIN. */
   copyUnresolved?: string[]

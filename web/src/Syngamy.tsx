@@ -1,4 +1,5 @@
 import { breathe } from './scan'
+import { lrrWindows, sisterGains, sisterUnitOf, type LrrWindow } from './sisterGain'
 import {
   collectParentRow, collectRow, emptyCollected, emptyParent, finishParent, noParent, scoreSample,
   type ParentIndex,
@@ -640,7 +641,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       // map per sample rather than streamed twice, since the run already holds every file.
       const sampleGt = new Map<string, Map<string, string>>()
       /** Finished samples, kept locally because patch() writes React state we cannot read back. */
-      const finished: { id: string; result: ParentageResult }[] = []
+      const finished: { id: string; result: ParentageResult; windows: LrrWindow[] }[] = []
       // A RUN IS READ WHOLE. Sister arrays, units of one embryo and the parents are properties of
       // every array in the run, and Run is offered only after the files or their labels change, so
       // each press reads every sample again against the files loaded now.
@@ -666,7 +667,10 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         const series = plotData(acc, {
           loaded: pat.absent ? null : { role: soloRole, gt: pat.gt }, second: mat?.gt ?? null,
         })
-        return { calls: acc.myGt, profile, gates, result, maternal, paired, series }
+        // The 5 Mb window medians, kept because the sister reading in the post-pass needs this
+        // cell's intensity after every cell's calls are known, and `acc` does not outlive this pass.
+        return { calls: acc.myGt, profile, gates, result, maternal, paired, series,
+          windows: lrrWindows(acc.cnByChrom) }
       }
       const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
       let doneCount = 0
@@ -678,7 +682,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { calls, profile, gates: g, result, maternal, paired, series } = await readSample(s, othersOf(s.id))
+          const { calls, profile, gates: g, result, maternal, paired, series, windows } = await readSample(s, othersOf(s.id))
           sampleGt.set(s.id, calls)
           // With no parent loaded there is no parent's absence to report, and soloRole is a placeholder.
           log('DONE', result.noParent
@@ -687,7 +691,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
               + `absent ${pct(result.genomeRate)} vs ceiling ${pct(result.explainable)}`
               + (maternal ? `, maternal absent ${pct(maternal.genomeRate)} vs ceiling `
                 + `${pct(maternal.explainable)}` : ''))
-          finished.push({ id: s.id, result })
+          finished.push({ id: s.id, result, windows })
           await breathe()
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
         } catch (e) {
@@ -708,8 +712,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         log('READ', `${s.file.name}: read again, now that the run holds every array`)
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { profile, gates: g, result, maternal, paired, series } = await readSample(s, othersOf(s.id))
+          const { profile, gates: g, result, maternal, paired, series, windows } = await readSample(s, othersOf(s.id))
           f.result = result
+          f.windows = windows
           await breathe()
           patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
         } catch (e) {
@@ -742,7 +747,25 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           // One call for the whole group, in timing.ts, so the page and the batch harnesses read
           // the same rules: a reciprocal pair first, then uniformity across the units.
           const timed = timeGroup(group.map((u) => u.result as never))
+          // A GAIN THE SISTER'S LOSS POINTS AT. A copy one cell lacks went to the other, so the two
+          // changes sit over one interval. The loss is the easy half: it stops the genotyping. The
+          // gain is the hard half, because a third copy moves intensity by a fraction of what a lost
+          // one does and a genome-wide scan for it has to clear a bar set for everywhere it might be.
+          // Told where to look it is one test. sisterGains re-checks each pair itself, so a group
+          // that reached here some other way cannot feed this.
+          const units = group.map((u) => sisterUnitOf(u.result as never, u.windows,
+            (sampleGt.get(u.id) ?? new Map()) as never))
+          const found = sisterGains(units)
           group.forEach((u, i) => {
+            u.result.sisterGains = found[i].map((g) => ({
+              chrom: g.chrom, startBp: g.startBp, endBp: g.endBp, whole: g.whole,
+              shift: g.shift, lrrZ: g.z, windows: g.windows,
+            }))
+            for (const g of found[i]) {
+              log('DONE', `chr${g.chrom}${g.whole ? '' : ` ${(g.startBp / 1e6).toFixed(1)}-${(g.endBp / 1e6).toFixed(1)} Mb`}`
+                + ` reads raised here and another array of this embryo shows it lost: `
+                + `${g.shift.toFixed(2)} log2 above this cell's own level, ${g.z.toFixed(1)} spreads`)
+            }
             u.result.units = group.length
             u.result.uniformity = timed[i].map((e) => ({
               chrom: e.chrom, startBp: e.startBp, endBp: e.endBp, mechanism: e.mechanism, why: e.why,
