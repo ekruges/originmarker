@@ -1,0 +1,82 @@
+A gain read where a cell of the same embryo shows the loss
+==========================================================
+
+Plan item 3.1, the wiring step. The rules and the choice to be made are written here BEFORE the
+scoring run, and the results are appended under them. Nothing above the RESULTS line was edited
+after the run.
+
+CELLS ARE NAMED BY NUMBER AND NEVER BY THEIR ARRAY. The numbering is this file's own, "cell 1"
+upward, and the key from number to array lives untracked at
+audit/local/sister-2026-11-19/cell-key.tsv. No laboratory barcode, sample file name or accession
+is in this file.
+
+WHAT IS READ
+------------
+A copy that one daughter cell lacks went to the other, so the loss and the gain sit over one
+interval: a whole chromosome that failed to separate, or the piece beyond a break. The loss is the
+easy half, because it stops the array genotyping. The gain is the hard half: a third copy moves
+intensity by a fraction of what a lost one does, and a genome-wide scan for it must clear a bar set
+for every place it might be. Told where to look, it is one test.
+
+For a cell and an interval another cell of the same embryo shows lost, on a chromosome this cell
+reports no change on (web/src/sisterGain.ts):
+
+  shift  the median of this cell's 5 Mb window medians inside the interval, less the median over
+         the chromosomes sharing its commonest copy state
+  z      that shift over the spread of equally long runs of windows on those chromosomes, the
+         tested chromosome left out of its own null
+
+Called at shift >= 0.25 and z >= 3. Intervals under two windows, cells under 8 reference
+chromosomes and nulls under 20 runs are not read at all.
+
+THE RULE ADDED AT THIS STEP, AND WHY
+------------------------------------
+The draft trusted the embryo label. On the laboratory's own arrays only 129 of 431 pairs sharing a
+label read as one genome, and 29 of the draft's 30 calls came from a cell that was a different
+genome. A sister must therefore be measured, not declared.
+
+Two measures can do it with NO parent loaded, which is required because the cells this rule is for
+have no parent on disk:
+
+  agree     share of shared called markers that are identical (parentage.agreement). This is
+            already the page's definition of a unit of one embryo, at
+            abnormalities.SAME_EMBRYO_AGREEMENT = 0.90, strictly above. Measured separation when
+            that was set: 95.8% within an embryo against 54.9% for a parent-offspring pair.
+  opp rate  share of shared HOMOZYGOUS calls that are opposite (relatedness.oppositeHom). The rule
+            as first written in the plan, at 0.02 or under. Measured then: groups reading as one
+            genome at 0.000 to 0.012, the closest pair of different genomes at 0.027.
+
+A third measure, otherParentLoss.sameGenomeShare, is not a candidate here: it reads the loaded
+parent's homozygous markers and there is no parent.
+
+DECIDED BEFORE THE RUN: both measures are printed for every pair of the 170 arrays
+(audit/truth/sister-pairs.ts) and the one with the wider separation between pairs that read as one
+genome and pairs that do not is the one that ships. Where they separate equally well, `agree` ships,
+because a second measure would let one card call two cells sisters for this rule and a different
+embryo for the timing rule, and that class of contradiction is what 6.16.0 existed to remove.
+
+WHY AN OPPOSITE-HOMOZYGOTE RATE IS USABLE ON AMPLIFIED CELLS AT ALL
+-------------------------------------------------------------------
+relatedness.RELATEDNESS_SEPARABLE_MATERIALS admits bulk only, because dropout manufactures
+opposite homozygotes out of a real relative. That holds for a parent against a child, who share
+ONE allele at a marker, so a single dropout destroys the signal: first order. Two cells of one
+genome share BOTH alleles, so an opposite homozygote needs dropout in both cells in opposite
+directions at the same heterozygous marker: second order. Two different genomes differ at about a
+quarter of markers outright, which is first order again. So the same quantity can separate one
+genome from two on amplified cells while it cannot separate a parent from a stranger there. This is
+the reasoning behind reading either measure on single cells and it is a claim the pair table tests.
+
+ARRAYS READ
+-----------
+170 arrays, every one listed `open` in audit/local/truth/units.tsv, checked before the run. No
+sealed and no exposed array was opened. The arrays are those appearing in a sister reading of the
+257-cell run of 72 embryos.
+
+WHAT MUST NOT MOVE
+------------------
+A cell with no sister in the run keeps every call, parent and coordinate it had. The reading is
+additive and runs after every cell is scored.
+
+RESULTS
+-------
+(appended after the run)
