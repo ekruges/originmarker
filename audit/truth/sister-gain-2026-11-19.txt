@@ -151,4 +151,43 @@ readings give 1,693 calls: 14 distinct stated gains bought with 47 calls on stat
 stated losses. Under the same-genome rule the wrong calls are none. So the rule is not bookkeeping;
 without it the reading is a low bar applied to arbitrary intervals.
 
-STILL TO COME: the 257-array set rescored under the shipped rule.
+THE 257-ARRAY SET UNDER THE SHIPPED RULE (S2, S3). 73,859 readings on chromosomes the reading cell
+reports no change on. 73,557 rejected because the pair does not read as one genome; 302 read, 264
+whole chromosomes and 38 pieces. 12 calls. Of the 302 readings only 3 fall on a chromosome any table
+states a value for, 2 normal and 1 lost, and none of those three is called. So:
+
+  stated gains added:            0
+  calls on a stated normal:      0
+  calls on a stated loss:        0
+  calls on chromosomes no table states: 12
+
+For comparison, the rule the plan first wrote (opposite homozygotes at 0.02, genome-wide) admitted
+221 readings and 12 calls, of which 1 was a stated gain; that pair does not read as one genome under
+the shipped rule, which is the same judgement that rejected the published sibling pair.
+
+WHY THE YIELD IS ZERO, WHICH IS NOT THE GATE'S FAULT AND NOT THE RULE'S. The pairing is not the
+bottleneck: the shipped rule finds 272 true-sister pairs over these 257 arrays and 140 of the cells
+have at least one sister. The missing thing is the reciprocal configuration itself.
+
+  stated gains on these open arrays                                   67
+  of those, on a cell that has at least one true sister               11
+  of those 11, where a sister reports the same chromosome LOST         0
+  of those 11, where a sister reports that chromosome AT ALL           0
+  of those 11, already called by the tool                              1 (as a gain)
+
+  Ten of the eleven are whole-chromosome gains on cells whose sister says nothing whatever about
+  those chromosomes: chromosomes 3, 4, 5, 7, 10, 11, 13, 14, 15 and 18. A cell carrying ten extra
+  whole chromosomes is not ten independent mis-segregations with a reciprocal sister, so the premise
+  this reading rests on does not hold there, and no threshold would change that.
+
+WHAT THIS MEANS FOR THE READING. It is correct, it is conservative, and on every array open to it it
+adds nothing that any table can confirm or contradict. The 12 calls it makes sit on chromosomes no
+table states a value for, so they can be neither credited nor faulted here. The mechanism will fire
+on a run that holds a true reciprocal pair; the open set holds none for a published gain.
+
+WHAT IS NOT PRINTED, AND WHY. These readings are recorded on the result and written to the log, and
+nothing is printed on a card. A new kind of call may only state how often it is right from
+pageSays.MEASURED, and the measured rate here is 0 of 0: there is no stated gain to score it on. A
+card claim will wait for a run that supplies one. The reading is therefore additive in the strict
+sense, and gate S5 holds by construction as well as by its check: a cell with no sister in the run,
+or whose only companion is another genome, reports nothing.

@@ -161,4 +161,17 @@ const THIN = genome(1000)
   assert.deepEqual(read(THIN), [], 'too few shared calls reports nothing')
 }
 
+// A CELL WITH NO SISTER IN THE RUN IS UNTOUCHED (gate S5). One cell alone, and a cell whose only
+// companion is another genome, both report nothing: this reading is additive and never subtracts.
+{
+  const lone: SisterUnit = {
+    windows: cell(0.1, [{ chrom: '5', from: 0, to: 20, by: 0.4 }]),
+    gt: ONE, pos: CHROM_OF, reference: without('5'), losses: [WHOLE('5')], changed: new Set(['5']),
+  }
+  assert.deepEqual(sisterGains([lone]), [[]], 'one cell alone has no sister and reports nothing')
+  const stranger: SisterUnit = { ...lone, gt: OTHER, losses: [WHOLE('5')] }
+  const [a, b] = sisterGains([lone, stranger])
+  assert.deepEqual([a, b], [[], []], 'a companion of another genome is not a sister')
+}
+
 console.log('sisterGain.check ok')
