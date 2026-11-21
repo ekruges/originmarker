@@ -176,18 +176,31 @@ async function scoreArray(id: string, path: string, parentPath: string, otherPat
 // Each array's part in the sister reading, keyed by what it was scored with, so an array read once
 // in a shard is not scored again for every row of its run. The key holds the sibs as a set, which
 // assumes the order of a run's arrays changes no loss call.
+//
+// An other array that has its own row later in this shard, with the same parents and the same run,
+// is scored as that row and its record kept, so it is scored once and its own record is the one
+// the reading used.
 const unitOf = new Map<string, any>()
 const unitKey = (path: string, parentPath: string, otherPath: string | undefined, role: string | undefined,
   sibPaths: string[]) => [path, parentPath, otherPath ?? '', role ?? '', [...sibPaths].sort().join(';')].join('|')
 const sisterUnit = (res: any, acc: any, path: string) => S.sisterUnitOf(res, S.lrrWindows(acc.cnByChrom), calls(path), chromOf)
+const kept = new Map<string, { rec: any; unit: any }>()
 async function otherUnit(path: string, parentPath: string, otherPath: string | undefined, role: string | undefined,
   sibPaths: string[]) {
   const key = unitKey(path, parentPath, otherPath, role, sibPaths)
   if (!unitOf.has(key)) {
     let u = null
     try {
-      const { acc, res } = await scoreArray(path.split('/').pop() as string, path, parentPath, otherPath, role, sibPaths)
-      u = sisterUnit(res, acc, path)
+      const own = rowOf.get(key)
+      if (own) {
+        const [id, , , tag, , , others] = own
+        const got = await recordOf(id, path, parentPath, tag, otherPath, role, (others ?? '').split(';').filter(Boolean))
+        kept.set(`${id}|${tag}`, got)
+        u = got.unit
+      } else {
+        const { acc, res } = await scoreArray(path.split('/').pop() as string, path, parentPath, otherPath, role, sibPaths)
+        u = sisterUnit(res, acc, path)
+      }
     } catch { u = null }
     unitOf.set(key, u)
   }
@@ -353,11 +366,21 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
   return { rec, unit }
 }
 
+// This shard's rows still to write that have a run, by the key their array would be scored under.
+const rowOf = new Map<string, string[]>()
+for (const row of list) {
+  const [id, path, parentPath, tag, otherPath, role, others] = row
+  const run = (others ?? '').split(';').filter(Boolean)
+  if (run.length && !done.has(`${id}|${tag}`)) rowOf.set(unitKey(path, parentPath, otherPath, role, run), row)
+}
+
 for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
   if (done.has(`${id}|${tag}`)) continue
   try {
     const run = (others ?? '').split(';').filter(Boolean)
-    const { rec, unit } = await recordOf(id, path, parentPath, tag, otherPath, role, run)
+    const got = kept.get(`${id}|${tag}`)
+    kept.delete(`${id}|${tag}`)
+    const { rec, unit } = got ?? await recordOf(id, path, parentPath, tag, otherPath, role, run)
     if (unit) {
       // Each other array of the run, scored as its own row would be. The units are read in this
       // array's order, so a reading's `from` maps back to its place in `others`.
@@ -366,7 +389,7 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
         const u = await otherUnit(p, parentPath, otherPath, role, [path, ...run].filter((q) => q !== p))
         if (u) { units.push(u); from.push(k) } else unread.push(k)
       }
-      rec.sisterGains = S.sisterGains(units)[0].map((g: any) => ({ chrom: g.chrom, start: g.startBp,
+      rec.sisterGains = S.sisterGainsFor(units, 0).map((g: any) => ({ chrom: g.chrom, start: g.startBp,
         end: g.whole ? null : g.endBp, whole: g.whole, shift: +g.shift.toFixed(4), z: +g.z.toFixed(3),
         windows: g.windows, from: from[g.from - 1] }))
       if (unread.length) rec.sisterUnread = unread
