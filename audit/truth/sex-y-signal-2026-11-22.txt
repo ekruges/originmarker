@@ -154,3 +154,34 @@ Y4  MET on the records. Every non-sex field of the 871 records identical, chrX a
 Y5  Shares and floors in every record equal the measuring pass's independent reading of the file
     (largest difference 0.0000); no reason quotes a number not the file's, none says "uncalled" of a
     called Y. checks.sh and release-check.sh exit 0. Browser runs and the release are for landing.
+
+Added after the first exit run (22 November, before any code for it)
+=====================================================================
+Why: Y3's line "never male where chrY reads absent" was written before the run and is not met by R1
+to R8 as written, on 3 with-parent rows (chrX in the male band, chrY read absent by R3). 6.19.0
+prints the same. R7 covers only the female side. The cause is one design fault: the sample's sex
+word comes from callSex (X heterozygosity alone), a second source beside the sex-chromosome
+reading. No bar is moved.
+
+R9. One source for the sample's sex word. The header and Sample quality sex word of a SAMPLE is
+    derived in one function from the X band and the Y reading together, the same Y reading the
+    sex-chromosome line uses:
+    - "male" only where chrY reads present and chrX is in the male band;
+    - "female" only where chrY reads absent and chrX is in the female band;
+    - chrY present with a heterozygous X: as R7 ("not read: chrY present with a heterozygous X");
+    - chrX in the male band and chrY absent: "not read: chrX reads one copy by its calls and chrY is
+      absent";
+    - chrY not read: "not read: chrY was not read" with the same reason the sex-chromosome line
+      gives, never "male" or "female";
+    - the ambiguous X band keeps today's word.
+    A loaded PARENT's own sex word is untouched (Y3's third line still requires it identical on all
+    270 rows). Where two copies of the autosomes are not shown with no parent, the existing "not
+    read" words stand (sexMaterial.ts), as today.
+
+Added gate line Y3b: on every record, the sample's sex word and the sex-chromosome line never state
+different sexes; counted and listed.
+
+Run: the branch tree on all 871 rows (the 6.19.0 records of the first run stand), Y1 to Y5 and Y3b
+rescored, every record whose sex word changes by R9 listed by from-to, checks, and the suite on the
+final commit against the 6.19.0 suite run. A Y1, Y2, Y4 or Y5 line that fails is reported as it
+stands.
