@@ -109,6 +109,48 @@ read, 1 wrong; lab 138 right, 4 wrong (labels the arrays contradict). No 45,X, 4
 known female reads a Y. The tool's own measures (its autosomal median takes every hundredth marker,
 the pass took every tenth) may move a reading that sits on a bar; any such row is listed.
 
-RESULTS
--------
-(filled in after the run)
+RESULTS (22 November; trees and records under /root/om-sexfix on tesla, one run each)
+-----------------------------------------------------------------------------------
+Records: 871 per tree (330 no-parent, 270 with-parent, 271 lab no-parent), every list checked open
+against the seal file first; no error, no chip refusal. 6.19.0's records equal the earlier 6.19.0
+records (second-pass baseline, the plan item's lab run) in every field both runners write.
+
+Printed sex lines that changed, 6.19.0 to the branch (the prediction: 34, 10, 22):
+  no parent, 330 rows, 34: XX to 47,XXY or a mix of cells 17; XX or one X to unresolved 12; XX to
+    unresolved 3; one X to unresolved 1; XY to unresolved 1.
+  with parent, 270 rows, 10: XX to 47,XXY or a mix of cells 5; XX to unresolved 3; XY to unresolved 2.
+  lab, 271 rows, 22: XX to 47,XXY or a mix of cells 15 (S2 rows 12, 27, 63, 64, 85, 90, 94, 104, 138,
+    148, 152, 205, 207, 228; S7 row 54); XX or one X to unresolved 4 (S2 rows 11, 60, 99, 224); XX to
+    unresolved 3 (S2 rows 78, 213; S7 row 27).
+Y readings that changed: no parent 40 (no Y to Y 23, no Y to not read 13, Y to not read 4); with
+  parent 35 (18, 7, 10); lab 29 (17, 11, 1). None from Y to no Y.
+Truth-labelled Y readings, 6.19.0 / branch: no parent 44 right 3 wrong / 46 right 1 not read; with
+  parent 51 right 4 wrong / 53 right 1 not read 1 wrong; lab 126 right 16 wrong / 138 right 4 wrong.
+  The one reading right today and not read now is one cell, in the no-parent and with-parent rows:
+  the lab-sheet cell stated XX (share 62%, floor 95%, no calls, intensity -0.08). The wrong ones are
+  the labels the plan item names as contradicted by the arrays (S2 rows 83, 95, 110; S7 row 36, the
+  with-parent wrong being S7 row 36's array).
+
+Y1  MET. The 13 lab cells read a Y; 11 print 47,XXY or a mix of cells, S2 row 78 and S7 row 27
+    unresolved (Y not shown beside a female-band X: S7 row 27's sex word is "ambiguous"); none prints
+    XX or "female". The 3 GSE186407 stated-Y cells read a Y and print unresolved (4 records). Of the
+    33 known no-Y arrays, 21 are in these rows as sample or parent and none reads a Y; the other 12
+    are not in the rows (the plan item's pass counts 0 of 33 under B). No 45,X, 47,XXX or 47,XXY.
+Y2  MET. No confirmed XX or XY lost; nothing becomes 47,XXY or 45,X; no 47,XXY on the 270 rows, so
+    the 26 rows of 3.12b do not return to it.
+Y3  NOT MET on one line. Never "female" where chrY reads present: met (the 20 Y-with-two-X rows read
+    "not read: chrY present with a heterozygous X"). The parent's own sex word: not changed (ingest
+    callSex and the parent lines of the page are untouched; every loaded parent's Y reading is the
+    same on both trees). "Never male where chrY reads absent": 3 with-parent rows, 3 cells (stand-in
+    father, staged blastomere, no chrX row), print "male" with chrY absent (share 44% to 48%, floor
+    92% to 93%, calls 1.3 of the autosomes' rate, intensity -0.58 to -0.65). 6.19.0 prints the same.
+    The rule has no clause for it (R7 covers a heterozygous X only), so no special case was added.
+Y4  MET on the records. Every non-sex field of the 871 records identical, chrX and chrY rows
+    included. Parent checks identical. Sperm type: 2 records (one cell, father and two-parent rows)
+    go from Y-bearing to unknown, because its Y moves from present to not read (calls and intensity
+    agree, allele fractions contradict). Paternal-group naming: not on these rows; on the 115
+    staged-haploid records the Y reading moves only from no Y to Y (2), never away from Y.
+    Suite: run on 6.19.0 and on the branch, same commands; scorecard "NOTHING MOVED SINCE PREVIOUS".
+Y5  Shares and floors in every record equal the measuring pass's independent reading of the file
+    (largest difference 0.0000); no reason quotes a number not the file's, none says "uncalled" of a
+    called Y. checks.sh and release-check.sh exit 0. Browser runs and the release are for landing.
