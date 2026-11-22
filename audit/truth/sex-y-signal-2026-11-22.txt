@@ -1,0 +1,114 @@
+A Y is read from the Y markers, not from the chip's calls (plan item 3.12d)
+==========================================================================
+Written 22 November 2026, before any code was changed or any run made. Built on 6.19.0 (530889a),
+branch sex-y-signal. Open arrays only, plus the laboratory cohort the plan item measured. Lab cells
+are named by Table S2 or S7 row; nothing here names an array.
+
+THE FAULT
+---------
+The chip leaves chrY uncalled on any sample it reads as female from its X heterozygosity, so on this
+chip "chrY has calls" and "chrX is heterozygous" are one signal. sexing.ts sexCall() needs the calls
+for a Y, and sexChromosome.ts yPresent() takes that answer on this chip, so a cell with two X and a
+Y that the chip left uncalled reads "no Y" and prints XX. The same calls-only input feeds the sperm
+type (parentage.ts), the paternal-group naming (sexing.ts paternalGroup) and the parent checks
+(parentSanity.ts).
+
+THE RULE (plan item 3.12d, candidate B, as the owner ruled on 22 November)
+--------------------------------------------------------------------------
+"Y present" rests on what the Y markers themselves show: their allele fractions first, their
+intensity as a check. On this chip the calls are never evidence of absence. They may only block a
+reading where they and the intensity both say the opposite.
+
+R1. Allele fractions readable. The array's own homozygous autosomal calls read at least 0.90
+    polarised (BAF under 0.15 or over 0.85).
+R2. Y present where R1 holds, the Y BAF share is at least 0.75, and the Y intensity is at least
+    Y_LRR_MIN (-0.5, unchanged).
+R3. Y absent where R1 holds and the Y BAF share is at most 0.60, unless calls and intensity both say
+    present. In that case: not read.
+R4. Between (share over 0.60 and under 0.75, or share 0.75 or more with intensity under -0.5):
+    today's reading only where calls and intensity agree with each other (both present: Y; no calls
+    and intensity under -0.5: no Y). Where they disagree: not read.
+R5. Allele fractions not readable: today's reading where calls and intensity agree (both present: Y;
+    both absent: no Y). Otherwise not read. The "no call is no Y" default goes.
+R6. A Y that is not read blocks every X-only constitution. No XX, "one X" or "XX or one X" is
+    printed. The reason names what was missing.
+R7. A Y present with a heterozygous X (the X in the female band, or X shown two copies):
+    - The sex-chromosome line: "chrY is present: its markers read one allele each (n% of them, where
+      this array's own homozygous calls read m%) at male intensity, though the chip left them
+      uncalled; chrX reads two different X by its heterozygous calls. A Y with two different X is
+      47,XXY or a mix of cells, which one array does not separate."
+    - The header and Sample quality sex word does not say "female": "not read: chrY present with a
+      heterozygous X".
+    - With a parent loaded the same, as 3.12b already holds 47,XXY back on amplified material. On
+      bulk DNA the existing 47,XXY rule stands.
+R8. The bars come from the measuring pass (0.90, 0.75, 0.60). They are written here before any code
+    and are not moved by the exit run.
+
+Owner's rulings, 22 November:
+  1. The bars stay as measured: 0.90, 0.75, 0.60. They are never moved, whatever the exit run says.
+  2. Candidate B (the rule with R4), not A.
+  3. R7 prints a FINDING, "47,XXY or a mix of cells", with the R7 reason beside it, not a bare
+     "unresolved". In the records and the scoring harness it is its own state, never counted or
+     stored as a 47,XXY constitution, an XX or an XY; so "no 47,XXY is printed" (Y1, Y2) means no
+     plain 47,XXY constitution. The header and Sample quality sex word reads "not read: chrY present
+     with a heterozygous X", never "female".
+
+Measured as the measuring pass measured them: the Y BAF share over every chrY marker carrying a BAF;
+the floor over every tenth autosomal marker that carries a BAF and a homozygous call. Where a
+phrase of the R7 line is not true of the file it is not printed: "though the chip left them
+uncalled" only where the calls are under Y_CALL_MIN, and the allele-fraction clause only where the Y
+was read by R2.
+
+Not touched: every autosome reading; COPY_SHIFT_FLOOR, HAPLOID_MAX_HET, Z_CHROMOSOME; Y_LRR_MIN,
+Y_CALL_MIN, Y_MIN_PROBES; the callSex bands; the X readings of 3.12, 3.12b and 3.12c; the
+intensity-only path for chips that never genotype chrY (Y_BESIDE_X); the thin-panel null.
+
+THE GATE (Y1 to Y5, plan item 3.12d)
+------------------------------------
+Y1. No parent, the 330 open answer-key rows and the 271 lab rows:
+    - every truth-labelled Y reading right today stays right, except at most the one cell named in
+      the plan item (a lab-sheet single cell stated XX, share 0.62, intensity -0.08), which becomes
+      "not read" with a true reason;
+    - the 3 GSE186407 stated-Y cells and the 13 lab cells with Y truth (S2 rows 27, 63, 64, 78, 85,
+      90, 94, 104, 148, 152 and 228; S7 rows 27 and 54) read a Y and print neither XX nor "female";
+    - none of the 33 known no-Y arrays reads a Y;
+    - no 45,X, 47,XXX or 47,XXY is printed.
+Y2. With a parent, the 270 open rows: the same three lines.
+    - Every XX and XY printed today that truth confirms stays.
+    - No reading becomes 47,XXY or 45,X.
+    - The 26 rows of 3.12b do not return to 47,XXY.
+Y3. Header and Sample quality sex:
+    - never "female" where chrY reads present;
+    - never "male" where chrY reads absent;
+    - with a parent loaded, the parent's own sex word unchanged on all 270 rows.
+Y4. Nothing else moves:
+    - every autosome field of all 600 answer-key rows and the 271 lab rows is identical to v6.19.0;
+    - the paternal-group naming, the parent checks and the sperm type are identical on every row
+      where they print today, or each change is listed with its cause;
+    - suite no worse than the v6.19.0 scorecard.
+Y5. Every reason true of the file:
+    - the share and floor quoted in a reason are checked against the file;
+    - all checks pass by exit code;
+    - browser run with and without a parent on S2 row 85 and on one GSE148488 mother (at landing);
+    - released as its own version (at landing).
+
+HOW IT IS SCORED
+----------------
+The record runner (audit/truth/run.ts) runs once on 6.19.0 and once on this branch over the same
+three lists (330 no-parent rows, 270 with-parent rows, 271 lab rows with no parent). Beside the
+existing fields each record carries the Y reading and its reason, the sex-chromosome line's reason,
+the sample's sex word as the page prints it, the parent checks and the sperm type, so Y3 and Y4 are
+read from both runs rather than inferred. Truth is the plan item's (/root/om-sexy on tesla), joined
+by array. The autosome fields are also compared with /root/om-g/second-pass-baseline.
+
+PREDICTION (the plan item's count of candidate B on the measuring pass's own numbers)
+-----------------------------------------------------------------------------------
+Printed line changes: 34 of 330 no-parent rows, 10 of 270 with-parent rows, 22 of 271 lab rows.
+Truth-labelled readings under B: no parent 46 right, 1 not read, 0 wrong; with parent 53 right, 1 not
+read, 1 wrong; lab 138 right, 4 wrong (labels the arrays contradict). No 45,X, 47,XXX or 47,XXY. No
+known female reads a Y. The tool's own measures (its autosomal median takes every hundredth marker,
+the pass took every tenth) may move a reading that sits on a bar; any such row is listed.
+
+RESULTS
+-------
+(filled in after the run)
