@@ -293,10 +293,7 @@ const one = (where: string, verdict: string) => ({
 
 // --- TIMING REACHES THE DISPLAY, AND ITS ABSENCE IS NOT A BLANK -----------------------------------
 //
-// This was shipped once as dead code: callUniformity existed, was tested, and was described in the
-// docs and in `om taxonomy`, while nothing ever called it and the unit count was hardcoded to one.
-// A user who did exactly what the tool told them to do got the identical unanswerable answer. The
-// assertions here are what make that impossible to ship again.
+// The timing a page computes must reach the row it was computed for, and only that row.
 {
   const s7 = seg('7', 5_000_000, 25_000_000)
   const base = defectsFrom([s7], [], [], [], 'paternal')
@@ -305,31 +302,31 @@ const one = (where: string, verdict: string) => ({
   assert.equal(withMechanism(base, undefined)[0].mechanism, undefined)
   assert.equal(withMechanism(base, [])[0].mechanism, undefined)
 
-  // Present in every unit: from the gamete.
-  const uniform = withMechanism(base, [{ chrom: '7', startBp: 4_800_000, endBp: 25_200_000,
-    mechanism: 'meiotic', why: 'present in all 3 units' }])[0]
+  const row = base[0]
+  const at = (mechanism: 'meiotic' | 'consistent-with-gamete' | 'mitotic-not-all' | 'mitotic-reciprocal' | 'none', o = {}) =>
+    withMechanism(base, [{ chrom: '7', startBp: row.startBp, endBp: row.endBp, kind: row.kind,
+      mechanism, why: '3 of 3 units carry this loss, 0 read chromosome 7 normal', ...o }])[0]
+
+  // Matched to its own row: same chromosome, edges and kind.
+  const uniform = at('meiotic')
   assert.equal(uniform.mechanism, 'meiotic')
-  assert.ok(uniform.mechanismWhy!.includes('all 3 units'))
+  assert.ok(uniform.mechanismWhy!.includes('3 of 3 units'))
+  assert.equal(at('meiotic', { startBp: row.startBp + 1 }).mechanism, undefined,
+    'another change on the chromosome does not lend its timing')
+  assert.equal(at('meiotic', { kind: 'copy-gain' }).mechanism, undefined)
+  assert.equal(at('meiotic', { chrom: '9' }).mechanism, undefined)
+  assert.equal(at('none').mechanism, undefined, 'no origin is no origin word')
 
-  // MATCHED BY OVERLAP, NOT BY IDENTICAL EDGES. Two biopsies do not place a breakpoint the same
-  // way, and requiring exact coordinates would drop the match on exactly the events that have one.
-  assert.ok(Math.abs(uniform.startBp - 4_800_000) > 0, 'the edges genuinely differ')
-
-  // Confined to a lineage.
-  assert.equal(withMechanism(base, [{ chrom: '7', startBp: 5_000_000, endBp: 25_000_000,
-    mechanism: 'post-zygotic', why: 'present in 1 of 3' }])[0].mechanism, 'post-zygotic')
-
-  // A different chromosome must not borrow another event's timing.
-  assert.equal(withMechanism(base, [{ chrom: '9', startBp: 5_000_000, endBp: 25_000_000,
-    mechanism: 'meiotic', why: 'x' }])[0].mechanism, undefined)
-
-  // And the headline carries the timing, because when a change arose is a different finding for a
-  // patient from whose it was.
+  // The headline carries the words decided for each call, with or without a named parent.
   const withOrigin = { ...uniform, origin: 'paternal' as const }
-  assert.ok(headline(withOrigin).includes('from the gamete'), headline(withOrigin))
-  assert.ok(headline({ ...withOrigin, mechanism: 'post-zygotic' as const })
-    .includes('after fertilisation'))
-  assert.ok(!headline({ ...withOrigin, mechanism: undefined }).includes('gamete'),
+  assert.ok(headline(withOrigin).endsWith(' · from the gamete'), headline(withOrigin))
+  assert.ok(headline({ ...withOrigin, mechanism: 'consistent-with-gamete' as const })
+    .endsWith(' · consistent with the gamete (two cells read)'))
+  assert.ok(headline({ ...withOrigin, mechanism: 'mitotic-not-all' as const }).endsWith(' · after fertilisation'))
+  assert.ok(headline({ ...withOrigin, mechanism: 'mitotic-reciprocal' as const }).endsWith(' · after fertilisation'))
+  assert.ok(headline({ ...uniform, origin: 'unclear' as const }).endsWith(' · from the gamete'))
+  assert.ok(!headline({ ...withOrigin, mechanism: undefined }).includes('gamete')
+    && !headline({ ...withOrigin, mechanism: undefined }).includes('fertilisation'),
     'a single-unit run must not imply a timing it never measured')
 }
 

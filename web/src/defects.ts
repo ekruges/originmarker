@@ -15,6 +15,7 @@ import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
 import type { StageCall } from './stage.ts'
 import { ORIGIN_UNREACHABLE, taxonomyFor, type Finding } from './abnormalities.ts'
+import { ORIGIN_WORD, type Mechanism } from './timing.ts'
 
 /** What is known about one defect, gathered from whichever channels produced it. */
 export interface Defect {
@@ -70,12 +71,11 @@ export interface Defect {
   /**
    * Whether this change came from the gamete or arose after fertilisation.
    *
-   * Present only when two or more units of the same embryo were arrayed. Genotype alone cannot
-   * separate the two at any material quality, so on a single-unit run this is absent and the
-   * report says what would supply it rather than leaving a blank. `reciprocal` is the decisive
-   * case: another unit of the embryo carries the opposite change over the same interval.
+   * Present only when two or more units of the same embryo were arrayed (timing.ts, rule B1).
+   * `mechanismWhy` states how many units carry the change and how many read the chromosome
+   * normal. `none` prints no origin word.
    */
-  mechanism?: import('./timing.ts').Mechanism
+  mechanism?: Mechanism
   mechanismWhy?: string
   /** Markers carrying an allele the loaded parent does not have. This is the Mendelian evidence
    *  itself rather than a summary of it: a parent who is AA has no B to give, and dropout removes
@@ -331,16 +331,16 @@ export const direction = (gain: boolean, kind?: string): Direction =>
 export const headline = (d: Defect): string => {
   const what = KIND_WORD[d.kind] ?? (d.kind === 'copy-gain' ? 'extra copy' : 'copy lost')
   const where = d.chrom === 'genome' ? 'genome' : `chr${d.chrom}`
+  // When a change arose is a different finding from whose it was, so it sits in the headline
+  // whether or not a parent is named.
+  const word = d.mechanism ? ORIGIN_WORD[d.mechanism] : ''
+  const when = word ? ` · ${word}` : ''
   if (d.origin === 'unclear') {
     // A class that can never carry a parent must not read like one that merely failed to.
     return `${where} ${what}, ${originBlockedByClass(d.kind)
       ? 'no parental origin exists for this class'
-      : 'origin not determined'}`
+      : 'origin not determined'}${when}`
   }
-  // A gamete-borne change and one that arose after fertilisation are different findings for a
-  // patient, so the timing sits in the headline beside the parent rather than in a chip below.
-  const when = d.mechanism === 'meiotic' ? ' · from the gamete'
-    : d.mechanism === 'post-zygotic' ? ' · after fertilisation' : ''
   return `${d.origin.toUpperCase()} ${what} · ${where}${when}`
 }
 
@@ -595,18 +595,23 @@ export function mendelParent(
 export const namedAParent = (verdict: string | undefined): boolean =>
   verdict === 'loaded-parent' || verdict === 'other-parent'
 
+/**
+ * The origin of each change, from the timing of its own row. An entry is the row it was timed
+ * from (timing.timeGroup over this sample's own card rows), so it matches by chromosome, edges and
+ * kind, and a row never borrows the timing of another change on its chromosome.
+ */
 export function withMechanism(
   defects: Defect[],
   uniformity?: readonly {
-    chrom: string, startBp: number, endBp: number,
-    mechanism: import('./timing.ts').Mechanism, why: string,
+    chrom: string, startBp: number, endBp: number, kind: string,
+    mechanism: Mechanism, why: string,
   }[],
 ): Defect[] {
   if (!uniformity?.length) return defects
   return defects.map((d) => {
-    const hit = uniformity.find((u) => u.chrom === d.chrom
-      && u.startBp <= d.endBp && d.startBp <= u.endBp)
-    return hit ? { ...d, mechanism: hit.mechanism, mechanismWhy: hit.why } : d
+    const hit = uniformity.find((u) => u.chrom === d.chrom && u.startBp === d.startBp
+      && u.endBp === d.endBp && u.kind === d.kind)
+    return hit && hit.mechanism !== 'none' ? { ...d, mechanism: hit.mechanism, mechanismWhy: hit.why } : d
   })
 }
 

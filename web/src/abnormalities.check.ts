@@ -14,11 +14,11 @@
 //   confirmed disomy carries no run at all, so the negative must say so in its own words.
 import assert from 'node:assert/strict'
 import {
-  TAXONOMY, taxonomyFor, detectLoh, detectUpd, detectTriploidy, detectComplex, callUniformity,
+  TAXONOMY, taxonomyFor, detectLoh, detectUpd, detectTriploidy, detectComplex,
   unanswerable, ORIGIN_UNREACHABLE, LCSH_REPORT_MB, UPD_NO_STRETCH_RATE, LOH_DEPLETION,
   LOH_MIN_BACKGROUND_HET, LOH_MIN_EXPECTED_HET,
   CLUSTERED_DROPOUT_DEPLETION, COMPLEX_DEVIANT_FRACTION, TRIPLOID_BANDS, DIPLOID_BAND,
-  runsOfHomozygosity, groupUnits, overlaps, unitsCarrying, mergeLoh, LOH_SEGMENT_MARKERS,
+  runsOfHomozygosity, groupUnits, overlaps, mergeLoh, LOH_SEGMENT_MARKERS,
   callTriploidyOrigin,
   type Finding,
   type WindowStat, type RunOfHomozygosity,
@@ -224,18 +224,6 @@ import {
   assert.ok(COMPLEX_DEVIANT_FRACTION < 0.5)
 }
 
-// --- 7. TIMING NEEDS A SECOND UNIT, AND SAYS SO WHEN IT HAS ONLY ONE -------------------------------
-{
-  const alone = callUniformity(1, 1)
-  assert.equal(alone.mechanism, 'unresolved')
-  assert.ok(alone.why.includes('second array of the same embryo'),
-    'the remedy must be stated, because it is one the user may already be able to supply')
-
-  assert.equal(callUniformity(3, 3).mechanism, 'meiotic')
-  assert.equal(callUniformity(1, 3).mechanism, 'post-zygotic')
-  assert.ok(callUniformity(3, 3).why.includes('64 of'))
-}
-
 // --- 8. THE RUN FINDER TOLERATES DROP-IN, BECAUSE REAL RUNS ARE NOT CLEAN ------------------------
 //
 // Allele drop-in puts a heterozygous call at 4.35% of truly homozygous markers on amplified
@@ -304,26 +292,16 @@ import {
   assert.equal(groupUnits(['P', 'Q'], () => NaN).length, 2)
 }
 
-// --- 10. UNIFORMITY USES OVERLAP, NOT IDENTICAL EDGES ----------------------------------------------
+// --- 10. INTERVALS OVERLAP, NOT IDENTICAL EDGES ----------------------------------------------
 //
 // Two biopsies of one embryo do not place a breakpoint identically. Requiring identical edges would
-// report every genuinely uniform event as non-uniform, which inverts the mechanism call.
+// report every change shared by two units as unshared. The timing rule itself is timing.check.ts.
 {
   const ev = (chrom: string, a: number, b: number) => ({ chrom, startBp: a, endBp: b })
   assert.ok(overlaps(ev('7', 1e6, 20e6), ev('7', 19e6, 40e6)))
   assert.ok(!overlaps(ev('7', 1e6, 10e6), ev('7', 11e6, 20e6)))
   assert.ok(!overlaps(ev('7', 1e6, 20e6), ev('8', 1e6, 20e6)), 'different chromosomes never overlap')
 
-  const target = ev('7', 5e6, 25e6)
-  // Present in all three units, with edges that differ by megabases: uniform.
-  assert.equal(unitsCarrying(target, [
-    [ev('7', 4.8e6, 25.2e6)], [ev('7', 5.4e6, 24.1e6)], [ev('7', 6e6, 30e6)],
-  ]), 3)
-  assert.equal(callUniformity(3, 3).mechanism, 'meiotic')
-
-  // Present in one of three: confined to a lineage.
-  assert.equal(unitsCarrying(target, [[ev('7', 5e6, 25e6)], [], [ev('9', 1e6, 9e6)]]), 1)
-  assert.equal(callUniformity(1, 3).mechanism, 'post-zygotic')
 }
 
 // --- 12. BOTH SCALES ARE SCANNED, AND THE REDUNDANCY IS COLLAPSED --------------------------------

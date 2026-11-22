@@ -990,18 +990,14 @@ export interface ParentageResult {
   twoParents?: boolean
   units?: number
   /**
-   * Per-event timing, available only when two or more units of THIS embryo were arrayed.
-   *
-   * Whether a segmental change came from the gamete or arose after fertilisation is not separable
-   * on genotype at any material quality. Two units of one embryo separate them: a reciprocal pair,
-   * where one unit gains what another loses, is a division error after fertilisation, and otherwise
-   * uniformity decides, measured at meiotic 64 of 64 uniform against post-zygotic 6 of 7 non-uniform.
-   * Absent on a single-unit run, and the report says the second array is what would supply it.
+   * Per-change timing, present only when two or more units of THIS embryo were arrayed: one entry
+   * per card row, with the rule B1 call and its reason (timing.ts). Absent on a single-unit run.
    */
   uniformity?: {
     chrom: string
     startBp: number
     endBp: number
+    kind: string
     mechanism: import('./timing.ts').Mechanism
     why: string
   }[]

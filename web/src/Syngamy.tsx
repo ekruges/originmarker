@@ -59,7 +59,7 @@ import {
   PARENT_SENTENCE, readAgainst, WORD, type ChangeList,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
-import { timeGroup } from './timing'
+import { ORIGIN_WORD, readingOf, timeGroup } from './timing'
 import { stageFacts } from './stage'
 import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
@@ -730,11 +730,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
 
       // UNITS OF ONE EMBRYO, AND THE TIMING QUESTION THEY SETTLE.
       //
-      // Whether a segmental change came from the gamete or arose after fertilisation is not
-      // separable on genotype at any material quality. Uniformity across independently sampled
-      // units of the same embryo is the only channel measured to break the tie: meiotic 64 of 64
-      // uniform, post-zygotic 6 of 7 non-uniform. The tool cannot ask for a second biopsy, but a
-      // user who already arrayed two units gets the answer for free.
+      // Whether a change came from the gamete or arose after fertilisation is not separable on one
+      // cell. Across the units of one embryo it is rule B1 (timing.ts), read off each unit's own
+      // card rows.
       //
       // THE GROUPING IS MEASURED RATHER THAN DECLARED. Two biopsies of one embryo are the same
       // genome and concord at 95.8% of shared called markers, against 54.9% for a parent-offspring
@@ -778,19 +776,19 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         for (const group of groups) {
           if (group.length < 2) continue
           log('DONE', `${group.length} arrays are units of one embryo, by genotype concordance. `
-            + 'Changes can now be separated into gamete-borne and post-zygotic')
-          // One call for the whole group, in timing.ts, so the page and the batch harnesses read
-          // the same rules: a reciprocal pair first, then uniformity across the units.
-          const timed = timeGroup(group.map((u) => u.result as never))
+            + 'Each change is read against the others for when it arose')
+          // One call for the whole group, in timing.ts, so the page and the record harness read
+          // the same rule off the same card rows.
+          const timed = timeGroup(group.map((u) => readingOf(defectsForResult(u.result), u.result)))
           group.forEach((u, i) => {
             u.result.units = group.length
             u.result.uniformity = timed[i].map((e) => ({
-              chrom: e.chrom, startBp: e.startBp, endBp: e.endBp, mechanism: e.mechanism, why: e.why,
+              chrom: e.chrom, startBp: e.startBp, endBp: e.endBp, kind: e.kind, mechanism: e.mechanism, why: e.why,
             }))
             patch(u.id, { result: { ...u.result } })
             for (const m of u.result.uniformity) {
-              log(m.mechanism === 'unresolved' ? 'WARN' : 'DONE',
-                `timing chr${m.chrom}: ${m.mechanism}. ${m.why}`)
+              log(m.mechanism === 'none' ? 'WARN' : 'DONE',
+                `timing chr${m.chrom}: ${ORIGIN_WORD[m.mechanism] || 'no origin'}. ${m.why}`)
             }
           })
         }

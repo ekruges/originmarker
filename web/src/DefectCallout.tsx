@@ -17,6 +17,7 @@ import {
   type ChangeList, type ChangeRow, type Setup,
 } from './pageSays.ts'
 import { sentences } from './defects.ts'
+import { ORIGIN_WORD } from './timing.ts'
 
 const strong = (g: ChangeRow): boolean => g.word === 'found two ways' || g.word === 'consistent'
   || g.word === 'position only'
@@ -29,6 +30,9 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
   const loud = strong(g)
   const why = [...new Set(g.pieces.flatMap((p) => sentences(p.why ?? '')))].join(' ')
   const figure = open ? plot?.(g) : null
+  // When it arose, with the units it was read on, where units of the same embryo were read.
+  const when = [...new Set(g.pieces.filter((p) => p.mechanism && ORIGIN_WORD[p.mechanism])
+    .map((p) => `When it arose: ${ORIGIN_WORD[p.mechanism!]}. ${p.mechanismWhy ?? ''}.`))]
   return (
     <div style={{
       border: open ? '1px solid var(--om-border-strong)' : loud ? '1px solid var(--om-defect)' : '1px solid transparent',
@@ -65,6 +69,9 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
           <Text size="sm" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
             {KIND_SAYS[g.call]} {measuredSentence(g.call, setup)}
           </Text>
+          {when.map((w) => (
+            <Text key={w} size="sm" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>{w}</Text>
+          ))}
           {figure}
           <details style={{ marginTop: 6 }}>
             <summary style={{ fontSize: 12, cursor: 'pointer', color: 'var(--om-text-dim)' }}>Details</summary>

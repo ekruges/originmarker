@@ -1,109 +1,137 @@
-import { callUniformity, unitsCarrying, type EventLocation } from './abnormalities.ts'
-import { segmentCoords, type Segment } from './segments.ts'
-
 /**
  * When a change happened: carried by the gamete, or arisen after fertilisation.
  *
- * NOT SEPARABLE ON ONE UNIT at any material quality, which is why this lives apart from the
- * per-sample pipeline: it reads two or more independently sampled units of the SAME embryo. Two
- * patterns separate the two cases, and one of them is decisive:
+ * NOT SEPARABLE ON ONE UNIT, which is why this lives apart from the per-sample pipeline: it reads
+ * two or more units of the SAME embryo (abnormalities.groupUnits) and reads results, changing none.
+ * Plan item 3.10, rule B1:
  *
- *   reciprocal     one unit gains what another loses over the same interval. Two daughter cells
- *                  split one chromosome between them, so the error happened at a division AFTER
- *                  fertilisation. A change carried by the gamete is in every cell and cannot read
- *                  this way.
- *   uniform        present in every unit. Measured on this corpus: meiotic 64 of 64 uniform,
- *                  post-zygotic 6 of 7 non-uniform.
- *
- * Whole chromosomes are included here as well as segments. A reciprocal whole-chromosome pair is
- * the commonest mitotic signature in cleavage-stage embryos, and reading only segments missed it.
+ *   from the gamete        every unit carries a change of the same direction on that chromosome,
+ *                          overlapping, and where a parent is named on both, the same parent.
+ *                          Three units or more.
+ *   consistent with the    the same with two units. Two cells can share a mitotic error made at
+ *   gamete                 the first division, so two units never read "from the gamete".
+ *   after fertilisation,   another unit gains what this one loses (or the reverse) over an
+ *   reciprocal             overlapping interval of the same chromosome.
+ *   after fertilisation,   some units carry it and at least one other reads that chromosome
+ *   not in every cell      measured normal: measured, no row of any kind on it, cell reportable.
+ *   none                   anything else, and any single unit. No origin word is printed.
  */
 
-export type Mechanism = 'meiotic' | 'post-zygotic' | 'reciprocal' | 'unresolved'
+export type Mechanism = 'meiotic' | 'consistent-with-gamete' | 'mitotic-reciprocal' | 'mitotic-not-all' | 'none'
 
-/** An event with its direction, where the tool called one. Findings carry none. */
-export interface DirectedEvent extends EventLocation {
-  direction?: 'gain' | 'loss'
+/** The words the page prints after a change, or nothing. */
+export const ORIGIN_WORD: Record<Mechanism, string> = {
+  meiotic: 'from the gamete',
+  'consistent-with-gamete': 'consistent with the gamete (two cells read)',
+  'mitotic-reciprocal': 'after fertilisation',
+  'mitotic-not-all': 'after fertilisation',
+  none: '',
 }
 
-/** A scored sample, in the shape both the page and the harnesses hold it. */
-interface ScoredLike {
-  chroms?: readonly { chrom: string; aneuploidy?: 'loss' | 'gain' }[]
-  segments?: readonly Segment[]
-  findings?: readonly { chrom: string; startBp: number; endBp: number }[]
+/** One change of one unit, as the result card lists it (pageSays.defectsForResult). */
+export interface UnitChange {
+  chrom: string
+  startBp: number
+  endBp: number
+  kind: string
+  origin: string
+  /** A whole-chromosome row: it spans the chromosome for overlap. */
+  whole: boolean
 }
+
+/** What one unit says, in the shape both the page and the record harness can build. */
+export interface UnitReading {
+  changes: readonly UnitChange[]
+  /** Chromosomes the unit measured (`chroms`); an unmeasured chromosome never reads normal. */
+  measured: readonly string[]
+  /** Stage not failed and no sample-level integrity refusal. */
+  reportable: boolean
+}
+
+const GAIN = new Set(['copy-gain', 'trisomy', 'segmental-duplication'])
+const LOSS = new Set(['copy-loss', 'parental-absence', 'monosomy', 'segmental-deletion'])
+
+/** Gain, loss, or none for a kind that has no direction (copy-neutral findings, the imbalance). */
+export const directionOf = (kind: string): 'gain' | 'loss' | undefined =>
+  (GAIN.has(kind) ? 'gain' : LOSS.has(kind) ? 'loss' : undefined)
+
+const overlapping = (a: UnitChange, b: UnitChange): boolean =>
+  a.chrom === b.chrom && (a.whole || b.whole || (a.startBp <= b.endBp && b.startBp <= a.endBp))
+
+const named = (o: string): boolean => o === 'maternal' || o === 'paternal'
+
+/** A unit's reading of a scored sample, from its card rows. */
+export function readingOf(
+  defects: readonly { chrom: string; startBp: number; endBp: number; kind: string; origin: string; locus?: string }[],
+  r: {
+    chroms?: readonly { chrom: string }[]
+    stage?: { stage?: string }
+    integrity?: { level?: string }
+  },
+): UnitReading {
+  return {
+    changes: defects.filter((d) => d.chrom !== 'genome').map((d) => ({
+      chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind, origin: d.origin,
+      whole: d.locus === `chr${d.chrom}`,
+    })),
+    measured: (r.chroms ?? []).map((c) => c.chrom),
+    reportable: r.stage?.stage !== 'failed' && (r.integrity?.level ?? 'intact') === 'intact',
+  }
+}
+
+const unitsWord = (n: number): string => `${n} unit${n === 1 ? '' : 's'}`
 
 /**
- * Every event of one scored sample, as intervals with a direction.
- *
- * A whole chromosome is written as the whole interval rather than its called extent: the call is
- * about the chromosome, and an interval intersection is what the timing test does.
- */
-export function eventsOf(r: ScoredLike): DirectedEvent[] {
-  const out: DirectedEvent[] = []
-  for (const c of r.chroms ?? []) {
-    if (c.aneuploidy) {
-      out.push({ chrom: c.chrom, startBp: 0, endBp: Number.MAX_SAFE_INTEGER, direction: c.aneuploidy })
-    }
-  }
-  for (const sg of r.segments ?? []) {
-    const co = segmentCoords(sg)
-    const kind = String(sg.kind)
-    out.push({
-      chrom: sg.chrom,
-      startBp: co.start,
-      endBp: co.end,
-      direction: /gain/i.test(kind) ? 'gain' : /loss|absence/i.test(kind) ? 'loss' : undefined,
-    })
-  }
-  for (const f of r.findings ?? []) {
-    if (f.chrom !== 'genome') out.push({ chrom: f.chrom, startBp: f.startBp, endBp: f.endBp })
-  }
-  return out
-}
-
-const overlapping = (a: DirectedEvent, b: DirectedEvent): boolean =>
-  a.chrom === b.chrom && a.startBp <= b.endBp && b.startBp <= a.endBp
-
-/**
- * When one event of one unit happened, against the other units of its embryo.
- *
- * `perUnit` holds every unit of the embryo INCLUDING the one the event came from, which is what
- * makes the uniform case a count of all of them.
+ * The origin of one change of unit `self`, against every unit of its embryo (`self` included).
+ * The reason states how many units carry it and how many read the chromosome normal.
  */
 export function callMechanism(
-  event: DirectedEvent, perUnit: readonly (readonly DirectedEvent[])[],
+  self: number, change: UnitChange, units: readonly UnitReading[],
 ): { mechanism: Mechanism; why: string } {
-  if (perUnit.length < 2) return callUniformity(1, 1)
+  const dir = directionOf(change.kind)
+  const n = units.length
+  if (n < 2) return { mechanism: 'none', why: 'one unit of this embryo was read; one cell cannot say when a change arose' }
+  if (!dir) return { mechanism: 'none', why: 'a change with no direction carries no origin' }
 
-  if (event.direction) {
-    const opposite = event.direction === 'gain' ? 'loss' : 'gain'
-    const mirrored = perUnit.filter(
-      (evs) => evs.some((e) => e.direction === opposite && overlapping(e, event)),
-    ).length
-    if (mirrored > 0) {
-      return {
-        mechanism: 'reciprocal',
-        why: `${mirrored} other unit${mirrored === 1 ? '' : 's'} of this embryo `
-          + `${mirrored === 1 ? 'carries' : 'carry'} the opposite change over the same interval: a `
-          + `${event.direction} here against a ${opposite} there. Two daughter cells splitting one `
-          + 'chromosome between them is a division error after fertilisation. A change carried by '
-          + 'the gamete is in every cell and cannot be reciprocal',
-      }
+  const opposite = dir === 'gain' ? 'loss' : 'gain'
+  const mirrored = units.filter((u, i) => i !== self
+    && u.changes.some((x) => directionOf(x.kind) === opposite && overlapping(x, change))).length
+  const carrying = units.filter((u) => u.changes.some((x) => directionOf(x.kind) === dir
+    && overlapping(x, change) && (!named(x.origin) || !named(change.origin) || x.origin === change.origin))).length
+  const normal = units.filter((u, i) => i !== self && u.reportable && u.measured.includes(change.chrom)
+    && !u.changes.some((x) => x.chrom === change.chrom)).length
+  const read = `${carrying} of ${n} units carry this ${dir}, ${normal} read${normal === 1 ? 's' : ''} `
+    + `chromosome ${change.chrom} normal`
+
+  if (mirrored > 0) {
+    return {
+      mechanism: 'mitotic-reciprocal',
+      why: `${read}, and ${unitsWord(mirrored)} of this embryo carr${mirrored === 1 ? 'ies' : 'y'} the `
+        + `opposite change over the same interval. One daughter cell gaining what another loses is a `
+        + 'division error after fertilisation',
     }
   }
-  return callUniformity(unitsCarrying(event, perUnit), perUnit.length)
+  if (carrying === n) {
+    return n >= 3
+      ? { mechanism: 'meiotic', why: `${read}: every unit of this embryo carries it, as a change carried by the gamete is in every cell` }
+      : { mechanism: 'consistent-with-gamete', why: `${read}: both cells read carry it. Two cells can share an error made at the first division, so two cells do not settle it` }
+  }
+  if (normal > 0) {
+    return {
+      mechanism: 'mitotic-not-all',
+      why: `${read}: a cell of the same embryo without it means it arose after fertilisation, in a lineage`,
+    }
+  }
+  return {
+    mechanism: 'none',
+    why: `${read}: not every unit carries it and none reads the chromosome measured normal, so no origin is called`,
+  }
 }
 
-/**
- * The timing of every event of every unit of one embryo.
- *
- * Returned in the order the units were given, so a caller can attach each list to its own sample
- * without matching anything back up.
- */
-export function timeGroup(units: readonly ScoredLike[]): (DirectedEvent & {
-  mechanism: Mechanism; why: string
-})[][] {
-  const perUnit = units.map(eventsOf)
-  return perUnit.map((evs) => evs.map((e) => ({ ...e, ...callMechanism(e, perUnit) })))
+/** One change of a unit with its origin, located as the card row it came from. */
+export interface TimedChange extends UnitChange { mechanism: Mechanism; why: string }
+
+/** Every change of every unit of one embryo, in the order the units were given. */
+export function timeGroup(units: readonly UnitReading[]): TimedChange[][] {
+  return units.map((u, i) => u.changes.map((c) => ({ ...c, ...callMechanism(i, c, units) })))
 }
