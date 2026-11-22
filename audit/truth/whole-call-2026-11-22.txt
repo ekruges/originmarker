@@ -115,3 +115,70 @@ No bar is moved after the exit run. A failing line goes back to the owner as it 
 
 RESULTS
 -------
+Run once on the build (commits a21df79 and 0f9f611), on tesla, against 6.19.0 (530889a). Per-event and per-row
+listings are untracked, on the compute host under om-wholefix/out (event ids, row indexes, table rows).
+
+What was read, and what was not:
+- Built events: all 10,018 in-margin events. The 4,225 whose 6.19.0 record printed a whole copy call or a loss
+  piece were rerun; every other record is unchanged by construction, since the rule reads only chromosomes the
+  whole test called. 745 events in cells whose build mother is not in the seal file were rebuilt without her on
+  both trees; on 6.19.0 the rebuild prints the same as the margins run's record on all 745.
+- Answer key: 330 no-parent rows; 252 of the 270 with-parent rows. Rows 71 to 88 were not read: their father's
+  array is not in the seal file.
+- Lab cohort: 271 rows, no parent. Quiet arrays: all 72 (43 open, 29 with a record in the 16 November run
+  list). Published development cells: 31.
+- A row on which the new tree withdrew nothing is identical to 6.19.0 by construction. Every row with a
+  withdrawal was rerun on 6.19.0 (36 no-parent, 20 with-parent, 1 quiet); lab, quiet and published rows were
+  also compared in full. Logged withdrawals with identical records: 14, 8, 7 (no parent, with parent, lab): a
+  chromosome 3.4a already printed in pieces, which the loss scan prints the same way.
+- The audit runners passed no assembly to the profile, so the rule could not fire in them. They now give the
+  sample's assembly, as the page does; nothing else in scoring reads it.
+
+WC1. PASS.
+  whole events printed whole: losses 490 -> 489, gains 684 -> 683. The two that go are the two the plan item
+    named (loss chr17 -0.20, gain chr19 +0.30); each now prints an arm call.
+  arm events on two-arm chromosomes printed whole: losses 137 -> 12, gains 207 -> 17.
+  withdrawn from whole, what each prints instead (6.19.0 printed whole, new does not):
+    loss arm: arm call 113, piece 12;  loss 40 Mb: arm call 21;  loss 20 Mb: arm call 3;  loss 5 Mb: arm call 1;
+    loss whole: arm call 1;  gain arm: arm call 43, piece 147;  gain 40 Mb: arm call 3, piece 27;
+    gain 20 Mb: arm call 1, piece 9;  gain whole: arm call 1.  Nothing: 0.
+  found share, every size and amount: unchanged on all 102 cells of the grid; no drop.
+  the offline arm counts are reproduced exactly: of events printed whole on 6.19.0, the 946 whose arms both carry
+    stay whole, the 382 whose arms disagree are all withdrawn, the 491 with one usable arm stay whole.
+WC2. PASS.
+  no parent: stated-piece whole calls withdrawn 10 of 10 (rows 215, 218, 229, 246, 261 losses; 210, 230, 238,
+    242, 252 gains); stated whole calls kept whole 57 losses and 12 gains of 57 and 12, row 231 chr16 among them;
+    no stated-normal chromosome gains a call. Also withdrawn, no truth: losses rows 10, 18, 132 chr9, 100 chr10,
+    272 chr4, 106 chr7; gains rows 19 chr9, 207 chr7, 14 chr19, 28 chr12, 269 chr16, 273 chr4.
+  with parent (252 rows): stated-piece whole calls withdrawn 7 of 7 (rows 143, 160, 175 losses; 144, 152, 156,
+    166 gains); stated whole kept 32 and 11 of 32 and 11. Also withdrawn, no truth: rows 191, 221, 223 losses;
+    194, 197 gains.
+WC3. PASS. Exactly the plan's calls, nothing else whole changes: A: S2 row 4 chr10, S2 row 10 chr16 (losses),
+  S7 row 6 chr7, S7 row 7 chr2 (gains); A2: S2 rows 97 chr17, 11 chr11, 74 chr16; and S2 row 99 chr18, where
+  neither arm carries the loss.
+WC4. PASS. On the z 4.5 tree with this rule: S2 row 164 chr3 prints no whole gain (a gain piece instead). The
+  stated-piece gains print no whole gain: no parent 210, 230, 238, 242, 252; with parent 144, 152, 156, 166.
+  Stated whole gains kept: 16 of 16 and 15 of 15. Lab rows at z 4.5: 53 of 54 whole gains kept, row 164 the one.
+  No-parent row 24 chr19 (no truth) is withdrawn too and prints an arm call.
+WC5. Checks: all pass by exit code (scripts/checks.sh, 76). Suite: see below. Browser run and release: the
+  owner's, at landing.
+WC6. FAIL on one call. Withdrawn with a carrying arm: built 382, answer key 34, lab 7, quiet 1, published 5.
+  Every one prints a change of its kind on that arm except no-parent row 14 chr19 (gain; p +0.11, q +0.48, no
+  truth). W9 builds its 19q arm call, and the drop-in gate on gained segments withholds it ("drop-in.no-alleles":
+  a drop-in cell with no parent shows no normal majority from the alleles). The refusal is recorded. 6.19.0
+  printed the whole gain because that gate reads segments, not whole calls. The same happens at z 4.5. D2 sent
+  the arm call through the gates a piece goes through, so this is the rule as written and not a build fault.
+WC7. PASS. Chromosomes called on the new tree and not on 6.19.0: 0 on the 330 and 252 answer-key rows, 0 on the
+  271 lab rows, 0 on the 72 quiet arrays, 0 on the 31 published cells.
+
+What the withdrawn real-cell calls print instead (answer key, lab, quiet, published):
+  arm call: no parent 13, with parent 7, lab 5, quiet 1, published 3
+  piece from the scans: no parent 8, with parent 5, lab 2, published 2
+  nothing: no parent 1 (row 14 chr19, WC6), lab 1 (S2 row 99 chr18, neither arm carries)
+  No-parent row 106 chr7 (with-parent row 223): the loss scan prints a loss over 0.04 to 148 Mb, crossing the
+  q arm that reads +0.68. That is the scan, under its own unchanged bars. S2 row 97 chr17 prints a loss piece on
+  17p and a gain piece on 17q.
+
+Suite (audit/validate/run.sh, the census run one arm at a time on the shared host): no 6.19.0 scorecard was
+saved, so the suite was run on 6.19.0 and on the new tree. The two scorecards are identical on all 87 lines.
+The rule withdrew no whole call anywhere in the suite, so the suite does not exercise it; the lines above do.
