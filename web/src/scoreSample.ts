@@ -28,6 +28,7 @@ import {
   type Segment, RECIPROCAL_OVERLAP, MIN_SEGMENT_SPAN_BP, canDetectLoss,
 } from './segments.ts'
 import { readLostChromosome, RESTATED_SHARE, type PartLost } from './partLost.ts'
+import { armSegment, readArms, type ArmReading } from './wholeArms.ts'
 import {
   paternalShare, recentre, callGainOrigin, callHomologue, externalHetBackground, scanAlleleGains,
   type ChromShare,
@@ -1545,6 +1546,23 @@ export async function scoreSample(input: {
   // alleles say. It used to skip one the alleles name as missing a parent too, and those names are what
   // differ with how many parents are loaded, so the scan itself depended on the parents. A segment that
   // restates an allele-named loss across most of the chromosome is dropped below, at reporting, not here.
+  // A WHOLE CALL NEEDS EACH ARM: see wholeArms.ts. Read before 3.4a, so a chromosome withdrawn here goes
+  // to both piece scans and is never read again as a whole loss. A chromosome the alleles also read
+  // whole is the alleles' call as well and is left as it is.
+  const withdrawn: { chrom: string; kind: 'loss' | 'gain'; read: ArmReading }[] = []
+  if (result.copyNull && profile.build?.build === 'GRCh37') {
+    for (const c of result.chroms) {
+      if (!c.aneuploidy || !isAutosome(c.chrom) || c.lostParent
+        || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance') continue
+      const ms = cnByChrom.get(c.chrom)
+      if (!ms?.length) continue
+      const read = readArms(ms, c.aneuploidy, c.lrrShift, result.copyNull)
+      if (read.whole) continue
+      withdrawn.push({ chrom: c.chrom, kind: c.aneuploidy, read })
+      c.aneuploidy = undefined
+      c.aneuploidyParent = undefined
+    }
+  }
   const wholeByIntensity = new Set(result.chroms.filter((c) => c.aneuploidy).map((c) => c.chrom))
   // A CHROMOSOME CALLED LOST WHOLE IS READ AGAIN IN PIECES: see partLost.ts. Where its loss pieces
   // account for the shift the pieces are reported and the whole call is not; where the rest is lost
@@ -1569,6 +1587,14 @@ export async function scoreSample(input: {
             result.copyOffPole ?? NaN)),
       ]
     })]
+  // A WITHDRAWN WHOLE CALL IS NOT SILENCE: where the scans place nothing of its kind on the arm that
+  // carries it, that arm is the call.
+  for (const w of withdrawn) {
+    if (!w.read.arm) continue
+    const sg = armSegment(cnByChrom.get(w.chrom)!, w.read.arm, w.kind === 'gain' ? 'copy-gain' : 'copy-loss')
+    if (!scannedCopyRaw.some((s) => s.chrom === sg.chrom && s.kind === sg.kind
+      && s.startBp <= sg.endBp && s.endBp >= sg.startBp)) scannedCopyRaw.push(sg)
+  }
   for (const [chrom, p] of partLost) {
     if (p.whole) continue
     const c = result.chroms.find((x) => x.chrom === chrom)!

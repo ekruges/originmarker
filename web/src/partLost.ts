@@ -36,7 +36,7 @@ export const REST_MIN_MARKERS = 200
 
 type Marker = { chrom: string; pos: number; called: boolean; log2R: number | null }
 
-const medianOf = (xs: number[]): number => {
+export const medianOf = (xs: number[]): number => {
   if (!xs.length) return NaN
   const q = [...xs].sort((x, y) => x - y)
   return q[q.length >> 1]
@@ -56,7 +56,7 @@ export function atCellLevel(ms: readonly Marker[], n: CopyNull): boolean {
   return Number.isFinite(med) && Math.abs(med - n.centre) < n.floor && !(callFraction(ms, n) < CALL_COLLAPSE)
 }
 
-const callFraction = (ms: readonly Marker[], n: CopyNull): number => (
+export const callFraction = (ms: readonly Marker[], n: CopyNull): number => (
   n.callMedian > 0 && ms.length ? ms.filter((m) => m.called).length / ms.length / n.callMedian : NaN)
 
 export interface PartLost {

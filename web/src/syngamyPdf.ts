@@ -777,7 +777,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { v: segmentCoords(sg).interval,
             colour: segmentCoords(sg).localised ? GREY : WARN },
           `${(segmentCoords(sg).spanBp / 1e6).toFixed(1)} Mb`,
-          int(sg.markers), pct(sg.rate, 1), pct(sg.nullRate, 1), sg.score.toFixed(0),
+          int(sg.markers), pct(sg.rate, 1), pct(sg.nullRate, 1), sg.arm ? 'n/a' : sg.score.toFixed(0),
         ]),
       )
     }

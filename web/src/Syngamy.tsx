@@ -1580,7 +1580,7 @@ const segmentLines = (sg: Segment, role: 'paternal' | 'maternal'): string[] => {
     `${int(co.start)}-${int(co.end)}, ${co.interval}`,
     `${(co.spanBp / 1e6).toFixed(1)} Mb, ${int(sg.markers)} markers`,
     `missing-copy signal ${pct(sg.rate, 1)} inside, ${pct(sg.nullRate, 1)} with both copies present`,
-    `score ${sg.score.toFixed(0)} against ${thresholdOf(sg)}, intensity ${intensityText(sg)}`,
+    `score ${sg.arm ? 'n/a' : sg.score.toFixed(0)} against ${thresholdOf(sg)}, intensity ${intensityText(sg)}`,
   ]
 }
 
@@ -1858,7 +1858,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
                   <Table.Td ta="right" ff="monospace" c="dimmed">{int(sg.markers)}</Table.Td>
                   <Table.Td ta="right" ff="monospace">{pct(sg.rate, 2)}</Table.Td>
                   <Table.Td ta="right" ff="monospace" c="dimmed">{pct(sg.nullRate, 2)}</Table.Td>
-                  <Table.Td ta="right" ff="monospace">{sg.score.toFixed(0)}</Table.Td>
+                  <Table.Td ta="right" ff="monospace">{sg.arm ? 'n/a' : sg.score.toFixed(0)}</Table.Td>
                   <Table.Td ta="right" ff="monospace" c="dimmed">{thresholdOf(sg)}</Table.Td>
                   <Table.Td ta="right" ff="monospace">{intensityText(sg)}</Table.Td>
                 </Table.Tr>
