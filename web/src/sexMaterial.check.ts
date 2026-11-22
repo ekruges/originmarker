@@ -92,10 +92,10 @@ const noY: SexTally = {
   const xx = callSexChromosomes({ ...np, hetSex: 'female', hetRatio: 1.1, xShift: 0.32, xZ: 6, y: noY })
   assert.equal(xx.constitution, 'XX')
   assert.ok(xx.why.startsWith('heterozygous calls on chrX read two X'), xx.why)
-  // Heterozygous X and a chrY: they disagree, nothing printed.
+  // Heterozygous X and a chrY: 47,XXY or a mix of cells, which one array does not separate.
   const bad = callSexChromosomes({ ...np, hetSex: 'female', hetRatio: 1.1, xShift: -0.32, xZ: -0.8, y: yes })
-  assert.equal(bad.constitution, 'unresolved')
-  assert.ok(bad.why.startsWith('the readings disagree'))
+  assert.equal(bad.constitution, '47,XXY or a mix of cells')
+  assert.ok(bad.why.startsWith('chrY is present by its calls and intensity; chrX reads two different X'), bad.why)
   // No heterozygous X and a chrY: XY.
   assert.equal(callSexChromosomes({ ...np, hetSex: 'male', hetRatio: 0.05, xShift: -0.32, xZ: -0.8, y: yes })
     .constitution, 'XY')
@@ -105,8 +105,9 @@ const noY: SexTally = {
   // Not shown two copies, or a parent loaded: heterozygosity is not consulted.
   assert.equal(callSexChromosomes({ diploid: false, twoInsideNoise: true, hetSex: 'female', xShift: 0, y: noY })
     .constitution, 'unresolved')
+  // With a parent, a chrY beside heterozygous calls on X is 47,XXY or a mix of cells (sexing.check.ts 6).
   assert.equal(callSexChromosomes({ diploid: true, hetSex: 'female', xShift: -0.31, xZ: -6.7, y: yes })
-    .constitution, 'unresolved')
+    .constitution, '47,XXY or a mix of cells')
 }
 
 // --- 2d. WHAT X AND Y SHOW, WITH NO PARENT -------------------------------------------------------

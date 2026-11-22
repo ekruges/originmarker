@@ -19,6 +19,7 @@ import {
   type ParentIndex,
 } from '../web/src/scoreSample.ts'
 import { agreement, classify, pair, type ParentageResult } from '../web/src/parentage.ts'
+import { sexCall } from '../web/src/sexing.ts'
 import {
   addCandidateRow, candidateGenomes, emptyCandidateTallies, fatherSearchText, findParent,
   type ParentSearchText,
@@ -109,7 +110,8 @@ export async function runExamples(files: { path: string; role: Role }[]): Promis
       acc, profile, pat: pat!, mat, soloRole: 'paternal', sibs, sampleName: profile.name, log: () => {},
     })
     calls.set(s.path, acc.myGt)
-    const maternal = acc.tm && mat ? classify(acc.tm, mat.heterozygosity, { role: 'maternal' }) : undefined
+    const maternal = acc.tm && mat
+      ? classify(acc.tm, mat.heterozygosity, { role: 'maternal', yBearing: sexCall(acc.sex).yBearing }) : undefined
     const paired = maternal ? pair(result, maternal, agree) : undefined
     return {
       name: basename(s.path).replace(/\.gz$/, ''),

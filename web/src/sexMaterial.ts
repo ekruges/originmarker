@@ -70,9 +70,14 @@ export function sexMaterial(o: {
 
 /**
  * The heterozygosity sex (ingest.ts callSex) as the page prints it for a sample read with no
- * parent: only where two copies are shown. Elsewhere it would read female on a pronucleus.
+ * parent: only where two copies are shown. Elsewhere it would read female on a pronucleus. With
+ * chrY present, heterozygous calls on X are not a woman's (sexChromosome.ts: 47,XXY or a mix of
+ * cells), with a parent or without.
  */
-export function shownSex(sex: Sex, m: SexMaterial | undefined): string {
+export function shownSex(sex: Sex, m: SexMaterial | undefined, yBearing?: boolean | null): string {
+  if (sex === 'female' && yBearing === true && (!m || m.diploid)) {
+    return 'not read: chrY present with a heterozygous X'
+  }
   if (!m || m.diploid) return sex
   return m.haploid ? 'not read: staged haploid, one sex chromosome is its normal complement'
     : 'not read: two copies of the autosomes not shown'
