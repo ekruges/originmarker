@@ -185,3 +185,29 @@ Run: the branch tree on all 871 rows (the 6.19.0 records of the first run stand)
 rescored, every record whose sex word changes by R9 listed by from-to, checks, and the suite on the
 final commit against the 6.19.0 suite run. A Y1, Y2, Y4 or Y5 line that fails is reported as it
 stands.
+
+RESULTS WITH R9 (22 November; branch at 5968aa5, 871 rows, 3 shards; the 6.19.0 records stand)
+--------------------------------------------------------------------------------------------
+Against the first exit run only the sex word moved: 12 records, nothing else in any record.
+  with parent, female to "not read: chrY was not read: <the line's reason>"   5
+  no parent, female to the same                                              3 (one is S2 row 213)
+  with parent, male to "not read: chrX reads one copy by its calls and chrY is absent"   3 (the 3
+    rows of the Y3 failure)
+  with parent, male to "not read: chrY was not read: <the line's reason>"     1
+So: the 3 rows, plus 9 records whose chrY is not read and whose word said female (8) or male (1).
+Against 6.19.0, 63 sex words moved: these 12, plus 51 from female to "not read: chrY present with a
+heterozygous X" (33 no parent, 16 of them lab rows; 18 with parent).
+Every not-read word quotes the Y reading's own reason (9 of 9).
+
+Y1  MET, as in the first run (no line moved).
+Y2  MET, as in the first run.
+Y3  MET. Never "female" with chrY present, never "male" with chrY absent; every loaded parent's Y
+    reading and the parent checks identical to 6.19.0, and the parent's own word is not made here.
+Y3b MET. On all 871 records the sex word and the sex-chromosome line, and the word and the Y reading,
+    never state different sexes: 0 records.
+Y4  MET. Every non-sex field identical to 6.19.0; the sperm type moves on the same 2 records as
+    before, for the same cause. Suite on 5968aa5 against the 6.19.0 suite run: "NOTHING MOVED SINCE
+    PREVIOUS".
+Y5  Shares and floors as before (largest difference 0.0000); checks.sh and release-check.sh exit 0.
+    Browser runs and the release are for landing.
+No job died; every output file ends with its DONE line.
