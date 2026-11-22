@@ -25,11 +25,16 @@ STAGE_WORD = {"single-cell": "single cell", "": "no stage called"}
 
 
 def centromeres():
+    """p/q boundary per autosome from the UCSC hg19 band table: the end of the last p acen band.
+    Chromosome ends from the shipped gap table."""
     cen, end = {}, {}
+    for line in (ROOT / "audit/ucsc-hg19-cytoband.tsv").read_text().splitlines():
+        f = line.split("\t")
+        chrom = f[0].removeprefix("chr")
+        if len(f) == 5 and f[4] == "acen" and f[3].startswith("p") and chrom.isdigit():
+            cen[chrom] = max(cen.get(chrom, 0), int(f[2]))
     for chrom, start, stop, kind in json.loads((ROOT / "web/public/hg19_features.json").read_text())["gaps"]:
         end[chrom] = max(end.get(chrom, 0), stop)
-        if kind == "centromere":
-            cen[chrom] = (start, stop)
     return cen, end
 
 
@@ -41,7 +46,7 @@ def recount(records):
             return "whole"
         if row["chrom"] not in cen:
             return "piece"
-        lo, hi = cen[row["chrom"]][0] - MARGIN, cen[row["chrom"]][1] + MARGIN
+        lo, hi = cen[row["chrom"]] - MARGIN, cen[row["chrom"]] + MARGIN
         near = lambda x: lo <= x <= hi
         if row["start"] <= MARGIN and near(row["end"]):
             return "arm"

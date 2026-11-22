@@ -10,6 +10,7 @@
  */
 import type { ChangeList } from './pageSays.ts'
 import { directionOf, ORIGIN_WORD } from './timing.ts'
+import { armBoundary } from './wholeArms.ts'
 
 /** One counted row of a result card, as the overview reads it. */
 export interface OverviewRow {
@@ -70,30 +71,27 @@ export function overviewSampleOf(
 }
 
 /**
- * Centromere and length of each chromosome, from the gap table the tool ships
- * (hg19_features.json `gaps`, as features.normaliseTrack reads it: the gap's kind is its name).
+ * Length of each chromosome, from the gap table the tool ships (hg19_features.json `gaps`, as
+ * features.normaliseTrack reads it). Where an arm ends at the centromere is wholeArms.armBoundary,
+ * the boundary the whole-call rule reads.
  */
-export type Arms = ReadonlyMap<string, { cenStart: number; cenEnd: number; end: number }>
+export type Arms = ReadonlyMap<string, { end: number }>
 
-export function armsFrom(gaps: readonly { chrom: string; startBp: number; endBp: number; name: string }[]): Arms {
-  const m = new Map<string, { cenStart: number; cenEnd: number; end: number }>()
-  for (const g of gaps) {
-    const a = m.get(g.chrom) ?? { cenStart: NaN, cenEnd: NaN, end: 0 }
-    if (g.name === 'centromere') { a.cenStart = g.startBp; a.cenEnd = g.endBp }
-    a.end = Math.max(a.end, g.endBp)
-    m.set(g.chrom, a)
-  }
+export function armsFrom(gaps: readonly { chrom: string; startBp: number; endBp: number }[]): Arms {
+  const m = new Map<string, { end: number }>()
+  for (const g of gaps) m.set(g.chrom, { end: Math.max(m.get(g.chrom)?.end ?? 0, g.endBp) })
   return m
 }
 
 export const ARM_MARGIN_BP = 5e6
 
-/** Whole, arm or piece. An arm runs from one end of the chromosome to its centromere, 5 Mb either way. */
+/** Whole, arm or piece. An arm runs from one end of the chromosome to the p/q boundary, 5 Mb either way. */
 export function extentOf(r: Pick<OverviewRow, 'chrom' | 'whole' | 'startBp' | 'endBp'>, arms: Arms): 'whole' | 'arm' | 'piece' {
   if (r.whole) return 'whole'
   const a = arms.get(r.chrom)
-  if (!a || !Number.isFinite(a.cenStart)) return 'piece'
-  const nearCen = (x: number) => x >= a.cenStart - ARM_MARGIN_BP && x <= a.cenEnd + ARM_MARGIN_BP
+  const cen = armBoundary(r.chrom)
+  if (!a || cen === undefined) return 'piece'
+  const nearCen = (x: number) => Math.abs(x - cen) <= ARM_MARGIN_BP
   const p = r.startBp <= ARM_MARGIN_BP && nearCen(r.endBp)
   const q = nearCen(r.startBp) && r.endBp >= a.end - ARM_MARGIN_BP
   return p || q ? 'arm' : 'piece'

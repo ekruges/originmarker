@@ -22,8 +22,8 @@ export function OverviewPanel({ samples, arms }: { samples: readonly OverviewSam
       </Text>
       <Text size="xs" c="dimmed" mt={4} style={{ maxWidth: 820, lineHeight: 1.5 }}>
         Changes are the rows the result cards count. A sample not reportable is counted here and adds
-        no change. An arm runs from one end of a chromosome to its centromere, 5 Mb either way.
-        {arms ? '' : ' The centromere table did not load, so every change that is not whole is counted as a piece.'}
+        no change. An arm runs from one end of an autosome to its centromere (the p/q boundary of the UCSC hg19 band table, the one the whole-chromosome test reads), 5 Mb either way.
+        {arms ? '' : ' The chromosome lengths did not load, so every change that is not whole is counted as a piece.'}
       </Text>
       <Table className="om-table" withTableBorder mt={8} style={{ maxWidth: 520 }}>
         <Table.Tbody>

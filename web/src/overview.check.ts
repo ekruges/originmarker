@@ -3,19 +3,22 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { normaliseTrack } from './comparison.ts'
 import { armsFrom, extentOf, overviewSampleOf, overviewTable, type OverviewSample } from './overview.ts'
+import { armBoundary } from './wholeArms.ts'
 
 const arms = armsFrom(normaliseTrack(JSON.parse(readFileSync(new URL('../public/hg19_features.json', import.meta.url), 'utf8')))!.gaps)
-const one = arms.get('1')!
-assert.ok(one.cenStart > 120e6 && one.cenEnd < 126e6 && one.end > 249e6, 'chromosome 1 from the shipped gap table')
+const one = { ...arms.get('1')!, cen: armBoundary('1')! }
+assert.ok(one.end > 249e6, 'chromosome 1 length from the shipped gap table')
+assert.equal(one.cen, 125e6, 'the p/q boundary is the one the whole-call rule reads')
 
 // --- 1. WHOLE, ARM, PIECE ---------------------------------------------------------------------
 {
   const at = (startBp: number, endBp: number) => extentOf({ chrom: '1', whole: false, startBp, endBp }, arms)
   assert.equal(extentOf({ chrom: '1', whole: true, startBp: 0, endBp: 0 }, arms), 'whole')
-  assert.equal(at(1e6, one.cenStart - 2e6), 'arm', 'end to centromere')
-  assert.equal(at(one.cenEnd + 3e6, one.end - 1e6), 'arm', 'centromere to the other end')
+  assert.equal(at(1e6, one.cen - 2e6), 'arm', 'end to centromere')
+  assert.equal(at(one.cen + 3e6, one.end - 1e6), 'arm', 'centromere to the other end')
   assert.equal(at(1e6, 60e6), 'piece')
-  assert.equal(at(one.cenEnd + 1e6, one.cenEnd + 4e6), 'piece', 'a piece beside the centromere is not an arm')
+  assert.equal(extentOf({ chrom: 'X', whole: false, startBp: 1e6, endBp: 58e6 }, arms), 'piece', 'no arm off the 22 autosomes')
+  assert.equal(at(one.cen + 1e6, one.cen + 4e6), 'piece', 'a piece beside the centromere is not an arm')
   assert.equal(extentOf({ chrom: '1', whole: false, startBp: 1e6, endBp: 120e6 }, new Map()), 'piece')
 }
 
@@ -49,4 +52,4 @@ assert.ok(one.cenStart > 120e6 && one.cenEnd < 126e6 && one.end > 249e6, 'chromo
 // --- 3. NO EM DASH IN ANY LABEL ----------------------------------------------------------------
 for (const [label] of overviewTable([], arms)) assert.ok(!label.includes('\u2014'), label)
 
-console.log('overview.check.ts OK: card rows counted once each, arms from the shipped gap table, unreportable samples add nothing')
+console.log('overview.check.ts OK: card rows counted once each, arms at the whole-call p/q boundary, unreportable samples add nothing')

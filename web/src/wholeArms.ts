@@ -33,6 +33,10 @@ export const P_ARM_END_GRCH37: Readonly<Record<string, number>> = {
   19: 26_500_000, 20: 27_500_000, 21: 13_200_000, 22: 14_700_000,
 }
 
+/** The p/q boundary of `chrom` on GRCh37, or undefined off the 22 autosomes. The one arm source: the
+ *  whole-call rule and the overview's arm class both read it. */
+export const armBoundary = (chrom: string): number | undefined => P_ARM_END_GRCH37[chrom]
+
 type Marker = { chrom: string; pos: number; called: boolean; log2R: number | null }
 
 export interface ArmReading {
@@ -55,7 +59,7 @@ const readArm = (ms: readonly Marker[], n: CopyNull) => {
 export function readArms(
   ms: readonly Marker[], kind: 'loss' | 'gain', shift: number, n: CopyNull,
 ): ArmReading {
-  const split = P_ARM_END_GRCH37[ms[0]?.chrom ?? '']
+  const split = armBoundary(ms[0]?.chrom ?? '')
   if (split === undefined) return { whole: true, p: null, q: null }
   const p = readArm(ms.filter((m) => m.pos < split), n)
   const q = readArm(ms.filter((m) => m.pos >= split), n)
@@ -76,7 +80,7 @@ export function readArms(
  * rates are NaN; `arm` marks it.
  */
 export function armSegment(ms: readonly Marker[], arm: 'p' | 'q', kind: 'copy-loss' | 'copy-gain'): Segment {
-  const split = P_ARM_END_GRCH37[ms[0].chrom]
+  const split = armBoundary(ms[0].chrom)!
   const on = ms.filter((m) => (arm === 'p' ? m.pos < split : m.pos >= split))
   let lo = Infinity; let hi = -Infinity
   for (const m of on) { if (m.pos < lo) lo = m.pos; if (m.pos > hi) hi = m.pos }
