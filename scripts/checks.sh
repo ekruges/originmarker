@@ -42,6 +42,26 @@ run 'joy-common line reader' . audit/joy-common.check.ts
 # arrays by the tail of their accession. See the header of the check.
 run 'no tracked results file names an array' . audit/no-array-names.check.ts
 
+# THE OVERVIEW TABLE, RECOUNTED BY CODE THAT SHARES NOTHING WITH IT (plan item 3.9, O3). On the
+# synthetic fixture always; on real runs where OM_OVERVIEW_DIR holds one records file per run
+# (audit/truth/run.ts output with the page's grouping and timing attached).
+echo "overview table, recounted"
+overview() { # overview <label> <records.jsonl>
+  local t; t=$(mktemp)
+  if node --experimental-strip-types audit/truth/overview.ts "$2" > "$t" 2>/dev/null \
+    && out=$(python3 audit/truth/overview_check.py "$t" "$2"); then
+    printf '  ok   %s: %s\n' "$1" "$(printf '%s' "$out" | tail -1)"
+  else
+    printf '%s\n' "$out" | sed 's/^/       /'
+    printf '  FAIL %s\n' "$1"; fails=$((fails + 1))
+  fi
+  rm -f "$t"
+}
+overview 'synthetic fixture' audit/truth/overview-fixture.jsonl
+if [ -n "${OM_OVERVIEW_DIR:-}" ]; then
+  for f in "$OM_OVERVIEW_DIR"/*.jsonl; do overview "$(basename "$f" .jsonl)" "$f"; done
+fi
+
 # TYPESCRIPT IS TYPE-CHECKED HERE, NOT ONLY AT DEPLOY TIME. The self-checks above run through
 # tsx, which strips types without checking them, so this script reported "all checks passed" on a
 # tree that does not compile. 5.38.0 was tagged and pushed in that state. compileall below has

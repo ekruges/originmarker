@@ -989,6 +989,8 @@ export interface ParentageResult {
    */
   twoParents?: boolean
   units?: number
+  /** The page's embryo group of this sample, set with `units`. */
+  embryo?: number
   /**
    * Per-change timing, present only when two or more units of THIS embryo were arrayed: one entry
    * per card row, with the rule B1 call and its reason (timing.ts). Absent on a single-unit run.
