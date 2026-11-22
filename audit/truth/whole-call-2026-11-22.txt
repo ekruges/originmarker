@@ -1,0 +1,117 @@
+A whole-chromosome call needs each arm to carry the change (plan item 3.4c)
+==========================================================================
+
+Written 22 November 2026, branch whole-call, built on 6.19.0 (530889a). The rule and its pass test
+are written here BEFORE the build is run, and the results are appended under them. Nothing above the
+RESULTS line was edited after the run. Open arrays and the lab cohort only. Lab cells are rows of
+Table S2 and Table S7; answer-key cells are row indexes of the 330-row (no parent) and 270-row (with
+parent) lists. No array is named here.
+
+THE FAULT
+---------
+The whole-chromosome test (web/src/parentage.ts, classify) reads one median log2R per chromosome
+and one call fraction. A change on one arm holding most of the chromosome's markers moves that
+median past both gates, and a deep loss on one arm drops the whole chromosome's call fraction under
+CALL_COLLAPSE. Either way the change prints as a whole-chromosome loss or gain. The 3.4a reading
+(partLost.ts) reaches losses only, needs the loss scan to find the piece first, and asks the rest to
+read at the cell's level.
+
+DEFINITIONS (as fixed in the plan item, not moved)
+--------------------------------------------------
+- Arms: hg19 UCSC cytoBand, the p arm every marker before the boundary between the last p acen band
+  and the first q acen band, the q arm every marker at or after it. 22 fixed positions, from
+  audit/ucsc-hg19-cytoband.tsv. An array the tool does not read as GRCh37 has no arm table.
+- Usable arm: at least 200 markers carrying a log2R (REST_MIN_MARKERS).
+- The cell's level: lrrNull.centre, the centre the whole test reads against.
+- Arm shift: the arm's upper-median log2R less the cell's level.
+- Arm call fraction: the arm's called markers over its markers, over the cell's median autosomal
+  call fraction (the callMedian classify uses).
+- need: the floor the whole call needed, as classify sets it from the sign of the chromosome's
+  shift: a loss 0.40, a gain 0.30; 0.14 for both on material read as bulk with spread under
+  BULK_SPREAD_MAX and call rate at least 0.80.
+
+THE RULE
+--------
+W1. Arms: the hg19 cytoBand boundary between p and q. An arm with fewer than 200 markers carrying a
+    log2R is not usable.
+W2. Each arm is read on its own, against the same centre as the whole test: its median log2R less
+    lrrNull.centre, and its call fraction over the cell's median.
+W3. An arm carries a whole loss where its shift is at or under -need/2, or its call fraction is under
+    0.60 while its shift is under +need/2 (candidate A with the A2 clause). An arm carries a whole
+    gain where its shift is at or over +need/2.
+W4. A whole call stands only where both usable arms carry it. Where one does not, the whole call is
+    withdrawn and the chromosome goes on to the piece scans like any chromosome not called whole:
+    the loss scan and the gain scan both run on it.
+W5. Fewer than two usable arms (chr13, 14, 15, 21 and 22 on this chip): the whole call stands as
+    today.
+W6. Very short arms: the 200-marker bar decides.
+W7. 3.4a stays for what it does today. W4 runs first, so a chromosome W4 withdraws is never handed
+    to readLostChromosome as a whole loss.
+W8. Bars: need/2 is half the floor the whole call already used; 200 and 0.60 are existing constants.
+    No new number.
+W9. A withdrawn whole call never becomes silence. Where W4 withdraws a whole call and the piece scans
+    print no change of that kind overlapping the arm that carries it, the tool prints that arm as the
+    change: the same kind as the whole call, spanning the carrying arm from the p/q boundary to the
+    chromosome end, marked as an arm-level call, with the edge at the centromere side stated as not
+    placed and the extent inside the arm stated as not placed.
+    - W9 reads an arm only on a chromosome the whole test has already called. It can narrow or
+      remove a call and cannot add one.
+    - Where neither arm carries the call, the whole call is withdrawn and W9 prints nothing; the
+      piece scans decide.
+    - W9 prints nothing for the arm that does not carry the call.
+
+DECISIONS BEFORE THE BUILD (from the plan item, 22 November)
+------------------------------------------------------------
+- Candidate A. Candidate B withdraws a stated whole loss (answer-key no-parent row 231, with-parent
+  row 145, chr16); A withdraws none.
+- The A2 clause goes in, recorded as written after the A count: an arm that reads raised cannot carry
+  a loss on its call fraction alone. It uses need/2 and adds no number.
+- W4 is in scope: both piece scans run on a chromosome whose whole call is withdrawn.
+- W9 as above.
+- An assembly the tool does not read as GRCh37 has no arm table: the whole call stands as today.
+- Arm boundaries from audit/ucsc-hg19-cytoband.tsv, as 22 fixed positions.
+
+Decided here, before any run, where the plan item is silent:
+- D1. The rule reads the whole calls the intensity and call-rate test made (ChromResult.aneuploidy).
+  A chromosome the alleles also read whole (lostParent set, or an allele gain or imbalance) is left
+  as it is: those are the whole-alleles and parental-absence calls the plan item keeps out of reach.
+  A whole call whose parent alone is named by the Mendelian channel is still the intensity test's
+  call and is read by the rule.
+- D2. W9's "change of that kind overlapping the arm" is a copy-loss (copy-gain) segment the copy
+  scans or 3.4a give on that chromosome overlapping the carrying arm, read before the reporting
+  filters. The arm call then goes through the same reporting filters and withholding gates as any
+  piece of the copy scans, and is recorded in the same segment shape.
+- D3. The arm call's coordinates: q arm from the boundary to the last marker of the chromosome; p arm
+  from the first marker to the boundary. It carries no breakpoint interval; its edges are stated as
+  not placed.
+
+THE EXIT GATE (written before any run)
+--------------------------------------
+WC1. Built events, no parent, the 10,018 in-margin events of the margins run, rerun on the new tree:
+  - whole events printed whole: at least 489 of the 490 losses and 683 of the 684 gains that 6.19.0
+    prints whole (the two named in the plan item may go);
+  - arm events on two-arm chromosomes printed whole: at most 12 losses and 17 gains;
+  - every arm event withdrawn from whole is listed with what it prints instead;
+  - found share of every size and amount: not lower than the margins run, or each drop listed with
+    its cause, counting an arm-level call that covers the built event as found.
+WC2. Answer key, 330 and 270 open rows: every stated whole loss and gain found today is found whole;
+  the 10 (no parent) and 7 (with parent) stated-piece whole calls are no longer whole; no
+  stated-normal chromosome gains a call; every chromosome whose call changes is listed with its
+  truth.
+WC3. Lab, 271 rows, no parent: the 4 calls of section 3 (7 with A2) are no longer whole, and nothing
+  else whole changes; every change listed. (With A2 the plan item also names S2 row 99 chr18, where
+  neither arm carries the loss.)
+WC4. Lower bar: if z 4.5 ships with this rule, S2 row 164 chr3 prints no whole gain, and the stated
+  pieces of WC2 print no whole gain at z 4.5 either.
+WC5. All checks pass by exit code; suite no worse than the v6.19.0 scorecard; browser run on S2 row
+  97, S2 row 164 and one acrocentric whole loss; released as its own version. (The browser run and
+  the release are the owner's, at landing.)
+WC6. Every whole call W4 withdraws where an arm carries it prints a change of the same kind on that
+  arm, from the scans or from W9. None prints nothing. Each is listed with what it prints.
+WC7. No chromosome without a call on 6.19.0 gains one: on the 600 answer-key rows, the 271 lab rows
+  and the published quiet arrays, the set of called chromosomes is the same or smaller, chromosome by
+  chromosome.
+No bar is moved after the exit run. A failing line goes back to the owner as it stands.
+
+RESULTS
+-------
