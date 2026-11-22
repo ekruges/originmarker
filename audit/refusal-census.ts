@@ -143,14 +143,15 @@ async function scoreCell(gsm: string, father: string, mother: string) {
   const pat = FATHER ? parentAt(FATHER) : parentIndex(father)
   const mat = FATHER ? null : parentIndex(mother)
   const acc = score.emptyCollected(pat as never, mat as never, panelFor(mother) as never)
-  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
+  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); const builds = ingest.emptyBuildSums(); let first = ''
   for (const r of rowsOf(fileOf.get(gsm)!)) {
     if (!first) first = r.probesetId
     ingest.accumulate(r as never, byChrom as never)
     ingest.accumulateBaf(r as never, bafSums as never)
+    ingest.accumulateBuild(r as never, builds)
     score.collectRow(r as never, pat as never, mat as never, acc as never)
   }
-  const profile = ingest.finishProfile(gsm, byChrom as never, bafSums as never, first)
+  const profile = ingest.finishProfile(gsm, byChrom as never, bafSums as never, first, builds)
   return score.scoreSample({ acc, profile, pat, mat, soloRole: 'paternal', sibs: [], sampleName: gsm,
     log: () => {} }) as Promise<Record<string, any>>
 }

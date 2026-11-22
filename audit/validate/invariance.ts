@@ -93,12 +93,13 @@ for (const gsm of cells) {
   for (const v of VARIANTS) {
     const pat = fathers.get(v)
     const acc = score.emptyCollected(pat as never, null, panelFor(v) as never)
-    const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
+    const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); const builds = ingest.emptyBuildSums(); let first = ''
     for (const r of transform(cellRows, v)) {
       if (!first) first = r.probesetId
       ingest.accumulate(r, byChrom); ingest.accumulateBaf(r, bafSums); score.collectRow(r, pat as never, null, acc as never)
+      ingest.accumulateBuild(r as never, builds)
     }
-    const profile = ingest.finishProfile(gsm, byChrom, bafSums, first)
+    const profile = ingest.finishProfile(gsm, byChrom, bafSums, first, builds)
     const res: any = await score.scoreSample({ acc, profile, pat, mat: null, soloRole: 'paternal', sibs: [],
       sampleName: gsm, log: () => {} } as never)
     appendFileSync(out, JSON.stringify({

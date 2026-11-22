@@ -115,12 +115,13 @@ function construct(cell: any[], chrom: string, parentGt: Map<string, string>): a
 
 async function scoreRows(rs: any[], pat: any, mat: any, name: string, sibs: any[] = []) {
   const acc = score.emptyCollected(pat, mat, panel as never)
-  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
+  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); const builds = ingest.emptyBuildSums(); let first = ''
   for (const r of rs) {
     if (!first) first = r.probesetId
     ingest.accumulate(r, byChrom); ingest.accumulateBaf(r, bafSums); score.collectRow(r, pat, mat, acc as never)
+    ingest.accumulateBuild(r as never, builds)
   }
-  const profile = ingest.finishProfile(name, byChrom, bafSums, first)
+  const profile = ingest.finishProfile(name, byChrom, bafSums, first, builds)
   return await score.scoreSample({ acc, profile, pat, mat, soloRole: 'paternal', sibs, sampleName: name,
     log: () => {} } as never) as any
 }
