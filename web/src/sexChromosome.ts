@@ -63,6 +63,8 @@ export interface SexChromosomeCall {
   /** True only where the constitution named is itself an abnormality. */
   aneuploid: boolean
   why: string
+  /** Where chrY was not read by its markers, why (sexing.ts sexCall). */
+  yWhy?: string
 }
 
 export interface SexChromosomeInput {
@@ -145,6 +147,12 @@ function yWithTwoX(call: SexCall | undefined): SexChromosomeCall {
  * bands are callSex's. A reading is printed only where nothing measured contradicts it.
  */
 export function callSexChromosomes(input: SexChromosomeInput): SexChromosomeCall {
+  const c = readSexChromosomes(input)
+  const yWhy = yRead(input).call?.why
+  return c.yBearing === null && yWhy ? { ...c, yWhy } : c
+}
+
+function readSexChromosomes(input: SexChromosomeInput): SexChromosomeCall {
   const c = byIntensity(input)
   const call = yRead(input).call
   if (!input.hetSex || !input.twoInsideNoise || !input.diploid) return c

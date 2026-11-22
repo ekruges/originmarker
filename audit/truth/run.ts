@@ -161,7 +161,7 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       // the sperm type and the parent checks.
       y: { yBearing: y.yBearing, callRatio: y.callRatio, lrrShift: y.lrrShift, yBafShare: y.yBafShare ?? null,
         bafFloor: y.bafFloor ?? null, why: y.why ?? null },
-      sexWhy: res.sexChromosome?.why ?? '', sexWord: sexMaterial.shownSex(profile.sex, res.sexMaterial, res.sexChromosome?.yBearing),
+      sexWhy: res.sexChromosome?.why ?? '', sexWord: sexMaterial.shownSex(profile.sex, res.sexMaterial, res.sexChromosome),
       spermType: res.spermType ?? null, parentSanity: res.parentSanity ?? null, matSanity: res.parentSanityOther ?? null,
       parentSex: { pat: pat.sex ?? null, mat: mat?.sex ?? null },
       chroms: (res.chroms ?? []).map((c: any) => ({ chrom: c.chrom, aneuploidy: c.aneuploidy ?? '',

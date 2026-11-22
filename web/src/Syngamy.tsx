@@ -1483,8 +1483,9 @@ const GATE_COLOUR: Record<string, string> = {
   usable: 'green', marginal: 'orange', exclude: 'red', report_only: 'gray',
 }
 
-function Quality({ profile: p, gates, material, yBearing }: {
-  profile: SampleProfile; gates: Gate[]; material?: SexMaterial; yBearing?: boolean | null
+function Quality({ profile: p, gates, material, sexChromosome }: {
+  profile: SampleProfile; gates: Gate[]; material?: SexMaterial
+  sexChromosome?: { yBearing: boolean | null; yWhy?: string }
 }) {
   // The heterozygosity sex stands only where two copies are shown. See sexMaterial.ts.
   const g = sexGates(gates, material)
@@ -1501,7 +1502,7 @@ function Quality({ profile: p, gates, material, yBearing }: {
           ? `${p.hetBafSd.toFixed(4)}   ${p.hetBafSd <= 0.11 ? 'unamplified' : 'amplified'}`
           : '-'],
         ['chrX / autosomal het', p.chrXHetRatio === null ? '-' : p.chrXHetRatio.toFixed(3)],
-        ['Sex', shownSex(p.sex, material, yBearing)],
+        ['Sex', shownSex(p.sex, material, sexChromosome)],
         ['Product', p.product],
         ['Assembly', p.build.build
           ? `${p.build.build}   ${int(p.build.illegal.GRCh37)} illegal GRCh37, `
@@ -1921,7 +1922,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
       )}
 
       <Section title="Sample quality"><Quality profile={profile} gates={g} material={r.sexMaterial}
-        yBearing={r.sexChromosome?.yBearing} /></Section>
+        sexChromosome={r.sexChromosome} /></Section>
 
       {[...new Set([...r.limits, ...maternal?.limits ?? []])].length > 0 && (
         <Section title="Limits">

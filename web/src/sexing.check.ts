@@ -213,11 +213,25 @@ const alleles = (o: { yCall: number; yLrr: number; share: number; floor: number 
   assert.equal(callSexChromosomes({ diploid: true, bulk: true, chipGenotypesY: true, hetSex: 'female',
     hetRatio: 1.0, xShift: 0.05, xZ: 0.5, y: yTwoX }).constitution, '47,XXY')
   // The sex word: never female beside a chrY, and nothing else moves.
-  assert.equal(shownSex('female', shown, true), 'not read: chrY present with a heterozygous X')
-  assert.equal(shownSex('female', undefined, true), 'not read: chrY present with a heterozygous X')
-  assert.equal(shownSex('female', undefined, false), 'female')
-  assert.equal(shownSex('female', undefined, null), 'female')
-  assert.equal(shownSex('male', undefined, true), 'male')
+  // R9: one source. The word follows the X band and the same Y reading the line uses.
+  const sc = (yBearing: boolean | null, yWhy?: string) => ({ yBearing, yWhy })
+  assert.equal(shownSex('female', shown, sc(true)), 'not read: chrY present with a heterozygous X')
+  assert.equal(shownSex('female', undefined, sc(true)), 'not read: chrY present with a heterozygous X')
+  assert.equal(shownSex('female', undefined, sc(false)), 'female')
+  assert.equal(shownSex('male', undefined, sc(true)), 'male')
+  assert.equal(shownSex('male', undefined, sc(false)), 'not read: chrX reads one copy by its calls and chrY is absent')
+  assert.equal(shownSex('ambiguous', undefined, sc(false)), 'ambiguous')
+  assert.equal(shownSex('ambiguous', undefined, sc(true)), 'ambiguous')
+  // A chrY not read gives no sex, with the line's own reason.
+  const r6 = callSexChromosomes({ diploid: true, chipGenotypesY: true, hetSex: 'female', xShift: 0.02, xZ: 0.3, y: unread })
+  assert.ok(r6.yWhy!.startsWith('chrY was not read: 62% of its markers'), r6.yWhy)
+  assert.equal(shownSex('female', undefined, r6), `not read: ${r6.yWhy}`)
+  assert.equal(shownSex('male', undefined, sc(null)), 'not read: chrY was not read')
+  assert.equal(callSexChromosomes({ ...np, hetSex: 'female', hetRatio: 1.0, xShift: 0.02, xZ: 0.3, y: yTwoX }).yWhy,
+    undefined, 'a Y read carries no not-read reason')
+  // Not shown two copies with no parent, and a loaded parent with no sex-chromosome call: as before.
+  assert.equal(shownSex('female', notShown, sc(false)), 'not read: two copies of the autosomes not shown')
+  assert.equal(shownSex('male', undefined), 'male')
 }
 
 console.log('sexing.check.ts: all assertions passed')
