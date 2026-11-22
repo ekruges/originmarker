@@ -1,0 +1,125 @@
+Overview counts for a run
+=========================
+
+Plan item 3.9, rule C. The rule and its pass test are written here BEFORE the scoring run, copied
+from the plan item with the decisions taken before the build. The results are appended under the
+RESULTS line. Nothing above that line is edited after the run.
+
+Cells are named by row index or not at all. No array is named in this file.
+
+RULE C
+------
+One flat table for the run, built only from fields each record already has:
+- samples by stage, and by reportable or not (no sample-level refusal; integrity.disturbed;
+  integrity.uninterpretable);
+- changes by kind: loss or gain, and whole, arm or piece;
+- by parent: maternal, paternal, not named;
+- embryos and units per embryo, where the page groups cells;
+- origin per change, where rule B1 gives one.
+"Arm" is a piece that starts within 5 Mb of the chromosome end or the centromere and ends within
+5 Mb of the centromere or the other end. Findings (copy-neutral readings, complex) are counted on
+their own line, not as losses or gains.
+
+How the words in the rule are read in the code, fixed here before the run:
+- A change is a row the result card counts (pageSays.changeList(...).counted), never a raw defect
+  row. Its direction is gain for a gain row, loss for a row of a loss kind (copy-loss,
+  parental-absence, monosomy, segmental-deletion). A counted row with no direction (copy-neutral
+  readings, the uneven-shares reading) is a finding, and a genome too disturbed to reference
+  against (complex) is one finding per sample. Rows the card lists as seen once, not confirmed,
+  are counted on their own line and are not changes.
+- Reportable classes come from the sample-level integrity refusal only: none is reportable,
+  integrity.disturbed is limited, integrity.uninterpretable is not reportable. A sample not
+  reportable is counted in the sample lines and contributes no change, finding or origin.
+- Arm: a piece that runs from within 5 Mb of the chromosome's start to within 5 Mb of the
+  centromere, or from within 5 Mb of the centromere to within 5 Mb of the chromosome's end. Every
+  other piece is a piece. Centromeres and chromosome ends are the centromere and telomere rows of
+  the gap table the tool ships (web/public/hg19_features.json); the tool ships no cytoband file.
+- Embryos: groups of two or more units as the page forms them; a sample in no group is counted on
+  its own line.
+- Origin per change: the words the page prints for it (timing.ORIGIN_WORD), or no origin word.
+
+PASS TEST (gate lines O1 to O6 of item 3.9)
+-------------------------------------------
+- O1. One flat table on the page and in the download, built only from the per-sample records:
+  samples by stage, by reportable class; changes by direction and whole, arm or piece; by parent;
+  embryos and units per embryo; origin per change.
+- O2. Changes are counted as the result card counts them (pageSays.changeList rows), never as raw
+  defect rows (raw rows overcount: 787 against 711 with a parent).
+- O3. A check, sharing no code with the table, recounts every number from the records it
+  summarises, and every number matches, on the 600 answer-key rows and the 271 lab rows. Run by
+  exit code in scripts/checks.sh.
+- O4. Classes sum to the totals; samples not reportable are counted and never contribute a change.
+- O5. Flat style: no colour bands, no badges, no chart.
+- O6. Browser run on a built copy; own version. Both are the landing's.
+
+Scored on the records of the 330 answer-key rows with no parent, the 270 with a parent (each arm
+its own run), and the 271 lab rows, with the embryo and origin lines read on today's grouping.
+
+RESULTS
+-------
+Run 22 November on tesla. audit/truth/run.ts on the branch over the 271 lab rows and the 600
+answer-key rows (330 with no parent, 270 with a parent), and over the same 600 rows on 6.19.0, two
+jobs at a time. All 871 rows scored on the branch; none refused or failed. Today's grouping and
+the built timing were attached as the page attaches them (groups from the 19 November pair
+tables: 15 lab groups, 3 among the published trio cells in each arm). One run per file: the lab
+cohort, the 330 rows, and each arm of the 270 (both parents 39, measured father 49, rebuilt
+father 49, rebuilt father as stand-in 133).
+
+NO PER-SAMPLE CALL MOVED
+------------------------
+Every field of every record, all fields but the new `card`, compared by sample and arm:
+  lab cohort, branch against 6.19.0 (the lab records on 6.19.0)   271 of 271 identical
+  330 rows, branch against 6.19.0, same day                       330 of 330 identical
+  270 rows, branch against 6.19.0, same day                       270 of 270 identical
+So every call, parent, coordinate, stage and refusal is the same. The origin words are not in a
+record: a record is one sample, and one sample carries no origin.
+
+THE TABLE, LAB COHORT (271 rows, no parent, today's grouping)
+-------------------------------------------------------------
+  samples 271
+  stage: single cell 77, blastomere 60, trophectoderm 74, haploid 39, bulk 1, failed 20
+  reportable 122, limited (integrity disturbed) 89, not reportable (integrity uninterpretable) 60
+  changes (as the result cards count them) 222
+  losses 176: whole 137, arm 2, piece 37; maternal 0, paternal 0, parent not named 176
+  gains 46: whole 26, arm 1, piece 19; maternal 0, paternal 0, parent not named 46
+  findings (copy-neutral, uneven shares, complex genome) 19
+  stretches seen once, not counted 0
+  embryos of two or more units 15 (11 of 2, 3 of 3, 1 of 4); samples in them 35; in no group 236
+  origin: from the gamete 3; consistent with the gamete (two cells read) 23; after
+  fertilisation 4; pieces read differently 0; no origin word 192
+The 60 samples not reportable hold 322 counted card rows; none is in the table.
+
+Answer-key runs, changes / losses / gains / findings / seen once:
+  330 rows, no parent            167 / 140 / 27 / 34 / 0   (70 not reportable)
+  both parents, 39               121 / 121 / 0 / 1 / 64     losses maternal 53, paternal 68
+  measured father, 49            118 / 118 / 0 / 1 / 62     losses maternal 48, paternal 70
+  rebuilt father, 49             137 / 137 / 0 / 1 / 62     losses maternal 66, paternal 71
+  rebuilt father stand-in, 133     9 /   9 / 0 / 0 / 61     losses paternal 9
+
+GATE
+----
+  O1  holds. One flat table, on the page (OverviewPanel, under the run) and as its own download
+      (Overview TSV), built from per-sample records only: overviewSampleOf reads the card's
+      change list, stage and sample refusals; overviewTable counts. Every line of rule C is in
+      it, embryo and origin lines included.
+  O2  holds. Changes are card rows (changeList(...).counted). Raw defect rows against card rows
+      on the same records: lab 644 against 563, 330 rows 585 against 523, both parents 240
+      against 121 counted plus 64 seen once.
+  O3  holds. audit/truth/overview_check.py recounts every line from the records with no shared
+      code and matches exactly on all seven runs and the synthetic fixture (35 to 38 lines each,
+      0 mismatches), run by exit code from scripts/checks.sh (OM_OVERVIEW_DIR for real runs). A
+      wrong number fails it (tested). checks.sh calls `node`; on tesla /opt/node22/bin must be on
+      PATH or the step fails, as it should.
+  O4  holds. Stage lines, reportable classes, losses plus gains, extent, parent, embryo and origin
+      lines each sum to their totals in every run (checked by overview_check.py). Samples not
+      reportable are counted and contribute no change.
+  O5  holds. A plain bordered table of label and count; no colour band, badge or chart; no em
+      dash in any label (overview.check.ts).
+  O6  the landing's: a browser run on a built copy, and the version.
+
+SUITE
+-----
+On the Mac worktree (no install; the main checkout's node_modules linked, nothing built): every
+web/src self-check (68), the cli checks, the requirements audit, joy-common, no-array-names,
+tsc on the app and node configs, compileall: all pass. The overview step: synthetic fixture on
+the Mac; fixture and all seven real runs on tesla.

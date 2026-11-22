@@ -11,6 +11,8 @@ import {
 } from './platform'
 import { syngamyTable } from './syngamyTable'
 import { ParentalBalancePanel } from './ParentalBalancePanel'
+import { OverviewPanel } from './OverviewPanel'
+import { armsFrom, overviewSampleOf, type Arms, type OverviewSample } from './overview'
 import type { BalanceSample, PairedSample } from './parentalBalance'
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { StageCallout } from './StageCallout'
@@ -94,6 +96,14 @@ const TAG_COLOR: Record<Tag, string> = {
  * the genome-level class where it has one, because that is what makes a uniparental genome the
  * clean comparison in the first place.
  */
+/** Every scored sample of the run as the overview reads it, from the same card rows the cards count. */
+function overviewRowsFor(entries: readonly Entry[]): OverviewSample[] {
+  const rebuilt = !!entries.find((x) => x.role === 'donor')?.inferred
+  return entries.filter((e) => e.result).map((e) => overviewSampleOf(
+    cardSays(e.result!, e.maternal, e.paired?.originClass ?? e.result!.originClass, rebuilt).list,
+    e.result!, e.result!.embryo))
+}
+
 function balanceRowsFor(entries: readonly Entry[]): BalanceSample[] {
   const out: BalanceSample[] = []
   for (const e of entries) {
@@ -296,6 +306,8 @@ async function loadFeatureTrack(): Promise<FeatureTrack | null> {
 
 export function SyngamyPage({ health }: { health?: Health | null }) {
   const [entries, setEntries] = useState<Entry[]>([])
+  const [arms, setArms] = useState<Arms | null>(null)
+  useEffect(() => { void loadFeatureTrack().then((t) => setArms(t ? armsFrom(t.gaps) : null)) }, [])
   /** Run-wide, because the comparison is a cohort question rather than a per-sample one. */
   const [comparison, setComparison] = useState<ComparisonResult | undefined>(undefined)
   const [donor, setDonor] = useState<DonorIndex | null>(null)
@@ -773,8 +785,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           const gb = sampleGt.get(b.id)
           return ga && gb ? agreement(ga as never, gb as never) : NaN
         })
-        for (const group of groups) {
-          if (group.length < 2) continue
+        groups.forEach((group, gi) => {
+          if (group.length < 2) return
           log('DONE', `${group.length} arrays are units of one embryo, by genotype concordance. `
             + 'Each change is read against the others for when it arose')
           // One call for the whole group, in timing.ts, so the page and the record harness read
@@ -782,6 +794,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           const timed = timeGroup(group.map((u) => readingOf(defectsForResult(u.result), u.result)))
           group.forEach((u, i) => {
             u.result.units = group.length
+            u.result.embryo = gi
             u.result.uniformity = timed[i].map((e) => ({
               chrom: e.chrom, startBp: e.startBp, endBp: e.endBp, kind: e.kind, mechanism: e.mechanism, why: e.why,
             }))
@@ -791,7 +804,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
                 `timing chr${m.chrom}: ${ORIGIN_WORD[m.mechanism] || 'no origin'}. ${m.why}`)
             }
           })
-        }
+        })
       }
     }
     setStage(null)
@@ -989,6 +1002,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         traced back to the array it came from.
       */}
       {/* THE QUESTION THE TOOL EXISTS FOR, across the whole run rather than one sample. */}
+      {entries.some((e) => e.result) && <OverviewPanel samples={overviewRowsFor(entries)} arms={arms} />}
       {entries.some((e) => e.result) && (
         <ParentalBalancePanel
           samples={balanceRowsFor(entries)}

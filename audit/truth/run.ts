@@ -13,6 +13,9 @@
  * A file whose markers are not the proven chip's is not scored: its record carries `chip` with the
  * refusal and the causes, as the page prints them, and nothing else. See web/src/platform.ts.
  *
+ * `card` holds the result card's change list as the overview counts it: the counted rows with their
+ * pieces, the count of rows seen once, and whether the genome is too disturbed to reference.
+ *
  * `genomeVerdicts` holds the loaded parent's genome-wide verdict and, with both parents, the
  * mother's, read as the page reads it; `changes` holds each printed change as the result card lists
  * it, with its band and the second test's verdict over it (pageSays.ts).
@@ -146,6 +149,15 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       const bad = pageSays.surfaceProblems(res, undefined, res.originClass, false)
       process.stderr.write(`SURFACES ${tag} ${bad.length ? bad.join(' | ') : 'ok'}\n`)
     }
+    // The result card's change list, as the overview counts it (web/src/overview.ts). Read last, after
+    // every other field is taken.
+    const card = () => {
+      const says = pageSays.cardSays(res, maternal ?? undefined,
+        maternal && !res.noParent ? parentage.pair(res, maternal, NaN).originClass : res.originClass, tag.startsWith('recon'))
+      return { counted: says.list.counted.map(cardRow), once: says.list.once.length, disturbed: !!says.list.disturbed }
+    }
+    const cardRow = (g: any) => ({ chrom: g.chrom, gain: g.gain, whole: g.whole, origin: g.origin, start: g.startBp, end: g.endBp,
+      word: g.word, pieces: g.pieces.map((p: any) => ({ kind: p.kind, start: p.startBp, end: p.endBp })) })
     appendFileSync(out, JSON.stringify({
       id, tag, parent: parentPath.split('/').pop(),
       callRate: profile.callRate, hetRate: profile.hetRate,
@@ -180,6 +192,7 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
         kind: d.kind, origin: d.origin, step: d.step ?? null, band: d.band ?? null, second: d.second?.verdict ?? null })),
       ...(res.motherFromRun ? { motherFromRun: { ...res.motherFromRun,
         drawArrays: res.motherFromRun.drawArrays.map((i: number) => (others ?? '').split(';').filter(Boolean)[i]) } } : {}),
+      card: card(),
     }) + '\n')
   } catch (e) {
     if (e instanceof ChipRefused) {
