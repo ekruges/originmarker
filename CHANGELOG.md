@@ -9,6 +9,39 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.20.0 "Sex Body"
+
+**chrY is read from its own markers, not from the chip's calls.** The chip leaves chrY uncalled
+on any sample it reads as female from its X heterozygosity, so "chrY has calls" and "chrX is
+heterozygous" were one signal, and a cell with two X and a Y the chip left uncalled printed XX.
+Where the array's own homozygous autosomal calls read at least 90% polarised, a Y is now present
+where at least 75% of its markers read one allele at male intensity, and absent where 60% or
+fewer do. Between those bars, or where the allele fractions cannot be read, the old reading stands
+only where the calls and the intensity agree with each other; otherwise the Y is not read, and a
+Y not read blocks every X-only constitution. The calls are never evidence of absence. The bars
+come from a measuring pass and were fixed before the build.
+
+- **A Y beside two different X prints a finding, not XX.** "47,XXY or a mix of cells, which one
+  array does not separate", with the share of Y markers reading one allele and the array's own
+  floor beside it. It is never stored or counted as a 47,XXY constitution, an XX or an XY.
+- **One source for the sample's sex word.** The header and Sample quality word came from the X
+  band alone, beside the Y reading the sex-chromosome line used. It is now made in one place from
+  both: "male" only with a Y present and the X in the male band, "female" only with no Y and the X
+  in the female band, and otherwise "not read" with the reason. On 871 records the word and the
+  sex-chromosome line never state different sexes. A loaded parent's own word is unchanged.
+
+Measured on 330 open rows with no parent, 270 with a parent and 271 laboratory rows, against
+6.19.0. Printed sex lines that change: 34, 10 and 22. Truth-labelled Y readings right: 44 to 46
+with no parent, 51 to 53 with a parent, 126 to 138 on the laboratory rows, with one reading right
+before and not read now (a cell stated XX whose Y markers read 62% one allele). The 13 laboratory
+cells with a stated Y all read one, and none prints XX or "female". No known no-Y array reads a Y,
+and no 45,X, 47,XXX or 47,XXY is printed. Three with-parent cells that printed "male" with chrY
+absent now read "not read: chrX reads one copy by its calls and chrY is absent". Every autosome
+field of every record is unchanged. The sperm type moves on one cell, from Y-bearing to unknown,
+because its Y is no longer read. The validation suite does not move.
+
+Record: `audit/truth/sex-y-signal-2026-11-22.txt`.
+
 ## 6.19.0 "Sibling"
 
 A gain read because another cell of the same embryo shows the loss over the same interval

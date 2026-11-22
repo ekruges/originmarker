@@ -346,10 +346,14 @@ RELEASES: tuple[Release, ...] = (
             "A cell or embryo sharing both parents with another without sharing its genome. "
             "Telling one from a second cell of the SAME embryo is what decides whether one "
             "cell's loss may be read as another's gain."),
+    Release("Sex Body",
+            "In a male's meiosis the X and the Y pair only at their tips and are packed apart "
+            "from the other chromosomes, the sex body. The Y is its own chromosome and is now read "
+            "from its own markers, not from whether the chip chose to call them."),
 )
 
-VERSION = "6.19.0"
-CODENAME = "Sibling"
+VERSION = "6.20.0"
+CODENAME = "Sex Body"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
