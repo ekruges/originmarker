@@ -122,16 +122,17 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
     const pat = parentIndex(parentPath)
     const mat = otherPath ? parentIndex(otherPath) : null
     const acc = score.emptyCollected(pat, mat, panel as never)
-    const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
+    const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); const builds = ingest.emptyBuildSums(); let first = ''
     const sameHom = keys.emptySameHom(); const homTally = info.emptyHomTally()
     for (const r of rows(path)) {
       if (!first) first = r.probesetId
       ingest.accumulate(r, byChrom); ingest.accumulateBaf(r, bafSums); score.collectRow(r, pat, mat, acc as never)
+      ingest.accumulateBuild(r as never, builds)
       if (!/^\d+$/.test(r.chrom)) continue
       const p = panel.get(r.probesetId)
       if (p) { keys.addSameHom(sameHom, r.genotype, p, p); info.addHomozygous(homTally, r.genotype, p) }
     }
-    const profile = ingest.finishProfile(id, byChrom, bafSums, first)
+    const profile = ingest.finishProfile(id, byChrom, bafSums, first, builds)
     // The stage with no parent consulted: the founder panel's drop-in and information ratio only.
     const free = stageMod.inferStage({ ...profile, dropIn: keys.onParentScale(keys.dropIn(sameHom), panel.calibration),
       information: info.informationRatio(homTally) }) as any

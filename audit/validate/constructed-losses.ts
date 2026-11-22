@@ -153,12 +153,13 @@ const calls = (gsm: string) => new Map<string, string>(rows(file(gsm))
 
 async function scoreRows(rs: any[], pat: any, name: string, sibs: Map<string, string>[] = []) {
   const acc = score.emptyCollected(pat, null, panel as never)
-  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
+  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); const builds = ingest.emptyBuildSums(); let first = ''
   for (const r of rs) {
     if (!first) first = r.probesetId
     ingest.accumulate(r, byChrom); ingest.accumulateBaf(r, bafSums); score.collectRow(r, pat, null, acc as never)
+    ingest.accumulateBuild(r as never, builds)
   }
-  const profile = ingest.finishProfile(name, byChrom, bafSums, first)
+  const profile = ingest.finishProfile(name, byChrom, bafSums, first, builds)
   return await score.scoreSample({ acc, profile, pat, mat: null, soloRole: 'paternal', sibs, sampleName: name,
     log: () => {} } as never) as any
 }

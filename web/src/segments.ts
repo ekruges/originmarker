@@ -273,6 +273,9 @@ export interface Segment {
   /** On a run under the span floor of otherParentLoss.ts that is reported all the same: the second
    *  line that made it a finding. */
   shortBy?: 'intensity' | 'sister'
+  /** An arm-level call: a whole-chromosome call this arm alone carries (wholeArms.ts). It spans the
+   *  arm, and neither its centromere-side edge nor its extent inside the arm is placed. */
+  arm?: 'p' | 'q'
 }
 
 /**
@@ -292,7 +295,9 @@ export function segmentCoords(sg: Segment): {
       end: sg.endBp,
       spanBp: sg.spanBp,
       localised: false,
-      interval: 'window edges, not localised',
+      interval: sg.arm
+        ? `not placed: an arm-level call on ${sg.chrom}${sg.arm}, its centromere-side edge and its extent inside the arm unmeasured`
+        : 'window edges, not localised',
     }
   }
   const r = sg.refined

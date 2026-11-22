@@ -35,8 +35,11 @@ export interface Defect {
     | 'monosomy' | 'trisomy' | 'segmental-deletion' | 'segmental-duplication' | 'gamete-de-novo'
   /** The region in genome-browser form, chr6:39,302-294,904. */
   locus: string
-  /** Refined interval text where the breakpoint was localised, e.g. '+/- 61 kb'. */
+  /** Refined interval text where the breakpoint was localised, e.g. '+/- 61 kb'; on an arm-level
+   *  call, that its edges are not placed. */
   interval?: string
+  /** An arm-level call: see Segment.arm. */
+  arm?: 'p' | 'q'
   /** Origin as the tool determined it, with the reason. */
   origin: 'paternal' | 'maternal' | 'unclear'
   why: string
@@ -212,9 +215,16 @@ export function defectsFrom(
       locus: locus(sg.chrom, co.start, co.end),
       kind: sg.kind === 'copy-gain' ? 'copy-gain'
         : sg.kind === 'copy-loss' ? 'copy-loss' : 'parental-absence',
-      interval: sg.refined ? co.interval : undefined,
+      interval: sg.refined || sg.arm ? co.interval : undefined,
+      arm: sg.arm,
       origin,
-      why: conflict
+      why: (sg.arm
+        ? `Arm-level call. The whole-chromosome test read chr${sg.chrom} as `
+          + `${sg.kind === 'copy-gain' ? 'gained' : 'lost'}; read arm by arm, only the ${sg.arm} arm carries `
+          + 'the change, and the piece scans place nothing of that kind on it, so it is reported on that '
+          + 'arm. The change may cover part of the arm: where it starts and how far it runs are not '
+          + 'placed. '
+        : '') + (conflict
         ? `The run that found this segment reads ${byRun} alleles as the missing ones, and the `
           + `allele share inside the same window reads ${share}'s. Two readings of one region `
           + 'disagree, so no parent is named here. The region and its interval stand: what is in '
@@ -233,7 +243,7 @@ export function defectsFrom(
             + (share ? ' The allele share inside the window agrees.' : '')
           : ann?.why ?? (usedDosage ? dose?.why : undefined) ?? one?.why
             ?? 'No parental genotype was loaded for this run, so allele dosage cannot be oriented '
-              + 'and the parent is not determined. The position and its interval are unaffected.',
+              + 'and the parent is not determined. The position and its interval are unaffected.'),
       basis: (ann || byRun) ? 'two-parent'
         : usedDosage ? 'dosage'
           : (one && origin !== 'unclear') ? 'one-parent' : undefined,
