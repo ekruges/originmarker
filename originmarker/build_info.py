@@ -354,10 +354,13 @@ RELEASES: tuple[Release, ...] = (
             "The one cell the egg and the sperm make together. An error made before it is carried "
             "by every cell of the embryo, one made after it only by some, and which of the two it "
             "was is read from the other cells of the same embryo."),
+    Release("Chromosome Spread",
+            "A cell burst on a slide so that every chromosome lies apart from the others and can "
+            "be counted. A run of many cells is now counted the same way, in one flat table."),
 )
 
-VERSION = "6.21.0"
-CODENAME = "Zygote"
+VERSION = "6.22.0"
+CODENAME = "Chromosome Spread"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

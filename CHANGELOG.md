@@ -9,6 +9,32 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.22.0 "Chromosome Spread"
+
+**A run is counted in one flat table, on the page under the run and as its own download
+(Overview TSV).** Samples by stage and by whether they can be reported (reportable, limited,
+not reportable); changes by direction, by whole chromosome, arm or piece, and by parent;
+embryos and how many units each holds; and the origin word printed on each change. Copy-neutral
+readings, uneven shares and a genome too disturbed to reference against are counted as findings
+on their own line, and stretches seen once and not confirmed on another.
+
+- **Counted as the result cards count, never from raw rows.** A change is a row the card counts.
+  Raw rows overcount: 644 against 563 on the laboratory cohort, 240 against 121 with both parents.
+- **A sample that cannot be reported is counted and contributes nothing.** The 60 such samples of
+  the laboratory cohort hold 322 card rows; none is in the change lines.
+- **An arm** is a piece that runs from within 5 Mb of the chromosome's end to within 5 Mb of the
+  centromere. Every other piece is a piece.
+- **Plain.** A bordered table of label and count, with no colour band, badge or chart.
+
+A check that shares no code with the table recounts every number from the records it summarises
+and runs in `scripts/checks.sh`; a wrong number fails it. It matched every line, 0 mismatches, on
+the 330 no-parent rows, each parent arm of the 270 with-parent rows and the 271 laboratory rows.
+On the laboratory cohort the table reads: 271 samples, 122 reportable, 89 limited, 60 not
+reportable; 222 changes, 176 losses (137 whole, 2 arm, 37 piece) and 46 gains (26 whole, 1 arm,
+19 piece); 19 findings; 15 embryos of two or more units. No record moves.
+
+Record: `audit/truth/overview-counts-2026-11-22.txt`.
+
 ## 6.21.0 "Zygote"
 
 **From the gamete or after fertilisation is now read the way the papers read it, across the
