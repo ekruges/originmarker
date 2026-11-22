@@ -9,6 +9,39 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.21.0 "Zygote"
+
+**From the gamete or after fertilisation is now read the way the papers read it, across the
+cells of one embryo.** The old rule called a change meiotic where it looked the same in every
+cell, from a uniformity test whose figures ("meiotic 64 of 64 uniform, post-zygotic 6 of 7
+non-uniform") no record in the repository reproduces. It printed "from the gamete" on changes the
+paper's whole embryo shows arose after fertilisation: 18 with both parents and 8 with none on the
+published cells. Among the units of one embryo, as the page already groups them:
+
+- **From the gamete:** every unit carries a change of the same direction, overlapping, and of the
+  same parent where each names one. It needs three units. With two it reads "consistent with the
+  gamete (two cells read)", because two cells can share an error made at the first division.
+- **After fertilisation:** another unit gains what one loses over the same interval, or some
+  units carry the change while another reads that chromosome normal. "Normal" means measured,
+  with no row of any kind on it, in a cell the tool can report on; a missing row is not enough.
+- **Otherwise nothing.** One cell, a cell in no group, or a row with no direction carries no
+  origin word anywhere. Every origin states how many units carry it and how many read normal.
+
+Measured against the papers' own karyotypes, with the rule applied to them by separate code: 0
+calls opposite to the paper in every set and parent arm, and 0 "from the gamete" on a change the
+paper shows arose after fertilisation (before: 8 with no parent, 10 with the measured father, 8
+with a rebuilt father, 18 with both). On the published cells "from the gamete" goes from 14, 15,
+10 and 29 to 0 in the four arms, as their groups hold two cells each; on the laboratory cohort
+from 34 to 3, all three in groups of three or four units. Neither one-parent arm prints an origin
+the two-parent arm calls the other way. No per-sample call moves: every record of the 600
+answer-key rows and the 271 laboratory rows is identical outside the origin words.
+
+The uniformity figures are removed from the reason, the PDF, the docs page and the stated
+limits, with the uniformity test they belonged to. Which cells count as one embryo is unchanged
+here; that grouping is its own item.
+
+Record: `audit/truth/origin-rule-2026-11-22.txt`.
+
 ## 6.20.0 "Sex Body"
 
 **chrY is read from its own markers, not from the chip's calls.** The chip leaves chrY uncalled

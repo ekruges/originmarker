@@ -350,10 +350,14 @@ RELEASES: tuple[Release, ...] = (
             "In a male's meiosis the X and the Y pair only at their tips and are packed apart "
             "from the other chromosomes, the sex body. The Y is its own chromosome and is now read "
             "from its own markers, not from whether the chip chose to call them."),
+    Release("Zygote",
+            "The one cell the egg and the sperm make together. An error made before it is carried "
+            "by every cell of the embryo, one made after it only by some, and which of the two it "
+            "was is read from the other cells of the same embryo."),
 )
 
-VERSION = "6.20.0"
-CODENAME = "Sex Body"
+VERSION = "6.21.0"
+CODENAME = "Zygote"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
