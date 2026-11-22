@@ -69,13 +69,24 @@ export function sexMaterial(o: {
 }
 
 /**
- * The heterozygosity sex (ingest.ts callSex) as the page prints it for a sample read with no
- * parent: only where two copies are shown. Elsewhere it would read female on a pronucleus.
+ * A SAMPLE's sex word, the one place it is made: the X band (ingest.ts callSex) and the chrY reading
+ * of the sex-chromosome line (sexChromosome.ts), read together, so the two never state different
+ * sexes. "male" needs a chrY and an X in the male band, "female" no chrY and an X in the female band;
+ * a chrY not read gives no sex. The ambiguous band keeps its word. With no parent the word is printed
+ * only where two copies are shown; elsewhere it would read female on a pronucleus. Without a
+ * sex-chromosome call, as for a loaded parent, the X band stands alone.
  */
-export function shownSex(sex: Sex, m: SexMaterial | undefined): string {
-  if (!m || m.diploid) return sex
-  return m.haploid ? 'not read: staged haploid, one sex chromosome is its normal complement'
-    : 'not read: two copies of the autosomes not shown'
+export function shownSex(
+  sex: Sex, m: SexMaterial | undefined, sc?: { yBearing: boolean | null; yWhy?: string },
+): string {
+  if (m && !m.diploid) {
+    return m.haploid ? 'not read: staged haploid, one sex chromosome is its normal complement'
+      : 'not read: two copies of the autosomes not shown'
+  }
+  if (!sc || sex === 'ambiguous') return sex
+  if (sc.yBearing === null) return `not read: ${sc.yWhy ?? 'chrY was not read'}`
+  if (sex === 'female') return sc.yBearing ? 'not read: chrY present with a heterozygous X' : 'female'
+  return sc.yBearing ? 'male' : 'not read: chrX reads one copy by its calls and chrY is absent'
 }
 
 /** The quality gates with the heterozygosity sex gate stated as not read, where two copies are not shown. */

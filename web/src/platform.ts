@@ -22,7 +22,8 @@ export const PROVEN_CHIP = 'UK Biobank Axiom'
 
 /**
  * Whether the proven chip genotypes its chromosome Y markers. It does: a man's array calls nearly
- * all of its 812 and a woman's none, so on this chip a file calling none of them has no Y. A chip
+ * all of its 812 and a woman's none. Its calls follow the X, not the Y: a cell with two X and a Y
+ * calls none either, so the Y is read from its markers' allele fractions (sexing.ts sexCall). A chip
  * that never genotypes chrY (the CytoScan 750K calls none on a man or a woman) would be read by
  * intensity instead; see sexChromosome.ts yPresent.
  */

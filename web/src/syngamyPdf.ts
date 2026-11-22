@@ -919,7 +919,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
             + `(unamplified DNA ~0.088, amplified 0.21-0.30)`
           : 'not measured'],
         ['chrX / autosomal het:', p.chrXHetRatio === null ? '-' : p.chrXHetRatio.toFixed(3)],
-        ['Sex call:', shownSex(p.sex, r.sexMaterial)],
+        ['Sex call:', shownSex(p.sex, r.sexMaterial, r.sexChromosome)],
         ['Product:', p.product],
         ['Assembly:', p.build.build
           ? `${p.build.build}  (${int(p.build.illegal.GRCh37)} placements illegal under GRCh37, `

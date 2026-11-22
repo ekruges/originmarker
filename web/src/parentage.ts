@@ -1168,6 +1168,9 @@ export function classify(
      * call-rate floor, which stood in for it.
      */
     dropIn?: number
+    /** The sample's chrY reading (sexing.ts sexCall). Unset: chrY calls alone, for tallies built
+     *  without a sex tally. */
+    yBearing?: boolean | null
   } = {},
 ): ParentageResult {
   const role = opts.role ?? 'paternal'
@@ -1557,7 +1560,9 @@ export function classify(
 
   const chroms: ChromResult[] = []
   let spermType: SpermType = 'unknown'
-  const yBearing = t.yTotal > 0 && t.yCalled / t.yTotal > 0.5
+  // ponytail: the calls-only fallback serves the unit tallies, which carry no sex tally.
+  const yBearing = opts.yBearing !== undefined ? opts.yBearing === true
+    : t.yTotal > 0 && t.yCalled / t.yTotal > 0.5
   for (const [c, [n, a]] of [...t.byChrom].sort(byChromName)) {
     if (n < 200) continue
     const rate = a / n

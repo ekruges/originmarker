@@ -698,6 +698,7 @@ export async function scoreSample(input: {
     ...(pat.inferred && Number.isFinite(pat.inferred.spuriousAbsence)
       ? { spuriousAbsence: pat.inferred.spuriousAbsence } : {}),
     ...(pat.inferred ? { inferredParent: true } : {}),
+    yBearing: sexCall(acc.sex).yBearing,
   })
   result.refusals = []
   result.parentGenome = patGenome
@@ -1521,10 +1522,12 @@ export async function scoreSample(input: {
       + `${result.sexChromosome.why}.`)
   } else if (result.sexChromosome.xCopies === 1
     && result.sexChromosome.constitution === 'unresolved') {
+    const yWhy = sexCall(acc.sex).why
     result.limits.push(
       'This sample carries ONE copy of chromosome X. Whether that is an ordinary male karyotype '
-      + 'or a monosomy X cannot be said from this file, which carries too few chromosome Y '
-      + 'markers to test for a Y. Both are consistent with everything measured here.',
+      + `or a monosomy X cannot be said from this file, ${yWhy ? `because ${yWhy}`
+        : 'which carries too few chromosome Y markers to test for a Y'}. Both are consistent with `
+      + 'everything measured here.',
     )
   }
   // The intensity scan is withheld on a chaotic genome: it normalises against this sample's own

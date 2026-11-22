@@ -40,6 +40,7 @@ import { int, utc } from './fmt'
 import { EXAMPLE_CITATION, EXAMPLE_DENSITY, EXAMPLE_SETS, exampleFor, loadExample, type ExampleSet } from './examples'
 import { analyseRuns, measureClustering, parseLocus, type RunResult } from './runlength'
 import type { GainAnnotation } from './parentage'
+import { sexCall } from './sexing'
 import { type FeatureTrack } from './features'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
@@ -665,7 +666,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         // Which arrays are units of one embryo is a property of the run, not of this sample.
         const result = await scoreSample({ acc, profile, pat, mat, soloRole, sibs, sampleName: s.file.name, log })
         const maternal = acc.tm && mat
-          ? classify(acc.tm, mat.heterozygosity, { role: 'maternal' }) : undefined
+          ? classify(acc.tm, mat.heterozygosity, { role: 'maternal', yBearing: sexCall(acc.sex).yBearing })
+          : undefined
         const paired = maternal ? pair(result, maternal, agree) : undefined
         const series = plotData(acc, {
           loaded: pat.absent ? null : { role: soloRole, gt: pat.gt }, second: mat?.gt ?? null,
@@ -1481,8 +1483,9 @@ const GATE_COLOUR: Record<string, string> = {
   usable: 'green', marginal: 'orange', exclude: 'red', report_only: 'gray',
 }
 
-function Quality({ profile: p, gates, material }: {
+function Quality({ profile: p, gates, material, sexChromosome }: {
   profile: SampleProfile; gates: Gate[]; material?: SexMaterial
+  sexChromosome?: { yBearing: boolean | null; yWhy?: string }
 }) {
   // The heterozygosity sex stands only where two copies are shown. See sexMaterial.ts.
   const g = sexGates(gates, material)
@@ -1499,7 +1502,7 @@ function Quality({ profile: p, gates, material }: {
           ? `${p.hetBafSd.toFixed(4)}   ${p.hetBafSd <= 0.11 ? 'unamplified' : 'amplified'}`
           : '-'],
         ['chrX / autosomal het', p.chrXHetRatio === null ? '-' : p.chrXHetRatio.toFixed(3)],
-        ['Sex', shownSex(p.sex, material)],
+        ['Sex', shownSex(p.sex, material, sexChromosome)],
         ['Product', p.product],
         ['Assembly', p.build.build
           ? `${p.build.build}   ${int(p.build.illegal.GRCh37)} illegal GRCh37, `
@@ -1918,7 +1921,8 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
         </Section>
       )}
 
-      <Section title="Sample quality"><Quality profile={profile} gates={g} material={r.sexMaterial} /></Section>
+      <Section title="Sample quality"><Quality profile={profile} gates={g} material={r.sexMaterial}
+        sexChromosome={r.sexChromosome} /></Section>
 
       {[...new Set([...r.limits, ...maternal?.limits ?? []])].length > 0 && (
         <Section title="Limits">

@@ -32,7 +32,7 @@ import { intensityDetects } from './intensityNull.ts'
 import { CALL_COLLAPSE, COPY_SHIFT_FLOOR } from './parentage.ts'
 import type { Sex } from './ingest.ts'
 import type { SexMaterial } from './sexMaterial.ts'
-import { sexCall, type SexTally } from './sexing.ts'
+import { sexCall, yAlleles, type SexCall, type SexTally } from './sexing.ts'
 
 /**
  * Fewest chrY markers for intensity to answer on its own, on a panel that genotypes none of them.
@@ -53,7 +53,7 @@ export const Y_BESIDE_X = -0.9
 
 /** What the sex chromosomes were found to be. */
 export type Constitution = 'XX' | 'XY' | '45,X' | '47,XXY' | '47,XXX' | 'one X' | 'XX or one X'
-  | 'unresolved'
+  | '47,XXY or a mix of cells' | 'unresolved'
 
 export interface SexChromosomeCall {
   /** X copies relative to the sample's own autosomes. Null where nothing could be measured. */
@@ -63,6 +63,8 @@ export interface SexChromosomeCall {
   /** True only where the constitution named is itself an abnormality. */
   aneuploid: boolean
   why: string
+  /** Where chrY was not read by its markers, why (sexing.ts sexCall). */
+  yWhy?: string
 }
 
 export interface SexChromosomeInput {
@@ -87,27 +89,56 @@ export interface SexChromosomeInput {
   hetRatio?: number | null
   /** chrX call rate over the genome's median: under CALL_COLLAPSE it has no template. */
   xCallFraction?: number
-  /** The chip genotypes chrY (platform.ts). Where it does, no call is no Y. Unset: read from the file. */
+  /** The chip genotypes chrY (platform.ts). Where it does, the reading is sexing.ts sexCall's, from the
+   *  Y markers' allele fractions and intensity. Unset: whether the panel genotypes chrY is read from
+   *  the file. */
   chipGenotypesY?: boolean
 }
 
 /**
  * Whether this sample carries a chrY, including on a panel that genotypes none of it.
  *
- * Thousands of chrY markers and not one call is a property of the PLATFORM, not of the sample: an
- * absent chromosome still produces calls, so a panel that genotypes chrY at all produces some on a
- * female too. Where that is what the file shows, the call rate says nothing and only intensity is
- * left, which is readable on bulk DNA and not on an amplified single cell. Null is returned rather
- * than a guess in the case that remains.
+ * Thousands of chrY markers and not one call is a property of the PLATFORM, not of the sample, on a
+ * chip that never genotypes chrY. Where that is what the file shows, the call rate says nothing and
+ * only intensity is left, which is readable on bulk DNA and not on an amplified single cell. Null is
+ * returned rather than a guess in the case that remains. On a chip that genotypes chrY the reading
+ * is sexCall's, which takes the Y from its own markers.
  */
 export function yPresent(o: SexChromosomeInput): boolean | null {
+  return yRead(o).y
+}
+
+/** The Y reading, with the SexCall behind it where it came from one. */
+function yRead(o: SexChromosomeInput): { y: boolean | null; call?: SexCall } {
   const call = sexCall(o.y)
   const panelGenotypesY = o.chipGenotypesY === true || o.y.yCalled > 0 || o.y.yTotal < Y_CN_MIN_PROBES
-  if (panelGenotypesY) return call.yBearing
+  if (panelGenotypesY) return { y: call.yBearing, call }
   if (o.bulk === true && Number.isFinite(call.lrrShift) && Number.isFinite(o.xShift)) {
-    return call.lrrShift - o.xShift >= Y_BESIDE_X
+    return { y: call.lrrShift - o.xShift >= Y_BESIDE_X }
   }
-  return null
+  return { y: null }
+}
+
+/** The Y as a clause. A reading with a reason of its own (an uncalled Y, a Y not read) says it. */
+const yClause = (y: boolean | null, call?: SexCall): string => call?.why
+  ?? (y === true ? 'chrY is present by its calls and intensity'
+    : y === false ? 'chrY is genotyped on this panel and not present'
+      : 'this file cannot say whether chrY is present')
+
+/** A Y the Y markers did not settle: it blocks every X-only constitution. A thin panel is not this. */
+const notRead = (y: boolean | null, call?: SexCall): boolean => y === null && call?.why !== undefined
+
+/** Why no X-only constitution is printed where the Y was not read. */
+const NO_X_ONLY = 'with chrY not read, no constitution of X alone is printed'
+
+/** A Y beside a heterozygous X: 47,XXY or a mix of cells, which one array does not separate. */
+function yWithTwoX(call: SexCall | undefined): SexChromosomeCall {
+  const y = call?.byAlleles ? `chrY is present: ${yAlleles(call)}` : 'chrY is present by its calls and intensity'
+  return {
+    xCopies: null, yBearing: true, constitution: '47,XXY or a mix of cells', aneuploid: false,
+    why: `${y}; chrX reads two different X by its heterozygous calls. A Y with two different X is `
+      + '47,XXY or a mix of cells, which one array does not separate',
+  }
 }
 
 /**
@@ -116,7 +147,14 @@ export function yPresent(o: SexChromosomeInput): boolean | null {
  * bands are callSex's. A reading is printed only where nothing measured contradicts it.
  */
 export function callSexChromosomes(input: SexChromosomeInput): SexChromosomeCall {
+  const c = readSexChromosomes(input)
+  const yWhy = yRead(input).call?.why
+  return c.yBearing === null && yWhy ? { ...c, yWhy } : c
+}
+
+function readSexChromosomes(input: SexChromosomeInput): SexChromosomeCall {
   const c = byIntensity(input)
+  const call = yRead(input).call
   if (!input.hetSex || !input.twoInsideNoise || !input.diploid) return c
   const het = input.hetSex === 'female' ? 2 : input.hetSex === 'male' ? 1 : null
   if (het === null) return c
@@ -130,9 +168,10 @@ export function callSexChromosomes(input: SexChromosomeInput): SexChromosomeCall
   if (c.xCopies !== null && c.xCopies !== het) {
     return no(`the readings disagree: ${hetWhy}; by intensity, ${c.why}`)
   }
-  if (het === 2 && y === true) return no(`the readings disagree: ${hetWhy}, and chrY is present`)
+  if (het === 2 && y === true) return yWithTwoX(call)
   if (c.constitution !== 'unresolved') return { ...c, why: `by intensity, ${c.why}; and ${hetWhy}` }
   if (het === 2) {
+    if (notRead(y, call)) return no(`${hetWhy}, and ${call!.why}: ${NO_X_ONLY}`)
     return { xCopies: 2, yBearing: y, constitution: 'XX', aneuploid: false,
       why: `${hetWhy}; intensity alone did not separate one X from two (${c.why})` }
   }
@@ -142,12 +181,13 @@ export function callSexChromosomes(input: SexChromosomeInput): SexChromosomeCall
       why: `${hetWhy}, and chrY is present by its calls and intensity` }
   }
   return no(`${hetWhy}, and ${y === false ? 'chrY is genotyped on this panel and not present'
-    : 'this file cannot say whether chrY is present'}: a male karyotype and a monosomy X are not `
+    : notRead(y, call) ? call!.why : 'this file cannot say whether chrY is present'}: a male karyotype and a monosomy X are not `
     + 'separable from heterozygosity')
 }
 
 function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
-  const o = { ...input, yBearing: yPresent(input) }
+  const yr = yRead(input)
+  const o = { ...input, yBearing: yr.y, yCall: yr.call }
   const none = (why: string): SexChromosomeCall => ({
     xCopies: null, yBearing: o.yBearing, constitution: 'unresolved', aneuploid: false, why,
   })
@@ -164,9 +204,7 @@ function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
       : !detects ? `${level}, which in one genome is one X`
         : o.xShift < 0 ? `${level}, under them by more than a copy step, which in one genome is no X`
           : `${level}, over them by more than a copy step, which is more than one X in one genome`
-    const y = o.yBearing === true ? 'chrY is present by its calls and intensity'
-      : o.yBearing === false ? 'chrY is genotyped on this panel and not present'
-        : 'this file cannot say whether chrY is present'
+    const y = yClause(o.yBearing, o.yCall)
     return none(`${o.material.why}, so one sex chromosome is its normal complement and says `
       + `nothing of a sex. ${x}; ${y}`)
   }
@@ -220,9 +258,12 @@ function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
       constitution: 'unresolved',
       aneuploid: false,
       why: `${level}, which is one copy. Whether that is a male karyotype or a monosomy X turns `
-        + 'entirely on chrY, and this file carries too few chrY markers to say. The two are not '
-        + 'separable here',
+        + `entirely on chrY, and ${notRead(o.yBearing, o.yCall) ? o.yCall!.why
+          : 'this file carries too few chrY markers to say'}. The two are not separable here`,
     }
+  }
+  if (xCopies === 3 && notRead(o.yBearing, o.yCall)) {
+    return none(`${level}, which is more than two copies, and ${o.yCall!.why}: ${NO_X_ONLY}`)
   }
   if (xCopies === 3) {
     return {
@@ -252,6 +293,7 @@ function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
       && !(o.xZ !== undefined && intensityDetects(o.xZ, true))
     if (!(o.bulk === true && atLevel)) {
       const called = !(o.xCallFraction !== undefined && o.xCallFraction < CALL_COLLAPSE)
+      if (o.hetSex === 'female' && !(twoSteps && called)) return yWithTwoX(o.yCall)
       return {
         xCopies: null, yBearing: true, constitution: 'unresolved', aneuploid: false,
         why: twoSteps && called
@@ -263,6 +305,7 @@ function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
       }
     }
   }
+  if (notRead(o.yBearing, o.yCall)) return none(`${level}, not a copy step, and ${o.yCall!.why}: ${NO_X_ONLY}`)
   return {
     xCopies,
     yBearing: o.yBearing,
@@ -282,7 +325,7 @@ function byIntensity(input: SexChromosomeInput): SexChromosomeCall {
  * separate. No aneuploid constitution is printed with no parent.
  */
 function whatXAndYShow(
-  o: SexChromosomeInput & { yBearing: boolean | null }, level: string, detects: boolean,
+  o: SexChromosomeInput & { yBearing: boolean | null; yCall?: SexCall }, level: string, detects: boolean,
 ): SexChromosomeCall {
   const m = o.material!
   const none = (why: string): SexChromosomeCall => ({
@@ -297,9 +340,7 @@ function whatXAndYShow(
   }
   const zOut = o.xZ !== undefined && intensityDetects(o.xZ, true)
   const step = COPY_SHIFT_FLOOR.toFixed(2)
-  const yText = o.yBearing === true ? 'chrY is present by its calls and intensity'
-    : o.yBearing === false ? 'chrY is genotyped on this panel and not present'
-      : 'this file cannot say whether chrY is present'
+  const yText = yClause(o.yBearing, o.yCall)
   if (!detects && (zOut || Math.abs(o.xShift) >= COPY_SHIFT_FLOOR)) {
     return none(`${level}, ${zOut ? `beyond this array's own noise but short of the ${step} log2 copy step`
       : `past the ${step} log2 copy step but inside this array's own noise`}, so one X or two is not `
@@ -331,6 +372,7 @@ function whatXAndYShow(
     return none(`${level}, not a one-copy step, and chrY is present. A one-X level compressed by `
       + 'amplification and 47,XXY are not separable without a parent')
   }
+  if (notRead(o.yBearing, o.yCall)) return none(`${level}, not a one-copy step, and ${yText}: ${NO_X_ONLY}`)
   if (m.haploid) {
     return say('one X', 1, `the normal complement of one genome: this cell is staged haploid and `
       + `${level}, the level of its autosomes`)

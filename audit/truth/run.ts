@@ -35,6 +35,8 @@ const stageMod = await import(`${W}stage.ts`)
 const platform = await import(`${W}platform.ts`)
 const parentage = await import(`${W}parentage.ts`)
 const pageSays = await import(`${W}pageSays.ts`)
+const sexing = await import(`${W}sexing.ts`)
+const sexMaterial = await import(`${W}sexMaterial.ts`)
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -134,7 +136,8 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       sibs: (others ?? '').split(';').filter(Boolean).map(calls),
       sampleName: id, log: () => {} } as never) as any
     // The mother's genome-wide verdict, read as the page reads it, so the headline can be replayed.
-    const maternal = (acc as any).tm && mat ? parentage.classify((acc as any).tm, mat.heterozygosity, { role: 'maternal' }) : null
+    const y = sexing.sexCall((acc as any).sex)
+    const maternal = (acc as any).tm && mat ? parentage.classify((acc as any).tm, mat.heterozygosity, { role: 'maternal', yBearing: y.yBearing }) : null
     if (process.env.OM_SURFACES && !res.noParent) {
       const cls = maternal ? parentage.pair(res, maternal, NaN).originClass : res.originClass
       const bad = pageSays.surfaceProblems(res, maternal ?? undefined, cls, tag.startsWith('recon'))
@@ -154,6 +157,13 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       parentGenome: res.parentGenome ?? null, parentGenomeOther: res.parentGenomeOther ?? null,
       zygosity: res.zygosity, originClass: res.originClass,
       sex: res.sexChromosome?.constitution ?? '',
+      // The chrY reading and what the page prints of sex: the line's reason, the sample's sex word,
+      // the sperm type and the parent checks.
+      y: { yBearing: y.yBearing, callRatio: y.callRatio, lrrShift: y.lrrShift, yBafShare: y.yBafShare ?? null,
+        bafFloor: y.bafFloor ?? null, why: y.why ?? null },
+      sexWhy: res.sexChromosome?.why ?? '', sexWord: sexMaterial.shownSex(profile.sex, res.sexMaterial, res.sexChromosome),
+      spermType: res.spermType ?? null, parentSanity: res.parentSanity ?? null, matSanity: res.parentSanityOther ?? null,
+      parentSex: { pat: pat.sex ?? null, mat: mat?.sex ?? null },
       chroms: (res.chroms ?? []).map((c: any) => ({ chrom: c.chrom, aneuploidy: c.aneuploidy ?? '',
         lostParent: c.lostParent ?? '', aneuploidyParent: c.aneuploidyParent ?? '', gain: c.alleleGain?.verdict ?? '', gainParent: c.alleleGain?.parent ?? '',
         lrrShift: c.lrrShift ?? null, lrrZ: c.lrrZ ?? null, state: c.copyState?.state ?? '' })),
