@@ -1,0 +1,155 @@
+From the gamete or after fertilisation, across the cells of one embryo
+======================================================================
+
+Plan item 3.10, rule B1, built on today's grouping. The rule and its pass test are written here
+BEFORE the scoring run, copied from the plan item with the decisions taken before the build. The
+results are appended under the RESULTS line. Nothing above that line is edited after the run.
+
+Cells are named by this file's own numbering or by row index, never by their array.
+
+THE GROUPING IS NOT CHANGED HERE
+--------------------------------
+Units of one embryo are formed as 6.19.0 forms them: abnormalities.groupUnits over every finished
+cell of the run at SAME_EMBRYO_AGREEMENT (0.90, genome-wide parentage.agreement). The wider
+grouping is plan item 13c and its own build.
+
+RULE B1 (her method, in words)
+------------------------------
+Among the units of one embryo:
+- Meiotic (from the gamete): every unit carries a change of the same direction on that chromosome,
+  overlapping, and where a parent is named on each, the same parent. With fewer than 3 units it is
+  "consistent with the gamete", never "meiotic", because two cells can share a mitotic error made at
+  the first division.
+- Mitotic (after fertilisation), reciprocal: one unit gains what another loses over an overlapping
+  interval of the same chromosome.
+- Mitotic, not in every cell: some units carry it and at least one unit reads that chromosome
+  measured normal (a whole call of normal, no piece on it, and the cell reportable).
+- Otherwise not called. One unit: not called.
+This differs from 6.19.0 timing.ts in three places: the parent must match, the direction must
+match, and "absent" needs a reportable cell that reads the chromosome normal, not just no event
+listed.
+
+How the words in the rule are read in the code, fixed here before the run:
+- A change is a row of pageSays.defectsForResult, the rows the result card counts from. Gain:
+  copy-gain, trisomy, segmental-duplication. Loss: copy-loss, parental-absence, monosomy,
+  segmental-deletion. Every other kind (copy-neutral findings, the whole-chromosome imbalance) has
+  no direction, carries no origin, and is not "normal" either.
+- A whole-chromosome row spans the whole chromosome for overlap.
+- "Another unit" for the reciprocal case is a unit other than the one the change is on.
+- "Reads that chromosome normal": the chromosome is in the unit's measured list (`chroms`), no row
+  of any kind sits on it, and the unit is reportable: stage not failed and no sample-level integrity
+  refusal (neither integrity.disturbed nor integrity.uninterpretable).
+
+WORDING, AS DECIDED
+-------------------
+- Three or more units all carrying it: "from the gamete".
+- Two units: "consistent with the gamete (two cells read)".
+- Reciprocal, or carried by some units while another reads that chromosome normal: "after
+  fertilisation".
+- Anything else, and any single cell: no origin word anywhere.
+Every origin carries its reason with the units it read: how many carry it, how many read normal.
+
+THE FIGURES IN THE 6.19.0 REASON
+--------------------------------
+"meiotic 64 of 64 uniform, post-zygotic 6 of 7 non-uniform" come out unless the repository's own
+history names their source and they can be reproduced. A reason must be true of the file it is
+printed on.
+
+PASS TEST (gate lines of item 3.10 that are this build's; M4 is not, it needs arrays the owner has
+not released)
+----------------------------------------------------------------------------------------------------
+- M1. Rule B1 as written above, in timing.ts, with the parent, the direction and "measured normal"
+  in it; "meiotic" only with 3 or more units, "consistent with the gamete" with 2.
+- M2. Against the papers' karyotypes: 0 calls opposite to the paper, in every set and arm.
+- M3. Today's fault closed: 0 "from the gamete" on an event the paper's whole embryo shows as
+  mitotic (6.19.0: 18 with both parents, 8 with none, on the calibration set).
+- M5. One cell, or no unit of the same embryo in the run: no origin word printed anywhere.
+- M6. Every call carries its reason with the units it read (how many carry it, how many read
+  normal).
+- M7. Rule 9: on the calibration set, neither one-parent arm prints an origin the two-parent arm
+  calls the other way.
+- M8. Checks and suite pass by exit code. The browser run and the version are the landing's.
+
+Scored on today's grouping, from records already on disk: the 31 published cells (no parent, each
+one-parent arm, both parents), the published blastomere series' pair records, and the lab cohort
+of 271 rows. The paper's call per event is rule B1 applied by separate code (Python, on tesla) to
+the paper's own per-cell karyotypes over every cell of the paper embryo.
+
+Proof that no per-sample call moved: every record of the 600 answer-key rows and the 271 lab rows
+is identical to 6.19.0 outside the origin words.
+
+RESULTS
+-------
+Run 22 November on tesla, from records already on disk, one job at a time. The built timing.ts
+read the records' card rows (`changes`), measured chromosomes (`chroms`), stage and sample
+refusals; groups are today's (above 0.90 genome-wide on the 19 November pair tables). The paper's
+call is rule B1 applied by the plan item's own Python (b1.py) to the paper karyotypes over every
+cell of each paper embryo; it shares no code with the build.
+
+Sets: the 31 published cells with both parents, as four arms (no parent; measured father alone;
+rebuilt father alone; both parents), 3 groups of 2 cells, 25 cells in no group; the published
+blastomere series, 52 cells, no group; the lab cohort, 271 rows, 15 groups (11 of 2, 3 of 3, 1 of
+4), 236 rows in no group.
+
+Calls on changes with a direction (6.19.0 timing.ts | built rule B1):
+
+  set                 6.19.0 "meiotic"   built: gamete  consistent  after fert.  none
+  31 cells, none            14                 0           14           1         5
+  31 cells, father          15                 0           45           0        13
+  31 cells, rebuilt         10                 0           40           0        12
+  31 cells, both            29                 0           56           2        15
+  blastomere series          0                 0            0           0         0
+  lab cohort                34                 3           27           4         6
+
+Rows with no direction (copy-neutral readings, uneven shares) carry no origin word in every set.
+
+"From the gamete" printed, before and after:
+  31 published cells: no parent 14 -> 0; father 15 -> 0; rebuilt father 10 -> 0; both parents
+  29 -> 0. Lab cohort: 34 -> 3 (all three in groups of 3 or 4 units; no paper truth exists there).
+
+Against the offline counts of the plan item (b1.py, section 4B1): every difference has one of two
+causes, both readings fixed above before the run.
+  - "Reads that chromosome normal" needs the cell reportable, and a limited cell
+    (integrity.disturbed) is not: offline counted it. 5 (none), 10 (father), 9 (rebuilt), 13
+    (both) and 2 (lab) offline "after fertilisation, not in every cell" read "none" here; one of
+    the 13 also has a direction-less row on that chromosome.
+  - The reciprocal case needs ANOTHER unit: offline counted the opposite change in the same cell.
+    1 (both parents) offline reciprocal reads "consistent with the gamete" here.
+  Otherwise the counts are the offline counts (consistent 14, 45, 40, 55 + 1; lab meiotic 3,
+  consistent 27).
+
+GATE
+----
+  M1  holds. timing.ts carries the direction, the parent (where both name one) and "measured
+      normal" (measured, no row of any kind, cell reportable); "from the gamete" needs 3 units,
+      2 units read "consistent with the gamete (two cells read)". timing.check.ts tests each.
+  M2  holds. 0 calls opposite to the paper (meiotic against mitotic, either way) in every set
+      and arm. "Consistent with the gamete" sits on 8 (none), 38 (father), 36 (rebuilt) and 46
+      (both) changes the paper's whole embryo shows as mitotic; that is the two-cell wording.
+  M3  holds. 0 "from the gamete" on a change the paper shows mitotic (6.19.0: 18 both parents,
+      8 none, 10 father, 8 rebuilt).
+  M4  read with the owner's release of the three stated-origin cells, for this rule only. No
+      group forms under today's grouping for any of them: the two cells of one embryo (stated
+      "meiotic loss of chr13" and "nullisomy 16, gain of 13 (spontaneous meiotic correction)")
+      read 0.739 to 0.783 against their five embryo mates; the third ("meiotic segmental on 1 at
+      76.5Mb", a pronucleus) reads 0.798 against the only other cell of its embryo. Rule B1 prints
+      nothing on any of the three: not called, never opposite. No gain or loss reading was taken
+      from them for any other use.
+  M5  holds. A cell in no group carries no timing (25, 52, 236 and 8 cells); one unit and a
+      direction-less row read "none", which prints no word (timing.check.ts, defects.check.ts).
+  M6  holds. Every call states "N of M units carry this gain|loss, K read(s) chromosome C
+      normal" (0 calls without it), and the opened change row shows it.
+  M7  holds. Neither one-parent arm prints an origin the two-parent arm calls the other way: 0 of
+      59 (father) and 0 of 53 (rebuilt). One change differs in words: chr9 loss, father alone
+      "consistent with the gamete", both parents "after fertilisation", because with both
+      parents the other cell also reads a chr9 gain.
+  M8  checks and suite: see overview-counts-2026-11-22.txt, which also holds the record identity
+      run on the final tree. Browser run and version are the landing's.
+
+THE FIGURES IN THE 6.19.0 REASON
+--------------------------------
+"meiotic 64 of 64 uniform, post-zygotic 6 of 7 non-uniform" entered with 5.2.0. The only source
+in the repository is the outside consult audit/CONSULT-calibrated-origin.txt (section 2.3,
+"n=71"), which names no study, and nothing in the repository's records reproduces them. Removed
+from the reason, the PDF, the docs page and the taxonomy limit, with the uniformity test
+(abnormalities.callUniformity) they belonged to.
