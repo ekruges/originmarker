@@ -118,12 +118,16 @@ head('3. BOTH COPIES OF ONE CHROMOSOME FROM ONE PARENT',
 head('4. WHEN THE CHANGE AROSE',
   '"is haploid chromosome duplicated post fertilization or paternal, or sperm introduces a small variation"')
 {
-  const alone = tax.callUniformity(1, 1)
-  const uniform = tax.callUniformity(3, 3)
-  const lineage = tax.callUniformity(1, 3)
-  ev(`one unit  -> ${alone.mechanism}, and names the remedy: ${/second array of the same embryo/.test(alone.why)}`)
-  ev(`in all 3  -> ${uniform.mechanism}`)
-  ev(`in 1 of 3 -> ${lineage.mechanism}`)
+  const timing = await import(`${W}timing.ts`)
+  const unit = (kind: string) => ({ changes: [{ chrom: '21', startBp: 0, endBp: 48e6, kind, origin: 'unclear', whole: true }],
+    measured: ['21'], reportable: true })
+  const normal = { changes: [], measured: ['21'], reportable: true }
+  const alone = timing.callMechanism(0, unit('copy-gain').changes[0], [unit('copy-gain')])
+  const uniform = timing.callMechanism(0, unit('copy-gain').changes[0], [unit('copy-gain'), unit('copy-gain'), unit('copy-gain')])
+  const lineage = timing.callMechanism(0, unit('copy-gain').changes[0], [unit('copy-gain'), normal, normal])
+  ev(`one unit  -> ${alone.mechanism}`)
+  ev(`in all 3  -> ${uniform.mechanism}: ${timing.ORIGIN_WORD[uniform.mechanism as never]}`)
+  ev(`in 1 of 3, the others normal -> ${lineage.mechanism}: ${timing.ORIGIN_WORD[lineage.mechanism as never]}`)
 
   // Grouping must be measured, not declared, or a labelling slip produces a confident mechanism.
   const conc: Record<string, Record<string, number>> = {
@@ -134,7 +138,7 @@ head('4. WHEN THE CHANGE AROSE',
   const wall1 = tax.unanswerable(false, 1).map((x: { cls: string }) => x.cls)
   const wall2 = tax.unanswerable(false, 2).map((x: { cls: string }) => x.cls)
   ev(`the wall lifts with a second unit: ${wall1.includes('gamete-de-novo')} -> ${wall2.includes('gamete-de-novo')}`)
-  const ok = uniform.mechanism === 'meiotic' && lineage.mechanism === 'post-zygotic'
+  const ok = alone.mechanism === 'none' && uniform.mechanism === 'meiotic' && lineage.mechanism === 'mitotic-not-all'
     && groups.length === 2 && !wall2.includes('gamete-de-novo')
   verdict(ok ? 'MET' : 'NOT MET',
     'timing is answered from a second unit, with units grouped by measured concordance')

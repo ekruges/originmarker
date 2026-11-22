@@ -134,9 +134,9 @@ export const TAXONOMY: readonly TaxonomyEntry[] = [
     cls: 'gamete-de-novo', label: 'Segmental change introduced by the gamete', detectable: 'partly',
     by: 'a segmental event whose origin resolves to one parent',
     origin: 'the same as any segmental event',
-    limit: 'Separating a gamete-borne change from a post-zygotic one needs a SECOND UNIT of the '
-      + 'same embryo. Uniformity across units is the only channel measured to break the tie: '
-      + 'meiotic 64 of 64 uniform, mitotic 6 of 7 non-uniform. Genotype alone cannot do it.',
+    limit: 'Separating a gamete-borne change from one after fertilisation needs a SECOND UNIT of '
+      + 'the same embryo: a change carried by the gamete is in every cell, one after fertilisation '
+      + 'is in a lineage or reciprocal between daughter cells (timing.ts). One cell cannot do it.',
   },
   {
     cls: 'reverse-segregation', label: 'Reverse segregation', detectable: 'no',
@@ -590,43 +590,6 @@ export function detectComplex(
 }
 
 /**
- * Whether a segmental change came from the gamete or arose after fertilisation.
- *
- * ONLY ANSWERABLE WITH A SECOND UNIT OF THE SAME EMBRYO, and that is the whole content of this
- * function. Genotype cannot separate the two at any material quality: the measured discriminator is
- * uniformity across independently sampled units, meiotic 64 of 64 uniform against mitotic 6 of 7
- * non-uniform. The tool cannot ask for a second biopsy, but it can use one the user already has,
- * so this costs nothing at runtime and is the only route to the answer.
- */
-export function callUniformity(
-  presentInUnits: number, totalUnits: number,
-): { mechanism: 'meiotic' | 'post-zygotic' | 'unresolved'; why: string } {
-  if (totalUnits < 2) {
-    return {
-      mechanism: 'unresolved',
-      why: 'only one unit of this embryo was loaded. Whether a segmental change came from the '
-        + 'gamete or arose after fertilisation is not separable on genotype at any material '
-        + 'quality; uniformity across independently sampled units is the only channel measured to '
-        + 'break the tie. A second array of the same embryo answers it and costs nothing at runtime',
-    }
-  }
-  if (presentInUnits === totalUnits) {
-    return {
-      mechanism: 'meiotic',
-      why: `present in all ${totalUnits} units of this embryo. A change carried by the gamete is `
-        + 'in every cell; one arising after fertilisation is in a lineage. Measured: meiotic 64 of '
-        + '64 uniform, post-zygotic 6 of 7 non-uniform',
-    }
-  }
-  return {
-    mechanism: 'post-zygotic',
-    why: `present in ${presentInUnits} of ${totalUnits} units of this embryo, so it is confined to `
-      + 'a lineage rather than carried by the gamete. Measured: post-zygotic 6 of 7 non-uniform, '
-      + 'meiotic 64 of 64 uniform',
-  }
-}
-
-/**
  * The classes this tool looked for and cannot answer, so silence is never read as absence.
  *
  * Returned alongside the findings rather than buried in documentation. A report that lists what was
@@ -713,18 +676,6 @@ export interface EventLocation { chrom: string; startBp: number; endBp: number }
 /** Whether two intervals on the same chromosome overlap at all. */
 export const overlaps = (a: EventLocation, b: EventLocation): boolean =>
   a.chrom === b.chrom && a.startBp <= b.endBp && b.startBp <= a.endBp
-
-/**
- * How many units of one embryo carry an event overlapping this one.
- *
- * Overlap rather than an exact match, because two biopsies of one embryo do not place a breakpoint
- * identically: the interval is measured to about 8.7 kb where only informative markers count, and
- * the events being compared span tens of megabases. Requiring identical edges would report every
- * genuinely uniform event as non-uniform, which inverts the answer.
- */
-export const unitsCarrying = (
-  event: EventLocation, perUnit: readonly (readonly EventLocation[])[],
-): number => perUnit.filter((evs) => evs.some((e) => overlaps(e, event))).length
 
 /** Markers per sliding window when copy-neutral LOH is scanned below chromosome scale. */
 export const LOH_SEGMENT_MARKERS = 600

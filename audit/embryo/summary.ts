@@ -14,7 +14,7 @@
  * the sample's own chromosomes, but naming a parent from a stranger's genotypes means nothing.
  *
  * Mechanism needs two or more units of ONE embryo; see web/src/timing.ts. An embryo represented by
- * a single array yields 'unresolved', which is counted rather than dropped.
+ * a single array yields 'none', which is counted rather than dropped.
  *
  * Run: OM_SHEET=sheet.json OM_DIRS='GSE148488=/root/trios,GSE186407=/root/GSE186407' \
  *        [OM_TRIOS=trio_manifest_full.csv] [OM_CAP=999] [OM_OUT=summary.json] \
@@ -29,6 +29,7 @@ const ingest = await import(`${W}ingest.ts`)
 const score = await import(`${W}scoreSample.ts`)
 const timing = await import(`${W}timing.ts`)
 const defects = await import(`${W}defects.ts`)
+const pageSays = await import(`${W}pageSays.ts`)
 
 const SHEET = process.env.OM_SHEET ?? ''
 const DIRS = new Map<string, string>(
@@ -124,6 +125,7 @@ interface Row {
   /** Whose array was in the parental slot, where a real one was. A stand-in is not a parent. */
   parentRole?: 'maternal' | 'paternal' | null
   events: Event[]; error?: string
+  reading?: unknown
   result?: unknown
 }
 
@@ -195,13 +197,14 @@ for (const s of samples) {
         if (m && !origins.has(`${m[1]}|${dir}`)) origins.set(`${m[1]}|${dir}`, g.origin)
       }
     }
-    const events = timing.eventsOf(res as never).map((e: Event) => ({
-      chrom: e.chrom,
-      direction: e.direction,
-      whole: (e as unknown as { endBp: number }).endBp === Number.MAX_SAFE_INTEGER,
-      origin: originAssessable && e.direction
-        ? origins.get(`${e.chrom}|${e.direction}`) ?? 'unclear' : undefined,
-    }))
+    const reading = timing.readingOf(pageSays.defectsForResult(res as never), res as never)
+    const events = reading.changes.map((e: { chrom: string; kind: string; whole: boolean }) => {
+      const direction = timing.directionOf(e.kind)
+      return {
+        chrom: e.chrom, direction, whole: e.whole,
+        origin: originAssessable && direction ? origins.get(`${e.chrom}|${direction}`) ?? 'unclear' : undefined,
+      }
+    })
     rows.push({
       gsm: s.gsm, series: s.series, stage: s.stage, embryo: s.embryo, cells: s.cells,
       stated: s.stated,
@@ -210,7 +213,7 @@ for (const s of samples) {
       parentRole,
       callRate: profile.callRate,
       called: (res.stage as { stage?: string } | undefined)?.stage ?? 'none',
-      originAssessable, events, result: res,
+      originAssessable, events, reading, result: res,
     })
   } catch (e) {
     rows.push({
@@ -231,14 +234,14 @@ for (const r of rows) {
   }
 }
 for (const [, group] of byEmbryo) {
-  const timed = timing.timeGroup(group.map((g) => g.result as never))
+  const timed = timing.timeGroup(group.map((g) => g.reading as never))
   group.forEach((g, i) => {
     timed[i].forEach((t: { mechanism: string }, j: number) => {
       if (g.events[j]) g.events[j].mechanism = t.mechanism
     })
   })
 }
-for (const r of rows) for (const e of r.events) if (!e.mechanism) e.mechanism = 'unresolved'
+for (const r of rows) for (const e of r.events) if (!e.mechanism) e.mechanism = 'none'
 
 // --------------------------------------------------------------------------- the table
 const scored = rows.filter((r) => !r.error)
@@ -309,19 +312,20 @@ const mech = (list: Row[], m: string, whole: boolean) =>
 for (const whole of [true, false]) {
   console.log('')
   console.log(`  ${whole ? 'WHOLE CHROMOSOMES' : 'SEGMENTS'}`)
-  console.log(`  ${pad('stage', 22)}${num('meiotic', 9)}${num('post-zyg', 10)}`
-    + `${num('reciprocal', 12)}${num('unresolved', 12)}`)
+  console.log(`  ${pad('stage', 22)}${num('gamete', 9)}${num('gamete-2', 10)}`
+    + `${num('reciprocal', 12)}${num('not-all', 12)}${num('none', 8)}`)
   for (const st of stages) {
     const u = usable.filter((r) => r.stage === st)
     if (!u.some((r) => r.events.some((e) => e.whole === whole))) continue
     console.log(`  ${pad(st, 22)}${num(mech(u, 'meiotic', whole), 9)}`
-      + `${num(mech(u, 'post-zygotic', whole), 10)}`
-      + `${num(mech(u, 'reciprocal', whole), 12)}${num(mech(u, 'unresolved', whole), 12)}`)
+      + `${num(mech(u, 'consistent-with-gamete', whole), 10)}`
+      + `${num(mech(u, 'mitotic-reciprocal', whole), 12)}${num(mech(u, 'mitotic-not-all', whole), 12)}`
+      + `${num(mech(u, 'none', whole), 8)}`)
   }
   console.log(`  ${pad('TOTAL', 22)}${num(mech(usable, 'meiotic', whole), 9)}`
-    + `${num(mech(usable, 'post-zygotic', whole), 10)}`
-    + `${num(mech(usable, 'reciprocal', whole), 12)}`
-    + `${num(mech(usable, 'unresolved', whole), 12)}`)
+    + `${num(mech(usable, 'consistent-with-gamete', whole), 10)}`
+    + `${num(mech(usable, 'mitotic-reciprocal', whole), 12)}`
+    + `${num(mech(usable, 'mitotic-not-all', whole), 12)}${num(mech(usable, 'none', whole), 8)}`)
 }
 
 console.log('')

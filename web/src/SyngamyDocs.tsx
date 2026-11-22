@@ -2418,11 +2418,9 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
           </Text>
           <Text size="sm" mb={10}>
             <b>Two more become answerable when you supply more.</b> A second parental array lifts
-            heterodisomy. A second unit of the same embryo settles whether a segmental change came
-            from the gamete or arose after fertilisation, which genotype alone cannot do at any
-            material quality: uniformity across independently sampled units is the only channel
-            measured to break the tie, meiotic 64 of 64 uniform against post-zygotic 6 of 7
-            non-uniform. The report lists which walls still stand for the run you actually did.
+            heterodisomy. Units of the same embryo can say whether a change came from the gamete
+            or arose after fertilisation, which one cell cannot. The report lists which walls
+            still stand for the run you actually did.
           </Text>
           <Text size="sm" mb={10}>
             <b>You do not have to tell it which arrays are the same embryo.</b> Load them and it
@@ -2430,9 +2428,13 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             95.8% of shared called markers, against 54.9% for a parent and child. Asking you to
             declare the grouping would have been easier and worse, since a mislabelled group
             produces a confidently wrong answer about mechanism, and the separation here is
-            forty-one points wide. Where two or more units are found, every segmental change is
-            marked either from the gamete or after fertilisation, in the headline beside the parent
-            and in its own table in the report.
+            forty-one points wide. Where two or more units are found, each change is read against
+            the others. Every unit carrying it, same direction and same parent where both name
+            one: from the gamete with three units or more, consistent with the gamete with two,
+            because two cells can share an error made at the first division. One unit gaining what
+            another loses, or a change some units carry while another reads that chromosome
+            measured normal: after fertilisation. Anything else, and any single cell, prints no
+            origin word. Each call states how many units carry it and how many read normal.
           </Text>
         </Section>
 
