@@ -182,3 +182,15 @@ What the withdrawn real-cell calls print instead (answer key, lab, quiet, publis
 Suite (audit/validate/run.sh, the census run one arm at a time on the shared host): no 6.19.0 scorecard was
 saved, so the suite was run on 6.19.0 and on the new tree. The two scorecards are identical on all 87 lines.
 The rule withdrew no whole call anywhere in the suite, so the suite does not exercise it; the lines above do.
+
+Owner's ruling on WC6, 22 November
+==================================
+WC6 as first written above was not met on one call: no-parent row 14, chromosome 19, gain. The result
+above stands as it was scored. On 22 November the owner ruled that every gain piece passes one set of
+gates, the arm-level call among them, so that a withdrawn whole call either prints a change or is
+withheld with its named cause. WC6 reads: "every whole call W4 withdraws where an arm carries it
+prints a change of the same kind on that arm, or withholds it with its named cause". Under that
+reading WC6 is met. The one withheld call:
+  no-parent row 14 chr19, gain; 19q arm call built by W9 and withheld by the drop-in gate on gained
+  segments, cause "drop-in.no-alleles" (a drop-in cell with no parent shows no normal majority from
+  the alleles); the refusal is recorded on the result.
