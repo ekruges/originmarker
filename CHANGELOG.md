@@ -9,6 +9,41 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.23.0 "Chromosome Arm"
+
+**A whole-chromosome call stands only where each arm carries it.** The whole-chromosome test reads
+one median intensity and one call fraction per chromosome, so a change on one arm holding most of
+the chromosome's markers, or a deep loss on one arm that drags the call fraction down, printed as
+a whole-chromosome loss or gain. Each arm with at least 200 markers is now read on its own,
+against the same centre and the same floor the whole call cleared, at half that floor. The p/q
+boundary is the UCSC hg19 band table's, 22 fixed positions. A chromosome with one usable arm
+(13, 14, 15, 21 and 22 on this chip) keeps today's reading, as does a chromosome the alleles also
+read whole, and a file not read as GRCh37.
+
+- **A withdrawn call goes to the piece scans.** Both the loss scan and the gain scan run on it,
+  like any chromosome not called whole. Where they place nothing of its kind on the arm that
+  carries it, that arm is printed as an arm-level call, its edge at the centromere and its extent
+  inside the arm stated as not placed. It passes the same gates as any piece, so a call can be
+  withheld with its named cause; one is, a 19q gain on a drop-in cell with no parent.
+- **No call is added.** The rule only narrows or removes a call the whole test made. No
+  chromosome without a call on 6.19.0 gains one on the answer-key rows, the laboratory rows, the
+  72 quiet arrays or the published cells.
+
+Measured on 10,018 built events: whole losses printed whole 490 to 489 and gains 684 to 683 (the
+two that go are the faintest, and each prints an arm call); arm events printed whole 137 to 12
+losses and 207 to 17 gains; the share found unchanged at every size and amount. On the answer key
+every stated piece called whole is no longer whole (10 of 10 with no parent, 7 of 7 with a
+parent) and every stated whole loss and gain stays whole. On the laboratory rows exactly the 8
+calls the arm reading named move. The validation suite does not move.
+
+**One source for chromosome arms.** The run's overview table classed a piece as an arm against
+the centromere gap of the shipped feature table, a window about 3 Mb wider than the boundary the
+whole-call rule reads. Both now read the same boundary, and the overview's own recount reads it
+from the band table independently. Two no-parent losses that reached the old window and not the
+new one move from arm to piece; nothing else in any overview count moves.
+
+Record: `audit/truth/whole-call-2026-11-22.txt`.
+
 ## 6.22.0 "Chromosome Spread"
 
 **A run is counted in one flat table, on the page under the run and as its own download

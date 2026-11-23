@@ -357,10 +357,14 @@ RELEASES: tuple[Release, ...] = (
     Release("Chromosome Spread",
             "A cell burst on a slide so that every chromosome lies apart from the others and can "
             "be counted. A run of many cells is now counted the same way, in one flat table."),
+    Release("Chromosome Arm",
+            "The centromere divides a chromosome into a short arm and a long arm, and a change can "
+            "take one arm and leave the other. A whole-chromosome call is now a claim about each "
+            "arm, and stands only where both carry it."),
 )
 
-VERSION = "6.22.0"
-CODENAME = "Chromosome Spread"
+VERSION = "6.23.0"
+CODENAME = "Chromosome Arm"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
