@@ -53,8 +53,8 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
         <span style={{ fontFamily: 'var(--om-mono)', fontSize: 12, fontWeight: loud ? 600 : 400, whiteSpace: 'nowrap' }}>
           {g.chrom === 'genome' ? 'genome' : `chr${g.chrom}`}
         </span>
-        <span style={{ fontFamily: 'var(--om-mono)', fontSize: 12, fontVariantNumeric: 'tabular-nums', whiteSpace: arm ? 'normal' : 'nowrap' }}>
-          {g.whole ? 'whole' : arm ? `${g.chrom}${arm}, arm-level` : `${spanMb(g)} Mb`}
+        <span style={{ fontFamily: 'var(--om-mono)', fontSize: 12, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+          {g.whole ? 'whole' : arm ? `${g.chrom}${arm} arm` : `${spanMb(g)} Mb`}
         </span>
         <span style={{ fontSize: 12 }}>{whoseText(g)}</span>
         <span style={{ fontSize: 11, fontWeight: loud ? 700 : 400, color: loud ? 'var(--om-defect)' : undefined, whiteSpace: 'nowrap' }}>

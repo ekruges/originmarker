@@ -202,7 +202,7 @@ console.log('DefectCallout.check.ts: decimals survive sentence splitting')
   const render = (arm?: 'p' | 'q') => renderToStaticMarkup(h(MantineProvider, null,
     h(DefectCallout, { list: { counted: [row(arm)], once: [], seen: [] }, setup: 'two' })))
   const armed = render('p')
-  assert.ok(armed.includes('16p, arm-level'), 'an arm-level row names its arm')
+  assert.ok(armed.includes('>16p arm<'), 'an arm-level row names its arm')
   assert.ok(!armed.includes('>36.5 Mb<'), 'an arm-level row prints no span')
   assert.ok(render().includes('>36.5 Mb<'), 'a placed piece still prints its span')
   console.log('DefectCallout.check.ts: an arm-level row names its arm instead of a span')
