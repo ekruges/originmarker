@@ -175,6 +175,8 @@ export interface SisterUnit {
   losses: readonly Interval[]
   /** Chromosomes this cell already reports a copy change on, which are not asked again. */
   changed: ReadonlySet<string>
+  /** Staged haploid. A haploid cell is only ever the sister of a haploid cell (samePloidy). */
+  haploid?: boolean
 }
 
 export interface SisterGain extends Interval, IntervalReading {
@@ -200,9 +202,19 @@ export interface SisterGain extends Interval, IntervalReading {
  */
 export const SISTER_AGREE_MIN = 0.86
 
-/** Whether two arrays read as one genome, off the chromosomes either reports a change on.
- *  Unmeasurable is not a sister: NaN fails the comparison. */
+/**
+ * Whether two cells may be sisters at all by their stage: a cell staged haploid only with another
+ * staged haploid, any other cell only with a cell not staged haploid. A pronucleus or polar body is
+ * not a unit of a diploid embryo, and two haploid products of one parent agree at most markers
+ * because both are homozygous everywhere, so agreement alone cannot refuse such a pair.
+ */
+export const samePloidy = (a: Pick<SisterUnit, 'haploid'>, b: Pick<SisterUnit, 'haploid'>): boolean =>
+  !!a.haploid === !!b.haploid
+
+/** Whether two arrays read as one genome, off the chromosomes either reports a change on, and are
+ *  of one ploidy stage. Unmeasurable is not a sister: NaN fails the comparison. */
 export function oneGenome(a: SisterUnit, b: SisterUnit): boolean {
+  if (!samePloidy(a, b)) return false
   const skip = (probe: string): boolean => {
     const c = a.pos.get(probe)?.chrom
     return c === undefined || a.changed.has(c) || b.changed.has(c)
@@ -217,6 +229,7 @@ export interface ScoredCell {
   chroms: readonly { chrom: string; aneuploidy?: 'loss' | 'gain' | null }[]
   segments: readonly { chrom: string; kind: string; start: number; end: number }[]
   copyReference?: readonly string[] | null
+  stage?: { stage?: string }
 }
 
 const AUTOSOMES = Array.from({ length: 22 }, (_, i) => String(i + 1))
@@ -231,7 +244,7 @@ export function sisterUnitOf(
     (sg) => autosome(sg.chrom) && (sg.kind === 'copy-loss' || sg.kind === 'copy-gain'))
   const changed = new Set<string>([...whole.map((c) => c.chrom), ...segs.map((sg) => sg.chrom)])
   return {
-    windows, gt, pos, changed,
+    windows, gt, pos, changed, haploid: cell.stage?.stage === 'haploid',
     reference: (cell.copyReference ?? AUTOSOMES).filter((c) => !changed.has(c)),
     losses: [
       ...whole.filter((c) => c.aneuploidy === 'loss').map((c) => WHOLE(c.chrom)),
