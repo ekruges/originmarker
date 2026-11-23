@@ -42,6 +42,20 @@ whole-call rule reads. Both now read the same boundary, and the overview's own r
 from the band table independently. Two no-parent losses that reached the old window and not the
 new one move from arm to piece; nothing else in any overview count moves.
 
+**Three display corrections.** No call and no number moves.
+
+- **An arm-level row reads as one when it is closed.** Its size cell printed the piece's span in
+  Mb, which reads as a measured length, while the opened row, the TSV and the PDF say its edge
+  and extent inside the arm are not placed. The cell now names the arm, for example "16p,
+  arm-level".
+- **A whole-chromosome row in the report's timing table prints no coordinates.** Since 6.21.0 it
+  printed "0.0-0.0Mb" where no parent was loaded, because its end is the chromosome's length only
+  where one was. It now prints "chrN, whole chromosome".
+- **The overview's changes line says what it counts.** Since 6.22.0 it was labelled as the result
+  cards count, but it counts only rows with a gain or a loss; a row with neither is a finding,
+  which the card's header also counts. It is now labelled "changes with a gain or a loss", on the
+  page, in the download and in the recount.
+
 Record: `audit/truth/whole-call-2026-11-22.txt`.
 
 ## 6.22.0 "Chromosome Spread"
