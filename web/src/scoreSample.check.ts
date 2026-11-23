@@ -893,3 +893,33 @@ console.log('scoreSample.check.ts: a rejected array reports nothing, a one-copy 
     'an array that genotyped every chromosome reports none unmeasured')
 }
 console.log('scoreSample.check.ts: a refusal names the array when the array is what failed')
+
+// ---------------------------------------------------------------- the report says what the card says
+// The sex-chromosome line the page prints is in the report, and a sample not reportable prints no
+// change in its bar and marks every row it lists as not reported.
+{
+  const { cardSays, sexLine } = await import('./pageSays.ts')
+  const r = await run()
+  r.chroms.push({ ...r.chroms[0], chrom: 'X' })
+  r.sexChromosome = { ...(r.sexChromosome ?? {}), constitution: '47,XXY or a mix of cells', aneuploid: false,
+    why: 'chrY is present; chrX reads two different X by its heterozygous calls' } as never
+  const pdfOf = async () => Buffer.from(await (await buildReportPdf({
+    files: [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: r }],
+    donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+    tool: 'OriginMarker', reportId: 'CHECK', fromExamples: true,
+  } as never)).arrayBuffer()).toString('latin1')
+  const txt = await pdfOf()
+  assert.ok(txt.includes(`(${sexLine(r.sexChromosome!)})`), 'the report prints the sex-chromosome line')
+  assert.ok(txt.includes('47,XXY or a mix of cells: chrY is present'))
+
+  // This fixture is one the run itself calls uninterpretable, so it is the not-reportable case.
+  assert.equal(r.integrity?.level, 'uninterpretable')
+  const says = cardSays(r, undefined, r.originClass, false)
+  const nr = says.list.notReported!
+  assert.ok(nr.rows.length > 0, 'the fixture must list rows for this to test anything')
+  const out = await pdfOf()
+  assert.equal(out.match(/\(not reported\)/g)?.length, nr.rows.length, 'every listed row marked not reported')
+  assert.ok(out.includes('(not reportable)'), 'the summary column says not reportable')
+  assert.ok(out.includes(`(${says.head.word})`), 'the bar is the headline word with no count after it')
+  console.log('  the report carries the sex-chromosome line, and a sample not reportable states no change')
+}

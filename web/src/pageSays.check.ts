@@ -294,3 +294,59 @@ const cellA: Defect[] = [
   assert.equal(kindOf({ ...cellA[1], second: { verdict: 'refused', parent: null } }, 'two'), 'run-only')
   console.log(`  P2 to P4: one change per chromosome and parent, one coordinate set, one pair; ${lines.length} measured counts match the results file`)
 }
+
+// ---------------------------------------------------------------- one sample, one count (D4, D7)
+// A change is a gain or a loss. The card and the overview split counted rows by one function, so
+// the card's changes and findings are the overview's for the same sample.
+{
+  const { cardCounts, countText, reportOf, rowDirection, sexLine } = await import('./pageSays.ts')
+  const { overviewSampleOf, overviewTable } = await import('./overview.ts')
+  const row = (chrom: string, kind: Defect['kind'], startBp: number, endBp: number, step = 'intensity'): Defect => ({
+    chrom, startBp, endBp, kind, locus: `chr${chrom}:${startBp}-${endBp}`, origin: 'unclear', why: 'x', step,
+  })
+  const defects = [row('15', 'copy-gain', 22_383_052, 94_375_026), row('17', 'copy-loss', 6_157, 52_598_275),
+    row('15', 'segmental-upd', 22_444_773, 102_397_317, 'finding')]
+  const l = changeList(defects, 'none')
+  assert.equal(l.counted.length, 3, 'with no parent every row is counted')
+  assert.deepEqual(l.counted.map(rowDirection), ['gain', 'none', 'loss'])
+  assert.deepEqual(cardCounts(l), { changes: 2, findings: 1 })
+  assert.equal(countText(l), ' · 2 changes · 1 finding')
+  assert.equal(changesText(l), '2 changes found, 1 finding.')
+  const ov = (list: typeof l, refusals: { claim: string; gate: string }[] = []) =>
+    new Map(overviewTable([overviewSampleOf(list, { refusals })], new Map()))
+  const t = ov(l)
+  assert.equal(t.get('changes with a gain or a loss'), 2)
+  assert.equal(t.get('findings (copy-neutral, uneven shares, complex genome)'), 1)
+  // A disturbed genome is one finding on both.
+  const d = { ...l, disturbed: { on: 15, of: 22 } }
+  assert.deepEqual(cardCounts(d), { changes: 2, findings: 2 })
+  assert.equal(ov(d).get('findings (copy-neutral, uneven shares, complex genome)'), 2)
+  assert.equal(countText(changeList([defects[2]], 'none')), ' · 1 finding')
+  assert.equal(changesText(changeList([defects[2]], 'none')), 'No change found, 1 finding.')
+
+  // A sample not reportable prints no change: every row is listed apart as not reported.
+  const refusals = [{ claim: 'sample', gate: 'integrity.uninterpretable' }]
+  assert.equal(reportOf({ refusals }), 'not reportable')
+  const nr = changeList(defects, 'none', reportOf({ refusals }) !== 'not reportable')
+  assert.deepEqual([nr.counted.length, nr.once.length, nr.seen.length], [0, 0, 0])
+  assert.equal(nr.notReported?.rows.length, 3)
+  assert.ok(nr.notReported!.rows.every((g) => g.word === 'not reported'))
+  assert.deepEqual(cardCounts(nr), { changes: 0, findings: 0 })
+  assert.equal(countText(nr), '')
+  assert.equal(changesText(nr), 'Not reportable, so no change is reported.')
+  const tn = ov(nr, refusals)
+  assert.equal(tn.get('changes with a gain or a loss'), 0)
+  assert.equal(tn.get('findings (copy-neutral, uneven shares, complex genome)'), 0)
+  assert.equal(tn.get('not reportable (integrity uninterpretable)'), 1)
+  assert.equal(figureTitle(headlineOf({ noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] }, changesText(nr)),
+    nr, { noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] }),
+  'Copy number along every chromosome. This sample is not reportable, so nothing marked is reported.')
+  // A reportable sample has no not-reported list.
+  assert.equal(changeList(defects, 'none', true).notReported, undefined)
+
+  // The sex-chromosome line, as the page and the PDF print it.
+  assert.equal(sexLine({ constitution: '47,XXY or a mix of cells', why: 'a Y with two different X' }),
+    '47,XXY or a mix of cells: a Y with two different X.')
+  assert.equal(sexLine({ constitution: 'unresolved', why: 'chrY was not read' }), 'Not read: chrY was not read.')
+  console.log('  D4, D7: the card counts gains and losses as changes and the rest as findings, as the overview does; a sample not reportable counts none')
+}

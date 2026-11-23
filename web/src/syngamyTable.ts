@@ -12,6 +12,8 @@
  * bare direction are three different claims, and a table that flattened them into one "parent"
  * column would invite exactly the counting error the panel warns about.
  */
+import type { ParentageResult } from './parentage.ts'
+import { kindOf, WORD, type CardSays } from './pageSays.ts'
 
 export type TableChange = {
   chrom: string
@@ -41,6 +43,31 @@ export type TableSample = {
   informative?: number
   stage?: string
   changes: readonly TableChange[]
+}
+
+/**
+ * One sample of the table, from the card's own reading. With no parent loaded `role` is empty: the
+ * result's role is a placeholder there. On a sample not reportable every row's word is "not
+ * reported", as on the card.
+ */
+export function tableSampleOf(name: string, r: ParentageResult, says: CardSays): TableSample {
+  return {
+    name,
+    headline: says.head.word,
+    originClass: r.originClass,
+    zygosity: r.zygosity,
+    role: r.noParent ? undefined : r.role,
+    genomeRate: r.genomeRate,
+    explainable: r.explainable,
+    informative: r.informative,
+    stage: r.stage?.stage,
+    changes: says.defects.map((d) => ({
+      chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
+      origin: d.origin, band: d.band, confidence: d.confidence,
+      inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
+      why: d.why, word: says.list.notReported ? 'not reported' : WORD[kindOf(d, says.setup)],
+    })),
+  }
 }
 
 export const COLUMNS = [

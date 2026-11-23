@@ -9,7 +9,7 @@ import {
   emptyChipTally, idAt, idColumn, missingRequired, missingSignals, PANEL_UNREADABLE, recogniseChip,
   tallyChip, unreadableRefusal,
 } from './platform'
-import { syngamyTable } from './syngamyTable'
+import { syngamyTable, tableSampleOf } from './syngamyTable'
 import { ParentalBalancePanel } from './ParentalBalancePanel'
 import { OverviewPanel } from './OverviewPanel'
 import { armsFrom, overviewSampleOf, type Arms, type OverviewSample } from './overview'
@@ -57,8 +57,8 @@ import { plotData, type PlotData } from './plotSeries'
 import { CallFigure, CellFigure, defectMark, rowMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
 import { runAlerts, type Defect } from './defects'
 import {
-  callTitle, cardSays, defectsForResult, KIND_SAYS, kindOf, MEASURED_SOURCE, measuredSentence,
-  PARENT_SENTENCE, readAgainst, WORD, type ChangeList,
+  callTitle, cardSays, countText, defectsForResult, KIND_SAYS, MEASURED_SOURCE, measuredSentence,
+  PARENT_SENTENCE, readAgainst, sexLine, WORD, type ChangeList,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
 import { ORIGIN_WORD, readingOf, timeGroup } from './timing'
@@ -339,26 +339,8 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
   }
   const downloadTable = () => {
     const rebuilt = !!entries.find((x) => x.role === 'donor')?.inferred
-    const rows = entries.filter((e) => e.result).map((e) => {
-      const says = cardSays(e.result!, e.maternal, e.paired?.originClass ?? e.result!.originClass, rebuilt)
-      return {
-      name: e.file.name,
-      headline: says.head.word,
-      originClass: e.result!.originClass,
-      zygosity: e.result!.zygosity,
-      role: e.result!.role,
-      genomeRate: e.result!.genomeRate,
-      explainable: e.result!.explainable,
-      informative: e.result!.informative,
-      stage: e.result!.stage?.stage,
-      changes: says.defects.map((d) => ({
-        chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
-        origin: d.origin, band: d.band, confidence: d.confidence,
-        inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
-        why: d.why, word: WORD[kindOf(d, says.setup)],
-      })),
-      }
-    })
+    const rows = entries.filter((e) => e.result).map((e) => tableSampleOf(e.file.name, e.result!,
+      cardSays(e.result!, e.maternal, e.paired?.originClass ?? e.result!.originClass, rebuilt)))
     const blob = new Blob([syngamyTable(rows)], { type: 'text/tab-separated-values' })
     const a = document.createElement('a')
     a.href = URL.createObjectURL(blob)
@@ -1174,7 +1156,6 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
   const m = entry.maternal
   const originClass = entry.paired?.originClass ?? r.originClass
   const { setup, list, head, title } = cardSays(r, m, originClass, rebuilt)
-  const n = list.counted.length
   const marks = marksOf(r, entry.series, list)
   // The ratio is kept for the reader and said to be what it is: pooled over every autosome, the
   // changed ones included, so a cell's own losses raise it.
@@ -1196,7 +1177,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             style={{ fontSize: 26, fontWeight: 700, letterSpacing: '-0.01em', lineHeight: 1.1 }}
             c={head.decided ? 'genomeBlue.9' : 'orange.9'}
           >
-            {head.word}{n ? ` · ${n} change${n === 1 ? '' : 's'}` : ''}
+            {head.word}{countText(list)}
           </Text>
           {r.spermType !== 'unknown' && (
             <Badge size="sm" variant="outline" color="genomeGrey">
@@ -1620,6 +1601,7 @@ function marksOf(r: ParentageResult, data: PlotData | undefined, list?: ChangeLi
   for (const g of list?.counted ?? []) for (const d of g.pieces) status.set(key(d), 'counted')
   for (const g of list?.once ?? []) for (const d of g.pieces) status.set(key(d), 'one reading')
   for (const g of list?.seen ?? []) for (const d of g.pieces) status.set(key(d), 'also seen')
+  for (const g of list?.notReported?.rows ?? []) for (const d of g.pieces) status.set(key(d), 'not reported')
   const marks: Mark[] = []
   for (const d of defectsForResult(r)) {
     const m = defectMark(d, r.segments, loadedRole(r), data?.endBp.get(d.chrom))
@@ -1809,9 +1791,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
         <Section title="Sex chromosomes">
           {r.sexChromosome && (
             <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
-              {r.sexChromosome.constitution === 'unresolved'
-                ? `Not read: ${r.sexChromosome.why}.`
-                : `${r.sexChromosome.constitution}: ${r.sexChromosome.why}.`}
+              {sexLine(r.sexChromosome)}
             </Text>
           )}
           <ChromTable chroms={sex} ceiling={r.explainable} />

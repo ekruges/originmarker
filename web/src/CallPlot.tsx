@@ -89,7 +89,7 @@ export interface Mark {
   /** The same finding in two or three words, for the list under the deck and the zoom's title. */
   word: string
   /** What the card's counting rule made of it: a counted change, or a reading it does not count. */
-  status?: 'counted' | 'one reading' | 'also seen'
+  status?: 'counted' | 'one reading' | 'also seen' | 'not reported'
   /** What the row shows, for the hover. */
   lines: string[]
   /** The call states its own numbers beside the figure, so the caption quotes none of its own. */
@@ -708,6 +708,7 @@ export function CellFigure({ data, marks, name, title }: {
   const NOTE: Record<string, string> = {
     'one reading': 'seen once, not counted as a change',
     'also seen': 'read but not counted as a change',
+    'not reported': 'seen, not reported',
   }
   const chips: Chip[] = ordered.map((m) => {
     const key = `${m.chrom}:${m.startBp}`

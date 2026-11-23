@@ -101,3 +101,22 @@ const ch = (over: Partial<import('./syngamyTable.ts').TableChange> = {}) => ({
 }
 
 console.log('syngamyTable: joinable, and it cannot be miscounted as independent determinations')
+
+// --- 5. ONE SAMPLE, AS THE CARD READS IT ------------------------------------------------------
+// With no parent loaded the result's role is a placeholder, so the loaded-parent column is empty;
+// on a sample not reportable every row reads "not reported", as on the card.
+{
+  const { tableSampleOf } = await import('./syngamyTable.ts')
+  const { changeList } = await import('./pageSays.ts')
+  const d = { chrom: '16', startBp: 85_629, endBp: 36_600_000, kind: 'copy-loss', locus: 'chr16:85629-36600000',
+    origin: 'unclear', why: 'x', step: 'intensity' } as never
+  const r = (noParent: boolean) => ({ noParent, role: 'maternal', originClass: 'unclear', zygosity: 'diploid' }) as never
+  const says = (reportable: boolean) => ({ setup: 'none', head: { word: 'SINGLE CELL' }, defects: [d],
+    list: changeList([d], 'none', reportable) }) as never
+  const col = (s: string, c: string) => s.trim().split('\n').slice(1).map((l) => l.split('\t')[COLUMNS.indexOf(c as never)])
+  assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(true), says(true))]), 'loaded_parent'), [''])
+  assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(false), says(true))]), 'loaded_parent'), ['maternal'])
+  assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(true), says(true))]), 'word'), ['position only'])
+  assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(true), says(false))]), 'word'), ['not reported'])
+  console.log('  no parent loaded leaves loaded_parent empty; a sample not reportable reads "not reported"')
+}

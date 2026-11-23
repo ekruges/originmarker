@@ -17,7 +17,8 @@ import {
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import {
-  cardSays, disturbedText, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, spanMb, WORD, whoseText,
+  cardSays, countText, disturbedText, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, sexLine, spanMb, WORD,
+  whoseText,
   type CardSays, type ChangeRow,
 } from './pageSays.ts'
 import { locus } from './stage.ts'
@@ -438,7 +439,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     return [
       f.name,
       { v: head.word.toLowerCase(), colour: head.decided ? INK : WARN },
-      { v: changeOf(f) || 'none detected', colour: changeOf(f) ? WARN : GREY },
+      says(f).list.notReported ? { v: 'not reportable', colour: GREY }
+        : { v: changeOf(f) || 'none detected', colour: changeOf(f) ? WARN : GREY },
       ...(paired
         ? [pct(r.genomeRate), times(r.genomeRate, r.explainable),
           m ? pct(m.genomeRate) : '-', m ? times(m.genomeRate, m.explainable) : '-']
@@ -492,7 +494,6 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     const r = f.result!
     const m = f.maternal
     const { setup, list, head } = says(f)
-    const n = list.counted.length
     need(96)
     y -= 8
     pdf.setStrokeColor(RULE)
@@ -511,7 +512,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     pdf.rect(L, y - bar, R - L, bar, true)
     pdf.setFillColor('#ffffff')
     pdf.setFont('Helvetica-Bold', 15)
-    pdf.drawString(L + 7, y - bar + 6.5, `${head.word}${n ? ` · ${n} change${n === 1 ? '' : 's'}` : ''}`)
+    pdf.drawString(L + 7, y - bar + 6.5, `${head.word}${countText(list)}`)
     pdf.setFillColor(INK)
     y -= bar + 5
     text(head.line, 8.4, 'Helvetica-Bold', 3)
@@ -523,7 +524,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         { head: 'Coordinates and signal', w: 260 }],
       rows.map((g) => {
         const [where, whose, word, detail] = pdfCells(g, setup)
-        return [where, whose, { v: word, colour: word === 'one reading' || word === 'also seen' ? GREY : INK },
+        return [where, whose, { v: word, colour: word === 'one reading' || word === 'also seen' || word === 'not reported' ? GREY : INK },
           { v: detail, colour: GREY }]
       }),
     )
@@ -537,6 +538,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       changeTable(list.seen)
     }
     if (list.disturbed) text(disturbedText(list), 7.6, 'Helvetica', 2, GREY)
+    if (list.notReported && (list.notReported.rows.length || list.notReported.disturbed)) {
+      text('Seen on this array. The sample is not reportable, so none of this is reported.', 7.6, 'Helvetica-Bold', 2, GREY)
+      if (list.notReported.rows.length) changeTable(list.notReported.rows)
+      if (list.notReported.disturbed) text(disturbedText(list.notReported), 7.6, 'Helvetica', 2, GREY)
+    }
 
     // THE FEATURE COMPARISON IS NO LONGER PRINTED HERE. It answers a different question from the
     // rest of this report: everything else asks whose a change is, that asks whether the change
@@ -630,6 +636,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     const sex = r.chroms.filter((c) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
     if (sex.length) {
       heading('Sex chromosomes', 8.6)
+      if (r.sexChromosome) text(sexLine(r.sexChromosome), 7.6, 'Helvetica', 2)
       chromTable(sex, r.explainable)
     }
     const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed

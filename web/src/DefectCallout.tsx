@@ -8,7 +8,7 @@
  *
  * Counted changes first, outlined. Stretches seen by one reading follow under their own label in
  * plain muted text and are not in the count; a whole-chromosome imbalance is listed last as read,
- * not counted.
+ * not counted. On a sample not reportable the rows sit in one closed section marked not reported.
  */
 import { useState, type ReactNode } from 'react'
 import { Text } from '@mantine/core'
@@ -105,6 +105,22 @@ export function DefectCallout({ list, setup, plot }: {
   /** The plot for a row, shown when the row is open. */
   plot?: (g: ChangeRow) => ReactNode
 }) {
+  const nr = list.notReported
+  if (nr) {
+    // A sample not reportable states no change: what was read on it is kept, closed, under a
+    // heading that says it is not reported, and is counted nowhere.
+    if (!nr.rows.length && !nr.disturbed) return null
+    return (
+      <details style={{ margin: '8px 0 2px' }}>
+        <summary style={{ fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--om-text-dim)' }}>
+          Seen on this array, not reported ({nr.rows.length})
+        </summary>
+        <Text size="xs" c="dimmed" mt={4}>This sample is not reportable, so none of this is a result.</Text>
+        {nr.rows.length ? <Rows rows={nr.rows} setup={setup} plot={plot} /> : null}
+        {nr.disturbed ? <Text size="xs" c="dimmed" mt={8}>{disturbedText(nr)}</Text> : null}
+      </details>
+    )
+  }
   if (!list.counted.length && !list.once.length && !list.seen.length && !list.disturbed) return null
   return (
     <div style={{ margin: '8px 0 2px' }}>
