@@ -49,6 +49,7 @@ const sexMaterial = await import(`${W}sexMaterial.ts`)
 const overviewMod = await import(`${W}overview.ts`)
 const table = await import(`${W}syngamyTable.ts`)
 const reportPdf = await import(`${W}syngamyPdf.ts`)
+const defectsMod = await import(`${W}defects.ts`)
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -166,7 +167,8 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
     const card = () => {
       const l = says().list
       return { counted: l.counted.map(cardRow), once: l.once.length, disturbed: !!l.disturbed,
-        ...pageSays.cardCounts(l), countText: pageSays.countText(l),
+        ...pageSays.cardCounts(l), countText: pageSays.countText(l), line: says().head.line,
+        figure: { drawn: pageSays.drawnOf(res, says().defects), note: pageSays.figureNote(l, pageSays.drawnOf(res, says().defects)) ?? null },
         ...(l.notReported ? { notReported: l.notReported.rows.map(cardRow) } : {}) }
     }
     const surfaces = async () => {
@@ -177,12 +179,30 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       const out: any = {
         overview: { changes: ov.get('changes with a gain or a loss'), findings: ov.get('findings (copy-neutral, uneven shares, complex genome)') },
         download: { rows: tsv.length, notReported: at('word').filter((w: string) => w === 'not reported').length,
-          loadedParent: [...new Set(at('loaded_parent'))] },
+          loadedParent: [...new Set(at('loaded_parent'))],
+          ...(s.list.notReported ? { classes: [...new Set(at('class'))], parents: [...new Set(at('parent'))],
+            evidence: [...new Set(at('evidence'))] } : {}) },
+        // Every sentence the card prints of a row with neither a gain nor a loss.
+        findingTexts: s.list.counted.filter((g: any) => pageSays.rowDirection(g) === 'none')
+          .map((g: any) => [pageSays.whoseText(g), pageSays.rowSays(g, s.setup), pageSays.callTitle(g)].join(' | ')),
       }
-      if (s.list.notReported || res.sexChromosome?.constitution === '47,XXY or a mix of cells') {
+      if (s.list.notReported) {
+        const nr = s.list.notReported
+        // Every sentence a card not reportable prints about the sample and its rows.
+        out.notReportedTexts = [s.head.line, s.title, pageSays.figureNote(s.list, pageSays.drawnOf(res, s.defects)) ?? '',
+          ...defectsMod.runAlerts(res).flatMap((a: any) => [a.headline, a.body]),
+          pageSays.disturbedText(nr, false),
+          ...nr.rows.flatMap((g: any) => [pageSays.whoseText(g), pageSays.rowSays(g, s.setup), pageSays.callTitle(g),
+            ...g.pieces.map((p: any) => pageSays.pieceText(p, g)), ...pageSays.pdfCells(g, s.setup),
+            pageSays.seenMarkText({ ...g, dir: pageSays.rowDirection(g) }).sentence])].filter(Boolean)
+      }
+      {
+        const files: any[] = [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1, result: res,
+          maternal: maternal ?? undefined, paired, inferred: false }]
+        if (!res.noParent && res.role === 'paternal') files.unshift({ name: 'donor', size: 1, sha256: '0'.repeat(64), role: 'donor', markers: 1 })
+        if (!res.noParent && (maternal || res.role === 'maternal')) files.unshift({ name: 'oocyte', size: 1, sha256: '0'.repeat(64), role: 'oocyte', markers: 1 })
         const txt = Buffer.from(await (await reportPdf.buildReportPdf({
-          files: [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1, result: res,
-            maternal: maternal ?? undefined, paired, inferred: false }],
+          files,
           donorHeterozygosity: NaN, startedAt: null, generatedAt: '', tool: 'OriginMarker', reportId: 'GATE', fromExamples: false,
         } as never)).arrayBuffer()).toString('latin1')
         // Every string the PDF draws, unescaped; a wrapped sentence is its lines joined by spaces.
@@ -192,7 +212,9 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
         const all = flat(strings.join(' '))
         out.pdf = { notReported: strings.filter((x) => x === 'not reported').length,
           bar: strings.includes(`${s.head.word}${pageSays.countText(s.list)}`),
-          sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome))) : null }
+          sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome))) : null,
+          inferred: all.includes('inferred from paternal absence'), noParentLine: all.includes('sample no parent loaded'),
+          vsDonor: all.includes('sample vs donor') }
       }
       return out
     }
