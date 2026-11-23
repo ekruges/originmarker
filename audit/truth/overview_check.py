@@ -73,7 +73,7 @@ def recount(records):
     read = [r for r in recs if cls(r) != "not reportable"]
     rows = [g for r in read for g in r["card"]["counted"]]
     changes = [g for g in rows if direction(g)]
-    want["changes (as the result cards count them)"] = len(changes)
+    want["changes with a gain or a loss"] = len(changes)
     for d, label in (("loss", "losses"), ("gain", "gains")):
         of = [g for g in changes if direction(g) == d]
         want[label] = len(of)
@@ -104,10 +104,10 @@ def recount(records):
         ("stage lines", sum(v for k, v in want.items() if k.startswith("stage: ")), want["samples"]),
         ("reportable classes", want["reportable"] + want["limited (integrity disturbed)"]
          + want["not reportable (integrity uninterpretable)"], want["samples"]),
-        ("losses and gains", want["losses"] + want["gains"], want["changes (as the result cards count them)"]),
+        ("losses and gains", want["losses"] + want["gains"], want["changes with a gain or a loss"]),
         ("embryo lines", want["samples in them"] + want["samples in no embryo group"], want["samples"]),
         ("origin lines", sum(v for k, v in want.items() if k.startswith("origin: ")),
-         want["changes (as the result cards count them)"]),
+         want["changes with a gain or a loss"]),
     ]
     for d, label in (("loss", "losses"), ("gain", "gains")):
         sums.append((f"{label} by extent", sum(want[f"{d}, {e}"] for e in ("whole", "arm", "piece")), want[label]))

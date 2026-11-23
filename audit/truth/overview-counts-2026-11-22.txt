@@ -123,3 +123,14 @@ On the Mac worktree (no install; the main checkout's node_modules linked, nothin
 web/src self-check (68), the cli checks, the requirements audit, joy-common, no-array-names,
 tsc on the app and node configs, compileall: all pass. The overview step: synthetic fixture on
 the Mac; fixture and all seven real runs on tesla.
+
+CORRECTION, 23 November
+-----------------------
+The line labelled "changes (as the result cards count them)" above does not count what the result
+card counts. It counts only counted rows with a gain or a loss; a counted row with neither goes to
+the findings line. The card's header counts both. So on a sample with a finding that is neither a
+gain nor a loss, the overview's changes line is one lower than the card's count (on one real cell:
+card 8 changes, overview 7 changes plus 1 finding). The line is now labelled "changes with a gain
+or a loss", in the table, its download and audit/truth/overview_check.py. No number above moves:
+222 and the other changes figures are counts of rows with a gain or a loss. The card's own count
+is left as it is, pending the owner's ruling.

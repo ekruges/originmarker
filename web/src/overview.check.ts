@@ -38,7 +38,7 @@ assert.equal(one.cen, 125e6, 'the p/q boundary is the one the whole-call rule re
   const t = new Map(overviewTable([s, bad] as OverviewSample[], arms))
   assert.equal(t.get('samples'), 2)
   assert.equal(t.get('not reportable (integrity uninterpretable)'), 1)
-  assert.equal(t.get('changes (as the result cards count them)'), 1, 'a sample not reportable contributes no change')
+  assert.equal(t.get('changes with a gain or a loss'), 1, 'a sample not reportable contributes no change')
   assert.equal(t.get('gains'), 0)
   assert.equal(t.get('origin: from the gamete'), 1)
   assert.equal(t.get('embryos of two or more units'), 1)

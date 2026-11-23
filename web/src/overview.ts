@@ -118,7 +118,7 @@ export function overviewTable(samples: readonly OverviewSample[], arms: Arms): [
   const read = samples.filter((s) => s.report !== 'not reportable')
   const rows = read.flatMap((s) => s.rows)
   const changes = rows.filter((r) => r.direction !== 'none')
-  n('changes (as the result cards count them)', changes.length)
+  n('changes with a gain or a loss', changes.length)
   for (const d of ['loss', 'gain'] as const) {
     const of = changes.filter((r) => r.direction === d)
     n(d === 'loss' ? 'losses' : 'gains', of.length)
