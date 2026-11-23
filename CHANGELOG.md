@@ -31,7 +31,25 @@ so "47,XXY or a mix of cells" is no longer on the card and missing from the repo
 
 **No parent is named where none was loaded.** The changes download wrote `loaded_parent:
 maternal` on a run with no parent, and the report's line above each sample read against a sperm
-donor. Both are now empty of a parent; a run with the mother alone names her.
+donor. Both are now empty of a parent; a run with the mother alone names her. With no parent at
+all the report names no oocyte donor and infers nothing; with the father alone it still says a
+maternal origin is inferred from paternal absence.
+
+**Five more places where one sample said two things.**
+
+- **The figure's note counts as the card does.** It said "the card counts 2 of them as changes"
+  under a header of "1 change". It now takes the card's changes and findings, names what it draws
+  beyond the list's rows (more pieces of one row, runs found and withheld), and on a sample not
+  reportable says none of what is drawn is reported.
+- **A finding does not read as a loss.** A copy-neutral row with no parent loaded read "a parent's
+  copy missing" and "Read from copy number". It is now named by its class ("segment from one
+  parent only") and says it is neither a gain nor a loss.
+- **A row on a sample not reportable states only what was seen**: higher than the rest of this
+  array, lower than it, or read unlike it, on the card, the figure, the changes download (its class
+  column, with no parent or evidence sentence) and the report. The sample's notice no longer
+  states a loss as a fact.
+- **The no-change sentence names what the list reads**: "No gain or loss found on chromosomes 1 to
+  22", so it cannot contradict the sex-chromosome line beside it. No count changes.
 
 Measured on 853 records (330 answer-key rows with no parent, 252 open rows with a parent, 271
 laboratory rows): the card's changes and findings equal the overview's on every one; every
