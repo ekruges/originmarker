@@ -57,8 +57,8 @@ import { plotData, type PlotData } from './plotSeries'
 import { CallFigure, CellFigure, defectMark, rowMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
 import { runAlerts, type Defect } from './defects'
 import {
-  callTitle, cardSays, countText, defectsForResult, KIND_SAYS, MEASURED_SOURCE, measuredSentence,
-  PARENT_SENTENCE, readAgainst, sexLine, WORD, type ChangeList,
+  callTitle, cardSays, countText, defectsForResult, drawnOf, figureNote, KIND_SAYS, MEASURED_SOURCE, measuredSentence,
+  PARENT_SENTENCE, readAgainst, seenMarkText, sexLine, WORD, type ChangeList,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
 import { ORIGIN_WORD, readingOf, timeGroup } from './timing'
@@ -1223,10 +1223,12 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             const mk = rowMark(g.pieces, r.segments, loadedRole(r), entry.series?.endBp.get(g.chrom), g.deeper)
             // The title comes from the row, not from the figure: pageSays.callTitle, which reads
             // the same origin the row does, so the two cannot name different parents.
-            return mk ? <CallFigure mark={{ ...mk, sentence: callTitle(g) }} data={entry.series} marks={marks} name={plotName(entry)} /> : null
+            const seen = g.word === 'not reported' && mk ? { ...seenMarkText(mk), lines: [], said: undefined } : {}
+            return mk ? <CallFigure mark={{ ...mk, sentence: callTitle(g), ...seen }} data={entry.series} marks={marks} name={plotName(entry)} /> : null
           }}
         />
-        <CellFigure data={entry.series} marks={marks} name={plotName(entry)} title={title} />
+        <CellFigure data={entry.series} marks={marks} name={plotName(entry)} title={title}
+          note={figureNote(list, drawnOf(r, defectsForResult(r)))} />
         <Group gap={12} align="center" mt={8}>
           <button
             type="button" className="om-primer-toggle" aria-expanded={open}
@@ -1608,6 +1610,10 @@ function marksOf(r: ParentageResult, data: PlotData | undefined, list?: ChangeLi
     if (m) marks.push({ ...m, status: status.get(key(d)) })
   }
   for (const sg of withheldRuns(r.refusals)) marks.push(withheldMark(sg, loadedRole(r)))
+  // On a sample not reportable every mark states what was seen, never a copy lost or gained.
+  if (list?.notReported) {
+    return marks.map((m) => ({ ...m, ...seenMarkText(m), lines: [], said: undefined, status: 'not reported' as const }))
+  }
   return marks
 }
 

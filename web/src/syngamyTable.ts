@@ -13,7 +13,8 @@
  * column would invite exactly the counting error the panel warns about.
  */
 import type { ParentageResult } from './parentage.ts'
-import { kindOf, WORD, type CardSays } from './pageSays.ts'
+import { kindOf, NOT_REPORTED_SAYS, SEEN, WORD, type CardSays } from './pageSays.ts'
+import { directionOf } from './timing.ts'
 
 export type TableChange = {
   chrom: string
@@ -48,7 +49,7 @@ export type TableSample = {
 /**
  * One sample of the table, from the card's own reading. With no parent loaded `role` is empty: the
  * result's role is a placeholder there. On a sample not reportable every row's word is "not
- * reported", as on the card.
+ * reported", as on the card, and its class column states only how it read against the array.
  */
 export function tableSampleOf(name: string, r: ParentageResult, says: CardSays): TableSample {
   return {
@@ -61,12 +62,17 @@ export function tableSampleOf(name: string, r: ParentageResult, says: CardSays):
     explainable: r.explainable,
     informative: r.informative,
     stage: r.stage?.stage,
-    changes: says.defects.map((d) => ({
-      chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
-      origin: d.origin, band: d.band, confidence: d.confidence,
-      inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
-      why: d.why, word: says.list.notReported ? 'not reported' : WORD[kindOf(d, says.setup)],
-    })),
+    // On a sample not reportable a row states what was seen against the rest of the array, with no
+    // class, parent or evidence sentence that would state a copy lost or gained.
+    changes: says.defects.map((d) => (says.list.notReported
+      ? { chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: SEEN[directionOf(d.kind) ?? 'none'],
+        stage: d.stage, informative: d.informative, why: NOT_REPORTED_SAYS, word: 'not reported' }
+      : {
+        chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
+        origin: d.origin, band: d.band, confidence: d.confidence,
+        inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
+        why: d.why, word: WORD[kindOf(d, says.setup)],
+      })),
   }
 }
 

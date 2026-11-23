@@ -930,5 +930,14 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   const none = await parentLine({ ...r, noParent: true })
   assert.ok(none.includes('(sample no parent loaded)') && !none.includes('vs sperm donor'), 'no parent is named with none loaded')
   assert.ok((await parentLine(r)).includes('(sample vs sperm donor)'), 'a loaded father is still named')
+  // With no parent at all nothing is inferred about the oocyte donor; with the father alone it is.
+  assert.ok(!none.includes('inferred from paternal absence'), 'no inference with no parent loaded')
+  const withFather = Buffer.from(await (await buildReportPdf({
+    files: [{ name: 'sperm', size: 1, sha256: 'y'.repeat(64), role: 'donor', markers: 1000 },
+      { name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: r }],
+    donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+    tool: 'OriginMarker', reportId: 'CHECK', fromExamples: true,
+  } as never)).arrayBuffer()).toString('latin1')
+  assert.ok(withFather.includes('inferred from paternal absence'), 'the father alone keeps the inference sentence')
   console.log('  the report carries the sex-chromosome line, and a sample not reportable states no change')
 }

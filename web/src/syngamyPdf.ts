@@ -349,10 +349,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ['Software:', `${input.tool}, Syngamy module`],
     ['Sperm donor:', donor ? `${donor.name}  (${int(donor.markers)} markers, SHA-256 `
       + `${donor.sha256.slice(0, 16)})` : 'none'],
+    // The inference sentence holds only where a father was loaded; with no parent nothing is inferred.
     ['Oocyte donor:', oocyte ? `${oocyte.name}  (${int(oocyte.markers)} markers, SHA-256 `
       + `${oocyte.sha256.slice(0, 16)})`
-      : 'none supplied, so a maternal origin is inferred from paternal absence rather than '
-        + 'measured'],
+      : donor ? 'none supplied, so a maternal origin is inferred from paternal absence rather than '
+        + 'measured' : 'none'],
     ['Donor heterozygosity:', Number.isFinite(input.donorHeterozygosity)
       ? `${pct(input.donorHeterozygosity, 3)} autosomal, of called markers` : 'not measured'],
     ['Samples:', `${results.length} analysed  (`

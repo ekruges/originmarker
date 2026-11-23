@@ -139,7 +139,7 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
       headline: 'DAMAGED SAMPLE: this array did not resolve to any material',
       why: 'The stage inference rejected this array on its own quality gates, so there is no '
         + 'material whose dropout could parameterise a likelihood and no genome the statistics '
-        + 'could describe. Any change listed for this sample was found by a measurement that is '
+        + 'could describe. Anything listed as seen on this sample was read by a measurement that is '
         + 'not measuring a genome.',
       limits: 'Nothing on this sample is reportable. Do not read its changes, its parental calls '
         + 'or its counts, and do not include it in any comparison across samples.',
@@ -168,8 +168,8 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
       why: `A share of ${deviantFraction.toFixed(2)} is over the ${COMPLEX_DEVIANT_FRACTION} at `
         + 'which self-reference fails. The array may be perfect: it is the GENOME that is '
         + 'disturbed, and there is no undisturbed part of it left to measure the disturbed parts '
-        + 'against. In the series this bound was measured on, all 70 whole-chromosome losses sat '
-        + 'here and none of them was assignable to a parent.',
+        + 'against. In the series this bound was measured on, no event past it could be given a '
+        + 'parent.',
       limits: 'The positions stand, and what was read is listed apart. No gain or loss is '
         + 'reported, because with no undisturbed part left this cell\'s normal level cannot be told, '
         + 'and no parent is named on anything read, at any confidence.',

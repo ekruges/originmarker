@@ -13,7 +13,7 @@
 import { useState, type ReactNode } from 'react'
 import { Text } from '@mantine/core'
 import {
-  disturbedText, KIND_SAYS, lrrText, locusText, measuredSentence, pairText, spanMb, whereText, whoseText,
+  disturbedText, pieceText, rowSays, spanMb, whereText, whoseText,
   type ChangeList, type ChangeRow, type Setup,
 } from './pageSays.ts'
 import { sentences } from './defects.ts'
@@ -28,13 +28,15 @@ const COLUMNS = '3.9em 5em minmax(0, 1fr) auto'
 function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: ChangeRow) => ReactNode }) {
   const [open, setOpen] = useState(false)
   const loud = strong(g)
-  const why = [...new Set(g.pieces.flatMap((p) => sentences(p.why ?? '')))].join(' ')
+  // A row not reported carries no scan sentence and no origin word: either would state a change.
+  const seen = g.word === 'not reported'
+  const why = seen ? '' : [...new Set(g.pieces.flatMap((p) => sentences(p.why ?? '')))].join(' ')
   const figure = open ? plot?.(g) : null
   // An arm-level piece has no measured edge or extent inside its arm, so its size cell names the
   // arm rather than printing the piece's span, which would read as a measured length.
   const arm = g.pieces.find((p) => p.arm)?.arm
   // When it arose, with the units it was read on, where units of the same embryo were read.
-  const when = [...new Set(g.pieces.filter((p) => p.mechanism && ORIGIN_WORD[p.mechanism])
+  const when = seen ? [] : [...new Set(g.pieces.filter((p) => p.mechanism && ORIGIN_WORD[p.mechanism])
     .map((p) => `When it arose: ${ORIGIN_WORD[p.mechanism!]}. ${p.mechanismWhy ?? ''}.`))]
   return (
     <div style={{
@@ -70,7 +72,7 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
             </Text>
           )}
           <Text size="sm" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
-            {KIND_SAYS[g.call]} {measuredSentence(g.call, setup)}
+            {rowSays(g, setup)}
           </Text>
           {when.map((w) => (
             <Text key={w} size="sm" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>{w}</Text>
@@ -81,7 +83,7 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
             <div style={{ marginTop: 4, display: 'grid', gap: 2 }}>
               {g.pieces.map((p) => (
                 <Text key={`${p.startBp}`} size="xs" ff="monospace">
-                  {[locusText(p), pairText(p), lrrText(p)].filter(Boolean).join(' · ')}
+                  {pieceText(p, g)}
                 </Text>
               ))}
             </div>

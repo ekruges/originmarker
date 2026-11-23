@@ -322,7 +322,7 @@ const cellA: Defect[] = [
   assert.deepEqual(cardCounts(d), { changes: 2, findings: 2 })
   assert.equal(ov(d).get('findings (copy-neutral, uneven shares, complex genome)'), 2)
   assert.equal(countText(changeList([defects[2]], 'none')), ' · 1 finding')
-  assert.equal(changesText(changeList([defects[2]], 'none')), 'No change found, 1 finding.')
+  assert.equal(changesText(changeList([defects[2]], 'none')), 'No gain or loss found on chromosomes 1 to 22, 1 finding.')
 
   // A sample not reportable prints no change: every row is listed apart as not reported.
   const refusals = [{ claim: 'sample', gate: 'integrity.uninterpretable' }]
@@ -352,4 +352,55 @@ const cellA: Defect[] = [
     '47,XXY or a mix of cells: a Y with two different X.')
   assert.equal(sexLine({ constitution: 'unresolved', why: 'chrY was not read' }), 'Not read: chrY was not read.')
   console.log('  D4, D7: the card counts gains and losses as changes and the rest as findings, as the overview does; a sample not reportable counts none')
+}
+
+// ---------------------------------------------------------------- one sample, one statement, part two
+{
+  const { cardCounts, figureNote, pieceText, rowSays, SEEN, seenMarkText, NOT_REPORTED_SAYS } = await import('./pageSays.ts')
+  const row = (chrom: string, kind: Defect['kind'], startBp: number, endBp: number, step = 'intensity'): Defect => ({
+    chrom, startBp, endBp, kind, locus: `chr${chrom}:${startBp}-${endBp}`, origin: 'unclear', why: 'Copy lost here.', step,
+    lrr: -0.4, rate: 0.2, nullRate: 0.02,
+  })
+  const upd = row('15', 'segmental-upd', 22_444_773, 102_397_317, 'finding')
+  const loss = row('17', 'copy-loss', 6_157, 52_598_275)
+  const gain = row('12', 'copy-gain', 190_980, 122_685_163)
+
+  // A finding is named by its class, with no word for a copy lost and no claim it was read from copy number.
+  const f = changeList([upd], 'none').counted[0]
+  assert.equal(whoseText(f), 'segment from one parent only')
+  assert.ok(!/missing|lost|copy number/.test(`${whoseText(f)} ${rowSays(f, 'none')} ${callTitle(f)}`), rowSays(f, 'none'))
+  assert.equal(rowSays(changeList([loss], 'none').counted[0], 'none'), 'Read from copy number, with no parent loaded.')
+
+  // A row not reported states only what was seen, on the card, the figure, the PDF and the download.
+  const nr = changeList([loss, gain, upd], 'none', false).notReported!.rows
+  assert.deepEqual(nr.map(whoseText), [SEEN.gain, SEEN.none, SEEN.loss])
+  for (const g of nr) {
+    const said = [whoseText(g), rowSays(g, 'none'), callTitle(g), ...g.pieces.map((p) => pieceText(p, g)), ...pdfCells(g, 'none')].join(' ')
+    assert.ok(!/\b(lost|missing|extra|gained|gone|deleted|duplicated)\b/.test(said), said)
+    assert.ok(pdfCells(g, 'none')[3].includes(NOT_REPORTED_SAYS))
+  }
+  assert.deepEqual(seenMarkText({ chrom: '17', startBp: 6_157, endBp: 52_598_275, whole: false, gain: false, dir: 'loss' }),
+    { word: SEEN.loss, sentence: `Chromosome 17, 0.0 to 52.6 Mb: ${SEEN.loss}. ${NOT_REPORTED_SAYS}` })
+
+  // The figure's note takes the card's counts, names what is drawn beyond the list, and on a sample
+  // not reportable says none is reported.
+  const l = changeList([loss, { ...loss, startBp: 60_000_000, endBp: 70_000_000 }, upd], 'none')
+  assert.deepEqual(cardCounts(l), { changes: 1, findings: 1 })
+  const note = figureNote(l, { listed: 3, withheld: 1 })!
+  assert.equal(note, '4 readings are drawn and numbered below: 2 rows of the list, 1 more piece of those rows, since a row '
+    + 'joins the pieces of one stretch, and 1 found and withheld, not in the list. The card counts 1 change and 1 finding; '
+    + 'the rest are drawn as outlines and say on their own line why they are not counted.')
+  const nn = figureNote(changeList([loss, upd], 'none', false), { listed: 2, withheld: 2 })!
+  assert.ok(nn.endsWith('This sample is not reportable, so none of them is reported.') && !/counts/.test(nn), nn)
+  assert.equal(figureNote(changeList([loss], 'none'), { listed: 1, withheld: 0 }), undefined)
+  const callPlot = readFileSync(new URL('./CallPlot.tsx', import.meta.url), 'utf8')
+  assert.ok(!/filter\(isCounted\)\.length/.test(callPlot) && /note\?: string/.test(callPlot),
+    'the figure takes its note from pageSays.figureNote, never its own count')
+
+  // The no-change sentence names what the list reads.
+  assert.ok(figureTitle(headlineOf({ noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] }, ''),
+    changeList([], 'none'), { noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] })
+    .endsWith('No gain or loss was found on chromosomes 1 to 22.'))
+  assert.equal(changesText(changeList([], 'none')), 'No gain or loss found on chromosomes 1 to 22.')
+  console.log('  a finding reads as one, a row not reported states only what was seen, the figure counts as the card does')
 }

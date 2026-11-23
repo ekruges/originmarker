@@ -118,5 +118,10 @@ console.log('syngamyTable: joinable, and it cannot be miscounted as independent 
   assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(false), says(true))]), 'loaded_parent'), ['maternal'])
   assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(true), says(true))]), 'word'), ['position only'])
   assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(true), says(false))]), 'word'), ['not reported'])
+  // And its class, parent and evidence state only what was seen.
+  const nr = syngamyTable([tableSampleOf('A', r(true), says(false))])
+  assert.deepEqual(col(nr, 'class'), ['lower than the rest of this array'])
+  assert.deepEqual(col(nr, 'parent'), [''])
+  assert.deepEqual(col(nr, 'evidence'), ['Not reported: this sample is not reportable.'])
   console.log('  no parent loaded leaves loaded_parent empty; a sample not reportable reads "not reported"')
 }

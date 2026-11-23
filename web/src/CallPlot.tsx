@@ -689,10 +689,12 @@ function zoomCaption(data: PlotData, mark: Mark): string {
 }
 
 /** The figure for a result card: the whole cell, then a zoom for each change, numbered to match. */
-export function CellFigure({ data, marks, name, title }: {
+export function CellFigure({ data, marks, name, title, note }: {
   data: PlotData | undefined; marks: readonly Mark[]; name: string
   /** What the figure shows, in one sentence: pageSays.figureTitle. */
   title: string
+  /** What is drawn beyond the card's counted rows, in the card's counts: pageSays.figureNote. */
+  note?: string
 }): ReactNode {
   const [ref, W] = useWidth()
   const box = useRef<HTMLDivElement | null>(null)
@@ -727,13 +729,6 @@ export function CellFigure({ data, marks, name, title }: {
   const cols = W >= 980 ? 3 : W >= 640 ? 2 : 1
   const colW = Math.floor((W - 18 * (cols - 1)) / cols)
   const hasGain = marks.some((m) => m.gain)
-  // The title carries the card's count of changes; the figure draws every reading it has. Both
-  // numbers, in the card's own words, so a dozen chips under "one change" is not read as a fault.
-  const kept = ordered.filter(isCounted).length
-  const note = ordered.length === kept ? undefined
-    : `${ordered.length} readings are drawn and numbered below; the card counts ${kept} of them as `
-      + `${kept === 1 ? 'a change' : 'changes'}. The rest are drawn as outlines and say on their own `
-      + 'line why they are not counted.'
   // One source of words, and it lives inside the picture: the card offers the figure for saving and
   // a file that travels without its caption claims more than the measurement supports.
   const caption = `${CAPTION_SCALE} ${data.split ? CAPTION_GUARD : CAPTION_SOLO}`
