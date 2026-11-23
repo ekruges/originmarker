@@ -14,7 +14,13 @@
  * refusal and the causes, as the page prints them, and nothing else. See web/src/platform.ts.
  *
  * `card` holds the result card's change list as the overview counts it: the counted rows with their
- * pieces, the count of rows seen once, and whether the genome is too disturbed to reference.
+ * pieces, the count of rows seen once, and whether the genome is too disturbed to reference; the
+ * card's own count of changes and findings; and, on a sample not reportable, the rows listed apart.
+ *
+ * `surfaces` holds what the other surfaces print of the same sample: the overview's count of
+ * changes and findings for it alone, the changes download's words and loaded-parent values, and,
+ * on a sample not reportable or one whose sex line reads "47,XXY or a mix of cells", what its PDF
+ * prints (pageSays, overview, syngamyTable, syngamyPdf).
  *
  * `genomeVerdicts` holds the loaded parent's genome-wide verdict and, with both parents, the
  * mother's, read as the page reads it; `changes` holds each printed change as the result card lists
@@ -40,6 +46,9 @@ const parentage = await import(`${W}parentage.ts`)
 const pageSays = await import(`${W}pageSays.ts`)
 const sexing = await import(`${W}sexing.ts`)
 const sexMaterial = await import(`${W}sexMaterial.ts`)
+const overviewMod = await import(`${W}overview.ts`)
+const table = await import(`${W}syngamyTable.ts`)
+const reportPdf = await import(`${W}syngamyPdf.ts`)
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -152,10 +161,40 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
     }
     // The result card's change list, as the overview counts it (web/src/overview.ts). Read last, after
     // every other field is taken.
+    const paired = maternal && !res.noParent ? parentage.pair(res, maternal, NaN) : undefined
+    const says = () => pageSays.cardSays(res, maternal ?? undefined, paired ? paired.originClass : res.originClass, tag.startsWith('recon'))
     const card = () => {
-      const says = pageSays.cardSays(res, maternal ?? undefined,
-        maternal && !res.noParent ? parentage.pair(res, maternal, NaN).originClass : res.originClass, tag.startsWith('recon'))
-      return { counted: says.list.counted.map(cardRow), once: says.list.once.length, disturbed: !!says.list.disturbed }
+      const l = says().list
+      return { counted: l.counted.map(cardRow), once: l.once.length, disturbed: !!l.disturbed,
+        ...pageSays.cardCounts(l), countText: pageSays.countText(l),
+        ...(l.notReported ? { notReported: l.notReported.rows.map(cardRow) } : {}) }
+    }
+    const surfaces = async () => {
+      const s = says()
+      const ov = new Map(overviewMod.overviewTable([overviewMod.overviewSampleOf(s.list, res)], new Map()))
+      const tsv = table.syngamyTable([table.tableSampleOf(id, res, s)]).trim().split('\n').slice(1).map((l: string) => l.split('\t'))
+      const at = (c: string) => tsv.map((x: string[]) => x[table.COLUMNS.indexOf(c)])
+      const out: any = {
+        overview: { changes: ov.get('changes with a gain or a loss'), findings: ov.get('findings (copy-neutral, uneven shares, complex genome)') },
+        download: { rows: tsv.length, notReported: at('word').filter((w: string) => w === 'not reported').length,
+          loadedParent: [...new Set(at('loaded_parent'))] },
+      }
+      if (s.list.notReported || res.sexChromosome?.constitution === '47,XXY or a mix of cells') {
+        const txt = Buffer.from(await (await reportPdf.buildReportPdf({
+          files: [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1, result: res,
+            maternal: maternal ?? undefined, paired, inferred: false }],
+          donorHeterozygosity: NaN, startedAt: null, generatedAt: '', tool: 'OriginMarker', reportId: 'GATE', fromExamples: false,
+        } as never)).arrayBuffer()).toString('latin1')
+        // Every string the PDF draws, unescaped; a wrapped sentence is its lines joined by spaces.
+        const strings = [...txt.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1]
+          .replace(/\\([0-7]{3})|\\(.)/g, (_, o, c) => (o ? String.fromCharCode(parseInt(o, 8)) : c)))
+        const flat = (x: string) => x.replace(/[^\x20-\x7e]/g, '').replace(/\s+/g, ' ').trim()
+        const all = flat(strings.join(' '))
+        out.pdf = { notReported: strings.filter((x) => x === 'not reported').length,
+          bar: strings.includes(`${s.head.word}${pageSays.countText(s.list)}`),
+          sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome))) : null }
+      }
+      return out
     }
     const cardRow = (g: any) => ({ chrom: g.chrom, gain: g.gain, whole: g.whole, origin: g.origin, start: g.startBp, end: g.endBp,
       word: g.word, pieces: g.pieces.map((p: any) => ({ kind: p.kind, start: p.startBp, end: p.endBp })) })
@@ -194,6 +233,7 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       ...(res.motherFromRun ? { motherFromRun: { ...res.motherFromRun,
         drawArrays: res.motherFromRun.drawArrays.map((i: number) => (others ?? '').split(';').filter(Boolean)[i]) } } : {}),
       card: card(),
+      surfaces: await surfaces(),
     }) + '\n')
   } catch (e) {
     if (e instanceof ChipRefused) {
