@@ -341,6 +341,9 @@ const cellA: Defect[] = [
   assert.equal(figureTitle(headlineOf({ noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] }, changesText(nr)),
     nr, { noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] }),
   'Copy number along every chromosome. This sample is not reportable, so nothing marked is reported.')
+  // Under the not-reported heading the disturbed-genome sentence names no change.
+  assert.ok(!/change/.test(disturbedText({ disturbed: { on: 15, of: 22 } }, false)))
+  assert.ok(/carry a change/.test(disturbedText({ disturbed: { on: 15, of: 22 } })))
   // A reportable sample has no not-reported list.
   assert.equal(changeList(defects, 'none', true).notReported, undefined)
 

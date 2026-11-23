@@ -170,8 +170,9 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
         + 'disturbed, and there is no undisturbed part of it left to measure the disturbed parts '
         + 'against. In the series this bound was measured on, all 70 whole-chromosome losses sat '
         + 'here and none of them was assignable to a parent.',
-      limits: 'No parent is named on any event of this sample, at any confidence. The events '
-        + 'themselves are real and their positions stand; which parent they came from does not.',
+      limits: 'The positions stand, and what was read is listed apart. No gain or loss is '
+        + 'reported, because with no undisturbed part left this cell\'s normal level cannot be told, '
+        + 'and no parent is named on anything read, at any confidence.',
       measures,
     }
   }

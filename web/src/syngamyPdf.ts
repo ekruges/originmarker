@@ -17,7 +17,7 @@ import {
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import {
-  cardSays, countText, disturbedText, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, sexLine, spanMb, WORD,
+  cardSays, countText, disturbedText, readAgainst, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, sexLine, spanMb, WORD,
   whoseText,
   type CardSays, type ChangeRow,
 } from './pageSays.ts'
@@ -501,8 +501,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     pdf.line(L, y, R, y)
     y -= 6
 
-    text(`${f.name}   vs ${donor?.name ?? 'sperm donor'}`
-      + `${m && oocyte ? ` and ${oocyte.name}` : ''}`, 8, 'Helvetica', 3, GREY)
+    // The card's own line: with no parent loaded it names none.
+    text(`${f.name}   ${readAgainst(r, !!m, donor?.name ?? 'sperm donor', oocyte?.name ?? 'oocyte donor')}`,
+      8, 'Helvetica', 3, GREY)
 
     // The verdict reversed out of a filled bar. This page gets printed in black and white, so
     // the call has to survive losing its colour.
@@ -539,9 +540,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     }
     if (list.disturbed) text(disturbedText(list), 7.6, 'Helvetica', 2, GREY)
     if (list.notReported && (list.notReported.rows.length || list.notReported.disturbed)) {
-      text('Seen on this array. The sample is not reportable, so none of this is reported.', 7.6, 'Helvetica-Bold', 2, GREY)
+      text('Seen on this array. The sample is not reportable, so none of this is reported as a gain or a loss.', 7.6, 'Helvetica-Bold', 2, GREY)
       if (list.notReported.rows.length) changeTable(list.notReported.rows)
-      if (list.notReported.disturbed) text(disturbedText(list.notReported), 7.6, 'Helvetica', 2, GREY)
+      if (list.notReported.disturbed) text(disturbedText(list.notReported, false), 7.6, 'Helvetica', 2, GREY)
     }
 
     // THE FEATURE COMPARISON IS NO LONGER PRINTED HERE. It answers a different question from the

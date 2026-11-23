@@ -115,9 +115,9 @@ export function DefectCallout({ list, setup, plot }: {
         <summary style={{ fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--om-text-dim)' }}>
           Seen on this array, not reported ({nr.rows.length})
         </summary>
-        <Text size="xs" c="dimmed" mt={4}>This sample is not reportable, so none of this is a result.</Text>
+        <Text size="xs" c="dimmed" mt={4}>This sample is not reportable, so none of this is reported as a gain or a loss.</Text>
         {nr.rows.length ? <Rows rows={nr.rows} setup={setup} plot={plot} /> : null}
-        {nr.disturbed ? <Text size="xs" c="dimmed" mt={8}>{disturbedText(nr)}</Text> : null}
+        {nr.disturbed ? <Text size="xs" c="dimmed" mt={8}>{disturbedText(nr, false)}</Text> : null}
       </details>
     )
   }

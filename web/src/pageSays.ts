@@ -425,10 +425,13 @@ export function countText(l: ChangeList): string {
 }
 
 /** The disturbed-genome finding in one plain sentence, or nothing. */
-export function disturbedText(l: Pick<ChangeList, 'disturbed'>): string {
+export function disturbedText(l: Pick<ChangeList, 'disturbed'>, reported = true): string {
   if (!l.disturbed) return ''
   const { on, of } = l.disturbed
-  return `${Number.isFinite(on) ? `${on} of ${of}` : 'Many'} chromosomes carry a change: this cell's genome is widely disturbed.`
+  const n = Number.isFinite(on) ? `${on} of ${of}` : 'Many'
+  // On a sample not reportable nothing read is a change, so the sentence names none.
+  return reported ? `${n} chromosomes carry a change: this cell's genome is widely disturbed.`
+    : `${n} chromosomes read away from the rest: this cell's genome is widely disturbed.`
 }
 
 const ABSENCE_STEPS = new Set(['run', 'window', 'allele-scan'])

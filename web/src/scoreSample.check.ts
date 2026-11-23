@@ -921,5 +921,14 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   assert.equal(out.match(/\(not reported\)/g)?.length, nr.rows.length, 'every listed row marked not reported')
   assert.ok(out.includes('(not reportable)'), 'the summary column says not reportable')
   assert.ok(out.includes(`(${says.head.word})`), 'the bar is the headline word with no count after it')
+  // With no parent loaded the sample line names no parent.
+  const parentLine = async (x: typeof r) => Buffer.from(await (await buildReportPdf({
+    files: [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: x }],
+    donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+    tool: 'OriginMarker', reportId: 'CHECK', fromExamples: true,
+  } as never)).arrayBuffer()).toString('latin1')
+  const none = await parentLine({ ...r, noParent: true })
+  assert.ok(none.includes('(sample no parent loaded)') && !none.includes('vs sperm donor'), 'no parent is named with none loaded')
+  assert.ok((await parentLine(r)).includes('(sample vs sperm donor)'), 'a loaded father is still named')
   console.log('  the report carries the sex-chromosome line, and a sample not reportable states no change')
 }
