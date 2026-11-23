@@ -188,6 +188,7 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       }
       if (s.list.notReported) {
         const nr = s.list.notReported
+        out.seenWhose = nr.rows.map((g: any) => pageSays.whoseText(g))
         // Every sentence a card not reportable prints about the sample and its rows.
         out.notReportedTexts = [s.head.line, s.title, pageSays.figureNote(s.list, pageSays.drawnOf(res, s.defects)) ?? '',
           ...defectsMod.runAlerts(res).flatMap((a: any) => [a.headline, a.body]),
