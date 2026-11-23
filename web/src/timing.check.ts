@@ -104,3 +104,13 @@ const normal = unit([])
 }
 
 console.log('timing.check.ts OK: rule B1 with direction, parent and measured normal; one cell prints no origin')
+
+// --- THE REPORT'S TIMING TABLE PRINTS NO COORDINATES FOR A WHOLE ROW -----------------------------
+// A whole row's end is the chromosome's length only where a parent was loaded; with none it is 0.
+{
+  const { timingWhere } = await import('./syngamyPdf.ts')
+  const [[w, s]] = timeGroup([unit([ch('16', 'monosomy', 'unclear', 0, 0), ch('7', 'copy-loss', 'unclear', 5e6, 9e6, false)]), normal])
+  assert.equal(timingWhere(w), 'chr16, whole chromosome')
+  assert.equal(timingWhere(s), 'chr7 5.0-9.0Mb')
+  console.log('timing.check.ts: the report prints a whole row as the whole chromosome')
+}

@@ -182,6 +182,14 @@ function svgPolys(d: string): [number, number][][] {
   return polys
 }
 
+/**
+ * The Where cell of the timing table. A whole-chromosome row carries no coordinates: its end is the
+ * chromosome's length only where a parent was loaded, so printed it would read as a measured span.
+ */
+export const timingWhere = (u: { chrom: string; startBp: number; endBp: number; whole?: boolean }): string =>
+  (u.whole ? `chr${u.chrom}, whole chromosome`
+    : `chr${u.chrom} ${(u.startBp / 1e6).toFixed(1)}-${(u.endBp / 1e6).toFixed(1)}Mb`)
+
 export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const [W, H] = LETTER
   const L = 40
@@ -701,7 +709,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         table(
           [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
           r.uniformity.map((u) => [
-            `chr${u.chrom} ${(u.startBp / 1e6).toFixed(1)}-${(u.endBp / 1e6).toFixed(1)}Mb`,
+            timingWhere(u),
             { v: ORIGIN_WORD[u.mechanism] || 'not called', colour: u.mechanism === 'none' ? GREY : INK },
             { v: u.why, colour: GREY },
           ]),

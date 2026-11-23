@@ -1000,6 +1000,8 @@ export interface ParentageResult {
     startBp: number
     endBp: number
     kind: string
+    /** A whole-chromosome row: it carries no coordinates of its own. */
+    whole: boolean
     mechanism: import('./timing.ts').Mechanism
     why: string
   }[]

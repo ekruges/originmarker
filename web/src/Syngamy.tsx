@@ -796,7 +796,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             u.result.units = group.length
             u.result.embryo = gi
             u.result.uniformity = timed[i].map((e) => ({
-              chrom: e.chrom, startBp: e.startBp, endBp: e.endBp, kind: e.kind, mechanism: e.mechanism, why: e.why,
+              chrom: e.chrom, startBp: e.startBp, endBp: e.endBp, kind: e.kind, whole: e.whole, mechanism: e.mechanism, why: e.why,
             }))
             patch(u.id, { result: { ...u.result } })
             for (const m of u.result.uniformity) {
