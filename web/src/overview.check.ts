@@ -47,6 +47,13 @@ assert.equal(one.cen, 125e6, 'the p/q boundary is the one the whole-call rule re
   const mixed = overviewSampleOf(list([row([piece('copy-loss', 'meiotic'), piece('copy-loss', 'mitotic-not-all')])]),
     { stage: { stage: 'bulk' } })
   assert.equal(new Map(overviewTable([mixed], arms)).get('origin: pieces read differently'), 1)
+  // So is one call read by stretch, even where one of its stretches has no word.
+  const byStretch = overviewSampleOf(list([row([{ kind: 'copy-loss', startBp: 0, endBp: 249e6,
+    mechanismStretches: [{ mechanism: 'consistent-with-gamete' }, { mechanism: 'none' }] }])]), { stage: { stage: 'bulk' } })
+  assert.deepEqual(byStretch.rows[0].when, ['consistent with the gamete (two cells read)', 'not called'])
+  const tb = new Map(overviewTable([byStretch], arms))
+  assert.equal(tb.get('origin: pieces read differently'), 1)
+  assert.equal(tb.get('origin: consistent with the gamete (two cells read)'), 0)
 }
 
 // --- 3. NO EM DASH IN ANY LABEL ----------------------------------------------------------------

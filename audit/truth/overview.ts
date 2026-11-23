@@ -4,7 +4,8 @@
  *
  * A record is one line of audit/truth/run.ts output: `stage`, `refusals` and `card` (the result
  * card's counted rows with their pieces). Where the run grouped cells, a record also carries
- * `embryo` (its group) and each piece its `mechanism` (timing.ts), as the page attaches them.
+ * `embryo` (its group) and each piece its `mechanism` (timing.ts), as the page attaches them, or,
+ * where its stretches read differently, `stretches`: the mechanism of each stretch in order.
  * One invocation is one run. audit/truth/overview_check.py recounts the same records without this
  * code.
  *
@@ -24,7 +25,10 @@ const samples = process.argv.slice(2).flatMap((f) => readFileSync(f, 'utf8').spl
   .map((r) => overview.overviewSampleOf({
     counted: r.card.counted.map((g: any) => ({
       chrom: g.chrom, gain: g.gain, whole: g.whole, origin: g.origin, startBp: g.start, endBp: g.end,
-      pieces: g.pieces.map((p: any) => ({ kind: p.kind, startBp: p.start, endBp: p.end, mechanism: p.mechanism })),
+      pieces: g.pieces.map((p: any) => ({
+        kind: p.kind, startBp: p.start, endBp: p.end, mechanism: p.mechanism,
+        mechanismStretches: p.stretches?.map((m: string) => ({ mechanism: m })),
+      })),
     })),
     once: Array(r.card.once).fill(null),
     seen: [],

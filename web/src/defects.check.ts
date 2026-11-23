@@ -328,6 +328,18 @@ const one = (where: string, verdict: string) => ({
   assert.ok(!headline({ ...withOrigin, mechanism: undefined }).includes('gamete')
     && !headline({ ...withOrigin, mechanism: undefined }).includes('fertilisation'),
     'a single-unit run must not imply a timing it never measured')
+
+  // A change whose stretches read differently carries the stretches, never one word.
+  const st = [
+    { fromBp: row.startBp, toBp: 15e6, mechanism: 'consistent-with-gamete' as const, why: '2 of 2 units carry this loss, 0 read chromosome 7 normal' },
+    { fromBp: 15e6, toBp: row.endBp, mechanism: 'none' as const, why: '1 of 2 units carry this loss, 0 read chromosome 7 normal' },
+  ]
+  const parts = at('none', { stretches: st, why: 'its stretches read differently' })
+  assert.equal(parts.mechanism, undefined)
+  assert.deepEqual(parts.mechanismStretches, st)
+  assert.ok(headline(parts).endsWith(' · origin read by stretch'), headline(parts))
+  assert.equal(at('meiotic', { stretches: [{ ...st[0], mechanism: 'meiotic' }] }).mechanismStretches, undefined,
+    'one stretch, or stretches of one word, is one word')
 }
 
 // --- WHICH RUN FOUND A PARENTAL-ABSENCE SEGMENT IS WHOSE ALLELES ARE MISSING --------------------

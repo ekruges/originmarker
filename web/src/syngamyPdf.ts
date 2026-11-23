@@ -10,7 +10,7 @@
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
 import { BAND_WORD, KIND_WORD, runAlerts } from './defects.ts'
 import { unanswerable } from './abnormalities.ts'
-import { ORIGIN_WORD } from './timing.ts'
+import { split, stretchText, stretchWord, type Mechanism, type Stretch } from './timing.ts'
 import {
   pct,
   type ChromResult, type PairResult, type ParentageResult,
@@ -189,6 +189,15 @@ function svgPolys(d: string): [number, number][][] {
 export const timingWhere = (u: { chrom: string; startBp: number; endBp: number; whole?: boolean }): string =>
   (u.whole ? `chr${u.chrom}, whole chromosome`
     : `chr${u.chrom} ${(u.startBp / 1e6).toFixed(1)}-${(u.endBp / 1e6).toFixed(1)}Mb`)
+
+/** The timing table's lines: one per change, or one per stretch where its stretches read differently. */
+export function timingRows(uniformity: readonly {
+  chrom: string; startBp: number; endBp: number; whole?: boolean; mechanism: Mechanism; why: string; stretches?: Stretch[]
+}[]): { where: string; mechanism: Mechanism; why: string }[] {
+  return uniformity.flatMap((u) => (u.stretches && split(u.stretches)
+    ? u.stretches.map((s) => ({ where: `${timingWhere(u)}, ${stretchText(s)}`, mechanism: s.mechanism, why: s.why }))
+    : [{ where: timingWhere(u), mechanism: u.mechanism, why: u.why }]))
+}
 
 export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const [W, H] = LETTER
@@ -700,17 +709,19 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       if (r.uniformity?.length) {
         heading('Gamete-borne or post-fertilisation', 8.6)
         text('Whether a change was carried by the gamete or arose after fertilisation cannot be '
-          + 'read on one cell. Across the units of one embryo: a change every unit carries, same '
-          + 'direction and parent, is from the gamete with three units or more and only consistent '
-          + 'with it with two; one unit gaining what another loses, or a change some units carry '
-          + 'while another reads that chromosome normal, arose after fertilisation. The units were '
-          + 'grouped by genotype concordance rather than by their labels.',
+          + 'read on one cell. Across the units of one embryo, read on each stretch between the '
+          + 'breakpoints of all its cells: a change every unit carries, same direction and parent, '
+          + 'is from the gamete with three units or more and only consistent with it with two; one '
+          + 'unit gaining what another loses, or a change some units carry while another reads that '
+          + 'stretch normal, arose after fertilisation. A change over stretches that read '
+          + 'differently has a line for each. The units were grouped by genotype concordance rather '
+          + 'than by their labels.',
         7.4, 'Helvetica', 2.4, GREY)
         table(
           [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
-          r.uniformity.map((u) => [
-            timingWhere(u),
-            { v: ORIGIN_WORD[u.mechanism] || 'not called', colour: u.mechanism === 'none' ? GREY : INK },
+          timingRows(r.uniformity).map((u) => [
+            u.where,
+            { v: stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
             { v: u.why, colour: GREY },
           ]),
         )

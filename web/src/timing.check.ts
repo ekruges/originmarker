@@ -1,6 +1,9 @@
 // Self-check for rule B1, when a change arose across the units of one embryo. Run: node src/timing.check.ts
 import assert from 'node:assert/strict'
-import { callMechanism, ORIGIN_WORD, readingOf, timeGroup, type UnitChange, type UnitReading } from './timing.ts'
+import {
+  callMechanism, ORIGIN_WORD, readingOf, SAME_BREAK_BP, split, stretchesOf, stretchText, stretchWord, timeGroup, TO_END,
+  type UnitChange, type UnitReading,
+} from './timing.ts'
 
 const ch = (chrom: string, kind: string, origin = 'unclear', startBp = 0, endBp = 100e6, whole = true): UnitChange =>
   ({ chrom, startBp, endBp, kind, origin, whole })
@@ -58,13 +61,20 @@ const normal = unit([])
   assert.equal(call(units, 1).mechanism, 'mitotic-reciprocal')
   assert.equal(ORIGIN_WORD['mitotic-reciprocal'], 'after fertilisation')
   assert.ok(call(units).why.includes('opposite change'))
-  // Over an overlapping interval only.
+  // Over the same stretch only: apart, each cell reads the other's stretch normal.
   const apart = [unit([ch('1', 'copy-gain', 'unclear', 1e6, 10e6, false)]),
     unit([ch('1', 'copy-loss', 'unclear', 50e6, 60e6, false)])]
-  assert.equal(call(apart).mechanism, 'none')
+  assert.equal(call(apart).mechanism, 'mitotic-not-all')
+  assert.equal(call(apart, 1).mechanism, 'mitotic-not-all')
   // A gain and a loss in ONE cell are not a pair of daughter cells.
-  const own = [unit([ch('1', 'copy-gain'), ch('1', 'parental-absence')]), unit([ch('1', 'copy-gain')])]
-  assert.equal(call(own).mechanism, 'consistent-with-gamete')
+  const own = [unit([ch('1', 'copy-gain'), ch('1', 'parental-absence')]), unit([], { reportable: false })]
+  assert.equal(call(own).mechanism, 'none')
+  assert.equal(call(own, 0, 1).mechanism, 'none')
+  // But where a second cell carries the loss, the gain in the first faces it: reciprocal, and read
+  // once for the embryo, so the first cell's loss and the second's read the same.
+  const faced = [unit([ch('1', 'copy-gain'), ch('1', 'parental-absence')]), unit([ch('1', 'copy-loss')])]
+  assert.equal(call(faced, 0, 1).mechanism, 'mitotic-reciprocal')
+  assert.equal(call(faced, 1).mechanism, 'mitotic-reciprocal')
 }
 
 // --- 6. "ABSENT" NEEDS A REPORTABLE CELL THAT READS THE CHROMOSOME NORMAL ----------------------
@@ -74,14 +84,17 @@ const normal = unit([])
   assert.ok(call([g, normal, normal]).why.startsWith('1 of 3 units carry this gain, 2 read chromosome 21 normal'))
   assert.equal(call([g, unit([], { reportable: false })]).mechanism, 'none', 'an unreportable cell reads nothing normal')
   assert.equal(call([g, unit([], { measured: ['1'] })]).mechanism, 'none', 'an unmeasured chromosome is not normal')
-  assert.equal(call([g, unit([ch('21', 'cnn-loh', 'unclear', 5e6, 9e6, false)])]).mechanism, 'none',
-    'a piece of any kind on it is not normal')
+  const f = [g, unit([ch('21', 'cnn-loh', 'unclear', 5e6, 9e6, false)])]
+  assert.equal(call(f).mechanism, 'none', 'a piece of any kind is not normal where it lies')
+  assert.deepEqual(stretchesOf(f[0].changes[0], f).map((s) => [s.fromBp, s.toBp, s.mechanism]),
+    [[0, 5e6, 'mitotic-not-all'], [5e6, 9e6, 'none'], [9e6, TO_END, 'mitotic-not-all']])
 }
 
 // --- 7. PIECES OVERLAP; A WHOLE ROW SPANS ITS CHROMOSOME ---------------------------------------
 {
   const p = (a: number, b: number) => ch('7', 'copy-loss', 'unclear', a, b, false)
-  assert.equal(call([unit([p(5e6, 25e6)]), unit([p(4.8e6, 25.2e6)]), unit([p(6e6, 30e6)])]).mechanism, 'meiotic')
+  assert.equal(call([unit([p(5e6, 25e6)]), unit([p(4.8e6, 25.2e6)]), unit([p(5.5e6, 25.6e6)])]).mechanism, 'meiotic',
+    'edges under 1 Mb apart are one breakpoint')
   assert.equal(call([unit([p(5e6, 25e6)]), unit([ch('7', 'copy-loss', 'unclear', 0, 0, true)])]).mechanism,
     'consistent-with-gamete', 'a whole row with no recorded extent still covers the piece')
 }
@@ -103,7 +116,58 @@ const normal = unit([])
   assert.equal(timed[1][0].kind, 'copy-loss')
 }
 
-console.log('timing.check.ts OK: rule B1 with direction, parent and measured normal; one cell prints no origin')
+// --- 9. ONE STRETCH, ONE WORD IN EVERY CELL (D5) ------------------------------------------------
+{
+  // The S2 rows 96 and 97 shape: one cell loses chromosome 17 whole, its sister loses 0 to 52.6 Mb
+  // and gains 52.6 to 78.4 Mb, both limited (so neither reads a stretch normal). Edges a few kb from
+  // the chromosome start and from each other are one breakpoint.
+  const whole = unit([ch('17', 'copy-loss', 'unclear', 0, 0, true)], { reportable: false })
+  const parts = unit([ch('17', 'copy-loss', 'unclear', 6157, 52_598_275, false),
+    ch('17', 'copy-gain', 'unclear', 52_618_539, 78_359_420, false)], { reportable: false })
+  const [[w], [l, g]] = timeGroup([whole, parts])
+  assert.equal(w.mechanism, 'none', 'a whole call over stretches that read differently states no one word')
+  assert.equal(w.why, 'its stretches read differently')
+  assert.deepEqual(w.stretches.map((s) => [stretchText(s), stretchWord(s)]), [
+    ['0.0 to 52.6 Mb', 'consistent with the gamete (two cells read)'],
+    ['52.6 to 78.4 Mb', 'after fertilisation'],
+    ['78.4 Mb to the end', 'not called'],
+  ])
+  assert.equal(l.mechanism, 'consistent-with-gamete')
+  assert.equal(l.stretches.length, 1)
+  assert.equal(g.mechanism, 'mitotic-reciprocal')
+  assert.ok(split(w.stretches) && !split(l.stretches))
+  // Every stretch prints one word whichever cell it is read from.
+  const word = (t: typeof w, at: number) => t.stretches.find((s) => s.fromBp <= at && at < s.toBp)?.mechanism
+  for (const at of [1e6, 30e6, 60e6]) {
+    const here = [w, l, g].map((t) => word(t, at)).filter(Boolean)
+    assert.equal(new Set(here.map((m) => ORIGIN_WORD[m!])).size, 1, `one word at ${at}`)
+  }
+}
+
+// --- 10. NEAR-EQUAL BREAKPOINTS ARE ONE, AND THE JOIN IS NOT WIDER THAN IT SAYS ---------------------
+{
+  const p = (a: number, b: number) => ch('7', 'copy-loss', 'unclear', a, b, false)
+  const near = [unit([p(10e6, 40e6)]), unit([p(10e6 + SAME_BREAK_BP - 1, 40e6)])]
+  assert.deepEqual(stretchesOf(near[0].changes[0], near).map((s) => s.mechanism), ['consistent-with-gamete'])
+  const far = [unit([p(10e6, 40e6)]), unit([p(10e6 + SAME_BREAK_BP, 40e6)])]
+  assert.deepEqual(stretchesOf(far[0].changes[0], far).map((s) => [s.fromBp, s.mechanism]),
+    [[10e6, 'mitotic-not-all'], [11e6, 'consistent-with-gamete']])
+  // A call shorter than the join is read over its own extent.
+  const tiny = [unit([p(20e6, 20.4e6)]), unit([p(20.1e6, 20.5e6)])]
+  assert.deepEqual(stretchesOf(tiny[0].changes[0], tiny).map((s) => [s.fromBp, s.toBp, s.mechanism]),
+    [[20e6, 20.4e6, 'consistent-with-gamete']])
+}
+
+// --- 11. PARENTS ARE READ ONCE FOR THE EMBRYO --------------------------------------------------
+{
+  // A cell naming no parent no longer reads "from the gamete" while two others name different ones.
+  const m = (o: string) => unit([ch('13', 'copy-loss', o)])
+  const units = [m('maternal'), m('unclear'), m('paternal')]
+  assert.deepEqual(units.map((_, i) => call(units, i).mechanism), ['none', 'none', 'none'])
+  assert.ok(call(units, 1).why.includes('they name different parents'))
+}
+
+console.log('timing.check.ts OK: rule B1 read per stretch of the embryo, with direction, parent and measured normal; one cell prints no origin')
 
 // --- THE REPORT'S TIMING TABLE PRINTS NO COORDINATES FOR A WHOLE ROW -----------------------------
 // A whole row's end is the chromosome's length only where a parent was loaded; with none it is 0.
@@ -113,4 +177,26 @@ console.log('timing.check.ts OK: rule B1 with direction, parent and measured nor
   assert.equal(timingWhere(w), 'chr16, whole chromosome')
   assert.equal(timingWhere(s), 'chr7 5.0-9.0Mb')
   console.log('timing.check.ts: the report prints a whole row as the whole chromosome')
+}
+
+// --- THE OPENED ROW AND THE REPORT GIVE EACH STRETCH ITS OWN LINE -----------------------------------
+{
+  const { timingRows } = await import('./syngamyPdf.ts')
+  const { whenLines } = await import('./pageSays.ts')
+  const whole = unit([ch('17', 'copy-loss', 'unclear', 0, 0, true)], { reportable: false })
+  const parts = unit([ch('17', 'copy-loss', 'unclear', 6157, 52_598_275, false),
+    ch('17', 'copy-gain', 'unclear', 52_618_539, 78_359_420, false)], { reportable: false })
+  const [[w], [l]] = timeGroup([whole, parts])
+  const rows = timingRows([w, l])
+  assert.deepEqual(rows.map((r) => r.where), [
+    'chr17, whole chromosome, 0.0 to 52.6 Mb', 'chr17, whole chromosome, 52.6 to 78.4 Mb',
+    'chr17, whole chromosome, 78.4 Mb to the end', 'chr17 0.0-52.6Mb'])
+  assert.deepEqual(rows.map((r) => r.mechanism), ['consistent-with-gamete', 'mitotic-reciprocal', 'none', 'consistent-with-gamete'])
+  const lines = whenLines({ pieces: [{ mechanismStretches: w.stretches }] } as never)
+  assert.equal(lines.length, 3)
+  assert.ok(lines[0].startsWith('When it arose, 0.0 to 52.6 Mb: consistent with the gamete (two cells read). 2 of 2 units'), lines[0])
+  assert.ok(lines[2].startsWith('When it arose, 78.4 Mb to the end: not called.'), lines[2])
+  assert.deepEqual(whenLines({ pieces: [{ mechanism: l.mechanism, mechanismWhy: l.why }] } as never),
+    [`When it arose: consistent with the gamete (two cells read). ${l.why}.`])
+  console.log('timing.check.ts: a call read by stretch gets one line per stretch in the opened row and the report')
 }

@@ -2429,12 +2429,15 @@ export function SyngamyDocsPage({ health }: { health: Health | null }) {
             declare the grouping would have been easier and worse, since a mislabelled group
             produces a confidently wrong answer about mechanism, and the separation here is
             forty-one points wide. Where two or more units are found, each change is read against
-            the others. Every unit carrying it, same direction and same parent where both name
-            one: from the gamete with three units or more, consistent with the gamete with two,
-            because two cells can share an error made at the first division. One unit gaining what
-            another loses, or a change some units carry while another reads that chromosome
-            measured normal: after fertilisation. Anything else, and any single cell, prints no
-            origin word. Each call states how many units carry it and how many read normal.
+            the others, stretch by stretch: the breakpoints of all the cells of the embryo cut each
+            chromosome, so one stretch reads the same in every cell. Every unit carrying it, same
+            direction and same parent where both name one: from the gamete with three units or
+            more, consistent with the gamete with two, because two cells can share an error made at
+            the first division. One unit gaining what another loses, or a change some units carry
+            while another reads that stretch measured normal: after fertilisation. Anything else,
+            and any single cell, prints no origin word. A change over stretches that read
+            differently gives each stretch its own word. Each call states how many units carry it
+            and how many read normal.
           </Text>
         </Section>
 

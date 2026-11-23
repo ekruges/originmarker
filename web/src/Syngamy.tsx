@@ -61,7 +61,7 @@ import {
   PARENT_SENTENCE, readAgainst, WORD, type ChangeList,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
-import { ORIGIN_WORD, readingOf, timeGroup } from './timing'
+import { ORIGIN_WORD, originText, readingOf, split, stretchText, timeGroup } from './timing'
 import { stageFacts } from './stage'
 import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
@@ -355,7 +355,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
         origin: d.origin, band: d.band, confidence: d.confidence,
         inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
-        why: d.why, word: WORD[kindOf(d, says.setup)],
+        why: d.why, word: WORD[kindOf(d, says.setup)], when: originText(d),
       })),
       }
     })
@@ -797,11 +797,14 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             u.result.embryo = gi
             u.result.uniformity = timed[i].map((e) => ({
               chrom: e.chrom, startBp: e.startBp, endBp: e.endBp, kind: e.kind, whole: e.whole, mechanism: e.mechanism, why: e.why,
+              stretches: e.stretches,
             }))
             patch(u.id, { result: { ...u.result } })
             for (const m of u.result.uniformity) {
-              log(m.mechanism === 'none' ? 'WARN' : 'DONE',
-                `timing chr${m.chrom}: ${ORIGIN_WORD[m.mechanism] || 'no origin'}. ${m.why}`)
+              for (const s of m.stretches) {
+                log(s.mechanism === 'none' ? 'WARN' : 'DONE', `timing chr${m.chrom}`
+                  + `${split(m.stretches) ? ` ${stretchText(s)}` : ''}: ${ORIGIN_WORD[s.mechanism] || 'no origin'}. ${s.why}`)
+              }
             }
           })
         })

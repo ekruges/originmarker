@@ -23,6 +23,7 @@ import {
   defectsFrom, findingToDefect, KIND_WORD, mendelParent, parentNamed, withMechanism, type Defect,
 } from './defects.ts'
 import { segmentCoords } from './segments.ts'
+import { ORIGIN_WORD, stretchText, stretchWord } from './timing.ts'
 
 export type Parent = 'paternal' | 'maternal'
 
@@ -429,6 +430,15 @@ export function changesText(l: ChangeList): string {
 }
 
 const mb1 = (bp: number): string => (bp / 1e6).toFixed(1)
+
+/**
+ * When it arose, with the units it was read on, where units of the same embryo were read. A change
+ * whose stretches read differently gets one line per stretch, a stretch with no word included, so
+ * no word reads as covering the whole change.
+ */
+export const whenLines = (g: ChangeRow): string[] => [...new Set(g.pieces.flatMap((p) => (p.mechanismStretches
+  ? p.mechanismStretches.map((s) => `When it arose, ${stretchText(s)}: ${stretchWord(s)}. ${s.why}.`)
+  : p.mechanism && ORIGIN_WORD[p.mechanism] ? [`When it arose: ${ORIGIN_WORD[p.mechanism]}. ${p.mechanismWhy ?? ''}.`] : [])))]
 
 /** Whose, in words. */
 export function whoseText(g: ChangeRow): string {

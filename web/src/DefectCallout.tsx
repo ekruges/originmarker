@@ -13,11 +13,10 @@
 import { useState, type ReactNode } from 'react'
 import { Text } from '@mantine/core'
 import {
-  disturbedText, KIND_SAYS, lrrText, locusText, measuredSentence, pairText, spanMb, whereText, whoseText,
+  disturbedText, KIND_SAYS, lrrText, locusText, measuredSentence, pairText, spanMb, whenLines, whereText, whoseText,
   type ChangeList, type ChangeRow, type Setup,
 } from './pageSays.ts'
 import { sentences } from './defects.ts'
-import { ORIGIN_WORD } from './timing.ts'
 
 const strong = (g: ChangeRow): boolean => g.word === 'found two ways' || g.word === 'consistent'
   || g.word === 'position only'
@@ -33,9 +32,7 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
   // An arm-level piece has no measured edge or extent inside its arm, so its size cell names the
   // arm rather than printing the piece's span, which would read as a measured length.
   const arm = g.pieces.find((p) => p.arm)?.arm
-  // When it arose, with the units it was read on, where units of the same embryo were read.
-  const when = [...new Set(g.pieces.filter((p) => p.mechanism && ORIGIN_WORD[p.mechanism])
-    .map((p) => `When it arose: ${ORIGIN_WORD[p.mechanism!]}. ${p.mechanismWhy ?? ''}.`))]
+  const when = whenLines(g)
   return (
     <div style={{
       border: open ? '1px solid var(--om-border-strong)' : loud ? '1px solid var(--om-defect)' : '1px solid transparent',

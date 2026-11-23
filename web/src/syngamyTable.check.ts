@@ -89,7 +89,8 @@ const ch = (over: Partial<import('./syngamyTable.ts').TableChange> = {}) => ({
   const s: TableSample = {
     name: 'E', headline: 'ANDROGENETIC', originClass: 'androgenetic', zygosity: 'uniparental_homozygous', role: 'paternal',
     stage: 'esc-single', informative: 580_133,
-    changes: [ch({ origin: 'paternal', band: 'inherited', inheritedMargin: 2.8, why: 'because', word: 'consistent' })],
+    changes: [ch({ origin: 'paternal', band: 'inherited', inheritedMargin: 2.8, why: 'because', word: 'consistent',
+      when: 'after fertilisation' })],
   }
   const [head, row] = syngamyTable([s]).trim().split('\n')
   assert.equal(head.split('\t').length, COLUMNS.length)
@@ -98,6 +99,24 @@ const ch = (over: Partial<import('./syngamyTable.ts').TableChange> = {}) => ({
   assert.deepEqual([...blank], ['confidence'],
     `only the suppressed confidence should be blank on a fully populated row, got ${blank}`)
   console.log('  a fully populated row fills every column but the deliberately suppressed one')
+}
+
+// --- 6. WHEN IT AROSE, AS THE PAGE SAYS IT, PER STRETCH WHERE THE STRETCHES DIFFER ------------------
+{
+  const { originText } = await import('./timing.ts')
+  const col = COLUMNS.indexOf('when_it_arose')
+  const one = originText({ mechanism: 'consistent-with-gamete' })
+  const parts = originText({ mechanismStretches: [
+    { fromBp: 0, toBp: 52.6e6, mechanism: 'consistent-with-gamete', why: '' },
+    { fromBp: 52.6e6, toBp: 78.4e6, mechanism: 'mitotic-reciprocal', why: '' },
+    { fromBp: 78.4e6, toBp: Number.MAX_SAFE_INTEGER, mechanism: 'none', why: '' },
+  ] })
+  const got = syngamyTable([{ name: 'F', changes: [ch({ when: one }), ch({ when: parts }), ch()] }])
+    .trim().split('\n').slice(1).map((r) => r.split('\t')[col])
+  assert.deepEqual(got, ['consistent with the gamete (two cells read)',
+    '0.0 to 52.6 Mb: consistent with the gamete (two cells read); 52.6 to 78.4 Mb: after fertilisation; '
+      + '78.4 Mb to the end: not called', ''])
+  console.log('  when_it_arose carries the page\'s words, stretch by stretch where they differ')
 }
 
 console.log('syngamyTable: joinable, and it cannot be miscounted as independent determinations')

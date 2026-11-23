@@ -9,7 +9,7 @@
  * records without this file.
  */
 import type { ChangeList } from './pageSays.ts'
-import { directionOf, ORIGIN_WORD } from './timing.ts'
+import { directionOf, ORIGIN_WORD, stretchWord } from './timing.ts'
 import { armBoundary } from './wholeArms.ts'
 
 /** One counted row of a result card, as the overview reads it. */
@@ -20,7 +20,8 @@ export interface OverviewRow {
   startBp: number
   endBp: number
   origin: string
-  /** The origin words printed on the row's changes, one entry per distinct word; empty for none. */
+  /** The origin words printed on the row's changes, one entry per distinct word; empty for none. A
+   *  change read by stretch adds each stretch's word, "not called" for a stretch with none. */
   when: string[]
   /** The row's pieces, so a harness can attach the timing of each as the page does. */
   pieces: { startBp: number; endBp: number; kind: string }[]
@@ -61,7 +62,10 @@ export function overviewSampleOf(
       startBp: g.startBp,
       endBp: g.endBp,
       origin: g.origin,
-      when: [...new Set(g.pieces.map((p) => (p.mechanism ? ORIGIN_WORD[p.mechanism] : '')).filter(Boolean))],
+      // A change whose stretches read differently carries each stretch's word, "not called" included,
+      // so it is counted as read differently and never under one word.
+      when: [...new Set(g.pieces.flatMap((p) => (p.mechanismStretches ? p.mechanismStretches.map(stretchWord)
+        : p.mechanism && ORIGIN_WORD[p.mechanism] ? [ORIGIN_WORD[p.mechanism]] : [])))],
       pieces: g.pieces.map((p) => ({ startBp: p.startBp, endBp: p.endBp, kind: p.kind })),
     })),
     once: list.once.length,

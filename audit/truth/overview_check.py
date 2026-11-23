@@ -94,7 +94,9 @@ def recount(records):
     want["samples in no embryo group"] = sum(r.get("embryo") is None for r in recs)
     for k in set(sizes.values()):
         want[f"embryos of {k} units"] = sum(v == k for v in sizes.values())
-    said = lambda g: {WORDS[p["mechanism"]] for p in g["pieces"] if p.get("mechanism") in WORDS}
+    # A piece read by stretch carries "stretches"; a stretch with no origin reads "not called".
+    said = lambda g: ({WORDS.get(s, "not called") for p in g["pieces"] for s in p.get("stretches") or []}
+                      | {WORDS[p["mechanism"]] for p in g["pieces"] if not p.get("stretches") and p.get("mechanism") in WORDS})
     for w in ("from the gamete", "consistent with the gamete (two cells read)", "after fertilisation"):
         want["origin: " + w] = sum(said(g) == {w} for g in changes)
     want["origin: pieces read differently"] = sum(len(said(g)) > 1 for g in changes)
