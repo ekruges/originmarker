@@ -9,6 +9,37 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.24.0 "Euploid"
+
+**A change is a gain or a loss.** With no parent loaded the result card counted every row as a
+change, so a copy-neutral row such as a segment from one parent only was a change on the card and
+a finding in the overview: Table S2 row 97 read "8 changes" over the overview's 7 changes and 1
+finding. The card now counts its gains and losses as changes and names the other rows as
+findings ("HAPLOID · 7 changes · 1 finding"), by the one direction the overview counts with. The
+report's bar reads the same. Which rows are counted, seen once or also seen does not change.
+
+**A sample that cannot be reported shows no result.** The overview already counted such a sample
+and took no change from it, while its card could read "2 changes" above "DAMAGED SAMPLE". The
+card now prints no count and the line "Not reportable, so no change is reported."; what was read
+on it is kept, closed, under "Seen on this array, not reported", each row marked not reported on
+the card, the figure, the changes download and the report. Where the genome is too disturbed to
+reference, the notice says the positions stand and that no gain or loss is reported because the
+cell's normal level cannot be told.
+
+**The report carries the sex-chromosome line** the page prints, its constitution and its reason,
+so "47,XXY or a mix of cells" is no longer on the card and missing from the report.
+
+**No parent is named where none was loaded.** The changes download wrote `loaded_parent:
+maternal` on a run with no parent, and the report's line above each sample read against a sperm
+donor. Both are now empty of a parent; a run with the mother alone names her.
+
+Measured on 853 records (330 answer-key rows with no parent, 252 open rows with a parent, 271
+laboratory rows): the card's changes and findings equal the overview's on every one; every
+overview table recounts with 0 mismatches and is unchanged; the 172 samples not reportable print
+no change anywhere, their 758 rows and 878 download rows all marked not reported; the report
+carries the sex line on all 36 cells read 47,XXY or a mix of cells; no call, coordinate, sex field
+or origin word moves; the validation suite does not move.
+
 ## 6.23.0 "Chromosome Arm"
 
 **A whole-chromosome call stands only where each arm carries it.** The whole-chromosome test reads
