@@ -1,6 +1,6 @@
 # OriginMarker runtime. panelbuilder/genetic_map are stdlib-only by design (urllib,
 # not requests) - everything below is the web/export/NL layer on top of them.
-fastapi==0.162.5
+fastapi==0.165.0
 uvicorn[standard]==0.54.0
 
 # app/exports.py
