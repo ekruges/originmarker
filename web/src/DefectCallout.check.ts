@@ -177,3 +177,33 @@ console.log('DefectCallout.check.ts: one-parent mapping pinned in both parent ro
 }
 
 console.log('DefectCallout.check.ts: decimals survive sentence splitting')
+
+// --- 7. an arm-level row's size cell names the arm, not a span -----------------------------------
+//
+// An arm-level piece has no measured edge or extent inside its arm, so a span in Mb in the
+// collapsed row would read as a measured length. Node strips types but not JSX, so the component is
+// loaded through vite (see PanelTable.check.ts); keep this section free of JSX.
+{
+  const { createElement: h } = await import('react')
+  const { renderToStaticMarkup } = await import('react-dom/server')
+  const { MantineProvider } = await import('@mantine/core')
+  const { createServer } = await import('vite')
+  const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
+  const { DefectCallout } = await vite.ssrLoadModule('/src/DefectCallout.tsx')
+  await vite.close()
+  const piece = (arm?: 'p' | 'q') => ({
+    chrom: '16', startBp: 0, endBp: 36_500_000, kind: 'copy-loss', locus: 'chr16:1-36,500,000',
+    origin: 'unclear', why: '', ...(arm ? { arm } : {}),
+  })
+  const row = (arm?: 'p' | 'q') => ({
+    chrom: '16', gain: false, origin: 'unclear', call: 'run-only', word: 'one reading',
+    pieces: [piece(arm)], whole: false, startBp: 0, endBp: 36_500_000,
+  })
+  const render = (arm?: 'p' | 'q') => renderToStaticMarkup(h(MantineProvider, null,
+    h(DefectCallout, { list: { counted: [row(arm)], once: [], seen: [] }, setup: 'two' })))
+  const armed = render('p')
+  assert.ok(armed.includes('16p, arm-level'), 'an arm-level row names its arm')
+  assert.ok(!armed.includes('>36.5 Mb<'), 'an arm-level row prints no span')
+  assert.ok(render().includes('>36.5 Mb<'), 'a placed piece still prints its span')
+  console.log('DefectCallout.check.ts: an arm-level row names its arm instead of a span')
+}

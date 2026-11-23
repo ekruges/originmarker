@@ -30,6 +30,9 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
   const loud = strong(g)
   const why = [...new Set(g.pieces.flatMap((p) => sentences(p.why ?? '')))].join(' ')
   const figure = open ? plot?.(g) : null
+  // An arm-level piece has no measured edge or extent inside its arm, so its size cell names the
+  // arm rather than printing the piece's span, which would read as a measured length.
+  const arm = g.pieces.find((p) => p.arm)?.arm
   // When it arose, with the units it was read on, where units of the same embryo were read.
   const when = [...new Set(g.pieces.filter((p) => p.mechanism && ORIGIN_WORD[p.mechanism])
     .map((p) => `When it arose: ${ORIGIN_WORD[p.mechanism!]}. ${p.mechanismWhy ?? ''}.`))]
@@ -50,8 +53,8 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
         <span style={{ fontFamily: 'var(--om-mono)', fontSize: 12, fontWeight: loud ? 600 : 400, whiteSpace: 'nowrap' }}>
           {g.chrom === 'genome' ? 'genome' : `chr${g.chrom}`}
         </span>
-        <span style={{ fontFamily: 'var(--om-mono)', fontSize: 12, fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
-          {g.whole ? 'whole' : `${spanMb(g)} Mb`}
+        <span style={{ fontFamily: 'var(--om-mono)', fontSize: 12, fontVariantNumeric: 'tabular-nums', whiteSpace: arm ? 'normal' : 'nowrap' }}>
+          {g.whole ? 'whole' : arm ? `${g.chrom}${arm}, arm-level` : `${spanMb(g)} Mb`}
         </span>
         <span style={{ fontSize: 12 }}>{whoseText(g)}</span>
         <span style={{ fontSize: 11, fontWeight: loud ? 700 : 400, color: loud ? 'var(--om-defect)' : undefined, whiteSpace: 'nowrap' }}>
