@@ -607,7 +607,9 @@ export const inPar = (pos: number, build: string | null): boolean =>
   (PAR[build ?? ''] ?? []).some(([a, b]) => pos >= a && pos <= b)
 
 const AUTOSOME = /^(?:[1-9]|1[0-9]|2[0-2])$/
-export const isAutosome = (c: string): boolean => AUTOSOME.test(c)
+/** The strings AUTOSOME matches, so the test per marker is a lookup; anything else takes the regex. */
+const AUTOSOME_NAMES = new Set(Array.from({ length: 22 }, (_, i) => String(i + 1)))
+export const isAutosome = (c: string): boolean => (typeof c === 'string' ? AUTOSOME_NAMES.has(c) : AUTOSOME.test(c))
 
 /**
  * The highest absence rate a TRUE parent-offspring pair can produce by noise alone.
