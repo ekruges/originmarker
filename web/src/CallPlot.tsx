@@ -828,7 +828,8 @@ export function withheldMark(sg: Segment, loaded: Role | null): Mark {
 export function defectMark(
   d: Defect, segments: readonly Segment[], loaded: Role | null, endBp: number | undefined, deeper?: boolean,
 ): Mark | null {
-  if (d.chrom === 'genome') return null
+  // The figure has no X track: a sex-chromosome row is read on the card and in the report.
+  if (d.chrom === 'genome' || d.step === 'sex') return null
   const lines = [`${d.locus}${d.interval ? ` ${d.interval}` : ''}`,
     ...(d.informative !== undefined ? [`${d.informative.toLocaleString('en-US')} markers`] : []), d.why]
   const origin = d.origin
