@@ -442,9 +442,13 @@ export function rowSays(g: ChangeRow, setup: Setup): string {
   return `${KIND_SAYS[g.call]} ${measuredSentence(g.call, setup)}`.trim()
 }
 
+/** Where a piece seen on a sample not reportable lies; an arm piece names its arm, with no call. */
+export const seenLocus = (p: Pick<Defect, 'locus' | 'chrom' | 'arm'>): string =>
+  (p.arm ? `${p.locus}, the ${p.chrom}${p.arm} arm: its edge and its extent inside the arm are not placed` : p.locus)
+
 /** One piece's detail line; on a row not reported, its place and intensity only. */
 export const pieceText = (p: Defect, g: ChangeRow): string =>
-  (g.word === 'not reported' ? [locusText(p), lrrText(p)] : [locusText(p), pairText(p), lrrText(p)])
+  (g.word === 'not reported' ? [seenLocus(p), lrrText(p)] : [locusText(p), pairText(p), lrrText(p)])
     .filter(Boolean).join(' · ')
 
 /** A figure mark's words on a sample not reportable: what was seen, and that it is not reported. */
@@ -485,6 +489,20 @@ export function figureNote(l: ChangeList, drawn: { listed: number; withheld: num
   const { changes, findings } = cardCounts(l)
   return `${head} The card counts ${plural(changes, 'change')} and ${plural(findings, 'finding')}; `
     + 'the rest are drawn as outlines and say on their own line why they are not counted.'
+}
+
+/**
+ * A sample in the fewest words, as the report's summary prints it: its changes and the stretches
+ * seen once, and apart from them its findings, by the card's own split (rowDirection).
+ */
+export function summaryParts(l: ChangeList): { changes: string; findings: string } {
+  const short = (g: ChangeRow): string => `chr${g.chrom} ${g.whole ? 'whole' : `${spanMb(g)}Mb`} ${whoseText(g)}`
+  return {
+    changes: [...l.counted.filter((g) => rowDirection(g) !== 'none').map(short),
+      ...(l.once.length ? [`${l.once.length} more seen once`] : [])].join(', '),
+    findings: [...l.counted.filter((g) => rowDirection(g) === 'none').map(short),
+      ...(l.disturbed ? ['genome widely disturbed'] : [])].join(', '),
+  }
 }
 
 /** The disturbed-genome finding in one plain sentence, or nothing. */
@@ -532,7 +550,7 @@ function mergeDoubled(rows: ChangeRow[]): ChangeRow[] {
 /**
  * What the change list reads: the autosomes. The sex chromosomes are read on their own line
  * (sexLine); a chrX row reaches the list only where a loaded parent's X reads absent with no chrY
- * called (parentage.ts), and the no-change sentence is printed only where the list counts nothing.
+ * called (parentage.ts), which no record of the answer key or the laboratory rows shows.
  */
 export const LIST_SCOPE = 'chromosomes 1 to 22'
 
@@ -542,7 +560,7 @@ export function changesText(l: ChangeList): string {
   const { changes: n, findings } = cardCounts(l)
   const once = l.once.length
   // Scoped to what the list reads, so it cannot contradict the sex-chromosome line beside it.
-  return `${n ? `${plural(n, 'change')} found` : `No gain or loss found on ${LIST_SCOPE}`}${findings ? `, ${plural(findings, 'finding')}` : ''}`
+  return `${n ? `${plural(n, 'change')} found` : 'No gain or loss found'} on ${LIST_SCOPE}${findings ? `, ${plural(findings, 'finding')}` : ''}`
     + `${once ? `; ${once} more stretch${once === 1 ? '' : 'es'} seen once, not confirmed` : ''}.`
 }
 
@@ -630,7 +648,7 @@ export function saidOf(d: Defect): string | undefined {
 /** The cells of one row of the PDF's change table: where, whose, word, then coordinates and signal. */
 export function pdfCells(g: ChangeRow, setup: Setup): [string, string, string, string] {
   const seen = g.word === 'not reported'
-  const pieces = g.whole ? '' : g.pieces.map((p) => [`${p.locus}${p.interval ? ` (edges ${p.interval})` : ''}`,
+  const pieces = g.whole ? '' : g.pieces.map((p) => [seen ? seenLocus(p) : `${p.locus}${p.interval ? ` (edges ${p.interval})` : ''}`,
     seen ? '' : pairText(p), lrrText(p)].filter(Boolean).join(', ')).join('; ')
   return [whereText(g), whoseText(g), g.word,
     [pieces, seen ? NOT_REPORTED_SAYS : measuredSentence(g.call, setup)].filter(Boolean).join('. ')]

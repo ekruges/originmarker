@@ -123,5 +123,9 @@ console.log('syngamyTable: joinable, and it cannot be miscounted as independent 
   assert.deepEqual(col(nr, 'class'), ['lower than the rest of this array'])
   assert.deepEqual(col(nr, 'parent'), [''])
   assert.deepEqual(col(nr, 'evidence'), ['Not reported: this sample is not reportable.'])
+  const armSays = { setup: 'none', head: { word: 'SINGLE CELL' }, defects: [{ ...(d as object), arm: 'p' }],
+    list: changeList([{ ...(d as object), arm: 'p' } as never], 'none', false) } as never
+  const armRow = col(syngamyTable([tableSampleOf('A', r(true), armSays)]), 'evidence')[0]
+  assert.ok(armRow.includes('the 16p arm: its edge and its extent inside the arm are not placed') && !/\bcall/.test(armRow), armRow)
   console.log('  no parent loaded leaves loaded_parent empty; a sample not reportable reads "not reported"')
 }

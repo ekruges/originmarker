@@ -105,11 +105,11 @@ const cellA: Defect[] = [
   assert.deepEqual(l.counted.map((g) => g.word), ['found two ways', 'found two ways', 'found two ways'])
   assert.deepEqual(l.once.map((g) => g.chrom), ['3'])
   assert.deepEqual(l.seen.map((g) => g.chrom), ['18'])
-  assert.equal(changesText(l), '3 changes found; 1 more stretch seen once, not confirmed.')
+  assert.equal(changesText(l), '3 changes found on chromosomes 1 to 22; 1 more stretch seen once, not confirmed.')
   const head = headlineOf({ failed: false, zygosity: 'diploid', cls: 'unclear', loaded: [
     { who: 'father', check: 'carries', present: 17, read: 22, absent: false },
     { who: 'mother', check: 'carries', present: 19, read: 22, absent: false }] }, changesText(l))
-  assert.equal(head.line, "Both parents' genomes are in this cell. 3 changes found; 1 more stretch seen once, not confirmed.")
+  assert.equal(head.line, "Both parents' genomes are in this cell. 3 changes found on chromosomes 1 to 22; 1 more stretch seen once, not confirmed.")
   assert.equal(figureTitle(head, l, { failed: false, zygosity: 'diploid', cls: 'x', loaded: [] }),
     "Both parents' copies are present on every chromosome, except three stretches.")
   // One set of coordinates: the card line, the PDF cells and the figure all print the pieces' own.
@@ -311,7 +311,7 @@ const cellA: Defect[] = [
   assert.deepEqual(l.counted.map(rowDirection), ['gain', 'none', 'loss'])
   assert.deepEqual(cardCounts(l), { changes: 2, findings: 1 })
   assert.equal(countText(l), ' · 2 changes · 1 finding')
-  assert.equal(changesText(l), '2 changes found, 1 finding.')
+  assert.equal(changesText(l), '2 changes found on chromosomes 1 to 22, 1 finding.')
   const ov = (list: typeof l, refusals: { claim: string; gate: string }[] = []) =>
     new Map(overviewTable([overviewSampleOf(list, { refusals })], new Map()))
   const t = ov(l)
@@ -403,4 +403,29 @@ const cellA: Defect[] = [
     .endsWith('No gain or loss was found on chromosomes 1 to 22.'))
   assert.equal(changesText(changeList([], 'none')), 'No gain or loss found on chromosomes 1 to 22.')
   console.log('  a finding reads as one, a row not reported states only what was seen, the figure counts as the card does')
+}
+
+// ---------------------------------------------------------------- one sample, one statement, part three
+{
+  const { pdfCells: cells, pieceText, seenLocus, summaryParts } = await import('./pageSays.ts')
+  const row = (chrom: string, kind: Defect['kind'], startBp: number, endBp: number, step = 'intensity', over: Partial<Defect> = {}): Defect => ({
+    chrom, startBp, endBp, kind, locus: `chr${chrom}:${startBp}-${endBp}`, origin: 'unclear', why: 'x', step, lrr: -0.4, ...over,
+  })
+  // The count sentence always names what it counts.
+  const l = changeList([row('17', 'copy-loss', 1, 5e7), row('15', 'segmental-upd', 2e7, 9e7, 'finding'),
+    row('3', 'cnn-loh', 1, 1e8, 'finding')], 'none')
+  assert.equal(changesText(l), '1 change found on chromosomes 1 to 22, 2 findings.')
+  // The report's summary names findings apart from changes, by the card's split.
+  assert.deepEqual(summaryParts(l), {
+    changes: 'chr17 50.0Mb copy lost, parent not named',
+    findings: 'chr3 100.0Mb both copies from one parent, copy number normal, chr15 70.0Mb segment from one parent only',
+  })
+  // An arm piece on a row not reported names its arm, never a call, on every surface.
+  const arm = row('16', 'copy-loss', 85_629, 36_600_000, 'intensity',
+    { arm: 'p', interval: 'not placed: an arm-level call on 16p, its centromere-side edge and its extent inside the arm unmeasured' })
+  const g = changeList([arm], 'none', false).notReported!.rows[0]
+  const said = [pieceText(arm, g), ...cells(g, 'none'), seenLocus(arm)].join(' ')
+  assert.ok(!/\bcall/.test(said), said)
+  assert.ok(said.includes('the 16p arm: its edge and its extent inside the arm are not placed'), said)
+  console.log('  the count sentence names chromosomes 1 to 22, findings are summarised apart, an arm seen is no call')
 }

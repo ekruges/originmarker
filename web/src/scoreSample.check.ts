@@ -939,5 +939,13 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
     tool: 'OriginMarker', reportId: 'CHECK', fromExamples: true,
   } as never)).arrayBuffer()).toString('latin1')
   assert.ok(withFather.includes('inferred from paternal absence'), 'the father alone keeps the inference sentence')
+  // The methods text too: with no parent it names no donor and infers nothing.
+  const flatText = (t: string) => [...t.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((x) => x[1]).join(' ').replace(/\s+/g, ' ')
+  const np = flatText(none)
+  assert.ok(np.includes('No parental array was supplied.') && np.includes('No parental origin is named'), 'no-parent methods')
+  assert.ok(!/inferred from|sperm donor's|No oocyte donor array|donor's obligate|paternal absence/.test(np),
+    np.match(/.{60}(inferred from|sperm donor's|No oocyte donor array|donor's obligate|paternal absence).{40}/)?.[0])
+  assert.ok(flatText(withFather).includes('No oocyte donor array was supplied. A maternal origin below is therefore inferred'),
+    'the father alone keeps the methods sentence')
   console.log('  the report carries the sex-chromosome line, and a sample not reportable states no change')
 }

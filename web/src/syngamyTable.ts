@@ -13,7 +13,7 @@
  * column would invite exactly the counting error the panel warns about.
  */
 import type { ParentageResult } from './parentage.ts'
-import { kindOf, NOT_REPORTED_SAYS, SEEN, WORD, type CardSays } from './pageSays.ts'
+import { kindOf, NOT_REPORTED_SAYS, SEEN, seenLocus, WORD, type CardSays } from './pageSays.ts'
 import { directionOf } from './timing.ts'
 
 export type TableChange = {
@@ -66,7 +66,8 @@ export function tableSampleOf(name: string, r: ParentageResult, says: CardSays):
     // class, parent or evidence sentence that would state a copy lost or gained.
     changes: says.defects.map((d) => (says.list.notReported
       ? { chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: SEEN[directionOf(d.kind) ?? 'none'],
-        stage: d.stage, informative: d.informative, why: NOT_REPORTED_SAYS, word: 'not reported' }
+        stage: d.stage, informative: d.informative, word: 'not reported',
+        why: d.arm ? `${seenLocus(d)}. ${NOT_REPORTED_SAYS}` : NOT_REPORTED_SAYS }
       : {
         chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
         origin: d.origin, band: d.band, confidence: d.confidence,

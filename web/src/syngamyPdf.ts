@@ -17,8 +17,8 @@ import {
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import {
-  cardSays, countText, disturbedText, readAgainst, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, sexLine, spanMb, WORD,
-  whoseText,
+  cardSays, countText, disturbedText, readAgainst, summaryParts, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells,
+  PARENT_SENTENCE, sexLine, WORD,
   type CardSays, type ChangeRow,
 } from './pageSays.ts'
 import { locus } from './stage.ts'
@@ -86,6 +86,10 @@ export interface ReportInput {
     bySample: { name: string; results: RunResult[] }[]
   } | null
 }
+
+/** Constants of the parental test, left out of a report with no parental array. */
+const PARENTAL_CONSTANTS = new Set(['Mendelian inconsistency floor', 'Paternal-absence noise bound',
+  'Absence calling margin', 'Residual absence floor', 'Second-parent signal'])
 
 interface Col { head: string; w: number; right?: boolean; font?: FontName; size?: number }
 
@@ -332,6 +336,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const builds = [...new Set(input.files.map((f) => f.profile?.build.build ?? 'undetermined'))]
   const oocyte = input.files.find((f) => f.role === 'oocyte')
   const paired = results.some((f) => f.maternal)
+  // NO PARENTAL ARRAY, NO PARENTAL SENTENCE. Every text below that describes a donor's alleles, an
+  // absence ratio or an inference from one is printed only where a parent was loaded.
+  const noParent = !donor && !oocyte
   // The headline and the change list, from the module the card reads, so the two cannot differ.
   const fatherRebuilt = !!donor?.inferred
   const saysOf = new Map<ReportFile, CardSays>()
@@ -399,12 +406,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const times = (a: number, b: number): string =>
     (Number.isFinite(a / b) ? `${(a / b).toFixed(1)}x` : '-')
 
-  /** The counted changes, then how many more were seen once, in the fewest words. */
-  const rowShort = (g: ChangeRow): string => `chr${g.chrom} ${g.whole ? 'whole' : `${spanMb(g)}Mb`} ${whoseText(g)}`
-  const changeOf = (f: ReportFile): string => {
-    const l = says(f).list
-    return [...l.counted.map(rowShort), ...(l.once.length ? [`${l.once.length} more seen once`] : [])].join(', ')
-  }
+  /** The counted changes, then how many more were seen once, in the fewest words; findings apart,
+   *  by the card's own split (pageSays.rowDirection). */
+  const changeOf = (f: ReportFile): string => summaryParts(says(f).list).changes
+  const findingOf = (f: ReportFile): string => summaryParts(says(f).list).findings
+  const found = results.filter((f) => findingOf(f))
   const flagged = results.filter((f) => changeOf(f))
   if (flagged.length) {
     // Said before the table as well as inside it. A reader who takes only the first section must
@@ -418,6 +424,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     pdf.rect(L, y - h, 3, h, true)
     text(msg, 9, 'Helvetica-Bold', 2, WARN, L + 10)
     y -= 4
+  }
+  if (found.length) {
+    text(`Findings, neither a gain nor a loss, in ${found.length} of ${results.length} sample(s): `
+      + found.map((f) => `${f.name} ${findingOf(f)}`).join('; ') + '.', 8.4, 'Helvetica-Bold', 3)
+    y -= 2
   }
 
   const wide = paired ? 0 : 1
@@ -441,7 +452,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       f.name,
       { v: head.word.toLowerCase(), colour: head.decided ? INK : WARN },
       says(f).list.notReported ? { v: 'not reportable', colour: GREY }
-        : { v: changeOf(f) || 'none detected', colour: changeOf(f) ? WARN : GREY },
+        : { v: [changeOf(f), findingOf(f) ? `findings: ${findingOf(f)}` : ''].filter(Boolean).join('; ') || 'none detected',
+          colour: changeOf(f) ? WARN : GREY },
       ...(paired
         ? [pct(r.genomeRate), times(r.genomeRate, r.explainable),
           m ? pct(m.genomeRate) : '-', m ? times(m.genomeRate, m.explainable) : '-']
@@ -456,7 +468,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'reported per sample below with its coordinates. "none detected" is not a clean bill: a '
     + 'region under the size floor, or on a chromosome whose calls are not measuring it, is not '
     + 'reported either way.', 6.5, 'Helvetica-Oblique', 2, GREY)
-  text('Absence is the rate at which the donor\'s obligate allele is missing where he is '
+  if (!noParent) text('Absence is the rate at which the donor\'s obligate allele is missing where he is '
     + 'homozygous. Ceiling is what this sample\'s own noise can manufacture: its no-call rate '
     + 'times its heterozygous fraction. A sample is called as lacking a paternal contribution '
     + 'only above 3x that ceiling, and as carrying one only at or below it; in between it is '
@@ -465,30 +477,36 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
 
   // --- how sure each word is: the measured count behind every word printed below ---------------
   heading('How sure each word is', 8.6)
-  text('The headline reads each loaded parent\'s genome chromosome by chromosome, and the cell\'s '
-    + 'copy number; the genome-wide absence ratio above is pooled over every autosome, the changed '
-    + 'ones included, so it decides the headline only where it calls a parent absent. Each change '
-    + 'carries one word for its kind of call. A change found two ways or consistent is counted; a '
-    + 'stretch seen by one reading is listed, not counted. Measured on the 31 published cells of '
-    + 'Zuccaro 2020 Table S3 (GSE148488): right of scored, by kind of call and setup.',
-  7.4, 'Helvetica', 2.4, GREY)
-  {
-    const kinds = ['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity',
-      'gain-parent', 'imbalance', 'doubled'] as const
-    const cellOf = (c: readonly [number, number] | undefined): string => (c ? `${c[0]} of ${c[1]}` : '-')
-    table(
-      [{ head: 'Word', w: 70 }, { head: 'Kind of call', w: 236 },
-        { head: 'Both parents', w: 72, right: true }, { head: 'Father measured', w: 76, right: true },
-        { head: 'Father rebuilt', w: 76, right: true }],
-      kinds.map((k) => [WORD[k], KIND_SAYS[k], cellOf(MEASURED[k]?.two), cellOf(MEASURED[k]?.measured),
-        cellOf(MEASURED[k]?.rebuilt)]),
-    )
+  if (noParent) {
+    text('With no parent loaded each change carries the word "position only": it is read from copy '
+      + 'number, with no parent named. A row with neither a gain nor a loss is a finding.',
+    7.4, 'Helvetica', 2.4, GREY)
+  } else {
+    text('The headline reads each loaded parent\'s genome chromosome by chromosome, and the cell\'s '
+      + 'copy number; the genome-wide absence ratio above is pooled over every autosome, the changed '
+      + 'ones included, so it decides the headline only where it calls a parent absent. Each change '
+      + 'carries one word for its kind of call. A change found two ways or consistent is counted; a '
+      + 'stretch seen by one reading is listed, not counted. Measured on the 31 published cells of '
+      + 'Zuccaro 2020 Table S3 (GSE148488): right of scored, by kind of call and setup.',
+    7.4, 'Helvetica', 2.4, GREY)
+    {
+      const kinds = ['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity',
+        'gain-parent', 'imbalance', 'doubled'] as const
+      const cellOf = (c: readonly [number, number] | undefined): string => (c ? `${c[0]} of ${c[1]}` : '-')
+      table(
+        [{ head: 'Word', w: 70 }, { head: 'Kind of call', w: 236 },
+          { head: 'Both parents', w: 72, right: true }, { head: 'Father measured', w: 76, right: true },
+          { head: 'Father rebuilt', w: 76, right: true }],
+        kinds.map((k) => [WORD[k], KIND_SAYS[k], cellOf(MEASURED[k]?.two), cellOf(MEASURED[k]?.measured),
+          cellOf(MEASURED[k]?.rebuilt)]),
+      )
+    }
+    text(PARENT_SENTENCE, 7.6, 'Helvetica-Bold', 2.4)
+    text(`Counts from ${MEASURED_SOURCE}. Right is the right place by the counting rule (calls and the `
+      + 'stated region joined per chromosome overlap by half of the longer) and, where both name one, '
+      + 'the right parent. Wrong means the paper states no change there; some may be the paper\'s misses.',
+    6.5, 'Helvetica-Oblique', 2, GREY)
   }
-  text(PARENT_SENTENCE, 7.6, 'Helvetica-Bold', 2.4)
-  text(`Counts from ${MEASURED_SOURCE}. Right is the right place by the counting rule (calls and the `
-    + 'stated region joined per chromosome overlap by half of the longer) and, where both name one, '
-    + 'the right parent. Wrong means the paper states no change there; some may be the paper\'s misses.',
-  6.5, 'Helvetica-Oblique', 2, GREY)
 
   // --- one block per sample -------------------------------------------------------------------
   for (const f of results) {
@@ -553,7 +571,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     // from the first cell cycle. It is now an addon with its own report, folded in below only once
     // someone has chosen to run it.
 
-    text(`${m ? 'paternal ' : ''}absent ${pct(r.genomeRate)}  |  ceiling `
+    text(r.noParent ? `read with no parent loaded  |  zygosity ${r.zygosity.replace(/_/g, ' ')}`
+      : `${m ? 'paternal ' : ''}absent ${pct(r.genomeRate)}  |  ceiling `
       + `${pct(r.explainable)}  |  ${times(r.genomeRate, r.explainable)}  |  `
       + `${int(r.informative)} informative markers  |  zygosity ${r.zygosity.replace(/_/g, ' ')}`
       + `${r.spermType === 'unknown' ? '' : `  |  ${r.spermType.replace('_', '-')} sperm`}`,
@@ -585,8 +604,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       text(msg, 8.4, 'Helvetica-Bold', 3, WARN, L + 10)
     }
 
-    heading(m ? 'Evidence, sperm donor' : 'Evidence', 8.6)
-    table([
+    if (!r.noParent) heading(m ? 'Evidence, sperm donor' : 'Evidence', 8.6)
+    if (!r.noParent) table([
       { head: 'Measurement', w: 152 },
       { head: 'Observed', w: 52, right: true },
       { head: 'Reference', w: 52, right: true },
@@ -1064,7 +1083,12 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   newPage()
   heading('Methods', 11)
   const assembly = builds.length === 1 && builds[0] !== 'undetermined' ? builds[0] : null
-  text(`Parent of origin was determined from SNP array genotypes using ${input.tool}. For each `
+  if (noParent) {
+    text(`No parental array was supplied. Each of ${results.length} sample(s) was read from its own SNP `
+      + `array with ${input.tool}: its stage, its sex chromosomes and its copy number, from its call `
+      + 'rate, intensity and B-allele frequencies against its own chromosomes. No parental origin is '
+      + 'named, and nothing is inferred about either parent.', 8, 'Helvetica', 2.6)
+  } else text(`Parent of origin was determined from SNP array genotypes using ${input.tool}. For each `
     + `of ${results.length} sample(s), the rate at which the sperm donor's obligate allele was `
     + 'absent was computed across autosomal markers where he is homozygous and the sample is '
     + 'called, and compared against the rate that sample\'s own genotyping noise can produce, '
@@ -1079,7 +1103,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'X-bearing sperm carrying a full paternal genome is distinguishable from an absent '
     + 'paternal contribution; neither case leaves a Y.', 8, 'Helvetica', 2.6)
   y -= 3
-  text(paired
+  if (!noParent) text(paired
     ? 'An oocyte donor array was supplied, so each sample was tested against both parents by the '
       + 'same measurement and the class read off the pair. This separates a sample lacking a '
       + 'paternal contribution from one belonging to neither declared parent, which a single '
@@ -1204,7 +1228,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   }
 
   heading('Interpretation', 10)
-  text('No confidence percentage is attached to a call, and this is deliberate. The per-sample '
+  if (noParent) {
+    text('No parental call is made in this report, since no parental array was supplied. Copy '
+      + 'number is read against each cell\'s own chromosomes, and each change is printed with its '
+      + 'position and the reading it rests on.', 8, 'Helvetica', 2.6)
+  } else text('No confidence percentage is attached to a call, and this is deliberate. The per-sample '
     + 'likelihood ratio between "paternal genome present" and "absent" runs past 10^10000 on a '
     + 'genome-wide array, which is not a probability any reader should be handed. The honest '
     + 'figure is the empirical accuracy of the method, and on the pairs of known relationship it '
@@ -1214,7 +1242,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'between them, so a reader can see how far from the boundary the call sits.', 8,
   'Helvetica', 2.6)
   y -= 3
-  text('The absence axis separates by roughly thirty-fold and carries the call. The '
+  if (!noParent) text('The absence axis separates by roughly thirty-fold and carries the call. The '
     + 'alleles-the-donor-lacks axis separates by about 1.6-fold and only distinguishes a '
     + 'biparental genome from a paternal-only one that is heterozygous; treat a near-boundary '
     + 'call on that axis as provisional. A sample scoring in the uncalled band is not a weak '
@@ -1291,7 +1319,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ['Assembly tables', 'UCSC chromInfo and gap, hg19 and hg38',
       'Freely redistributable. No liftOver chain file is used or shipped: those carry a '
       + 'non-commercial field-of-use restriction Apache 2.0 cannot sublicense.'],
-  ])
+  ].filter((row) => !noParent || !PARENTAL_CONSTANTS.has(row[0] as string)))
 
   // --- inventory ------------------------------------------------------------------------------
   heading('Files read', 10)
