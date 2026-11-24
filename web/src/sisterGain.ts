@@ -263,20 +263,27 @@ export function sisterGains(units: readonly SisterUnit[]): SisterGain[][] {
     if (v === undefined) pairs.set(key, v = oneGenome(units[i], units[j]))
     return v
   }
-  return units.map((u, b) => {
-    const best = new Map<string, SisterGain>()
-    units.forEach((other, a) => {
-      if (a === b || !same(a, b)) return
-      for (const loss of other.losses) {
-        if (u.changed.has(loss.chrom)) continue
-        const r = readInterval(u.windows, u.reference, loss.chrom, loss.startBp, loss.endBp)
-        if (!r || !(r.shift >= SISTER_SHIFT && r.z >= SISTER_Z)) continue
-        const had = best.get(loss.chrom)
-        if (!had || r.z > had.z) best.set(loss.chrom, { ...loss, ...r, from: a })
-      }
-    })
-    return [...best.values()].sort((x, y) => Number(x.chrom) - Number(y.chrom))
+  return units.map((_, b) => sisterGainsFor(units, b, same))
+}
+
+/** The readings for cell `b` of the group alone, which asks only the pairs that include it. */
+export function sisterGainsFor(
+  units: readonly SisterUnit[], b: number,
+  same: (i: number, j: number) => boolean = (i, j) => oneGenome(units[i], units[j]),
+): SisterGain[] {
+  const u = units[b]
+  const best = new Map<string, SisterGain>()
+  units.forEach((other, a) => {
+    if (a === b || !same(a, b)) return
+    for (const loss of other.losses) {
+      if (u.changed.has(loss.chrom)) continue
+      const r = readInterval(u.windows, u.reference, loss.chrom, loss.startBp, loss.endBp)
+      if (!r || !(r.shift >= SISTER_SHIFT && r.z >= SISTER_Z)) continue
+      const had = best.get(loss.chrom)
+      if (!had || r.z > had.z) best.set(loss.chrom, { ...loss, ...r, from: a })
+    }
   })
+  return [...best.values()].sort((x, y) => Number(x.chrom) - Number(y.chrom))
 }
 
 /** A whole chromosome as an interval. */
