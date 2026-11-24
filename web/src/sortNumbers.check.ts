@@ -29,3 +29,23 @@ same([2, 1, 0.1 + 0.2, 0.3])
 const arr = [3, 1, 2]
 assert.equal(sortNumbers(arr), arr, 'sorts in place')
 console.log('sortNumbers checks pass')
+
+// Selection: the same value the sorted copy holds at k, for every k, on the same arrays.
+{
+  const { kthNumber, kthPair } = await import('./sortNumbers.ts')
+  const cases: number[][] = [[3, -0, 0, -0, 2], [NaN, 1, NaN, 0.5, -2], [Infinity, -Infinity, 1, 1, 1], [2, 2, 2, 2]]
+  for (let r = 0; r < 120; r++) {
+    const n = 1 + Math.floor(rnd() * 400)
+    cases.push(Array.from({ length: n }, () => (rnd() < 0.2 ? Math.floor(rnd() * 3) : (rnd() - 0.5) * 100)))
+  }
+  for (const xs of cases) {
+    const q = [...xs].sort((a, b) => a - b)
+    const before = [...xs]
+    for (let k = 0; k < xs.length; k++) {
+      assert.ok(Object.is(kthNumber(xs, k), q[k]), `k ${k}`)
+      if (k > 0) { const [a, b] = kthPair(xs, k); assert.ok(Object.is(a, q[k - 1]) && Object.is(b, q[k]), `pair ${k}`) }
+    }
+    assert.deepEqual(xs, before, 'xs unchanged')
+  }
+}
+console.log('selection checks pass')

@@ -93,7 +93,7 @@ import {
 import { nullScale, calibratedZ, median, intensityDetects, STATE_GAP, Z_WINDOW } from './intensityNull.ts'
 import { reconcileStage } from './declaredStage.ts'
 import { assessIntegrity } from './integrity.ts'
-import { sortNumbers } from './sortNumbers.ts'
+import { sortNumbers, kthNumber } from './sortNumbers.ts'
 
 /** One parent's array, reduced to what every channel below reads. */
 export interface ParentIndex {
@@ -1451,9 +1451,9 @@ export async function scoreSample(input: {
   const referenceChroms = new Set(result.copyReference ?? [])
   const referenceCn = referenceChroms.size >= 8
     ? new Map([...cnByChrom].filter(([c]) => referenceChroms.has(c))) : cnByChrom
-  const lrrAll = sortNumbers([...referenceCn.values()].flat()
-    .map((m) => m.log2R).filter((x): x is number => x !== null))
-  const genomeLrr = lrrAll.length ? lrrAll[lrrAll.length >> 1] : 0
+  const lrrAll = [...referenceCn.values()].flat()
+    .map((m) => m.log2R).filter((x): x is number => x !== null)
+  const genomeLrr = lrrAll.length ? kthNumber(lrrAll, lrrAll.length >> 1) : 0
   // Genome call rate from the markers themselves. StageCall does not carry one, and the stage's
   // own inference took it as an input rather than storing it.
   const genomeCallRate = allCn.length ? allCn.filter((m) => m.called).length / allCn.length : NaN
