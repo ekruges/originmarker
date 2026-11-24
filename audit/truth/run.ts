@@ -240,7 +240,8 @@ for (const row of list) {
             pageSays.seenMarkText({ ...g, dir: pageSays.rowDirection(g) }).sentence])].filter(Boolean)
       }
       {
-        const files: any[] = [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1, result: res,
+        // The sample's profile goes in as the page passes it, so the report names the build it read.
+        const files: any[] = [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1, result: res, profile,
           maternal: maternal ?? undefined, paired, inferred: false }]
         if (!res.noParent && res.role === 'paternal') files.unshift({ name: 'donor', size: 1, sha256: '0'.repeat(64), role: 'donor', markers: 1 })
         if (!res.noParent && (maternal || res.role === 'maternal')) files.unshift({ name: 'oocyte', size: 1, sha256: '0'.repeat(64), role: 'oocyte', markers: 1 })
@@ -291,7 +292,7 @@ for (const row of list) {
             second: mat?.gt ?? null }), seen: pageSays.notReportable(res) }
           const line = lineOf.get(row) ?? 0
           appendFileSync(`${DUMP}/dump-${tag}-${line}.json.gz`, gzipSync(JSON.stringify({ line, tag, others: (others ?? '').split(';').filter(Boolean).length,
-            res, maternal: maternal ?? null, paired: paired ?? null, series, tool: TOOL }, enc)))
+            res, maternal: maternal ?? null, paired: paired ?? null, series, profile, tool: TOOL }, enc)))
         }
       }
       return out
