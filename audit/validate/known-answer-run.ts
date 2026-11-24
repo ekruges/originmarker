@@ -42,6 +42,7 @@ import { readFileSync, appendFileSync, existsSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { performance } from 'node:perf_hooks'
 import { applyEvent, signature, levelTable, X_MIN, type Row, type EventSpec } from './known-answer.ts'
+import { sortNumbers } from '../../web/src/sortNumbers.ts'
 
 const W = new URL('../../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
@@ -128,7 +129,7 @@ const chromOf = (res: any, c: string) => {
 const r4 = (x: number) => (Number.isFinite(x) ? Math.round(x * 1e4) / 1e4 : null)
 const sig = (s: ReturnType<typeof signature>) => ({ markers: s.markers, lrr: r4(s.lrr), abShare: r4(s.abShare),
   noCall: r4(s.noCall), offPole: r4(s.offPole), bafHist: s.bafHist.map(r4) })
-const median = (xs: number[]) => { const q = xs.filter(Number.isFinite).sort((a, b) => a - b); return q.length ? q[q.length >> 1] : NaN }
+const median = (xs: number[]) => { const q = sortNumbers(xs.filter(Number.isFinite)); return q.length ? q[q.length >> 1] : NaN }
 const mad = (xs: number[], m: number) => 1.4826 * median(xs.map((x) => Math.abs(x - m)))
 
 function noise(rs: readonly Row[], ref: Set<string>) {

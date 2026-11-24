@@ -59,6 +59,7 @@ import {
  * segment for that reason.
  */
 import { refineEdges, SEARCH_RADIUS, LR_DROP } from './refine.ts'
+import { sortNumbers } from './sortNumbers.ts'
 
 export const MIN_SEGMENT_MARKERS = 2_400
 
@@ -582,7 +583,7 @@ export function highLrrProfile(
   for (const ms of byChrom.values()) {
     for (const m of ms) if (m.log2R !== null) all.push(m.log2R)
   }
-  all.sort((a, b) => a - b)
+  sortNumbers(all)
   const cut = all.length ? all[Math.min(all.length - 1, Math.floor(quantile * all.length))] : Infinity
   const rates = new Map<string, [number, number]>()
   for (const [c, ms] of byChrom) {
@@ -646,7 +647,7 @@ export function scanCopyGain(
     const inside = ms.filter((m) => m.pos >= h.startBp && m.pos <= h.endBp && m.log2R !== null)
       .map((m) => m.log2R as number)
     if (!inside.length) continue
-    inside.sort((a, b) => a - b)
+    sortNumbers(inside)
     // A segmental call has to span enough to be segmental, measured on what it reports, and a gain
     // has to span what a gain that was ever right spans. See MIN_GAIN_SPAN_BP.
     if (segmentCoords(h).spanBp < MIN_GAIN_SPAN_BP) continue
@@ -689,7 +690,7 @@ export function scanCopyNumber(
     const inside = ms.filter((m) => m.pos >= h.startBp && m.pos <= h.endBp
       && m.log2R !== null).map((m) => m.log2R as number)
     if (!inside.length) continue
-    inside.sort((a, b) => a - b)
+    sortNumbers(inside)
     const delta = inside[inside.length >> 1] - genomeLrr
     // Without this the scan reports regions the array merely failed on. Measured: the rejected
     // ones carry -0.72 to +0.38, the kept ones -0.97 to -1.94.

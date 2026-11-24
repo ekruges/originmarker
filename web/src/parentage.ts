@@ -40,6 +40,7 @@ import type { HetCall } from './obligateHet.ts'
 import type { Enrichment } from './features.ts'
 import type { StageCall } from './stage.ts'
 import { calibratedZ, intensityDetects, nullScale, majorityScale, median as medianExact } from './intensityNull.ts'
+import { sortNumbers } from './sortNumbers.ts'
 
 /** Residual absence on clean data, from genotyping error alone. Measured at 0.03% and 0.05%. */
 export const ABSENCE_ERROR_FLOOR = 0.005
@@ -1426,7 +1427,7 @@ export function classify(
   const callMedian = callSorted.length ? callSorted[callSorted.length >> 1] : NaN
   const medianOf = (xs: number[]): number => {
     if (!xs.length) return NaN
-    const q = [...xs].sort((x, y) => x - y)
+    const q = sortNumbers([...xs])
     return q[q.length >> 1]
   }
   // One unit per autosome, which is the null a WHOLE-chromosome test must be read against. A
