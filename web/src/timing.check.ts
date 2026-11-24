@@ -167,6 +167,25 @@ const normal = unit([])
   assert.ok(call(units, 1).why.includes('they name different parents'))
 }
 
+// --- 12. ORIGIN IS READ AMONG REPORTABLE CELLS ONLY (rule R) ------------------------------------
+{
+  // A sample not reportable gets no word, and is neither a carrier nor a cell without it.
+  const g = () => unit([ch('21', 'copy-gain')])
+  const hidden = unit([ch('21', 'copy-gain')], { shown: false })
+  const [[a], [b], [c]] = timeGroup([g(), g(), hidden])
+  assert.equal(c.mechanism, 'none')
+  assert.ok(c.why.includes('not reportable'), c.why)
+  assert.equal(a.mechanism, 'consistent-with-gamete', 'two shown units read as two, not three')
+  assert.ok(a.why.startsWith('2 of 2 units'), a.why)
+  assert.equal(b.mechanism, 'consistent-with-gamete')
+  // Left with one shown unit, the embryo reads as one cell.
+  const [[one], rest] = timeGroup([g(), { ...normal, shown: false }])
+  assert.equal(one.mechanism, 'none', 'a cell not reportable cannot read the chromosome normal')
+  assert.equal(rest.length, 0, 'it has no change to time')
+  assert.equal(readingOf([], {}, false).shown, false)
+  assert.equal(readingOf([], {}).shown, true)
+}
+
 console.log('timing.check.ts OK: rule B1 read per stretch of the embryo, with direction, parent and measured normal; one cell prints no origin')
 
 // --- THE REPORT'S TIMING TABLE PRINTS NO COORDINATES FOR A WHOLE ROW -----------------------------

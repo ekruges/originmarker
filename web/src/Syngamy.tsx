@@ -773,7 +773,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
             + 'Each change is read against the others for when it arose')
           // One call for the whole group, in timing.ts, so the page and the record harness read
           // the same rule off the same card rows.
-          const timed = timeGroup(group.map((u) => readingOf(defectsForResult(u.result), u.result)))
+          const timed = timeGroup(group.map((u) => readingOf(defectsForResult(u.result), u.result, !notReportable(u.result))))
           group.forEach((u, i) => {
             u.result.units = group.length
             u.result.embryo = gi
@@ -1798,12 +1798,12 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
               {sexLine(r.sexChromosome)}
             </Text>
           )}
-          <ChromTable chroms={sex} ceiling={r.explainable} seen={notReportable(r)} />
+          <ChromTable chroms={sex} ceiling={r.explainable} seen={notReportable(r)} rows={defectsForResult(r)} />
         </Section>
       )}
 
       <Section title={seenHeading(notReportable(r), maternal ? 'Chromosomes, sperm donor' : 'Chromosomes')}>
-        <ChromTable chroms={r.chroms} ceiling={r.explainable} seen={notReportable(r)} />
+        <ChromTable chroms={r.chroms} ceiling={r.explainable} seen={notReportable(r)} rows={defectsForResult(r)} />
       </Section>
 
       {r.segments.length > 0 && (
@@ -1913,7 +1913,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
 
       {maternal && (
         <Section title="Chromosomes, oocyte donor">
-          <ChromTable chroms={maternal.chroms} ceiling={maternal.explainable} seen={notReportable(r)} />
+          <ChromTable chroms={maternal.chroms} ceiling={maternal.explainable} seen={notReportable(r)} rows={defectsForResult(r)} />
         </Section>
       )}
 
@@ -1939,7 +1939,11 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
   )
 }
 
-function ChromTable({ chroms, ceiling, seen = false }: { chroms: ChromResult[]; ceiling: number; seen?: boolean }) {
+function ChromTable({ chroms, ceiling, seen = false, rows = [] }: {
+  chroms: ChromResult[]; ceiling: number; seen?: boolean
+  /** The sample's change list, which states the final call where a whole call was withdrawn. */
+  rows?: Defect[]
+}) {
   return (
     <Scroll>
       <Table withTableBorder withColumnBorders>
@@ -1974,10 +1978,10 @@ function ChromTable({ chroms, ceiling, seen = false }: { chroms: ChromResult[]; 
                       color={c.verdict === 'expected_absent' || c.verdict === 'not_measured' || seen
                         ? 'gray' : 'orange'}
                     >
-                      {chromCells(seen, c).verdict}
+                      {chromCells(seen, c, rows).verdict}
                     </Badge>
                   )}
-                {chromCells(seen, c).note && <Text span size="xs" c="dimmed"> &middot; {chromCells(seen, c).note}</Text>}
+                {chromCells(seen, c, rows).note && <Text span size="xs" c="dimmed"> &middot; {chromCells(seen, c, rows).note}</Text>}
               </Table.Td>
             </Table.Tr>
           ))}

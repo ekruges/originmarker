@@ -259,6 +259,50 @@ const cellA: Defect[] = [
   assert.equal(w, 'Whole chromosome 17: copy lost, parent not named, origin read by stretch.')
   assert.equal(titles(parts).length, 2, String(titles(parts)))
   for (const t of titles(parts)) assert.ok(!t.includes('read by stretch'), `a call of one stretch is not split: ${t}`)
+
+  // Rule R on the same path: the whole-loss cell not reportable. It prints no origin word on any
+  // row, and its sister, left as one reportable cell, prints none either.
+  const { notReportable } = await import('./pageSays.ts')
+  const off = cell({ chroms: [chrom('17', { aneuploidy: 'loss' }), chrom('1')],
+    refusals: [{ claim: 'sample', chrom: '', gate: 'integrity.uninterpretable' }] }) as any
+  const sis = cell({ segments: [seg('copy-loss', 6157, 52_598_275), seg('copy-gain', 52_618_539, 78_359_420)] }) as any
+  const t2 = timeGroup([off, sis].map((r) => readingOf(defectsForResult(r), r, !notReportable(r))))
+  ;[off, sis].forEach((r, i) => { r.uniformity = t2[i] })
+  for (const r of [off, sis]) {
+    for (const d of defectsForResult(r)) {
+      assert.equal(d.mechanism, undefined, `chr${d.chrom} prints an origin word`)
+      assert.equal(d.mechanismStretches, undefined)
+    }
+  }
+}
+
+// ---------------------------------------------------------------- the run log of a sample not reportable
+{
+  const { changeLogLines } = await import('./pageSays.ts')
+  const r = (refusals: unknown[]) => ({
+    refusals, segments: [],
+    gains: [{ where: 'chr7', called: true, origin: 'maternal', why: 'w' }],
+    losses: [{ where: 'chr16 0.1-36.6Mb', called: false, origin: 'not determinable', why: 'w' }],
+  }) as never
+  const seen = changeLogLines(r([{ claim: 'sample', gate: 'integrity.uninterpretable' }]), 'S', 'paternal').map((x) => x[1])
+  assert.deepEqual(seen, ['chr7: higher than the rest of this array. Not reported: this sample is not reportable.',
+    'chr16 0.1-36.6Mb: lower than the rest of this array. Not reported: this sample is not reportable.'])
+  for (const l of seen) assert.ok(!/copy missing|extra copy|maternal|paternal|not determinable/.test(l), l)
+  const shown = changeLogLines(r([]), 'S', 'paternal').map((x) => x[1])
+  assert.equal(shown[1], 'loss chr16 0.1-36.6Mb: not determinable copy missing. w')
+}
+
+// ---------------------------------------------------------------- a whole call withdrawn after its note was written
+{
+  const { chromCells } = await import('./pageSays.ts')
+  const c = { chrom: '17', verdict: 'present', callFraction: 0.5, lrrShift: -0.9,
+    note: "LOST: this chromosome calls at 50% of the genome's median rate" }
+  const rows = [{ chrom: '17', kind: 'copy-loss', startBp: 6157, endBp: 52_598_275 },
+    { chrom: '17', kind: 'copy-gain', startBp: 52_618_539, endBp: 78_359_420 }, { chrom: '3', kind: 'copy-loss', startBp: 0, endBp: 0 }]
+  assert.equal(chromCells(false, c, rows).note, 'not called whole: read in pieces, loss 0.0 to 52.6 Mb, gain 52.6 to 78.4 Mb')
+  assert.equal(chromCells(false, c).note, 'not called whole: no change stands on it')
+  assert.ok(chromCells(false, { ...c, aneuploidy: 'loss' }, rows).note.startsWith('LOST: '), 'a whole call that stands keeps its note')
+  assert.ok(!chromCells(true, c, rows).note.includes('LOST'))
 }
 
 // ---------------------------------------------------------------- the taxonomy's rows, in words

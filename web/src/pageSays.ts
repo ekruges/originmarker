@@ -529,6 +529,38 @@ export const notReportable = (r: { refusals?: readonly { claim: string; gate: st
  */
 export const stateWord = (seen: boolean, word: string, dir: Seen): string => (seen ? SEEN_WORD[dir] : word)
 
+/**
+ * The run log's lines for a sample's gains, losses and absent stretches. On a sample not reportable
+ * each states only how the reading sat against the rest of the array (stateWord), with no class
+ * or parent, as every other surface of that sample does.
+ */
+export function changeLogLines(
+  r: Pick<ParentageResult, 'gains' | 'losses' | 'segments' | 'refusals'>, sampleName: string, soloRole: string,
+): ['DONE' | 'WARN', string][] {
+  const seen = notReportable(r)
+  const out: ['DONE' | 'WARN', string][] = []
+  for (const g of r.gains ?? []) {
+    out.push(seen ? ['WARN', `${g.where}: ${stateWord(true, '', 'gain')}. ${NOT_REPORTED_SAYS}`]
+      : [g.called ? 'DONE' : 'WARN', `gain ${g.where}: ${g.origin}. ${g.why}`])
+  }
+  for (const l of r.losses ?? []) {
+    out.push(seen ? ['WARN', `${l.where}: ${stateWord(true, '', 'loss')}. ${NOT_REPORTED_SAYS}`]
+      : [l.called ? 'DONE' : 'WARN', `loss ${l.where}: ${l.origin} copy missing. ${l.why}`])
+  }
+  const segs = r.segments ?? []
+  if (segs.length) {
+    out.push(['WARN', seen
+      ? `${sampleName}: ${segs.length} stretch(es) ${stateWord(true, '', 'none')}: `
+        + `${segs.map((x) => `chr${x.chrom} ${(segmentCoords(x).spanBp / 1e6).toFixed(1)}Mb`).join(', ')}. ${NOT_REPORTED_SAYS}`
+      : `${sampleName}: ${segs.length} segment(s) where a parental `
+        + `genome is missing: ${segs.map((x) => `chr${x.chrom} ${x.absentParent ?? soloRole} `
+          + `${(segmentCoords(x).spanBp / 1e6).toFixed(1)}Mb `
+          + `${segmentCoords(x).localised ? segmentCoords(x).interval : '(not localised)'} `
+          + `at ${pct(x.rate, 1)}`).join(', ')}`])
+  }
+  return out
+}
+
 /** A section heading over readings of a sample not reportable says they are seen and not reported. */
 export const seenHeading = (seen: boolean, title: string): string =>
   (seen ? `${title}: readings seen on this array, not reported` : title)
@@ -560,9 +592,28 @@ export function chromSeen(c: ChromState): Seen {
 
 const signed = (x: number): string => `${x > 0 ? '+' : ''}${x.toFixed(2)}`
 
-/** A chromosome's verdict and note, as every chromosome table prints them. */
-export function chromCells(seen: boolean, c: ChromState): { verdict: string; note: string } {
+/**
+ * The whole call's note ("LOST: ...", "GAINED: ...") is written when the chromosome is first read and
+ * outlives a whole call withdrawn later (arm rule, stage or normal-majority refusal, part-lost
+ * chromosome). Such a chromosome has `aneuploidy` unset, which is also what keeps it out of the
+ * report's aneuploidy table, and its final call is the card's change rows on it.
+ */
+const WHOLE_NOTE = /^(LOST|GAINED): /
+
+function withdrawnNote(c: ChromState, rows: readonly { chrom: string; kind: string; startBp: number; endBp: number }[]): string {
+  const on = rows.filter((d) => d.chrom === c.chrom)
+  return on.length
+    ? `not called whole: read in pieces, ${on.map((d) => `${directionOf(d.kind) ?? 'finding'} ${mb1(d.startBp)} to ${mb1(d.endBp)} Mb`).join(', ')}`
+    : 'not called whole: no change stands on it'
+}
+
+/** A chromosome's verdict and note, as every chromosome table prints them. `rows` is the sample's
+ *  change list (defectsForResult), read where a whole call was withdrawn. */
+export function chromCells(
+  seen: boolean, c: ChromState, rows: readonly { chrom: string; kind: string; startBp: number; endBp: number }[] = [],
+): { verdict: string; note: string } {
   const verdict = stateWord(seen && c.verdict === 'absent', c.verdict.replace(/_/g, ' '), 'none')
+  if (!seen && c.note && !c.aneuploidy && WHOLE_NOTE.test(c.note)) return { verdict, note: withdrawnNote(c, rows) }
   if (!seen || !c.note) return { verdict, note: c.note ?? '' }
   const nums = [Number.isFinite(c.callFraction) ? `calls at ${c.callFraction.toFixed(2)}x of the genome median` : '',
     Number.isFinite(c.lrrShift) ? `intensity ${signed(c.lrrShift)} log2` : ''].filter(Boolean).join(', ')

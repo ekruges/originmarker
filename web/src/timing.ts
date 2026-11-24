@@ -47,8 +47,14 @@ export interface UnitReading {
   changes: readonly UnitChange[]
   /** Chromosomes the unit measured (`chroms`); an unmeasured chromosome never reads normal. */
   measured: readonly string[]
-  /** Stage not failed and no sample-level integrity refusal. */
+  /** Stage not failed and no sample-level integrity refusal: may read a stretch normal. */
   reportable: boolean
+  /**
+   * The sample is reportable at all (pageSays.reportOf, decided by the caller). A unit not shown
+   * takes no part in its embryo's reading and gets no origin word: a cell whose normal level cannot
+   * be told cannot show that it shares a change or lacks one. Absent means shown.
+   */
+  shown?: boolean
 }
 
 const GAIN = new Set(['copy-gain', 'trisomy', 'segmental-duplication'])
@@ -68,6 +74,7 @@ export function readingOf(
     stage?: { stage?: string }
     integrity?: { level?: string }
   },
+  shown = true,
 ): UnitReading {
   return {
     changes: defects.filter((d) => d.chrom !== 'genome').map((d) => ({
@@ -76,6 +83,7 @@ export function readingOf(
     })),
     measured: (r.chroms ?? []).map((c) => c.chrom),
     reportable: r.stage?.stage !== 'failed' && (r.integrity?.level ?? 'intact') === 'intact',
+    shown,
   }
 }
 
@@ -213,10 +221,16 @@ export function callMechanism(
  *  holds at least one; `mechanism` is the shared word, or none where the stretches differ. */
 export interface TimedChange extends UnitChange { mechanism: Mechanism; why: string; stretches: Stretch[] }
 
-/** Every change of every unit of one embryo, in the order the units were given. */
+/** Every change of every unit of one embryo, in the order the units were given, read among the units shown. */
 export function timeGroup(units: readonly UnitReading[]): TimedChange[][] {
+  const shown = units.filter((u) => u.shown !== false)
   return units.map((u) => u.changes.map((c) => {
-    const stretches = stretchesOf(c, units)
+    if (u.shown === false) {
+      const why = 'the sample is not reportable, so no origin is read on it'
+      return { ...c, mechanism: 'none' as const, why,
+        stretches: [{ fromBp: c.whole ? 0 : c.startBp, toBp: c.whole ? TO_END : c.endBp, mechanism: 'none' as const, why }] }
+    }
+    const stretches = stretchesOf(c, shown)
     const one = !split(stretches)
     return {
       ...c, stretches,

@@ -8,7 +8,7 @@
  * its SHA-256.
  */
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
-import { BAND_WORD, KIND_WORD, runAlerts } from './defects.ts'
+import { BAND_WORD, KIND_WORD, runAlerts, type Defect } from './defects.ts'
 import { unanswerable } from './abnormalities.ts'
 import { split, stretchWhere, stretchWord, type Mechanism, type Stretch } from './timing.ts'
 import {
@@ -522,7 +522,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   for (const f of results) {
     const r = f.result!
     const m = f.maternal
-    const { setup, list, head } = says(f)
+    const { setup, list, head, defects } = says(f)
     // Every state word below comes from pageSays.stateWord through its helpers.
     const seen = notReportable(r)
     need(96)
@@ -670,7 +670,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     if (sex.length) {
       heading(seenHeading(seen, 'Sex chromosomes'), 8.6)
       if (r.sexChromosome) text(sexLine(r.sexChromosome), 7.6, 'Helvetica', 2)
-      chromTable(sex, r.explainable, seen)
+      chromTable(sex, r.explainable, seen, defects)
     }
     const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed
       || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance')
@@ -901,10 +901,10 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     }
 
     heading(seenHeading(notReportable(r), m ? 'Chromosomes, sperm donor' : 'Chromosomes'), 8.6)
-    chromTable(r.chroms, r.explainable, notReportable(r))
+    chromTable(r.chroms, r.explainable, notReportable(r), defects)
     if (m) {
       heading(seenHeading(notReportable(r), 'Chromosomes, oocyte donor'), 8.6)
-      chromTable(m.chroms, m.explainable, notReportable(r))
+      chromTable(m.chroms, m.explainable, notReportable(r), defects)
     }
 
     if (f.profile) {
@@ -988,7 +988,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     }
   }
 
-  function chromTable(chroms: ChromResult[], ceiling: number, seen = false): void {
+  function chromTable(chroms: ChromResult[], ceiling: number, seen = false, rows: readonly Defect[] = []): void {
     table([
       { head: 'Chr', w: 34 },
       { head: 'Informative', w: 52, right: true },
@@ -1003,8 +1003,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       // invites the reader to take the number and ignore the verdict beside it.
       c.verdict === 'not_measured' || !Number.isFinite(c.rate / ceiling)
         ? '-' : (c.rate / ceiling).toFixed(1),
-      { v: chromCells(seen, c).verdict, colour: c.verdict === 'absent' && !seen ? WARN : INK },
-      chromCells(seen, c).note,
+      { v: chromCells(seen, c, rows).verdict, colour: c.verdict === 'absent' && !seen ? WARN : INK },
+      chromCells(seen, c, rows).note,
     ]))
   }
 

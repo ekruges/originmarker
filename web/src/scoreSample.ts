@@ -40,6 +40,7 @@ import {
   DIPLOID_MIN,
 } from './obligateHet.ts'
 import { originBlockedByClass, namedAParent } from './defects.ts'
+import { changeLogLines } from './pageSays.ts'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin.ts'
 import { callOneParentOrigin } from './oneParentOrigin.ts'
 import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin.ts'
@@ -2708,20 +2709,6 @@ export async function scoreSample(input: {
       log(c.hypothesis === 'refused' ? 'WARN' : 'DONE', `sibling call ${c.where}: ${c.why}`)
     }
   }
-  for (const g of result.gains) {
-    log(g.called ? 'DONE' : 'WARN', `gain ${g.where}: ${g.origin}. ${g.why}`)
-  }
-  for (const l of result.losses) {
-    log(l.called ? 'DONE' : 'WARN', `loss ${l.where}: ${l.origin} copy missing. ${l.why}`)
-  }
-
-  if (result.segments.length) {
-    log('WARN', `${sampleName}: ${result.segments.length} segment(s) where a parental `
-      + `genome is missing: ${result.segments.map((x) => `chr${x.chrom} ${x.absentParent ?? soloRole} `
-        + `${(segmentCoords(x).spanBp / 1e6).toFixed(1)}Mb `
-        + `${segmentCoords(x).localised ? segmentCoords(x).interval : '(not localised)'} `
-        + `at ${pct(x.rate, 1)}`).join(', ')}`)
-  }
 
   // THE SAMPLE-LEVEL FLAG, computed last because it summarises everything above it. Reusing the
   // bounds the taxonomy already measured rather than choosing new ones: see integrity.ts.
@@ -2755,6 +2742,8 @@ export async function scoreSample(input: {
     log(result.integrity.level === 'uninterpretable' ? 'WARN' : 'DONE',
       `${sampleName}: ${result.integrity.headline}`)
   }
+  // After the integrity call, so a sample not reportable logs what was seen, not a change.
+  for (const [level, line] of changeLogLines(result, sampleName, soloRole)) log(level, line)
 
   return result
 }

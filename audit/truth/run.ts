@@ -20,7 +20,9 @@
  * `surfaces` holds what the other surfaces print of the same sample: the overview's count of
  * changes and findings for it alone, the changes download's words and loaded-parent values, and,
  * on a sample not reportable or one whose sex line reads "47,XXY or a mix of cells", what its PDF
- * prints (pageSays, overview, syngamyTable, syngamyPdf).
+ * prints (pageSays, overview, syngamyTable, syngamyPdf); on a sample not reportable the run log's
+ * gain, loss and stretch lines (`log`); and, where a whole call was withdrawn after the chromosome
+ * was read, the note the chromosome table prints for it (`wholeWithdrawn`).
  *
  * `genomeVerdicts` holds the loaded parent's genome-wide verdict and, with both parents, the
  * mother's, read as the page reads it; `changes` holds each printed change as the result card lists
@@ -186,8 +188,16 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
         findingTexts: s.list.counted.filter((g: any) => pageSays.rowDirection(g) === 'none')
           .map((g: any) => [pageSays.whoseText(g), pageSays.rowSays(g, s.setup), pageSays.callTitle(g)].join(' | ')),
       }
+      // The chromosome table's note where a whole call was withdrawn after it was written: it must
+      // state the final call, as the change list does.
+      if (!s.list.notReported) {
+        const gone = (res.chroms ?? []).filter((c: any) => /^(LOST|GAINED): /.test(c.note ?? '') && !c.aneuploidy)
+        if (gone.length) out.wholeWithdrawn = gone.map((c: any) => `chr${c.chrom}: ${pageSays.chromCells(false, c, s.defects).note}`)
+      }
       if (s.list.notReported) {
         const nr = s.list.notReported
+        // The run log's gain, loss and stretch lines of this sample, as the page prints them.
+        out.log = pageSays.changeLogLines(res, id, res.role).map((x: any) => x[1])
         out.seenWhose = nr.rows.map((g: any) => pageSays.whoseText(g))
         // Every state cell of the page's and the report's tables of this sample, as each prints it.
         const P = pageSays
