@@ -37,10 +37,16 @@ cell staged haploid with diploid cells of the published series, and four such pa
 cohort. It now admits 10 pairs on the published cells (was 13) and 183 on the lab cohort (was
 187), and gains and loses nothing else.
 
-**Three display corrections.** A whole-chromosome figure heading prints no span: with no parent
+**Display corrections.** A whole-chromosome figure heading prints no span: with no parent
 its end was 0, so it read "Whole chromosome 17 (0 Mb)". The run log of a sample not reportable
 prints its gains, losses and stretches with the seen words, never "copy missing" or a parent, on
-all 172 such records. Where a whole-chromosome call was withdrawn after the chromosome was read,
+all 172 such records, and its origin lines, one interval or several for one reason, read "origin
+not read: the sample is not reportable" with no class ("3 copy-loss intervals not evaluable" named
+a change on 90 of them). The report's timing table lists gains and losses only: a finding has no
+origin to time and is listed in its own table, so each finding of a sample was printed twice. Where
+a cell of a group gets no origin for a change, the opened row now says why, in the report's words
+("When it arose: not called. One unit of this embryo was read; one cell cannot say when a change
+arose."). Where a whole-chromosome call was withdrawn after the chromosome was read,
 the chromosome table no longer prints the withdrawn "LOST: ..."; it names the pieces the change
 list holds ("not called whole: read in pieces, loss 0.0 to 52.6 Mb, gain 52.6 to 78.4 Mb"), on 179
 chromosomes of 79 records.

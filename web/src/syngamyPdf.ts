@@ -10,7 +10,7 @@
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
 import { BAND_WORD, KIND_WORD, runAlerts, type Defect } from './defects.ts'
 import { unanswerable } from './abnormalities.ts'
-import { split, stretchWhere, stretchWord, type Mechanism, type Stretch } from './timing.ts'
+import { directionOf, split, stretchWhere, stretchWord, type Mechanism, type Stretch } from './timing.ts'
 import {
   pct,
   type ChromResult, type PairResult, type ParentageResult,
@@ -196,11 +196,15 @@ export const timingWhere = (u: { chrom: string; startBp: number; endBp: number; 
   (u.whole ? `chr${u.chrom}, whole chromosome`
     : `chr${u.chrom} ${(u.startBp / 1e6).toFixed(1)}-${(u.endBp / 1e6).toFixed(1)}Mb`)
 
-/** The timing table's lines: one per change, or one per stretch where its stretches read differently. */
+/**
+ * The timing table's lines: one per gain or loss, or one per stretch where its stretches read
+ * differently. A finding has no direction and so no origin to time; it is listed in its own table,
+ * and listing it here too printed each finding of a sample twice.
+ */
 export function timingRows(uniformity: readonly {
   chrom: string; kind: string; startBp: number; endBp: number; whole?: boolean; mechanism: Mechanism; why: string; stretches?: Stretch[]
 }[]): { where: string; mechanism: Mechanism; why: string }[] {
-  return uniformity.flatMap((u) => (u.stretches && split(u.stretches)
+  return uniformity.filter((u) => directionOf(u.kind)).flatMap((u) => (u.stretches && split(u.stretches)
     ? u.stretches.map((s) => ({ where: stretchWhere(u, s), mechanism: s.mechanism, why: s.why }))
     : [{ where: timingWhere(u), mechanism: u.mechanism, why: u.why }]))
 }

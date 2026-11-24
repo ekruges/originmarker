@@ -315,7 +315,14 @@ const one = (where: string, verdict: string) => ({
     'another change on the chromosome does not lend its timing')
   assert.equal(at('meiotic', { kind: 'copy-gain' }).mechanism, undefined)
   assert.equal(at('meiotic', { chrom: '9' }).mechanism, undefined)
-  assert.equal(at('none').mechanism, undefined, 'no origin is no origin word')
+  // No origin is no origin word, and the row keeps the reason the report prints.
+  const none = at('none', { why: 'one unit of this embryo was read; one cell cannot say when a change arose' })
+  assert.equal(none.mechanism, 'none')
+  assert.equal(none.mechanismWhy, 'one unit of this embryo was read; one cell cannot say when a change arose')
+  assert.ok(!/gamete|fertilisation/.test(headline({ ...none, origin: 'paternal' as const })), headline(none))
+  assert.equal(withMechanism([{ ...row, kind: 'cnn-loh' }], [{ chrom: '7', startBp: row.startBp, endBp: row.endBp,
+    kind: 'cnn-loh', mechanism: 'none', why: 'a change with no direction carries no origin' }])[0].mechanism, undefined,
+  'a row with no direction is not timed')
 
   // The headline carries the words decided for each call, with or without a named parent.
   const withOrigin = { ...uniform, origin: 'paternal' as const }

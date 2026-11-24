@@ -23,7 +23,7 @@ import {
   defectsFrom, findingToDefect, KIND_WORD, mendelParent, parentNamed, withMechanism, type Defect,
 } from './defects.ts'
 import { segmentCoords } from './segments.ts'
-import { directionOf, ORIGIN_WORD, split, stretchWhere, stretchWord } from './timing.ts'
+import { directionOf, split, stretchWhere, stretchWord } from './timing.ts'
 
 export type Parent = 'paternal' | 'maternal'
 
@@ -530,15 +530,55 @@ export const notReportable = (r: { refusals?: readonly { claim: string; gate: st
 export const stateWord = (seen: boolean, word: string, dir: Seen): string => (seen ? SEEN_WORD[dir] : word)
 
 /**
+ * The chromosomes a list of interval labels covers, collapsed.
+ *
+ * A refusal that applies to three hundred intervals is one fact, and a reader wants to know how
+ * far it reached rather than to scroll three hundred coordinates. The full list stays in the
+ * report and the export.
+ */
+export const listChroms = (wheres: readonly string[]): string => {
+  const seen: string[] = []
+  for (const w of wheres) {
+    const c = /^chr([\dXY]+)/.exec(w)?.[1]
+    if (c && !seen.includes(c)) seen.push(c)
+  }
+  if (!seen.length) return `${wheres.length} intervals`
+  const n = seen.length
+  return n <= 6 ? `chr${seen.join(', chr')}` : `${n} chromosomes, chr${seen[0]} to chr${seen[n - 1]}`
+}
+
+/**
  * The run log's lines for a sample's gains, losses and absent stretches. On a sample not reportable
  * each states only how the reading sat against the rest of the array (stateWord), with no class
  * or parent, as every other surface of that sample does.
  */
 export function changeLogLines(
-  r: Pick<ParentageResult, 'gains' | 'losses' | 'segments' | 'refusals'>, sampleName: string, soloRole: string,
+  r: Pick<ParentageResult, 'gains' | 'losses' | 'segments' | 'refusals'> & { dosageCalls?: ParentageResult['dosageCalls'] },
+  sampleName: string, soloRole: string,
 ): ['DONE' | 'WARN', string][] {
   const seen = notReportable(r)
   const out: ['DONE' | 'WARN', string][] = []
+  // A NAMED PARENT IS ALWAYS PRINTED IN FULL; A REFUSAL ONCE PER DISTINCT REASON. A run on
+  // single-cell material produced 319 of these, every one the same sentence; the intervals stay
+  // listed, and the full table is in the report and the export. Grouped by class as well as
+  // reason, so the summary says what it stood for. On a sample not reportable no class, parent or
+  // reason is named: the origin was not read.
+  const refusals = new Map<string, { cls: string; why: string; at: string[] }>()
+  for (const c of r.dosageCalls ?? []) {
+    const named = c.verdict === 'loaded-parent' || c.verdict === 'other-parent'
+    const cls = (c as { cls?: string }).cls ?? 'dosage'
+    if (named && !seen) { out.push(['DONE', `${cls} origin ${c.where}: ${c.why}`]); continue }
+    const key = seen ? '' : `${cls}|${c.why}`
+    const at = refusals.get(key)
+    if (at) at.at.push(c.where)
+    else refusals.set(key, { cls, why: c.why, at: [c.where] })
+  }
+  for (const { cls, why, at } of refusals.values()) {
+    if (seen) {
+      out.push(['WARN', `${at.length === 1 ? at[0] : `${at.length} intervals, on ${listChroms(at)}`}: origin ${verdictText(true, '')}`])
+    } else if (at.length === 1) out.push(['WARN', `${cls} origin ${at[0]}: ${why}`])
+    else out.push(['WARN', `${at.length} ${cls} intervals not evaluable for the same reason, on ${listChroms(at)}: ${why}`])
+  }
   for (const g of r.gains ?? []) {
     out.push(seen ? ['WARN', `${g.where}: ${stateWord(true, '', 'gain')}. ${NOT_REPORTED_SAYS}`]
       : [g.called ? 'DONE' : 'WARN', `gain ${g.where}: ${g.origin}. ${g.why}`])
@@ -731,8 +771,10 @@ const mb1 = (bp: number): string => (bp / 1e6).toFixed(1)
  * no word reads as covering the whole change.
  */
 export const whenLines = (g: ChangeRow): string[] => [...new Set(g.pieces.flatMap((p) => (p.mechanismStretches
-  ? p.mechanismStretches.map((s) => `When it arose, ${stretchWhere(p, s)}: ${stretchWord(s)}. ${s.why}.`)
-  : p.mechanism && ORIGIN_WORD[p.mechanism] ? [`When it arose: ${ORIGIN_WORD[p.mechanism]}. ${p.mechanismWhy ?? ''}.`] : [])))]
+  ? p.mechanismStretches.map((s) => `When it arose, ${stretchWhere(p, s)}: ${stretchWord(s)}. ${cap(s.why)}.`)
+  : p.mechanism ? [`When it arose: ${stretchWord({ mechanism: p.mechanism })}. ${cap(p.mechanismWhy ?? '')}.`] : [])))]
+
+const cap = (x: string): string => x.charAt(0).toUpperCase() + x.slice(1)
 
 /** Whose, in words. */
 export function whoseText(g: ChangeRow): string {

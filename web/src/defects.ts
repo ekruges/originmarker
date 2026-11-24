@@ -15,7 +15,7 @@ import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
 import type { StageCall } from './stage.ts'
 import { ORIGIN_UNREACHABLE, taxonomyFor, type Finding } from './abnormalities.ts'
-import { ORIGIN_WORD, split, type Mechanism, type Stretch } from './timing.ts'
+import { directionOf, ORIGIN_WORD, split, type Mechanism, type Stretch } from './timing.ts'
 
 /** What is known about one defect, gathered from whichever channels produced it. */
 export interface Defect {
@@ -627,7 +627,10 @@ export function withMechanism(
     const hit = uniformity.find((u) => u.chrom === d.chrom && u.startBp === d.startBp
       && u.endBp === d.endBp && u.kind === d.kind)
     if (hit?.stretches && split(hit.stretches)) return { ...d, mechanismStretches: hit.stretches }
-    return hit && hit.mechanism !== 'none' ? { ...d, mechanism: hit.mechanism, mechanismWhy: hit.why } : d
+    // A gain or loss of a grouped cell with no origin keeps its reason, so the opened row says why,
+    // as the report's timing table does. A row with no direction is not timed.
+    if (hit?.mechanism === 'none') return directionOf(d.kind) ? { ...d, mechanism: 'none', mechanismWhy: hit.why } : d
+    return hit ? { ...d, mechanism: hit.mechanism, mechanismWhy: hit.why } : d
   })
 }
 

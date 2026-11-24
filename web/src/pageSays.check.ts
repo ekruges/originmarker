@@ -6,7 +6,7 @@ import {
   callTitle, changeList, changesText, COUNTED, defectsForResult, disturbedText, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, readAgainst, rowLine,
   saidOf, spanMb, whereText, whoseText, WORD, type HeadInput,
 } from './pageSays.ts'
-import { KIND_WORD, type Defect } from './defects.ts'
+import { KIND_WORD, withMechanism, type Defect } from './defects.ts'
 
 const root = new URL('../../audit/truth/', import.meta.url)
 
@@ -270,10 +270,23 @@ const cellA: Defect[] = [
   ;[off, sis].forEach((r, i) => { r.uniformity = t2[i] })
   for (const r of [off, sis]) {
     for (const d of defectsForResult(r)) {
-      assert.equal(d.mechanism, undefined, `chr${d.chrom} prints an origin word`)
+      assert.ok(!d.mechanism || d.mechanism === 'none', `chr${d.chrom} prints an origin word`)
       assert.equal(d.mechanismStretches, undefined)
     }
   }
+}
+
+// ---------------------------------------------------------------- the opened row says why no origin is given
+// The same sentence the report's timing table prints for the row, from the same uniformity entry.
+{
+  const { whenLines } = await import('./pageSays.ts')
+  const { timingRows } = await import('./syngamyPdf.ts')
+  const why = 'one unit of this embryo was read; one cell cannot say when a change arose'
+  const u = { chrom: '17', kind: 'copy-loss', startBp: 6157, endBp: 52_598_275, whole: false, mechanism: 'none' as const, why }
+  const row = withMechanism([{ chrom: '17', kind: 'copy-loss', startBp: 6157, endBp: 52_598_275, locus: 'chr17:6,157-52,598,275',
+    origin: 'unclear', why: '' } as never], [u])
+  assert.deepEqual(whenLines({ pieces: row } as never), ['When it arose: not called. One unit of this embryo was read; one cell cannot say when a change arose.'])
+  assert.equal(timingRows([u])[0].why, why)
 }
 
 // ---------------------------------------------------------------- the run log of a sample not reportable
@@ -290,6 +303,17 @@ const cellA: Defect[] = [
   for (const l of seen) assert.ok(!/copy missing|extra copy|maternal|paternal|not determinable/.test(l), l)
   const shown = changeLogLines(r([]), 'S', 'paternal').map((x) => x[1])
   assert.equal(shown[1], 'loss chr16 0.1-36.6Mb: not determinable copy missing. w')
+  // The origin channel's lines, one interval and several for one reason, go the same way.
+  const calls = (refusals: unknown[]) => ({ ...(r(refusals) as object), gains: [], losses: [], dosageCalls: [
+    { where: 'chr1 0.1-20.0Mb', cls: 'copy-loss', verdict: 'not-evaluable', why: 'too few markers' },
+    { where: 'chr1 30.0-60.0Mb', cls: 'copy-loss', verdict: 'not-evaluable', why: 'too few markers' },
+    { where: 'chr1 70.0-90.0Mb', cls: 'copy-loss', verdict: 'not-evaluable', why: 'too few markers' },
+    { where: 'chr2 1.0-9.0Mb', cls: 'copy-gain', verdict: 'loaded-parent', why: 'the father' }] }) as never
+  const off = changeLogLines(calls([{ claim: 'sample', gate: 'integrity.uninterpretable' }]), 'S', 'paternal').map((x) => x[1])
+  assert.deepEqual(off, ['4 intervals, on chr1, chr2: origin not read: the sample is not reportable'])
+  const on = changeLogLines(calls([]), 'S', 'paternal').map((x) => x[1])
+  assert.deepEqual(on, ['copy-gain origin chr2 1.0-9.0Mb: the father',
+    '3 copy-loss intervals not evaluable for the same reason, on chr1: too few markers'])
 }
 
 // ---------------------------------------------------------------- a whole call withdrawn after its note was written

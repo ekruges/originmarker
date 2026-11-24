@@ -224,3 +224,15 @@ console.log('timing.check.ts OK: rule B1 read per stretch of the embryo, with di
     [`When it arose: consistent with the gamete (two cells read). ${l.why}.`])
   console.log('timing.check.ts: a call read by stretch gets one line per stretch in the opened row and the report')
 }
+
+// --- THE REPORT'S TIMING TABLE LISTS EACH ROW ONCE, AND NO FINDING ---------------------------------
+{
+  const { timingRows } = await import('./syngamyPdf.ts')
+  const p = (kind: string, a: number, b: number) => ch('5', kind, 'unclear', a, b, false)
+  const cell = unit([p('cnn-loh', 0, 180.7e6), p('isodisomy', 2.8e6, 180.7e6), p('copy-loss', 10e6, 40e6),
+    p('copy-loss', 60e6, 90e6), ch('6', 'cnn-loh', 'unclear', 0, 170.9e6, false)], { shown: false })
+  const [rows] = timeGroup([cell, unit([p('copy-loss', 10e6, 40e6)])])
+  const where = timingRows(rows).map((r) => r.where)
+  assert.deepEqual(where, ['chr5 10.0-40.0Mb', 'chr5 60.0-90.0Mb'], 'each gain or loss once; findings have their own table')
+  assert.equal(new Set(where).size, where.length)
+}
