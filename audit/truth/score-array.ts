@@ -16,6 +16,8 @@ import { parsePanel, FOUNDER_PANEL_PATH, emptySameHom, addSameHom } from '../../
 import { parseInferredBanner, MARK_BYTES } from '../../web/src/inferredArray.ts'
 import { emptyHomTally, addHomozygous } from '../../web/src/informationRatio.ts'
 import { unreadableLines, missingRequired, recogniseRows } from '../../web/src/platform.ts'
+import { sexCall } from '../../web/src/sexing.ts'
+import { classify } from '../../web/src/parentage.ts'
 
 export const text = (p: string) => { const raw = readFileSync(p); return (p.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8') }
 export function rows(path: string): any[] {
@@ -108,12 +110,15 @@ export function collectArray(id: string, path: string, parentPath: string, other
   return { pat, mat, acc, profile, sameHom, homTally }
 }
 
-/** One array scored as the page scores it. */
+/** One array scored as the page scores it, with the mother's genome-wide reading where both parents
+ * are loaded, read as the page reads it, so a record can be built without the mother's tally. */
 export async function scoreArray(id: string, path: string, parentPath: string, otherPath: string | undefined,
   role: string | undefined, sibPaths: string[]) {
   const { pat, mat, acc, profile, sameHom, homTally } = collectArray(id, path, parentPath, otherPath)
   const res = await scoreSample({ acc, profile, pat, mat, soloRole: role === 'maternal' ? 'maternal' : 'paternal',
     sibs: sibPaths.map(calls),
     sampleName: id, log: () => {} } as never) as any
-  return { pat, mat, acc, profile, sameHom, homTally, res }
+  const maternal = (acc as any).tm && mat
+    ? classify((acc as any).tm, mat.heterozygosity, { role: 'maternal', yBearing: sexCall((acc as any).sex).yBearing }) : null
+  return { pat, mat, acc, profile, sameHom, homTally, res, maternal }
 }

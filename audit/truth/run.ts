@@ -91,13 +91,13 @@ async function scoreArray(id: string, path: string, parentPath: string, otherPat
   let v = store.get(key)
   if (!v) {
     const s = await scoreFresh(id, path, parentPath, otherPath, role, sibPaths)
-    v = { res: s.res, profile: s.profile, sameHom: s.sameHom, homTally: s.homTally,
-      acc: { tm: (s.acc as any).tm, sex: (s.acc as any).sex },
+    v = { res: s.res, profile: s.profile, sameHom: s.sameHom, homTally: s.homTally, maternal: s.maternal,
+      acc: { sex: (s.acc as any).sex },
       pat: { sex: s.pat.sex }, mat: s.mat ? { sex: s.mat.sex, heterozygosity: s.mat.heterozygosity } : null }
     store.put(key, v)
     return s
   }
-  return { res: v.res, profile: v.profile, sameHom: v.sameHom, homTally: v.homTally, pat: only(v.pat), mat: v.mat && only(v.mat),
+  return { res: v.res, profile: v.profile, sameHom: v.sameHom, homTally: v.homTally, maternal: v.maternal, pat: only(v.pat), mat: v.mat && only(v.mat),
     acc: only(v.acc, { cnByChrom: () => collectArray(id, path, parentPath, otherPath).acc.cnByChrom }) }
 }
 
@@ -138,13 +138,12 @@ async function otherUnit(path: string, parentPath: string, otherPath: string | u
 /** The record of one row, and this array's own part in the sister reading where its run has others. */
 async function recordOf(id: string, path: string, parentPath: string, tag: string, otherPath: string | undefined,
   role: string | undefined, run: string[]) {
-  const { pat, mat, acc, profile, sameHom, homTally, res } = await scoreArray(id, path, parentPath, otherPath, role, run)
+  const { pat, mat, acc, profile, sameHom, homTally, res, maternal } = await scoreArray(id, path, parentPath, otherPath, role, run)
   // The stage with no parent consulted: the founder panel's drop-in and information ratio only.
   const free = stageMod.inferStage({ ...profile, dropIn: keys.onParentScale(keys.dropIn(sameHom), panel.calibration),
     information: info.informationRatio(homTally) }) as any
-  // The mother's genome-wide verdict, read as the page reads it, so the headline can be replayed.
+  // The chrY reading. The mother's genome-wide verdict comes with the scored array (score-array.ts).
   const y = sexing.sexCall((acc as any).sex)
-  const maternal = (acc as any).tm && mat ? parentage.classify((acc as any).tm, mat.heterozygosity, { role: 'maternal', yBearing: y.yBearing }) : null
   if (process.env.OM_SURFACES && !res.noParent) {
     const cls = maternal ? parentage.pair(res, maternal, NaN).originClass : res.originClass
     const bad = pageSays.surfaceProblems(res, maternal ?? undefined, cls, tag.startsWith('recon'))
