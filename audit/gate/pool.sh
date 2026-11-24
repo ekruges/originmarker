@@ -5,6 +5,8 @@
 #   pool.sh priority <lane> <weight>     a lane's share of starts (default 1; 2 starts twice as often)
 #   pool.sh run                          the scheduler (one is enough; a second waits on the lock)
 #   pool.sh status                       queued, running and finished jobs, by lane
+#   pool.sh wait <lane>                  returns when the lane has nothing queued or running; prints
+#                                        each finished job's exit code; exits 1 if any is not 0
 #
 # A job starts only by moving its file out of queue/ into running/, and mv is atomic, so no job
 # starts twice, whatever number of schedulers are alive or however often one is killed and started
@@ -145,6 +147,17 @@ case "${1:-}" in
       sleep "$TICK"
     done
     ;;
+  wait)
+    lane=$2
+    while [ -n "$(ls "$P/queue/$lane" 2>/dev/null | grep '\.job$')" ] || ls "$P/running/${lane}__"*.job > /dev/null 2>&1; do sleep "$TICK"; done
+    bad=0
+    for e in "$P"/done/"${lane}"__*.exit; do
+      [ -e "$e" ] || continue
+      c=$(cat "$e"); echo "$(basename "$e" .job.exit | sed "s/^${lane}__[0-9]*-[0-9]*-[0-9]*-//") exit $c"
+      [ "$c" = 0 ] || bad=1
+    done
+    exit $bad
+    ;;
   status)
     for d in queue running done; do
       echo "$d: $(find "$P/$d" -name '*.job' | wc -l)"
@@ -154,5 +167,5 @@ case "${1:-}" in
     for e in "$P"/done/*.exit; do [ -e "$e" ] && echo "  done $(basename "$e" .exit) exit $(cat "$e")"; done | tail -20
     echo "available $(( $(avail_kb) / 1048576 )) GB, load $(load1), at most $JOBS jobs"
     ;;
-  *) echo "usage: pool.sh submit <lane> <queue> | priority <lane> <weight> | run | status" >&2; exit 2 ;;
+  *) echo "usage: pool.sh submit <lane> <queue> | priority <lane> <weight> | run | status | wait <lane>" >&2; exit 2 ;;
 esac

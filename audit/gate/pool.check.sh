@@ -7,7 +7,7 @@ set -uo pipefail
 POOL=$(cd "$(dirname "$0")" && pwd)/pool.sh
 T=$(mktemp -d)
 trap 'kill $(jobs -p) 2>/dev/null; rm -rf "$T"' EXIT
-export POOL_DIR=$T/pool POOL_JOBS=3 POOL_GAP=0 POOL_TICK=1 POOL_FREE_KB=99999999 POOL_RESERVE_GB=1 POOL_JOB_GB=1
+export POOL_DISK_GB=0 POOL_DIR=$T/pool POOL_JOBS=3 POOL_GAP=0 POOL_TICK=1 POOL_FREE_KB=99999999 POOL_RESERVE_GB=1 POOL_JOB_GB=1
 fail() { echo "FAIL: $*"; exit 1; }
 
 for lane in a b; do
@@ -60,4 +60,11 @@ printf 'm/big\t5000000\n' >> "$POOL_DIR/peaks.tsv"
 POOL_FREE_KB=4194304 POOL_RESERVE_GB=1 POOL_JOB_GB=1 timeout 8 bash "$POOL" run
 grep -q 'start m small' "$POOL_DIR/pool.log" || fail "a job that fits was not started"
 grep -q 'start m big' "$POOL_DIR/pool.log" && fail "a job larger than the memory left was started"
+# wait returns once a lane is finished, with each job's exit code, and fails on a failed job.
+export POOL_DIR=$T/pool4
+printf 'good\t%s\ttrue\nbad\t%s\tfalse\n' "$T" "$T" > "$T/q-x"
+bash "$POOL" submit x "$T/q-x" > /dev/null
+POOL_DRAIN=1 bash "$POOL" run
+out=$(bash "$POOL" wait x); rc=$?
+[ "$rc" -eq 1 ] && echo "$out" | grep -q 'good exit 0' && echo "$out" | grep -q 'bad exit 1' || fail "wait: $rc $out"
 echo "pool checks pass"
