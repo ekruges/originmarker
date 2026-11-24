@@ -23,7 +23,7 @@ import {
   defectsFrom, findingToDefect, KIND_WORD, mendelParent, parentNamed, withMechanism, type Defect,
 } from './defects.ts'
 import { segmentCoords } from './segments.ts'
-import { ORIGIN_WORD, stretchText, stretchWord } from './timing.ts'
+import { ORIGIN_WORD, split, stretchWhere, stretchWord } from './timing.ts'
 
 export type Parent = 'paternal' | 'maternal'
 
@@ -437,7 +437,7 @@ const mb1 = (bp: number): string => (bp / 1e6).toFixed(1)
  * no word reads as covering the whole change.
  */
 export const whenLines = (g: ChangeRow): string[] => [...new Set(g.pieces.flatMap((p) => (p.mechanismStretches
-  ? p.mechanismStretches.map((s) => `When it arose, ${stretchText(s)}: ${stretchWord(s)}. ${s.why}.`)
+  ? p.mechanismStretches.map((s) => `When it arose, ${stretchWhere(p, s)}: ${stretchWord(s)}. ${s.why}.`)
   : p.mechanism && ORIGIN_WORD[p.mechanism] ? [`When it arose: ${ORIGIN_WORD[p.mechanism]}. ${p.mechanismWhy ?? ''}.`] : [])))]
 
 /** Whose, in words. */
@@ -471,11 +471,14 @@ export function whoseText(g: ChangeRow): string {
  * call was made on, whoever turns out to own the missing copy, and it carries its own label.
  */
 export function callTitle(g: ChangeRow): string {
+  // A whole row's end is the last marker only where a parent was loaded (0 with none), so a whole
+  // chromosome prints no span. A row read by stretch says so instead of carrying one origin word.
+  const stretched = g.pieces.some((p) => p.mechanismStretches && split(p.mechanismStretches))
   const where = g.chrom === 'genome' ? 'The whole genome'
-    : g.whole ? `Whole chromosome ${g.chrom} (${(g.endBp / 1e6).toFixed(0)} Mb)`
+    : g.whole ? `Whole chromosome ${g.chrom}`
       : `Chromosome ${g.chrom}, ${mb1(g.startBp)} to ${mb1(g.endBp)} Mb `
         + `(${((g.endBp - g.startBp) / 1e6).toFixed(1)} Mb)`
-  return `${where}: ${whoseText(g)}.`
+  return `${where}: ${whoseText(g)}${stretched ? ', origin read by stretch' : ''}.`
 }
 
 /** Where, in Mb, one entry per joined piece; the refined coordinates every surface prints. */

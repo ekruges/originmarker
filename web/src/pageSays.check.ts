@@ -227,7 +227,38 @@ const cellA: Defect[] = [
       `row "${whoseText(g)}" and title "${callTitle(g)}" disagree about naming a parent`)
     assert.ok(callTitle(g).includes(whoseText(g)), callTitle(g))
   }
-  assert.ok(callTitle(rows[rows.length - 1]).startsWith('Whole chromosome 6 ('), callTitle(rows[rows.length - 1]))
+  // A whole chromosome prints no span: with no parent its row's end is 0, and "(0 Mb)" is not a size.
+  assert.ok(callTitle(rows[rows.length - 1]).startsWith('Whole chromosome 6: '), callTitle(rows[rows.length - 1]))
+}
+
+// ---------------------------------------------------------------- a call read by stretch, as the page builds it
+// The page times the card rows of each unit (defectsForResult, readingOf, timeGroup), stores them as
+// result.uniformity, and titles each row's figure with callTitle over the card's change list. This
+// takes that path on a whole loss of 17 beside a sister that loses 0 to 52.6 Mb and gains the rest,
+// both with no parent loaded.
+{
+  const { readingOf, timeGroup } = await import('./timing.ts')
+  const chrom = (c: string, over: object = {}) => ({
+    chrom: c, aneuploidy: undefined, lostParent: undefined, callFraction: 1, lrrShift: 0, ...over,
+  })
+  const cell = (over: object) => ({
+    role: 'paternal', noParent: true, gains: [], losses: [], oneParent: [], dosageCalls: [], findings: [],
+    stage: { stage: 'single-cell' }, segments: [], chroms: [chrom('17'), chrom('1')], ...over,
+  }) as never
+  const seg = (kind: string, start: number, end: number) => ({
+    chrom: '17', kind, startBp: start, endBp: end, spanBp: end - start, markers: 4000, score: 900,
+  })
+  const whole = cell({ chroms: [chrom('17', { aneuploidy: 'loss' }), chrom('1')] }) as any
+  const parts = cell({ segments: [seg('copy-loss', 6157, 52_598_275), seg('copy-gain', 52_618_539, 78_359_420)] }) as any
+  const timed = timeGroup([whole, parts].map((r) => readingOf(defectsForResult(r), r)))
+  ;[whole, parts].forEach((r, i) => { r.uniformity = timed[i] })
+  const titles = (r: never) => changeList(defectsForResult(r), 'none').counted.concat(changeList(defectsForResult(r), 'none').once)
+    .map((g) => callTitle(g))
+  const w = titles(whole).find((t) => t.startsWith('Whole chromosome 17'))
+  assert.ok(w, `no whole-17 title among ${titles(whole)}`)
+  assert.equal(w, 'Whole chromosome 17: copy lost, parent not named, origin read by stretch.')
+  assert.equal(titles(parts).length, 2, String(titles(parts)))
+  for (const t of titles(parts)) assert.ok(!t.includes('read by stretch'), `a call of one stretch is not split: ${t}`)
 }
 
 // ---------------------------------------------------------------- the taxonomy's rows, in words

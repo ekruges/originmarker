@@ -1,7 +1,7 @@
 // Self-check for rule B1, when a change arose across the units of one embryo. Run: node src/timing.check.ts
 import assert from 'node:assert/strict'
 import {
-  callMechanism, ORIGIN_WORD, readingOf, SAME_BREAK_BP, split, stretchesOf, stretchText, stretchWord, timeGroup, TO_END,
+  callMechanism, ORIGIN_WORD, readingOf, SAME_BREAK_BP, split, stretchesOf, stretchText, stretchWhere, stretchWord, timeGroup, TO_END,
   type UnitChange, type UnitReading,
 } from './timing.ts'
 
@@ -188,14 +188,19 @@ console.log('timing.check.ts OK: rule B1 read per stretch of the embryo, with di
     ch('17', 'copy-gain', 'unclear', 52_618_539, 78_359_420, false)], { reportable: false })
   const [[w], [l]] = timeGroup([whole, parts])
   const rows = timingRows([w, l])
+  // The stretch first, the call named as what it belongs to: never "whole chromosome, 0.0 to 52.6 Mb".
   assert.deepEqual(rows.map((r) => r.where), [
-    'chr17, whole chromosome, 0.0 to 52.6 Mb', 'chr17, whole chromosome, 52.6 to 78.4 Mb',
-    'chr17, whole chromosome, 78.4 Mb to the end', 'chr17 0.0-52.6Mb'])
+    'chr17 0.0 to 52.6 Mb, part of the whole-chromosome loss', 'chr17 52.6 to 78.4 Mb, part of the whole-chromosome loss',
+    'chr17 78.4 Mb to the end, part of the whole-chromosome loss', 'chr17 0.0-52.6Mb'])
+  assert.equal(stretchWhere({ chrom: '9', kind: 'parental-absence', startBp: 7.15e6, endBp: 139.4e6, whole: false },
+    { fromBp: 16.7e6, toBp: 133.9e6 }), 'chr9 16.7 to 133.9 Mb, part of the loss over 7.2 to 139.4 Mb')
   assert.deepEqual(rows.map((r) => r.mechanism), ['consistent-with-gamete', 'mitotic-reciprocal', 'none', 'consistent-with-gamete'])
-  const lines = whenLines({ pieces: [{ mechanismStretches: w.stretches }] } as never)
+  const lines = whenLines({ pieces: [{ chrom: '17', kind: 'copy-loss', locus: 'chr17', startBp: 0, endBp: 0,
+    mechanismStretches: w.stretches }] } as never)
   assert.equal(lines.length, 3)
-  assert.ok(lines[0].startsWith('When it arose, 0.0 to 52.6 Mb: consistent with the gamete (two cells read). 2 of 2 units'), lines[0])
-  assert.ok(lines[2].startsWith('When it arose, 78.4 Mb to the end: not called.'), lines[2])
+  assert.ok(lines[0].startsWith('When it arose, chr17 0.0 to 52.6 Mb, part of the whole-chromosome loss: '
+    + 'consistent with the gamete (two cells read). 2 of 2 units'), lines[0])
+  assert.ok(lines[2].startsWith('When it arose, chr17 78.4 Mb to the end, part of the whole-chromosome loss: not called.'), lines[2])
   assert.deepEqual(whenLines({ pieces: [{ mechanism: l.mechanism, mechanismWhy: l.why }] } as never),
     [`When it arose: consistent with the gamete (two cells read). ${l.why}.`])
   console.log('timing.check.ts: a call read by stretch gets one line per stretch in the opened row and the report')

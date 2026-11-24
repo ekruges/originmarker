@@ -235,7 +235,23 @@ export const stretchText = (s: Pick<Stretch, 'fromBp' | 'toBp'>): string =>
 /** The word for one stretch, or "not called" where the embryo reads none there. */
 export const stretchWord = (s: Pick<Stretch, 'mechanism'>): string => ORIGIN_WORD[s.mechanism] || 'not called'
 
-/** A change's origin as one line of text: its word, or each stretch with its extent and word. */
-export const originText = (d: { mechanism?: Mechanism; mechanismStretches?: readonly Stretch[] }): string =>
-  (d.mechanismStretches ? d.mechanismStretches.map((s) => `${stretchText(s)}: ${stretchWord(s)}`).join('; ')
+/** The call a stretch belongs to, as the page, the report and the download name it. */
+export interface StretchOf { chrom: string; kind: string; startBp: number; endBp: number; whole?: boolean; locus?: string }
+
+const wholeOf = (c: StretchOf): boolean => c.whole ?? c.locus === `chr${c.chrom}`
+
+/**
+ * Where a stretch is, the stretch first and the call named as what it belongs to, so a stretch of
+ * a whole-chromosome call does not read as the whole chromosome: "chr17 0.0 to 52.6 Mb, part of the
+ * whole-chromosome loss", "chr9 16.7 to 133.9 Mb, part of the loss over 7.2 to 139.4 Mb".
+ */
+export function stretchWhere(c: StretchOf, s: Pick<Stretch, 'fromBp' | 'toBp'>): string {
+  const dir = directionOf(c.kind) ?? 'change'
+  return `chr${c.chrom} ${stretchText(s)}, part of the `
+    + (wholeOf(c) ? `whole-chromosome ${dir}` : `${dir} over ${mb(c.startBp)} to ${mb(c.endBp)} Mb`)
+}
+
+/** A change's origin as one line of text: its word, or each stretch with where it is and its word. */
+export const originText = (d: StretchOf & { mechanism?: Mechanism; mechanismStretches?: readonly Stretch[] }): string =>
+  (d.mechanismStretches ? d.mechanismStretches.map((s) => `${stretchWhere(d, s)}: ${stretchWord(s)}`).join('; ')
     : d.mechanism ? ORIGIN_WORD[d.mechanism] : '')

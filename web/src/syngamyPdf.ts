@@ -10,7 +10,7 @@
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
 import { BAND_WORD, KIND_WORD, runAlerts } from './defects.ts'
 import { unanswerable } from './abnormalities.ts'
-import { split, stretchText, stretchWord, type Mechanism, type Stretch } from './timing.ts'
+import { split, stretchWhere, stretchWord, type Mechanism, type Stretch } from './timing.ts'
 import {
   pct,
   type ChromResult, type PairResult, type ParentageResult,
@@ -192,10 +192,10 @@ export const timingWhere = (u: { chrom: string; startBp: number; endBp: number; 
 
 /** The timing table's lines: one per change, or one per stretch where its stretches read differently. */
 export function timingRows(uniformity: readonly {
-  chrom: string; startBp: number; endBp: number; whole?: boolean; mechanism: Mechanism; why: string; stretches?: Stretch[]
+  chrom: string; kind: string; startBp: number; endBp: number; whole?: boolean; mechanism: Mechanism; why: string; stretches?: Stretch[]
 }[]): { where: string; mechanism: Mechanism; why: string }[] {
   return uniformity.flatMap((u) => (u.stretches && split(u.stretches)
-    ? u.stretches.map((s) => ({ where: `${timingWhere(u)}, ${stretchText(s)}`, mechanism: s.mechanism, why: s.why }))
+    ? u.stretches.map((s) => ({ where: stretchWhere(u, s), mechanism: s.mechanism, why: s.why }))
     : [{ where: timingWhere(u), mechanism: u.mechanism, why: u.why }]))
 }
 
