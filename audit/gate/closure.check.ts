@@ -61,6 +61,23 @@ assert.notEqual(hashOf({ ...envd, 'web/public/other.txt': 'changed' }), hashOf(e
 assert.throws(() => hashOf({ 'audit/e.ts': 'const q = "b.ts"\nawait import(q)' }), /cannot resolve/)
 assert.throws(() => hashOf({ 'audit/e.ts': `import { f } from '../web/src/gone.ts'` }), /not found/)
 
+// A run's called functions: one it named but never called does not count; one it called does; a
+// value it reads always does.
+{
+  const prog = { ...BASE, 'web/src/a.ts': BASE['web/src/a.ts'] + `
+export function rare(n: number) { return n > 1e9 ? h() : 0 }
+export const LIMIT = 3` }
+  prog['audit/e.ts'] = prog['audit/e.ts'] + '\nconsole.log(rare(LIMIT))'
+  const ran = new Set(['web/src/a.ts#f', 'web/src/a.ts#g', 'web/src/a.ts#rare', 'web/src/b.ts#x'])
+  const at = (over: Record<string, string> = {}) => closure('audit/e.ts', ['audit/e.ts'], mem({ ...prog, ...over }), ran).hash
+  const g0 = at()
+  const ed = (a: string, b: string) => ({ 'web/src/a.ts': prog['web/src/a.ts'].replace(a, b) })
+  assert.equal(at(ed(`'wording'`, `'other'`)), g0, 'h was never called')
+  assert.notEqual(at(ed('n > 1e9', 'n > 1e8')), g0, 'rare was called')
+  assert.notEqual(at(ed('LIMIT = 3', 'LIMIT = 4')), g0, 'a value read by called code')
+  assert.notEqual(at(ed('n * 2', 'n * 4')), g0, 'g was called')
+}
+
 // The repo's scoring: the scorer is reached, a sentence the page prints is not.
 {
   const c = closure('audit/truth/run.ts', ['audit/truth/score-array.ts'], worktree())

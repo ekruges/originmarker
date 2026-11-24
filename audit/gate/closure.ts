@@ -72,6 +72,8 @@ type Node = { type: string; start: number; end: number; [k: string]: any }
 interface Stmt {
   i: number; canon: string; names: string[]; refs: Set<string>; writes: Set<string>; strings: string[]
   effect: boolean; mutable: boolean; typeOnly: boolean; exported: boolean; envPath: boolean; whole: string[]
+  /** Code that runs only when called: a function declaration, or a const whose value is a function. */
+  fn: boolean; start: number; end: number
 }
 interface Mod {
   file: string; stmts: Stmt[]; byName: Map<string, number[]>; pkg: boolean
@@ -209,7 +211,7 @@ function parseModule(file: string, src: string): Mod {
   ast.body.forEach((s0: Node, i: number) => {
     let s = s0
     const st: Stmt = { i, canon: canonical(s), names: [], refs: new Set(), writes: new Set(), strings: [], effect: false, mutable: false,
-      typeOnly: false, exported: s.type.startsWith('Export'), envPath: false, whole: [] }
+      typeOnly: false, exported: s.type.startsWith('Export'), envPath: false, whole: [], fn: false, start: s0.start, end: s0.end }
     m.stmts.push(st)
     if (s.type === 'ImportDeclaration') {
       const from = dep(s.source.value)
@@ -267,7 +269,9 @@ function parseModule(file: string, src: string): Mod {
         if (!pure(d.init)) st.effect = true
         if (s.kind !== 'const' || holdsObject(d.init)) st.mutable = true
       }
+      st.fn = s.kind === 'const' && s.declarations.every((d: Node) => d.init?.type === 'ArrowFunctionExpression' || d.init?.type === 'FunctionExpression')
     } else if (s.type === 'FunctionDeclaration' || s.type === 'TSEnumDeclaration' || s.type === 'TSModuleDeclaration') {
+      st.fn = s.type === 'FunctionDeclaration'
       if (s.id?.name) st.names.push(s.id.name)
     } else if (s.type === 'ClassDeclaration') {
       if (s.id?.name) st.names.push(s.id.name)
@@ -293,15 +297,21 @@ function parseModule(file: string, src: string): Mod {
   return m
 }
 
+/** Each top-level declaration of a file: its names, its span, and whether it is a function. */
+export function declarations(file: string, tree: Tree = worktree()) {
+  return parseModule(file, tree.read(file)!.toString('utf8')).stmts.map((s) => ({ names: s.names, start: s.start, end: s.end, fn: s.fn }))
+}
+
 export interface Closure { hash: string; files: Record<string, string>; reached: Map<string, number[]> }
 
 const sha = (b: Buffer | string) => createHash('sha256').update(b).digest('hex')
 
 /**
- * The closure of `roots` (whole files) in the program of `entry`. `files` maps every file of the
+ * The closure of `roots` in the program of `entry`: a root is a whole file, or `file#name`, one
+ * top-level declaration of it. `files` maps every file of the
  * program, and every data file reached, to the sha256 of its bytes.
  */
-export function closure(entry: string, roots: string[], tree: Tree = worktree()): Closure {
+export function closure(entry: string, roots: string[], tree: Tree = worktree(), ran?: Set<string>): Closure {
   const mods = new Map<string, Mod>()
   const load = (f: string) => {
     if (mods.has(f)) return
@@ -312,7 +322,7 @@ export function closure(entry: string, roots: string[], tree: Tree = worktree())
     for (const d of m.deps) load(d)
   }
   load(entry)
-  for (const r of roots) load(r)
+  for (const r of roots) load(r.split('#')[0])
 
   const exportOf = (file: string, name: string, seen = new Set<string>()): [string, number][] => {
     const k = `${file}|${name}`
@@ -340,13 +350,25 @@ export function closure(entry: string, roots: string[], tree: Tree = worktree())
     return out
   }
 
+  // With `ran`, the names of the functions a full run of the stage called (coverage.ts), a function
+  // it never called is not followed: on the same inputs, code whose every called function and every
+  // value it reads is unchanged runs the same way, so it calls the same functions.
+  const ranOrData = (f: string, i: number) => {
+    const st = mods.get(f)!.stmts[i]
+    return !ran || !st.fn || st.names.some((n) => ran.has(`${f}#${n}`))
+  }
   const reached = new Map<string, Set<number>>()
   const queue: [string, number][] = []
   const reach = (f: string, i: number) => {
     let s = reached.get(f); if (!s) reached.set(f, s = new Set())
     if (!s.has(i)) { s.add(i); queue.push([f, i]) }
   }
-  for (const r of roots) for (const s of mods.get(r)!.stmts) reach(r, s.i)
+  for (const r of roots) {
+    const [f, name] = r.split('#')
+    const m = mods.get(f)!
+    if (!name) for (const s of m.stmts) reach(f, s.i)
+    else for (const i of m.byName.get(name) ?? []) reach(f, i)
+  }
   for (const m of mods.values()) if (m.file !== entry) for (const s of m.stmts) if (s.effect) reach(m.file, s.i)
 
   // Who writes each statement's variables, for module state.
@@ -364,9 +386,9 @@ export function closure(entry: string, roots: string[], tree: Tree = worktree())
   while (queue.length) {
     const [f, i] = queue.pop()!
     const m = mods.get(f)!, s = m.stmts[i]
-    for (const ref of s.refs) for (const [g, j] of targets(m, ref)) reach(g, j)
+    for (const ref of s.refs) for (const [g, j] of targets(m, ref)) if (ranOrData(g, j)) reach(g, j)
     for (const w of s.whole) for (const t of mods.get(w)!.stmts) reach(w, t.i)
-    if (s.mutable) for (const [g, j] of namedBy.get(`${f}|${i}`) ?? []) reach(g, j)
+    if (s.mutable) for (const [g, j] of namedBy.get(`${f}|${i}`) ?? []) if (ranOrData(g, j)) reach(g, j)
   }
 
   const h = createHash('sha256')

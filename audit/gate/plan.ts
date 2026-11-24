@@ -10,10 +10,15 @@
  *   nothing   neither changed: the base's records stand.
  * The checks (scripts/checks.sh, scripts/release-check.sh) run on every change.
  *
- * Run: node --experimental-strip-types audit/gate/plan.ts <base> <head>
+ * With --ran <stage>=<called.tsv> (audit/gate/coverage.py, from a full run of that stage on the base),
+ * the stage's closures leave out functions that run never called (closure.ts), so a change only to
+ * code the stage does not run is planned as nothing.
+ *
+ * Run: node --experimental-strip-types audit/gate/plan.ts [--ran <stage>=<called.tsv>]... <base> <head>
  *      node --experimental-strip-types audit/gate/plan.ts --keys [<commit>]   GATE-KEYS.json for a tree
  */
-import { closure, commitTree, worktree, type Tree } from './closure.ts'
+import { readFileSync } from 'node:fs'
+import { closure, commitTree, declarations, worktree, type Tree } from './closure.ts'
 
 export interface Stage { name: string; entry: string; score?: string; jobs: string }
 export const STAGES: Stage[] = [
@@ -27,12 +32,12 @@ export const STAGES: Stage[] = [
 export type Keys = Record<string, { all: { hash: string; files: Record<string, string> }; score?: { hash: string; files: Record<string, string> } } | null>
 
 /** Each stage's closures in a tree; null where the tree has no such script. */
-export function keysOf(tree: Tree, stages = STAGES): Keys {
+export function keysOf(tree: Tree, stages = STAGES, ran: Record<string, Set<string>> = {}): Keys {
   const out: Keys = {}
   for (const s of stages) {
     if (!tree.read(s.entry)) { out[s.name] = null; continue }
-    const all = closure(s.entry, [s.entry], tree)
-    const score = s.score && tree.read(s.score) ? closure(s.entry, [s.score], tree) : undefined
+    const all = closure(s.entry, [s.entry], tree, ran[s.name])
+    const score = s.score && tree.read(s.score) ? closure(s.entry, [s.score], tree, ran[s.name]) : undefined
     out[s.name] = { all: { hash: all.hash, files: all.files }, ...(score ? { score: { hash: score.hash, files: score.files } } : {}) }
   }
   return out
@@ -47,17 +52,36 @@ export function decide(base: Keys[string], head: Keys[string]): Decision | null 
   return 'nothing'
 }
 
-export function plan(baseTree: Tree, headTree: Tree, stages = STAGES) {
-  const b = keysOf(baseTree, stages), h = keysOf(headTree, stages)
+/** The names of the functions a coverage list says were called, read in the tree it was made on. */
+export function ranNames(called: string, tree: Tree): Set<string> {
+  const out = new Set<string>()
+  const decls = new Map<string, ReturnType<typeof declarations>>()
+  for (const line of readFileSync(called, 'utf8').split('\n')) {
+    const [rel, a, b] = line.split('\t')
+    if (!rel || !tree.read(rel)) continue
+    if (!decls.has(rel)) decls.set(rel, declarations(rel, tree))
+    const d = decls.get(rel)!.find((x) => x.start <= Number(a) && Number(b) <= x.end)
+    if (d?.fn) for (const n of d.names) out.add(`${rel}#${n}`)
+  }
+  return out
+}
+
+export function plan(baseTree: Tree, headTree: Tree, stages = STAGES, ran: Record<string, Set<string>> = {}) {
+  const b = keysOf(baseTree, stages, ran), h = keysOf(headTree, stages, ran)
   return stages.map((s) => ({ stage: s.name, decision: decide(b[s.name], h[s.name]) }))
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  const [a, b] = process.argv.slice(2)
+  const args = process.argv.slice(2)
+  const ranArgs: string[] = []
+  while (args[0] === '--ran') { ranArgs.push(args[1]); args.splice(0, 2) }
+  const [a, b] = args
   if (a === '--keys') {
     process.stdout.write(JSON.stringify(keysOf(b ? commitTree(b) : worktree()), null, 1) + '\n')
   } else if (a && b) {
-    for (const { stage, decision } of plan(commitTree(a), commitTree(b))) if (decision) console.log(`${stage}\t${decision}`)
+    const baseTree = commitTree(a)
+    const ran = Object.fromEntries(ranArgs.map((x) => { const [st, f] = x.split('='); return [st, ranNames(f, baseTree)] }))
+    for (const { stage, decision } of plan(baseTree, commitTree(b), STAGES, ran)) if (decision) console.log(`${stage}\t${decision}`)
     console.log('checks\trun')
   } else {
     console.error('usage: plan.ts <base> <head> | plan.ts --keys [<commit>]')
