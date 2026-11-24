@@ -1004,6 +1004,8 @@ export interface ParentageResult {
     whole: boolean
     mechanism: import('./timing.ts').Mechanism
     why: string
+    /** The change's stretches, each read once for the embryo; more than one word where they differ. */
+    stretches: import('./timing.ts').Stretch[]
   }[]
   /**
    * Whether the parental array matched the role it was declared under. See parentSanity.ts: a

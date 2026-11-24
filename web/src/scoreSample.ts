@@ -40,6 +40,7 @@ import {
   DIPLOID_MIN,
 } from './obligateHet.ts'
 import { originBlockedByClass, namedAParent } from './defects.ts'
+import { changeLogLines, listChroms } from './pageSays.ts'
 import { callSiblingOrigin, hetRule, type AB as SibAB } from './siblingOrigin.ts'
 import { callOneParentOrigin } from './oneParentOrigin.ts'
 import { callDosageOrigin, materialOf, originUnreachable } from './dosageOrigin.ts'
@@ -132,24 +133,6 @@ export interface ParentIndex {
 /** Where a run writes its narrative. The browser paints it, the command line prints it. */
 export type LogTag = 'READ' | 'PARSE' | 'CALL' | 'WARN' | 'DONE' | 'SCAN'
 export type LogFn = (tag: LogTag, text: string) => void
-
-/**
- * The chromosomes a list of interval labels covers, collapsed.
- *
- * A refusal that applies to three hundred intervals is one fact, and a reader wants to know how
- * far it reached rather than to scroll three hundred coordinates. The full list stays in the
- * report and the export.
- */
-export const listChroms = (wheres: readonly string[]): string => {
-  const seen: string[] = []
-  for (const w of wheres) {
-    const c = /^chr([\dXY]+)/.exec(w)?.[1]
-    if (c && !seen.includes(c)) seen.push(c)
-  }
-  if (!seen.length) return `${wheres.length} intervals`
-  const n = seen.length
-  return n <= 6 ? `chr${seen.join(', chr')}` : `${n} chromosomes, chr${seen[0]} to chr${seen[n - 1]}`
-}
 
 /**
  * A parent array, accumulated one row at a time.
@@ -2510,25 +2493,7 @@ export async function scoreSample(input: {
     // reader nothing the first one had not, buried the handful of real answers, and cost a
     // render each. The intervals are still listed, and the full table is still in the
     // report and the export.
-    const refusals = new Map<string, { cls: string; why: string; at: string[] }>()
-    for (const c of result.dosageCalls) {
-      // 'refused' is the GENOTYPE channel's vocabulary and never appears here, so this
-      // line logged DONE for every outcome including a withheld parent.
-      const named = c.verdict === 'loaded-parent' || c.verdict === 'other-parent'
-      const cls = (c as { cls?: string }).cls ?? 'dosage'
-      if (named) { log('DONE', `${cls} origin ${c.where}: ${c.why}`); continue }
-      // Grouped by CLASS as well as reason, so the summary says what it stood for rather
-      // than lumping copy-neutral events together with uniparental disomy.
-      const key = `${cls}|${c.why}`
-      const at = refusals.get(key)
-      if (at) at.at.push(c.where)
-      else refusals.set(key, { cls, why: c.why, at: [c.where] })
-    }
-    for (const { cls, why, at } of refusals.values()) {
-      if (at.length === 1) { log('WARN', `${cls} origin ${at[0]}: ${why}`); continue }
-      log('WARN', `${at.length} ${cls} intervals not evaluable for the same reason, on `
-        + `${listChroms(at)}: ${why}`)
-    }
+    // The lines themselves are written after the integrity call (pageSays.changeLogLines).
   }
   // GATED ON THERE BEING AN EVENT, NOT ON THERE BEING A SEGMENT.
   //
@@ -2708,20 +2673,6 @@ export async function scoreSample(input: {
       log(c.hypothesis === 'refused' ? 'WARN' : 'DONE', `sibling call ${c.where}: ${c.why}`)
     }
   }
-  for (const g of result.gains) {
-    log(g.called ? 'DONE' : 'WARN', `gain ${g.where}: ${g.origin}. ${g.why}`)
-  }
-  for (const l of result.losses) {
-    log(l.called ? 'DONE' : 'WARN', `loss ${l.where}: ${l.origin} copy missing. ${l.why}`)
-  }
-
-  if (result.segments.length) {
-    log('WARN', `${sampleName}: ${result.segments.length} segment(s) where a parental `
-      + `genome is missing: ${result.segments.map((x) => `chr${x.chrom} ${x.absentParent ?? soloRole} `
-        + `${(segmentCoords(x).spanBp / 1e6).toFixed(1)}Mb `
-        + `${segmentCoords(x).localised ? segmentCoords(x).interval : '(not localised)'} `
-        + `at ${pct(x.rate, 1)}`).join(', ')}`)
-  }
 
   // THE SAMPLE-LEVEL FLAG, computed last because it summarises everything above it. Reusing the
   // bounds the taxonomy already measured rather than choosing new ones: see integrity.ts.
@@ -2755,6 +2706,8 @@ export async function scoreSample(input: {
     log(result.integrity.level === 'uninterpretable' ? 'WARN' : 'DONE',
       `${sampleName}: ${result.integrity.headline}`)
   }
+  // After the integrity call, so a sample not reportable logs what was seen, not a change.
+  for (const [level, line] of changeLogLines(result, sampleName, soloRole)) log(level, line)
 
   return result
 }

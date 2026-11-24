@@ -315,7 +315,14 @@ const one = (where: string, verdict: string) => ({
     'another change on the chromosome does not lend its timing')
   assert.equal(at('meiotic', { kind: 'copy-gain' }).mechanism, undefined)
   assert.equal(at('meiotic', { chrom: '9' }).mechanism, undefined)
-  assert.equal(at('none').mechanism, undefined, 'no origin is no origin word')
+  // No origin is no origin word, and the row keeps the reason the report prints.
+  const none = at('none', { why: 'one unit of this embryo was read; one cell cannot say when a change arose' })
+  assert.equal(none.mechanism, 'none')
+  assert.equal(none.mechanismWhy, 'one unit of this embryo was read; one cell cannot say when a change arose')
+  assert.ok(!/gamete|fertilisation/.test(headline({ ...none, origin: 'paternal' as const })), headline(none))
+  assert.equal(withMechanism([{ ...row, kind: 'cnn-loh' }], [{ chrom: '7', startBp: row.startBp, endBp: row.endBp,
+    kind: 'cnn-loh', mechanism: 'none', why: 'a change with no direction carries no origin' }])[0].mechanism, undefined,
+  'a row with no direction is not timed')
 
   // The headline carries the words decided for each call, with or without a named parent.
   const withOrigin = { ...uniform, origin: 'paternal' as const }
@@ -328,6 +335,18 @@ const one = (where: string, verdict: string) => ({
   assert.ok(!headline({ ...withOrigin, mechanism: undefined }).includes('gamete')
     && !headline({ ...withOrigin, mechanism: undefined }).includes('fertilisation'),
     'a single-unit run must not imply a timing it never measured')
+
+  // A change whose stretches read differently carries the stretches, never one word.
+  const st = [
+    { fromBp: row.startBp, toBp: 15e6, mechanism: 'consistent-with-gamete' as const, why: '2 of 2 units carry this loss, 0 read chromosome 7 normal' },
+    { fromBp: 15e6, toBp: row.endBp, mechanism: 'none' as const, why: '1 of 2 units carry this loss, 0 read chromosome 7 normal' },
+  ]
+  const parts = at('none', { stretches: st, why: 'its stretches read differently' })
+  assert.equal(parts.mechanism, undefined)
+  assert.deepEqual(parts.mechanismStretches, st)
+  assert.ok(headline(parts).endsWith(' · origin read by stretch'), headline(parts))
+  assert.equal(at('meiotic', { stretches: [{ ...st[0], mechanism: 'meiotic' }] }).mechanismStretches, undefined,
+    'one stretch, or stretches of one word, is one word')
 }
 
 // --- WHICH RUN FOUND A PARENTAL-ABSENCE SEGMENT IS WHOSE ALLELES ARE MISSING --------------------

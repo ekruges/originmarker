@@ -15,7 +15,7 @@ import { segmentCoords } from './segments.ts'
 import { locus } from './stage.ts'
 import type { StageCall } from './stage.ts'
 import { ORIGIN_UNREACHABLE, taxonomyFor, type Finding } from './abnormalities.ts'
-import { ORIGIN_WORD, type Mechanism } from './timing.ts'
+import { directionOf, ORIGIN_WORD, split, type Mechanism, type Stretch } from './timing.ts'
 
 /** What is known about one defect, gathered from whichever channels produced it. */
 export interface Defect {
@@ -81,6 +81,11 @@ export interface Defect {
    */
   mechanism?: Mechanism
   mechanismWhy?: string
+  /**
+   * Set instead of `mechanism` where the change covers stretches the embryo reads differently: each
+   * stretch with its own word (timing.stretchesOf). No one word stands for the whole change.
+   */
+  mechanismStretches?: Stretch[]
   /** Markers carrying an allele the loaded parent does not have. This is the Mendelian evidence
    *  itself rather than a summary of it: a parent who is AA has no B to give, and dropout removes
    *  alleles without inventing one, so a non-zero count cannot come from amplification loss. */
@@ -347,7 +352,7 @@ export const headline = (d: Defect): string => {
   const where = d.chrom === 'genome' ? 'genome' : `chr${d.chrom}`
   // When a change arose is a different finding from whose it was, so it sits in the headline
   // whether or not a parent is named.
-  const word = d.mechanism ? ORIGIN_WORD[d.mechanism] : ''
+  const word = d.mechanismStretches ? 'origin read by stretch' : d.mechanism ? ORIGIN_WORD[d.mechanism] : ''
   const when = word ? ` · ${word}` : ''
   if (d.origin === 'unclear') {
     // A class that can never carry a parent must not read like one that merely failed to.
@@ -618,14 +623,18 @@ export function withMechanism(
   defects: Defect[],
   uniformity?: readonly {
     chrom: string, startBp: number, endBp: number, kind: string,
-    mechanism: Mechanism, why: string,
+    mechanism: Mechanism, why: string, stretches?: Stretch[],
   }[],
 ): Defect[] {
   if (!uniformity?.length) return defects
   return defects.map((d) => {
     const hit = uniformity.find((u) => u.chrom === d.chrom && u.startBp === d.startBp
       && u.endBp === d.endBp && u.kind === d.kind)
-    return hit && hit.mechanism !== 'none' ? { ...d, mechanism: hit.mechanism, mechanismWhy: hit.why } : d
+    if (hit?.stretches && split(hit.stretches)) return { ...d, mechanismStretches: hit.stretches }
+    // A gain or loss of a grouped cell with no origin keeps its reason, so the opened row says why,
+    // as the report's timing table does. A row with no direction is not timed.
+    if (hit?.mechanism === 'none') return directionOf(d.kind) ? { ...d, mechanism: 'none', mechanismWhy: hit.why } : d
+    return hit ? { ...d, mechanism: hit.mechanism, mechanismWhy: hit.why } : d
   })
 }
 

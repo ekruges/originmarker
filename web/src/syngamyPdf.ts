@@ -8,9 +8,9 @@
  * its SHA-256.
  */
 import { LETTER, Pdf, wrap, type FontName } from './pdf.ts'
-import { BAND_WORD, KIND_WORD, runAlerts } from './defects.ts'
+import { BAND_WORD, KIND_WORD, runAlerts, type Defect } from './defects.ts'
 import { unanswerable } from './abnormalities.ts'
-import { ORIGIN_WORD } from './timing.ts'
+import { directionOf, split, stretchWhere, stretchWord, type Mechanism, type Stretch } from './timing.ts'
 import {
   pct,
   type ChromResult, type PairResult, type ParentageResult,
@@ -195,6 +195,19 @@ function svgPolys(d: string): [number, number][][] {
 export const timingWhere = (u: { chrom: string; startBp: number; endBp: number; whole?: boolean }): string =>
   (u.whole ? `chr${u.chrom}, whole chromosome`
     : `chr${u.chrom} ${(u.startBp / 1e6).toFixed(1)}-${(u.endBp / 1e6).toFixed(1)}Mb`)
+
+/**
+ * The timing table's lines: one per gain or loss, or one per stretch where its stretches read
+ * differently. A finding has no direction and so no origin to time; it is listed in its own table,
+ * and listing it here too printed each finding of a sample twice.
+ */
+export function timingRows(uniformity: readonly {
+  chrom: string; kind: string; startBp: number; endBp: number; whole?: boolean; mechanism: Mechanism; why: string; stretches?: Stretch[]
+}[]): { where: string; mechanism: Mechanism; why: string }[] {
+  return uniformity.filter((u) => directionOf(u.kind)).flatMap((u) => (u.stretches && split(u.stretches)
+    ? u.stretches.map((s) => ({ where: stretchWhere(u, s), mechanism: s.mechanism, why: s.why }))
+    : [{ where: timingWhere(u), mechanism: u.mechanism, why: u.why }]))
+}
 
 export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const [W, H] = LETTER
@@ -513,7 +526,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   for (const f of results) {
     const r = f.result!
     const m = f.maternal
-    const { setup, list, head } = says(f)
+    const { setup, list, head, defects } = says(f)
     // Every state word below comes from pageSays.stateWord through its helpers.
     const seen = notReportable(r)
     need(96)
@@ -661,7 +674,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     if (sex.length) {
       heading(seenHeading(seen, 'Sex chromosomes'), 8.6)
       if (r.sexChromosome) text(sexLine(r.sexChromosome), 7.6, 'Helvetica', 2)
-      chromTable(sex, r.explainable, seen)
+      chromTable(sex, r.explainable, seen, defects)
     }
     const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed
       || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance')
@@ -717,17 +730,19 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       if (r.uniformity?.length) {
         heading('Gamete-borne or post-fertilisation', 8.6)
         text('Whether a change was carried by the gamete or arose after fertilisation cannot be '
-          + 'read on one cell. Across the units of one embryo: a change every unit carries, same '
-          + 'direction and parent, is from the gamete with three units or more and only consistent '
-          + 'with it with two; one unit gaining what another loses, or a change some units carry '
-          + 'while another reads that chromosome normal, arose after fertilisation. The units were '
-          + 'grouped by genotype concordance rather than by their labels.',
+          + 'read on one cell. Across the units of one embryo, read on each stretch between the '
+          + 'breakpoints of all its cells: a change every unit carries, same direction and parent, '
+          + 'is from the gamete with three units or more and only consistent with it with two; one '
+          + 'unit gaining what another loses, or a change some units carry while another reads that '
+          + 'stretch normal, arose after fertilisation. A change over stretches that read '
+          + 'differently has a line for each. The units were grouped by genotype concordance rather '
+          + 'than by their labels.',
         7.4, 'Helvetica', 2.4, GREY)
         table(
           [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
-          r.uniformity.map((u) => [
-            timingWhere(u),
-            { v: seen ? verdictText(true, u.mechanism) : ORIGIN_WORD[u.mechanism] || 'not called', colour: u.mechanism === 'none' ? GREY : INK },
+          timingRows(r.uniformity).map((u) => [
+            u.where,
+            { v: seen ? verdictText(true, u.mechanism) : stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
             { v: u.why, colour: GREY },
           ]),
         )
@@ -890,10 +905,10 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     }
 
     heading(seenHeading(notReportable(r), m ? 'Chromosomes, sperm donor' : 'Chromosomes'), 8.6)
-    chromTable(r.chroms, r.explainable, notReportable(r))
+    chromTable(r.chroms, r.explainable, notReportable(r), defects)
     if (m) {
       heading(seenHeading(notReportable(r), 'Chromosomes, oocyte donor'), 8.6)
-      chromTable(m.chroms, m.explainable, notReportable(r))
+      chromTable(m.chroms, m.explainable, notReportable(r), defects)
     }
 
     if (f.profile) {
@@ -977,7 +992,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     }
   }
 
-  function chromTable(chroms: ChromResult[], ceiling: number, seen = false): void {
+  function chromTable(chroms: ChromResult[], ceiling: number, seen = false, rows: readonly Defect[] = []): void {
     table([
       { head: 'Chr', w: 34 },
       { head: 'Informative', w: 52, right: true },
@@ -992,8 +1007,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       // invites the reader to take the number and ignore the verdict beside it.
       c.verdict === 'not_measured' || !Number.isFinite(c.rate / ceiling)
         ? '-' : (c.rate / ceiling).toFixed(1),
-      { v: chromCells(seen, c).verdict, colour: c.verdict === 'absent' && !seen ? WARN : INK },
-      chromCells(seen, c).note,
+      { v: chromCells(seen, c, rows).verdict, colour: c.verdict === 'absent' && !seen ? WARN : INK },
+      chromCells(seen, c, rows).note,
     ]))
   }
 

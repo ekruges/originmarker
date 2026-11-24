@@ -14,7 +14,7 @@
  */
 import type { ParentageResult } from './parentage.ts'
 import { kindOf, NOT_REPORTED_SAYS, SEEN, seenLocus, WORD, type CardSays } from './pageSays.ts'
-import { directionOf } from './timing.ts'
+import { directionOf, originText } from './timing.ts'
 
 export type TableChange = {
   chrom: string
@@ -30,6 +30,8 @@ export type TableChange = {
   why?: string
   /** The word the result card puts on this change (pageSays.WORD). */
   word?: string
+  /** When it arose, as the page prints it (timing.originText): one word, or each stretch with its own. */
+  when?: string
 }
 
 export type TableSample = {
@@ -72,14 +74,14 @@ export function tableSampleOf(name: string, r: ParentageResult, says: CardSays):
         chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
         origin: d.origin, band: d.band, confidence: d.confidence,
         inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
-        why: d.why, word: WORD[kindOf(d, says.setup)],
+        why: d.why, word: WORD[kindOf(d, says.setup)], when: originText(d),
       })),
   }
 }
 
 export const COLUMNS = [
   'sample', 'sample_headline', 'sample_origin_class', 'sample_zygosity', 'loaded_parent', 'material',
-  'chrom', 'start_bp', 'end_bp', 'span_mb', 'class', 'word',
+  'chrom', 'start_bp', 'end_bp', 'span_mb', 'class', 'word', 'when_it_arose',
   'parent', 'parent_basis', 'band', 'confidence', 'inherited_margin',
   'independent_determination', 'informative_markers', 'evidence',
 ] as const
@@ -122,7 +124,7 @@ export function syngamyTable(samples: readonly TableSample[]): string {
         cell(s.name), cell(s.headline), cell(s.originClass), cell(s.zygosity), cell(s.role), cell(c.stage ?? s.stage),
         cell(c.chrom), cell(c.startBp), cell(c.endBp),
         cell(Number.isFinite(c.endBp - c.startBp) ? ((c.endBp - c.startBp) / 1e6).toFixed(3) : ''),
-        cell(c.kind), cell(c.word),
+        cell(c.kind), cell(c.word), cell(c.when),
         cell(c.origin === 'unclear' ? '' : c.origin), cell(basis), cell(c.band),
         // A CONFIDENCE ONLY WHERE ONE IS REPORTABLE. Bands C and D suppress their digits in the
         // interface for the reason the mosaicism episode established, and a table that carried

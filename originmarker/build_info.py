@@ -365,10 +365,14 @@ RELEASES: tuple[Release, ...] = (
             "A cell with whole sets of chromosomes, no copy gained and none lost. A change is "
             "measured against that level, so a change is a gain or a loss, and a cell whose own "
             "normal level cannot be told reports neither."),
+    Release("Breakpoint",
+            "Where a chromosome breaks and its copy number changes. The breakpoints of every cell "
+            "of one embryo cut a chromosome into stretches, and each stretch now reads one origin "
+            "in every cell."),
 )
 
-VERSION = "6.24.0"
-CODENAME = "Euploid"
+VERSION = "6.25.0"
+CODENAME = "Breakpoint"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

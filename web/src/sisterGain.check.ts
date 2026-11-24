@@ -71,6 +71,14 @@ const THIN = genome(1000)
   assert.ok(oneGenome(u(ONE, RECIP), u(recip, RECIP)), 'left out, the pair is one genome again')
   // Only a chromosome a cell actually reports is left out: unreported ones still count against it.
   assert.ok(!oneGenome(u(ONE, ['9']), u(recip, ['9'])), 'leaving out one of the three is not enough')
+
+  // A cell staged haploid is the sister of a haploid cell only, however well the two agree.
+  const h = (gt: Map<string, AB>): SisterUnit => ({ ...u(gt), haploid: true })
+  assert.ok(!oneGenome(h(ONE), u(ONE_NOISY)), 'haploid with diploid is never a pair')
+  assert.ok(!oneGenome(u(ONE), h(ONE_NOISY)), 'either way round')
+  assert.ok(oneGenome(h(ONE), h(ONE_NOISY)), 'two haploid cells are read as before')
+  assert.equal(sisterUnitOf({ chroms: [], segments: [], stage: { stage: 'haploid' } }, [], ONE, CHROM_OF).haploid, true)
+  assert.equal(sisterUnitOf({ chroms: [], segments: [], stage: { stage: 'bulk' } }, [], ONE, CHROM_OF).haploid, false)
 }
 
 // One derivation of a unit, so the page and the harness cannot drift. A reported change takes its

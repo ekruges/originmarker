@@ -6,7 +6,7 @@ import {
   callTitle, changeList, changesText, COUNTED, defectsForResult, disturbedText, figureTitle, headlineOf, kindOf, MEASURED, pairText, pdfCells, readAgainst, rowLine,
   saidOf, spanMb, whereText, whoseText, WORD, type HeadInput,
 } from './pageSays.ts'
-import { KIND_WORD, type Defect } from './defects.ts'
+import { KIND_WORD, withMechanism, type Defect } from './defects.ts'
 
 const root = new URL('../../audit/truth/', import.meta.url)
 
@@ -227,7 +227,106 @@ const cellA: Defect[] = [
       `row "${whoseText(g)}" and title "${callTitle(g)}" disagree about naming a parent`)
     assert.ok(callTitle(g).includes(whoseText(g)), callTitle(g))
   }
-  assert.ok(callTitle(rows[rows.length - 1]).startsWith('Whole chromosome 6 ('), callTitle(rows[rows.length - 1]))
+  // A whole chromosome prints no span: with no parent its row's end is 0, and "(0 Mb)" is not a size.
+  assert.ok(callTitle(rows[rows.length - 1]).startsWith('Whole chromosome 6: '), callTitle(rows[rows.length - 1]))
+}
+
+// ---------------------------------------------------------------- a call read by stretch, as the page builds it
+// The page times the card rows of each unit (defectsForResult, readingOf, timeGroup), stores them as
+// result.uniformity, and titles each row's figure with callTitle over the card's change list. This
+// takes that path on a whole loss of 17 beside a sister that loses 0 to 52.6 Mb and gains the rest,
+// both with no parent loaded.
+{
+  const { readingOf, timeGroup } = await import('./timing.ts')
+  const chrom = (c: string, over: object = {}) => ({
+    chrom: c, aneuploidy: undefined, lostParent: undefined, callFraction: 1, lrrShift: 0, ...over,
+  })
+  const cell = (over: object) => ({
+    role: 'paternal', noParent: true, gains: [], losses: [], oneParent: [], dosageCalls: [], findings: [],
+    stage: { stage: 'single-cell' }, segments: [], chroms: [chrom('17'), chrom('1')], ...over,
+  }) as never
+  const seg = (kind: string, start: number, end: number) => ({
+    chrom: '17', kind, startBp: start, endBp: end, spanBp: end - start, markers: 4000, score: 900,
+  })
+  const whole = cell({ chroms: [chrom('17', { aneuploidy: 'loss' }), chrom('1')] }) as any
+  const parts = cell({ segments: [seg('copy-loss', 6157, 52_598_275), seg('copy-gain', 52_618_539, 78_359_420)] }) as any
+  const timed = timeGroup([whole, parts].map((r) => readingOf(defectsForResult(r), r)))
+  ;[whole, parts].forEach((r, i) => { r.uniformity = timed[i] })
+  const titles = (r: never) => changeList(defectsForResult(r), 'none').counted.concat(changeList(defectsForResult(r), 'none').once)
+    .map((g) => callTitle(g))
+  const w = titles(whole).find((t) => t.startsWith('Whole chromosome 17'))
+  assert.ok(w, `no whole-17 title among ${titles(whole)}`)
+  assert.equal(w, 'Whole chromosome 17: copy lost, parent not named, origin read by stretch.')
+  assert.equal(titles(parts).length, 2, String(titles(parts)))
+  for (const t of titles(parts)) assert.ok(!t.includes('read by stretch'), `a call of one stretch is not split: ${t}`)
+
+  // Rule R on the same path: the whole-loss cell not reportable. It prints no origin word on any
+  // row, and its sister, left as one reportable cell, prints none either.
+  const { notReportable } = await import('./pageSays.ts')
+  const off = cell({ chroms: [chrom('17', { aneuploidy: 'loss' }), chrom('1')],
+    refusals: [{ claim: 'sample', chrom: '', gate: 'integrity.uninterpretable' }] }) as any
+  const sis = cell({ segments: [seg('copy-loss', 6157, 52_598_275), seg('copy-gain', 52_618_539, 78_359_420)] }) as any
+  const t2 = timeGroup([off, sis].map((r) => readingOf(defectsForResult(r), r, !notReportable(r))))
+  ;[off, sis].forEach((r, i) => { r.uniformity = t2[i] })
+  for (const r of [off, sis]) {
+    for (const d of defectsForResult(r)) {
+      assert.ok(!d.mechanism || d.mechanism === 'none', `chr${d.chrom} prints an origin word`)
+      assert.equal(d.mechanismStretches, undefined)
+    }
+  }
+}
+
+// ---------------------------------------------------------------- the opened row says why no origin is given
+// The same sentence the report's timing table prints for the row, from the same uniformity entry.
+{
+  const { whenLines } = await import('./pageSays.ts')
+  const { timingRows } = await import('./syngamyPdf.ts')
+  const why = 'one unit of this embryo was read; one cell cannot say when a change arose'
+  const u = { chrom: '17', kind: 'copy-loss', startBp: 6157, endBp: 52_598_275, whole: false, mechanism: 'none' as const, why }
+  const row = withMechanism([{ chrom: '17', kind: 'copy-loss', startBp: 6157, endBp: 52_598_275, locus: 'chr17:6,157-52,598,275',
+    origin: 'unclear', why: '' } as never], [u])
+  assert.deepEqual(whenLines({ pieces: row } as never), ['When it arose: not called. One unit of this embryo was read; one cell cannot say when a change arose.'])
+  assert.equal(timingRows([u])[0].why, why)
+}
+
+// ---------------------------------------------------------------- the run log of a sample not reportable
+{
+  const { changeLogLines } = await import('./pageSays.ts')
+  const r = (refusals: unknown[]) => ({
+    refusals, segments: [],
+    gains: [{ where: 'chr7', called: true, origin: 'maternal', why: 'w' }],
+    losses: [{ where: 'chr16 0.1-36.6Mb', called: false, origin: 'not determinable', why: 'w' }],
+  }) as never
+  const seen = changeLogLines(r([{ claim: 'sample', gate: 'integrity.uninterpretable' }]), 'S', 'paternal').map((x) => x[1])
+  assert.deepEqual(seen, ['chr7: higher than the rest of this array. Not reported: this sample is not reportable.',
+    'chr16 0.1-36.6Mb: lower than the rest of this array. Not reported: this sample is not reportable.'])
+  for (const l of seen) assert.ok(!/copy missing|extra copy|maternal|paternal|not determinable/.test(l), l)
+  const shown = changeLogLines(r([]), 'S', 'paternal').map((x) => x[1])
+  assert.equal(shown[1], 'loss chr16 0.1-36.6Mb: not determinable copy missing. w')
+  // The origin channel's lines, one interval and several for one reason, go the same way.
+  const calls = (refusals: unknown[]) => ({ ...(r(refusals) as object), gains: [], losses: [], dosageCalls: [
+    { where: 'chr1 0.1-20.0Mb', cls: 'copy-loss', verdict: 'not-evaluable', why: 'too few markers' },
+    { where: 'chr1 30.0-60.0Mb', cls: 'copy-loss', verdict: 'not-evaluable', why: 'too few markers' },
+    { where: 'chr1 70.0-90.0Mb', cls: 'copy-loss', verdict: 'not-evaluable', why: 'too few markers' },
+    { where: 'chr2 1.0-9.0Mb', cls: 'copy-gain', verdict: 'loaded-parent', why: 'the father' }] }) as never
+  const off = changeLogLines(calls([{ claim: 'sample', gate: 'integrity.uninterpretable' }]), 'S', 'paternal').map((x) => x[1])
+  assert.deepEqual(off, ['4 intervals, on chr1, chr2: origin not read: the sample is not reportable'])
+  const on = changeLogLines(calls([]), 'S', 'paternal').map((x) => x[1])
+  assert.deepEqual(on, ['copy-gain origin chr2 1.0-9.0Mb: the father',
+    '3 copy-loss intervals not evaluable for the same reason, on chr1: too few markers'])
+}
+
+// ---------------------------------------------------------------- a whole call withdrawn after its note was written
+{
+  const { chromCells } = await import('./pageSays.ts')
+  const c = { chrom: '17', verdict: 'present', callFraction: 0.5, lrrShift: -0.9,
+    note: "LOST: this chromosome calls at 50% of the genome's median rate" }
+  const rows = [{ chrom: '17', kind: 'copy-loss', startBp: 6157, endBp: 52_598_275 },
+    { chrom: '17', kind: 'copy-gain', startBp: 52_618_539, endBp: 78_359_420 }, { chrom: '3', kind: 'copy-loss', startBp: 0, endBp: 0 }]
+  assert.equal(chromCells(false, c, rows).note, 'not called whole: read in pieces, loss 0.0 to 52.6 Mb, gain 52.6 to 78.4 Mb')
+  assert.equal(chromCells(false, c).note, 'not called whole: no change stands on it')
+  assert.ok(chromCells(false, { ...c, aneuploidy: 'loss' }, rows).note.startsWith('LOST: '), 'a whole call that stands keeps its note')
+  assert.ok(!chromCells(true, c, rows).note.includes('LOST'))
 }
 
 // ---------------------------------------------------------------- the taxonomy's rows, in words
