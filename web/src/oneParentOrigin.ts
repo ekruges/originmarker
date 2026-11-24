@@ -64,8 +64,15 @@ export const GENOTYPE_ERROR = 0.02
 
 /**
  * Drop-in, a heterozygous call at a truly homozygous marker. Measured on this platform across 113
- * same-genome array pairs, medians 0.0390 to 0.0525 by experiment. It matters here because a
- * spurious AB argues for both copies being present and so masks a real deletion.
+ * same-genome array pairs, replicate and clonal material where a marker the reference calls
+ * homozygous is homozygous in truth:
+ *
+ *     ROBLES  n=40  median 0.0525      DIETER  n=25  median 0.0435
+ *     JENNA   n=16  median 0.0410      TREFF   n=32  median 0.0390
+ *
+ * The pooled median is used; the worst single pair observed was 0.0646. It matters here because a
+ * spurious AB argues for both copies being present and so masks a real deletion. The sister
+ * reading (siblingOrigin.ts) and the stage read this same figure.
  */
 export const DROP_IN = 0.0435
 
@@ -254,6 +261,18 @@ export const REGION_MIN_MARKERS = 50
 export const MAX_REGION_HET = DEFAULT_Q + DROPIN_CEILING
 
 /**
+ * Heterozygosity of a diploid genome on this platform, measured on bulk gDNA under this project's
+ * marker QC.
+ *
+ * A PANEL AND ANCESTRY PROPERTY, NOT A CONSTANT OF NATURE. Common-SNP panels run 0.32 to 0.44
+ * expected heterozygosity in Europeans, so 0.168 implies roughly half this panel is rare content;
+ * any change to marker QC moves it. Relative to a European anchor, mean expected heterozygosity is
+ * 0.99 in South Asian, 0.93 in African and 0.81 in East Asian samples, and that last ratio alone
+ * biases a shortfall estimate by +0.155.
+ */
+export const BULK_HETEROZYGOSITY = 0.168
+
+/**
  * Allele dropout for a sample, inferred from the sample itself rather than declared.
  *
  * The drag-and-drop contract means nothing may be asked of the user that the data can answer, and
@@ -268,8 +287,6 @@ export const MAX_REGION_HET = DEFAULT_Q + DROPIN_CEILING
  * Bounded at both ends: a sample cannot have negative dropout, and above the blastomere rate the
  * estimate stops being informative and the caller should be refusing on marker count anyway.
  */
-export const BULK_HETEROZYGOSITY = 0.168
-
 export function inferDropout(sampleHeterozygosity: number): number {
   if (!Number.isFinite(sampleHeterozygosity) || sampleHeterozygosity <= 0) return 0.308
   const shortfall = 1 - sampleHeterozygosity / BULK_HETEROZYGOSITY

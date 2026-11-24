@@ -43,6 +43,8 @@ const key = (c: { file: string; name: string }) => `${c.file}:${c.name}`
   const both = BARS.map(key).filter((k) => k in NOT_BARS)
   assert.deepEqual(both, [], `in both lists: ${both.join(', ')}`)
   assert.equal(new Set(BARS.map(key)).size, BARS.length, 'no bar is listed twice')
+  const named = BARS.map((b) => b.name)
+  assert.deepEqual(named.filter((n, i) => named.indexOf(n) !== i), [], 'no two bars share a printed name')
   console.log(`${found.length} named constants: ${BARS.length} bars, ${Object.keys(NOT_BARS).length} not bars`)
 }
 
