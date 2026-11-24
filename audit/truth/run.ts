@@ -54,8 +54,16 @@ const reportPdf = await import(`${W}syngamyPdf.ts`)
 const defectsMod = await import(`${W}defects.ts`)
 const barsMod = await import(`${W}bars.ts`)
 const withheldMod = await import(`${W}withheld.ts`)
+const svgPdf = await import(`${W}svgPdf.ts`)
+const plotSeries = await import(`${W}plotSeries.ts`)
+const { gzipSync } = await import('node:zlib')
 const buildInfo = readFileSync(new URL('../../originmarker/build_info.py', import.meta.url), 'utf8')
 const TOOL = `OriginMarker ${/VERSION = "([^"]+)"/.exec(buildInfo)?.[1]} (${/CODENAME = "([^"]+)"/.exec(buildInfo)?.[1]})`
+/** With OM_DUMP set, the result, the mother's result, the pair and the figure series of each record,
+ *  for the figure gate, which renders the page's React figures where Vite is installed. */
+const DUMP = process.env.OM_DUMP
+const enc = (_k: string, v: unknown) => (v instanceof Map ? { __map: [...v] } : typeof v === 'number' && !Number.isFinite(v)
+  ? { __num: String(v) } : v === undefined ? { __undef: 1 } : v)
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -261,8 +269,9 @@ for (const row of list) {
             || /^(LOST|GAINED):/.test(x)) : [],
           seenHeadings: s.list.notReported ? strings.filter((x) => x.endsWith(': readings seen on this array, not reported')).length : 0,
           changeBanner: (all.match(/Chromosomal change in 1 of 1 sample\(s\): (.*?)\. Coordinates/) ?? [])[1] ?? null }
-        // What the outputs print: the withheld count, the bars listed, the methods paragraph, the pages.
+        // What the outputs print: the withheld count, the bars listed, the methods paragraph, the file itself.
         const input = { files, tool: TOOL, runArrays: (others ?? '').split(';').filter(Boolean).length }
+        const facts = svgPdf.pdfFacts(txt)
         const names = new Set(barsMod.BARS.map((b: any) => b.name))
         const methods = reportPdf.reportMethods(input as never)
         out.outputs = {
@@ -274,8 +283,15 @@ for (const row of list) {
           typedTable: all.includes('Constants and where they come from'),
           methods: methods.text, cites: methods.cites.map((c: any) => c.doi),
           methodsPrinted: all.includes(flat(methods.text)),
-          pages: (txt.match(/\/Type \/Page /g) ?? []).length,
+          xrefOk: facts.xrefOk, images: facts.images, pages: facts.pages,
           footers: strings.filter((x) => x.includes(` | ${TOOL} | report `) && x.includes(' | page ')).length,
+        }
+        if (DUMP) {
+          const series = { ...plotSeries.plotData(acc as never, { loaded: pat.absent ? null : { role: role === 'maternal' ? 'maternal' : 'paternal', gt: pat.gt },
+            second: mat?.gt ?? null }), seen: pageSays.notReportable(res) }
+          const line = lineOf.get(row) ?? 0
+          appendFileSync(`${DUMP}/dump-${tag}-${line}.json.gz`, gzipSync(JSON.stringify({ line, tag, others: (others ?? '').split(';').filter(Boolean).length,
+            res, maternal: maternal ?? null, paired: paired ?? null, series, tool: TOOL }, enc)))
         }
       }
       return out

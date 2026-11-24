@@ -66,6 +66,7 @@ import { stageFacts } from './stage'
 import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
 import { withheldHeading, withheldRows } from './withheld'
+import { figureFooter } from './svgPdf'
 import { reportMethods } from './syngamyPdf'
 import {
   addCandidateRow, candidateGenomes, emptyCandidateTallies, findParent, fatherSearchText, type ParentSearchText,
@@ -307,6 +308,8 @@ async function loadFeatureTrack(): Promise<FeatureTrack | null> {
 }
 
 export function SyngamyPage({ health }: { health?: Health | null }) {
+  // Every figure file the page saves prints this version line.
+  figureFooter.tool = health ? `OriginMarker ${health.version} (${health.release_codename})` : 'OriginMarker, version not reported'
   const [entries, setEntries] = useState<Entry[]>([])
   const [arms, setArms] = useState<Arms | null>(null)
   useEffect(() => { void loadFeatureTrack().then((t) => setArms(t ? armsFrom(t.gaps) : null)) }, [])
@@ -1583,12 +1586,12 @@ const segmentLines = (sg: Segment, role: 'paternal' | 'maternal', seen = false):
 }
 
 /** A figure mark on a sample not reportable: what was seen, with no lines that name a change. */
-const seenMark = (seen: boolean, m: Mark): Mark => (seen ? { ...m, ...seenMarkText(m), lines: [], said: undefined } : m)
+export const seenMark = (seen: boolean, m: Mark): Mark => (seen ? { ...m, ...seenMarkText(m), lines: [], said: undefined } : m)
 
 const plotName = (e: Entry): string => e.file.name.replace(/\.[^.]*$/, '')
 
 /** The loaded parent's role, or none. */
-const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.noParent ? null : r.role)
+export const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.noParent ? null : r.role)
 
 /** Every printed change and every run found and withheld, as the cell figures mark them. */
 /**
@@ -1598,7 +1601,7 @@ const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.no
  * and the figure's list says so on the line. A figure that marked eleven things under a headline of
  * ten changes, with nothing to tell them apart, reads as a contradiction.
  */
-function marksOf(r: ParentageResult, data: PlotData | undefined, list?: ChangeList): Mark[] {
+export function marksOf(r: ParentageResult, data: PlotData | undefined, list?: ChangeList): Mark[] {
   // Matched on what a change IS, not on object identity: the card builds its own list from its own
   // pass over the result, so the two sets of rows are equal in value and different in identity.
   const key = (d: Defect) => `${d.chrom}|${d.startBp}|${d.endBp}|${d.kind}`
