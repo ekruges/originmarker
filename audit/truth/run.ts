@@ -261,9 +261,10 @@ for (const row of list) {
             || /^(LOST|GAINED):/.test(x)) : [],
           seenHeadings: s.list.notReported ? strings.filter((x) => x.endsWith(': readings seen on this array, not reported')).length : 0,
           changeBanner: (all.match(/Chromosomal change in 1 of 1 sample\(s\): (.*?)\. Coordinates/) ?? [])[1] ?? null }
-        // What the outputs print: the withheld count, the bars listed, the pages and their footers.
+        // What the outputs print: the withheld count, the bars listed, the methods paragraph, the pages.
         const input = { files, tool: TOOL, runArrays: (others ?? '').split(';').filter(Boolean).length }
         const names = new Set(barsMod.BARS.map((b: any) => b.name))
+        const methods = reportPdf.reportMethods(input as never)
         out.outputs = {
           withheldHeading: strings.find((x) => x.startsWith('Withheld, and why: ')) ?? null,
           withheldRows: withheldMod.withheldRows(res, s.list).length,
@@ -271,6 +272,8 @@ for (const row of list) {
           barsApplied: [...new Set(barsMod.barsApplied(reportPdf.reportSetup(input as never)).map((b: any) => b.name))],
           barValues: barsMod.barsApplied(reportPdf.reportSetup(input as never)).map((b: any) => barsMod.barValue(b)),
           typedTable: all.includes('Constants and where they come from'),
+          methods: methods.text, cites: methods.cites.map((c: any) => c.doi),
+          methodsPrinted: all.includes(flat(methods.text)),
           pages: (txt.match(/\/Type \/Page /g) ?? []).length,
           footers: strings.filter((x) => x.includes(` | ${TOOL} | report `) && x.includes(' | page ')).length,
         }

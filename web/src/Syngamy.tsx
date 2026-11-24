@@ -66,6 +66,7 @@ import { stageFacts } from './stage'
 import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
 import { withheldHeading, withheldRows } from './withheld'
+import { reportMethods } from './syngamyPdf'
 import {
   addCandidateRow, candidateGenomes, emptyCandidateTallies, findParent, fatherSearchText, type ParentSearchText,
 } from './findParent'
@@ -1016,7 +1017,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       )}
 
       <RunInformation
-        entries={entries} startedAt={startedAt} health={health} examples={!!examples}
+        entries={entries} startedAt={startedAt} health={health} examples={!!examples} comparison={comparison}
         father={fatherEntry?.state === 'done' ? fatherEntry.file.name : undefined}
       />
     </>
@@ -2258,15 +2259,41 @@ function Withheld({ r, list }: { r: ParentageResult; list: ChangeList }) {
   )
 }
 
-function RunInformation({ entries, startedAt, health, examples, father }: {
+/** The methods paragraph for the run, as the report prints it, with a button to copy it. */
+function MethodsText({ text, refs }: { text: string; refs: string[] }) {
+  const [copied, setCopied] = useState(false)
+  const all = [text, ...refs].join('\n\n')
+  return (
+    <div style={{ marginTop: 8, fontSize: 12 }}>
+      <Group gap={8} align="center">
+        <Text fw={600} size="xs" tt="uppercase" c="dimmed" style={{ letterSpacing: '0.04em' }}>Methods</Text>
+        <button type="button" className="om-primer-toggle"
+          onClick={() => { void navigator.clipboard?.writeText(all).then(() => setCopied(true)) }}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </Group>
+      <p style={{ margin: '4px 0' }}>{text}</p>
+      {refs.map((x) => <p key={x} style={{ margin: '2px 0', color: 'var(--om-text-dim)' }}>{x}</p>)}
+    </div>
+  )
+}
+
+function RunInformation({ entries, startedAt, health, examples, father, comparison }: {
   entries: Entry[]
   startedAt: string | null
   health?: Health | null
   examples: boolean
   father?: string
+  comparison?: ComparisonResult | null
 }) {
   const done = entries.filter((e) => e.state === 'done')
   if (!done.length) return null
+  const tool = health ? `OriginMarker ${health.version} (${health.release_codename})` : 'OriginMarker'
+  const methods = reportMethods({
+    tool, comparison: comparison ?? undefined,
+    files: done.map((e) => ({ name: e.file.name, size: e.file.size, sha256: '', role: e.role, markers: 0,
+      profile: e.profile, result: e.result, maternal: e.maternal, paired: e.paired, inferred: e.inferred })),
+  })
   const samples = done.filter((e) => e.result)
   const builds = [...new Set(done.map((e) => e.profile?.build.build ?? 'undetermined'))]
 
@@ -2287,6 +2314,7 @@ function RunInformation({ entries, startedAt, health, examples, father }: {
           : []),
       ]}
       />
+      <MethodsText text={methods.text} refs={methods.cites.map((c) => c.ref)} />
     </Paper>
   )
 }

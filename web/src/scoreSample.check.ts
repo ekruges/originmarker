@@ -957,6 +957,8 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   const { cardSays } = await import('./pageSays.ts')
   const { withheldRows, withheldHeading } = await import('./withheld.ts')
   const { barsApplied, barValue } = await import('./bars.ts')
+  const { CHECKED } = await import('./methods.ts')
+  const { reportMethods } = await import('./syngamyPdf.ts')
   const strings = (txt: string) => [...txt.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1]
     .replace(/\\([0-7]{3})|\\(.)/g, (_, o, c) => (o ? String.fromCharCode(parseInt(o, 8)) : c)))
   const report = async (r: Awaited<ReturnType<typeof run>>, father: boolean, tool = 'OriginMarker 9.9.9 (Check)') => {
@@ -965,12 +967,12 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
     const input = { files, donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
       tool, reportId: 'CHECK', fromExamples: false }
     const txt = Buffer.from(await (await buildReportPdf(input as never)).arrayBuffer()).toString('latin1')
-    return { txt, s: strings(txt), all: strings(txt).join(' ').replace(/\s+/g, ' ') }
+    return { txt, s: strings(txt), all: strings(txt).join(' ').replace(/\s+/g, ' '), methods: reportMethods(input as never) }
   }
   const withF = await run()
   const none = { ...withF, noParent: true } as typeof withF
   for (const [r, father] of [[withF, true], [none, false]] as const) {
-    const { txt, s, all } = await report(r, father)
+    const { txt, s, all, methods } = await report(r, father)
     const held = withheldRows(r, cardSays(r, undefined, r.originClass, false).list)
     assert.equal(held.length, (r.refusals ?? []).length
       + (cardSays(r, undefined, r.originClass, false).list.notReported?.rows.length ?? 0),
@@ -981,7 +983,15 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
     const listed = s.filter((x) => applied.some((b) => b.name === x))
     assert.deepEqual([...new Set(listed)].sort(), [...new Set(applied.map((b) => b.name))].sort(), 'the report lists exactly the bars applied')
     for (const b of applied) assert.ok(s.includes(barValue(b)), `${b.name} prints its value`)
-    if (!father) assert.ok(!s.includes('ABSENCE_MARGIN') && !s.includes('SURVIVOR_MIN'), 'no parental bar with no parent')
+    if (!father) {
+      assert.ok(!s.includes('ABSENCE_MARGIN') && !s.includes('SURVIVOR_MIN'), 'no parental bar with no parent')
+      assert.ok(methods.text.includes('No parental array was loaded.') && !/father|mother|parent's/.test(methods.text),
+        'no parental sentence with no parent')
+    } else assert.ok(methods.text.includes("The father's array was loaded"))
+    assert.ok(all.includes(methods.text.split('. ')[1]), 'the methods paragraph is printed')
+    assert.ok(methods.cites.every((c) => Object.values(CHECKED).includes(c)), 'citations only from the checked list')
+    assert.ok(!methods.cites.includes(CHECKED.verdyck2022), 'the two-parent citation only with both parents')
+    assert.ok(!/units of one embryo/.test(methods.text), 'no origin sentence for one cell')
     assert.ok(!/\/Image|\/XObject|\sBI\s/.test(txt), 'the report holds no image')
     assert.ok(!s.includes('Constants and where they come from'))
     const pages = (txt.match(/\/Type \/Page /g) ?? []).length
@@ -990,5 +1000,5 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   }
   const bare = await report(withF, true, 'OriginMarker')
   assert.ok(bare.s.some((x) => x.includes('OriginMarker, version not reported | report')), 'no version given is said')
-  console.log('  the report lists what was withheld and the bars applied')
+  console.log('  the report lists what was withheld, the bars applied and the methods paragraph')
 }

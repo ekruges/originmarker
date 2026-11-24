@@ -34,6 +34,8 @@ import { int, utc } from './fmt.ts'
 import { EXAMPLE_CITATION, EXAMPLE_DENSITY } from './examples.ts'
 import { barIn, barsApplied, barValue, type Setup } from './bars.ts'
 import { withheldHeading, withheldRows } from './withheld.ts'
+import { methodsParagraph, type Methods } from './methods.ts'
+import { PROVEN_CHIP } from './platform.ts'
 
 export const DISCLAIMER = 'Research use only. Parent of origin here is a statistical call from '
   + 'array genotypes and requires confirmation by an independent method in a qualified genetics '
@@ -99,6 +101,23 @@ export function reportSetup(input: Pick<ReportInput, 'files' | 'runArrays' | 'co
   const read = Math.max(0, ...input.files.filter((f) => f.result).map((f) => (f.result!.noParent ? 0 : f.maternal ? 2 : 1)))
   const samples = input.files.filter((f) => f.result).length
   return { parents: Math.max(loaded, read) as 0 | 1 | 2, run: (input.runArrays ?? samples - 1) > 0, comparison: !!input.comparison }
+}
+
+/** The methods paragraph of a report's run: the same function the page's copy block reads. */
+export function reportMethods(input: Pick<ReportInput, 'files' | 'runArrays' | 'comparison' | 'tool'>): Methods {
+  const donor = input.files.find((f) => f.role === 'donor')
+  const results = input.files.filter((f) => f.result)
+  return methodsParagraph({
+    tool: input.tool, chip: PROVEN_CHIP,
+    builds: [...new Set(results.map((f) => f.profile?.build.build ?? 'undetermined'))],
+    samples: results.length,
+    father: donor ? (donor.inferred ? 'rebuilt' : 'measured')
+      : results.some((f) => !f.result!.noParent && f.result!.role === 'paternal') ? 'measured' : 'none',
+    mother: input.files.some((f) => f.role === 'oocyte')
+      || results.some((f) => !f.result!.noParent && (!!f.maternal || f.result!.role === 'maternal')),
+    grouped: Math.max(0, ...results.map((f) => f.result!.units ?? 0)),
+    applied: barsApplied(reportSetup(input)),
+  })
 }
 
 /** The tool string, or a plain statement that the server gave no version. */
@@ -1106,6 +1125,13 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   // --- methods --------------------------------------------------------------------------------
   newPage()
   heading('Methods', 11)
+  {
+    const methods = reportMethods(input)
+    text(methods.text, 8, 'Helvetica', 2.6)
+    for (const c of methods.cites) text(c.ref, 7.4, 'Helvetica', 2.2, GREY)
+    y -= 3
+  }
+  heading('How each reading works', 9.5)
   const assembly = builds.length === 1 && builds[0] !== 'undetermined' ? builds[0] : null
   if (noParent) {
     text(`No parental array was supplied. Each of ${results.length} sample(s) was read from its own SNP `
