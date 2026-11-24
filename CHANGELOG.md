@@ -32,8 +32,10 @@ so "47,XXY or a mix of cells" is no longer on the card and missing from the repo
 **No parent is named where none was loaded.** The changes download wrote `loaded_parent:
 maternal` on a run with no parent, and the report's line above each sample read against a sperm
 donor. Both are now empty of a parent; a run with the mother alone names her. With no parent at
-all the report names no oocyte donor and infers nothing; with the father alone it still says a
-maternal origin is inferred from paternal absence.
+all the report names no oocyte donor and infers nothing: its methods say no parental array was
+supplied and no parental origin is named, and the notes, evidence tables, interpretation and
+constants of the parental test are left out. With the father alone it still says a maternal origin
+is inferred from paternal absence.
 
 **Five more places where one sample said two things.**
 
@@ -48,8 +50,13 @@ maternal origin is inferred from paternal absence.
   array, lower than it, or read unlike it, on the card, the figure, the changes download (its class
   column, with no parent or evidence sentence) and the report. The sample's notice no longer
   states a loss as a fact.
-- **The no-change sentence names what the list reads**: "No gain or loss found on chromosomes 1 to
-  22", so it cannot contradict the sex-chromosome line beside it. No count changes.
+- **The count sentence names what the list reads, every time**: "1 change found on chromosomes 1
+  to 22, 2 findings." or "No gain or loss found on chromosomes 1 to 22", so it cannot contradict
+  the sex-chromosome line beside it. No count changes.
+- **The report lists findings as findings**, on their own line under the summary and apart from
+  the changes in its table, by the card's split.
+- **An arm seen on a sample not reportable is no call**: the row names the arm and that its edge and
+  extent inside the arm are not placed, on the card, the download and the report.
 
 Measured on 853 records (330 answer-key rows with no parent, 252 open rows with a parent, 271
 laboratory rows): the card's changes and findings equal the overview's on every one; every
