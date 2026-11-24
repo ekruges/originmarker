@@ -42,6 +42,16 @@ run 'joy-common line reader' . audit/joy-common.check.ts
 # arrays by the tail of their accession. See the header of the check.
 run 'no tracked results file names an array' . audit/no-array-names.check.ts
 
+echo "gate tools"
+for f in "$ROOT"/audit/gate/*.check.ts; do
+  run "$(basename "$f")" . "audit/gate/$(basename "$f")"
+done
+for f in seal.check.py pool.check.sh; do
+  case $f in *.py) c=(python3 "audit/gate/$f") ;; *) c=(bash "audit/gate/$f") ;; esac
+  if "${c[@]}" >/dev/null 2>&1; then printf '  ok   %s\n' "$f"
+  else printf '  FAIL %s\n' "$f"; "${c[@]}" 2>&1 | tail -20 | sed 's/^/       /'; fails=$((fails + 1)); fi
+done
+
 # THE OVERVIEW TABLE, RECOUNTED BY CODE THAT SHARES NOTHING WITH IT (plan item 3.9, O3). On the
 # synthetic fixture always; on real runs where OM_OVERVIEW_DIR holds one records file per run
 # (audit/truth/run.ts output with the page's grouping and timing attached).
