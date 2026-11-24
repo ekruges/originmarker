@@ -487,8 +487,13 @@ export function figureNote(l: ChangeList, drawn: { listed: number; withheld: num
     + `${plural(marked, 'row')} of the list${extra.length ? `, ${extra.join(', and ')}` : ''}.`
   if (l.notReported) return `${head} This sample is not reportable, so none of them is reported.`
   const { changes, findings } = cardCounts(l)
-  return `${head} The card counts ${plural(changes, 'change')} and ${plural(findings, 'finding')}; `
-    + 'the rest are drawn as outlines and say on their own line why they are not counted.'
+  // How many drawn readings the counted rows are, so the sentence adds up with what is drawn.
+  const counted = l.counted.filter((g) => g.chrom !== 'genome').reduce((n, g) => n + g.pieces.length, 0)
+  const rest = total - counted
+  return `${head} The card counts ${plural(changes, 'change')} and ${plural(findings, 'finding')}, drawn as `
+    + `${plural(counted, 'reading')}${!rest ? '' : rest === 1
+      ? '; the other 1 is drawn as an outline and says on its own line why it is not counted'
+      : `; the other ${rest} are drawn as outlines and say on their own line why they are not counted`}.`
 }
 
 /**
@@ -504,6 +509,109 @@ export function summaryParts(l: ChangeList): { changes: string; findings: string
       ...(l.disturbed ? ['genome widely disturbed'] : [])].join(', '),
   }
 }
+
+/* --- what a sample not reportable may print of a chromosome or a row -------------------------- */
+
+/** How a reading sat against the rest of the array; `same` is a reading at the array's own level. */
+export type Seen = 'gain' | 'loss' | 'none' | 'same'
+
+const SEEN_WORD: Record<Seen, string> = { ...SEEN, same: 'at the level of the rest of this array' }
+
+/** The sample is one the overview counts as not reportable. */
+export const notReportable = (r: { refusals?: readonly { claim: string; gate: string }[] }): boolean =>
+  reportOf(r) === 'not reportable'
+
+/**
+ * THE ONE GUARD for every state word a chromosome, a stretch or a bar prints: on a sample not
+ * reportable it returns only how the reading sat against the rest of the array. Every table, note,
+ * badge and tooltip that names a loss or a gain takes its word from here; the numbers beside it
+ * (rates, log2) are what was seen and stay.
+ */
+export const stateWord = (seen: boolean, word: string, dir: Seen): string => (seen ? SEEN_WORD[dir] : word)
+
+/** A section heading over readings of a sample not reportable says they are seen and not reported. */
+export const seenHeading = (seen: boolean, title: string): string =>
+  (seen ? `${title}: readings seen on this array, not reported` : title)
+
+/** Which way a class reads, for the guard. */
+export const kindSeen = (kind: string): Seen => directionOf(kind) ?? 'none'
+
+interface ChromState {
+  chrom: string
+  verdict: string
+  note?: string
+  aneuploidy?: 'loss' | 'gain'
+  lostParent?: string
+  aneuploidyParent?: string
+  mixed?: boolean
+  alleleGain?: { verdict: string; parent?: string | null }
+  callFraction: number
+  lrrShift: number
+}
+
+/** Which way a chromosome's state reads, for the guard. */
+export function chromSeen(c: ChromState): Seen {
+  if (c.aneuploidy) return c.aneuploidy
+  if (c.alleleGain?.verdict === 'gain') return 'gain'
+  if (c.lostParent) return 'loss'
+  if (c.mixed || c.alleleGain?.verdict === 'imbalance') return 'none'
+  return 'same'
+}
+
+const signed = (x: number): string => `${x > 0 ? '+' : ''}${x.toFixed(2)}`
+
+/** A chromosome's verdict and note, as every chromosome table prints them. */
+export function chromCells(seen: boolean, c: ChromState): { verdict: string; note: string } {
+  const verdict = stateWord(seen && c.verdict === 'absent', c.verdict.replace(/_/g, ' '), 'none')
+  if (!seen || !c.note) return { verdict, note: c.note ?? '' }
+  const nums = [Number.isFinite(c.callFraction) ? `calls at ${c.callFraction.toFixed(2)}x of the genome median` : '',
+    Number.isFinite(c.lrrShift) ? `intensity ${signed(c.lrrShift)} log2` : ''].filter(Boolean).join(', ')
+  return { verdict, note: [stateWord(true, '', chromSeen(c)), nums].filter(Boolean).join(': ') }
+}
+
+/** The change and whose-copy cells of the report's aneuploidy table. */
+export function aneuploidyCells(seen: boolean, c: ChromState): [string, string] {
+  const change = c.aneuploidy?.toUpperCase() ?? (c.mixed ? 'MIXED'
+    : c.lostParent ? 'PARENT ABSENT'
+      : c.alleleGain?.verdict === 'gain' ? 'GAIN (ALLELES)' : 'IMBALANCE')
+  const whose = c.mixed ? 'not called: between the boundaries, one parent dominant'
+    : !c.lostParent && !c.aneuploidy && c.alleleGain?.verdict === 'gain'
+      ? `${c.alleleGain.parent} supplied the extra copy, from the alleles`
+      : !c.lostParent && !c.aneuploidy && c.alleleGain?.verdict === 'imbalance'
+        ? 'not named: intensity below the cell\'s level'
+        : c.lostParent ? (c.aneuploidy === 'gain'
+          ? `no ${c.lostParent} copy: every copy is the other parent's, from the alleles`
+          : `${c.lostParent} copy absent, from the alleles`)
+          : c.aneuploidyParent === 'this' ? 'the parent scored against'
+            : c.aneuploidyParent === 'other' ? 'the other parent'
+              : 'not determined'
+  return [stateWord(seen, change, chromSeen(c)), seen ? 'not named: the sample is not reportable' : whose]
+}
+
+/** What a segment row is, in one line, on the page and in the report. The parent comes from the
+ *  run that found the segment, falling back to the loaded role. */
+export function segmentKindText(seen: boolean,
+  sg: { kind: string; contested?: boolean; absentParent?: string }, role: string): string {
+  const word = sg.kind === 'copy-loss' ? 'DNA absent'
+    : sg.kind === 'copy-gain' ? 'extra copies'
+      : sg.contested ? 'alleles absent, both parents'
+        : `${sg.absentParent ?? role} alleles absent`
+  return stateWord(seen, word, sg.kind === 'copy-gain' ? 'gain' : sg.kind === 'copy-loss' ? 'loss' : 'none')
+}
+
+/** An extra-copy annotation as printed: what, whose and why. */
+export function gainCells(seen: boolean, g: { kind: string; origin: string; why: string }):
+{ kind: string; origin: string; why: string } {
+  return seen ? { kind: stateWord(true, g.kind, 'gain'), origin: 'not named', why: NOT_REPORTED_SAYS } : g
+}
+
+/** A verdict word of an origin table (genotypes, allele dosage), or what stands in for it. */
+export const verdictText = (seen: boolean, verdict: string): string =>
+  (seen ? 'not read: the sample is not reportable' : verdict.replace(/[-_]/g, ' '))
+
+/** A copy level under a figure bar: its word, or on a sample not reportable how it sat. */
+export const levelWord = (seen: boolean, word: string, copies: number, none: number, two: number): string =>
+  stateWord(seen, word, copies < none ? 'loss' : copies > two ? 'gain' : 'same')
 
 /** The disturbed-genome finding in one plain sentence, or nothing. */
 export function disturbedText(l: Pick<ChangeList, 'disturbed'>, reported = true): string {

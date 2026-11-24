@@ -35,7 +35,7 @@ import {
 } from './parentage'
 import {
   segmentCoords, MIN_SEGMENT_MARKERS, SEGMENT_LRT,
-  type Segment, type SegmentKind,
+  type Segment,
 } from './segments'
 import type { Health } from './api'
 import { int, utc } from './fmt'
@@ -57,7 +57,7 @@ import { plotData, type PlotData } from './plotSeries'
 import { CallFigure, CellFigure, defectMark, rowMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
 import { runAlerts, type Defect } from './defects'
 import {
-  callTitle, cardSays, countText, defectsForResult, drawnOf, figureNote, KIND_SAYS, MEASURED_SOURCE, measuredSentence,
+  callTitle, cardSays, chromCells, countText, defectsForResult, gainCells, notReportable, seenHeading, segmentKindText, drawnOf, figureNote, KIND_SAYS, MEASURED_SOURCE, measuredSentence,
   PARENT_SENTENCE, readAgainst, seenMarkText, sexLine, WORD, type ChangeList,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
@@ -663,9 +663,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           ? classify(acc.tm, mat.heterozygosity, { role: 'maternal', yBearing: sexCall(acc.sex).yBearing })
           : undefined
         const paired = maternal ? pair(result, maternal, agree) : undefined
-        const series = plotData(acc, {
+        const series = { ...plotData(acc, {
           loaded: pat.absent ? null : { role: soloRole, gt: pat.gt }, second: mat?.gt ?? null,
-        })
+        }), seen: notReportable(result) }
         // The 5 Mb window medians, kept because the sister reading in the post-pass needs this
         // cell's intensity after every cell's calls are known, and `acc` does not outlive this pass.
         return { calls: acc.myGt, profile, gates, result, maternal, paired, series,
@@ -1223,8 +1223,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             const mk = rowMark(g.pieces, r.segments, loadedRole(r), entry.series?.endBp.get(g.chrom), g.deeper)
             // The title comes from the row, not from the figure: pageSays.callTitle, which reads
             // the same origin the row does, so the two cannot name different parents.
-            const seen = g.word === 'not reported' && mk ? { ...seenMarkText(mk), lines: [], said: undefined } : {}
-            return mk ? <CallFigure mark={{ ...mk, sentence: callTitle(g), ...seen }} data={entry.series} marks={marks} name={plotName(entry)} /> : null
+            return mk ? <CallFigure mark={seenMark(g.word === 'not reported', { ...mk, sentence: callTitle(g) })} data={entry.series} marks={marks} name={plotName(entry)} /> : null
           }}
         />
         <CellFigure data={entry.series} marks={marks} name={plotName(entry)} title={title}
@@ -1277,19 +1276,19 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             <StageCallout facts={r.stage && entry.profile ? stageFacts(r.stage, entry.profile) : null} />
             {r.gains.length > 0 && (
               <div style={{ marginTop: 10 }}>
-                <Text size="xs" fw={700} mb={4}>Extra copies, and where they came from</Text>
+                <Text size="xs" fw={700} mb={4}>{seenHeading(notReportable(r), 'Extra copies, and where they came from')}</Text>
                 {r.gains.map((g) => (
                   <div key={g.where} style={{ fontSize: 11, marginBottom: 5, lineHeight: 1.45 }}>
                     <span style={{ fontFamily: 'var(--om-mono)', fontWeight: 600 }}>{g.where}</span>
                     {'  '}
-                    <span style={{ color: g.called ? 'var(--om-blue)' : 'var(--om-higher)' }}>{g.origin}</span>
-                    <div style={{ color: 'var(--om-text-dim)' }}>{g.why}</div>
+                    <span style={{ color: g.called ? 'var(--om-blue)' : 'var(--om-higher)' }}>{gainCells(notReportable(r), g).origin}</span>
+                    <div style={{ color: 'var(--om-text-dim)' }}>{gainCells(notReportable(r), g).why}</div>
                   </div>
                 ))}
               </div>
             )}
-            <SegmentCallout segments={r.segments} />
-            <GainCallout gains={r.gains} />
+            {notReportable(r) ? null : <SegmentCallout segments={r.segments} />}
+            <GainCallout gains={r.gains} seen={notReportable(r)} />
             {entry.paired && entry.paired.notes.length > 0 && (
               <Section title="Both parents">
                 {entry.paired.notes.filter((x) => !head.decided || !/cannot be classified/.test(x))
@@ -1554,12 +1553,6 @@ function Quality({ profile: p, gates, material, sexChromosome }: {
 // Labelling every one with the loaded role was right while only one run existed and names the
 // wrong parent on every segment the second run finds. Falls back to the role, which is what a
 // single-parent run means by definition.
-const kindLabel = (k: SegmentKind, role: 'paternal' | 'maternal', sg?: Segment): string => (
-  k === 'copy-loss' ? 'DNA absent'
-    : k === 'copy-gain' ? 'extra copies'
-      : sg?.contested ? 'alleles absent, both parents'
-        : `${sg?.absentParent ?? role} alleles absent`)
-
 // A segment carries `lrrShift` exactly when a likelihood scan of otherParentLoss.ts made it. Those
 // scans score on their own scale, divided by the array's clustering, so each row is read against
 // the threshold of the scan that made it.
@@ -1571,16 +1564,20 @@ const intensityText = (sg: Segment): string => (
     ? `${sg.lrrShift > 0 ? '+' : ''}${sg.lrrShift.toFixed(2)}` : '–')
 
 /** What a segment row shows, for the hover on its plot box. */
-const segmentLines = (sg: Segment, role: 'paternal' | 'maternal'): string[] => {
+const segmentLines = (sg: Segment, role: 'paternal' | 'maternal', seen = false): string[] => {
   const co = segmentCoords(sg)
+  if (seen) return [`${segmentKindText(true, sg, role)}, chr${sg.chrom}`, `${int(co.start)}-${int(co.end)}`, `${int(sg.markers)} markers`]
   return [
-    `${kindLabel(sg.kind, role, sg)}, chr${sg.chrom}`,
+    `${segmentKindText(false, sg, role)}, chr${sg.chrom}`,
     `${int(co.start)}-${int(co.end)}, ${co.interval}`,
     `${(co.spanBp / 1e6).toFixed(1)} Mb, ${int(sg.markers)} markers`,
     `missing-copy signal ${pct(sg.rate, 1)} inside, ${pct(sg.nullRate, 1)} with both copies present`,
     `score ${sg.arm ? 'n/a' : sg.score.toFixed(0)} against ${thresholdOf(sg)}, intensity ${intensityText(sg)}`,
   ]
 }
+
+/** A figure mark on a sample not reportable: what was seen, with no lines that name a change. */
+const seenMark = (seen: boolean, m: Mark): Mark => (seen ? { ...m, ...seenMarkText(m), lines: [], said: undefined } : m)
 
 const plotName = (e: Entry): string => e.file.name.replace(/\.[^.]*$/, '')
 
@@ -1611,9 +1608,7 @@ function marksOf(r: ParentageResult, data: PlotData | undefined, list?: ChangeLi
   }
   for (const sg of withheldRuns(r.refusals)) marks.push(withheldMark(sg, loadedRole(r)))
   // On a sample not reportable every mark states what was seen, never a copy lost or gained.
-  if (list?.notReported) {
-    return marks.map((m) => ({ ...m, ...seenMarkText(m), lines: [], said: undefined, status: 'not reported' as const }))
-  }
+  if (notReportable(r)) return marks.map((m) => ({ ...seenMark(true, m), status: 'not reported' as const }))
   return marks
 }
 
@@ -1638,23 +1633,23 @@ const PlotToggle = ({ open, onClick }: { open: boolean; onClick: () => void }) =
  * an extra copy of the same homologue is bit-identical to a single copy and no channel this
  * array carries can see it.
  */
-function GainCallout({ gains }: { gains: GainAnnotation[] }) {
+function GainCallout({ gains, seen = false }: { gains: GainAnnotation[]; seen?: boolean }) {
   if (!gains.length) return null
   return (
     <div style={{ marginTop: 10, border: '1px solid var(--om-border)', padding: '10px 12px' }}>
       <Text size="xs" fw={700} mb={6}>
-        Extra copies, and where they came from
+        {seenHeading(seen, 'Extra copies, and where they came from')}
       </Text>
       {gains.map((g) => (
         <div key={g.where} style={{ marginBottom: 8 }}>
           <div style={{ fontSize: 12 }}>
             <span style={{ fontFamily: 'var(--om-mono)', fontWeight: 600 }}>{g.where}</span>
-            <span style={{ color: 'var(--om-text-dim)' }}>{' '}{g.kind}{' \u00b7 '}</span>
+            <span style={{ color: 'var(--om-text-dim)' }}>{' '}{gainCells(seen, g).kind}{' \u00b7 '}</span>
             <span style={{ color: g.called ? 'var(--om-blue)' : 'var(--om-higher)', fontWeight: 600 }}>
-              {g.origin}
+              {gainCells(seen, g).origin}
             </span>
           </div>
-          <div style={{ fontSize: 11, color: 'var(--om-text-dim)', lineHeight: 1.45 }}>{g.why}</div>
+          <div style={{ fontSize: 11, color: 'var(--om-text-dim)', lineHeight: 1.45 }}>{gainCells(seen, g).why}</div>
         </div>
       ))}
       <Text size="xs" c="dimmed" style={{ lineHeight: 1.45 }}>
@@ -1794,22 +1789,22 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
       )}
 
       {sex.length > 0 && (
-        <Section title="Sex chromosomes">
+        <Section title={seenHeading(notReportable(r), 'Sex chromosomes')}>
           {r.sexChromosome && (
             <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
               {sexLine(r.sexChromosome)}
             </Text>
           )}
-          <ChromTable chroms={sex} ceiling={r.explainable} />
+          <ChromTable chroms={sex} ceiling={r.explainable} seen={notReportable(r)} />
         </Section>
       )}
 
-      <Section title={maternal ? 'Chromosomes, sperm donor' : 'Chromosomes'}>
-        <ChromTable chroms={r.chroms} ceiling={r.explainable} />
+      <Section title={seenHeading(notReportable(r), maternal ? 'Chromosomes, sperm donor' : 'Chromosomes')}>
+        <ChromTable chroms={r.chroms} ceiling={r.explainable} seen={notReportable(r)} />
       </Section>
 
       {r.segments.length > 0 && (
-        <Section title="Segments inside a chromosome">
+        <Section title={seenHeading(notReportable(r), 'Segments inside a chromosome')}>
           <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
             A chromosome that is partly lost reads as neither present nor absent, so the whole
             chromosome comes back unclear and the missing part goes unreported. These are the
@@ -1852,7 +1847,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
                       {' '}{segmentCoords(sg).interval}
                     </Text>
                   </Table.Td>
-                  <Table.Td>{kindLabel(sg.kind, r.role, sg)}</Table.Td>
+                  <Table.Td>{segmentKindText(notReportable(r), sg, r.role)}</Table.Td>
                   <Table.Td ta="right" ff="monospace">
                     {(segmentCoords(sg).spanBp / 1e6).toFixed(1)} Mb
                   </Table.Td>
@@ -1869,7 +1864,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
           </Scroll>
           {plotSg && series ? (
             <CallFigure
-              mark={segmentMark(plotSg, loadedRole(r), segmentLines(plotSg, r.role))}
+              mark={seenMark(notReportable(r), segmentMark(plotSg, loadedRole(r), segmentLines(plotSg, r.role, notReportable(r))))}
               data={series} marks={marksOf(r, series)} name={name}
             />
           ) : null}
@@ -1895,7 +1890,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
       )}
 
       {held.length > 0 && series && (
-        <Section title="Runs found and withheld">
+        <Section title={seenHeading(notReportable(r), 'Runs found and withheld')}>
           {held.map((sg, i) => (
             <div key={`${sg.chrom}:${sg.startBp}`} style={{ fontSize: 12, marginBottom: 3 }}>
               <PlotToggle open={heldAt === i} onClick={() => setHeldAt(heldAt === i ? null : i)} />
@@ -1906,7 +1901,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
                 {' '}{(segmentCoords(sg).spanBp / 1e6).toFixed(2)} Mb, {int(sg.markers)} markers, withheld
               </Text>
               {heldAt === i ? (
-                <CallFigure mark={withheldMark(sg, loadedRole(r))} data={series} marks={marksOf(r, series)} name={name} />
+                <CallFigure mark={seenMark(notReportable(r), withheldMark(sg, loadedRole(r)))} data={series} marks={marksOf(r, series)} name={name} />
               ) : null}
             </div>
           ))}
@@ -1915,7 +1910,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
 
       {maternal && (
         <Section title="Chromosomes, oocyte donor">
-          <ChromTable chroms={maternal.chroms} ceiling={maternal.explainable} />
+          <ChromTable chroms={maternal.chroms} ceiling={maternal.explainable} seen={notReportable(r)} />
         </Section>
       )}
 
@@ -1929,7 +1924,8 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
           ))}
         </Section>
       )}
-      {[...new Set([...r.notes, ...maternal?.notes ?? []])].length > 0 && (
+      {/* The run's own notes state what it found; on a sample not reportable that is not a result. */}
+      {!notReportable(r) && [...new Set([...r.notes, ...maternal?.notes ?? []])].length > 0 && (
         <Section title="Findings">
           {[...new Set([...r.notes, ...maternal?.notes ?? []])].map((n) => (
             <Text key={n} size="xs" mb={3}>{n}</Text>
@@ -1940,7 +1936,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
   )
 }
 
-function ChromTable({ chroms, ceiling }: { chroms: ChromResult[]; ceiling: number }) {
+function ChromTable({ chroms, ceiling, seen = false }: { chroms: ChromResult[]; ceiling: number; seen?: boolean }) {
   return (
     <Scroll>
       <Table withTableBorder withColumnBorders>
@@ -1972,13 +1968,13 @@ function ChromTable({ chroms, ceiling }: { chroms: ChromResult[]; ceiling: numbe
                   ? <Text span size="xs" c="dimmed">present</Text>
                   : (
                     <Badge size="xs" variant="light"
-                      color={c.verdict === 'expected_absent' || c.verdict === 'not_measured'
+                      color={c.verdict === 'expected_absent' || c.verdict === 'not_measured' || seen
                         ? 'gray' : 'orange'}
                     >
-                      {c.verdict.replace(/_/g, ' ')}
+                      {chromCells(seen, c).verdict}
                     </Badge>
                   )}
-                {c.note && <Text span size="xs" c="dimmed"> &middot; {c.note}</Text>}
+                {chromCells(seen, c).note && <Text span size="xs" c="dimmed"> &middot; {chromCells(seen, c).note}</Text>}
               </Table.Td>
             </Table.Tr>
           ))}

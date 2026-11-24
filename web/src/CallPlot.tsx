@@ -9,12 +9,12 @@
  */
 import { useLayoutEffect, useRef, useState, type PointerEvent, type ReactNode } from 'react'
 import {
-  badgeX, cellPer, copyBars, COPY_MAX, copyWord, directionColour, drawable, guardedBars, isCounted,
+  badgeX, cellPer, copyBars, COPY_MAX, COPY_NONE_BELOW, COPY_TWO_ABOVE, copyWord, directionColour, drawable, guardedBars, isCounted,
   mergeBins, normalRange, perForStretch, sheet, tickStepMb, totalBars, viewOf, wrap, zoomOrder,
   type Bin, type PlotData, type Role, type Track,
 } from './plotSeries.ts'
 import { direction, headline, KIND_WORD, type Defect, type Direction } from './defects.ts'
-import { saidOf } from './pageSays.ts'
+import { levelWord, saidOf } from './pageSays.ts'
 import { segmentCoords, type Segment } from './segments.ts'
 import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
 import type { Refusal } from './refusals.ts'
@@ -251,10 +251,10 @@ function guardOf(data: PlotData, chrom: string, per: number, floor: number): Set
   return guardedBars(barsOf(data, f, chrom, per), barsOf(data, m, chrom, per), rate.bins.get(chrom) ?? [], floor)
 }
 
-const copyLine = (t: Track, chrom: string, b: Bin, guarded: boolean): string[] => [
+const copyLine = (t: Track, chrom: string, b: Bin, guarded: boolean, seen = false): string[] => [
   `chr${chrom} ${mb(b.startBp)} to ${mb(b.endBp)} Mb`,
   guarded ? 'Both parents read none here while the markers are still calling, so no level is drawn.'
-    : `${b.n} markers, ${copyWord(b.k)} (${b.k.toFixed(2)})`,
+    : `${b.n} markers, ${levelWord(seen, copyWord(b.k), b.k, COPY_NONE_BELOW, COPY_TWO_ABOVE)} (${b.k.toFixed(2)})`,
   t.tech,
 ]
 
@@ -416,7 +416,7 @@ export function WholeCell({ data, marks, name, numbers, focus, title, note, chip
     const bars = barsOf(data, t, p.c, pers[ti])
     const i = bars.findIndex((q) => bp >= q.startBp && bp <= q.endBp)
     if (i < 0) { setTip(null); return }
-    setTip({ x: px, y: py, lines: copyLine(t, p.c, bars[i], guardOf(data, p.c, pers[ti], floor).has(i)) })
+    setTip({ x: px, y: py, lines: copyLine(t, p.c, bars[i], guardOf(data, p.c, pers[ti], floor).has(i), data.seen) })
   }
   return (
     <div ref={ref} style={{ position: 'relative', margin: '8px 0 2px', maxWidth: '100%' }}>
@@ -581,7 +581,7 @@ export function Zoom({ data, mark, marks, number, width, title, caption, saveNam
     const bars = barsOf(data, t, mark.chrom, per)
     const i = bars.findIndex((q) => bp >= q.startBp && bp <= q.endBp)
     if (i < 0) { setTip(null); return }
-    setTip({ x: px, y: py, lines: copyLine(t, mark.chrom, bars[i], ti === 0 && guard.has(i)) })
+    setTip({ x: px, y: py, lines: copyLine(t, mark.chrom, bars[i], ti === 0 && guard.has(i), data.seen) })
   }
   return (
     <div ref={ref} style={{ position: 'relative', maxWidth: '100%' }}>

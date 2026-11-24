@@ -388,8 +388,8 @@ const cellA: Defect[] = [
   assert.deepEqual(cardCounts(l), { changes: 1, findings: 1 })
   const note = figureNote(l, { listed: 3, withheld: 1 })!
   assert.equal(note, '4 readings are drawn and numbered below: 2 rows of the list, 1 more piece of those rows, since a row '
-    + 'joins the pieces of one stretch, and 1 found and withheld, not in the list. The card counts 1 change and 1 finding; '
-    + 'the rest are drawn as outlines and say on their own line why they are not counted.')
+    + 'joins the pieces of one stretch, and 1 found and withheld, not in the list. The card counts 1 change and 1 finding, '
+    + 'drawn as 3 readings; the other 1 is drawn as an outline and says on its own line why it is not counted.')
   const nn = figureNote(changeList([loss, upd], 'none', false), { listed: 2, withheld: 2 })!
   assert.ok(nn.endsWith('This sample is not reportable, so none of them is reported.') && !/counts/.test(nn), nn)
   assert.equal(figureNote(changeList([loss], 'none'), { listed: 1, withheld: 0 }), undefined)
@@ -428,4 +428,37 @@ const cellA: Defect[] = [
   assert.ok(!/\bcall/.test(said), said)
   assert.ok(said.includes('the 16p arm: its edge and its extent inside the arm are not placed'), said)
   console.log('  the count sentence names chromosomes 1 to 22, findings are summarised apart, an arm seen is no call')
+}
+
+// ---------------------------------------------------------------- one guard for every state word
+// On a sample not reportable a chromosome, a stretch, an extra copy or a bar prints only how it sat
+// against the rest of the array; the numbers stay. Every surface takes its word from stateWord.
+{
+  const P = await import('./pageSays.ts')
+  const lost = { chrom: '1', verdict: 'absent', aneuploidy: 'loss' as const, callFraction: 0.91, lrrShift: -0.67,
+    note: "LOST: this chromosome calls at 91% of the genome's median rate" }
+  assert.deepEqual(P.chromCells(true, lost), { verdict: 'read unlike the rest of this array',
+    note: 'lower than the rest of this array: calls at 0.91x of the genome median, intensity -0.67 log2' })
+  assert.equal(P.chromCells(false, lost).note, lost.note, 'a reportable sample keeps its note')
+  assert.deepEqual(P.aneuploidyCells(true, lost), ['lower than the rest of this array', 'not named: the sample is not reportable'])
+  assert.equal(P.aneuploidyCells(false, lost)[0], 'LOSS')
+  assert.equal(P.segmentKindText(true, { kind: 'copy-loss' }, 'paternal'), 'lower than the rest of this array')
+  assert.equal(P.segmentKindText(false, { kind: 'copy-loss' }, 'paternal'), 'DNA absent')
+  assert.deepEqual(P.gainCells(true, { kind: 'whole chromosome', origin: 'paternal', why: 'an extra copy' }),
+    { kind: 'higher than the rest of this array', origin: 'not named', why: P.NOT_REPORTED_SAYS })
+  assert.equal(P.levelWord(true, 'none', 0.2, 0.68, 1.65), 'lower than the rest of this array')
+  assert.equal(P.levelWord(true, 'one copy', 1, 0.68, 1.65), 'at the level of the rest of this array')
+  assert.equal(P.seenHeading(true, 'Aneuploidy'), 'Aneuploidy: readings seen on this array, not reported')
+  const words = /\b(LOST|LOSS|GAIN|GAINED|lost|extra|missing|absent|trisomy|monosomy|none|one copy)\b/
+  for (const t of [...Object.values(P.chromCells(true, lost)), ...P.aneuploidyCells(true, lost),
+    P.levelWord(true, 'none', 0.2, 0.68, 1.65), P.segmentKindText(true, { kind: 'parental-absence', absentParent: 'paternal' }, 'paternal')]) {
+    assert.ok(!words.test(t), t)
+  }
+  // No surface keeps its own copy of the rule: each prints a state word only through the guard.
+  const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8')
+  const pdf = src('./syngamyPdf.ts'); const page = src('./Syngamy.tsx'); const plot = src('./CallPlot.tsx')
+  assert.ok(!/c\.aneuploidy\?\.toUpperCase\(\)/.test(pdf) && !/c\.note \?\? ''/.test(pdf) && !/'DNA absent'/.test(pdf), 'PDF state words come from pageSays')
+  assert.ok(!/kindLabel/.test(page) && !/\{c\.note\}/.test(page) && !/\{g\.origin\}/.test(page) && !/\{g\.why\}/.test(page), 'page state words come from pageSays')
+  assert.ok(/levelWord\(seen, copyWord/.test(plot), 'the figure bar level comes from pageSays')
+  console.log('  one guard: a sample not reportable prints only what was seen, in every table, note and bar')
 }

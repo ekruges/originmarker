@@ -189,6 +189,24 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       if (s.list.notReported) {
         const nr = s.list.notReported
         out.seenWhose = nr.rows.map((g: any) => pageSays.whoseText(g))
+        // Every state cell of the page's and the report's tables of this sample, as each prints it.
+        const P = pageSays
+        const sexRows = (res.chroms ?? []).filter((c: any) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
+        const chromRows = [...sexRows, ...(res.chroms ?? []), ...(maternal?.chroms ?? [])]
+        const chromCells = chromRows.flatMap((c: any) => Object.values(P.chromCells(true, c)) as string[])
+        const segCells = (res.segments ?? []).map((sg: any) => P.segmentKindText(true, sg, res.role))
+        const gainCells = (res.gains ?? []).flatMap((g: any) => Object.values(P.gainCells(true, g)) as string[])
+        const aneu = (res.chroms ?? []).filter((c: any) => c.aneuploidy || c.lostParent || c.mixed
+          || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance')
+        out.tables = {
+          page: { chrom: chromCells, segment: segCells, gain: gainCells },
+          pdf: { chrom: chromCells, aneuploidy: aneu.flatMap((c: any) => P.aneuploidyCells(true, c)), segment: segCells, gain: gainCells,
+            finding: (res.findings ?? []).map((f: any) => P.stateWord(true, '', P.kindSeen(f.cls))),
+            origin: [...(res.oneParent ?? []), ...(res.dosageCalls ?? [])].map((o: any) => P.verdictText(true, o.verdict)) },
+          rows: { chrom: chromRows.length, maternalChrom: maternal?.chroms?.length ?? 0, aneuploidy: aneu.length,
+            segment: (res.segments ?? []).length, gain: (res.gains ?? []).length, finding: (res.findings ?? []).length,
+            origin: (res.oneParent ?? []).length + (res.dosageCalls ?? []).length },
+        }
         // Every sentence a card not reportable prints about the sample and its rows.
         out.notReportedTexts = [s.head.line, s.title, pageSays.figureNote(s.list, pageSays.drawnOf(res, s.defects)) ?? '',
           ...defectsMod.runAlerts(res).flatMap((a: any) => [a.headline, a.body]),
@@ -221,6 +239,10 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
           pairedMethods: all.includes('An oocyte donor array was supplied'),
           donorText: (all.match(/.{0,40}(sperm donor's|donor's obligate|inferred from).{0,40}/g) ?? []),
           findingsBanner: all.includes('Findings, neither a gain nor a loss, in 1 of 1 sample(s)'),
+          // Strings drawn whole that are a state word of a reportable sample's tables.
+          stateStrings: s.list.notReported ? strings.filter((x) => /^(LOSS|GAIN|GAIN \(ALLELES\)|PARENT ABSENT|IMBALANCE|MIXED|DNA absent|extra copies|(paternal|maternal) alleles absent|alleles absent, both parents)$/.test(x)
+            || /^(LOST|GAINED):/.test(x)) : [],
+          seenHeadings: s.list.notReported ? strings.filter((x) => x.endsWith(': readings seen on this array, not reported')).length : 0,
           changeBanner: (all.match(/Chromosomal change in 1 of 1 sample\(s\): (.*?)\. Coordinates/) ?? [])[1] ?? null }
       }
       return out

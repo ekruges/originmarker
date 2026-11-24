@@ -97,6 +97,8 @@ export interface PlotData {
   split: boolean
   /** Last marker position per chromosome. */
   endBp: Map<string, number>
+  /** The sample is not reportable: a bar's level is printed as how it sat (pageSays.levelWord). */
+  seen?: boolean
 }
 
 /** The fields of scoreSample's Collected this reads. */
