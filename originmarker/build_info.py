@@ -369,10 +369,13 @@ RELEASES: tuple[Release, ...] = (
             "Where a chromosome breaks and its copy number changes. The breakpoints of every cell "
             "of one embryo cut a chromosome into stretches, and each stretch now reads one origin "
             "in every cell."),
+    Release("Gonosome",
+            "A sex chromosome, X or Y, the pair that crosses over only at its pseudoautosomal ends. "
+            "A missing or extra one is now a row of the change list like any other chromosome."),
 )
 
-VERSION = "6.25.0"
-CODENAME = "Breakpoint"
+VERSION = "6.26.0"
+CODENAME = "Gonosome"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
