@@ -57,6 +57,14 @@ is inferred from paternal absence.
   the changes in its table, by the card's split.
 - **An arm seen on a sample not reportable is no call**: the row names the arm and that its edge and
   extent inside the arm are not placed, on the card, the download and the report.
+- **One guard for every state word.** A sample whose genome is too disturbed keeps its
+  per-chromosome states, and the chromosome tables still printed "LOST: ..." and the report's
+  aneuploidy table "LOSS" under a card that reports no gain or loss. One function now decides the
+  word every chromosome, stretch, extra copy and figure bar may print; on a sample not reportable it
+  prints only how the reading sat against the rest of the array, keeps the rates and log2 beside
+  it, and each such table's heading says its readings are seen and not reported.
+- **The figure's note adds up**: it says how many drawn readings the counted rows are, so one
+  change drawn as two pieces reads "1 change and 0 findings, drawn as 2 readings".
 
 Measured on 853 records (330 answer-key rows with no parent, 252 open rows with a parent, 271
 laboratory rows): the card's changes and findings equal the overview's on every one; every
