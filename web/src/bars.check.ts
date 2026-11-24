@@ -48,6 +48,21 @@ const key = (c: { file: string; name: string }) => `${c.file}:${c.name}`
   console.log(`${found.length} named constants: ${BARS.length} bars, ${Object.keys(NOT_BARS).length} not bars`)
 }
 
+// ---------------------------------------------------------------- the bare bars once found, now named
+// A bare number in a condition cannot be told from arithmetic by its text, so this sees only the
+// kinds converted: in parentage.ts and ingest.ts, a comparison against a 200-marker count or the
+// 0.35 to 0.65 band, and a call rate compared against 0.60 or 0.75.
+{
+  const bare: string[] = []
+  for (const f of ['parentage.ts', 'ingest.ts']) {
+    readFileSync(dir + f, 'utf8').split('\n').forEach((l, i) => {
+      if (/^\s*(\/\/|\*)/.test(l)) return
+      if (/[<>]=?\s*(200|0\.35|0\.65)\b/.test(l) || /\bcr\s*[<>]=?\s*0\.(60?|75)\b/.test(l)) bare.push(`${f}:${i + 1}`)
+    })
+  }
+  assert.deepEqual(bare, [], `bare bars left: ${bare.join(', ')}`)
+}
+
 // ---------------------------------------------------------------- no value is written in the registry
 {
   const src = readFileSync(dir + 'bars.ts', 'utf8')

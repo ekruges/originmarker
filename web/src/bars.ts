@@ -18,6 +18,7 @@ import * as dosageOrigin from './dosageOrigin.ts'
 import * as features from './features.ts'
 import * as gainOrigin from './gainOrigin.ts'
 import * as informationRatio from './informationRatio.ts'
+import * as ingest from './ingest.ts'
 import * as intensityNull from './intensityNull.ts'
 import * as motherFromRun from './motherFromRun.ts'
 import * as obligateHet from './obligateHet.ts'
@@ -43,7 +44,7 @@ import * as untransmitted from './untransmitted.ts'
 const MODULES: Record<string, Record<string, unknown>> = {
   'abnormalities.ts': abnormalities, 'answerKeys.ts': answerKeys, 'comparison.ts': comparison,
   'dosageOrigin.ts': dosageOrigin, 'features.ts': features, 'gainOrigin.ts': gainOrigin,
-  'informationRatio.ts': informationRatio, 'intensityNull.ts': intensityNull,
+  'informationRatio.ts': informationRatio, 'ingest.ts': ingest, 'intensityNull.ts': intensityNull,
   'motherFromRun.ts': motherFromRun, 'obligateHet.ts': obligateHet, 'oneParentOrigin.ts': oneParentOrigin,
   'oneParentState.ts': oneParentState, 'originPosterior.ts': originPosterior,
   'otherParentLoss.ts': otherParentLoss, 'parentGenome.ts': parentGenome, 'parentage.ts': parentage,
@@ -123,6 +124,8 @@ const SPECS: Spec[] = [
   ['informationRatio.ts', 'NO_INFORMATION_MIN', 'Share of random homozygous calls at or over which the genotype calls carry no information.'],
   ['informationRatio.ts', 'FLIPPED_CODING_MIN', 'Ratio over which the reference\'s allele coding reads flipped against the sample.'],
   ['informationRatio.ts', 'MIN_SHARED_HOMOZYGOTES', 'Fewest shared homozygous markers before the information ratio is read.', undefined, 'markers'],
+  // ingest.ts
+  ['ingest.ts', 'CALL_RATE_USABLE', 'Call rate at or over which a sample\'s calls are usable without remark in the quality gates.'],
   // intensityNull.ts
   ['intensityNull.ts', 'Z_CHROMOSOME', 'Least calibrated intensity z of a whole chromosome against the array\'s own null.'],
   ['intensityNull.ts', 'Z_WINDOW', 'The same for a window inside a chromosome.'],
@@ -189,6 +192,9 @@ const SPECS: Spec[] = [
   ['parentage.ts', 'ABSENCE_ERROR_FLOOR', 'Residual absence from genotyping error, added to the noise bound.', P],
   ['parentage.ts', 'ABSENCE_MARGIN', 'How many times the noise bound an absence must reach before it is called.', P, 'x'],
   ['parentage.ts', 'HET_BAND_DIPLOID', 'Heterozygous band a clean diploid array reaches, the reference the report prints beside it.'],
+  ['parentage.ts', 'HET_BAND_LO', 'Low edge of the heterozygous allele-fraction band.'],
+  ['parentage.ts', 'HET_BAND_HI', 'High edge of the heterozygous allele-fraction band.'],
+  ['parentage.ts', 'CHROM_MIN_MARKERS', 'Fewest markers a chromosome needs before its own rate, call rate or intensity median is used.', undefined, 'markers'],
   ['parentage.ts', 'HET_BAND_EXCESS', 'How far the heterozygous band must sit over the homozygous clusters before two genomes are present.'],
   ['parentage.ts', 'BAF_CLAMPED_FLOOR', 'Share of homozygous calls pinned to an exact pole over which the file\'s allele fractions are clamped.'],
   ['parentage.ts', 'GT_FALLBACK_HAPLOID_MAX', 'Heterozygosity, as a share of the parent\'s, under which the genotype fallback calls one genome.', P],

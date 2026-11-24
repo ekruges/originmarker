@@ -57,6 +57,13 @@ export const ABSENCE_MARGIN = 3.0
  */
 export const HET_BAND_DIPLOID = 0.08
 
+/** The heterozygous allele-fraction band: a B allele frequency from HET_BAND_LO to HET_BAND_HI. */
+export const HET_BAND_LO = 0.35
+export const HET_BAND_HI = 0.65
+
+/** Fewest markers a chromosome needs before its own rate, call rate or intensity median is used. */
+export const CHROM_MIN_MARKERS = 200
+
 /**
  * How far the heterozygous BAF band must sit ABOVE the same array's homozygous clusters before the
  * genome carries two parental contributions.
@@ -719,7 +726,7 @@ export function tallyRow(parent: AB, row: ProbeRow, t: Tally): void {
   // homozygous genome from a diploid one that lost calls. Excluding them moved the band from
   // 1.27% to 0.92% on a real sample, and the noise ceiling with it.
   if (row.baf !== null && isAutosome(row.chrom)) {
-    const inBand = row.baf >= 0.35 && row.baf <= 0.65
+    const inBand = row.baf >= HET_BAND_LO && row.baf <= HET_BAND_HI
     t.bafTotal += 1
     if (inBand) t.bafInBand += 1
     // The same reading at a homozygous CALL, which is where the band's own baseline is measured.
@@ -1181,7 +1188,7 @@ export function classify(
 
   let nTot = 0
   let aTot = 0
-  for (const [c, [n, a]] of t.byChrom) if (isAutosome(c) && n >= 200) { nTot += n; aTot += a }
+  for (const [c, [n, a]] of t.byChrom) if (isAutosome(c) && n >= CHROM_MIN_MARKERS) { nTot += n; aTot += a }
   const genomeRate = nTot ? aTot / nTot : NaN
   const noCallRate = t.markers ? 1 - t.called / t.markers : NaN
   const hetBand = t.bafTotal ? t.bafInBand / t.bafTotal : NaN
@@ -1417,7 +1424,7 @@ export function classify(
   // 0.0152 false-positive rate this carries on chromosomes that are event-free by construction.
   // Computed before the per-chromosome verdicts because it changes what they may say.
   const callPerChrom = new Map<string, number>()
-  for (const [c, [k, n]] of t.callByChrom) if (n >= 200) callPerChrom.set(c, k / n)
+  for (const [c, [k, n]] of t.callByChrom) if (n >= CHROM_MIN_MARKERS) callPerChrom.set(c, k / n)
   // The reference is AUTOSOMAL. chrX is measured with the rest so that its own copy number can be
   // read, but a sample carrying one of it would drag the median every other chromosome's call
   // fraction and intensity are measured against.
@@ -1434,7 +1441,7 @@ export function classify(
   // chromosome at once, so it would be measuring the event against itself.
   const chromLrr = new Map<string, number>()
   for (const [c, xs] of t.lrrByChrom) {
-    if (xs.length >= 200) chromLrr.set(c, medianOf(xs))
+    if (xs.length >= CHROM_MIN_MARKERS) chromLrr.set(c, medianOf(xs))
   }
   // THE NULL IS AUTOSOMAL. A sex chromosome sits at its own copy level in a normal sample, so
   // including chrX would widen the spread this measures events against by a whole copy on half
@@ -1566,7 +1573,7 @@ export function classify(
   const yBearing = opts.yBearing !== undefined ? opts.yBearing === true
     : t.yTotal > 0 && t.yCalled / t.yTotal > 0.5
   for (const [c, [n, a]] of [...t.byChrom].sort(byChromName)) {
-    if (n < 200) continue
+    if (n < CHROM_MIN_MARKERS) continue
     const rate = a / n
     const sex = c === 'X' || c === '23'  // 'X:PAR' is deliberately not sex here
     // A male offspring has no paternal X at all: his father sent a Y instead. Flagging that as a
