@@ -23,7 +23,7 @@ import {
   defectsFrom, findingToDefect, KIND_WORD, mendelParent, parentNamed, withMechanism, type Defect,
 } from './defects.ts'
 import { segmentCoords } from './segments.ts'
-import { ORIGIN_WORD, split, stretchWhere, stretchWord } from './timing.ts'
+import { directionOf, ORIGIN_WORD, split, stretchWhere, stretchWord } from './timing.ts'
 
 export type Parent = 'paternal' | 'maternal'
 
@@ -200,6 +200,7 @@ export type CallKind = 'whole' | 'two-ways' | 'run-only' | 'second-test' | 'alle
   | 'intensity' | 'gain-parent' | 'imbalance' | 'finding' | 'inherited' | 'no-parent'
 
 export type Word = 'found two ways' | 'consistent' | 'one reading' | 'also seen' | 'position only'
+  | 'not reported'
 
 const named = (d: Defect): d is Defect & { origin: Parent } => d.origin === 'paternal' || d.origin === 'maternal'
 
@@ -330,6 +331,11 @@ export interface ChangeList {
   /** Read, not counted as a change. */
   seen: ChangeRow[]
   /**
+   * Set on a sample not reportable (reportOf): every row read on it, each with the word
+   * "not reported", and the other three lists empty. Counted nowhere.
+   */
+  notReported?: { rows: ChangeRow[]; disturbed?: { on: number; of: number } }
+  /**
    * Set where changes sit on so many autosomes that the genome has no undisturbed remainder
    * (abnormalities.detectComplex). A property of the whole genome, so it is a sentence, not a row.
    */
@@ -342,7 +348,13 @@ const chromOrder = (c: string): number => (/^\d+$/.test(c) ? Number(c) : c === '
  * The rows, joined per chromosome, gain or loss, parent and kind of call: the unit the plan's
  * counting rule scores, so one loss printed as two adjacent pieces is one change.
  */
-export function changeList(defects: readonly Defect[], setup: Setup): ChangeList {
+export function changeList(defects: readonly Defect[], setup: Setup, reportable = true): ChangeList {
+  if (!reportable) {
+    const l = changeList(defects, setup)
+    const rows = [...l.counted, ...l.once, ...l.seen].map((g) => ({ ...g, word: 'not reported' as const }))
+      .sort((a, b) => chromOrder(a.chrom) - chromOrder(b.chrom) || a.startBp - b.startBp)
+    return { counted: [], once: [], seen: [], notReported: { rows, disturbed: l.disturbed } }
+  }
   const groups = new Map<string, ChangeRow>()
   let disturbed: ChangeList['disturbed']
   for (const d of defects) {
@@ -382,11 +394,233 @@ export function changeList(defects: readonly Defect[], setup: Setup): ChangeList
   }
 }
 
+export type Report = 'reportable' | 'limited' | 'not reportable'
+
+/** Whether a sample is reportable, from its own sample refusals: the test the overview counts by. */
+export const reportOf = (r: { refusals?: readonly { claim: string; gate: string }[] }): Report => {
+  const gates = (r.refusals ?? []).filter((x) => x.claim === 'sample').map((x) => x.gate)
+  return gates.includes('integrity.uninterpretable') ? 'not reportable'
+    : gates.includes('integrity.disturbed') ? 'limited' : 'reportable'
+}
+
+/**
+ * A row's direction: the one definition of a change. A change is a gain or a loss; a counted row
+ * with neither is a finding. The card, the PDF and the overview all read this.
+ */
+export const rowDirection = (g: Pick<ChangeRow, 'gain' | 'pieces'>): 'gain' | 'loss' | 'none' =>
+  (g.gain ? 'gain' : g.pieces.some((p) => directionOf(p.kind) === 'loss') ? 'loss' : 'none')
+
+/** What a card counts: its changes, and its findings with the disturbed genome as one of them. */
+export function cardCounts(l: ChangeList): { changes: number; findings: number } {
+  const changes = l.counted.filter((g) => rowDirection(g) !== 'none').length
+  return { changes, findings: l.counted.length - changes + (l.disturbed ? 1 : 0) }
+}
+
+const plural = (n: number, one: string): string => `${n} ${one}${n === 1 ? '' : 's'}`
+
+/** The count after the headline word: " · 7 changes · 1 finding", a zero part left out. */
+export function countText(l: ChangeList): string {
+  const { changes, findings } = cardCounts(l)
+  return `${changes ? ` · ${plural(changes, 'change')}` : ''}${findings ? ` · ${plural(findings, 'finding')}` : ''}`
+}
+
+/** What a row seen on a sample not reportable states: how it read against the rest of the array. */
+export const SEEN: Record<'gain' | 'loss' | 'none', string> = {
+  gain: 'higher than the rest of this array',
+  loss: 'lower than the rest of this array',
+  none: 'read unlike the rest of this array',
+}
+
+export const NOT_REPORTED_SAYS = 'Not reported: this sample is not reportable.'
+
+/** The sentence under an opened row: the kind of call and its measured count, or what stands in. */
+export function rowSays(g: ChangeRow, setup: Setup): string {
+  if (g.word === 'not reported') return NOT_REPORTED_SAYS
+  if (rowDirection(g) === 'none' && g.call === 'no-parent') {
+    return 'Read with no parent loaded. Neither a gain nor a loss, so it is a finding, not a change.'
+  }
+  return `${KIND_SAYS[g.call]} ${measuredSentence(g.call, setup)}`.trim()
+}
+
+/** Where a piece seen on a sample not reportable lies; an arm piece names its arm, with no call. */
+export const seenLocus = (p: Pick<Defect, 'locus' | 'chrom' | 'arm'>): string =>
+  (p.arm ? `${p.locus}, the ${p.chrom}${p.arm} arm: its edge and its extent inside the arm are not placed` : p.locus)
+
+/** One piece's detail line; on a row not reported, its place and intensity only. */
+export const pieceText = (p: Defect, g: ChangeRow): string =>
+  (g.word === 'not reported' ? [seenLocus(p), lrrText(p)] : [locusText(p), pairText(p), lrrText(p)])
+    .filter(Boolean).join(' · ')
+
+/** A figure mark's words on a sample not reportable: what was seen, and that it is not reported. */
+export function seenMarkText(m: { chrom: string; startBp: number; endBp: number; whole: boolean; gain: boolean; dir?: string }):
+{ word: string; sentence: string } {
+  const seen = SEEN[m.gain ? 'gain' : m.dir === 'none' ? 'none' : 'loss']
+  const where = m.whole ? `Whole chromosome ${m.chrom}` : `Chromosome ${m.chrom}, ${mb1(m.startBp)} to ${mb1(m.endBp)} Mb`
+  return { word: seen, sentence: `${where}: ${seen}. ${NOT_REPORTED_SAYS}` }
+}
+
+/** What the whole-cell figure draws of a result: one reading per printed row piece, plus each run withheld. */
+export function drawnOf(r: { refusals?: readonly { gate: string; withheld?: unknown }[] }, defects: readonly Defect[]):
+{ listed: number; withheld: number } {
+  return {
+    listed: defects.filter((d) => d.chrom !== 'genome').length,
+    withheld: (r.refusals ?? []).filter((x) => x.gate === 'other-parent.under-span' && x.withheld).length,
+  }
+}
+
+/**
+ * The figure's note under its title, from the card's own counts: how many readings are drawn, what
+ * the ones beyond the list's rows are, and what the card counts. None where every drawn reading is
+ * one counted row.
+ */
+export function figureNote(l: ChangeList, drawn: { listed: number; withheld: number }): string | undefined {
+  const rows = [...l.counted, ...l.once, ...l.seen, ...l.notReported?.rows ?? []]
+  const marked = rows.filter((g) => g.chrom !== 'genome').length
+  const parts = drawn.listed - marked
+  const total = drawn.listed + drawn.withheld
+  if (!total || (!l.notReported && !drawn.withheld && !parts && !l.once.length && !l.seen.length)) return undefined
+  const extra = [
+    parts > 0 ? `${parts} more ${parts === 1 ? 'piece' : 'pieces'} of those rows, since a row joins the pieces of one stretch` : '',
+    drawn.withheld ? `${drawn.withheld} found and withheld, not in the list` : '',
+  ].filter(Boolean)
+  const head = `${total} ${total === 1 ? 'reading is' : 'readings are'} drawn and numbered below: `
+    + `${plural(marked, 'row')} of the list${extra.length ? `, ${extra.join(', and ')}` : ''}.`
+  if (l.notReported) return `${head} This sample is not reportable, so none of them is reported.`
+  const { changes, findings } = cardCounts(l)
+  // How many drawn readings the counted rows are, so the sentence adds up with what is drawn.
+  const counted = l.counted.filter((g) => g.chrom !== 'genome').reduce((n, g) => n + g.pieces.length, 0)
+  const rest = total - counted
+  return `${head} The card counts ${plural(changes, 'change')} and ${plural(findings, 'finding')}, drawn as `
+    + `${plural(counted, 'reading')}${!rest ? '' : rest === 1
+      ? '; the other 1 is drawn as an outline and says on its own line why it is not counted'
+      : `; the other ${rest} are drawn as outlines and say on their own line why they are not counted`}.`
+}
+
+/**
+ * A sample in the fewest words, as the report's summary prints it: its changes and the stretches
+ * seen once, and apart from them its findings, by the card's own split (rowDirection).
+ */
+export function summaryParts(l: ChangeList): { changes: string; findings: string } {
+  const short = (g: ChangeRow): string => `chr${g.chrom} ${g.whole ? 'whole' : `${spanMb(g)}Mb`} ${whoseText(g)}`
+  return {
+    changes: [...l.counted.filter((g) => rowDirection(g) !== 'none').map(short),
+      ...(l.once.length ? [`${l.once.length} more seen once`] : [])].join(', '),
+    findings: [...l.counted.filter((g) => rowDirection(g) === 'none').map(short),
+      ...(l.disturbed ? ['genome widely disturbed'] : [])].join(', '),
+  }
+}
+
+/* --- what a sample not reportable may print of a chromosome or a row -------------------------- */
+
+/** How a reading sat against the rest of the array; `same` is a reading at the array's own level. */
+export type Seen = 'gain' | 'loss' | 'none' | 'same'
+
+const SEEN_WORD: Record<Seen, string> = { ...SEEN, same: 'at the level of the rest of this array' }
+
+/** The sample is one the overview counts as not reportable. */
+export const notReportable = (r: { refusals?: readonly { claim: string; gate: string }[] }): boolean =>
+  reportOf(r) === 'not reportable'
+
+/**
+ * THE ONE GUARD for every state word a chromosome, a stretch or a bar prints: on a sample not
+ * reportable it returns only how the reading sat against the rest of the array. Every table, note,
+ * badge and tooltip that names a loss or a gain takes its word from here; the numbers beside it
+ * (rates, log2) are what was seen and stay.
+ */
+export const stateWord = (seen: boolean, word: string, dir: Seen): string => (seen ? SEEN_WORD[dir] : word)
+
+/** A section heading over readings of a sample not reportable says they are seen and not reported. */
+export const seenHeading = (seen: boolean, title: string): string =>
+  (seen ? `${title}: readings seen on this array, not reported` : title)
+
+/** Which way a class reads, for the guard. */
+export const kindSeen = (kind: string): Seen => directionOf(kind) ?? 'none'
+
+interface ChromState {
+  chrom: string
+  verdict: string
+  note?: string
+  aneuploidy?: 'loss' | 'gain'
+  lostParent?: string
+  aneuploidyParent?: string
+  mixed?: boolean
+  alleleGain?: { verdict: string; parent?: string | null }
+  callFraction: number
+  lrrShift: number
+}
+
+/** Which way a chromosome's state reads, for the guard. */
+export function chromSeen(c: ChromState): Seen {
+  if (c.aneuploidy) return c.aneuploidy
+  if (c.alleleGain?.verdict === 'gain') return 'gain'
+  if (c.lostParent) return 'loss'
+  if (c.mixed || c.alleleGain?.verdict === 'imbalance') return 'none'
+  return 'same'
+}
+
+const signed = (x: number): string => `${x > 0 ? '+' : ''}${x.toFixed(2)}`
+
+/** A chromosome's verdict and note, as every chromosome table prints them. */
+export function chromCells(seen: boolean, c: ChromState): { verdict: string; note: string } {
+  const verdict = stateWord(seen && c.verdict === 'absent', c.verdict.replace(/_/g, ' '), 'none')
+  if (!seen || !c.note) return { verdict, note: c.note ?? '' }
+  const nums = [Number.isFinite(c.callFraction) ? `calls at ${c.callFraction.toFixed(2)}x of the genome median` : '',
+    Number.isFinite(c.lrrShift) ? `intensity ${signed(c.lrrShift)} log2` : ''].filter(Boolean).join(', ')
+  return { verdict, note: [stateWord(true, '', chromSeen(c)), nums].filter(Boolean).join(': ') }
+}
+
+/** The change and whose-copy cells of the report's aneuploidy table. */
+export function aneuploidyCells(seen: boolean, c: ChromState): [string, string] {
+  const change = c.aneuploidy?.toUpperCase() ?? (c.mixed ? 'MIXED'
+    : c.lostParent ? 'PARENT ABSENT'
+      : c.alleleGain?.verdict === 'gain' ? 'GAIN (ALLELES)' : 'IMBALANCE')
+  const whose = c.mixed ? 'not called: between the boundaries, one parent dominant'
+    : !c.lostParent && !c.aneuploidy && c.alleleGain?.verdict === 'gain'
+      ? `${c.alleleGain.parent} supplied the extra copy, from the alleles`
+      : !c.lostParent && !c.aneuploidy && c.alleleGain?.verdict === 'imbalance'
+        ? 'not named: intensity below the cell\'s level'
+        : c.lostParent ? (c.aneuploidy === 'gain'
+          ? `no ${c.lostParent} copy: every copy is the other parent's, from the alleles`
+          : `${c.lostParent} copy absent, from the alleles`)
+          : c.aneuploidyParent === 'this' ? 'the parent scored against'
+            : c.aneuploidyParent === 'other' ? 'the other parent'
+              : 'not determined'
+  return [stateWord(seen, change, chromSeen(c)), seen ? 'not named: the sample is not reportable' : whose]
+}
+
+/** What a segment row is, in one line, on the page and in the report. The parent comes from the
+ *  run that found the segment, falling back to the loaded role. */
+export function segmentKindText(seen: boolean,
+  sg: { kind: string; contested?: boolean; absentParent?: string }, role: string): string {
+  const word = sg.kind === 'copy-loss' ? 'DNA absent'
+    : sg.kind === 'copy-gain' ? 'extra copies'
+      : sg.contested ? 'alleles absent, both parents'
+        : `${sg.absentParent ?? role} alleles absent`
+  return stateWord(seen, word, sg.kind === 'copy-gain' ? 'gain' : sg.kind === 'copy-loss' ? 'loss' : 'none')
+}
+
+/** An extra-copy annotation as printed: what, whose and why. */
+export function gainCells(seen: boolean, g: { kind: string; origin: string; why: string }):
+{ kind: string; origin: string; why: string } {
+  return seen ? { kind: stateWord(true, g.kind, 'gain'), origin: 'not named', why: NOT_REPORTED_SAYS } : g
+}
+
+/** A verdict word of an origin table (genotypes, allele dosage), or what stands in for it. */
+export const verdictText = (seen: boolean, verdict: string): string =>
+  (seen ? 'not read: the sample is not reportable' : verdict.replace(/[-_]/g, ' '))
+
+/** A copy level under a figure bar: its word, or on a sample not reportable how it sat. */
+export const levelWord = (seen: boolean, word: string, copies: number, none: number, two: number): string =>
+  stateWord(seen, word, copies < none ? 'loss' : copies > two ? 'gain' : 'same')
+
 /** The disturbed-genome finding in one plain sentence, or nothing. */
-export function disturbedText(l: ChangeList): string {
+export function disturbedText(l: Pick<ChangeList, 'disturbed'>, reported = true): string {
   if (!l.disturbed) return ''
   const { on, of } = l.disturbed
-  return `${Number.isFinite(on) ? `${on} of ${of}` : 'Many'} chromosomes carry a change: this cell's genome is widely disturbed.`
+  const n = Number.isFinite(on) ? `${on} of ${of}` : 'Many'
+  // On a sample not reportable nothing read is a change, so the sentence names none.
+  return reported ? `${n} chromosomes carry a change: this cell's genome is widely disturbed.`
+    : `${n} chromosomes read away from the rest: this cell's genome is widely disturbed.`
 }
 
 const ABSENCE_STEPS = new Set(['run', 'window', 'allele-scan'])
@@ -421,11 +655,20 @@ function mergeDoubled(rows: ChangeRow[]): ChangeRow[] {
   return rows.filter((g) => !gone.has(g))
 }
 
+/**
+ * What the change list reads: the autosomes. The sex chromosomes are read on their own line
+ * (sexLine); a chrX row reaches the list only where a loaded parent's X reads absent with no chrY
+ * called (parentage.ts), which no record of the answer key or the laboratory rows shows.
+ */
+export const LIST_SCOPE = 'chromosomes 1 to 22'
+
 /** The count line used under every headline. */
 export function changesText(l: ChangeList): string {
-  const n = l.counted.length
+  if (l.notReported) return 'Not reportable, so no change is reported.'
+  const { changes: n, findings } = cardCounts(l)
   const once = l.once.length
-  return `${n ? `${n} change${n === 1 ? '' : 's'} found` : 'No change found'}`
+  // Scoped to what the list reads, so it cannot contradict the sex-chromosome line beside it.
+  return `${n ? `${plural(n, 'change')} found` : 'No gain or loss found'} on ${LIST_SCOPE}${findings ? `, ${plural(findings, 'finding')}` : ''}`
     + `${once ? `; ${once} more stretch${once === 1 ? '' : 'es'} seen once, not confirmed` : ''}.`
 }
 
@@ -442,13 +685,17 @@ export const whenLines = (g: ChangeRow): string[] => [...new Set(g.pieces.flatMa
 
 /** Whose, in words. */
 export function whoseText(g: ChangeRow): string {
+  // A row on a sample not reportable states what was seen against the rest of the array, never a
+  // copy lost or gained: the notice on such a card says the cell's own level is not established.
+  if (g.word === 'not reported') return SEEN[rowDirection(g)]
   const who = g.origin === 'paternal' ? "father's" : g.origin === 'maternal' ? "mother's" : ''
   if (g.call === 'imbalance') return 'parents unbalanced'
   // THE TAXONOMY'S PLAIN PHRASE, NOT ITS CODE WORD. A row from the taxonomy printed its class as
   // the code spells it, so a copy-neutral stretch read "segmental upd" in a column whose other
   // rows read "the father's copy missing". defects.KIND_WORD already holds a phrase for every
   // class and is what the rest of the page prints.
-  if (g.call === 'finding') {
+  // A row with neither a gain nor a loss is named by its class, with no word for a copy lost.
+  if (g.call === 'finding' || rowDirection(g) === 'none') {
     const kind = g.pieces[0].kind ?? ''
     // With the parent where the row has one, so the row does not withhold what its own figure
     // prints: the figure's heading is defects.headline, which names it.
@@ -520,9 +767,11 @@ export function saidOf(d: Defect): string | undefined {
 
 /** The cells of one row of the PDF's change table: where, whose, word, then coordinates and signal. */
 export function pdfCells(g: ChangeRow, setup: Setup): [string, string, string, string] {
-  const pieces = g.whole ? '' : g.pieces.map((p) => [`${p.locus}${p.interval ? ` (edges ${p.interval})` : ''}`,
-    pairText(p), lrrText(p)].filter(Boolean).join(', ')).join('; ')
-  return [whereText(g), whoseText(g), g.word, [pieces, measuredSentence(g.call, setup)].filter(Boolean).join('. ')]
+  const seen = g.word === 'not reported'
+  const pieces = g.whole ? '' : g.pieces.map((p) => [seen ? seenLocus(p) : `${p.locus}${p.interval ? ` (edges ${p.interval})` : ''}`,
+    seen ? '' : pairText(p), lrrText(p)].filter(Boolean).join(', ')).join('; ')
+  return [whereText(g), whoseText(g), g.word,
+    [pieces, seen ? NOT_REPORTED_SAYS : measuredSentence(g.call, setup)].filter(Boolean).join('. ')]
 }
 
 /**
@@ -541,6 +790,10 @@ export function readAgainst(
   return `vs ${r.role === 'maternal' ? oocyteName : donorName}`
 }
 
+/** The sex-chromosome line the page and the PDF print: the constitution and its reason. */
+export const sexLine = (sc: { constitution: string; why: string }): string =>
+  (sc.constitution === 'unresolved' ? `Not read: ${sc.why}.` : `${sc.constitution}: ${sc.why}.`)
+
 /** One line per row, the same text on the card, in the PDF and in the check. */
 export function rowLine(g: ChangeRow): string {
   return `${whereText(g)} · ${whoseText(g)} · ${g.word}`
@@ -554,11 +807,19 @@ const count = (n: number, one: string, many: string): string => `${n <= 10 ? NUM
  * the card, never how a bar is computed.
  */
 export function figureTitle(head: Headline, l: ChangeList, h: HeadInput): string {
-  const n = l.counted.length
-  const allPieces = n > 0 && l.counted.every((g) => !g.whole)
-  const except = n ? `, except ${count(n, allPieces ? 'stretch' : 'change', allPieces ? 'stretches' : 'changes')}` : ''
-  const none = n ? '' : ' No change was found.'
-  if (h.noParent) return `Copy number along every chromosome${n ? `, with ${count(n, 'change', 'changes')} marked` : ''}.${none}`
+  if (l.notReported) {
+    return `${h.noParent ? 'Copy number along every chromosome' : head.line.split('. ')[0].replace(/\.$/, '')}. `
+      + 'This sample is not reportable, so nothing marked is reported.'
+  }
+  const { changes: n, findings: f } = cardCounts(l)
+  const allPieces = n > 0 && l.counted.every((g) => !g.whole || rowDirection(g) === 'none')
+  const findings = f ? count(f, 'finding', 'findings') : ''
+  const join = (a: string) => [a, findings].filter(Boolean).join(' and ')
+  const what = join(n ? count(n, allPieces ? 'stretch' : 'change', allPieces ? 'stretches' : 'changes') : '')
+  const except = what ? `, except ${what}` : ''
+  const none = n ? '' : ` No gain or loss was found on ${LIST_SCOPE}.`
+  const marked = join(n ? count(n, 'change', 'changes') : '')
+  if (h.noParent) return `Copy number along every chromosome${marked ? `, with ${marked} marked` : ''}.${none}`
   if (head.word === 'BOTH PARENTS') return `Both parents' copies are present on every chromosome${except}.${none}`
   if (head.word.endsWith('+ SECOND PARENT')) {
     const who = head.word.startsWith('MOTHER') ? "mother's" : "father's"
@@ -582,7 +843,7 @@ export interface CardSays { setup: Setup; list: ChangeList; head: Headline; defe
 export function cardSays(r: ParentageResult, m: ParentageResult | undefined, cls: string, rebuilt: boolean): CardSays {
   const setup = setupOf(r, m, rebuilt)
   const defects = defectsForResult(r)
-  const list = changeList(defects, setup)
+  const list = changeList(defects, setup, reportOf(r) !== 'not reportable')
   const h = headInput(r, m, cls)
   const head = headlineOf(h, changesText(list))
   return { setup, list, head, defects, title: figureTitle(head, list, h) }
@@ -596,16 +857,16 @@ export function cardSays(r: ParentageResult, m: ParentageResult | undefined, cls
 export function surfaceProblems(r: ParentageResult, m: ParentageResult | undefined, cls: string, rebuilt: boolean): string[] {
   const out: string[] = []
   const { list, head, setup, title } = cardSays(r, m, cls, rebuilt)
-  const n = list.counted.length
+  const n = cardCounts(list).changes
   if (n && !head.line.includes(`${n} change`)) out.push(`headline line does not carry the count ${n}: ${head.line}`)
   if (!n && head.line.includes(' changes found')) out.push(`headline counts changes the list does not: ${head.line}`)
   if (n && (head.word === 'BOTH PARENTS' || head.word.endsWith('SECOND PARENT')) && !title.includes(n <= 10 ? NUM[n] : String(n))) {
     out.push(`figure title does not carry the count ${n}: ${title}`)
   }
-  for (const g of [...list.counted, ...list.once, ...list.seen]) {
+  for (const g of [...list.counted, ...list.once, ...list.seen, ...list.notReported?.rows ?? []]) {
     const [where, , word, detail] = pdfCells(g, setup)
     if (where !== whereText(g)) out.push(`PDF where differs: ${where} / ${whereText(g)}`)
-    if (word !== g.word || !['found two ways', 'consistent', 'one reading', 'also seen', 'position only'].includes(word)) {
+    if (word !== g.word || !['found two ways', 'consistent', 'one reading', 'also seen', 'position only', 'not reported'].includes(word)) {
       out.push(`word: ${word}`)
     }
     for (const p of g.whole ? [] : g.pieces) {

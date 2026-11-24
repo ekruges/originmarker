@@ -17,7 +17,9 @@ import {
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
 import {
-  cardSays, disturbedText, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells, PARENT_SENTENCE, spanMb, WORD, whoseText,
+  aneuploidyCells, cardSays, chromCells, countText, disturbedText, gainCells, kindSeen, notReportable, NOT_REPORTED_SAYS,
+  readAgainst, seenHeading, seenLocus, segmentKindText, stateWord, summaryParts, verdictText, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells,
+  PARENT_SENTENCE, sexLine, WORD,
   type CardSays, type ChangeRow,
 } from './pageSays.ts'
 import { locus } from './stage.ts'
@@ -85,6 +87,10 @@ export interface ReportInput {
     bySample: { name: string; results: RunResult[] }[]
   } | null
 }
+
+/** Constants of the parental test, left out of a report with no parental array. */
+const PARENTAL_CONSTANTS = new Set(['Mendelian inconsistency floor', 'Paternal-absence noise bound',
+  'Absence calling margin', 'Residual absence floor', 'Second-parent signal'])
 
 interface Col { head: string; w: number; right?: boolean; font?: FontName; size?: number }
 
@@ -340,6 +346,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const builds = [...new Set(input.files.map((f) => f.profile?.build.build ?? 'undetermined'))]
   const oocyte = input.files.find((f) => f.role === 'oocyte')
   const paired = results.some((f) => f.maternal)
+  // NO PARENTAL ARRAY, NO PARENTAL SENTENCE. Every text below that describes a donor's alleles, an
+  // absence ratio or an inference from one is printed only where a parent was loaded.
+  const noParent = !donor && !oocyte
   // The headline and the change list, from the module the card reads, so the two cannot differ.
   const fatherRebuilt = !!donor?.inferred
   const saysOf = new Map<ReportFile, CardSays>()
@@ -357,10 +366,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ['Software:', `${input.tool}, Syngamy module`],
     ['Sperm donor:', donor ? `${donor.name}  (${int(donor.markers)} markers, SHA-256 `
       + `${donor.sha256.slice(0, 16)})` : 'none'],
+    // The inference sentence holds only where a father was loaded; with no parent nothing is inferred.
     ['Oocyte donor:', oocyte ? `${oocyte.name}  (${int(oocyte.markers)} markers, SHA-256 `
       + `${oocyte.sha256.slice(0, 16)})`
-      : 'none supplied, so a maternal origin is inferred from paternal absence rather than '
-        + 'measured'],
+      : donor ? 'none supplied, so a maternal origin is inferred from paternal absence rather than '
+        + 'measured' : 'none'],
     ['Donor heterozygosity:', Number.isFinite(input.donorHeterozygosity)
       ? `${pct(input.donorHeterozygosity, 3)} autosomal, of called markers` : 'not measured'],
     ['Samples:', `${results.length} analysed  (`
@@ -406,12 +416,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   const times = (a: number, b: number): string =>
     (Number.isFinite(a / b) ? `${(a / b).toFixed(1)}x` : '-')
 
-  /** The counted changes, then how many more were seen once, in the fewest words. */
-  const rowShort = (g: ChangeRow): string => `chr${g.chrom} ${g.whole ? 'whole' : `${spanMb(g)}Mb`} ${whoseText(g)}`
-  const changeOf = (f: ReportFile): string => {
-    const l = says(f).list
-    return [...l.counted.map(rowShort), ...(l.once.length ? [`${l.once.length} more seen once`] : [])].join(', ')
-  }
+  /** The counted changes, then how many more were seen once, in the fewest words; findings apart,
+   *  by the card's own split (pageSays.rowDirection). */
+  const changeOf = (f: ReportFile): string => summaryParts(says(f).list).changes
+  const findingOf = (f: ReportFile): string => summaryParts(says(f).list).findings
+  const found = results.filter((f) => findingOf(f))
   const flagged = results.filter((f) => changeOf(f))
   if (flagged.length) {
     // Said before the table as well as inside it. A reader who takes only the first section must
@@ -425,6 +434,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     pdf.rect(L, y - h, 3, h, true)
     text(msg, 9, 'Helvetica-Bold', 2, WARN, L + 10)
     y -= 4
+  }
+  if (found.length) {
+    text(`Findings, neither a gain nor a loss, in ${found.length} of ${results.length} sample(s): `
+      + found.map((f) => `${f.name} ${findingOf(f)}`).join('; ') + '.', 8.4, 'Helvetica-Bold', 3)
+    y -= 2
   }
 
   const wide = paired ? 0 : 1
@@ -447,7 +461,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     return [
       f.name,
       { v: head.word.toLowerCase(), colour: head.decided ? INK : WARN },
-      { v: changeOf(f) || 'none detected', colour: changeOf(f) ? WARN : GREY },
+      says(f).list.notReported ? { v: 'not reportable', colour: GREY }
+        : { v: [changeOf(f), findingOf(f) ? `findings: ${findingOf(f)}` : ''].filter(Boolean).join('; ') || 'none detected',
+          colour: changeOf(f) ? WARN : GREY },
       ...(paired
         ? [pct(r.genomeRate), times(r.genomeRate, r.explainable),
           m ? pct(m.genomeRate) : '-', m ? times(m.genomeRate, m.explainable) : '-']
@@ -462,7 +478,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'reported per sample below with its coordinates. "none detected" is not a clean bill: a '
     + 'region under the size floor, or on a chromosome whose calls are not measuring it, is not '
     + 'reported either way.', 6.5, 'Helvetica-Oblique', 2, GREY)
-  text('Absence is the rate at which the donor\'s obligate allele is missing where he is '
+  if (!noParent) text('Absence is the rate at which the donor\'s obligate allele is missing where he is '
     + 'homozygous. Ceiling is what this sample\'s own noise can manufacture: its no-call rate '
     + 'times its heterozygous fraction. A sample is called as lacking a paternal contribution '
     + 'only above 3x that ceiling, and as carrying one only at or below it; in between it is '
@@ -471,37 +487,44 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
 
   // --- how sure each word is: the measured count behind every word printed below ---------------
   heading('How sure each word is', 8.6)
-  text('The headline reads each loaded parent\'s genome chromosome by chromosome, and the cell\'s '
-    + 'copy number; the genome-wide absence ratio above is pooled over every autosome, the changed '
-    + 'ones included, so it decides the headline only where it calls a parent absent. Each change '
-    + 'carries one word for its kind of call. A change found two ways or consistent is counted; a '
-    + 'stretch seen by one reading is listed, not counted. Measured on the 31 published cells of '
-    + 'Zuccaro 2020 Table S3 (GSE148488): right of scored, by kind of call and setup.',
-  7.4, 'Helvetica', 2.4, GREY)
-  {
-    const kinds = ['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity',
-      'gain-parent', 'imbalance', 'doubled'] as const
-    const cellOf = (c: readonly [number, number] | undefined): string => (c ? `${c[0]} of ${c[1]}` : '-')
-    table(
-      [{ head: 'Word', w: 70 }, { head: 'Kind of call', w: 236 },
-        { head: 'Both parents', w: 72, right: true }, { head: 'Father measured', w: 76, right: true },
-        { head: 'Father rebuilt', w: 76, right: true }],
-      kinds.map((k) => [WORD[k], KIND_SAYS[k], cellOf(MEASURED[k]?.two), cellOf(MEASURED[k]?.measured),
-        cellOf(MEASURED[k]?.rebuilt)]),
-    )
+  if (noParent) {
+    text('With no parent loaded each change carries the word "position only": it is read from copy '
+      + 'number, with no parent named. A row with neither a gain nor a loss is a finding.',
+    7.4, 'Helvetica', 2.4, GREY)
+  } else {
+    text('The headline reads each loaded parent\'s genome chromosome by chromosome, and the cell\'s '
+      + 'copy number; the genome-wide absence ratio above is pooled over every autosome, the changed '
+      + 'ones included, so it decides the headline only where it calls a parent absent. Each change '
+      + 'carries one word for its kind of call. A change found two ways or consistent is counted; a '
+      + 'stretch seen by one reading is listed, not counted. Measured on the 31 published cells of '
+      + 'Zuccaro 2020 Table S3 (GSE148488): right of scored, by kind of call and setup.',
+    7.4, 'Helvetica', 2.4, GREY)
+    {
+      const kinds = ['two-ways', 'whole', 'second-test', 'run-only', 'allele-scan', 'unnamed', 'intensity',
+        'gain-parent', 'imbalance', 'doubled'] as const
+      const cellOf = (c: readonly [number, number] | undefined): string => (c ? `${c[0]} of ${c[1]}` : '-')
+      table(
+        [{ head: 'Word', w: 70 }, { head: 'Kind of call', w: 236 },
+          { head: 'Both parents', w: 72, right: true }, { head: 'Father measured', w: 76, right: true },
+          { head: 'Father rebuilt', w: 76, right: true }],
+        kinds.map((k) => [WORD[k], KIND_SAYS[k], cellOf(MEASURED[k]?.two), cellOf(MEASURED[k]?.measured),
+          cellOf(MEASURED[k]?.rebuilt)]),
+      )
+    }
+    text(PARENT_SENTENCE, 7.6, 'Helvetica-Bold', 2.4)
+    text(`Counts from ${MEASURED_SOURCE}. Right is the right place by the counting rule (calls and the `
+      + 'stated region joined per chromosome overlap by half of the longer) and, where both name one, '
+      + 'the right parent. Wrong means the paper states no change there; some may be the paper\'s misses.',
+    6.5, 'Helvetica-Oblique', 2, GREY)
   }
-  text(PARENT_SENTENCE, 7.6, 'Helvetica-Bold', 2.4)
-  text(`Counts from ${MEASURED_SOURCE}. Right is the right place by the counting rule (calls and the `
-    + 'stated region joined per chromosome overlap by half of the longer) and, where both name one, '
-    + 'the right parent. Wrong means the paper states no change there; some may be the paper\'s misses.',
-  6.5, 'Helvetica-Oblique', 2, GREY)
 
   // --- one block per sample -------------------------------------------------------------------
   for (const f of results) {
     const r = f.result!
     const m = f.maternal
     const { setup, list, head } = says(f)
-    const n = list.counted.length
+    // Every state word below comes from pageSays.stateWord through its helpers.
+    const seen = notReportable(r)
     need(96)
     y -= 8
     pdf.setStrokeColor(RULE)
@@ -509,8 +532,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     pdf.line(L, y, R, y)
     y -= 6
 
-    text(`${f.name}   vs ${donor?.name ?? 'sperm donor'}`
-      + `${m && oocyte ? ` and ${oocyte.name}` : ''}`, 8, 'Helvetica', 3, GREY)
+    // The card's own line: with no parent loaded it names none.
+    text(`${f.name}   ${readAgainst(r, !!m, donor?.name ?? 'sperm donor', oocyte?.name ?? 'oocyte donor')}`,
+      8, 'Helvetica', 3, GREY)
 
     // The verdict reversed out of a filled bar. This page gets printed in black and white, so
     // the call has to survive losing its colour.
@@ -520,7 +544,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     pdf.rect(L, y - bar, R - L, bar, true)
     pdf.setFillColor('#ffffff')
     pdf.setFont('Helvetica-Bold', 15)
-    pdf.drawString(L + 7, y - bar + 6.5, `${head.word}${n ? ` · ${n} change${n === 1 ? '' : 's'}` : ''}`)
+    pdf.drawString(L + 7, y - bar + 6.5, `${head.word}${countText(list)}`)
     pdf.setFillColor(INK)
     y -= bar + 5
     text(head.line, 8.4, 'Helvetica-Bold', 3)
@@ -532,7 +556,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         { head: 'Coordinates and signal', w: 260 }],
       rows.map((g) => {
         const [where, whose, word, detail] = pdfCells(g, setup)
-        return [where, whose, { v: word, colour: word === 'one reading' || word === 'also seen' ? GREY : INK },
+        return [where, whose, { v: word, colour: word === 'one reading' || word === 'also seen' || word === 'not reported' ? GREY : INK },
           { v: detail, colour: GREY }]
       }),
     )
@@ -546,6 +570,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       changeTable(list.seen)
     }
     if (list.disturbed) text(disturbedText(list), 7.6, 'Helvetica', 2, GREY)
+    if (list.notReported && (list.notReported.rows.length || list.notReported.disturbed)) {
+      text('Seen on this array. The sample is not reportable, so none of this is reported as a gain or a loss.', 7.6, 'Helvetica-Bold', 2, GREY)
+      if (list.notReported.rows.length) changeTable(list.notReported.rows)
+      if (list.notReported.disturbed) text(disturbedText(list.notReported, false), 7.6, 'Helvetica', 2, GREY)
+    }
 
     // THE FEATURE COMPARISON IS NO LONGER PRINTED HERE. It answers a different question from the
     // rest of this report: everything else asks whose a change is, that asks whether the change
@@ -554,7 +583,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     // from the first cell cycle. It is now an addon with its own report, folded in below only once
     // someone has chosen to run it.
 
-    text(`${m ? 'paternal ' : ''}absent ${pct(r.genomeRate)}  |  ceiling `
+    text(r.noParent ? `read with no parent loaded  |  zygosity ${r.zygosity.replace(/_/g, ' ')}`
+      : `${m ? 'paternal ' : ''}absent ${pct(r.genomeRate)}  |  ceiling `
       + `${pct(r.explainable)}  |  ${times(r.genomeRate, r.explainable)}  |  `
       + `${int(r.informative)} informative markers  |  zygosity ${r.zygosity.replace(/_/g, ' ')}`
       + `${r.spermType === 'unknown' ? '' : `  |  ${r.spermType.replace('_', '-')} sperm`}`,
@@ -586,8 +616,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       text(msg, 8.4, 'Helvetica-Bold', 3, WARN, L + 10)
     }
 
-    heading(m ? 'Evidence, sperm donor' : 'Evidence', 8.6)
-    table([
+    if (!r.noParent) heading(m ? 'Evidence, sperm donor' : 'Evidence', 8.6)
+    if (!r.noParent) table([
       { head: 'Measurement', w: 152 },
       { head: 'Observed', w: 52, right: true },
       { head: 'Reference', w: 52, right: true },
@@ -638,13 +668,14 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
 
     const sex = r.chroms.filter((c) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
     if (sex.length) {
-      heading('Sex chromosomes', 8.6)
-      chromTable(sex, r.explainable)
+      heading(seenHeading(seen, 'Sex chromosomes'), 8.6)
+      if (r.sexChromosome) text(sexLine(r.sexChromosome), 7.6, 'Helvetica', 2)
+      chromTable(sex, r.explainable, seen)
     }
     const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed
       || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance')
     if (aneu.length) {
-      heading('Aneuploidy', 8.6)
+      heading(seenHeading(seen, 'Aneuploidy'), 8.6)
       text('A chromosome that is not there cannot be genotyped, so a whole-chromosome change '
         + 'shows up as a collapse in call rate rather than as an allelic mismatch; the intensity '
         + 'then says which way it went. Measured over 1,012 chromosomes, an intact one calls at '
@@ -662,25 +693,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         [{ head: 'Chromosome', w: 92 }, { head: 'Change', w: 56 },
           { head: 'Call rate', w: 62, right: true }, { head: 'Intensity', w: 62, right: true },
           { head: 'Whose copy', w: 156 }],
-        aneu.map((c) => [
-          `chr${c.chrom}`,
-          { v: c.aneuploidy?.toUpperCase() ?? (c.mixed ? 'MIXED'
-            : c.lostParent ? 'PARENT ABSENT'
-              : c.alleleGain?.verdict === 'gain' ? 'GAIN (ALLELES)' : 'IMBALANCE'), colour: WARN },
-          `${c.callFraction.toFixed(2)}x`,
-          `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2`,
-          c.mixed ? 'not called: between the boundaries, one parent dominant'
-            : !c.lostParent && !c.aneuploidy && c.alleleGain?.verdict === 'gain'
-              ? `${c.alleleGain.parent} supplied the extra copy, from the alleles`
-              : !c.lostParent && !c.aneuploidy && c.alleleGain?.verdict === 'imbalance'
-                ? 'not named: intensity below the cell\'s level'
-            : c.lostParent ? (c.aneuploidy === 'gain'
-            ? `no ${c.lostParent} copy: every copy is the other parent's, from the alleles`
-            : `${c.lostParent} copy absent, from the alleles`)
-            : c.aneuploidyParent === 'this' ? 'the parent scored against'
-              : c.aneuploidyParent === 'other' ? 'the other parent'
-                : 'not determined',
-        ]),
+        aneu.map((c) => {
+          const [change, whose] = aneuploidyCells(seen, c)
+          return [`chr${c.chrom}`, { v: change, colour: seen ? GREY : WARN },
+            `${c.callFraction.toFixed(2)}x`, `${c.lrrShift > 0 ? '+' : ''}${c.lrrShift.toFixed(2)} log2`, whose]
+        }),
       )
     }
     if (r.gains.length) {
@@ -696,11 +713,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           [{ head: 'Class', w: 132 }, { head: 'Where', w: 110 },
             { head: 'Origin', w: 92 }, { head: 'Evidence', w: 198 }],
           r.findings.map((f) => [
-            { v: KIND_WORD[f.cls] ?? f.cls, colour: INK },
+            { v: stateWord(seen, KIND_WORD[f.cls] ?? f.cls, kindSeen(f.cls)), colour: INK },
             f.chrom === 'genome' ? 'whole genome' : `chr${f.chrom}`,
             { v: f.originBlocked ? 'none for this class' : 'scored below',
               colour: f.originBlocked ? GREY : INK },
-            { v: [f.evidence, f.originBlocked, f.flag].filter(Boolean).join('. '), colour: GREY },
+            { v: seen ? NOT_REPORTED_SAYS : [f.evidence, f.originBlocked, f.flag].filter(Boolean).join('. '), colour: GREY },
           ]),
         )
       }
@@ -721,7 +738,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
           timingRows(r.uniformity).map((u) => [
             u.where,
-            { v: stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
+            { v: seen ? verdictText(true, u.mechanism) : stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
             { v: u.why, colour: GREY },
           ]),
         )
@@ -743,20 +760,20 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         }
       }
 
-      heading('Extra copies, and where they came from', 8.6)
+      heading(seenHeading(seen, 'Extra copies, and where they came from'), 8.6)
       table(
         [{ head: 'Where', w: 116 }, { head: 'Kind', w: 72 }, { head: 'Origin', w: 84 },
           { head: 'Confidence', w: 108 },
           { head: 'Evidence', w: 152 }],
         r.gains.map((g) => [
           g.where,
-          g.kind,
-          { v: g.origin, colour: g.called ? INK : WARN },
+          gainCells(seen, g).kind,
+          { v: gainCells(seen, g).origin, colour: g.called ? INK : WARN },
           { v: g.confidence !== undefined && Number.isFinite(g.confidence)
             ? `${g.confidence.toFixed(4)}  ${BAND_WORD[g.band ?? ''] ?? ''}`.trim()
             : 'not stated',
           colour: g.band === 'A' || g.band === 'B' ? INK : GREY },
-          { v: g.why, colour: GREY },
+          { v: gainCells(seen, g).why, colour: GREY },
         ]),
       )
       text('An extra copy in a cell carrying ONE parent\'s genome is that parent\'s by '
@@ -770,7 +787,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       6.5, 'Helvetica-Oblique', 2, GREY)
     }
     if (r.segments.length) {
-      heading('Segmental change', 8.6)
+      heading(seenHeading(seen, 'Segmental change'), 8.6)
       text('A partly lost chromosome reads as neither present nor absent, so the whole chromosome '
         + 'comes back unclear and the missing part goes unreported. Each region below is scored '
         + "against the median rate of this sample's OTHER chromosomes, which one event cannot "
@@ -785,13 +802,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { head: 'Against', w: 44, right: true }, { head: 'Score', w: 40, right: true }],
         r.segments.map((sg) => [
           locus(sg.chrom, segmentCoords(sg).start, segmentCoords(sg).end),
-          // The parent is the run that found the segment, not a constant. See kindLabel.
-          { v: sg.kind === 'copy-loss' ? 'DNA absent'
-            : sg.kind === 'copy-gain' ? 'extra copies'
-              : sg.contested ? 'alleles absent, both parents'
-                : `${sg.absentParent ?? 'paternal'} alleles absent`,
-          colour: sg.kind === 'parental-absence' ? INK : WARN },
-          { v: segmentCoords(sg).interval,
+          { v: segmentKindText(seen, sg, 'paternal'), colour: sg.kind === 'parental-absence' || seen ? INK : WARN },
+          { v: seen && sg.arm ? seenLocus({ locus: '', chrom: sg.chrom, arm: sg.arm }).replace(/^, /, '') : segmentCoords(sg).interval,
             colour: segmentCoords(sg).localised ? GREY : WARN },
           `${(segmentCoords(sg).spanBp / 1e6).toFixed(1)} Mb`,
           int(sg.markers), pct(sg.rate, 1), pct(sg.nullRate, 1), sg.arm ? 'n/a' : sg.score.toFixed(0),
@@ -801,7 +813,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     // PARENT OF ORIGIN, GENOTYPE CHANNEL.
     if (r.oneParent?.length) {
       const two = r.oneParent.some((o) => o.twoParents)
-      heading('Parent of origin, from genotypes', 8.6)
+      heading(seenHeading(seen, 'Parent of origin, from genotypes'), 8.6)
       text('A marker where a loaded parent is homozygous and the sample carries the allele that '
         + "parent does not have is Mendelian evidence that the parent's copy is absent: "
         + 'amplification removes alleles and cannot invent one. The exclusive count is that '
@@ -830,7 +842,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { head: 'Confidence', w: 92 }],
         r.oneParent.map((o) => [
           o.where,
-          { v: o.verdict.replace(/-/g, ' '),
+          { v: seen ? verdictText(true, o.verdict) : o.verdict.replace(/-/g, ' '),
             colour: o.verdict === 'refused' ? GREY : INK },
           { v: o.twoParents
             ? (o.parent ? `${o.parent}${o.corroborated ? ', agreed' : ''}` : 'not named')
@@ -849,7 +861,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     // PARENT OF ORIGIN, DOSAGE CHANNEL. A separate table on purpose: it answers the same question
     // from a different measurement, on the events the genotype channel structurally cannot reach.
     if (r.dosageCalls?.length) {
-      heading('Whole chromosomes, from allele dosage', 8.6)
+      heading(seenHeading(seen, 'Whole chromosomes, from allele dosage'), 8.6)
       text('A whole chromosome is DETECTED by the collapse of its genotype call rate, so on exactly '
         + 'those events the genotype channel above has no evidence left. Allele dosage is read '
         + 'whether or not a genotype is emitted. Each chromosome is measured against the rest of '
@@ -871,7 +883,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           { head: 'Window', w: 42, right: true }],
         r.dosageCalls.map((d) => [
           d.where,
-          { v: d.verdict.replace(/-/g, ' '),
+          { v: seen ? verdictText(true, d.verdict) : d.verdict.replace(/-/g, ' '),
             colour: (d.verdict === 'loaded-parent' || d.verdict === 'other-parent')
               ? INK : GREY },
           // Bands C and D print grey, so a weak number cannot be read as a strong one.
@@ -888,11 +900,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       )
     }
 
-    heading(m ? 'Chromosomes, sperm donor' : 'Chromosomes', 8.6)
-    chromTable(r.chroms, r.explainable)
+    heading(seenHeading(notReportable(r), m ? 'Chromosomes, sperm donor' : 'Chromosomes'), 8.6)
+    chromTable(r.chroms, r.explainable, notReportable(r))
     if (m) {
-      heading('Chromosomes, oocyte donor', 8.6)
-      chromTable(m.chroms, m.explainable)
+      heading(seenHeading(notReportable(r), 'Chromosomes, oocyte donor'), 8.6)
+      chromTable(m.chroms, m.explainable, notReportable(r))
     }
 
     if (f.profile) {
@@ -976,7 +988,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     }
   }
 
-  function chromTable(chroms: ChromResult[], ceiling: number): void {
+  function chromTable(chroms: ChromResult[], ceiling: number, seen = false): void {
     table([
       { head: 'Chr', w: 34 },
       { head: 'Informative', w: 52, right: true },
@@ -991,8 +1003,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       // invites the reader to take the number and ignore the verdict beside it.
       c.verdict === 'not_measured' || !Number.isFinite(c.rate / ceiling)
         ? '-' : (c.rate / ceiling).toFixed(1),
-      { v: c.verdict.replace(/_/g, ' '), colour: c.verdict === 'absent' ? WARN : INK },
-      c.note ?? '',
+      { v: chromCells(seen, c).verdict, colour: c.verdict === 'absent' && !seen ? WARN : INK },
+      chromCells(seen, c).note,
     ]))
   }
 
@@ -1066,7 +1078,12 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   newPage()
   heading('Methods', 11)
   const assembly = builds.length === 1 && builds[0] !== 'undetermined' ? builds[0] : null
-  text(`Parent of origin was determined from SNP array genotypes using ${input.tool}. For each `
+  if (noParent) {
+    text(`No parental array was supplied. Each of ${results.length} sample(s) was read from its own SNP `
+      + `array with ${input.tool}: its stage, its sex chromosomes and its copy number, from its call `
+      + 'rate, intensity and B-allele frequencies against its own chromosomes. No parental origin is '
+      + 'named, and nothing is inferred about either parent.', 8, 'Helvetica', 2.6)
+  } else text(`Parent of origin was determined from SNP array genotypes using ${input.tool}. For each `
     + `of ${results.length} sample(s), the rate at which the sperm donor's obligate allele was `
     + 'absent was computed across autosomal markers where he is homozygous and the sample is '
     + 'called, and compared against the rate that sample\'s own genotyping noise can produce, '
@@ -1081,7 +1098,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'X-bearing sperm carrying a full paternal genome is distinguishable from an absent '
     + 'paternal contribution; neither case leaves a Y.', 8, 'Helvetica', 2.6)
   y -= 3
-  text(paired
+  if (!noParent) text(paired
     ? 'An oocyte donor array was supplied, so each sample was tested against both parents by the '
       + 'same measurement and the class read off the pair. This separates a sample lacking a '
       + 'paternal contribution from one belonging to neither declared parent, which a single '
@@ -1206,7 +1223,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   }
 
   heading('Interpretation', 10)
-  text('No confidence percentage is attached to a call, and this is deliberate. The per-sample '
+  if (noParent) {
+    text('No parental call is made in this report, since no parental array was supplied. Copy '
+      + 'number is read against each cell\'s own chromosomes, and each change is printed with its '
+      + 'position and the reading it rests on.', 8, 'Helvetica', 2.6)
+  } else text('No confidence percentage is attached to a call, and this is deliberate. The per-sample '
     + 'likelihood ratio between "paternal genome present" and "absent" runs past 10^10000 on a '
     + 'genome-wide array, which is not a probability any reader should be handed. The honest '
     + 'figure is the empirical accuracy of the method, and on the pairs of known relationship it '
@@ -1216,7 +1237,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'between them, so a reader can see how far from the boundary the call sits.', 8,
   'Helvetica', 2.6)
   y -= 3
-  text('The absence axis separates by roughly thirty-fold and carries the call. The '
+  if (!noParent) text('The absence axis separates by roughly thirty-fold and carries the call. The '
     + 'alleles-the-donor-lacks axis separates by about 1.6-fold and only distinguishes a '
     + 'biparental genome from a paternal-only one that is heterozygous; treat a near-boundary '
     + 'call on that axis as provisional. A sample scoring in the uncalled band is not a weak '
@@ -1293,7 +1314,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ['Assembly tables', 'UCSC chromInfo and gap, hg19 and hg38',
       'Freely redistributable. No liftOver chain file is used or shipped: those carry a '
       + 'non-commercial field-of-use restriction Apache 2.0 cannot sublicense.'],
-  ])
+  ].filter((row) => !noParent || !PARENTAL_CONSTANTS.has(row[0] as string)))
 
   // --- inventory ------------------------------------------------------------------------------
   heading('Files read', 10)

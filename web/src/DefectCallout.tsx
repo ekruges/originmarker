@@ -8,12 +8,12 @@
  *
  * Counted changes first, outlined. Stretches seen by one reading follow under their own label in
  * plain muted text and are not in the count; a whole-chromosome imbalance is listed last as read,
- * not counted.
+ * not counted. On a sample not reportable the rows sit in one closed section marked not reported.
  */
 import { useState, type ReactNode } from 'react'
 import { Text } from '@mantine/core'
 import {
-  disturbedText, KIND_SAYS, lrrText, locusText, measuredSentence, pairText, spanMb, whenLines, whereText, whoseText,
+  disturbedText, pieceText, rowSays, spanMb, whenLines, whereText, whoseText,
   type ChangeList, type ChangeRow, type Setup,
 } from './pageSays.ts'
 import { sentences } from './defects.ts'
@@ -27,12 +27,15 @@ const COLUMNS = '3.9em 5em minmax(0, 1fr) auto'
 function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: ChangeRow) => ReactNode }) {
   const [open, setOpen] = useState(false)
   const loud = strong(g)
-  const why = [...new Set(g.pieces.flatMap((p) => sentences(p.why ?? '')))].join(' ')
+  // A row not reported carries no scan sentence and no origin word: either would state a change.
+  const seen = g.word === 'not reported'
+  const why = seen ? '' : [...new Set(g.pieces.flatMap((p) => sentences(p.why ?? '')))].join(' ')
   const figure = open ? plot?.(g) : null
   // An arm-level piece has no measured edge or extent inside its arm, so its size cell names the
   // arm rather than printing the piece's span, which would read as a measured length.
   const arm = g.pieces.find((p) => p.arm)?.arm
-  const when = whenLines(g)
+  // When it arose, with the units it was read on, where units of the same embryo were read.
+  const when = seen ? [] : whenLines(g)
   return (
     <div style={{
       border: open ? '1px solid var(--om-border-strong)' : loud ? '1px solid var(--om-defect)' : '1px solid transparent',
@@ -67,7 +70,7 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
             </Text>
           )}
           <Text size="sm" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>
-            {KIND_SAYS[g.call]} {measuredSentence(g.call, setup)}
+            {rowSays(g, setup)}
           </Text>
           {when.map((w) => (
             <Text key={w} size="sm" mt={4} style={{ maxWidth: 780, lineHeight: 1.5 }}>{w}</Text>
@@ -78,7 +81,7 @@ function OneChange({ g, setup, plot }: { g: ChangeRow; setup: Setup; plot?: (g: 
             <div style={{ marginTop: 4, display: 'grid', gap: 2 }}>
               {g.pieces.map((p) => (
                 <Text key={`${p.startBp}`} size="xs" ff="monospace">
-                  {[locusText(p), pairText(p), lrrText(p)].filter(Boolean).join(' · ')}
+                  {pieceText(p, g)}
                 </Text>
               ))}
             </div>
@@ -102,6 +105,22 @@ export function DefectCallout({ list, setup, plot }: {
   /** The plot for a row, shown when the row is open. */
   plot?: (g: ChangeRow) => ReactNode
 }) {
+  const nr = list.notReported
+  if (nr) {
+    // A sample not reportable states no change: what was read on it is kept, closed, under a
+    // heading that says it is not reported, and is counted nowhere.
+    if (!nr.rows.length && !nr.disturbed) return null
+    return (
+      <details style={{ margin: '8px 0 2px' }}>
+        <summary style={{ fontSize: 12, fontWeight: 700, cursor: 'pointer', color: 'var(--om-text-dim)' }}>
+          Seen on this array, not reported ({nr.rows.length})
+        </summary>
+        <Text size="xs" c="dimmed" mt={4}>This sample is not reportable, so none of this is reported as a gain or a loss.</Text>
+        {nr.rows.length ? <Rows rows={nr.rows} setup={setup} plot={plot} /> : null}
+        {nr.disturbed ? <Text size="xs" c="dimmed" mt={8}>{disturbedText(nr, false)}</Text> : null}
+      </details>
+    )
+  }
   if (!list.counted.length && !list.once.length && !list.seen.length && !list.disturbed) return null
   return (
     <div style={{ margin: '8px 0 2px' }}>

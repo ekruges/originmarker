@@ -361,10 +361,14 @@ RELEASES: tuple[Release, ...] = (
             "The centromere divides a chromosome into a short arm and a long arm, and a change can "
             "take one arm and leave the other. A whole-chromosome call is now a claim about each "
             "arm, and stands only where both carry it."),
+    Release("Euploid",
+            "A cell with whole sets of chromosomes, no copy gained and none lost. A change is "
+            "measured against that level, so a change is a gain or a loss, and a cell whose own "
+            "normal level cannot be told reports neither."),
 )
 
-VERSION = "6.23.0"
-CODENAME = "Chromosome Arm"
+VERSION = "6.24.0"
+CODENAME = "Euploid"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

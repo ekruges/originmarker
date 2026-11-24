@@ -12,6 +12,9 @@
  * bare direction are three different claims, and a table that flattened them into one "parent"
  * column would invite exactly the counting error the panel warns about.
  */
+import type { ParentageResult } from './parentage.ts'
+import { kindOf, NOT_REPORTED_SAYS, SEEN, seenLocus, WORD, type CardSays } from './pageSays.ts'
+import { directionOf, originText } from './timing.ts'
 
 export type TableChange = {
   chrom: string
@@ -43,6 +46,37 @@ export type TableSample = {
   informative?: number
   stage?: string
   changes: readonly TableChange[]
+}
+
+/**
+ * One sample of the table, from the card's own reading. With no parent loaded `role` is empty: the
+ * result's role is a placeholder there. On a sample not reportable every row's word is "not
+ * reported", as on the card, and its class column states only how it read against the array.
+ */
+export function tableSampleOf(name: string, r: ParentageResult, says: CardSays): TableSample {
+  return {
+    name,
+    headline: says.head.word,
+    originClass: r.originClass,
+    zygosity: r.zygosity,
+    role: r.noParent ? undefined : r.role,
+    genomeRate: r.genomeRate,
+    explainable: r.explainable,
+    informative: r.informative,
+    stage: r.stage?.stage,
+    // On a sample not reportable a row states what was seen against the rest of the array, with no
+    // class, parent or evidence sentence that would state a copy lost or gained.
+    changes: says.defects.map((d) => (says.list.notReported
+      ? { chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: SEEN[directionOf(d.kind) ?? 'none'],
+        stage: d.stage, informative: d.informative, word: 'not reported',
+        why: d.arm ? `${seenLocus(d)}. ${NOT_REPORTED_SAYS}` : NOT_REPORTED_SAYS }
+      : {
+        chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
+        origin: d.origin, band: d.band, confidence: d.confidence,
+        inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
+        why: d.why, word: WORD[kindOf(d, says.setup)], when: originText(d),
+      })),
+  }
 }
 
 export const COLUMNS = [

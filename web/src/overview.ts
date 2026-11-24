@@ -8,8 +8,8 @@
  * contributes nothing else. audit/truth/overview_check.py recounts every number from the same
  * records without this file.
  */
-import type { ChangeList } from './pageSays.ts'
-import { directionOf, ORIGIN_WORD, stretchWord } from './timing.ts'
+import { reportOf, rowDirection, type ChangeList, type Report } from './pageSays.ts'
+import { ORIGIN_WORD, stretchWord } from './timing.ts'
 import { armBoundary } from './wholeArms.ts'
 
 /** One counted row of a result card, as the overview reads it. */
@@ -30,7 +30,7 @@ export interface OverviewRow {
 /** What the overview reads of one sample. */
 export interface OverviewSample {
   stage: string
-  report: 'reportable' | 'limited' | 'not reportable'
+  report: Report
   rows: OverviewRow[]
   /** Rows the card lists as seen once, not confirmed. */
   once: number
@@ -38,12 +38,6 @@ export interface OverviewSample {
   disturbed: boolean
   /** The page's embryo group, where this sample is a unit of one with another. */
   embryo?: number
-}
-
-export const reportOf = (r: { refusals?: readonly { claim: string; gate: string }[] }): OverviewSample['report'] => {
-  const gates = (r.refusals ?? []).filter((x) => x.claim === 'sample').map((x) => x.gate)
-  return gates.includes('integrity.uninterpretable') ? 'not reportable'
-    : gates.includes('integrity.disturbed') ? 'limited' : 'reportable'
 }
 
 /** A sample's overview reading, from its card's change list. */
@@ -57,7 +51,7 @@ export function overviewSampleOf(
     report: reportOf(r),
     rows: list.counted.map((g) => ({
       chrom: g.chrom,
-      direction: g.gain ? 'gain' : g.pieces.some((p) => directionOf(p.kind) === 'loss') ? 'loss' : 'none',
+      direction: rowDirection(g),
       whole: g.whole,
       startBp: g.startBp,
       endBp: g.endBp,

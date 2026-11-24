@@ -105,11 +105,11 @@ const cellA: Defect[] = [
   assert.deepEqual(l.counted.map((g) => g.word), ['found two ways', 'found two ways', 'found two ways'])
   assert.deepEqual(l.once.map((g) => g.chrom), ['3'])
   assert.deepEqual(l.seen.map((g) => g.chrom), ['18'])
-  assert.equal(changesText(l), '3 changes found; 1 more stretch seen once, not confirmed.')
+  assert.equal(changesText(l), '3 changes found on chromosomes 1 to 22; 1 more stretch seen once, not confirmed.')
   const head = headlineOf({ failed: false, zygosity: 'diploid', cls: 'unclear', loaded: [
     { who: 'father', check: 'carries', present: 17, read: 22, absent: false },
     { who: 'mother', check: 'carries', present: 19, read: 22, absent: false }] }, changesText(l))
-  assert.equal(head.line, "Both parents' genomes are in this cell. 3 changes found; 1 more stretch seen once, not confirmed.")
+  assert.equal(head.line, "Both parents' genomes are in this cell. 3 changes found on chromosomes 1 to 22; 1 more stretch seen once, not confirmed.")
   assert.equal(figureTitle(head, l, { failed: false, zygosity: 'diploid', cls: 'x', loaded: [] }),
     "Both parents' copies are present on every chromosome, except three stretches.")
   // One set of coordinates: the card line, the PDF cells and the figure all print the pieces' own.
@@ -324,4 +324,172 @@ const cellA: Defect[] = [
   assert.ok(COUNTED.has('found two ways') && COUNTED.has('consistent') && !COUNTED.has('one reading'))
   assert.equal(kindOf({ ...cellA[1], second: { verdict: 'refused', parent: null } }, 'two'), 'run-only')
   console.log(`  P2 to P4: one change per chromosome and parent, one coordinate set, one pair; ${lines.length} measured counts match the results file`)
+}
+
+// ---------------------------------------------------------------- one sample, one count (D4, D7)
+// A change is a gain or a loss. The card and the overview split counted rows by one function, so
+// the card's changes and findings are the overview's for the same sample.
+{
+  const { cardCounts, countText, reportOf, rowDirection, sexLine } = await import('./pageSays.ts')
+  const { overviewSampleOf, overviewTable } = await import('./overview.ts')
+  const row = (chrom: string, kind: Defect['kind'], startBp: number, endBp: number, step = 'intensity'): Defect => ({
+    chrom, startBp, endBp, kind, locus: `chr${chrom}:${startBp}-${endBp}`, origin: 'unclear', why: 'x', step,
+  })
+  const defects = [row('15', 'copy-gain', 22_383_052, 94_375_026), row('17', 'copy-loss', 6_157, 52_598_275),
+    row('15', 'segmental-upd', 22_444_773, 102_397_317, 'finding')]
+  const l = changeList(defects, 'none')
+  assert.equal(l.counted.length, 3, 'with no parent every row is counted')
+  assert.deepEqual(l.counted.map(rowDirection), ['gain', 'none', 'loss'])
+  assert.deepEqual(cardCounts(l), { changes: 2, findings: 1 })
+  assert.equal(countText(l), ' · 2 changes · 1 finding')
+  assert.equal(changesText(l), '2 changes found on chromosomes 1 to 22, 1 finding.')
+  const ov = (list: typeof l, refusals: { claim: string; gate: string }[] = []) =>
+    new Map(overviewTable([overviewSampleOf(list, { refusals })], new Map()))
+  const t = ov(l)
+  assert.equal(t.get('changes with a gain or a loss'), 2)
+  assert.equal(t.get('findings (copy-neutral, uneven shares, complex genome)'), 1)
+  // A disturbed genome is one finding on both.
+  const d = { ...l, disturbed: { on: 15, of: 22 } }
+  assert.deepEqual(cardCounts(d), { changes: 2, findings: 2 })
+  assert.equal(ov(d).get('findings (copy-neutral, uneven shares, complex genome)'), 2)
+  assert.equal(countText(changeList([defects[2]], 'none')), ' · 1 finding')
+  assert.equal(changesText(changeList([defects[2]], 'none')), 'No gain or loss found on chromosomes 1 to 22, 1 finding.')
+
+  // A sample not reportable prints no change: every row is listed apart as not reported.
+  const refusals = [{ claim: 'sample', gate: 'integrity.uninterpretable' }]
+  assert.equal(reportOf({ refusals }), 'not reportable')
+  const nr = changeList(defects, 'none', reportOf({ refusals }) !== 'not reportable')
+  assert.deepEqual([nr.counted.length, nr.once.length, nr.seen.length], [0, 0, 0])
+  assert.equal(nr.notReported?.rows.length, 3)
+  assert.ok(nr.notReported!.rows.every((g) => g.word === 'not reported'))
+  assert.deepEqual(cardCounts(nr), { changes: 0, findings: 0 })
+  assert.equal(countText(nr), '')
+  assert.equal(changesText(nr), 'Not reportable, so no change is reported.')
+  const tn = ov(nr, refusals)
+  assert.equal(tn.get('changes with a gain or a loss'), 0)
+  assert.equal(tn.get('findings (copy-neutral, uneven shares, complex genome)'), 0)
+  assert.equal(tn.get('not reportable (integrity uninterpretable)'), 1)
+  assert.equal(figureTitle(headlineOf({ noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] }, changesText(nr)),
+    nr, { noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] }),
+  'Copy number along every chromosome. This sample is not reportable, so nothing marked is reported.')
+  // Under the not-reported heading the disturbed-genome sentence names no change.
+  assert.ok(!/change/.test(disturbedText({ disturbed: { on: 15, of: 22 } }, false)))
+  assert.ok(/carry a change/.test(disturbedText({ disturbed: { on: 15, of: 22 } })))
+  // A reportable sample has no not-reported list.
+  assert.equal(changeList(defects, 'none', true).notReported, undefined)
+
+  // The sex-chromosome line, as the page and the PDF print it.
+  assert.equal(sexLine({ constitution: '47,XXY or a mix of cells', why: 'a Y with two different X' }),
+    '47,XXY or a mix of cells: a Y with two different X.')
+  assert.equal(sexLine({ constitution: 'unresolved', why: 'chrY was not read' }), 'Not read: chrY was not read.')
+  console.log('  D4, D7: the card counts gains and losses as changes and the rest as findings, as the overview does; a sample not reportable counts none')
+}
+
+// ---------------------------------------------------------------- one sample, one statement, part two
+{
+  const { cardCounts, figureNote, pieceText, rowSays, SEEN, seenMarkText, NOT_REPORTED_SAYS } = await import('./pageSays.ts')
+  const row = (chrom: string, kind: Defect['kind'], startBp: number, endBp: number, step = 'intensity'): Defect => ({
+    chrom, startBp, endBp, kind, locus: `chr${chrom}:${startBp}-${endBp}`, origin: 'unclear', why: 'Copy lost here.', step,
+    lrr: -0.4, rate: 0.2, nullRate: 0.02,
+  })
+  const upd = row('15', 'segmental-upd', 22_444_773, 102_397_317, 'finding')
+  const loss = row('17', 'copy-loss', 6_157, 52_598_275)
+  const gain = row('12', 'copy-gain', 190_980, 122_685_163)
+
+  // A finding is named by its class, with no word for a copy lost and no claim it was read from copy number.
+  const f = changeList([upd], 'none').counted[0]
+  assert.equal(whoseText(f), 'segment from one parent only')
+  assert.ok(!/missing|lost|copy number/.test(`${whoseText(f)} ${rowSays(f, 'none')} ${callTitle(f)}`), rowSays(f, 'none'))
+  assert.equal(rowSays(changeList([loss], 'none').counted[0], 'none'), 'Read from copy number, with no parent loaded.')
+
+  // A row not reported states only what was seen, on the card, the figure, the PDF and the download.
+  const nr = changeList([loss, gain, upd], 'none', false).notReported!.rows
+  assert.deepEqual(nr.map(whoseText), [SEEN.gain, SEEN.none, SEEN.loss])
+  for (const g of nr) {
+    const said = [whoseText(g), rowSays(g, 'none'), callTitle(g), ...g.pieces.map((p) => pieceText(p, g)), ...pdfCells(g, 'none')].join(' ')
+    assert.ok(!/\b(lost|missing|extra|gained|gone|deleted|duplicated)\b/.test(said), said)
+    assert.ok(pdfCells(g, 'none')[3].includes(NOT_REPORTED_SAYS))
+  }
+  assert.deepEqual(seenMarkText({ chrom: '17', startBp: 6_157, endBp: 52_598_275, whole: false, gain: false, dir: 'loss' }),
+    { word: SEEN.loss, sentence: `Chromosome 17, 0.0 to 52.6 Mb: ${SEEN.loss}. ${NOT_REPORTED_SAYS}` })
+
+  // The figure's note takes the card's counts, names what is drawn beyond the list, and on a sample
+  // not reportable says none is reported.
+  const l = changeList([loss, { ...loss, startBp: 60_000_000, endBp: 70_000_000 }, upd], 'none')
+  assert.deepEqual(cardCounts(l), { changes: 1, findings: 1 })
+  const note = figureNote(l, { listed: 3, withheld: 1 })!
+  assert.equal(note, '4 readings are drawn and numbered below: 2 rows of the list, 1 more piece of those rows, since a row '
+    + 'joins the pieces of one stretch, and 1 found and withheld, not in the list. The card counts 1 change and 1 finding, '
+    + 'drawn as 3 readings; the other 1 is drawn as an outline and says on its own line why it is not counted.')
+  const nn = figureNote(changeList([loss, upd], 'none', false), { listed: 2, withheld: 2 })!
+  assert.ok(nn.endsWith('This sample is not reportable, so none of them is reported.') && !/counts/.test(nn), nn)
+  assert.equal(figureNote(changeList([loss], 'none'), { listed: 1, withheld: 0 }), undefined)
+  const callPlot = readFileSync(new URL('./CallPlot.tsx', import.meta.url), 'utf8')
+  assert.ok(!/filter\(isCounted\)\.length/.test(callPlot) && /note\?: string/.test(callPlot),
+    'the figure takes its note from pageSays.figureNote, never its own count')
+
+  // The no-change sentence names what the list reads.
+  assert.ok(figureTitle(headlineOf({ noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] }, ''),
+    changeList([], 'none'), { noParent: true, failed: false, zygosity: 'diploid', cls: '', loaded: [] })
+    .endsWith('No gain or loss was found on chromosomes 1 to 22.'))
+  assert.equal(changesText(changeList([], 'none')), 'No gain or loss found on chromosomes 1 to 22.')
+  console.log('  a finding reads as one, a row not reported states only what was seen, the figure counts as the card does')
+}
+
+// ---------------------------------------------------------------- one sample, one statement, part three
+{
+  const { pdfCells: cells, pieceText, seenLocus, summaryParts } = await import('./pageSays.ts')
+  const row = (chrom: string, kind: Defect['kind'], startBp: number, endBp: number, step = 'intensity', over: Partial<Defect> = {}): Defect => ({
+    chrom, startBp, endBp, kind, locus: `chr${chrom}:${startBp}-${endBp}`, origin: 'unclear', why: 'x', step, lrr: -0.4, ...over,
+  })
+  // The count sentence always names what it counts.
+  const l = changeList([row('17', 'copy-loss', 1, 5e7), row('15', 'segmental-upd', 2e7, 9e7, 'finding'),
+    row('3', 'cnn-loh', 1, 1e8, 'finding')], 'none')
+  assert.equal(changesText(l), '1 change found on chromosomes 1 to 22, 2 findings.')
+  // The report's summary names findings apart from changes, by the card's split.
+  assert.deepEqual(summaryParts(l), {
+    changes: 'chr17 50.0Mb copy lost, parent not named',
+    findings: 'chr3 100.0Mb both copies from one parent, copy number normal, chr15 70.0Mb segment from one parent only',
+  })
+  // An arm piece on a row not reported names its arm, never a call, on every surface.
+  const arm = row('16', 'copy-loss', 85_629, 36_600_000, 'intensity',
+    { arm: 'p', interval: 'not placed: an arm-level call on 16p, its centromere-side edge and its extent inside the arm unmeasured' })
+  const g = changeList([arm], 'none', false).notReported!.rows[0]
+  const said = [pieceText(arm, g), ...cells(g, 'none'), seenLocus(arm)].join(' ')
+  assert.ok(!/\bcall/.test(said), said)
+  assert.ok(said.includes('the 16p arm: its edge and its extent inside the arm are not placed'), said)
+  console.log('  the count sentence names chromosomes 1 to 22, findings are summarised apart, an arm seen is no call')
+}
+
+// ---------------------------------------------------------------- one guard for every state word
+// On a sample not reportable a chromosome, a stretch, an extra copy or a bar prints only how it sat
+// against the rest of the array; the numbers stay. Every surface takes its word from stateWord.
+{
+  const P = await import('./pageSays.ts')
+  const lost = { chrom: '1', verdict: 'absent', aneuploidy: 'loss' as const, callFraction: 0.91, lrrShift: -0.67,
+    note: "LOST: this chromosome calls at 91% of the genome's median rate" }
+  assert.deepEqual(P.chromCells(true, lost), { verdict: 'read unlike the rest of this array',
+    note: 'lower than the rest of this array: calls at 0.91x of the genome median, intensity -0.67 log2' })
+  assert.equal(P.chromCells(false, lost).note, lost.note, 'a reportable sample keeps its note')
+  assert.deepEqual(P.aneuploidyCells(true, lost), ['lower than the rest of this array', 'not named: the sample is not reportable'])
+  assert.equal(P.aneuploidyCells(false, lost)[0], 'LOSS')
+  assert.equal(P.segmentKindText(true, { kind: 'copy-loss' }, 'paternal'), 'lower than the rest of this array')
+  assert.equal(P.segmentKindText(false, { kind: 'copy-loss' }, 'paternal'), 'DNA absent')
+  assert.deepEqual(P.gainCells(true, { kind: 'whole chromosome', origin: 'paternal', why: 'an extra copy' }),
+    { kind: 'higher than the rest of this array', origin: 'not named', why: P.NOT_REPORTED_SAYS })
+  assert.equal(P.levelWord(true, 'none', 0.2, 0.68, 1.65), 'lower than the rest of this array')
+  assert.equal(P.levelWord(true, 'one copy', 1, 0.68, 1.65), 'at the level of the rest of this array')
+  assert.equal(P.seenHeading(true, 'Aneuploidy'), 'Aneuploidy: readings seen on this array, not reported')
+  const words = /\b(LOST|LOSS|GAIN|GAINED|lost|extra|missing|absent|trisomy|monosomy|none|one copy)\b/
+  for (const t of [...Object.values(P.chromCells(true, lost)), ...P.aneuploidyCells(true, lost),
+    P.levelWord(true, 'none', 0.2, 0.68, 1.65), P.segmentKindText(true, { kind: 'parental-absence', absentParent: 'paternal' }, 'paternal')]) {
+    assert.ok(!words.test(t), t)
+  }
+  // No surface keeps its own copy of the rule: each prints a state word only through the guard.
+  const src = (f: string) => readFileSync(new URL(f, import.meta.url), 'utf8')
+  const pdf = src('./syngamyPdf.ts'); const page = src('./Syngamy.tsx'); const plot = src('./CallPlot.tsx')
+  assert.ok(!/c\.aneuploidy\?\.toUpperCase\(\)/.test(pdf) && !/c\.note \?\? ''/.test(pdf) && !/'DNA absent'/.test(pdf), 'PDF state words come from pageSays')
+  assert.ok(!/kindLabel/.test(page) && !/\{c\.note\}/.test(page) && !/\{g\.origin\}/.test(page) && !/\{g\.why\}/.test(page), 'page state words come from pageSays')
+  assert.ok(/levelWord\(seen, copyWord/.test(plot), 'the figure bar level comes from pageSays')
+  console.log('  one guard: a sample not reportable prints only what was seen, in every table, note and bar')
 }

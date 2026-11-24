@@ -196,10 +196,14 @@ const chrom = (n: number, from = -1, to = -1, rate = 0.11, bg = 0.005): MarkerAb
     .filter((f) => /\.(ts|tsx)$/.test(f) && !f.endsWith('.check.ts'))
     .filter((f) => {
       const src = readFileSync(new URL(f, dir), 'utf8')
-      return src.includes('alleles absent') && !src.includes('absentParent')
+      // A segment label is built from a template ("${...} alleles absent"); a genome-wide
+      // measurement named "Paternal alleles absent" is not one.
+      return /\$\{[^}]*\} alleles absent/.test(src) && !src.includes('absentParent')
     })
   assert.deepEqual(missing, [],
     `these label a parental-absence segment without reading whose alleles are missing: ${missing}`)
+  // The label every surface prints is pageSays.segmentKindText, which reads it.
+  assert.ok(/absentParent \?\? role\} alleles absent/.test(readFileSync(new URL('pageSays.ts', dir), 'utf8')))
 }
 
 console.log('segments.check.ts: all assertions passed, including that every surface labelling a '

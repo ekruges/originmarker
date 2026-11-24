@@ -45,6 +45,10 @@ const base = { stage: 'bulk' as const, callRate: 0.98, affectedAutosomes: 0, tot
   assert.ok(/GENOME/.test(wrecked.why), 'must distinguish a disturbed genome from a bad reaction')
   assert.ok(/positions stand|events themselves are real/i.test(wrecked.limits),
     'position needs no genotype, so it survives even here and the limits must say what does not')
+  // Nothing on such a card may read as a reported change: no gain or loss, and why.
+  assert.ok(!/\b(losses|gains|lost|gained)\b/.test(`${wrecked.why} ${wrecked.limits}`), wrecked.why)
+  assert.ok(/No gain or loss is reported/.test(wrecked.limits) && /normal level cannot be told/.test(wrecked.limits),
+    wrecked.limits)
 }
 
 // --- 3. A FAILED ARRAY OUTRANKS ITS OWN EVENT COUNT ---------------------------------------------

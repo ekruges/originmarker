@@ -121,3 +121,31 @@ const ch = (over: Partial<import('./syngamyTable.ts').TableChange> = {}) => ({
 }
 
 console.log('syngamyTable: joinable, and it cannot be miscounted as independent determinations')
+
+// --- 5. ONE SAMPLE, AS THE CARD READS IT ------------------------------------------------------
+// With no parent loaded the result's role is a placeholder, so the loaded-parent column is empty;
+// on a sample not reportable every row reads "not reported", as on the card.
+{
+  const { tableSampleOf } = await import('./syngamyTable.ts')
+  const { changeList } = await import('./pageSays.ts')
+  const d = { chrom: '16', startBp: 85_629, endBp: 36_600_000, kind: 'copy-loss', locus: 'chr16:85629-36600000',
+    origin: 'unclear', why: 'x', step: 'intensity' } as never
+  const r = (noParent: boolean) => ({ noParent, role: 'maternal', originClass: 'unclear', zygosity: 'diploid' }) as never
+  const says = (reportable: boolean) => ({ setup: 'none', head: { word: 'SINGLE CELL' }, defects: [d],
+    list: changeList([d], 'none', reportable) }) as never
+  const col = (s: string, c: string) => s.trim().split('\n').slice(1).map((l) => l.split('\t')[COLUMNS.indexOf(c as never)])
+  assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(true), says(true))]), 'loaded_parent'), [''])
+  assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(false), says(true))]), 'loaded_parent'), ['maternal'])
+  assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(true), says(true))]), 'word'), ['position only'])
+  assert.deepEqual(col(syngamyTable([tableSampleOf('A', r(true), says(false))]), 'word'), ['not reported'])
+  // And its class, parent and evidence state only what was seen.
+  const nr = syngamyTable([tableSampleOf('A', r(true), says(false))])
+  assert.deepEqual(col(nr, 'class'), ['lower than the rest of this array'])
+  assert.deepEqual(col(nr, 'parent'), [''])
+  assert.deepEqual(col(nr, 'evidence'), ['Not reported: this sample is not reportable.'])
+  const armSays = { setup: 'none', head: { word: 'SINGLE CELL' }, defects: [{ ...(d as object), arm: 'p' }],
+    list: changeList([{ ...(d as object), arm: 'p' } as never], 'none', false) } as never
+  const armRow = col(syngamyTable([tableSampleOf('A', r(true), armSays)]), 'evidence')[0]
+  assert.ok(armRow.includes('the 16p arm: its edge and its extent inside the arm are not placed') && !/\bcall/.test(armRow), armRow)
+  console.log('  no parent loaded leaves loaded_parent empty; a sample not reportable reads "not reported"')
+}

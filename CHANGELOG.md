@@ -9,6 +9,70 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.24.0 "Euploid"
+
+**A change is a gain or a loss.** With no parent loaded the result card counted every row as a
+change, so a copy-neutral row such as a segment from one parent only was a change on the card and
+a finding in the overview: Table S2 row 97 read "8 changes" over the overview's 7 changes and 1
+finding. The card now counts its gains and losses as changes and names the other rows as
+findings ("HAPLOID · 7 changes · 1 finding"), by the one direction the overview counts with. The
+report's bar reads the same. Which rows are counted, seen once or also seen does not change.
+
+**A sample that cannot be reported shows no result.** The overview already counted such a sample
+and took no change from it, while its card could read "2 changes" above "DAMAGED SAMPLE". The
+card now prints no count and the line "Not reportable, so no change is reported."; what was read
+on it is kept, closed, under "Seen on this array, not reported", each row marked not reported on
+the card, the figure, the changes download and the report. Where the genome is too disturbed to
+reference, the notice says the positions stand and that no gain or loss is reported because the
+cell's normal level cannot be told.
+
+**The report carries the sex-chromosome line** the page prints, its constitution and its reason,
+so "47,XXY or a mix of cells" is no longer on the card and missing from the report.
+
+**No parent is named where none was loaded.** The changes download wrote `loaded_parent:
+maternal` on a run with no parent, and the report's line above each sample read against a sperm
+donor. Both are now empty of a parent; a run with the mother alone names her. With no parent at
+all the report names no oocyte donor and infers nothing: its methods say no parental array was
+supplied and no parental origin is named, and the notes, evidence tables, interpretation and
+constants of the parental test are left out. With the father alone it still says a maternal origin
+is inferred from paternal absence.
+
+**Five more places where one sample said two things.**
+
+- **The figure's note counts as the card does.** It said "the card counts 2 of them as changes"
+  under a header of "1 change". It now takes the card's changes and findings, names what it draws
+  beyond the list's rows (more pieces of one row, runs found and withheld), and on a sample not
+  reportable says none of what is drawn is reported.
+- **A finding does not read as a loss.** A copy-neutral row with no parent loaded read "a parent's
+  copy missing" and "Read from copy number". It is now named by its class ("segment from one
+  parent only") and says it is neither a gain nor a loss.
+- **A row on a sample not reportable states only what was seen**: higher than the rest of this
+  array, lower than it, or read unlike it, on the card, the figure, the changes download (its class
+  column, with no parent or evidence sentence) and the report. The sample's notice no longer
+  states a loss as a fact.
+- **The count sentence names what the list reads, every time**: "1 change found on chromosomes 1
+  to 22, 2 findings." or "No gain or loss found on chromosomes 1 to 22", so it cannot contradict
+  the sex-chromosome line beside it. No count changes.
+- **The report lists findings as findings**, on their own line under the summary and apart from
+  the changes in its table, by the card's split.
+- **An arm seen on a sample not reportable is no call**: the row names the arm and that its edge and
+  extent inside the arm are not placed, on the card, the download and the report.
+- **One guard for every state word.** A sample whose genome is too disturbed keeps its
+  per-chromosome states, and the chromosome tables still printed "LOST: ..." and the report's
+  aneuploidy table "LOSS" under a card that reports no gain or loss. One function now decides the
+  word every chromosome, stretch, extra copy and figure bar may print; on a sample not reportable it
+  prints only how the reading sat against the rest of the array, keeps the rates and log2 beside
+  it, and each such table's heading says its readings are seen and not reported.
+- **The figure's note adds up**: it says how many drawn readings the counted rows are, so one
+  change drawn as two pieces reads "1 change and 0 findings, drawn as 2 readings".
+
+Measured on 853 records (330 answer-key rows with no parent, 252 open rows with a parent, 271
+laboratory rows): the card's changes and findings equal the overview's on every one; every
+overview table recounts with 0 mismatches and is unchanged; the 172 samples not reportable print
+no change anywhere, their 758 rows and 878 download rows all marked not reported; the report
+carries the sex line on all 36 cells read 47,XXY or a mix of cells; no call, coordinate, sex field
+or origin word moves; the validation suite does not move.
+
 ## 6.23.0 "Chromosome Arm"
 
 **A whole-chromosome call stands only where each arm carries it.** The whole-chromosome test reads

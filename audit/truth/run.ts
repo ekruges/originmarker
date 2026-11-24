@@ -14,7 +14,13 @@
  * refusal and the causes, as the page prints them, and nothing else. See web/src/platform.ts.
  *
  * `card` holds the result card's change list as the overview counts it: the counted rows with their
- * pieces, the count of rows seen once, and whether the genome is too disturbed to reference.
+ * pieces, the count of rows seen once, and whether the genome is too disturbed to reference; the
+ * card's own count of changes and findings; and, on a sample not reportable, the rows listed apart.
+ *
+ * `surfaces` holds what the other surfaces print of the same sample: the overview's count of
+ * changes and findings for it alone, the changes download's words and loaded-parent values, and,
+ * on a sample not reportable or one whose sex line reads "47,XXY or a mix of cells", what its PDF
+ * prints (pageSays, overview, syngamyTable, syngamyPdf).
  *
  * `genomeVerdicts` holds the loaded parent's genome-wide verdict and, with both parents, the
  * mother's, read as the page reads it; `changes` holds each printed change as the result card lists
@@ -40,6 +46,10 @@ const parentage = await import(`${W}parentage.ts`)
 const pageSays = await import(`${W}pageSays.ts`)
 const sexing = await import(`${W}sexing.ts`)
 const sexMaterial = await import(`${W}sexMaterial.ts`)
+const overviewMod = await import(`${W}overview.ts`)
+const table = await import(`${W}syngamyTable.ts`)
+const reportPdf = await import(`${W}syngamyPdf.ts`)
+const defectsMod = await import(`${W}defects.ts`)
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -152,10 +162,90 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
     }
     // The result card's change list, as the overview counts it (web/src/overview.ts). Read last, after
     // every other field is taken.
+    const paired = maternal && !res.noParent ? parentage.pair(res, maternal, NaN) : undefined
+    const says = () => pageSays.cardSays(res, maternal ?? undefined, paired ? paired.originClass : res.originClass, tag.startsWith('recon'))
     const card = () => {
-      const says = pageSays.cardSays(res, maternal ?? undefined,
-        maternal && !res.noParent ? parentage.pair(res, maternal, NaN).originClass : res.originClass, tag.startsWith('recon'))
-      return { counted: says.list.counted.map(cardRow), once: says.list.once.length, disturbed: !!says.list.disturbed }
+      const l = says().list
+      return { counted: l.counted.map(cardRow), once: l.once.length, disturbed: !!l.disturbed,
+        ...pageSays.cardCounts(l), countText: pageSays.countText(l), line: says().head.line,
+        figure: { drawn: pageSays.drawnOf(res, says().defects), note: pageSays.figureNote(l, pageSays.drawnOf(res, says().defects)) ?? null },
+        ...(l.notReported ? { notReported: l.notReported.rows.map(cardRow) } : {}) }
+    }
+    const surfaces = async () => {
+      const s = says()
+      const ov = new Map(overviewMod.overviewTable([overviewMod.overviewSampleOf(s.list, res)], new Map()))
+      const tsv = table.syngamyTable([table.tableSampleOf(id, res, s)]).trim().split('\n').slice(1).map((l: string) => l.split('\t'))
+      const at = (c: string) => tsv.map((x: string[]) => x[table.COLUMNS.indexOf(c)])
+      const out: any = {
+        overview: { changes: ov.get('changes with a gain or a loss'), findings: ov.get('findings (copy-neutral, uneven shares, complex genome)') },
+        download: { rows: tsv.length, notReported: at('word').filter((w: string) => w === 'not reported').length,
+          loadedParent: [...new Set(at('loaded_parent'))],
+          ...(s.list.notReported ? { classes: [...new Set(at('class'))], parents: [...new Set(at('parent'))],
+            evidence: [...new Set(at('evidence'))] } : {}) },
+        // Every sentence the card prints of a row with neither a gain nor a loss.
+        findingTexts: s.list.counted.filter((g: any) => pageSays.rowDirection(g) === 'none')
+          .map((g: any) => [pageSays.whoseText(g), pageSays.rowSays(g, s.setup), pageSays.callTitle(g)].join(' | ')),
+      }
+      if (s.list.notReported) {
+        const nr = s.list.notReported
+        out.seenWhose = nr.rows.map((g: any) => pageSays.whoseText(g))
+        // Every state cell of the page's and the report's tables of this sample, as each prints it.
+        const P = pageSays
+        const sexRows = (res.chroms ?? []).filter((c: any) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
+        const chromRows = [...sexRows, ...(res.chroms ?? []), ...(maternal?.chroms ?? [])]
+        const chromCells = chromRows.flatMap((c: any) => Object.values(P.chromCells(true, c)) as string[])
+        const segCells = (res.segments ?? []).map((sg: any) => P.segmentKindText(true, sg, res.role))
+        const gainCells = (res.gains ?? []).flatMap((g: any) => Object.values(P.gainCells(true, g)) as string[])
+        const aneu = (res.chroms ?? []).filter((c: any) => c.aneuploidy || c.lostParent || c.mixed
+          || c.alleleGain?.verdict === 'gain' || c.alleleGain?.verdict === 'imbalance')
+        out.tables = {
+          page: { chrom: chromCells, segment: segCells, gain: gainCells },
+          pdf: { chrom: chromCells, aneuploidy: aneu.flatMap((c: any) => P.aneuploidyCells(true, c)), segment: segCells, gain: gainCells,
+            finding: (res.findings ?? []).map((f: any) => P.stateWord(true, '', P.kindSeen(f.cls))),
+            origin: [...(res.oneParent ?? []), ...(res.dosageCalls ?? [])].map((o: any) => P.verdictText(true, o.verdict)) },
+          rows: { chrom: chromRows.length, maternalChrom: maternal?.chroms?.length ?? 0, aneuploidy: aneu.length,
+            segment: (res.segments ?? []).length, gain: (res.gains ?? []).length, finding: (res.findings ?? []).length,
+            origin: (res.oneParent ?? []).length + (res.dosageCalls ?? []).length },
+        }
+        // Every sentence a card not reportable prints about the sample and its rows.
+        out.notReportedTexts = [s.head.line, s.title, pageSays.figureNote(s.list, pageSays.drawnOf(res, s.defects)) ?? '',
+          ...defectsMod.runAlerts(res).flatMap((a: any) => [a.headline, a.body]),
+          pageSays.disturbedText(nr, false),
+          ...nr.rows.flatMap((g: any) => [pageSays.whoseText(g), pageSays.rowSays(g, s.setup), pageSays.callTitle(g),
+            ...g.pieces.map((p: any) => pageSays.pieceText(p, g)), ...pageSays.pdfCells(g, s.setup),
+            pageSays.seenMarkText({ ...g, dir: pageSays.rowDirection(g) }).sentence])].filter(Boolean)
+      }
+      {
+        const files: any[] = [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1, result: res,
+          maternal: maternal ?? undefined, paired, inferred: false }]
+        if (!res.noParent && res.role === 'paternal') files.unshift({ name: 'donor', size: 1, sha256: '0'.repeat(64), role: 'donor', markers: 1 })
+        if (!res.noParent && (maternal || res.role === 'maternal')) files.unshift({ name: 'oocyte', size: 1, sha256: '0'.repeat(64), role: 'oocyte', markers: 1 })
+        const txt = Buffer.from(await (await reportPdf.buildReportPdf({
+          files,
+          donorHeterozygosity: NaN, startedAt: null, generatedAt: '', tool: 'OriginMarker', reportId: 'GATE', fromExamples: false,
+        } as never)).arrayBuffer()).toString('latin1')
+        // Every string the PDF draws, unescaped; a wrapped sentence is its lines joined by spaces.
+        const strings = [...txt.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1]
+          .replace(/\\([0-7]{3})|\\(.)/g, (_, o, c) => (o ? String.fromCharCode(parseInt(o, 8)) : c)))
+        const flat = (x: string) => x.replace(/[^\x20-\x7e]/g, '').replace(/\s+/g, ' ').trim()
+        const all = flat(strings.join(' '))
+        out.pdf = { notReported: strings.filter((x) => x === 'not reported').length,
+          bar: strings.includes(`${s.head.word}${pageSays.countText(s.list)}`),
+          sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome))) : null,
+          inferred: all.includes('inferred from paternal absence'), noParentLine: all.includes('sample no parent loaded'),
+          vsDonor: all.includes('sample vs donor'),
+          noParentMethods: all.includes('No parental array was supplied.'),
+          inferMethods: all.includes('No oocyte donor array was supplied. A maternal origin below is therefore inferred'),
+          pairedMethods: all.includes('An oocyte donor array was supplied'),
+          donorText: (all.match(/.{0,40}(sperm donor's|donor's obligate|inferred from).{0,40}/g) ?? []),
+          findingsBanner: all.includes('Findings, neither a gain nor a loss, in 1 of 1 sample(s)'),
+          // Strings drawn whole that are a state word of a reportable sample's tables.
+          stateStrings: s.list.notReported ? strings.filter((x) => /^(LOSS|GAIN|GAIN \(ALLELES\)|PARENT ABSENT|IMBALANCE|MIXED|DNA absent|extra copies|(paternal|maternal) alleles absent|alleles absent, both parents)$/.test(x)
+            || /^(LOST|GAINED):/.test(x)) : [],
+          seenHeadings: s.list.notReported ? strings.filter((x) => x.endsWith(': readings seen on this array, not reported')).length : 0,
+          changeBanner: (all.match(/Chromosomal change in 1 of 1 sample\(s\): (.*?)\. Coordinates/) ?? [])[1] ?? null }
+      }
+      return out
     }
     const cardRow = (g: any) => ({ chrom: g.chrom, gain: g.gain, whole: g.whole, origin: g.origin, start: g.startBp, end: g.endBp,
       word: g.word, pieces: g.pieces.map((p: any) => ({ kind: p.kind, start: p.startBp, end: p.endBp })) })
@@ -194,6 +284,7 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
       ...(res.motherFromRun ? { motherFromRun: { ...res.motherFromRun,
         drawArrays: res.motherFromRun.drawArrays.map((i: number) => (others ?? '').split(';').filter(Boolean)[i]) } } : {}),
       card: card(),
+      surfaces: await surfaces(),
     }) + '\n')
   } catch (e) {
     if (e instanceof ChipRefused) {
