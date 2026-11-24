@@ -41,16 +41,13 @@
  * Run: node --experimental-strip-types audit/truth/run.ts <list.tsv> <shard> <shards> <out.jsonl>
  */
 import { readFileSync, appendFileSync, existsSync } from 'node:fs'
-import { gunzipSync } from 'node:zlib'
+import { ChipRefused, panel, calls, chromOf, collectArray, scoreArray as scoreFresh } from './score-array.ts'
+import { openStore, openList, treeKey, only } from '../gate/store.ts'
 
 const W = new URL('../../web/src/', import.meta.url).pathname
-const ingest = await import(`${W}ingest.ts`)
-const score = await import(`${W}scoreSample.ts`)
 const keys = await import(`${W}answerKeys.ts`)
-const inferredArray = await import(`${W}inferredArray.ts`)
 const info = await import(`${W}informationRatio.ts`)
 const stageMod = await import(`${W}stage.ts`)
-const platform = await import(`${W}platform.ts`)
 const parentage = await import(`${W}parentage.ts`)
 const pageSays = await import(`${W}pageSays.ts`)
 const sexing = await import(`${W}sexing.ts`)
@@ -71,46 +68,6 @@ if (existsSync(out)) {
 const list = readFileSync(listFile, 'utf8').split('\n').filter(Boolean).map((l) => l.split('\t'))
   .filter((_, i) => i % shards === shard)
 
-const text = (p: string) => { const raw = readFileSync(p); return (p.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8') }
-function rows(path: string): any[] {
-  const lines = text(path).split('\n')
-  let h = 0; while (!lines[h] || lines[h].startsWith('#')) h++
-  const map = ingest.headerMap(lines[h])
-  if (!map) throw new ChipRefused(path, { text: platform.unreadableLines(lines, panel.freqB),
-    causes: platform.missingRequired(lines[h]) })
-  const o: any[] = []
-  for (let i = h + 1; i < lines.length; i++) { const r = ingest.parseRow(lines[i], map); if (r) o.push(r) }
-  checkChip(path, o, map)
-  return o
-}
-const panel = keys.parsePanel(text(new URL(`../../web/public/${keys.FOUNDER_PANEL_PATH}`, import.meta.url).pathname))
-class ChipRefused extends Error {
-  file: string; call: any
-  constructor(file: string, call: any) { super(call.text); this.file = file; this.call = call }
-}
-/** The same recognition the page runs, from the rows already read. Throws on another chip. */
-function checkChip(path: string, rs: any[], map: any) {
-  const b = ingest.emptyBuildSums()
-  for (const r of rs) ingest.accumulateBuild(r, b)
-  const call = platform.recogniseRows(rs, ingest.buildVerdict(b), map, panel.freqB)
-  if (!call.proven) throw new ChipRefused(path, call)
-}
-const parents = new Map<string, any>()
-function parentIndex(path: string) {
-  if (path === '-') return score.noParent()
-  if (parents.has(path)) return parents.get(path)
-  const banner = inferredArray.parseInferredBanner(text(path).slice(0, inferredArray.MARK_BYTES)) ?? undefined
-  const acc = score.emptyParent()
-  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); let first = ''
-  for (const r of rows(path)) {
-    if (!first) first = r.probesetId
-    ingest.accumulate(r, byChrom); ingest.accumulateBaf(r, bafSums); score.collectParentRow(r, acc)
-  }
-  const idx = score.finishParent(acc, ingest.finishProfile(path, byChrom, bafSums, first).build.build, banner)
-  parents.set(path, idx)
-  return idx
-}
-
 const seg = (s: any) => ({ chrom: s.chrom, kind: s.kind, start: s.startBp, end: s.endBp, absentParent: s.absentParent,
   shortBy: s.shortBy,
   score: Number.isFinite(s.score) ? +s.score.toFixed(1) : undefined, lrrShift: Number.isFinite(s.lrrShift) ? +s.lrrShift.toFixed(3) : undefined,
@@ -118,59 +75,30 @@ const seg = (s: any) => ({ chrom: s.chrom, kind: s.kind, start: s.startBp, end: 
 const held = (w: any) => (w && typeof w === 'object' && 'kind' in w && 'startBp' in w ? seg(w)
   : w && typeof w === 'object' ? (w.verdict ?? w.cls ?? w.state ?? 'object') : w)
 
-// The called autosomal genotypes of an array of the same run, as the page keeps them (acc.myGt): read
-// by probe id, held as one byte per probe so a whole run's arrays fit in memory together. Iterable
-// with a size, so parentage.agreement walks it as it walks the page's map.
-const probeIndex = new Map<string, number>()
-const probeChrom: string[] = []
-const CODES = ['', 'AA', 'AB', 'BB']
-interface Calls { size: number; get(id: string): string | undefined; [Symbol.iterator](): Iterator<[string, string]> }
-const callsOf = new Map<string, Calls>()
-function calls(path: string): Calls {
-  let m = callsOf.get(path)
-  if (!m) {
-    const rs = rows(path).filter((r) => /^\d+$/.test(r.chrom))
-    for (const r of rs) {
-      if (!probeIndex.has(r.probesetId)) { probeIndex.set(r.probesetId, probeIndex.size); probeChrom.push(r.chrom) }
-    }
-    const code = new Uint8Array(probeIndex.size)
-    for (const r of rs) if (r.genotype !== 'NC') code[probeIndex.get(r.probesetId)!] = CODES.indexOf(r.genotype)
-    const at = (i: number | undefined) => (i === undefined || i >= code.length ? undefined : CODES[code[i]] || undefined)
-    let size = 0
-    for (let i = 0; i < code.length; i++) if (at(i)) size++
-    m = {
-      size,
-      get: (id: string) => at(probeIndex.get(id)),
-      *[Symbol.iterator]() { for (const [id, i] of probeIndex) { const g = at(i); if (g) yield [id, g] as [string, string] } },
-    }
-    callsOf.set(path, m)
-  }
-  return m
-}
-// Where each probe sits, as the page's acc.markerPos answers it for the same-genome comparison.
-const chromOf = { get: (id: string) => { const i = probeIndex.get(id); return i === undefined ? undefined : { chrom: probeChrom[i] } } }
-
-/** One array scored as the page scores it. */
+// With OM_STORE, a scored array is read from the store (audit/gate/store.ts) where one is kept for
+// the same scoring closure and inputs, and kept there where not. An array whose inputs are not all
+// on the open list (OM_OPEN) is scored and never stored. What the record reads of the
+// parents and the collected tallies is held by name; the LRR tracks the sister reading reads are
+// collected again from the array, not scored.
+const store = process.env.OM_STORE
+  ? openStore(process.env.OM_STORE, treeKey(new URL('../..', import.meta.url).pathname, 'rows'), openList(process.env.OM_OPEN))
+  : null
 async function scoreArray(id: string, path: string, parentPath: string, otherPath: string | undefined,
   role: string | undefined, sibPaths: string[]) {
-  const pat = parentIndex(parentPath)
-  const mat = otherPath ? parentIndex(otherPath) : null
-  const acc = score.emptyCollected(pat, mat, panel as never)
-  const byChrom = new Map(); const bafSums = ingest.emptyBafSums(); const builds = ingest.emptyBuildSums(); let first = ''
-  const sameHom = keys.emptySameHom(); const homTally = info.emptyHomTally()
-  for (const r of rows(path)) {
-    if (!first) first = r.probesetId
-    ingest.accumulate(r, byChrom); ingest.accumulateBaf(r, bafSums); score.collectRow(r, pat, mat, acc as never)
-    ingest.accumulateBuild(r as never, builds)
-    if (!/^\d+$/.test(r.chrom)) continue
-    const p = panel.get(r.probesetId)
-    if (p) { keys.addSameHom(sameHom, r.genotype, p, p); info.addHomozygous(homTally, r.genotype, p) }
+  const inputs = [path, parentPath, otherPath ?? '', ...sibPaths]
+  if (!store || !store.allows(inputs)) return scoreFresh(id, path, parentPath, otherPath, role, sibPaths)
+  const key = store.key(['run.ts', id, role ?? null, otherPath === undefined], inputs)
+  let v = store.get(key)
+  if (!v) {
+    const s = await scoreFresh(id, path, parentPath, otherPath, role, sibPaths)
+    v = { res: s.res, profile: s.profile, sameHom: s.sameHom, homTally: s.homTally,
+      acc: { tm: (s.acc as any).tm, sex: (s.acc as any).sex },
+      pat: { sex: s.pat.sex }, mat: s.mat ? { sex: s.mat.sex, heterozygosity: s.mat.heterozygosity } : null }
+    store.put(key, v)
+    return s
   }
-  const profile = ingest.finishProfile(id, byChrom, bafSums, first, builds)
-  const res = await score.scoreSample({ acc, profile, pat, mat, soloRole: role === 'maternal' ? 'maternal' : 'paternal',
-    sibs: sibPaths.map(calls),
-    sampleName: id, log: () => {} } as never) as any
-  return { pat, mat, acc, profile, sameHom, homTally, res }
+  return { res: v.res, profile: v.profile, sameHom: v.sameHom, homTally: v.homTally, pat: only(v.pat), mat: v.mat && only(v.mat),
+    acc: only(v.acc, { cnByChrom: () => collectArray(id, path, parentPath, otherPath).acc.cnByChrom }) }
 }
 
 // Each array's part in the sister reading, keyed by what it was scored with, so an array read once
@@ -402,4 +330,5 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
     } else appendFileSync(out, JSON.stringify({ id, tag, error: String(e).slice(0, 300) }) + '\n')
   }
 }
+if (store) process.stderr.write(`STORE ${JSON.stringify(store.stats)}\n`)
 appendFileSync(out, `DONE ${shard}\n`)
