@@ -949,3 +949,46 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
     'the father alone keeps the methods sentence')
   console.log('  the report carries the sex-chromosome line, and a sample not reportable states no change')
 }
+
+// ---------------------------------------------------------------- the report's outputs: withheld, bars, methods
+// The report lists every refusal and row not reported with its cause and their count, the bars of
+// the registry that this setup applied and no other, and the methods paragraph with its citations.
+{
+  const { cardSays } = await import('./pageSays.ts')
+  const { withheldRows, withheldHeading } = await import('./withheld.ts')
+  const { barsApplied, barValue } = await import('./bars.ts')
+  const strings = (txt: string) => [...txt.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1]
+    .replace(/\\([0-7]{3})|\\(.)/g, (_, o, c) => (o ? String.fromCharCode(parseInt(o, 8)) : c)))
+  const report = async (r: Awaited<ReturnType<typeof run>>, father: boolean, tool = 'OriginMarker 9.9.9 (Check)') => {
+    const files: never[] = [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: r } as never]
+    if (father) files.unshift({ name: 'donor', size: 1, sha256: '0'.repeat(64), role: 'donor', markers: 1 } as never)
+    const input = { files, donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+      tool, reportId: 'CHECK', fromExamples: false }
+    const txt = Buffer.from(await (await buildReportPdf(input as never)).arrayBuffer()).toString('latin1')
+    return { txt, s: strings(txt), all: strings(txt).join(' ').replace(/\s+/g, ' ') }
+  }
+  const withF = await run()
+  const none = { ...withF, noParent: true } as typeof withF
+  for (const [r, father] of [[withF, true], [none, false]] as const) {
+    const { txt, s, all } = await report(r, father)
+    const held = withheldRows(r, cardSays(r, undefined, r.originClass, false).list)
+    assert.equal(held.length, (r.refusals ?? []).length
+      + (cardSays(r, undefined, r.originClass, false).list.notReported?.rows.length ?? 0),
+    'one withheld row per refusal and per row not reported')
+    assert.ok(s.includes(withheldHeading(held.length)), 'the report carries the withheld count')
+    for (const w of held) assert.ok(all.includes(w.what.split(' ').slice(0, 3).join(' ')), `withheld row printed: ${w.what}`)
+    const applied = barsApplied({ parents: father ? 1 : 0, run: false, comparison: false })
+    const listed = s.filter((x) => applied.some((b) => b.name === x))
+    assert.deepEqual([...new Set(listed)].sort(), [...new Set(applied.map((b) => b.name))].sort(), 'the report lists exactly the bars applied')
+    for (const b of applied) assert.ok(s.includes(barValue(b)), `${b.name} prints its value`)
+    if (!father) assert.ok(!s.includes('ABSENCE_MARGIN') && !s.includes('SURVIVOR_MIN'), 'no parental bar with no parent')
+    assert.ok(!/\/Image|\/XObject|\sBI\s/.test(txt), 'the report holds no image')
+    assert.ok(!s.includes('Constants and where they come from'))
+    const pages = (txt.match(/\/Type \/Page /g) ?? []).length
+    assert.equal(s.filter((x) => x.includes('OriginMarker 9.9.9 (Check)') && x.includes(' | page ')).length, pages,
+      'every page carries the version')
+  }
+  const bare = await report(withF, true, 'OriginMarker')
+  assert.ok(bare.s.some((x) => x.includes('OriginMarker, version not reported | report')), 'no version given is said')
+  console.log('  the report lists what was withheld and the bars applied')
+}

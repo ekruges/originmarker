@@ -89,11 +89,11 @@ export const MIN_BLOCKS = 20
 /** Lowest `b` taken from a fit. A fitted intercept at or under zero is the fit's error. */
 export const NOISE_FLOOR = 0.005
 /** Homozygous-class markers a reference chromosome needs before its line is fitted. */
-const MIN_FIT_MARKERS = 500
+export const MIN_FIT_MARKERS = 500
 /** Heterozygous-class markers a reference chromosome needs before its share is read. */
-const MIN_HET_MARKERS = 200
+export const MIN_HET_MARKERS = 200
 /** Homozygous calls at P's homozygous markers a run needs before P's own copy is said to be there. */
-const MIN_OPP_CALLS = 200
+export const MIN_OPP_CALLS = 200
 /** Median of a chi-squared variable with one degree of freedom. */
 const CHI2_MEDIAN = 0.4549
 

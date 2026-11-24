@@ -52,6 +52,10 @@ const overviewMod = await import(`${W}overview.ts`)
 const table = await import(`${W}syngamyTable.ts`)
 const reportPdf = await import(`${W}syngamyPdf.ts`)
 const defectsMod = await import(`${W}defects.ts`)
+const barsMod = await import(`${W}bars.ts`)
+const withheldMod = await import(`${W}withheld.ts`)
+const buildInfo = readFileSync(new URL('../../originmarker/build_info.py', import.meta.url), 'utf8')
+const TOOL = `OriginMarker ${/VERSION = "([^"]+)"/.exec(buildInfo)?.[1]} (${/CODENAME = "([^"]+)"/.exec(buildInfo)?.[1]})`
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -60,8 +64,9 @@ if (existsSync(out)) {
     if (l.startsWith('{')) { const r = JSON.parse(l); done.add(`${r.id}|${r.tag}`) }
   }
 }
-const list = readFileSync(listFile, 'utf8').split('\n').filter(Boolean).map((l) => l.split('\t'))
-  .filter((_, i) => i % shards === shard)
+const lines = readFileSync(listFile, 'utf8').split('\n').filter(Boolean)
+const lineOf = new WeakMap<string[], number>()
+const list = lines.map((l, i) => { const f = l.split('\t'); lineOf.set(f, i + 1); return f }).filter((_, i) => i % shards === shard)
 
 const text = (p: string) => { const raw = readFileSync(p); return (p.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8') }
 function rows(path: string): any[] {
@@ -128,7 +133,8 @@ function calls(path: string): { get(id: string): string | undefined } {
   return m
 }
 
-for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
+for (const row of list) {
+  const [id, path, parentPath, tag, otherPath, role, others] = row
   if (done.has(`${id}|${tag}`)) continue
   try {
     const pat = parentIndex(parentPath)
@@ -232,7 +238,8 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
         if (!res.noParent && (maternal || res.role === 'maternal')) files.unshift({ name: 'oocyte', size: 1, sha256: '0'.repeat(64), role: 'oocyte', markers: 1 })
         const txt = Buffer.from(await (await reportPdf.buildReportPdf({
           files,
-          donorHeterozygosity: NaN, startedAt: null, generatedAt: '', tool: 'OriginMarker', reportId: 'GATE', fromExamples: false,
+          donorHeterozygosity: NaN, startedAt: null, generatedAt: '', tool: TOOL, reportId: 'GATE', fromExamples: false,
+          runArrays: (others ?? '').split(';').filter(Boolean).length,
         } as never)).arrayBuffer()).toString('latin1')
         // Every string the PDF draws, unescaped; a wrapped sentence is its lines joined by spaces.
         const strings = [...txt.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1]
@@ -254,6 +261,19 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
             || /^(LOST|GAINED):/.test(x)) : [],
           seenHeadings: s.list.notReported ? strings.filter((x) => x.endsWith(': readings seen on this array, not reported')).length : 0,
           changeBanner: (all.match(/Chromosomal change in 1 of 1 sample\(s\): (.*?)\. Coordinates/) ?? [])[1] ?? null }
+        // What the outputs print: the withheld count, the bars listed, the pages and their footers.
+        const input = { files, tool: TOOL, runArrays: (others ?? '').split(';').filter(Boolean).length }
+        const names = new Set(barsMod.BARS.map((b: any) => b.name))
+        out.outputs = {
+          withheldHeading: strings.find((x) => x.startsWith('Withheld, and why: ')) ?? null,
+          withheldRows: withheldMod.withheldRows(res, s.list).length,
+          barsListed: [...new Set(strings.filter((x) => names.has(x)))],
+          barsApplied: [...new Set(barsMod.barsApplied(reportPdf.reportSetup(input as never)).map((b: any) => b.name))],
+          barValues: barsMod.barsApplied(reportPdf.reportSetup(input as never)).map((b: any) => barsMod.barValue(b)),
+          typedTable: all.includes('Constants and where they come from'),
+          pages: (txt.match(/\/Type \/Page /g) ?? []).length,
+          footers: strings.filter((x) => x.includes(` | ${TOOL} | report `) && x.includes(' | page ')).length,
+        }
       }
       return out
     }

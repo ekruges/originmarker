@@ -65,6 +65,7 @@ import { ORIGIN_WORD, readingOf, split, stretchText, timeGroup } from './timing'
 import { stageFacts } from './stage'
 import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
+import { withheldHeading, withheldRows } from './withheld'
 import {
   addCandidateRow, candidateGenomes, emptyCandidateTallies, findParent, fatherSearchText, type ParentSearchText,
 } from './findParent'
@@ -1229,6 +1230,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             return mk ? <CallFigure mark={seenMark(g.word === 'not reported', { ...mk, sentence: callTitle(g) })} data={entry.series} marks={marks} name={plotName(entry)} /> : null
           }}
         />
+        <Withheld r={r} list={list} />
         <CellFigure data={entry.series} marks={marks} name={plotName(entry)} title={title}
           note={figureNote(list, drawnOf(r, defectsForResult(r)))} />
         <Group gap={12} align="center" mt={8}>
@@ -2241,6 +2243,21 @@ function LocusTest({ entries, donor, oocyte, log, onResult }: {
 
 
 /** What a citation needs and nothing else. The reasoning behind the numbers is in the PDF. */
+/** What this sample withheld, and why: every refusal and every row not reported, closed by default. */
+function Withheld({ r, list }: { r: ParentageResult; list: ChangeList }) {
+  const rows = withheldRows(r, list)
+  return (
+    <details style={{ fontSize: 12, marginTop: 8 }}>
+      <summary style={{ cursor: 'pointer', color: 'var(--om-text-dim)' }}>{withheldHeading(rows.length)}</summary>
+      {rows.map((w, i) => (
+        <div key={i} style={{ padding: '2px 0 2px 12px' }}>
+          <b>{w.what}</b>: {w.why}{w.measured ? ` (${w.measured})` : ''}
+        </div>
+      ))}
+    </details>
+  )
+}
+
 function RunInformation({ entries, startedAt, health, examples, father }: {
   entries: Entry[]
   startedAt: string | null

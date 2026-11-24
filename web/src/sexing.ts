@@ -58,7 +58,7 @@ export const Y_BAF_PRESENT = 0.75
 export const Y_BAF_ABSENT = 0.60
 
 /** A B allele fraction under this, or over one less it, sits at a pole: one allele. */
-const POLE = 0.15
+export const POLE = 0.15
 
 /** Every tenth autosomal marker measures how polarised this array's homozygous calls are. */
 const FLOOR_STRIDE = 10
