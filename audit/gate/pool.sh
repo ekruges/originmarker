@@ -21,6 +21,8 @@
 # covers its class's largest peak seen (POOL_JOB_GB where none is), with a tenth more, plus the
 # growth still to come of every running job, each counted up to its own class's peak.
 #
+# Disk: no job starts while the pool's disk has under POOL_DISK_GB free (default 3).
+#
 # Lanes: the next job is taken from the lane with the fewest starts for its weight. Jobs run
 # detached (setsid, where there is one) under nice 19 and outlive the scheduler.
 set -uo pipefail
@@ -36,6 +38,7 @@ touch "$P/peaks.tsv"
 DETACH=$(command -v setsid || true)
 
 avail_kb() { if [ -n "${POOL_FREE_KB:-}" ]; then echo "$POOL_FREE_KB"; else awk '/^MemAvailable:/{print $2}' /proc/meminfo; fi; }
+disk_gb() { if [ -n "${POOL_DISK_FREE_GB:-}" ]; then echo "$POOL_DISK_FREE_GB"; else df -Pk "$P" | awk 'NR==2{print int($4 / 1048576)}'; fi; }
 load1() { if [ -n "${POOL_LOAD:-}" ]; then echo "$POOL_LOAD"; elif [ -r /proc/loadavg ]; then cut -d' ' -f1 /proc/loadavg; else echo 0; fi; }
 alive() { [ -n "$1" ] && kill -0 "$1" 2>/dev/null; }
 class_of() { echo "${1##*/}" | sed -E 's/^(.*)__[0-9]+-[0-9]+-[0-9]{4}-(.*)\.job$/\1\/\2/; s/-[0-9]+$//'; }
@@ -135,7 +138,7 @@ case "${1:-}" in
       now=$(date +%s)
       j=$(next_job $(( $(avail_kb) - RESERVE_KB - grow )))
       if [ -n "$j" ] && [ "$n" -lt "$JOBS" ] && [ $((now - lastStart)) -ge "$GAP" ] \
-        && awk -v l="$(load1)" -v c="$JOBS" 'BEGIN{exit !(l < c)}'; then
+        && awk -v l="$(load1)" -v c="$JOBS" 'BEGIN{exit !(l < c)}' && [ "$(disk_gb)" -ge "${POOL_DISK_GB:-3}" ]; then
         if start "$j"; then lastStart=$now; continue; fi
       fi
       if [ -n "${POOL_DRAIN:-}" ] && [ "$n" -eq 0 ] && [ -z "$(next_job)" ]; then exit 0; fi
