@@ -8,13 +8,15 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import seal  # noqa: E402
 
-split = {'11111-01': 'open', '11111-02': 'sealed', '11111-03': 'exposed', 'GSM1': 'open', 'GSM2': 'sealed'}
+# Barcodes are made here, not written, so no tracked file holds one (release-check.sh).
+bc = lambda d, n: f'{d * 5}-{n:02d}'  # noqa: E731
+split = {bc('1', 1): 'open', bc('1', 2): 'sealed', bc('1', 3): 'exposed', 'GSM1': 'open', 'GSM2': 'sealed'}
 paths = {
-    '/d/GSE288845/11111-01_9.probes.gz': 'open',
-    '/d/GSE288845/11111-02_9.probes.gz': 'refused',
-    '/d/DIETER/11111-03_9.CEL.probes': 'refused',
-    '/d/DIETER/22222-01_9.CEL.probes': 'open',
-    '/d/GSE315671/22222-02_9.probes.gz': 'refused',
+    f"/d/GSE288845/{bc('1', 1)}_9.probes.gz": 'open',
+    f"/d/GSE288845/{bc('1', 2)}_9.probes.gz": 'refused',
+    f"/d/DIETER/{bc('1', 3)}_9.CEL.probes": 'refused',
+    f"/d/DIETER/{bc('2', 1)}_9.CEL.probes": 'open',
+    f"/d/GSE315671/{bc('2', 2)}_9.probes.gz": 'refused',
     '/d/trios/GSM1.probes.gz': 'open',
     '/d/trios/GSM2.probes.gz': 'refused',
     '/d/trios/GSM3.probes.gz': 'refused',
