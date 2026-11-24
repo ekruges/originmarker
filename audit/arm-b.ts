@@ -85,7 +85,7 @@ const op = await import(`${W}oneParentOrigin.ts`)
 const Q = op.DEFAULT_Q as number
 const DROP_IN = op.DROP_IN as number
 const POST = op.CALL_POSTERIOR as number
-const MIN_MARKERS = op.MIN_MARKERS as number
+const MIN_MARKERS = op.REGION_MIN_MARKERS as number
 
 /** Two hypotheses, one decision rule, whichever marker class supplies the counts. */
 function callTwo(het: number, n: number, pTwo: number, dropIn = DROP_IN) {

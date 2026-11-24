@@ -12,7 +12,7 @@
 //   siblings.
 import assert from 'node:assert/strict'
 import {
-  callSiblingOrigin, expectedPhi, hetRule, DROP_IN, PHI_WALL, CALL_POSTERIOR, MIN_MARKERS,
+  callSiblingOrigin, expectedPhi, hetRule, DROP_IN, PHI_WALL, CALL_POSTERIOR, SISTER_MIN_MARKERS,
   MIN_SIBLINGS, type AB,
 } from './siblingOrigin.ts'
 
@@ -80,7 +80,7 @@ const phased = (obs: AB[], sibs: number, ado = 0.308) =>
 
   assert.equal(phased(rep('BB', 5), 4).hypothesis, 'refused',
     'too few markers is a refusal')
-  assert.ok(phased(rep('BB', 5), 4).why.includes(String(MIN_MARKERS)))
+  assert.ok(phased(rep('BB', 5), 4).why.includes(String(SISTER_MIN_MARKERS)))
 
   // Past the wall, no marker count rescues the reference-copy-lost arm.
   const past = callSiblingOrigin(rep('BB', 5000), 3, 0.308, 0.45, undefined, true)

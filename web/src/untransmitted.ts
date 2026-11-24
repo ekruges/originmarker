@@ -169,7 +169,7 @@ export const BAND_BPH = 2 / 3
 export const BAND_SPH_LOW = 1 / 3
 export const BAND_SPH_HIGH = 1.0
 /** Half-width around a band centre. Wide, since only the OCCUPANCY has to be right. */
-export const BAND_HALF_WIDTH = 0.12
+export const TRISOMY_BAND_HALF_WIDTH = 0.12
 /** Markers below which the occupancy statistic is not attempted. AUC reaches 1.000 from here. */
 export const MIN_MARKERS_MECHANISM = 400
 
@@ -211,7 +211,7 @@ export function callMechanism(
         + 'nothing',
     }
   }
-  const w = opts.halfWidth ?? BAND_HALF_WIDTH
+  const w = opts.halfWidth ?? TRISOMY_BAND_HALF_WIDTH
   let bph = 0
   let sph = 0
   let n = 0

@@ -73,7 +73,7 @@ export const PHI_WALL = 0.15
 export const CALL_POSTERIOR = 0.95
 
 /** Fewest informative markers before a region is scored at all. */
-export const MIN_MARKERS = 20
+export const SISTER_MIN_MARKERS = 20
 
 /** Fewest event-free sibling cells that can establish heterozygosity. */
 export const MIN_SIBLINGS = 2
@@ -190,10 +190,10 @@ export function callSiblingOrigin(
         + 'past which the reference-copy-lost hypothesis is unresolvable at any marker count',
     }
   }
-  if (used.length < MIN_MARKERS) {
+  if (used.length < SISTER_MIN_MARKERS) {
     return {
       ...base, hypothesis: 'refused', posterior: NaN,
-      why: `${used.length} informative markers is under the ${MIN_MARKERS} this needs`,
+      why: `${used.length} informative markers is under the ${SISTER_MIN_MARKERS} this needs`,
     }
   }
 

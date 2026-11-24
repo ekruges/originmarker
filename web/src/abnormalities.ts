@@ -249,7 +249,7 @@ export const COMPLEX_CALL_RATE = 0.70
 /** Allele-fraction bands a triploid genome occupies, and the one it vacates. */
 export const TRIPLOID_BANDS = [1 / 3, 2 / 3] as const
 export const DIPLOID_BAND = 0.5
-export const BAND_HALF_WIDTH = 0.08
+export const PLOIDY_BAND_HALF_WIDTH = 0.08
 /** Occupancy at the two triploid bands, above which a third set is present. */
 export const TRIPLOID_OCCUPANCY = 0.30
 /** Occupancy at the half band, below which a diploid genome is excluded. */
@@ -535,7 +535,7 @@ export function detectTriploidy(
   opts: { minMarkers?: number; halfWidth?: number; occupancy?: number; vacated?: number } = {},
 ): Finding | null {
   const need = opts.minMarkers ?? MIN_MARKERS_PLOIDY
-  const w = opts.halfWidth ?? BAND_HALF_WIDTH
+  const w = opts.halfWidth ?? PLOIDY_BAND_HALF_WIDTH
   const usable = bafs.filter((b) => Number.isFinite(b) && b > 0.1 && b < 0.9)
   if (usable.length < need) return null
   let tri = 0
@@ -758,7 +758,7 @@ export function callTriploidyOrigin(
   opts: { minMarkers?: number; halfWidth?: number } = {},
 ): { origin: TriploidyOrigin; atTwoThirds: number; atOneThird: number; markers: number; why: string } {
   const need = opts.minMarkers ?? MIN_MARKERS_TRIPLOID_ORIGIN
-  const w = opts.halfWidth ?? BAND_HALF_WIDTH
+  const w = opts.halfWidth ?? PLOIDY_BAND_HALF_WIDTH
   let two = 0
   let one = 0
   let n = 0

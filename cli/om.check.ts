@@ -20,7 +20,7 @@ import {
   BAND_DIPLOID_CERTAIN,
 } from '../web/src/stage.ts'
 import {
-  callOneParentOrigin, MIN_MARKERS, MAX_REGION_HET, CALL_POSTERIOR, DEFAULT_Q, GENOTYPE_ERROR,
+  callOneParentOrigin, REGION_MIN_MARKERS, MAX_REGION_HET, CALL_POSTERIOR, DEFAULT_Q, GENOTYPE_ERROR,
   DROP_IN,
 } from '../web/src/oneParentOrigin.ts'
 import type { AB } from '../web/src/informativity.ts'
@@ -60,7 +60,7 @@ const pairs = (n: number, f: (i: number) => [AB, AB]): [AB, AB][] =>
     assert.deepEqual(
       callOneParentOrigin(c, 0.20),
       callOneParentOrigin(c, 0.20, DEFAULT_Q, GENOTYPE_ERROR, DROP_IN, {
-        minMarkers: MIN_MARKERS, maxRegionHet: MAX_REGION_HET, callPosterior: CALL_POSTERIOR,
+        minMarkers: REGION_MIN_MARKERS, maxRegionHet: MAX_REGION_HET, callPosterior: CALL_POSTERIOR,
       }),
       'the shipped constants passed explicitly must equal passing nothing',
     )

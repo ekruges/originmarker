@@ -82,7 +82,7 @@ const SPECS: Spec[] = [
   ['abnormalities.ts', 'COMPLEX_DEVIANT_FRACTION', 'Share of autosomes changed at or over which the sample is not reportable.'],
   ['abnormalities.ts', 'COMPLEX_CALL_RATE', 'Call rate under which the sample is not reportable.'],
   ['abnormalities.ts', 'DIPLOID_BAND', 'Centre of the allele-fraction band a diploid genome fills.'],
-  ['abnormalities.ts', 'BAND_HALF_WIDTH', 'Half-width of the allele-fraction bands read for ploidy.'],
+  ['abnormalities.ts', 'PLOIDY_BAND_HALF_WIDTH', 'Half-width of the allele-fraction bands read for ploidy.'],
   ['abnormalities.ts', 'TRIPLOID_OCCUPANCY', 'Occupancy of the two triploid bands over which a third genome is present.'],
   ['abnormalities.ts', 'DIPLOID_VACATED', 'Occupancy of the half band under which a diploid genome is excluded.'],
   ['abnormalities.ts', 'MIN_MARKERS_PLOIDY', 'Fewest markers before ploidy is read from the bands.', undefined, 'markers'],
@@ -147,7 +147,7 @@ const SPECS: Spec[] = [
   ['oneParentOrigin.ts', 'DROPIN_CEILING', 'Top of the measured drop-in range a region\'s heterozygosity is sized against.', ONE],
   ['oneParentOrigin.ts', 'MAX_REGION_HET', 'Heterozygosity over which a region is not scored for a missing copy, one parent loaded.', ONE],
   ['oneParentOrigin.ts', 'CALL_POSTERIOR', 'Posterior a hypothesis must reach before the genotype channel calls a region.', P],
-  ['oneParentOrigin.ts', 'MIN_MARKERS', 'Fewest informative markers before the genotype channel scores a region.', P, 'markers'],
+  ['oneParentOrigin.ts', 'REGION_MIN_MARKERS', 'Fewest informative markers before the genotype channel scores a region.', P, 'markers'],
   // oneParentState.ts
   ['oneParentState.ts', 'COMMON_ALLELE_MIN', 'Founder frequency at or over which the allele the parent lacks is common enough to read a copy by.', P],
   ['oneParentState.ts', 'MIN_SHARE_MARKERS', 'Markers needed in each set before a chromosome\'s copy state is read.', P, 'markers'],
@@ -253,7 +253,7 @@ const SPECS: Spec[] = [
   // siblingOrigin.ts
   ['siblingOrigin.ts', 'PHI_WALL', 'False-heterozygote share over which no sister-referenced call is made.', RUN],
   ['siblingOrigin.ts', 'CALL_POSTERIOR', 'Posterior a sister-referenced call must reach.', RUN],
-  ['siblingOrigin.ts', 'MIN_MARKERS', 'Fewest informative markers before a sister-referenced region is scored.', RUN, 'markers'],
+  ['siblingOrigin.ts', 'SISTER_MIN_MARKERS', 'Fewest informative markers before a sister-referenced region is scored.', RUN, 'markers'],
   ['siblingOrigin.ts', 'MIN_SIBLINGS', 'Fewest other cells of the run before a sister-referenced call.', RUN],
   // stage.ts
   ['stage.ts', 'ALLELE_PLOIDY_MIN_STATED', 'Chromosomes stating a copy state before the alleles say how many genomes are present.', P],
@@ -267,7 +267,7 @@ const SPECS: Spec[] = [
   // timing.ts
   ['timing.ts', 'SAME_BREAK_BP', 'Breakpoints closer than this are one, when cells of one embryo are compared.', RUN, 'bp'],
   // untransmitted.ts
-  ['untransmitted.ts', 'BAND_HALF_WIDTH', 'Half-width around a trisomy band centre.', P],
+  ['untransmitted.ts', 'TRISOMY_BAND_HALF_WIDTH', 'Half-width around a trisomy band centre.', P],
   ['untransmitted.ts', 'MIN_MARKERS_MECHANISM', 'Fewest markers before the mechanism of an extra copy is read.', P, 'markers'],
 ]
 

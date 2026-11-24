@@ -229,7 +229,7 @@ export function reportedConfidence(
 }
 
 /** Fewest informative markers before a region is scored. */
-export const MIN_MARKERS = 50
+export const REGION_MIN_MARKERS = 50
 
 /**
  * Heterozygosity above which the region's genotypes are not measuring it, and no verdict is issued.
@@ -359,7 +359,7 @@ export function callOneParentOrigin(
     systematicErrorBound?: number,
   } = {},
 ): OneParentCall {
-  const minMarkers = opts.minMarkers ?? MIN_MARKERS
+  const minMarkers = opts.minMarkers ?? REGION_MIN_MARKERS
   const maxRegionHet = opts.maxRegionHet ?? MAX_REGION_HET
   const callPosterior = opts.callPosterior ?? CALL_POSTERIOR
   let n = 0
