@@ -263,12 +263,19 @@ for (const job of jobs) {
     }
     return nullCache.get(k)!
   }
+  // Each reference list's median and scaled MAD, made once per list: the lists are fixed once built.
+  const centres = new WeakMap<number[], [number, number]>()
+  const centre = (xs: number[]): [number, number] => {
+    let c = centres.get(xs)
+    if (!c) { const m = median(xs); c = [m, mad(xs, m)]; centres.set(xs, c) }
+    return c
+  }
   /** A stretch in the cell's own units: z against the reference stretches of its span class. */
   const zOf = (v: Read, span: number, not: string) => {
     const s = refOf(span, not)
-    const z = (x: number, xs: number[]) => { if (xs.length < 8 || !Number.isFinite(x)) return null; const m = median(xs); return r4((x - m) / mad(xs, m)) }
+    const z = (x: number, xs: number[]) => { if (xs.length < 8 || !Number.isFinite(x)) return null; const [m, d] = centre(xs); return r4((x - m) / d) }
     return { zI: z(v.lrr, s.lrr), zMean: xp ? z(v.mean, s.mean) : null, zShare: xp ? z(v.share, s.share) : null,
-      refLrr: r4(median(s.lrr)), refMean: xp ? r4(median(s.mean)) : null, refShare: xp ? r4(median(s.share)) : null }
+      refLrr: r4(centre(s.lrr)[0]), refMean: xp ? r4(centre(s.mean)[0]) : null, refShare: xp ? r4(centre(s.share)[0]) : null }
   }
   const readOut = (v: Read, span: number, not: string) => ({ n: v.n, lrr: r4(v.lrr), xn: v.xn, mean: r4(v.mean), share: r4(v.share),
     span, ...zOf(v, span, not) })
