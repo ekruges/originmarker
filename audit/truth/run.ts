@@ -215,7 +215,13 @@ for (const [id, path, parentPath, tag, otherPath, role, others] of list) {
           bar: strings.includes(`${s.head.word}${pageSays.countText(s.list)}`),
           sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome))) : null,
           inferred: all.includes('inferred from paternal absence'), noParentLine: all.includes('sample no parent loaded'),
-          vsDonor: all.includes('sample vs donor') }
+          vsDonor: all.includes('sample vs donor'),
+          noParentMethods: all.includes('No parental array was supplied.'),
+          inferMethods: all.includes('No oocyte donor array was supplied. A maternal origin below is therefore inferred'),
+          pairedMethods: all.includes('An oocyte donor array was supplied'),
+          donorText: (all.match(/.{0,40}(sperm donor's|donor's obligate|inferred from).{0,40}/g) ?? []),
+          findingsBanner: all.includes('Findings, neither a gain nor a loss, in 1 of 1 sample(s)'),
+          changeBanner: (all.match(/Chromosomal change in 1 of 1 sample\(s\): (.*?)\. Coordinates/) ?? [])[1] ?? null }
       }
       return out
     }
