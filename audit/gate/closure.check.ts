@@ -67,7 +67,7 @@ assert.throws(() => hashOf({ 'audit/e.ts': `import { f } from '../web/src/gone.t
   const prog = { ...BASE, 'web/src/a.ts': BASE['web/src/a.ts'] + `
 export function rare(n: number) { return n > 1e9 ? h() : 0 }
 export const LIMIT = 3` }
-  prog['audit/e.ts'] = prog['audit/e.ts'] + '\nconsole.log(rare(LIMIT))'
+  prog['audit/e.ts'] = prog['audit/e.ts'].replace('import { f }', 'import { f, rare, LIMIT }') + '\nconsole.log(rare(LIMIT))'
   const ran = new Set(['web/src/a.ts#f', 'web/src/a.ts#g', 'web/src/a.ts#rare', 'web/src/b.ts#x'])
   const at = (over: Record<string, string> = {}) => closure('audit/e.ts', ['audit/e.ts'], mem({ ...prog, ...over }), ran).hash
   const g0 = at()
