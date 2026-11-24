@@ -41,4 +41,23 @@ echo $(( $(date +%s) - 100 )) > "$POOL_DIR/running/a__lost.job.claimed"
 POOL_DRAIN=1 bash "$POOL" run
 grep -q lost "$T/ran" && fail "a claimed job was started again"
 [ "$(cat "$POOL_DIR/done/a__lost.job.exit")" = LOST ] || fail "a claimed job not marked LOST"
+# Weights: a lane of weight 2 gets two starts for each of a lane of weight 1.
+export POOL_DIR=$T/pool2
+for lane in w1 w2; do
+  : > "$T/q-$lane"; for i in $(seq 1 6); do printf '%s%s\t%s\ttrue\n' "$lane" "$i" "$T" >> "$T/q-$lane"; done
+  bash "$POOL" submit "$lane" "$T/q-$lane" > /dev/null
+done
+bash "$POOL" priority w2 2 > /dev/null
+POOL_JOBS=1 POOL_DRAIN=1 bash "$POOL" run
+order=$(awk '{print $4}' "$POOL_DIR/pool.log" | head -6 | tr -d '\n')
+[ "$(echo "$order" | grep -o w2 | wc -l)" -eq 4 ] || fail "weights not kept: $order"
+
+# Memory: a class whose measured peak does not fit is held; one that fits starts.
+export POOL_DIR=$T/pool3
+printf 'big\t%s\tsleep 0\nsmall\t%s\tsleep 0\n' "$T" "$T" > "$T/q-m"
+bash "$POOL" submit m "$T/q-m" > /dev/null
+printf 'm/big\t5000000\n' >> "$POOL_DIR/peaks.tsv"
+POOL_FREE_KB=4194304 POOL_RESERVE_GB=1 POOL_JOB_GB=1 timeout 8 bash "$POOL" run
+grep -q 'start m small' "$POOL_DIR/pool.log" || fail "a job that fits was not started"
+grep -q 'start m big' "$POOL_DIR/pool.log" && fail "a job larger than the memory left was started"
 echo "pool checks pass"
