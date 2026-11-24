@@ -9,6 +9,44 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.25.0 "Breakpoint"
+
+**An origin word belongs to a stretch of DNA, not to the shape of a call.** When a change came
+from the gamete or arose after fertilisation was read once per call, so two cells of one embryo
+could print two words for one stretch: one cell printed chromosome 17 as one whole loss, "after
+fertilisation", while its sister printed a loss over the first 52.6 Mb, "consistent with the
+gamete (two cells read)", and a gain over the rest. Origin is now read on the stretches cut by the
+breakpoints of all the cells of the embryo, edges under 1 Mb apart taken as one breakpoint, so
+one stretch prints one word in every cell. A call over stretches that read differently gives each
+stretch its own line in the opened row, the report's timing table and the changes download (new
+column `when_it_arose`), named as part of the call ("chr17 0.0 to 52.6 Mb, part of the
+whole-chromosome loss"); its figure heading says the origin is read by stretch, and the overview
+counts it as read differently. On the lab cohort and the 31 published cells, stretches printing two
+words in two cells of one embryo went from 2 to 0; the calls that moved were the 7 named before
+the run, and none reads opposite to the papers.
+
+**Origin is read among reportable cells only.** A sample not reportable prints no origin word on
+any row, and is not counted as a cell that carries or lacks a change when its sisters are read: a
+cell whose normal level cannot be told cannot show that it shares a loss. 23 calls lose their
+word, all named before the run: Table S2 rows 96 and 97 (row 96 not reportable, row 97 left as one
+reportable cell) and one pair of published cells. Calls reading "consistent with the gamete"
+went from 180 to 158, "after fertilisation" from 10 to 8, "from the gamete" stayed at 3.
+
+**The sister test never pairs a haploid cell with a diploid one.** It admitted three pairs of a
+cell staged haploid with diploid cells of the published series, and four such pairs on the lab
+cohort. It now admits 10 pairs on the published cells (was 13) and 183 on the lab cohort (was
+187), and gains and loses nothing else.
+
+**Three display corrections.** A whole-chromosome figure heading prints no span: with no parent
+its end was 0, so it read "Whole chromosome 17 (0 Mb)". The run log of a sample not reportable
+prints its gains, losses and stretches with the seen words, never "copy missing" or a parent, on
+all 172 such records. Where a whole-chromosome call was withdrawn after the chromosome was read,
+the chromosome table no longer prints the withdrawn "LOST: ..."; it names the pieces the change
+list holds ("not called whole: read in pieces, loss 0.0 to 52.6 Mb, gain 52.6 to 78.4 Mb"), on 179
+chromosomes of 79 records.
+
+---
+
 ## 6.24.0 "Euploid"
 
 **A change is a gain or a loss.** With no parent loaded the result card counted every row as a
