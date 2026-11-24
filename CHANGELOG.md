@@ -9,6 +9,26 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.25.1 "Breakpoint"
+
+**Nothing the tool reads or reports changes.** The audit runner is faster, and the known-answer
+harness is now in the repository.
+
+The audit runner (`audit/truth/run.ts`) now writes the page's sister reading over each row's run,
+with the result's `copyReference`, and scores each array of a run once: an array that has its own
+row later in the shard is scored as that row and its record kept, and a row reads only the pairs
+that include it (`sisterGainsFor` in `web/src/sisterGain.ts`, the same loop the page's
+`sisterGains` now runs for each cell, with identical output). On two lab experiments read with their
+runs, 27 arrays took 56:40 before and 13:24 after, and 21 arrays 30:29 and 9:24, with every record
+identical. On the 330 no-parent rows, the 252 rows with a parent and the 271 lab rows, every field
+the runner wrote before is identical to the unchanged runner on 6.25.0.
+
+The known-answer harness (`audit/validate/known-answer.ts` and `known-answer-run.ts`), which builds
+gains and losses at known places and amounts into real cells and scores them with the shipped
+`scoreSample`, was run from copies outside the repository; it is now tracked.
+
+---
+
 ## 6.25.0 "Breakpoint"
 
 **An origin word belongs to a stretch of DNA, not to the shape of a call.** When a change came
