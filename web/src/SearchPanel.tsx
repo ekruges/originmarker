@@ -4,7 +4,7 @@ import {
   NumberInput, Paper, SegmentedControl, Select, Text, TextInput, Tooltip, useCombobox,
 } from '@mantine/core'
 import {
-  ANCESTRIES, api, ApiError, MATERIALS, PRIMER_DOCS, type Health, type Material, type NLResponse, type PrimerBuild,
+  ANCESTRIES, api, ApiError, MATERIALS, queryProblem, PRIMER_DOCS, type Health, type Material, type NLResponse, type PrimerBuild,
   type StructuredQuery,
 } from './api'
 import { clearHistory, forgetQuery, readHistory, recordQuery, type Entry } from './history'
@@ -98,6 +98,9 @@ interface Props {
    *  and nothing is uploaded at any point. */
   onCarrierFile?: (f: File | null) => void
   carrierFile?: File | null
+  /** The manual form's knobs as they stand, or null in search mode, so the page can tell a
+   *  build that no longer matches the form. */
+  onDraft?: (q: StructuredQuery | null) => void
 }
 
 let lastMode: Mode = 'search'
@@ -113,7 +116,7 @@ let lastQ: ManualQuery = {
 }
 
 export function SearchPanel({
-  health, busy, onResolve, hero = false, onCarrierFile, carrierFile,
+  health, busy, onResolve, hero = false, onCarrierFile, carrierFile, onDraft,
 }: Props) {
   // Kept outside the component: the page swaps one search box for another between the home
   // view and the results view, and the mode the user chose must survive that.
@@ -217,8 +220,15 @@ export function SearchPanel({
     }
   }
 
+  const [formError, setFormError] = useState<string | null>(null)
+  useEffect(() => {
+    onDraft?.(mode === 'manual' ? { ...q, gene: q.gene.trim() || null, variant: q.variant.trim() } : null)
+  }, [mode, q, onDraft])
+
   const submitManual = () => {
     if (!q.variant.trim()) return
+    setFormError(queryProblem(q))
+    if (queryProblem(q)) return
     onResolve({
       variant: q.variant.trim(),
       gene: q.gene.trim() || null,
@@ -374,7 +384,8 @@ export function SearchPanel({
                 style={{ width: '100%' }}
                 className={hero ? 'om-hero-input' : undefined}
                 classNames={{ input: 'om-mono' }}
-                aria-label="Variant: HGVS, rsID, or free text"
+                aria-label={health?.nl_enabled ? 'Variant: HGVS, rsID, or free text'
+                  : 'Variant: HGVS or rsID, optionally with a window, ancestry or frequency floor'}
                 value={text}
                 disabled={busy}
                 onChange={(e) => {
@@ -501,7 +512,8 @@ export function SearchPanel({
             </Group>
 
             <Text size="xs" c="dimmed" mt={4}>
-              HGVS with a transcript (NM_…:c.…){health?.nl_enabled ? ', an rsID, or the variant described in words.' : ' or an rsID.'}
+              HGVS with a transcript (NM_…:c.…){health?.nl_enabled ? ', an rsID, or the variant described in words.'
+                : ' or an rsID, optionally followed by a window, an ancestry or a frequency floor in words.'}
             </Text>
 
             {nlError && (
@@ -597,6 +609,11 @@ export function SearchPanel({
                 Panels are computed on GRCh38. A GRCh37 position is converted via ClinVar's assembly
                 mapping and the conversion is labelled on the resolved variant.
               </Text>
+            )}
+            {formError && (
+              <Alert color="red" mt={6} title="Not resolved" role="alert">
+                <Text size="xs">{formError}</Text>
+              </Alert>
             )}
 
             {/* The carrier's genotypes, chosen alongside the query rather than after the

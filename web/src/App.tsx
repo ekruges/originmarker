@@ -4,7 +4,7 @@ import {
   Select, Skeleton, Text,
 } from '@mantine/core'
 import {
-  ANCESTRIES, api, ApiError, asLogLine, withNlProvenance, type Health, type JobStatus,
+  ANCESTRIES, api, ApiError, asLogLine, MATERIALS, queryProblem, withNlProvenance, type Health, type JobStatus,
   type LogLine, type NLResponse, type PanelRequest, type PanelResult, type ResolveResponse,
   type StructuredQuery,
 } from './api'
@@ -46,6 +46,9 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState<PanelRequest | null>(null)
+  // The manual form as it stands (null in search mode): applied to the build, and read against
+  // the panel on screen to say when it no longer matches.
+  const [draft, setDraft] = useState<StructuredQuery | null>(null)
   // Held here, not in SearchPanel: that component unmounts when the landing view collapses
   // into the results view, and the model-chosen-variant caveat has to outlive it.
   const [nl, setNl] = useState<NLResponse | null>(null)
@@ -171,8 +174,19 @@ export default function App() {
   // `q` becomes the stored query: `query` must describe the panel actually on screen, or
   // the next build reverts to the previous parameters.
   const buildPanel = useCallback(async (q?: PanelRequest) => {
-    const use = q ?? query
+    let use = q ?? query
     if (!use) return
+    // The build takes the form's knobs as they stand; a changed variant or build needs a resolve.
+    if (!q && draft) {
+      if (draft.variant !== use.variant || (draft.build ?? 'GRCh38') !== (use.build ?? 'GRCh38')) {
+        setError('The variant or build in the form has changed since it was resolved. Resolve again to build for it.')
+        return
+      }
+      use = { ...use, window_bp: draft.window_bp, common_maf: draft.common_maf, material: draft.material,
+        ancestry: draft.ancestry, cross_check: draft.cross_check, gene: draft.gene }
+    }
+    const problem = queryProblem(use)
+    if (problem) { setError(problem); return }
     setQuery(use)
     setPhase('building')
     setError(null)
@@ -251,7 +265,7 @@ export default function App() {
         }
       } catch { /* transient failure; keep polling */ }
     }, 3000)
-  }, [query, settle])
+  }, [query, draft, settle])
 
   /** Ask UCSC whether each pair gives one product. Deliberate, never automatic.
    *
@@ -395,6 +409,7 @@ export default function App() {
                     onResolve={doResolve}
                     onCarrierFile={setCarrierFile}
                     carrierFile={carrierFile}
+                    onDraft={setDraft}
                     hero
                   />
                 </div>
@@ -420,6 +435,7 @@ export default function App() {
                 onResolve={doResolve}
                 onCarrierFile={setCarrierFile}
                 carrierFile={carrierFile}
+                onDraft={setDraft}
               />
             )}
 
@@ -495,9 +511,17 @@ export default function App() {
                 <Text size="xs" c="dimmed">
                   {int(prov.candidate_n)} candidates · {result.recommended.length} shortlisted ·
                   window ±{int(prov.window_bp)} bp · MAF ≥ {prov.common_maf}
+                  {prov.marker_count ? ` · built for ${materialName(prov.marker_count.material)}` : ''}
                   {typeof prov.elapsed_s === 'number' ? ` · built in ${prov.elapsed_s.toFixed(1)} s` : ''}
                 </Text>
               </Group>
+              {staleAgainst(result, draft) && (
+                <Alert color="yellow" variant="light" mx={8} mt={8} title="The form no longer matches this panel">
+                  <Text size="xs">
+                    This panel was built for {staleAgainst(result, draft)}. Build again to apply the form.
+                  </Text>
+                </Alert>
+              )}
               <Group p={8} gap={8} wrap="wrap" align="flex-end">
                 <Select
                   size="xs"
@@ -701,6 +725,20 @@ function ResultProvenance({ result }: { result: PanelResult }) {
   )
 }
 
+const materialName = (v: string) => MATERIALS.find((m) => m.value === v)?.label ?? v
+
+/** What the panel on screen was built for, where the manual form now asks for something else;
+ *  null where they agree or there is no form to compare. */
+function staleAgainst(result: PanelResult, draft: StructuredQuery | null): string | null {
+  const p = result.provenance
+  const mat = p.marker_count?.material
+  if (!draft || draft.variant !== result.variant.query) return null
+  const same = draft.window_bp === p.window_bp && draft.common_maf === p.common_maf
+    && (!mat || draft.material === mat)
+  return same ? null
+    : `${mat ? materialName(mat) : 'the material it names'}, window ±${int(p.window_bp)} bp, lowest frequency ${p.common_maf}`
+}
+
 function Coverage({ result }: { result: PanelResult }) {
   const { coverage: c, recommended } = result
   // Not every flag is a coverage flag: hotspot flags fire with both sides fully covered,
@@ -740,7 +778,8 @@ function Coverage({ result }: { result: PanelResult }) {
         {/* Labelled by coordinate, not by arm: the engine's tel_/cen_ field names do not
             track which flank runs toward the telomere. That depends on the centromere
             position, which nothing here looks up. */}
-        {[result.provenance.marker_count?.note, result.provenance.chip?.note]
+        {[result.provenance.marker_count?.note, result.provenance.marker_count?.shortlist_note,
+          result.provenance.chip?.note]
           .filter(Boolean).map((t) => <Text key={t} size="xs" mb={6}>{t}</Text>)}
         <Group gap={24} wrap="wrap">
           <SideStat

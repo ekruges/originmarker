@@ -69,6 +69,9 @@ PRIMER_SCOPES = ("starred", "recommended", "none")
 # The material a panel query names when it names none: the one whose markers read least often,
 # so a query naming none never asks for too few. The owner's call.
 DEFAULT_MATERIAL = "single_cell"
+# The ranges a query is held to. The page mirrors them (web/src/api.ts QUERY_LIMITS).
+WINDOW_MIN, WINDOW_MAX = 1_000, 2_000_000
+MAF_FLOOR_MAX = 0.5
 CACHE_DIR = Path(os.environ.get("PANELBUILDER_CACHE", ".panelbuilder_cache"))
 # A week, because ClinVar publishes weekly. 0 disables expiry, which the offline fixture
 # suite needs: there the cache is the source of truth.
@@ -519,18 +522,21 @@ class StructuredQuery:
             raise ValueError("StructuredQuery.variant is required")
         if self.build not in ("GRCh38", "GRCh37"):
             raise ValueError(f"unsupported build {self.build!r} (R6)")
-        if not 1_000 <= self.window_bp <= 2_000_000:
-            raise ValueError(f"window_bp out of range: {self.window_bp}")
-        if not 0.0 <= self.common_maf < 0.5:
-            raise ValueError(f"common_maf out of range: {self.common_maf}")
+        if not WINDOW_MIN <= self.window_bp <= WINDOW_MAX:
+            raise ValueError(f"The window each side must be {WINDOW_MIN:,} to {WINDOW_MAX:,} base "
+                             f"pairs; {self.window_bp:,} was asked.")
+        if not 0.0 <= self.common_maf < MAF_FLOOR_MAX:
+            raise ValueError(f"The lowest allele frequency counted as common must be at least 0 "
+                             f"and under {MAF_FLOOR_MAX}; {self.common_maf} was asked.")
         if self.ancestry:
             self.ancestry = self.ancestry.upper()
             if self.ancestry not in GNOMAD_POPS.values():
                 raise ValueError(f"unknown ancestry {self.ancestry!r}; "
                                  f"expected one of {sorted(GNOMAD_POPS.values())}")
         if self.material not in MATERIALS:
-            raise ValueError(f"unknown material {self.material!r}; expected one of "
-                             f"{sorted(MATERIALS)}")
+            raise ValueError(f"The material tested must be one of: "
+                             f"{', '.join(m['name'] for m in MATERIALS.values())}; "
+                             f"{self.material!r} was asked.")
         if self.primer_scope not in PRIMER_SCOPES:
             raise ValueError(f"unknown primer_scope {self.primer_scope!r}; expected one of "
                              f"{sorted(PRIMER_SCOPES)}")
@@ -1349,15 +1355,25 @@ FLANKING_CRITERIA = {
 # the same sites, 74% of a line's sites against 2.8% if they failed apart
 # (audit/truth/panel-recur-2026-11-25.txt). So it is never called drop-out.
 MATERIALS = {
-    "bulk": {"label": "bulk DNA", "read": 0.9186, "no_call": 0.0339, "arrays": 16},
-    "biopsy": {"label": "a trophectoderm biopsy", "read": 0.8074, "no_call": 0.1203, "arrays": 8},
-    "single_cell": {"label": "a single cell", "read": 0.4561, "no_call": 0.3167, "arrays": 14},
+    "bulk": {"label": "bulk DNA", "name": "bulk DNA", "read": 0.9186, "no_call": 0.0339, "arrays": 16},
+    "biopsy": {"label": "a trophectoderm biopsy", "name": "trophectoderm biopsy", "read": 0.8074, "no_call": 0.1203, "arrays": 8},
+    "single_cell": {"label": "a single cell", "name": "single cell", "read": 0.4561, "no_call": 0.3167, "arrays": 14},
 }
 for _m in MATERIALS.values():
     _m["one_allele"] = round(1 - _m["read"] - _m["no_call"], 4)
 # The chance that at least ESHRE_MIN_PER_SIDE markers read: the tool's error budget elsewhere,
 # alpha 0.05 (origin.r_min). Not from a paper; the owner's call.
 READ_CHANCE = 0.95
+
+
+# The shortlist's distance bands from the variant, in bp, and how many it takes from each per side.
+SHORTLIST_BANDS = ((0, 2_000), (2_000, 10_000), (10_000, 30_000), (30_000, 80_000),
+                   (80_000, 10**12))
+SHORTLIST_PER_BAND = 2
+
+
+def _kb(bp: int) -> str:
+    return f"{bp // 1000} kb" if bp else "0"
 
 
 def _at_least(n: int, k: int, p: float) -> float:
@@ -1382,16 +1398,26 @@ def marker_count(material: str) -> dict:
     The page and the exports print `note` verbatim."""
     m = MATERIALS[material]
     n = markers_per_side(m["read"])
+    reached = round(_at_least(n, ESHRE_MIN_PER_SIDE, m["read"]), 4)
     note = (f"{n} markers asked on each side. In {m['label']}, of the markers that should read as "
             f"two alleles, {m['read']:.1%} did, {m['no_call']:.1%} had no call and "
             f"{m['one_allele']:.1%} read as one allele: {m['arrays']} arrays of the lab chip's "
             f"public series GSE148488, at sites where the two parents' arrays are opposite "
             f"homozygotes. With {n} on a side, at least {ESHRE_MIN_PER_SIDE} read with a chance of "
-            f"{_at_least(n, ESHRE_MIN_PER_SIDE, m['read']):.1%}. ESHRE recommends at least "
-            f"{ESHRE_MIN_PER_SIDE} readable markers on each side.")
+            f"{reached:.1%}. ESHRE recommends at least {ESHRE_MIN_PER_SIDE} readable markers on "
+            f"each side.")
+    bands = ", ".join(f"{_kb(lo)} to {_kb(hi)}" if hi < 10**12 else f"beyond {_kb(lo)}"
+                      for lo, hi in SHORTLIST_BANDS)
+    shortlist = (f"The shortlist takes up to {SHORTLIST_PER_BAND} markers from each of "
+                 f"{len(SHORTLIST_BANDS)} distance bands on each side ({bands} from the variant); "
+                 f"a side left with fewer than {n} gets more in rank order until it has {n}. "
+                 + (f"So a side can hold up to {top}, more than the {n} asked."
+                    if (top := SHORTLIST_PER_BAND * len(SHORTLIST_BANDS)) > n
+                    else f"So a side holds {n} where the window has that many."))
     return {"material": material, "label": m["label"], "per_side": n, "read": m["read"],
             "no_call": m["no_call"], "one_allele": m["one_allele"], "arrays": m["arrays"],
-            "must_read": ESHRE_MIN_PER_SIDE, "chance": READ_CHANCE, "note": note}
+            "must_read": ESHRE_MIN_PER_SIDE, "chance_aimed": READ_CHANCE,
+            "chance_reached": reached, "note": note, "shortlist_note": shortlist}
 
 
 # The lab's chip, the one the tool reads (web/src/platform.ts PROVEN_CHIP). Its probes as the
@@ -1516,7 +1542,7 @@ def _ranking_key_label(ancestry: Optional[str]) -> str:
 
 
 def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
-                 per_bin: int = 2, per_side: int = ESHRE_MIN_PER_SIDE
+                 per_bin: int = SHORTLIST_PER_BAND, per_side: int = ESHRE_MIN_PER_SIDE
                  ) -> tuple[list[Marker], list[Marker], dict]:
     # 2pq = 0 cannot say which parental haplotype an embryo inherited, so it is not a
     # marker. common_maf=0.0 is a legal floor, and would otherwise let monomorphic sites
@@ -1539,11 +1565,9 @@ def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
                         f"reads a site once, so multi-allelic sites keep their best allele")
     _emit(Tag.INFO, f"{len(pool):,} sites ranked by {_ranking_key_label(ancestry)}")
 
-    bands = [(0, 2_000), (2_000, 10_000), (10_000, 30_000),
-             (30_000, 80_000), (80_000, 10**12)]
     recommended: list[Marker] = []
     for want_higher in (False, True):
-        for lo, hi in bands:
+        for lo, hi in SHORTLIST_BANDS:
             recommended += [m for m in pool if (m.dist > 0) == want_higher
                             and lo <= abs(m.dist) < hi][:per_bin]
         # At least per_side on each side where the pool has them, topped up in rank order.

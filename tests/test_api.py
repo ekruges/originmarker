@@ -604,3 +604,10 @@ def test_index_html_is_never_cached():
         assert r.status_code == 200
         assert "no-store" not in r.headers.get("cache-control", ""), (
             "a content-hashed asset must stay cacheable; only the html is no-store")
+
+
+@pytest.mark.parametrize("bad", [{"common_maf": 0.6}, {"window_bp": 3_000_000}, {"material": "saliva"}])
+def test_panel_refuses_a_value_out_of_range(bad):
+    """The API holds the ranges itself; the page's own check is not relied on."""
+    r = client.post("/api/panel", json={"variant": "rs151344623", **bad})
+    assert r.status_code == 400 and "was asked" in r.json()["detail"], r.text

@@ -963,14 +963,26 @@ def test_counts_per_side_from_the_measured_rates():
         {"bulk": 4, "biopsy": 6, "single_cell": 12}
 
 
+def test_chance_reached_is_the_one_printed():
+    for k in pb.MATERIALS:
+        c = pb.marker_count(k)
+        assert c["chance_aimed"] == pb.READ_CHANCE <= c["chance_reached"]
+        assert f"a chance of {c['chance_reached']:.1%}." in c["note"], k
+        assert f"until it has {c['per_side']}." in c["shortlist_note"], k
+
+
 def test_no_sentence_calls_the_one_allele_share_drop_out():
     for k in pb.MATERIALS:
         assert "drop" not in pb.marker_count(k)["note"].lower(), k
 
 
 def test_unknown_material_is_refused():
-    with pytest.raises(ValueError, match="unknown material"):
+    with pytest.raises(ValueError, match="material tested must be one of: bulk DNA, "):
         pb.StructuredQuery(variant="rs151344623", material="saliva")
+    with pytest.raises(ValueError, match="at least 0 and under 0.5; 0.6 was asked"):
+        pb.StructuredQuery(variant="rs151344623", common_maf=0.6)
+    with pytest.raises(ValueError, match="1,000 to 2,000,000 base pairs; 999 was asked"):
+        pb.StructuredQuery(variant="rs151344623", window_bp=999)
     assert pb.StructuredQuery(variant="rs151344623").material == "single_cell"
 
 

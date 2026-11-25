@@ -348,7 +348,8 @@ def _facts(result) -> list[tuple[str, str]]:
                                f"core-near {cov['lower_core_near']} / {cov['higher_core_near']}"),
         ("Coverage flags (R5)", "; ".join(cov["flags"]) or "none"),
         # The engine's own sentences, verbatim. An older panel has neither and prints neither.
-        *([("Markers asked per side", prov["marker_count"]["note"])]
+        *([("Markers asked per side", prov["marker_count"]["note"]),
+           ("Shortlist", prov["marker_count"]["shortlist_note"])]
           if prov.get("marker_count") else []),
         *([("Lab chip", prov["chip"]["note"])] if prov.get("chip") else []),
         # Beside the coverage flags: both are per-side statements about the same shortlist.
