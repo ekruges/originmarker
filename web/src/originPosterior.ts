@@ -273,7 +273,7 @@ export type MeasuredBand = Exclude<Band, 'F'>
  * back to the code that produced it. It expects the tab-separated probe export, not the
  * comma-separated GEO one, so re-running it needs the matching format.
  */
-const F_SERIES = 'audit/measure-bands.ts -> audit/bands_measured_f_series.csv'
+const F_SERIES = 'the audit band measurement, audit/bands_measured_f_series.csv'
 
 /**
  * Band accuracy per material, PAIRED WITH THE PRODUCER THAT MAKES IT, or with nothing.

@@ -8,6 +8,8 @@
 import type { Refusal } from './refusals.ts'
 import { NOT_REPORTED_SAYS, whereText, whoseText, type ChangeList } from './pageSays.ts'
 import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
+import { COMPLEX_CALL_RATE, COMPLEX_DEVIANT_FRACTION } from './abnormalities.ts'
+import { NORMAL_MAJORITY_MIN } from './oneParentState.ts'
 
 export const CLAIM_SAYS: Record<string, string> = {
   aneuploidy: 'whole-chromosome copy number',
@@ -53,7 +55,7 @@ const int = (v: number): string => Math.round(v).toLocaleString('en-US')
 
 /** Every number a refusal records, in plain words with its unit. A key with no entry here throws. */
 export const MEASURE_SAYS: Record<string, { label: string; fmt: (v: number) => string }> = {
-  callRate: { label: 'call rate', fmt: pct },
+  callRate: { label: 'call rate on chromosomes 1 to 22', fmt: pct },
   heterozygosity: { label: 'heterozygosity', fmt: pct },
   dropIn: { label: 'drop-in', fmt: pct },
   heterozygositySpread: { label: 'spread of heterozygosity between chromosomes', fmt: (v) => `${num(v)} (coefficient of variation)` },
@@ -82,18 +84,44 @@ export const measuredText = (m: Record<string, number> | undefined): string =>
 
 export interface WithheldRow { what: string; why: string; measured: string }
 
+export interface IntegrityFacts {
+  level: string; headline: string; limits: string
+  measures: { callRate: number; stage: string; affectedAutosomes: number; totalAutosomes: number }
+}
+
 /**
- * Every refusal and every row not reported of one sample, in that order. A refusal of the whole
- * sample is said in the integrity call's own reason, which counts no change, so it cannot disagree
- * with the card's count.
+ * What the whole-sample call found against the sample, in one sentence, or null where it found
+ * nothing against it: a sample whose changes were measured against an undisturbed remainder is the
+ * good outcome and withholds nothing. Mirrors the order integrity.ts decides in.
+ */
+export function sampleCause(i: IntegrityFacts | undefined): string | null {
+  if (!i || !i.limits) return null
+  const m = i.measures
+  if (i.level !== 'uninterpretable') {
+    return /^NO NORMAL MAJORITY/.test(i.headline)
+      ? `Copy number is not read: fewer than ${pct(NORMAL_MAJORITY_MIN)} of the autosomes share one copy state, so no normal level is shown; which parent is read from the alleles.`
+      : 'Copy number is not read: the array reads more heterozygous than one genome can, from drop-in; which parent is read from the alleles.'
+  }
+  if (m.stage === 'failed') return 'Nothing on this sample is reported: the array did not resolve to any material.'
+  if (Number.isFinite(m.callRate) && m.callRate < COMPLEX_CALL_RATE) {
+    return `Nothing on this sample is reported: its call rate on chromosomes 1 to 22 is under the ${pct(COMPLEX_CALL_RATE)} the rest of the array can be read against.`
+  }
+  return `Nothing on this sample is reported: ${m.affectedAutosomes} of ${m.totalAutosomes} autosomes read as changed, at or over the ${pct(COMPLEX_DEVIANT_FRACTION)} at which no undisturbed part is left to read them against.`
+}
+
+/**
+ * Every refusal that withholds something and every row not reported of one sample, in that order.
+ * A whole-sample call is listed only where it counts against the sample (sampleCause), and its cause
+ * counts no change, so it cannot disagree with the card's count.
  */
 export function withheldRows(
-  r: { refusals?: readonly Refusal[]; integrity?: { why: string } },
+  r: { refusals?: readonly Refusal[]; integrity?: IntegrityFacts },
   list: Pick<ChangeList, 'notReported'>,
 ): WithheldRow[] {
-  const refused = (r.refusals ?? []).map((x): WithheldRow => ({
+  const sample = sampleCause(r.integrity)
+  const refused = (r.refusals ?? []).filter((x) => x.claim !== 'sample' || sample).map((x): WithheldRow => ({
     what: `${known(CLAIM_SAYS, x.claim, 'claim')}${x.chrom ? `, chr${x.chrom}` : ''}${x.soft ? ' (labelled, not removed)' : ''}`,
-    why: x.claim === 'sample' && r.integrity ? r.integrity.why
+    why: x.claim === 'sample' ? sample!
       : `${known(GATE_SAYS, x.gate, 'gate')}: ${known(CAUSE_SAYS, x.cause, 'cause')}`,
     measured: measuredText(x.measured),
   }))

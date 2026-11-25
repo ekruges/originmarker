@@ -334,7 +334,7 @@ export const NOT_BARS: Readonly<Record<string, string>> = {
 
 export const BARS: readonly Bar[] = SPECS.map(([file, name, says, need, unit]) => {
   const value = MODULES[file]?.[name]
-  if (typeof value !== 'number') throw new Error(`bars.ts: ${file} exports no number ${name}`)
+  if (typeof value !== 'number') throw new Error(`the registry: ${file} exports no number ${name}`)
   return { file, name, value, says, ...(need ? { need } : {}), ...(unit ? { unit } : {}) }
 })
 

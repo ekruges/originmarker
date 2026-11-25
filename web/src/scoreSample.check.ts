@@ -987,9 +987,10 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   for (const [r, father] of [[withF, true], [none, false]] as const) {
     const { txt, s, all, methods } = await report(r, father)
     const held = withheldRows(r, cardSays(r, undefined, r.originClass, false).list)
-    assert.equal(held.length, (r.refusals ?? []).length
+    const { sampleCause } = await import('./withheld.ts')
+    assert.equal(held.length, (r.refusals ?? []).filter((x) => x.claim !== 'sample' || sampleCause(r.integrity)).length
       + (cardSays(r, undefined, r.originClass, false).list.notReported?.rows.length ?? 0),
-    'one withheld row per refusal and per row not reported')
+    'one withheld row per refusal that counts against the sample and per row not reported')
     assert.ok(s.includes(withheldHeading(held.length)), 'the report carries the withheld count')
     for (const w of held) assert.ok(all.includes(w.what.split(' ').slice(0, 3).join(' ')), `withheld row printed: ${w.what}`)
     const applied = barsApplied({ parents: father ? 1 : 0, run: false, comparison: false })

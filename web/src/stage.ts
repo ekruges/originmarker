@@ -656,7 +656,7 @@ export function inferStage(
     caveat: 'consanguinity, copy-neutral LOH, UPD and ancestry differing from the anchor all '
       + 'depress heterozygosity and are absorbed into this estimate; an East Asian sample against '
       + 'this European-derived anchor is biased by about +0.155, enough to shift the stage by one '
-      + 'rung. Where a same-genome replicate exists, prefer dropoutFromReplicates',
+      + 'rung. Where a same-genome replicate exists, the dropout measured between the two arrays needs no anchor and is the better figure',
     why: `${(h * 100).toFixed(1)}% heterozygous against ${(bulkHet * 100).toFixed(1)}% `
       + `for bulk DNA on this panel implies ${(implied * 100).toFixed(1)}% dropout`
       + (demotedFrom
