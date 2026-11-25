@@ -1712,7 +1712,10 @@ if __name__ == "__main__":
     assert 0 < star_n < len(r.recommended), \
         "the golden panel must star SOME markers and not all, or this proves nothing"
 
-    star_pdf = _pdf_text(blobs["pdf"])
+    # Page by page with each page's footer (the disclaimer and the "OriginMarker | ..." line)
+    # left out: a paragraph that runs over a page break is still one paragraph to a reader.
+    star_pdf = "\n".join(l for pg in _pdf_pages(blobs["pdf"]) for l in pg.split("\n")
+                          if l != pb.DISCLAIMER and not l.startswith("OriginMarker | "))
     star_xl = load_workbook(io.BytesIO(blobs["xlsx"]))
     # _wrap breaks a paragraph across drawString calls and a content stream escapes its
     # parens: undo both, so what is compared is the sentence the reader sees.
