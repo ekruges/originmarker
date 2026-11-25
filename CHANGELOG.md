@@ -9,6 +9,24 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.28.1 "Linkage Map"
+
+**A panel build no longer needs Ensembl to tell which markers the chip carries.** 6.28.0 asked
+Ensembl's assembly map, once for each new window, where the chip's GRCh37 positions fall in
+GRCh38. With that service out of reach a build stopped at the chip filter with the reason and
+gave no panel, which happened on the day 6.28.0 went live. The probe list now ships each probe's
+GRCh38 position beside its GRCh37 one, taken once from Ensembl's assembly map (release 116), and
+the filter reads it: no call is made between the gnomAD fetch and the shortlist, and the code
+that made one is gone.
+
+Of the chip's 825,656 probes, 824,084 have one GRCh38 position. The other 1,572 have none in
+the map and are never offered (`audit/truth/chip-grch38-2026-11-25.txt`). The markers offered are
+the same as before: probe for probe on the test window in ABCC8 (95), and on six windows on
+other chromosomes read both ways (F5, CFTR, BRCA1, GJB2, MECP2, LDLR). The test panel builds with
+every network call made to fail. The file is 9.6 MB.
+
+---
+
 ## 6.28.0 "Flanking Marker"
 
 **The marker panel asks for as many markers as the material needs, and offers only markers the

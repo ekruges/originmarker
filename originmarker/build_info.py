@@ -387,10 +387,14 @@ RELEASES: tuple[Release, ...] = (
             "fail to read, so several are asked on each side. How many now follows from how often "
             "a marker reads in the material tested, and only markers the lab's chip carries are "
             "offered."),
+    Release("Linkage Map",
+            "The order of markers along a chromosome and the distances between them, worked out "
+            "once and read off after that. The chip's markers now carry their position in both "
+            "genome builds, so a panel no longer asks an outside service where they are."),
 )
 
-VERSION = "6.28.0"
-CODENAME = "Flanking Marker"
+VERSION = "6.28.1"
+CODENAME = "Linkage Map"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 
