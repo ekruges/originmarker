@@ -66,6 +66,9 @@ MAX_WORKERS = 8                 # concurrent API fetches
 # Which markers get a primer pair. "starred" is the shortlist that met the flanking
 # criteria; "recommended" is the whole shortlist; "none" designs nothing.
 PRIMER_SCOPES = ("starred", "recommended", "none")
+# The material a panel query names when it names none: the one whose markers read least often,
+# so a query naming none never asks for too few. The owner's call.
+DEFAULT_MATERIAL = "single_cell"
 CACHE_DIR = Path(os.environ.get("PANELBUILDER_CACHE", ".panelbuilder_cache"))
 # A week, because ClinVar publishes weekly. 0 disables expiry, which the offline fixture
 # suite needs: there the cache is the source of truth.
@@ -505,9 +508,7 @@ class StructuredQuery:
     primer_scope: str = "starred"       # see PRIMER_SCOPES
     primer_settings: Optional[dict] = None
     # What the lab will genotype; sets how many markers are asked per side (see MATERIALS).
-    # The default is the material with the most drop-out, so a query naming none never asks
-    # for too few.
-    material: str = "single_cell"
+    material: str = DEFAULT_MATERIAL
     # Provenance, never input: build() must not read these to decide anything. They record
     # that a model, not the user, chose `variant`, so the exports can say so.
     nl_text: Optional[str] = None       # the user's original prose, verbatim
@@ -1333,26 +1334,30 @@ FLANKING_CRITERIA = {
 # How many markers to ask for on each side. ESHRE's 3 is the number that must READ; how many to
 # ask for follows from the chance that one marker reads in the material tested.
 #
-# A marker reads when the chip calls it and a heterozygote stays heterozygous, so its chance is
-# call rate x (1 - allele drop-out). Both are measured on the lab's chip, on the complete trios of
-# its public series GSE148488 (Axiom UK Biobank), with the tool's own drop-out estimator
-# (d = 1 - 2h at father-heterozygous by mother-homozygous markers, ingest.estimateDropout), by
-# audit/truth/panel-dropout.ts; the numbers are the mean over the arrays of each material and are
-# in audit/truth/panel-dropout-2026-11-25.txt. Bulk DNA is the series' ES cell lines, which are
-# not amplified; the biopsy is a trophectoderm biopsy; the single cell is a blastomere.
+# The chance is the share of informative markers that give a usable heterozygous read: at sites
+# where the two parents' arrays are opposite homozygotes the sample must be heterozygous, and a
+# site fails by a no-call or by reading as one allele. Measured on the lab's chip, on the complete
+# trios of its public series GSE148488 (Axiom UK Biobank), counted only on arrays the tool reads as
+# carrying both parents and on their chromosomes with no change, by audit/truth/panel-reads.ts; the
+# numbers are the mean over those arrays and are in audit/truth/panel-reads-2026-11-25.txt. Bulk
+# DNA is the series' ES cell lines, which are not amplified; the biopsy is a trophectoderm biopsy;
+# the single cell is a blastomere.
+#
+# The one-allele share includes wrong calls in the parents' own arrays. That belongs in it: a
+# panel's markers are picked from the parents' arrays the same way, so such a marker fails in the
+# lab too. On bulk DNA it is that and nothing else: ES lines of the same parents read one allele at
+# the same sites, 74% of a line's sites against 2.8% if they failed apart
+# (audit/truth/panel-recur-2026-11-25.txt). So it is never called drop-out.
 MATERIALS = {
-    "bulk": {"label": "bulk DNA", "dropout": 0.1272, "call_rate": 0.9725, "read": 0.8487,
-             "arrays": 16},
-    "biopsy": {"label": "a trophectoderm biopsy", "dropout": 0.0599, "call_rate": 0.7943,
-               "read": 0.7440, "arrays": 36},
-    "single_cell": {"label": "a single cell", "dropout": 0.2247, "call_rate": 0.7446,
-                    "read": 0.5658, "arrays": 19},
+    "bulk": {"label": "bulk DNA", "read": 0.9186, "no_call": 0.0339, "arrays": 16},
+    "biopsy": {"label": "a trophectoderm biopsy", "read": 0.8074, "no_call": 0.1203, "arrays": 8},
+    "single_cell": {"label": "a single cell", "read": 0.4561, "no_call": 0.3167, "arrays": 14},
 }
-# The chance that at least ESHRE_MIN_PER_SIDE markers read. The tool's error budget elsewhere is
-# alpha 0.05 (origin.r_min); this is the same 95%.
+for _m in MATERIALS.values():
+    _m["one_allele"] = round(1 - _m["read"] - _m["no_call"], 4)
+# The chance that at least ESHRE_MIN_PER_SIDE markers read: the tool's error budget elsewhere,
+# alpha 0.05 (origin.r_min). Not from a paper; the owner's call.
 READ_CHANCE = 0.95
-DROPOUT_SOURCE = ("the mean over the lab chip's public series GSE148488, measured with this "
-                  "tool's trio drop-out estimator")
 
 
 def _at_least(n: int, k: int, p: float) -> float:
@@ -1377,19 +1382,22 @@ def marker_count(material: str) -> dict:
     The page and the exports print `note` verbatim."""
     m = MATERIALS[material]
     n = markers_per_side(m["read"])
-    note = (f"{n} markers asked on each side. In {m['label']} on the lab's chip a marker reads "
-            f"{m['read']:.0%} of the time (allele drop-out {m['dropout']:.1%}, call rate "
-            f"{m['call_rate']:.1%}; {DROPOUT_SOURCE}, {m['arrays']} arrays). With {n} on a side, "
-            f"at least {ESHRE_MIN_PER_SIDE} read with a chance of "
+    note = (f"{n} markers asked on each side. In {m['label']}, of the markers that should read as "
+            f"two alleles, {m['read']:.1%} did, {m['no_call']:.1%} had no call and "
+            f"{m['one_allele']:.1%} read as one allele: {m['arrays']} arrays of the lab chip's "
+            f"public series GSE148488, at sites where the two parents' arrays are opposite "
+            f"homozygotes. With {n} on a side, at least {ESHRE_MIN_PER_SIDE} read with a chance of "
             f"{_at_least(n, ESHRE_MIN_PER_SIDE, m['read']):.1%}. ESHRE recommends at least "
             f"{ESHRE_MIN_PER_SIDE} readable markers on each side.")
     return {"material": material, "label": m["label"], "per_side": n, "read": m["read"],
-            "dropout": m["dropout"], "call_rate": m["call_rate"], "arrays": m["arrays"],
+            "no_call": m["no_call"], "one_allele": m["one_allele"], "arrays": m["arrays"],
             "must_read": ESHRE_MIN_PER_SIDE, "chance": READ_CHANCE, "note": note}
 
 
 # The lab's chip, the one the tool reads (web/src/platform.ts PROVEN_CHIP). Its probes as the
-# chip's own export files list them (GSE148488), positions on GRCh37. Every probe on the list
+# chip's own export files list them: all 135 files of the public series GSE148488 (NCBI GEO),
+# probe ids, chromosomes and GRCh37 positions only, no genotype; 6.25 MB. Whether it ships in the
+# public repo is the owner's call. Every probe on the list
 # counts as read: Axiom's probe class differs between files of one series, so it is a property
 # of a batch, and on the bulk arrays every autosomal class is called at 0.90 to 0.94
 # (audit/truth/chip-probes-2026-11-25.txt).
@@ -1456,7 +1464,7 @@ def keep_on_chip(markers: list[Marker], sites: dict[int, str]) -> list[Marker]:
 
 def chip_note(common: int, kept: int) -> dict:
     return {"name": CHIP_NAME, "common": common, "offered": kept, "note": (
-        f"Only markers the lab's chip ({CHIP_NAME}) reads are offered: {kept:,} of the "
+        f"Only markers the lab's chip ({CHIP_NAME}) carries are offered: {kept:,} of the "
         f"{common:,} common SNPs in the window have a probe of that chip at their position.")}
 
 

@@ -103,7 +103,7 @@ def test_panel_job_reaches_done():
 
     res = j["result"]
     assert len(res["candidates"]) == 95
-    assert len(res["recommended"]) == 19
+    assert len(res["recommended"]) == 24
     nearest = min(res["candidates"], key=lambda m: abs(m["dist"]))
     assert nearest["rsid"] == "rs757110" and nearest["dist"] == -125
     assert res["coverage"]["lower_count"] and res["coverage"]["higher_count"]

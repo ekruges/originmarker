@@ -947,13 +947,25 @@ def test_amplified_dna_asks_for_more_than_three():
 def test_measured_rates_are_the_results_file():
     """The constants are the numbers the measurement printed, not typed-in guesses."""
     txt = (Path(__file__).resolve().parent.parent / "audit" / "truth"
-           / "panel-dropout-2026-11-25.txt").read_text()
-    rows = {l.split("\t")[0]: l.split("\t") for l in txt.splitlines() if "\t" in l}
+           / "panel-reads-2026-11-25.txt").read_text()
+    table = txt.split("\nmaterial\t", 1)[1]
+    rows = {l.split("\t")[0]: l.split("\t") for l in table.splitlines() if "\t" in l}
     for mat, label in (("bulk", "bulk DNA (ES cell line)"), ("biopsy", "trophectoderm biopsy"),
                        ("single_cell", "single cell (blastomere)")):
         r, m = rows[label], pb.MATERIALS[mat]
-        assert m["arrays"] == int(r[1]) and m["dropout"] == float(r[2]), mat
-        assert m["call_rate"] == float(r[6]) and m["read"] == float(r[7]), mat
+        assert m["arrays"] == int(r[1]) and m["read"] == float(r[2]), mat
+        assert m["no_call"] == float(r[6]), mat
+        assert abs(m["read"] + m["no_call"] + m["one_allele"] - 1) < 1e-9, mat
+
+
+def test_counts_per_side_from_the_measured_rates():
+    assert {k: pb.marker_count(k)["per_side"] for k in pb.MATERIALS} == \
+        {"bulk": 4, "biopsy": 6, "single_cell": 12}
+
+
+def test_no_sentence_calls_the_one_allele_share_drop_out():
+    for k in pb.MATERIALS:
+        assert "drop" not in pb.marker_count(k)["note"].lower(), k
 
 
 def test_unknown_material_is_refused():
@@ -996,3 +1008,5 @@ def test_golden_panel_offers_only_chip_markers(result):
     assert cnt["material"] == "single_cell" and cnt["per_side"] > 3
     for f in result.coverage["flags"]:
         assert "of 3)" not in f, f
+    side = [f for f in result.coverage["flags"] if "meet the flanking criteria" in f]
+    assert side and all("of 12)" in f for f in side), side

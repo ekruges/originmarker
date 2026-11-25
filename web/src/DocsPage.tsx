@@ -606,11 +606,14 @@ export function DocsPage({ health }: { health: Health | null }) {
           <Text mt={8}>
             So the panel does not ask for a fixed three markers per side. ESHRE's three is the
             number that must read. How many are asked follows from the material named in the query:
-            the chance one marker reads on the lab's chip (called, and a heterozygote kept), measured
-            on the lab's public trios for bulk DNA, a trophectoderm biopsy and a single cell. The
-            panel asks for the fewest markers that give at least three readable with a 95% chance, and
-            the coverage card and every export say how many and why. Only markers the lab's chip
-            reads are offered: a probe at the position, in a class the chip's maker recommends.
+            the share of markers that should read as two alleles and did, measured on the lab's chip
+            in its public trios for bulk DNA, a trophectoderm biopsy and a single cell, at sites where
+            the two parents' arrays are opposite homozygotes. The panel asks for the fewest markers
+            that give at least three readable with a 95% chance, and the coverage card and every
+            export say how many and why. The share counts wrong calls in the parents' own arrays as
+            failures too, because a panel's markers are picked from the parents' arrays in the same
+            way, so such a marker fails in the lab as well. Only markers the lab's chip carries are
+            offered: a probe of that chip at the position.
           </Text>
         </Section>
 
