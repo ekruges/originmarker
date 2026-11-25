@@ -14,8 +14,8 @@
 # its exit code, or as LOST when the scheduler died before its process began.
 #
 # Cores: a job starts while fewer than POOL_JOBS of the pool's jobs run and the one-minute load is
-# under POOL_JOBS, so work started outside the pool counts too. POOL_JOBS defaults to the cores
-# less one, left to the host and the other guests.
+# under POOL_JOBS, so work started outside the pool counts too. POOL_JOBS defaults to every core:
+# jobs run at nice 19, so the host and the other guests are served first whenever they want a core.
 #
 # Memory, measured: the scheduler reads each running job's resident memory (its whole process
 # group) every tick and keeps its peak; a finished job's peak is kept for its class (lane and label
@@ -30,10 +30,10 @@
 set -uo pipefail
 P=${POOL_DIR:-/root/om-pool}
 CORES=$(getconf _NPROCESSORS_ONLN 2>/dev/null || echo 2)
-JOBS=${POOL_JOBS:-$((CORES - 1))}
+JOBS=${POOL_JOBS:-$CORES}
 RESERVE_KB=$(( ${POOL_RESERVE_GB:-6} * 1048576 ))
 JOB_KB=$(( ${POOL_JOB_GB:-3} * 1048576 ))
-GAP=${POOL_GAP:-30}
+GAP=${POOL_GAP:-10}
 TICK=${POOL_TICK:-10}
 mkdir -p "$P/queue" "$P/running" "$P/done" "$P/logs" "$P/prio" "$P/started"
 touch "$P/peaks.tsv"
