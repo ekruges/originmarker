@@ -41,6 +41,7 @@
  * Run: node --experimental-strip-types audit/truth/run.ts <list.tsv> <shard> <shards> <out.jsonl>
  */
 import { readFileSync, appendFileSync, existsSync } from 'node:fs'
+import { gzipSync } from 'node:zlib'
 import { ChipRefused, panel, calls, chromOf, collectArray, scoreArray as scoreFresh } from './score-array.ts'
 import { openStore, openList, treeKey, only } from '../gate/store.ts'
 
@@ -61,7 +62,6 @@ const barsMod = await import(`${W}bars.ts`)
 const withheldMod = await import(`${W}withheld.ts`)
 const svgPdf = await import(`${W}svgPdf.ts`)
 const plotSeries = await import(`${W}plotSeries.ts`)
-const { gzipSync } = await import('node:zlib')
 const buildInfo = readFileSync(new URL('../../originmarker/build_info.py', import.meta.url), 'utf8')
 const TOOL = `OriginMarker ${/VERSION = "([^"]+)"/.exec(buildInfo)?.[1]} (${/CODENAME = "([^"]+)"/.exec(buildInfo)?.[1]})`
 /** With OM_DUMP set, the result, the mother's result, the pair and the figure series of each record,
