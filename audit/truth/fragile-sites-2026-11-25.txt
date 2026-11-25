@@ -1,3 +1,349 @@
+FRAGILE SITES, 25 November 2026. Two runs of one rule, recorded in full.
+
+CORRECTED RUN (the result). The first run did not do what the written rule says: the rule leaves out
+the centromere-side edge of an arm call, and the check looked only at edges outside the hg19
+centromere band, so 15 edges inside the band (chr16 36.6 Mb, chr9 49.0, chr4 50.4, chr2 93.3, four on
+chr12 at 34.4 to 34.8, and others) stayed in as breaks. An independent recount found them. The check
+now also leaves out an edge inside the band. Same seed, same everything else. This corrects the code
+to match the rule written before the first run; it is not a second try at the test. The independent
+recount's figures for the corrected rule: 341 edges, 280 once per embryo, 260 in the test,
+Georgakilas 6 against 13.27, HumCFS 88 against 83.30, share 0.27; this run agrees.
+
+Embryos: an array with two embryo labels in the answer key (25 no-parent arrays) keeps the last label
+read, which gives 64 embryos with a break here; joining arrays that share any label changes no tested
+break.
+
+The result stands by the owner's rule (D9: redraw by marker count). The comparison by length below
+is labelled as a comparison, not the rule. The shortfall at Table 3 sites comes from marker density at
+one site: this chip packs FRA6H (chr6 27.8 to 37.2 Mb, the HLA region) at about four times the
+marker density of chromosome 6, so a marker-matched redraw lands there often (6.85 of the 13.26
+expected). It is no sign that breaks avoid fragile sites. The breaks also cluster by embryo (the five
+embryos with most breaks carry 80 of 260), so any share from this test is less certain than it looks.
+
+FRAGILE SITES: printed breaks on the open rows against two catalogues (plan 3.4b, decision D9)
+Rule: joy-tables/dev/FRAGILE-SITES-plan-item.md, sections 2 to 4, written before this run.
+Records: 6.27.1, tesla:/root/om-fastgate/S17/rec (np 330, lab 271, h 252 rows). Run once.
+Chip markers: 817369 on chr1-22 and X. Seed 20261125, 10000 rounds.
+Guide sites: 20 of the lab's Table S1 (hg19) and 65 published on-target or off-target break intervals of Jerabek 2026; a break within 1 Mb is left out.
+
+Counting
+  edges not a break: arm edge at the centromere: 15
+  edges not a break: chromosome end: 84
+  pieces of kind cnn-loh on chr14 left out: 1
+  pieces of kind cnn-loh on chr3 left out: 3
+  pieces of kind cnn-loh on chr9 left out: 1
+  pieces of kind isodisomy on chr16 left out: 1
+  pieces of kind isodisomy on chr19 left out: 1
+  pieces of kind isodisomy on chr3 left out: 3
+  pieces of kind isodisomy on chr4 left out: 1
+  pieces of kind isodisomy on chr5 left out: 2
+  pieces of kind isodisomy on chr6 left out: 1
+  pieces of kind isodisomy on chr9 left out: 3
+  pieces of kind segmental-upd on chr1 left out: 5
+  pieces of kind segmental-upd on chr10 left out: 1
+  pieces of kind segmental-upd on chr11 left out: 4
+  pieces of kind segmental-upd on chr12 left out: 1
+  pieces of kind segmental-upd on chr13 left out: 1
+  pieces of kind segmental-upd on chr14 left out: 2
+  pieces of kind segmental-upd on chr15 left out: 3
+  pieces of kind segmental-upd on chr16 left out: 9
+  pieces of kind segmental-upd on chr17 left out: 1
+  pieces of kind segmental-upd on chr18 left out: 1
+  pieces of kind segmental-upd on chr2 left out: 7
+  pieces of kind segmental-upd on chr3 left out: 2
+  pieces of kind segmental-upd on chr4 left out: 2
+  pieces of kind segmental-upd on chr5 left out: 1
+  pieces of kind segmental-upd on chr6 left out: 3
+  pieces of kind segmental-upd on chr8 left out: 1
+  pieces of kind segmental-upd on chr9 left out: 1
+  printed edges that are breaks (all cells and setups): 341
+  breaks, one per embryo: 280 (embryos with a break: 64)
+  left out at a guide site: 20
+  dropped, no stretch to redraw on: 0
+  breaks in the test: 260 (86 first seen on np rows, 119 lab, 55 h)
+  by side: {'start': 114, 'end': 146}; marker count per piece median 5709
+
+== fragile-sites-georgakilas2014.tsv: 26 sites ==
+  observed 6 of 260 breaks at a site; expected 13.26; observed over expected 0.45; one-sided share 0.9967
+  chance rounds: 5th to 95th percentile 8 to 19
+  per site, observed and expected (sites with either above zero):
+    FRA6H      observed   3  expected   6.85
+    FRA6E      observed   2  expected   1.04
+    FRA7B      observed   1  expected   1.33
+    FRA1H      observed   0  expected   0.78
+    FRA11G     observed   0  expected   0.66
+    FRA8C      observed   0  expected   0.59
+    FRA7E      observed   0  expected   0.49
+    FRA3B      observed   0  expected   0.31
+    FRA16D     observed   0  expected   0.20
+    FRA6F      observed   0  expected   0.19
+    FRA11E     observed   0  expected   0.15
+    FRA4F      observed   0  expected   0.15
+    FRA13E     observed   0  expected   0.11
+    FRA7I      observed   0  expected   0.09
+    FRA2G      observed   0  expected   0.06
+    FRA7H      observed   0  expected   0.05
+    FRA9G      observed   0  expected   0.04
+    FRA1E      observed   0  expected   0.04
+    FRA10F     observed   0  expected   0.03
+    FRA2Ccen   observed   0  expected   0.02
+    FRA7K      observed   0  expected   0.02
+    FRA2Ctel   observed   0  expected   0.02
+    FRA7G      observed   0  expected   0.01
+    FRA13A     observed   0  expected   0.01
+    FRA2H      observed   0  expected   0.01
+  breaks at a site (chromosome, printed coordinate, site):
+    chr6  30,857,988  FRA6H
+    chr6  33,095,647  FRA6H
+    chr6  33,169,520  FRA6H
+    chr6 162,369,660  FRA6E
+    chr6 163,755,870  FRA6E
+    chr7   1,329,569  FRA7B
+
+== fragile-sites-humcfs.tsv: 124 sites ==
+  observed 88 of 260 breaks at a site; expected 83.28; observed over expected 1.06; one-sided share 0.2658
+  chance rounds: 5th to 95th percentile 72 to 95
+  per site, observed and expected (sites with either above zero):
+    FRA12E     observed  14  expected   8.08
+    FRA6H      observed   7  expected   7.51
+    FRA1A      observed   5  expected   2.88
+    FRA12A     observed   5  expected   2.35
+    FRA2S      observed   4  expected   3.97
+    FRA19A     observed   4  expected   3.10
+    FRA7J      observed   3  expected   1.39
+    FRA1H      observed   3  expected   1.03
+    FRA5G      observed   3  expected   0.79
+    FRA1I      observed   3  expected   0.38
+    FRA19B     observed   2  expected   2.35
+    FRA12B     observed   2  expected   2.24
+    FRA1L      observed   2  expected   1.83
+    FRA6F      observed   2  expected   1.63
+    FRA7I      observed   2  expected   1.30
+    FRA22A     observed   2  expected   1.04
+    FRA6E      observed   2  expected   0.65
+    FRA3B      observed   2  expected   0.33
+    FRA9C      observed   1  expected   2.24
+    FRA8D      observed   1  expected   1.79
+    FRA16D     observed   1  expected   1.33
+    FRA16B     observed   1  expected   1.32
+    FRA15A     observed   1  expected   1.11
+    FRA16E     observed   1  expected   1.09
+    FRA7F      observed   1  expected   1.06
+    FRA6D      observed   1  expected   1.01
+    FRA6G      observed   1  expected   0.96
+    FRA7B      observed   1  expected   0.83
+    FRA18B     observed   1  expected   0.72
+    FRA2G      observed   1  expected   0.63
+    FRA11I     observed   1  expected   0.61
+    FRA6C      observed   1  expected   0.54
+    FRA16A     observed   1  expected   0.51
+    FRA11E     observed   1  expected   0.43
+    FRA1M      observed   1  expected   0.40
+    FRA7A      observed   1  expected   0.33
+    FRA20A     observed   1  expected   0.26
+    FRA2J      observed   1  expected   0.22
+    FRA11D     observed   1  expected   0.08
+    FRA9E      observed   0  expected   2.11
+    FRA11H     observed   0  expected   2.00
+    FRA12C     observed   0  expected   1.96
+    FRA8C      observed   0  expected   1.21
+    FRA8E      observed   0  expected   1.21
+    FRA11B     observed   0  expected   0.95
+    FRA1D      observed   0  expected   0.94
+    FRA1B      observed   0  expected   0.90
+    FRA1F      observed   0  expected   0.89
+    FRA1K      observed   0  expected   0.80
+    FRA17A     observed   0  expected   0.79
+    FRA8B      observed   0  expected   0.71
+    FRA9B      observed   0  expected   0.67
+    FRA12D     observed   0  expected   0.65
+    FRA11G     observed   0  expected   0.65
+    FRA8A      observed   0  expected   0.62
+    FRA11C     observed   0  expected   0.62
+    FRA7K      observed   0  expected   0.53
+    FRA10D     observed   0  expected   0.52
+    FRA3D      observed   0  expected   0.46
+    FRA2I      observed   0  expected   0.43
+    FRA5A      observed   0  expected   0.43
+    FRA6B      observed   0  expected   0.43
+    FRA13B     observed   0  expected   0.42
+    FRA4D      observed   0  expected   0.42
+    FRA7D      observed   0  expected   0.41
+    FRA5H      observed   0  expected   0.35
+    FRA9G      observed   0  expected   0.32
+    FRA11F     observed   0  expected   0.32
+    FRA3C      observed   0  expected   0.31
+    FRA11A     observed   0  expected   0.31
+    FRA2E      observed   0  expected   0.29
+    FRA22B     observed   0  expected   0.29
+    FRA5F      observed   0  expected   0.28
+    FRA18A     observed   0  expected   0.27
+    FRA7G      observed   0  expected   0.26
+    FRA7H      observed   0  expected   0.26
+    FRA5E      observed   0  expected   0.25
+    FRA6A      observed   0  expected   0.25
+    FRA7C      observed   0  expected   0.25
+    FRA4E      observed   0  expected   0.24
+    FRA13D     observed   0  expected   0.24
+    FRA1G      observed   0  expected   0.22
+    FRA2A      observed   0  expected   0.22
+    FRA1E      observed   0  expected   0.21
+    FRA2L      observed   0  expected   0.20
+    FRA13E     observed   0  expected   0.19
+    FRA14B     observed   0  expected   0.19
+    FRA2H      observed   0  expected   0.18
+    FRA7E      observed   0  expected   0.18
+    FRA9D      observed   0  expected   0.18
+    FRA20B     observed   0  expected   0.17
+    FRA5C      observed   0  expected   0.17
+    FRA4B      observed   0  expected   0.17
+    FRA5B      observed   0  expected   0.16
+    FRA4A      observed   0  expected   0.15
+    FRA2B      observed   0  expected   0.15
+    FRA2K      observed   0  expected   0.13
+    FRA18C     observed   0  expected   0.13
+    FRA10C     observed   0  expected   0.12
+    FRA17B     observed   0  expected   0.09
+    FRA10F     observed   0  expected   0.09
+    FRA2F      observed   0  expected   0.08
+    FRA3A      observed   0  expected   0.08
+    FRA2C      observed   0  expected   0.07
+    FRA2D      observed   0  expected   0.07
+    FRA10G     observed   0  expected   0.06
+    FRA13C     observed   0  expected   0.06
+    FRA10A     observed   0  expected   0.06
+    FRA4C      observed   0  expected   0.05
+    FRA14C     observed   0  expected   0.05
+    FRA1C      observed   0  expected   0.05
+    FRA13A     observed   0  expected   0.04
+    FRA5D      observed   0  expected   0.03
+    FRA10B     observed   0  expected   0.02
+  breaks at a site (chromosome, printed coordinate, site):
+    chr1   1,275,883  FRA1A
+    chr1   1,334,053  FRA1A
+    chr1   8,115,442  FRA1A
+    chr1  12,198,362  FRA1A
+    chr1  18,070,195  FRA1A
+    chr1  78,060,505  FRA1L
+    chr1  83,594,117  FRA1L
+    chr1  99,186,904  FRA1M
+    chr1 228,046,036  FRA1H
+    chr1 230,831,058  FRA1H
+    chr1 234,979,787  FRA1H
+    chr1 244,651,937  FRA1I
+    chr1 244,980,554  FRA1I
+    chr1 248,224,489  FRA1I
+    chr2  64,839,959  FRA2S
+    chr2  65,607,203  FRA2S
+    chr2  90,251,468  FRA2S
+    chr2 145,435,981  FRA2S
+    chr2 171,519,727  FRA2G
+    chr2 241,561,774  FRA2J
+    chr3  59,431,342  FRA3B
+    chr3  59,431,342  FRA3B
+    chr5 172,869,654  FRA5G
+    chr5 172,869,810  FRA5G
+    chr5 178,931,310  FRA5G
+    chr6  25,935,765  FRA6C
+    chr6  30,857,988  FRA6H
+    chr6  33,095,647  FRA6H
+    chr6  33,169,520  FRA6H
+    chr6  37,510,914  FRA6H
+    chr6  41,338,360  FRA6H
+    chr6  42,697,785  FRA6H
+    chr6  44,777,691  FRA6H
+    chr6  71,075,343  FRA6D
+    chr6  88,004,758  FRA6G
+    chr6 107,033,570  FRA6F
+    chr6 111,525,383  FRA6F
+    chr6 162,369,660  FRA6E
+    chr6 163,755,870  FRA6E
+    chr7   1,329,569  FRA7B
+    chr7  54,123,251  FRA7A
+    chr7  66,487,625  FRA7J
+    chr7  67,712,072  FRA7J
+    chr7  67,712,072  FRA7J
+    chr7 103,575,358  FRA7F
+    chr7 155,327,439  FRA7I
+    chr7 157,300,517  FRA7I
+    chr8 142,222,331  FRA8D
+    chr9  27,371,744  FRA9C
+    chr11  19,330,074  FRA11I
+    chr11  26,263,085  FRA11D
+    chr11  36,055,319  FRA11E
+    chr12  49,125,564  FRA12A
+    chr12  49,125,564  FRA12A
+    chr12  51,059,187  FRA12A
+    chr12  51,068,409  FRA12A
+    chr12  53,395,842  FRA12A
+    chr12  91,206,401  FRA12B
+    chr12  91,319,269  FRA12B
+    chr12 122,685,163  FRA12E
+    chr12 122,685,163  FRA12E
+    chr12 122,685,163  FRA12E
+    chr12 124,481,726  FRA12E
+    chr12 125,914,525  FRA12E
+    chr12 125,914,525  FRA12E
+    chr12 125,914,525  FRA12E
+    chr12 127,758,207  FRA12E
+    chr12 129,064,100  FRA12E
+    chr12 130,200,235  FRA12E
+    chr12 131,259,520  FRA12E
+    chr12 131,259,520  FRA12E
+    chr12 131,259,520  FRA12E
+    chr12 132,863,704  FRA12E
+    chr15  61,406,355  FRA15A
+    chr16  16,620,327  FRA16A
+    chr16  27,972,325  FRA16E
+    chr16  68,011,657  FRA16B
+    chr16  81,548,746  FRA16D
+    chr18  58,093,429  FRA18B
+    chr19   4,288,332  FRA19B
+    chr19   8,830,013  FRA19B
+    chr19  41,700,343  FRA19A
+    chr19  45,532,009  FRA19A
+    chr19  46,313,758  FRA19A
+    chr19  56,343,909  FRA19A
+    chr20  20,935,450  FRA20A
+    chr22  37,666,786  FRA22A
+    chr22  42,295,250  FRA22A
+
+== A comparison, not the rule: the expectation by length ==
+D9 redraws by marker count, and the result above is the result. Beside it, each break redrawn as
+the same edge of a stretch of the same length in bases, uniform over every place on its chromosome
+where that edge is not within 0.5 Mb of the first or last marker:
+  fragile-sites-georgakilas2014.tsv: expected by length 7.52
+  fragile-sites-humcfs.tsv: expected by length 84.92
+  FRA6H holds 21.2% of chromosome 6's chip markers in 5.5% of its length (3.9 times the density of the chromosome as a whole).
+  Breaks cluster by embryo: the five embryos with most breaks carry 80 of 260.
+
+Breaks left out at a guide site (chromosome, printed coordinate):
+    chr1  48,030,249
+    chr1  55,517,883
+    chr1  55,517,883
+    chr1  55,518,071
+    chr2  73,189,485
+    chr3   4,748,931
+    chr3  45,683,107
+    chr4  27,926,197
+    chr6  64,691,062
+    chr6  64,758,509
+    chr6  64,850,803
+    chr9 104,727,795
+    chr11   5,372,881
+    chr16  32,137,965
+    chr16  73,603,649
+    chr16  74,253,368
+    chr16  75,200,596
+    chr17  78,359,420
+    chr17  78,359,420
+    chr17  79,366,663
+
+
+==================================================================================================
+FIRST RUN, kept as run (centromere-band edges not yet left out; superseded by the corrected run above)
+==================================================================================================
+
 FRAGILE SITES: printed breaks on the open rows against two catalogues (plan 3.4b, decision D9)
 Rule: joy-tables/dev/FRAGILE-SITES-plan-item.md, sections 2 to 4, written before this run.
 Records: 6.27.1, tesla:/root/om-fastgate/S17/rec (np 330, lab 271, h 252 rows). Run once.

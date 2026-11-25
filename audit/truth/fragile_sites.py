@@ -87,6 +87,23 @@ def redraw(breaks, pos_of, hits_of, rounds, rng):
     return tot, p
 
 
+def by_length(breaks, pos_of, sites):
+    """Expected breaks at a site when each is redrawn as the same edge of a stretch of the same span
+    in bases, its edge uniform over the stretch places on the chromosome; computed exactly."""
+    e = 0.0
+    for b in breaks:
+        pos = pos_of[b['chrom']]
+        lo, hi = pos[0] + END_BP, pos[-1] - END_BP
+        if b['side'] == 'start':
+            hi = min(hi, pos[-1] - b['span'])
+        else:
+            lo = max(lo, pos[0] + b['span'])
+        if hi <= lo:
+            continue
+        e += sum(max(0, min(hi, s) - max(lo, a)) for a, s, _ in sites.get(b['chrom'], ())) / (hi - lo)
+    return e
+
+
 def share(tot, observed):
     return (1 + int((tot >= observed).sum())) / (len(tot) + 1)
 
@@ -120,6 +137,8 @@ def is_break(pos, cen, x):
         return False, 'chromosome end'
     if cen:
         lo, hi = cen
+        if lo <= x <= hi:
+            return False, 'arm edge at the centromere'
         # next to the centromere band with no chip marker between: an arm call's unplaced edge
         i = bisect.bisect_right(pos, x)
         if x < lo and (i >= len(pos) or pos[i] >= lo):
@@ -197,7 +216,7 @@ def main(rec_dir, np_list, lab_list, h_list, chip, truth, emb_lab, guides_s1, cy
                     if not ok:
                         seen[f'edges not a break: {why}'] += 1
                         continue
-                    raw.append(dict(emb=embryo.get(rid, f'array:{rid}'), chrom=c, x=x, side=side, k=k,
+                    raw.append(dict(emb=embryo.get(rid, f'array:{rid}'), chrom=c, x=x, side=side, k=k, span=p['end'] - p['start'],
                                     key=(rank[setup], line, x), setup=setup))
     seen['printed edges that are breaks (all cells and setups)'] = len(raw)
 
@@ -279,6 +298,23 @@ def main(rec_dir, np_list, lab_list, h_list, chip, truth, emb_lab, guides_s1, cy
         for b, s in zip(usable, obs):
             if s:
                 P(f'    chr{b["chrom"]} {b["x"]:>11,}  {s}')
+    P('\n== A comparison, not the rule: the expectation by length ==')
+    P('D9 redraws by marker count, and the result above is the result. Beside it, each break redrawn as')
+    P('the same edge of a stretch of the same length in bases, uniform over every place on its chromosome')
+    P(f'where that edge is not within {END_BP / 1e6:g} Mb of the first or last marker:')
+    for path in cats:
+        sites = catalogue(path)
+        P(f'  {os.path.basename(path)}: expected by length {by_length(usable, pos_of, sites):.2f}')
+    c6, fr = pos_of['6'], [x for x in catalogue(cats[0]).get('6', ()) if x[2] == 'FRA6H']
+    if fr:
+        s0, e0, _ = fr[0]
+        m = ((c6 >= s0) & (c6 <= e0)).mean()
+        L = (e0 - s0) / (c6[-1] - c6[0])
+        P(f'  FRA6H holds {m:.1%} of chromosome 6\'s chip markers in {L:.1%} of its length '
+          f'({m / L:.1f} times the density of the chromosome as a whole).')
+    per_emb = collections.Counter(b['emb'] for b in usable)
+    P(f'  Breaks cluster by embryo: the five embryos with most breaks carry '
+      f'{sum(n for _, n in per_emb.most_common(5))} of {len(usable)}.')
     P('\nBreaks left out at a guide site (chromosome, printed coordinate):')
     for b in at_guide:
         P(f'    chr{b["chrom"]} {b["x"]:>11,}')
@@ -315,6 +351,12 @@ def demo():
     assert is_break(pos, cen, 55_000_000) == (False, 'arm edge at the centromere')
     assert is_break(pos, cen, 57_000_000) == (False, 'arm edge at the centromere')
     assert is_break(pos, cen, 54_000_000) == (True, '')
+    assert is_break(pos, cen, 56_000_000) == (False, 'arm edge at the centromere')  # inside the band
+    # by length: one start edge of a 10 Mb stretch on a 0 to 100 Mb chromosome, edge uniform over
+    # 0.5 to 90 Mb; a site of 40 to 49 Mb holds 9 of 89.5 Mb.
+    want = 9 / 89.5
+    got = by_length([dict(chrom='1', side='start', span=10_000_000)], {'1': pos}, {'1': [(40_000_000, 49_000_000, 'S')]})
+    assert abs(got - want) < 1e-9, (got, want)
     print('fragile_sites demo ok')
 
 
