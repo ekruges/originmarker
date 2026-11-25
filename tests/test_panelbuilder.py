@@ -406,7 +406,9 @@ def test_rarity_forces_phasing(result):
 
 
 def test_candidate_pool(result):
-    assert len(result.candidates) > 1000
+    # The pool is the common SNPs the lab's chip carries, a small share of gnomAD's.
+    assert len(result.candidates) == result.provenance["chip"]["offered"] > 50
+    assert result.provenance["chip"]["common"] > 1000
     for m in result.candidates:
         assert m.maf >= pb.COMMON_MAF
         assert len(m.ref) == 1 and len(m.alt) == 1
@@ -911,3 +913,86 @@ def test_a_deletion_overhanging_the_template_is_still_masked():
     # and the anchor test, which is what shipped, drops it
     anchored = [s for s in hazards if lo <= s.pos <= hi]
     assert overhang not in anchored, "this test no longer reproduces the bug it pins"
+
+
+# --------------------------------------------------------------------------- #
+# How many markers per side (rule N) and only chip markers (rules C and R).
+# --------------------------------------------------------------------------- #
+
+def _tail(n, k, p):
+    from math import comb
+    return sum(comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k, n + 1))
+
+
+def test_markers_per_side_is_the_smallest_n_that_reads_three():
+    assert pb.markers_per_side(1.0) == pb.ESHRE_MIN_PER_SIDE == 3
+    for step in range(5, 101):
+        p = step / 100
+        n = pb.markers_per_side(p)
+        assert _tail(n, 3, p) >= pb.READ_CHANCE, p
+        assert n == 3 or _tail(n - 1, 3, p) < pb.READ_CHANCE, p
+
+
+def test_amplified_dna_asks_for_more_than_three():
+    """The fixed three must never come back for amplified material."""
+    for mat in ("single_cell", "biopsy"):
+        c = pb.marker_count(mat)
+        assert c["per_side"] > 3, (mat, c)
+        assert c["per_side"] == pb.markers_per_side(pb.MATERIALS[mat]["read"])
+        assert f"{c['per_side']} markers asked on each side" in c["note"]
+    assert pb.marker_count("single_cell")["per_side"] >= pb.marker_count("biopsy")["per_side"]
+    assert pb.marker_count("biopsy")["per_side"] >= pb.marker_count("bulk")["per_side"]
+
+
+def test_measured_rates_are_the_results_file():
+    """The constants are the numbers the measurement printed, not typed-in guesses."""
+    txt = (Path(__file__).resolve().parent.parent / "audit" / "truth"
+           / "panel-dropout-2026-11-25.txt").read_text()
+    rows = {l.split("\t")[0]: l.split("\t") for l in txt.splitlines() if "\t" in l}
+    for mat, label in (("bulk", "bulk DNA (ES cell line)"), ("biopsy", "trophectoderm biopsy"),
+                       ("single_cell", "single cell (blastomere)")):
+        r, m = rows[label], pb.MATERIALS[mat]
+        assert m["arrays"] == int(r[1]) and m["dropout"] == float(r[2]), mat
+        assert m["call_rate"] == float(r[6]) and m["read"] == float(r[7]), mat
+
+
+def test_unknown_material_is_refused():
+    with pytest.raises(ValueError, match="unknown material"):
+        pb.StructuredQuery(variant="rs151344623", material="saliva")
+    assert pb.StructuredQuery(variant="rs151344623").material == "single_cell"
+
+
+def test_shortlist_is_topped_up_to_the_count_asked():
+    # Eight lower-side markers all in one band: the bands alone give two.
+    ms = [_marker(1000 - 100 * i, 0.4) for i in range(1, 9)]
+    _, rec, _ = pb.select_panel(ms, per_side=7)
+    assert len([m for m in rec if m.dist < 0]) == 7
+    _, rec, _ = pb.select_panel(ms)
+    assert len([m for m in rec if m.dist < 0]) == 3
+
+
+def test_only_markers_the_chip_carries_are_kept():
+    ms = [_marker(p, 0.4) for p in (900, 950, 1100)]
+    kept = pb.keep_on_chip(ms, {900: "AX-1", 1100: "AX-2"})
+    assert [(m.pos, m.chip_probe) for m in kept] == [(900, "AX-1"), (1100, "AX-2")]
+
+
+def test_chip_probe_is_placed_on_grch38_through_the_map(monkeypatch):
+    """One forward block: GRCh38 = GRCh37 + the block's offset; outside it, nothing."""
+    monkeypatch.setattr(pb, "_chip_table", lambda: {"11": ([100, 200, 900], ["AX-a", "AX-b", "AX-c"])})
+    reply = {"mappings": [{"original": {"start": 1100, "end": 1300, "strand": 1},
+                           "mapped": {"start": 100, "end": 300, "strand": 1,
+                                      "seq_region_name": "11", "assembly": "GRCh37"}}]}
+    monkeypatch.setattr(pb, "_get", lambda *a, **k: json.dumps(reply))
+    assert pb.chip_sites("11", 1000, 1400) == {1100: "AX-a", 1200: "AX-b"}
+
+
+def test_golden_panel_offers_only_chip_markers(result):
+    assert result.candidates
+    assert all(m.chip_probe and m.chip_probe.startswith("AX-") for m in result.candidates)
+    chip = result.provenance["chip"]
+    assert chip["offered"] == len(result.candidates) < chip["common"]
+    cnt = result.provenance["marker_count"]
+    assert cnt["material"] == "single_cell" and cnt["per_side"] > 3
+    for f in result.coverage["flags"]:
+        assert "of 3)" not in f, f

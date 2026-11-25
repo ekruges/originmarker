@@ -740,6 +740,8 @@ function Coverage({ result }: { result: PanelResult }) {
         {/* Labelled by coordinate, not by arm: the engine's tel_/cen_ field names do not
             track which flank runs toward the telomere. That depends on the centromere
             position, which nothing here looks up. */}
+        {[result.provenance.marker_count?.note, result.provenance.chip?.note]
+          .filter(Boolean).map((t) => <Text key={t} size="xs" mb={6}>{t}</Text>)}
         <Group gap={24} wrap="wrap">
           <SideStat
             label="Lower coordinate"

@@ -603,6 +603,15 @@ export function DocsPage({ health }: { health: Health | null }) {
             dropout is silent: the genotype it yields looks clean and is wrong. Only a second marker on the
             same side, disagreeing with it, catches that.
           </Text>
+          <Text mt={8}>
+            So the panel does not ask for a fixed three markers per side. ESHRE's three is the
+            number that must read. How many are asked follows from the material named in the query:
+            the chance one marker reads on the lab's chip (called, and a heterozygote kept), measured
+            on the lab's public trios for bulk DNA, a trophectoderm biopsy and a single cell. The
+            panel asks for the fewest markers that give at least three readable with a 95% chance, and
+            the coverage card and every export say how many and why. Only markers the lab's chip
+            reads are offered: a probe at the position, in a class the chip's maker recommends.
+          </Text>
         </Section>
 
         <Section id="carrier" title="The carrier's own genotypes, and choosing a platform">

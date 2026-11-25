@@ -4,7 +4,7 @@ import {
   NumberInput, Paper, SegmentedControl, Select, Text, TextInput, Tooltip, useCombobox,
 } from '@mantine/core'
 import {
-  ANCESTRIES, api, ApiError, PRIMER_DOCS, type Health, type NLResponse, type PrimerBuild,
+  ANCESTRIES, api, ApiError, MATERIALS, PRIMER_DOCS, type Health, type Material, type NLResponse, type PrimerBuild,
   type StructuredQuery,
 } from './api'
 import { clearHistory, forgetQuery, readHistory, recordQuery, type Entry } from './history'
@@ -129,12 +129,13 @@ export function SearchPanel({
   // the bundled check are omitted because they are held in their own state below: they are
   // not simple values with a default, and the numbers are the server's rather than ours.
   const [q, setQ] = useState<Required<Omit<StructuredQuery,
-    'gene' | 'ancestry' | 'primer_scope' | 'primer_settings' | 'verify_primers'>> & {
+    'gene' | 'ancestry' | 'material' | 'primer_scope' | 'primer_settings' | 'verify_primers'>> & {
+    material: Material
     gene: string
     ancestry: string | null
   }>({
     variant: '', gene: '', window_bp: 250_000, build: 'GRCh38',
-    ancestry: null, common_maf: 0.05, cross_check: true,
+    ancestry: null, common_maf: 0.05, cross_check: true, material: 'single_cell',
   })
 
   // Untouched until the fields are edited. The numbers are never held here: they come off
@@ -216,6 +217,7 @@ export function SearchPanel({
       ancestry: q.ancestry,
       common_maf: q.common_maf,
       cross_check: q.cross_check,
+      material: q.material,
       primer_scope: primerShown?.scope,
       primer_settings: primerShown?.settings,
       // Only where there is something to check and a server that can check it. Sending true
@@ -550,6 +552,14 @@ export function SearchPanel({
                 data={[...ANCESTRIES]}
                 value={q.ancestry}
                 onChange={(v) => setQ({ ...q, ancestry: v })}
+              />
+              <Select
+                style={{ flex: '0 0 170px' }}
+                label="material tested"
+                data={[...MATERIALS]}
+                value={q.material}
+                allowDeselect={false}
+                onChange={(v) => setQ({ ...q, material: (v ?? 'single_cell') as Material })}
               />
               <NumberInput
                 style={{ flex: '0 0 110px' }}

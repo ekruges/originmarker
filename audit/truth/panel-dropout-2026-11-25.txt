@@ -1,0 +1,5 @@
+parents read 12, over the diploid ceiling and left out 1
+material	arrays	mean d	median d	min d	max d	mean call rate	mean read chance	min read chance	max read chance	median markers in d
+bulk DNA (ES cell line)	16	0.1272	0.1264	0.0993	0.1509	0.9725	0.8487	0.8306	0.8685	83431.5
+trophectoderm biopsy	36	0.0599	0.0000	0.0000	0.3411	0.7943	0.7440	0.5210	0.8322	64133
+single cell (blastomere)	19	0.2247	0.3284	0.0000	0.5472	0.7446	0.5658	0.3159	0.7531	65158

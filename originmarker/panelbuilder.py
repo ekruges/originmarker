@@ -464,6 +464,8 @@ class Marker:
     # means no design was attempted; a design that ran and failed is a PrimerResult carrying
     # `error`. Absence and failure must never render alike.
     primer: Optional["primers.PrimerResult"] = None
+    # The lab chip's probe at this position (see keep_on_chip). Every offered marker has one.
+    chip_probe: Optional[str] = None
 
 
 @dataclass
@@ -502,6 +504,10 @@ class StructuredQuery:
     # through rather than mirrored: primers.PrimerSettings owns the defaults.
     primer_scope: str = "starred"       # see PRIMER_SCOPES
     primer_settings: Optional[dict] = None
+    # What the lab will genotype; sets how many markers are asked per side (see MATERIALS).
+    # The default is the material with the most drop-out, so a query naming none never asks
+    # for too few.
+    material: str = "single_cell"
     # Provenance, never input: build() must not read these to decide anything. They record
     # that a model, not the user, chose `variant`, so the exports can say so.
     nl_text: Optional[str] = None       # the user's original prose, verbatim
@@ -521,6 +527,9 @@ class StructuredQuery:
             if self.ancestry not in GNOMAD_POPS.values():
                 raise ValueError(f"unknown ancestry {self.ancestry!r}; "
                                  f"expected one of {sorted(GNOMAD_POPS.values())}")
+        if self.material not in MATERIALS:
+            raise ValueError(f"unknown material {self.material!r}; expected one of "
+                             f"{sorted(MATERIALS)}")
         if self.primer_scope not in PRIMER_SCOPES:
             raise ValueError(f"unknown primer_scope {self.primer_scope!r}; expected one of "
                              f"{sorted(PRIMER_SCOPES)}")
@@ -1321,6 +1330,136 @@ FLANKING_CRITERIA = {
 }
 
 
+# How many markers to ask for on each side. ESHRE's 3 is the number that must READ; how many to
+# ask for follows from the chance that one marker reads in the material tested.
+#
+# A marker reads when the chip calls it and a heterozygote stays heterozygous, so its chance is
+# call rate x (1 - allele drop-out). Both are measured on the lab's chip, on the complete trios of
+# its public series GSE148488 (Axiom UK Biobank), with the tool's own drop-out estimator
+# (d = 1 - 2h at father-heterozygous by mother-homozygous markers, ingest.estimateDropout), by
+# audit/truth/panel-dropout.ts; the numbers are the mean over the arrays of each material and are
+# in audit/truth/panel-dropout-2026-11-25.txt. Bulk DNA is the series' ES cell lines, which are
+# not amplified; the biopsy is a trophectoderm biopsy; the single cell is a blastomere.
+MATERIALS = {
+    "bulk": {"label": "bulk DNA", "dropout": 0.1272, "call_rate": 0.9725, "read": 0.8487,
+             "arrays": 16},
+    "biopsy": {"label": "a trophectoderm biopsy", "dropout": 0.0599, "call_rate": 0.7943,
+               "read": 0.7440, "arrays": 36},
+    "single_cell": {"label": "a single cell", "dropout": 0.2247, "call_rate": 0.7446,
+                    "read": 0.5658, "arrays": 19},
+}
+# The chance that at least ESHRE_MIN_PER_SIDE markers read. The tool's error budget elsewhere is
+# alpha 0.05 (origin.r_min); this is the same 95%.
+READ_CHANCE = 0.95
+DROPOUT_SOURCE = ("the mean over the lab chip's public series GSE148488, measured with this "
+                  "tool's trio drop-out estimator")
+
+
+def _at_least(n: int, k: int, p: float) -> float:
+    """P(Binomial(n, p) >= k)."""
+    from math import comb
+    return sum(comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k, n + 1))
+
+
+def markers_per_side(read: float, k: int = ESHRE_MIN_PER_SIDE,
+                     chance: float = READ_CHANCE) -> int:
+    """Smallest n with P(at least k of n markers read) >= chance, each reading with `read`."""
+    if not 0.0 < read <= 1.0:
+        raise ValueError(f"read chance out of range: {read}")
+    n = k
+    while _at_least(n, k, read) < chance:
+        n += 1
+    return n
+
+
+def marker_count(material: str) -> dict:
+    """The count asked per side for `material`, its numbers and its sentence, for provenance.
+    The page and the exports print `note` verbatim."""
+    m = MATERIALS[material]
+    n = markers_per_side(m["read"])
+    note = (f"{n} markers asked on each side. In {m['label']} on the lab's chip a marker reads "
+            f"{m['read']:.0%} of the time (allele drop-out {m['dropout']:.1%}, call rate "
+            f"{m['call_rate']:.1%}; {DROPOUT_SOURCE}, {m['arrays']} arrays). With {n} on a side, "
+            f"at least {ESHRE_MIN_PER_SIDE} read with a chance of "
+            f"{_at_least(n, ESHRE_MIN_PER_SIDE, m['read']):.1%}. ESHRE recommends at least "
+            f"{ESHRE_MIN_PER_SIDE} readable markers on each side.")
+    return {"material": material, "label": m["label"], "per_side": n, "read": m["read"],
+            "dropout": m["dropout"], "call_rate": m["call_rate"], "arrays": m["arrays"],
+            "must_read": ESHRE_MIN_PER_SIDE, "chance": READ_CHANCE, "note": note}
+
+
+# The lab's chip, the one the tool reads (web/src/platform.ts PROVEN_CHIP). Its probes as the
+# chip's own export files list them (GSE148488), positions on GRCh37. Every probe on the list
+# counts as read: Axiom's probe class differs between files of one series, so it is a property
+# of a batch, and on the bulk arrays every autosomal class is called at 0.90 to 0.94
+# (audit/truth/chip-probes-2026-11-25.txt).
+CHIP_NAME = "UK Biobank Axiom"
+CHIP_PROBES = Path(__file__).resolve().parent.parent / "data" / "chip" / "axiom-ukb-probes.tsv.gz"
+
+_chip_lock = threading.Lock()
+_chip: dict = {}
+
+
+def _chip_table() -> dict:
+    """{chrom: ([pos37], [probe id])}, sorted by position. Read once."""
+    with _chip_lock:
+        if not _chip:
+            with gzip.open(CHIP_PROBES, "rt") as f:
+                for line in f:
+                    if line.startswith(("#", "probeset_id")):
+                        continue
+                    pid, ch, pos = line.rstrip("\n").split("\t")
+                    t = _chip.setdefault(ch, ([], []))
+                    t[0].append(int(pos))
+                    t[1].append(pid)
+        return _chip
+
+
+def chip_sites(chrom: str, lo: int, hi: int) -> dict[int, str]:
+    """{GRCh38 position: probe id} for the chip's probes in [lo, hi] on GRCh38.
+
+    The chip lists GRCh37 positions. Ensembl's assembly map of the window (live, R1) gives
+    ungapped blocks, and a probe is placed only inside a block that maps back to this chromosome.
+    Raises if the map does not answer: without it no candidate can be shown to be on the chip.
+    """
+    import bisect
+    j = json.loads(_get(ENSEMBL, f"/map/human/GRCh38/{chrom}:{lo}..{hi}:1/GRCh37",
+                        {"content-type": "application/json"},
+                        label=f"Ensembl assembly map chr{chrom}:{lo:,}-{hi:,}"))
+    pos37, ids = _chip_table().get(chrom, ([], []))
+    out: dict[int, str] = {}
+    for mp in j.get("mappings") or []:
+        o, m = mp["original"], mp["mapped"]
+        if (m.get("seq_region_name") != chrom or m.get("assembly") != "GRCh37"
+                or m["end"] - m["start"] != o["end"] - o["start"]):
+            continue
+        for i in range(bisect.bisect_left(pos37, m["start"]), bisect.bisect_right(pos37, m["end"])):
+            off = pos37[i] - m["start"]
+            p38 = o["start"] + off if m["strand"] == o["strand"] else o["end"] - off
+            out[p38] = ids[i]
+    return out
+
+
+def keep_on_chip(markers: list[Marker], sites: dict[int, str]) -> list[Marker]:
+    """Only candidates at a chip probe, each stamped with that probe's id."""
+    kept = []
+    for m in markers:
+        if m.pos in sites:
+            m.chip_probe = sites[m.pos]
+            kept.append(m)
+    if len(kept) < len(markers):
+        _emit(Tag.SKIP, f"{len(markers) - len(kept):,} common SNPs dropped: the lab's chip has "
+                        f"no probe there")
+    _emit(Tag.INFO, f"{len(kept):,} of {len(markers):,} common SNPs are read by the lab's chip")
+    return kept
+
+
+def chip_note(common: int, kept: int) -> dict:
+    return {"name": CHIP_NAME, "common": common, "offered": kept, "note": (
+        f"Only markers the lab's chip ({CHIP_NAME}) reads are offered: {kept:,} of the "
+        f"{common:,} common SNPs in the window have a probe of that chip at their position.")}
+
+
 def _hotspot_assessed(m: Marker) -> bool:
     """True only where the bundled map actually judged the span between marker and variant.
 
@@ -1369,7 +1508,8 @@ def _ranking_key_label(ancestry: Optional[str]) -> str:
 
 
 def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
-                 per_bin: int = 2) -> tuple[list[Marker], list[Marker], dict]:
+                 per_bin: int = 2, per_side: int = ESHRE_MIN_PER_SIDE
+                 ) -> tuple[list[Marker], list[Marker], dict]:
     # 2pq = 0 cannot say which parental haplotype an embryo inherited, so it is not a
     # marker. common_maf=0.0 is a legal floor, and would otherwise let monomorphic sites
     # fill a band and satisfy the coverage rule below carrying no information.
@@ -1398,6 +1538,11 @@ def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
         for lo, hi in bands:
             recommended += [m for m in pool if (m.dist > 0) == want_higher
                             and lo <= abs(m.dist) < hi][:per_bin]
+        # At least per_side on each side where the pool has them, topped up in rank order.
+        side = [m for m in recommended if (m.dist > 0) == want_higher]
+        chosen = {m.pos for m in side}
+        recommended += [m for m in pool if (m.dist > 0) == want_higher
+                        and m.pos not in chosen][:max(0, per_side - len(side))]
     recommended.sort(key=lambda m: m.dist)   # total: one marker per site, so dist is unique
 
     lower = [m for m in recommended if m.dist < 0]
@@ -1675,8 +1820,17 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
     progress(f"annotating {len(raw)} variants", 0.75)
     markers = annotate(raw, v, q.common_maf)          # R4
 
+    progress("keeping markers the lab's chip reads", 0.8)
+    common_n = len(markers)
+    markers = keep_on_chip(markers, chip_sites(v.chrom, min(m.pos for m in markers),
+                                               max(m.pos for m in markers))
+                           if markers else {})
+    count = marker_count(q.material)
+    _emit(Tag.INFO, count["note"])
+
     progress("ranking + selecting panel", 0.85)
-    ranked, recommended, coverage = select_panel(markers, q.ancestry)  # R2, R5
+    ranked, recommended, coverage = select_panel(markers, q.ancestry,
+                                                 per_side=count["per_side"])  # R2, R5
 
     if q.cross_check:
         progress("cross-checking positions against Ensembl", 0.92)
@@ -1707,11 +1861,12 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         met = [m for m in recommended
                if (m.dist > 0) == want_higher and m.meets_eshre_flanking_criteria]
         coverage[f"{side}_flanking_count"] = len(met)
-        if len(met) < ESHRE_MIN_PER_SIDE:
+        if len(met) < count["per_side"]:
             coverage.setdefault("flags", []).append(
-                f"Fewer than {ESHRE_MIN_PER_SIDE} markers on the {side}-coordinate side "
-                f"meet the flanking criteria ({len(met)} of {ESHRE_MIN_PER_SIDE}). ESHRE "
-                f"recommends at least three SNPs on each side of the pathogenic variant.")
+                f"Fewer than {count['per_side']} markers on the {side}-coordinate side "
+                f"meet the flanking criteria ({len(met)} of {count['per_side']}). "
+                f"{count['per_side']} are asked so that at least {ESHRE_MIN_PER_SIDE} read in "
+                f"{count['label']}; ESHRE recommends at least {ESHRE_MIN_PER_SIDE} on each side.")
 
     # Here, and inside build(), because `raw` is still in scope: the mask is drawn from the whole
     # gnomAD pull, and a later pass would have only the candidate pool, which cannot mask an
@@ -1746,6 +1901,8 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         "requested_build": q.build,
         "ranking_key": _ranking_key_label(q.ancestry),
         "flanking_criteria": FLANKING_CRITERIA,
+        "marker_count": count,
+        "chip": chip_note(common_n, len(markers)),
         "queried_utc": _utc(_flog["oldest"]) or _utc(time.time()),
         "built_utc": _utc(time.time()),
         "source_responses_from_cache": _flog["from_cache"],
@@ -1767,6 +1924,7 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
     return PanelResult(v, rarity, ranked, recommended, coverage,
                        {"window": q.window_bp, "ancestry": q.ancestry,
                         "common_maf": q.common_maf, "build": q.build,
+                        "material": q.material,
                         # Inputs, beside the other inputs. asdict() of the engine's own
                         # settings, so the panel records the knobs it was actually built
                         # with rather than today's defaults.
