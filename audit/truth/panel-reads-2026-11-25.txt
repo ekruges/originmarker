@@ -1,0 +1,78 @@
+parents read 12, over the diploid ceiling and left out 1
+per array: material, index, estimator d, call rate, both parents by the tool, chromosomes with a change, opposite-homozygote sites counted, read, not called, called homozygous (of those called), counted
+single cell (blastomere)	1	0.4168	0.9003	yes	6 16 18	29908	0.5370	0.1629	0.3584	yes
+single cell (blastomere)	2	0.4154	0.8989	yes	6 16 18	29908	0.5398	0.1609	0.3567	yes
+single cell (blastomere)	3	0.3723	0.9262	yes	6 16	31007	0.6219	0.1314	0.2840	yes
+single cell (blastomere)	4	0.3682	0.9250	yes	6 16	31007	0.6208	0.1328	0.2841	yes
+single cell (blastomere)	5	0.3667	0.5820	yes	2 4 5 10 11 13 16 18 21	20463	0.2487	0.6381	0.3128	yes
+single cell (blastomere)	6	0.3399	0.5908	yes	2 4 5 10 11 13 16 18 21	20463	0.2501	0.6263	0.3306	yes
+single cell (blastomere)	7	0.1149	0.7572	yes	5	33080	0.4570	0.3387	0.3090	yes
+trophectoderm biopsy	1	0.1066	0.9254	yes	none	32245	0.8234	0.1018	0.0832	yes
+trophectoderm biopsy	2	0.1088	0.9222	yes	none	32245	0.8205	0.1041	0.0842	yes
+trophectoderm biopsy	3	0.1127	0.9258	yes	none	32245	0.8195	0.1101	0.0791	yes
+trophectoderm biopsy	4	0.1011	0.9258	yes	none	32245	0.8274	0.1030	0.0776	yes
+bulk DNA (ES cell line)	1	0.0993	0.9642	yes	none	32245	0.9125	0.0374	0.0521	yes
+bulk DNA (ES cell line)	2	0.1095	0.9744	yes	19	31208	0.9258	0.0310	0.0446	yes
+bulk DNA (ES cell line)	3	0.1108	0.9744	yes	none	32245	0.9199	0.0321	0.0496	yes
+bulk DNA (ES cell line)	4	0.1136	0.9773	yes	19	31208	0.9287	0.0276	0.0450	yes
+bulk DNA (ES cell line)	5	0.1357	0.9741	yes	none	32245	0.9109	0.0360	0.0551	yes
+bulk DNA (ES cell line)	6	0.1423	0.9781	yes	none	32245	0.9134	0.0326	0.0559	yes
+bulk DNA (ES cell line)	7	0.1318	0.9715	yes	none	32245	0.9096	0.0377	0.0547	yes
+bulk DNA (ES cell line)	8	0.1412	0.9743	yes	none	32245	0.9068	0.0400	0.0554	yes
+bulk DNA (ES cell line)	9	0.1509	0.9812	yes	none	32245	0.9285	0.0259	0.0467	yes
+bulk DNA (ES cell line)	10	0.1443	0.9707	yes	none	32245	0.9167	0.0378	0.0473	yes
+bulk DNA (ES cell line)	11	0.1454	0.9748	yes	19	31208	0.9248	0.0325	0.0441	yes
+bulk DNA (ES cell line)	12	0.1321	0.9631	yes	none	32245	0.9131	0.0392	0.0496	yes
+bulk DNA (ES cell line)	13	0.1199	0.9666	yes	none	32245	0.9167	0.0361	0.0490	yes
+bulk DNA (ES cell line)	14	0.1174	0.9676	yes	19	31208	0.9198	0.0357	0.0462	yes
+bulk DNA (ES cell line)	15	0.1209	0.9735	yes	19	31208	0.9245	0.0312	0.0457	yes
+bulk DNA (ES cell line)	16	0.1210	0.9739	yes	19	31208	0.9265	0.0290	0.0458	yes
+trophectoderm biopsy	5	0.1074	0.9069	yes	19	31391	0.7798	0.1465	0.0863	yes
+trophectoderm biopsy	6	0.1169	0.9194	yes	19	31391	0.7993	0.1285	0.0828	yes
+trophectoderm biopsy	7	0.1312	0.9232	yes	19	31391	0.7987	0.1347	0.0771	yes
+trophectoderm biopsy	8	0.1055	0.9118	yes	19	31391	0.7906	0.1337	0.0873	yes
+single cell (blastomere)	8	0.0545	0.7719	yes	none	35145	0.5221	0.3170	0.2356	yes
+single cell (blastomere)	9	0.0217	0.7401	yes	none	35145	0.4439	0.3481	0.3191	yes
+single cell (blastomere)	10	0.0738	0.7596	yes	5	33080	0.4623	0.3350	0.3048	yes
+trophectoderm biopsy	9	0.3229	0.7803	no (father carries, mother none)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	10	0.3228	0.7804	no (father carries, mother none)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	11	0.3411	0.7907	no (father carries, mother none)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	12	0.2794	0.7868	no (father carries, mother none)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	13	0.0000	0.7665	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	14	0.0000	0.7600	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	15	0.0000	0.7660	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	16	0.0000	0.7691	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	17	0.0000	0.7287	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	18	0.0000	0.7333	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	19	0.0000	0.7281	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	20	0.0000	0.7350	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	21	0.0000	0.7464	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	22	0.0000	0.7428	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	23	0.0000	0.7434	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	24	0.0000	0.7482	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	25	0.0000	0.7618	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	26	0.0000	0.7615	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	27	0.0000	0.7626	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	28	0.0000	0.7628	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	29	0.0000	0.7539	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	30	0.0000	0.7499	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	31	0.0000	0.7631	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	32	0.0000	0.7588	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	33	0.0000	0.7656	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	34	0.0000	0.7632	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	35	0.0000	0.7650	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+trophectoderm biopsy	36	0.0000	0.7603	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+single cell (blastomere)	11	0.0000	0.5646	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+single cell (blastomere)	12	0.0000	0.5668	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+single cell (blastomere)	13	0.5472	0.6978	yes	1 2 3 5 6 12 14 15 18 21	16884	0.2480	0.4671	0.5346	yes
+single cell (blastomere)	14	0.5155	0.6992	yes	1 2 3 5 6 12 14 15 18 21	16884	0.2545	0.4601	0.5286	yes
+single cell (blastomere)	15	0.0000	0.7531	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+single cell (blastomere)	16	0.3345	0.9119	yes	none	35145	0.5892	0.1582	0.3001	yes
+single cell (blastomere)	17	0.3284	0.9118	yes	none	35145	0.5903	0.1574	0.2995	yes
+single cell (blastomere)	18	0.0000	0.5982	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+single cell (blastomere)	19	0.0000	0.5918	no (father unshown, mother unshown)	none	0	n/a	n/a	n/a	no
+
+material	arrays counted	mean read	median read	min read	max read	mean not called	mean called homozygous	median called homozygous
+bulk DNA (ES cell line)	16	0.9186	0.9182	0.9068	0.9287	0.0339	0.0492	0.0481
+trophectoderm biopsy	8	0.8074	0.8094	0.7798	0.8274	0.1203	0.0822	0.0830
+single cell (blastomere)	14	0.4561	0.4922	0.2480	0.6219	0.3167	0.3398	0.3109

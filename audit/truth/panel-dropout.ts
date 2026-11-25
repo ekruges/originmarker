@@ -1,6 +1,7 @@
 /**
- * Allele drop-out and call rate by material, on the lab chip's public trios. The marker panel's
- * count of markers per side is read from these numbers (originmarker/panelbuilder.py, READ_RATES).
+ * Allele drop-out and call rate by material, on the lab chip's public trios: the first measurement
+ * for the marker panel, set aside because the estimator is pulled down by drop-in and the mean over
+ * arrays is pulled up by arrays missing a parent's copy. The panel reads audit/truth/panel-reads.ts.
  *
  * d is the tool's own estimator (ingest.estimateDropout): 1 - 2h at markers where the father is
  * heterozygous and the mother homozygous, so it needs no population frequency. The call rate is
