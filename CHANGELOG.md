@@ -33,6 +33,16 @@ stated normal XX or XY (141 cells) prints a sex change. The card and the overvie
 nothing moved outside the sex rows. Two X losses gain an origin word, "consistent with the gamete
 (two cells read)", on one pair of lab cells.
 
+**One statement of the sex chromosomes.** The sex line, the sex word, the badge and the new row now
+come from one reading, so they cannot disagree. A cell with no X and no Y left reads "No X and no Y
+found" on its line and "no sex named: no sex chromosome was found" as its word, where the line said
+"Not read" and the word named the stage. An XY the reading prints is "male", and a badge names only
+what the word names: "one X" and "XX or one X" badges go, and a sample not reportable shows none.
+The report prints its timing table whenever a gain or a loss of a grouped cell is timed; it sat
+under the extra-copy table, so a cell with no gain lost it (26 of 33 grouped cells with an origin
+word, the X-loss pair among them). The figure counts what it draws and says the sex-chromosome row
+is counted on the card and not drawn.
+
 ---
 
 ## 6.25.1 "Breakpoint"
