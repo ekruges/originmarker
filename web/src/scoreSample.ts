@@ -382,21 +382,22 @@ export function collectRow(
   // On the same pass, for the same reason the parental arrays do it: a second read of an
   // 800,000-row file to count one chromosome costs more than the counters do.
   accumulateSex(r, acc.sex)
-  if (isAutosome(r.chrom) && r.genotype !== 'NC') {
-    myGt.set(r.probesetId, r.genotype)
-    markerPos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
-  }
+  // Read once a row: whether the marker is on an autosome, and the second parent's genotype.
+  const auto = isAutosome(r.chrom)
+  const mg = mat ? mat.gt.get(r.probesetId) : undefined
+  // The marker's position is set below, for every autosomal marker, called or not.
+  if (auto && r.genotype !== 'NC') myGt.set(r.probesetId, r.genotype)
   const fa = pat.gt.get(r.probesetId) ?? 'NC'
   tallyRow(fa, r, t)
-  if (tm && mat) tallyRow(mat.gt.get(r.probesetId) ?? 'NC', r, tm)
+  if (tm && mat) tallyRow(mg ?? 'NC', r, tm)
   // Shared homozygotes, for the information ratio. On this pass because a second read of an
   // 800,000-row file to count four numbers costs more than the counters do.
-  if (isAutosome(r.chrom)) {
+  if (auto) {
     if (acc.informationPat) addHomozygous(acc.informationPat, r.genotype, fa)
     if (acc.informationMat && mat) {
-      addHomozygous(acc.informationMat, r.genotype, mat.gt.get(r.probesetId) ?? 'NC')
+      addHomozygous(acc.informationMat, r.genotype, mg ?? 'NC')
     }
-    if (acc.sameHom && mat) addSameHom(acc.sameHom, r.genotype, fa, mat.gt.get(r.probesetId) ?? 'NC')
+    if (acc.sameHom && mat) addSameHom(acc.sameHom, r.genotype, fa, mg ?? 'NC')
     const g = acc.panel?.get(r.probesetId)
     if (g) {
       addSameHom(acc.panelSameHom!, r.genotype, g, g)
@@ -424,18 +425,18 @@ export function collectRow(
         }
         if (acc.carryByChrom) addCarry(carryTally(acc.carryByChrom, r.chrom), fa, r.genotype, fq)
         if (acc.carryMatByChrom && mat) {
-          addCarry(carryTally(acc.carryMatByChrom, r.chrom), mat.gt.get(r.probesetId), r.genotype, fq)
+          addCarry(carryTally(acc.carryMatByChrom, r.chrom), mg, r.genotype, fq)
         }
       }
     }
     if (acc.otherByChrom) pushOther(acc.otherByChrom, fa, r, (acc.panel as FounderPanel).freqB!)
     if (acc.otherMatByChrom && mat) {
-      pushOther(acc.otherMatByChrom, mat.gt.get(r.probesetId) ?? 'NC', r, (acc.panel as FounderPanel).freqB!)
+      pushOther(acc.otherMatByChrom, mg ?? 'NC', r, (acc.panel as FounderPanel).freqB!)
     }
   }
   // Only a marker where the parent is homozygous and the sample is called can say
   // anything about presence, which is the same informative set the rates use.
-  if (isAutosome(r.chrom)) {
+  if (auto) {
     markerPos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
     if (r.baf !== null && Number.isFinite(r.baf)) myBaf.set(r.probesetId, r.baf)
     const cn = cnByChrom.get(r.chrom) ?? []
@@ -452,7 +453,7 @@ export function collectRow(
   }
   // THE CLASS THE ONE-PARENT CHANNEL EXCLUDES, which carries four times the signal for the
   // question of whether a second contribution is present. See hetCallOneParent.
-  if (fa === 'AB' && r.genotype !== 'NC' && isAutosome(r.chrom)) {
+  if (fa === 'AB' && r.genotype !== 'NC' && auto) {
     const ph = acc.parentHetByChrom.get(r.chrom) ?? { informative: 0, het: 0 }
     ph.informative += 1
     if (r.genotype === 'AB') ph.het += 1
@@ -463,17 +464,17 @@ export function collectRow(
   // chromosome the array failed on would report that the parents offered nothing. The two numbers
   // together are what separates a marker-poor chromosome from an array that did not read one:
   // `addTwoParent` counts the offer first and returns on a no-call. See whyNotInformative.
-  if ((fa === 'AA' || fa === 'BB') && r.genotype === 'NC' && isAutosome(r.chrom)) {
+  if ((fa === 'AA' || fa === 'BB') && r.genotype === 'NC' && auto) {
     const h = hetByChrom.get(r.chrom) ?? { offered: 0, informative: 0, het: 0 }
     h.offered += 1
     hetByChrom.set(r.chrom, h)
     if (mat) {
       const ob = obligateByChrom.get(r.chrom) ?? emptyHet()
-      addTwoParent(fa, mat.gt.get(r.probesetId) ?? 'NC', 'NC', ob)
+      addTwoParent(fa, mg ?? 'NC', 'NC', ob)
       obligateByChrom.set(r.chrom, ob)
     }
   }
-  if ((fa === 'AA' || fa === 'BB') && r.genotype !== 'NC' && isAutosome(r.chrom)) {
+  if ((fa === 'AA' || fa === 'BB') && r.genotype !== 'NC' && auto) {
     // The homologue channel: every heterozygous call here is error in a haploid.
     const h = hetByChrom.get(r.chrom) ?? { offered: 0, informative: 0, het: 0 }
     h.offered += 1
@@ -481,7 +482,7 @@ export function collectRow(
     if (r.genotype === 'AB') h.het += 1
     hetByChrom.set(r.chrom, h)
     if (mat) {
-      const mo = mat.gt.get(r.probesetId) ?? 'NC'
+      const mo = mg ?? 'NC'
       const ob = obligateByChrom.get(r.chrom) ?? emptyHet()
       addTwoParent(fa, mo, r.genotype, ob)
       obligateByChrom.set(r.chrom, ob)
@@ -503,8 +504,8 @@ export function collectRow(
   // hand-karyotyped cells that asymmetry showed as 11 of 17 paternal segmental events found and 0
   // of 10 maternal. The mother is homozygous at a different set of markers than the father, so
   // this cannot sit inside the gate above and carries its own null.
-  if (mat && isAutosome(r.chrom) && r.genotype !== 'NC') {
-    const mo = mat.gt.get(r.probesetId) ?? 'NC'
+  if (mat && auto && r.genotype !== 'NC') {
+    const mo = mg ?? 'NC'
     if (mo === 'AA' || mo === 'BB') {
       const ma = matAbsenceByChrom.get(r.chrom) ?? []
       const absent = r.genotype !== 'AB' && r.genotype !== mo
