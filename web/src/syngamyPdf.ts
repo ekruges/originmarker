@@ -118,6 +118,7 @@ export function reportMethods(input: Pick<ReportInput, 'files' | 'runArrays' | '
     mother: input.files.some((f) => f.role === 'oocyte')
       || results.some((f) => !f.result!.noParent && (!!f.maternal || f.result!.role === 'maternal')),
     grouped: Math.max(0, ...results.map((f) => f.result!.units ?? 0)),
+    markers: results.filter((f) => f.profile).map((f) => ({ file: f.profile!.markers, autosomal: autosomalCalled(f.profile!) })),
     sexRows: results.filter((f) => {
       const l = cardSays(f.result!, f.maternal, f.paired?.originClass ?? f.result!.originClass, !!donor?.inferred).list
       return [...l.counted, ...l.once, ...l.seen, ...l.notReported?.rows ?? []].some((g) => g.pieces[0]?.step === 'sex')
@@ -125,6 +126,10 @@ export function reportMethods(input: Pick<ReportInput, 'files' | 'runArrays' | '
     applied: barsApplied(reportSetup(input)),
   })
 }
+
+/** Markers a profile called on chromosomes 1 to 22. */
+export const autosomalCalled = (p: Pick<SampleProfile, 'byChrom'>): number =>
+  [...p.byChrom].reduce((n, [c, s]) => n + (/^([1-9]|1\d|2[0-2])$/.test(c) ? s.called : 0), 0)
 
 /** The timing section of a sample not reportable: one line, no rows. */
 export const NO_TIMING_SAYS = 'No timing is read on a sample that is not reportable.'
@@ -273,7 +278,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     pdf.setFont('Helvetica', 6.5)
     pdf.setFillColor(GREY)
     pdf.drawString(L, 26, `Syngamy | ${toolLine(input.tool)} | report ${input.reportId} | generated `
-      + `${input.generatedAt} | page ${page}`)
+      + `${input.generatedAt} | page ${page} of ${PAGES}`)
     pdf.setFillColor(INK)
   }
 
@@ -1357,5 +1362,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
 
   footer()
   pdf.showPage()
+  pdf.substitute(PAGES, String(pdf.pageCount))
   return pdf.save()
 }
+
+/** Stands in for the page count until the last page is drawn. */
+const PAGES = '@@PAGES@@'

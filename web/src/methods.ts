@@ -42,7 +42,15 @@ export interface MethodsRun {
   grouped: number
   /** Samples whose change list holds a sex-chromosome row (pageSays, step 'sex'). */
   sexRows: number
+  /** Per sample with a profile: markers in the file, and markers called on chromosomes 1 to 22. */
+  markers: readonly { file: number; autosomal: number }[]
   applied: readonly Bar[]
+}
+
+const int = (n: number): string => n.toLocaleString('en-US')
+const span = (xs: readonly number[]): string => {
+  const lo = Math.min(...xs); const hi = Math.max(...xs)
+  return lo === hi ? int(lo) : `${int(lo)} to ${int(hi)}`
 }
 
 export interface Methods { text: string; cites: Cite[] }
@@ -58,6 +66,11 @@ export function methodsParagraph(run: MethodsRun): Methods {
   const s: string[] = []
   s.push(`${run.samples === 1 ? 'One sample array was' : `${run.samples} sample arrays were`} read with `
     + `${run.tool}, ${run.samples === 1 ? '' : 'each '}as a ${run.chip} file ${build}.`)
+  if (run.markers.length) {
+    const one = run.markers.length === 1
+    s.push(`${one ? 'The file held' : 'The files held'} ${span(run.markers.map((m) => m.file))} markers, `
+      + `${span(run.markers.map((m) => m.autosomal))} of them called on chromosomes 1 to 22${one ? '' : ', by file'}.`)
+  }
   s.push(parents === 0 ? 'No parental array was loaded.'
     : run.father === 'rebuilt' && !run.mother
       ? 'The father\'s genotype, rebuilt from haploid cells he produced, was loaded in place of his array; no array of the mother was loaded.'

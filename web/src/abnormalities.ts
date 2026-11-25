@@ -136,7 +136,7 @@ export const TAXONOMY: readonly TaxonomyEntry[] = [
     origin: 'the same as any segmental event',
     limit: 'Separating a gamete-borne change from one after fertilisation needs a SECOND UNIT of '
       + 'the same embryo: a change carried by the gamete is in every cell, one after fertilisation '
-      + 'is in a lineage or reciprocal between daughter cells (timing.ts). One cell cannot do it.',
+      + 'is in a lineage or reciprocal between daughter cells. One cell cannot do it.',
   },
   {
     cls: 'reverse-segregation', label: 'Reverse segregation', detectable: 'no',

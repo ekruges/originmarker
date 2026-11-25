@@ -5,7 +5,7 @@ import { CHECKED, methodsParagraph, type MethodsRun } from './methods.ts'
 
 const run = (o: Partial<MethodsRun> = {}): MethodsRun => ({
   tool: 'OriginMarker 9.9.9 (Check)', chip: 'UK Biobank Axiom', builds: ['GRCh37'], samples: 1, father: 'none',
-  mother: false, grouped: 0, sexRows: 0, applied: barsApplied({ parents: 0, run: false, comparison: false }), ...o,
+  mother: false, grouped: 0, sexRows: 0, markers: [], applied: barsApplied({ parents: 0, run: false, comparison: false }), ...o,
 })
 {
   const m = methodsParagraph(run())
@@ -26,5 +26,12 @@ const run = (o: Partial<MethodsRun> = {}): MethodsRun => ({
   assert.ok(m.cites.includes(CHECKED.verdyck2022), 'the two-parent share is cited with both parents only')
   assert.throws(() => methodsParagraph(run({ father: 'measured', applied: barsApplied({ parents: 0, run: false, comparison: false }) })),
     'a sentence cannot quote a bar the run did not apply')
+}
+{
+  const one = methodsParagraph(run({ markers: [{ file: 825656, autosomal: 790123 }] })).text
+  assert.ok(one.includes('The file held 825,656 markers, 790,123 of them called on chromosomes 1 to 22.'), one)
+  const two = methodsParagraph(run({ samples: 2, markers: [{ file: 825656, autosomal: 600000 }, { file: 825656, autosomal: 790123 }] })).text
+  assert.ok(two.includes('The files held 825,656 markers, 600,000 to 790,123 of them called on chromosomes 1 to 22, by file.'), two)
+  assert.ok(!/markers, .* called/.test(methodsParagraph(run()).text), 'no marker sentence without the numbers')
 }
 console.log('methods.check: ok')
