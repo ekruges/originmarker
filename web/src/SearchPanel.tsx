@@ -101,6 +101,16 @@ interface Props {
 }
 
 let lastMode: Mode = 'search'
+type ManualQuery = Required<Omit<StructuredQuery,
+  'gene' | 'ancestry' | 'material' | 'primer_scope' | 'primer_settings' | 'verify_primers'>> & {
+  material: Material
+  gene: string
+  ancestry: string | null
+}
+let lastQ: ManualQuery = {
+  variant: '', gene: '', window_bp: 250_000, build: 'GRCh38',
+  ancestry: null, common_maf: 0.05, cross_check: true, material: 'single_cell',
+}
 
 export function SearchPanel({
   health, busy, onResolve, hero = false, onCarrierFile, carrierFile,
@@ -133,15 +143,10 @@ export function SearchPanel({
   // Manual mode: every StructuredQuery knob, no parsing in the way. The primer fields and
   // the bundled check are omitted because they are held in their own state below: they are
   // not simple values with a default, and the numbers are the server's rather than ours.
-  const [q, setQ] = useState<Required<Omit<StructuredQuery,
-    'gene' | 'ancestry' | 'material' | 'primer_scope' | 'primer_settings' | 'verify_primers'>> & {
-    material: Material
-    gene: string
-    ancestry: string | null
-  }>({
-    variant: '', gene: '', window_bp: 250_000, build: 'GRCh38',
-    ancestry: null, common_maf: 0.05, cross_check: true, material: 'single_cell',
-  })
+  // Kept outside the component for the same reason as the mode: after a failed build the form
+  // shows what the user typed.
+  const [q, setQState] = useState<ManualQuery>(lastQ)
+  const setQ = (v: ManualQuery) => { lastQ = v; setQState(v) }
 
   // Untouched until the fields are edited. The numbers are never held here: they come off
   // health, from the engine that will use them, so this side has no defaults to drift.
