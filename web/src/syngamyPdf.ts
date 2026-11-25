@@ -100,7 +100,9 @@ export function reportSetup(input: Pick<ReportInput, 'files' | 'runArrays' | 'co
   // A result read against a parent counts that parent, whatever files the report was handed.
   const read = Math.max(0, ...input.files.filter((f) => f.result).map((f) => (f.result!.noParent ? 0 : f.maternal ? 2 : 1)))
   const samples = input.files.filter((f) => f.result).length
-  return { parents: Math.max(loaded, read) as 0 | 1 | 2, run: (input.runArrays ?? samples - 1) > 0, comparison: !!input.comparison }
+  // A result grouped with other cells was read beside them, whatever the report holds.
+  const grouped = input.files.some((f) => (f.result?.units ?? 0) > 1)
+  return { parents: Math.max(loaded, read) as 0 | 1 | 2, run: grouped || (input.runArrays ?? samples - 1) > 0, comparison: !!input.comparison }
 }
 
 /** The methods paragraph of a report's run: the same function the page's copy block reads. */
@@ -123,6 +125,9 @@ export function reportMethods(input: Pick<ReportInput, 'files' | 'runArrays' | '
     applied: barsApplied(reportSetup(input)),
   })
 }
+
+/** The timing section of a sample not reportable: one line, no rows. */
+export const NO_TIMING_SAYS = 'No timing is read on a sample that is not reportable.'
 
 /** The tool string, or a plain statement that the server gave no version. */
 export const toolLine = (tool: string): string => (/\d/.test(tool) ? tool : `${tool}, version not reported`)
@@ -828,11 +833,12 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'differently has a line for each. The units were grouped by genotype concordance rather '
         + 'than by their labels.',
       7.4, 'Helvetica', 2.4, GREY)
-      table(
+      if (seen) text(NO_TIMING_SAYS, 7.6, 'Helvetica', 2, GREY)
+      else table(
         [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
         timingRows(r.uniformity!).map((u) => [
           u.where,
-          { v: seen ? verdictText(true, u.mechanism) : stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
+          { v: stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
           { v: u.why, colour: GREY },
         ]),
       )

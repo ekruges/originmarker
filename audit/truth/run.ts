@@ -268,6 +268,7 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
       const names = new Set(barsMod.BARS.map((b: any) => b.name))
       const methods = reportPdf.reportMethods(input as never)
       out.outputs = {
+        figureTitle: s.title,
         withheldHeading: strings.find((x) => x.startsWith('Withheld, and why: ')) ?? null,
         withheldRows: withheldMod.withheldRows(res, s.list).length,
         barsListed: [...new Set(strings.filter((x) => names.has(x)))],

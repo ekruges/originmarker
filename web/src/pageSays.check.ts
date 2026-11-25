@@ -585,7 +585,10 @@ const cellA: Defect[] = [
   // The figure has no X track: it draws none of it, counts none of it and says so.
   assert.deepEqual(drawnOf({ refusals: [] }, s.defects), { listed: 0, withheld: 0 })
   assert.equal(figureNote(s.list, { listed: 0, withheld: 0 }), SEX_COUNTED_NOT_DRAWN)
-  assert.ok(s.title.endsWith(`No gain or loss was found on chromosomes 1 to 22. ${SEX_COUNTED_NOT_DRAWN}`), s.title)
+  // Said once per caption: the note carries it, the title does not.
+  assert.ok(s.title.endsWith('No gain or loss was found on chromosomes 1 to 22.') && !s.title.includes(SEX_COUNTED_NOT_DRAWN), s.title)
+  const caption = `${s.title} ${figureNote(s.list, { listed: 0, withheld: 0 })}`
+  assert.equal(caption.split(SEX_COUNTED_NOT_DRAWN).length - 1, 1, 'the sentence appears once in title and note')
   const both = { ...s.list, counted: [...changeList([loss], 'none').counted, x] }
   // The caption counts what is drawn and names the undrawn sex row, so its numbers add up.
   const note = figureNote(both, { listed: 1, withheld: 0 })!
@@ -617,4 +620,12 @@ const cellA: Defect[] = [
   assert.equal(seenRows[0].mechanism, 'none')
   assert.deepEqual(timingRows(seenRows).map((u) => verdictText(true, u.mechanism)), ['not read: the sample is not reportable'])
   console.log('  a sex-chromosome row is a loss, a gain or a finding, counted on the card, not drawn on the figure')
+}
+
+// ---------------------------------------------------------------- a chromosome range runs in chromosome order
+{
+  const { listChroms } = await import('./pageSays.ts')
+  const at = ['chr3:1', 'chr10:2', 'chr2:3', 'chr22:1', 'chrX:1', 'chr1:5', 'chr7:1', 'chr12:1']
+  assert.equal(listChroms(at), '8 chromosomes, chr1 to chrX', 'first to last in chromosome order, X after 22')
+  assert.equal(listChroms(['chr9:1', 'chr2:1']), 'chr2, chr9')
 }

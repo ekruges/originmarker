@@ -564,6 +564,8 @@ export const listChroms = (wheres: readonly string[]): string => {
     if (c && !seen.includes(c)) seen.push(c)
   }
   if (!seen.length) return `${wheres.length} intervals`
+  const rank = (c: string) => (c === 'X' ? 23 : c === 'Y' ? 24 : Number(c))
+  seen.sort((a, b) => rank(a) - rank(b))
   const n = seen.length
   return n <= 6 ? `chr${seen.join(', chr')}` : `${n} chromosomes, chr${seen[0]} to chr${seen[n - 1]}`
 }
@@ -920,8 +922,8 @@ const count = (n: number, one: string, many: string): string => `${n <= 10 ? NUM
  * the card, never how a bar is computed.
  */
 export function figureTitle(head: Headline, l: ChangeList, h: HeadInput): string {
-  const t = drawnTitle(head, l, h)
-  return l.counted.some(isSexRow) ? `${t} ${SEX_COUNTED_NOT_DRAWN}` : t
+  // The sentence on an undrawn sex row is the note's, beside the drawn counts, so it is said once.
+  return drawnTitle(head, l, h)
 }
 
 function drawnTitle(head: Headline, l: ChangeList, h: HeadInput): string {

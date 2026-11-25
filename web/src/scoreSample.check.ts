@@ -1015,3 +1015,31 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   assert.ok(bare.s.some((x) => x.includes('OriginMarker, version not reported | report')), 'no version given is said')
   console.log('  the report lists what was withheld, the bars applied and the methods paragraph')
 }
+
+// ---------------------------------------------------------------- no timing on a sample not reportable
+// The report's timing section of a sample not reportable is one line and no row; a reportable one
+// keeps its rows.
+{
+  const { NO_TIMING_SAYS } = await import('./syngamyPdf.ts')
+  const r = await run()
+  assert.equal(r.integrity?.level, 'uninterpretable')
+  const rows = [
+    { chrom: '3', kind: 'copy-gain', startBp: 1e6, endBp: 9e6, mechanism: 'meiotic', why: 'every unit carries it', stretches: [] },
+    { chrom: '5', kind: 'copy-loss', startBp: 1e6, endBp: 9e6, mechanism: 'mitotic', why: 'one unit reads it normal', stretches: [] },
+    { chrom: '7', kind: 'cnn-loh', startBp: 1e6, endBp: 9e6, mechanism: 'none', why: 'a finding', stretches: [] },
+  ]
+  const pdfOf = async (x: unknown) => [...Buffer.from(await (await buildReportPdf({
+    files: [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: x }],
+    donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+    tool: 'OriginMarker 9.9.9 (Check)', reportId: 'CHECK', fromExamples: false,
+  } as never)).arrayBuffer()).toString('latin1').matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1])
+  const seen = await pdfOf({ ...r, uniformity: rows, units: 2 })
+  assert.equal(seen.filter((x) => x === NO_TIMING_SAYS).length, 1, 'one line on a sample not reportable')
+  assert.ok(!seen.some((x) => /^chr[357] 1\.0-9\.0Mb$/.test(x)), 'and none of its timing rows')
+  const reportable = { ...r, refusals: (r.refusals ?? []).filter((x) => x.claim !== 'sample'), uniformity: rows, units: 2 }
+  const kept = await pdfOf(reportable)
+  assert.ok(!kept.includes(NO_TIMING_SAYS) && kept.includes('chr3 1.0-9.0Mb') && kept.includes('chr5 1.0-9.0Mb'),
+    'a reportable sample keeps its gain and loss rows')
+  console.log('  a sample not reportable prints no timing rows')
+}
+
