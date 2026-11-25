@@ -40,6 +40,8 @@ export interface MethodsRun {
   mother: boolean
   /** The largest group of arrays read as units of one embryo, 0 where none was grouped. */
   grouped: number
+  /** Samples whose change list holds a sex-chromosome row (pageSays, step 'sex'). */
+  sexRows: number
   applied: readonly Bar[]
 }
 
@@ -78,6 +80,11 @@ export function methodsParagraph(run: MethodsRun): Methods {
     + `${v('HAPLOID_MAX_HET')} heterozygous carrying one genome.`)
   s.push('The sex chromosomes were read from chrX and chrY against the array\'s own autosomes, from the chrY '
     + `call rate, intensity and allele fractions, with no Y read as absent on fewer than ${v('Y_MIN_PROBES')}.`)
+  if (run.sexRows) {
+    s.push(`In ${run.sexRows === 1 ? 'one sample' : `${run.sexRows} samples`} that reading entered the change list `
+      + 'as a row: a loss or a gain where it states a sex chromosome missing or extra, a finding where it names '
+      + 'two possibilities; such a row is not drawn on the figures, which draw chromosomes 1 to 22.')
+  }
   if (parents) {
     s.push('Parent of origin was read from the loaded parent\'s genotypes: at markers where that parent is '
       + 'homozygous, an allele the parent lacks shows that the parent\'s copy is absent. A sample was called '

@@ -37,6 +37,7 @@ import * as segments from './segments.ts'
 import * as sexChromosome from './sexChromosome.ts'
 import * as sexing from './sexing.ts'
 import * as siblingOrigin from './siblingOrigin.ts'
+import * as sisterGain from './sisterGain.ts'
 import * as stage from './stage.ts'
 import * as timing from './timing.ts'
 import * as untransmitted from './untransmitted.ts'
@@ -50,7 +51,7 @@ const MODULES: Record<string, Record<string, unknown>> = {
   'otherParentLoss.ts': otherParentLoss, 'parentGenome.ts': parentGenome, 'parentage.ts': parentage,
   'partLost.ts': partLost, 'platform.ts': platform, 'refine.ts': refine, 'relatedness.ts': relatedness,
   'scoreSample.ts': scoreSample, 'segments.ts': segments, 'sexChromosome.ts': sexChromosome,
-  'sexing.ts': sexing, 'siblingOrigin.ts': siblingOrigin, 'stage.ts': stage, 'timing.ts': timing,
+  'sexing.ts': sexing, 'siblingOrigin.ts': siblingOrigin, 'sisterGain.ts': sisterGain, 'stage.ts': stage, 'timing.ts': timing,
   'untransmitted.ts': untransmitted,
 }
 
@@ -260,6 +261,15 @@ const SPECS: Spec[] = [
   ['siblingOrigin.ts', 'SISTER_CALL_POSTERIOR', 'Posterior a sister-referenced call must reach.', RUN],
   ['siblingOrigin.ts', 'SISTER_MIN_MARKERS', 'Fewest informative markers before a sister-referenced region is scored.', RUN, 'markers'],
   ['siblingOrigin.ts', 'MIN_SIBLINGS', 'Fewest other cells of the run before a sister-referenced call.', RUN],
+  // sisterGain.ts
+  ['sisterGain.ts', 'MIN_WINDOW_MARKERS', 'Fewest markers in an intensity window before the sister reading uses it.', RUN, 'markers'],
+  ['sisterGain.ts', 'MIN_REFERENCE_CHROMS', 'Reference chromosomes a cell needs before a raised stretch is read against a sister\'s loss.', RUN],
+  ['sisterGain.ts', 'MIN_NULL_RUNS', 'Fewest null runs before the sister reading has a spread to measure against.', RUN],
+  ['sisterGain.ts', 'MIN_INTERVAL_WINDOWS', 'Fewest windows a raised stretch spans before it is read.', RUN],
+  ['sisterGain.ts', 'MAX_RUN_WINDOWS', 'Most windows in one null run.', RUN],
+  ['sisterGain.ts', 'SISTER_Z', 'Spreads above the cell\'s own level a stretch must read where a sister shows it lost.', RUN],
+  ['sisterGain.ts', 'SISTER_SHIFT', 'Smallest intensity rise read as the gain a sister\'s loss points at.', RUN, 'log2'],
+  ['sisterGain.ts', 'SISTER_AGREE_MIN', 'Genotype agreement over which two cells of a run are read as the same genome for the sister reading.', RUN],
   // stage.ts
   ['stage.ts', 'ALLELE_PLOIDY_MIN_STATED', 'Chromosomes stating a copy state before the alleles say how many genomes are present.', P],
   ['stage.ts', 'HET_SPREAD_LOCALISED', 'Heterozygosity over which the array is not one genome.'],
@@ -313,6 +323,7 @@ export const NOT_BARS: Readonly<Record<string, string>> = {
   'otherParentLoss.ts:EDGE_DROP': 'LR_DROP, the edge bound of the window scan, applied on this scan\'s scale',
   'refine.ts:SEARCH_RADIUS': 'how far a search looks',
   'segments.ts:GAIN_SHIFT_FRACTION': 'a factor; the bar it makes is SEGMENT_GAIN_SHIFT',
+  'sisterGain.ts:WINDOW_BP': 'the size of an intensity window',
   'sexing.ts:FLOOR_STRIDE': 'how many markers are sampled',
   'sexing.ts:LRR_STRIDE': 'how many markers are sampled',
   'siblingOrigin.ts:WRONG_HOMOZYGOTE_RATE': 'a model error rate',

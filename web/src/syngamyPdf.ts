@@ -116,6 +116,10 @@ export function reportMethods(input: Pick<ReportInput, 'files' | 'runArrays' | '
     mother: input.files.some((f) => f.role === 'oocyte')
       || results.some((f) => !f.result!.noParent && (!!f.maternal || f.result!.role === 'maternal')),
     grouped: Math.max(0, ...results.map((f) => f.result!.units ?? 0)),
+    sexRows: results.filter((f) => {
+      const l = cardSays(f.result!, f.maternal, f.paired?.originClass ?? f.result!.originClass, !!donor?.inferred).list
+      return [...l.counted, ...l.once, ...l.seen, ...l.notReported?.rows ?? []].some((g) => g.pieces[0]?.step === 'sex')
+    }).length,
     applied: barsApplied(reportSetup(input)),
   })
 }

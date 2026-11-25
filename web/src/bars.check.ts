@@ -1,6 +1,7 @@
 // The registry of bars against the scoring code. Run: node --experimental-strip-types src/bars.check.ts
 //
-// The scoring code is every module scoreSample.ts imports, followed import by import. A named
+// The scoring code is every module scoreSample.ts and the run's sister reading (sisterGain.ts) import,
+// followed import by import. A named
 // numeric constant is a top-level `const NAME =` (exported or not), NAME in capitals, whose value
 // is a number, arithmetic on numbers, Math functions and names in capitals, or the name of another
 // such constant. Each must be in bars.BARS or bars.NOT_BARS, and every entry must still exist.
@@ -10,7 +11,7 @@ import { BARS, NOT_BARS, barValue, barsApplied, barIn } from './bars.ts'
 
 const dir = new URL('./', import.meta.url).pathname
 const closure = new Set<string>()
-const stack = ['scoreSample.ts']
+const stack = ['scoreSample.ts', 'sisterGain.ts']
 while (stack.length) {
   const f = stack.pop()!
   if (closure.has(f) || !existsSync(dir + f)) continue
