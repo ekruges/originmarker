@@ -371,7 +371,7 @@ RELEASES: tuple[Release, ...] = (
             "in every cell."),
 )
 
-VERSION = "6.25.0"
+VERSION = "6.25.1"
 CODENAME = "Breakpoint"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
