@@ -49,12 +49,13 @@ assert.ok(bad({ affectedAutosomes: 9 }).includes('9 of 22 autosomes read as chan
 
 // THE WHOLE-SAMPLE NOTE NAMES ITS PHYSICAL CAUSE. Every branch of the integrity call, under every
 // stage refusal: the call carries a physical cause, or `none` where it withholds nothing, and the
-// printed row says that cause's words. Only the three stand-ins named here may carry `proxy`: a
-// stage refused on a test that names no cause (the ceiling, a declared failure, an unread stage) and
-// a low call rate whose calls were never tested for chance. A new branch or stage refusal with no
-// physical cause fails here.
+// printed row says that cause's words. Only the stand-ins named here may carry `proxy`: a stage
+// refused on a test that names no cause (the ceiling, a declared failure, an unread stage) and a
+// call rate under the bar, whose uncalled markers carry intensity. A stand-in row says what was
+// measured, never that DNA is missing and never the proxy words. A new branch or stage refusal with
+// no physical cause fails here.
 {
-  const ok = { stage: 'single-cell' as const, callRate: 0.95, affectedAutosomes: 0, totalAutosomes: 22, events: 0, callsCarryGenome: true }
+  const ok = { stage: 'single-cell' as const, callRate: 0.95, affectedAutosomes: 0, totalAutosomes: 22, events: 0 }
   const cases: [string, Parameters<typeof assessIntegrity>[0], string][] = [
     ['intact', ok, 'none'],
     ['disturbed', { ...ok, affectedAutosomes: 1, events: 1 }, 'none'],
@@ -62,10 +63,9 @@ assert.ok(bad({ affectedAutosomes: 9 }).includes('9 of 22 autosomes read as chan
     ['drop-in', { ...ok, allelesStand: true, normalFraction: 0.9 }, 'no-intensity-reference'],
     ['stage: no genotype signal', { ...ok, stage: 'failed', stageCause: 'no-genotype-signal' }, 'no-genotype-signal'],
     ['stage: second genome', { ...ok, stage: 'failed', stageCause: 'second-genome' }, 'second-genome'],
-    ['call rate', { ...ok, callRate: 0.5 }, 'no-template'],
     ['affected autosomes', { ...ok, affectedAutosomes: 9, events: 9 }, 'no-intensity-reference'],
     ['stand-in: stage on a test that names no cause', { ...ok, stage: 'failed', stageCause: 'proxy' }, 'proxy'],
-    ['stand-in: call rate, calls untested', { ...ok, callRate: 0.5, callsCarryGenome: false }, 'proxy'],
+    ['stand-in: call rate under the bar', { ...ok, callRate: 0.5 }, 'proxy'],
   ]
   for (const [name, input, cause] of cases) {
     const call = assessIntegrity(input)
@@ -73,7 +73,11 @@ assert.ok(bad({ affectedAutosomes: 9 }).includes('9 of 22 autosomes read as chan
     const row = sampleCause(call)
     if (cause === 'none') { assert.equal(row, null, `${name}: withholds nothing, so no row`); continue }
     assert.ok(row, `${name}: a row`)
-    if (cause === 'proxy') continue
+    assert.ok(!row!.includes(CAUSE_SAYS.proxy), `${name}: no proxy words: ${row}`)
+    if (cause === 'proxy') {
+      assert.ok(!/DNA|template/.test(row! + call.why + call.headline), `${name}: a stand-in claims no missing DNA: ${row}`)
+      continue
+    }
     const words = CAUSE_SAYS[cause as keyof typeof CAUSE_SAYS]
     assert.ok(row!.includes(words), `${name}: the row names its cause: ${row}`)
     assert.ok(!row!.includes(CAUSE_SAYS.proxy) && !row!.includes('did not resolve'), `${name}: no stand-in words: ${row}`)

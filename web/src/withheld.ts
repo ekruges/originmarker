@@ -86,8 +86,9 @@ export interface IntegrityFacts {
  * What the whole-sample call found against the sample, in one sentence that names its cause, or null
  * where it found nothing against it: a sample whose changes were measured against an undisturbed
  * remainder is the good outcome and withholds nothing. Mirrors the order integrity.ts decides in.
- * The cause is said in CAUSE_SAYS's words; only a stage refusal that names no cause, or a low call
- * rate whose calls were not tested, keeps the gate's own words.
+ * The cause is said in CAUSE_SAYS's words. A stage refusal that names no cause, and a call rate under
+ * the bar (a line the tool draws: the uncalled markers carry intensity), say what was measured and
+ * claim no cause.
  */
 export function sampleCause(i: IntegrityFacts | undefined): string | null {
   if (!i || !i.limits) return null
@@ -104,7 +105,7 @@ export function sampleCause(i: IntegrityFacts | undefined): string | null {
     return `Nothing on this sample is reported: ${says ?? 'the array did not resolve to any material'}.`
   }
   if (Number.isFinite(m.callRate) && m.callRate < COMPLEX_CALL_RATE) {
-    return `Nothing on this sample is reported: ${says ? `${says} at too many markers; ` : ''}its call rate on chromosomes 1 to 22 is under the ${pct(COMPLEX_CALL_RATE)} the rest of the array can be read against.`
+    return `Nothing on this sample is reported: its call rate on chromosomes 1 to 22 is under the ${pct(COMPLEX_CALL_RATE)} the rest of the array can be read against.`
   }
   return `Nothing on this sample is reported: ${says ? `${says}, as ` : ''}${m.affectedAutosomes} of ${m.totalAutosomes} autosomes read as changed, at or over the ${pct(COMPLEX_DEVIANT_FRACTION)} at which no undisturbed part is left.`
 }

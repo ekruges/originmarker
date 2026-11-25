@@ -42,8 +42,9 @@ export interface IntegrityCall {
   why: string
   /** What must not be done with this sample's rows. Empty when the sample is usable. */
   limits: string
-  /** The physical cause the level rests on, read from this array; `none` where nothing is withheld,
-   *  `proxy` only where the stage refused the array on a test that names no cause. */
+  /** The physical cause the level rests on, read from this array; `none` where nothing is withheld;
+   *  `proxy` where the line is the tool's own: a stage refusal on a test that names no cause, or a
+   *  call rate under the bar. */
   cause: Cause
   measures: {
     affectedAutosomes: number
@@ -84,12 +85,7 @@ export interface IntegrityInput {
   /** The physical failure the stage refusal named, or `proxy` where its test names none. Read on a
    *  failed stage only. */
   stageCause?: PhysicalCause | 'proxy'
-  /** The calls made were shown to carry this genome: the information ratio was read against the
-   *  founder panel and is under its bar. */
-  callsCarryGenome?: boolean
 }
-
-const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1)
 
 /**
  * The flag.
@@ -167,25 +163,19 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
   }
 
   if (Number.isFinite(callRate) && callRate < COMPLEX_CALL_RATE) {
-    // The cause is missing DNA only where the calls made were shown to carry this genome; with
-    // that test not run, a low call rate names no cause.
-    const shown = input.callsCarryGenome === true
+    // A STAND-IN. The uncalled markers carry intensity like the called ones on most such arrays, so
+    // the array does not measure missing DNA here: the call-rate line is drawn by the tool.
     return {
       level: 'uninterpretable',
       headline: `DAMAGED SAMPLE: call rate ${(callRate * 100).toFixed(1)}% is below the `
         + `${(COMPLEX_CALL_RATE * 100).toFixed(0)}% this tool can reference against`,
-      why: (shown
-        ? `${cap(CAUSE_SAYS['no-template'])} at too many markers: the calls made carry this genome, by `
-          + 'the test against markers where unrelated people carry the same homozygote, and the markers '
-          + 'left have no call. '
-        : '')
-        + 'Every origin statistic here is measured against the rest of this array\'s own genome. '
+      why: 'Every origin statistic here is measured against the rest of this array\'s own genome. '
         + 'Below this call rate there are not enough calls left for that reference to be stable, '
         + 'so a measured difference describes the reference as much as the target.',
       limits: 'Do not read parental calls from this sample. Positions may still be indicative, '
         + 'because position comes from intensity and needs no genotype, but they are not reportable.',
       measures,
-      cause: shown ? 'no-template' : 'proxy',
+      cause: 'proxy',
     }
   }
 

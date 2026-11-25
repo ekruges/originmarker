@@ -2738,7 +2738,6 @@ export async function scoreSample(input: {
       allelesStand: (uninterpretable && alleleClaims.size > 0) || intensityWithheld,
       normalFraction: normal,
       stageCause,
-      callsCarryGenome: Number.isFinite(panelInformation) && panelInformation < NO_INFORMATION_MIN,
     })
     // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader what on the sample
     // is not reportable. Recorded as soft, under the cause the level rests on.
