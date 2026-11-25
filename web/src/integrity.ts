@@ -23,6 +23,7 @@
 import { COMPLEX_DEVIANT_FRACTION, COMPLEX_CALL_RATE } from './abnormalities.ts'
 import type { Stage } from './stage.ts'
 import { CAUSE_SAYS, type Cause, type PhysicalCause } from './refusals.ts'
+import { percent } from './fmt.ts'
 
 export type Integrity =
   /** No change found, and the array met its own quality gates. */
@@ -167,8 +168,8 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
     // the array does not measure missing DNA here: the call-rate line is drawn by the tool.
     return {
       level: 'uninterpretable',
-      headline: `DAMAGED SAMPLE: call rate ${(callRate * 100).toFixed(1)}% is below the `
-        + `${(COMPLEX_CALL_RATE * 100).toFixed(0)}% this tool can reference against`,
+      headline: `DAMAGED SAMPLE: call rate ${percent(callRate)} is below the `
+        + `${percent(COMPLEX_CALL_RATE)} this tool can reference against`,
       why: 'Every origin statistic here is measured against the rest of this array\'s own genome. '
         + 'Below this call rate there are not enough calls left for that reference to be stable, '
         + 'so a measured difference describes the reference as much as the target.',

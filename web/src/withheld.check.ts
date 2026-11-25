@@ -29,7 +29,7 @@ for (const g of [...gates, ...refusedBy.map((b) => `stage.${b}`), 'stage.unknown
 // The words carry no name from the code and no count of changes.
 const measures = { callRate: 0.792, stage: 'single-cell', affectedAutosomes: 1, totalAutosomes: 22 }
 const sampleRefusal = { claim: 'sample' as const, gate: 'integrity.disturbed', cause: 'proxy' as const, soft: true,
-  measured: { callRate: 0.792, deviantFraction: 0.0455, affectedAutosomes: 1, totalAutosomes: 22 } }
+  measured: { autosomalCallRate: 0.792, deviantFraction: 0.0455, affectedAutosomes: 1, totalAutosomes: 22 } }
 const finding = { claim: 'findings' as const, gate: 'normal-majority', cause: 'no-intensity-reference' as const,
   measured: { dropIn: NaN, heterozygositySpread: 0.257, normalFraction: 0.682 } }
 // A sample whose changes were measured against an undisturbed remainder withholds nothing.
@@ -92,6 +92,30 @@ assert.ok(bad({ affectedAutosomes: 9 }).includes('9 of 22 autosomes read as chan
 }
 const all = nm.map((w) => `${w.what} ${w.why} ${w.measured}`).join(' ')
 assert.ok(!/\b[a-z]+[A-Z]\w*\b/.test(all.replace(/\bchr[XY]\b/g, '')), all)
-assert.ok(all.includes('call rate on chromosomes 1 to 22 79.2%') && all.includes('autosomes in the commonest copy state 68.2%') && all.includes('drop-in not measured'), all)
+assert.ok(all.includes('call rate on chromosomes 1 to 22 79.2%') && all.includes('autosomes in the commonest copy state 68.2%') && !all.includes('drop-in'), all)
+assert.ok(!all.includes('not measured'), 'a value that was not measured is not listed')
 assert.ok(!/\d+ changes?\b/.test(all), 'a sample cause counts no change')
+// A CALL RATE CARRIES ITS SCOPE. Every call-rate label names what it was counted over, and in the
+// scoring the rate over all markers (profile.callRate) is recorded only as `callRate` and the rate on
+// chromosomes 1 to 22 (the integrity call's) only as `autosomalCallRate`.
+for (const [k, v] of Object.entries(MEASURE_SAYS)) {
+  if (/callrate/i.test(k)) assert.ok(/over all markers|on chromosomes 1 to 22/.test(v.label), `call rate with no scope: ${k}`)
+}
+assert.equal(MEASURE_SAYS.callRate.label, 'call rate over all markers')
+assert.equal(MEASURE_SAYS.autosomalCallRate.label, 'call rate on chromosomes 1 to 22')
+let rates = 0
+for (const o of src.matchAll(/(?:measured: \{|const (?:stageMeasured|dropInMeasured) = \{)([^}]*)\}/g)) {
+  for (const m of o[1].matchAll(/\b(callRate|autosomalCallRate): ([\w.]+)/g)) {
+    rates += 1
+    assert.equal(m[1], m[2] === 'profile.callRate' ? 'callRate' : 'autosomalCallRate', `${m[1]} recorded from ${m[2]}`)
+  }
+}
+assert.ok(rates >= 2, 'both call rates are recorded where this check looks')
+// ONE FORMAT FOR THE CALL-RATE BAR, on the heading and on the row.
+{
+  const call = assessIntegrity({ stage: 'single-cell', callRate: 0.5, affectedAutosomes: 0, totalAutosomes: 22, events: 0 })
+  const bar = /below the ([\d.]+%)/.exec(call.headline)![1]
+  assert.ok(sampleCause(call)!.includes(`under the ${bar}`), `${call.headline} | ${sampleCause(call)}`)
+}
+assert.ok(!/^triploidy$/.test(CLAIM_SAYS.triploidy), 'a claim is said in words, not by its name')
 console.log('withheld.check: ok')

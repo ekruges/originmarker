@@ -2748,7 +2748,7 @@ export async function scoreSample(input: {
       const m = result.integrity.measures
       result.refusals!.push({ claim: 'sample', gate: `integrity.${result.integrity.level}`,
         cause: result.integrity.cause, soft: true,
-        measured: { callRate: m.callRate, deviantFraction: m.deviantFraction,
+        measured: { autosomalCallRate: m.callRate, deviantFraction: m.deviantFraction,
           affectedAutosomes: m.affectedAutosomes, totalAutosomes: m.totalAutosomes } })
     }
     log(result.integrity.level === 'uninterpretable' ? 'WARN' : 'DONE',

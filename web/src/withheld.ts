@@ -6,6 +6,7 @@
  * refusals plus rows not reported. The page and the report both print this list.
  */
 import { CAUSE_SAYS, type Refusal } from './refusals.ts'
+import { percent } from './fmt.ts'
 import { NOT_REPORTED_SAYS, whereText, whoseText, type ChangeList } from './pageSays.ts'
 import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
 import { COMPLEX_CALL_RATE, COMPLEX_DEVIANT_FRACTION } from './abnormalities.ts'
@@ -19,7 +20,7 @@ export const CLAIM_SAYS: Record<string, string> = {
   alleleGain: 'an extra copy read from the alleles',
   segment: 'a segment',
   findings: 'a finding',
-  triploidy: 'triploidy',
+  triploidy: 'whether the cell carries three copies of its genome',
   complex: 'a disturbed genome',
   relatedness: 'whether the loaded parent is this sample\'s parent',
   sample: 'the sample as a whole',
@@ -40,13 +41,15 @@ const GATE_SAYS: Record<string, string> = {
   'other-parent.under-span': `under ${OTHER_MIN_SPAN_BP / 1e6} Mb, no second line`,
 }
 
-const pct = (v: number): string => `${(100 * v).toFixed(1)}%`
+const pct = percent
 const num = (v: number): string => String(+v.toPrecision(3))
 const int = (v: number): string => Math.round(v).toLocaleString('en-US')
 
 /** Every number a refusal records, in plain words with its unit. A key with no entry here throws. */
 export const MEASURE_SAYS: Record<string, { label: string; fmt: (v: number) => string }> = {
-  callRate: { label: 'call rate on chromosomes 1 to 22', fmt: pct },
+  // Each call rate carries the scope it was computed over (withheld.check.ts).
+  callRate: { label: 'call rate over all markers', fmt: pct },
+  autosomalCallRate: { label: 'call rate on chromosomes 1 to 22', fmt: pct },
   heterozygosity: { label: 'heterozygosity', fmt: pct },
   dropIn: { label: 'drop-in', fmt: pct },
   heterozygositySpread: { label: 'spread of heterozygosity between chromosomes', fmt: (v) => `${num(v)} (coefficient of variation)` },
@@ -68,12 +71,13 @@ const known = <T>(map: Record<string, T>, key: string, what: string): T => {
   return v
 }
 
-/** The numbers a refusal fired on, each with its label and unit. */
+/** The numbers a refusal fired on, each with its label and unit. A value that was not measured is
+ *  not listed. */
 export const measuredText = (m: Record<string, number> | undefined): string =>
   Object.entries(m ?? {}).map(([k, v]) => {
     const say = known(MEASURE_SAYS, k, 'measurement')
-    return `${say.label} ${Number.isFinite(v) ? say.fmt(v) : 'not measured'}`
-  }).join(', ')
+    return Number.isFinite(v) ? `${say.label} ${say.fmt(v)}` : ''
+  }).filter(Boolean).join(', ')
 
 export interface WithheldRow { what: string; why: string; measured: string }
 

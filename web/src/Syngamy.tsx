@@ -1753,12 +1753,17 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              <Row label="Paternal alleles absent" obs={pct(r.genomeRate)}
-                ref_={pct(r.explainable)} basis="no-call rate x heterozygous fraction"
-              />
-              <Row label="Alleles the donor lacks" obs={pct(r.nonParentalRate)}
-                ref_={pct(r.secondParentExpected)} basis="half the donor's heterozygosity"
-              />
+              {/* A row about a parent prints only where one is loaded. */}
+              {!r.noParent && (
+                <Row label="Paternal alleles absent" obs={pct(r.genomeRate)}
+                  ref_={pct(r.explainable)} basis="no-call rate x heterozygous fraction"
+                />
+              )}
+              {!r.noParent && (
+                <Row label="Alleles the donor lacks" obs={pct(r.nonParentalRate)}
+                  ref_={pct(r.secondParentExpected)} basis="half the donor's heterozygosity"
+                />
+              )}
               <Row label="Heterozygous BAF band" obs={pct(r.hetBand)} ref_="8%"
                 basis="diploid 15-16%, uniparental 1.3-3.4%"
               />
