@@ -9,6 +9,59 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.28.0 "Flanking Marker"
+
+**The marker panel asks for as many markers as the material needs, and offers only markers the
+lab's chip carries.** The builder asked for three markers on each side of a variant whatever the
+DNA, and offered every common SNP in the window: 1,202 around the test variant in ABCC8, of which
+the lab's chip (UK Biobank Axiom) carries 95.
+
+**How many on each side.** Three is ESHRE's number of markers that must read on each side
+(Carvalho 2020). A marker does not always read: it can get no call, or read as one allele. The
+panel now asks for the fewest markers that leave at least three readable with a 95% chance, from
+how often a marker reads in the material tested. The query names the material; a query that names
+none is built for a single cell, so it never asks for too few.
+
+| Material | Arrays | Read as two alleles | No call | One allele | Asked on each side |
+|---|---|---|---|---|---|
+| Bulk DNA | 16 | 91.9% | 3.4% | 4.8% | 4 |
+| Trophectoderm biopsy | 8 | 80.7% | 12.0% | 7.2% | 6 |
+| Single cell | 14 | 45.6% | 31.7% | 22.7% | 12 |
+
+The rates are counted on the lab chip's public series GSE148488. Where the two parents' arrays
+are opposite homozygotes the child must show both alleles, and the share of those sites that did
+is the rate, on arrays that carry both parents and on their unchanged chromosomes
+(`audit/truth/panel-reads-2026-11-25.txt`). They rest on few families: the single cells come
+from one couple, the biopsies from two and the bulk lines from one. A second count with separate
+code gives the same nine shares and the same three counts. The share counts a wrong call in a parent's own array
+as a failure, because a panel's markers are picked from parents' arrays in the same way. That is
+what the one-allele share of bulk DNA is: across 16 bulk lines of one couple, a site that reads as
+one allele in one line does so in a sibling line 74% of the time, against 2.8% if the lines failed
+apart (`audit/truth/panel-recur-2026-11-25.txt`). Less the bulk share, the one-allele share is
+0.29 in a single cell and 0.03 in a biopsy; published figures are 25% (van Uum 2012) and 2.98%
+(Volozonoka 2018). The coverage card, every export and the docs state the count, the rates and
+where they were measured; the JSON export gives the chance aimed for and the chance reached.
+
+**Only markers the chip carries.** A marker is offered only where a probe of the chip sits at its
+position, and each row of the table shows the probe. The probe list (825,656 probes, their ids and
+GRCh37 positions, from the public series' own files) ships as `data/chip/axiom-ukb-probes.tsv.gz`.
+
+**The form and the build say the same thing.** A Build pressed straight after typing a value used
+the value from before, and a number still being typed was replaced by the default. Build and
+Resolve now use what the fields show at the click. A value out of range is refused with its range,
+by the page and by the API on its own. A panel on screen says what it was built for (material,
+window, lowest frequency, ancestry) and says so when the form no longer matches it. A search in
+words shows what was read from the words. The form's fields carry plain labels, and a refused
+build leaves the last panel and the typed values in place.
+
+**A reference record is not a variant.** ClinVar keeps, under some rsIDs, a record of the
+unchanged base (its HGVS ends in "="). The resolver could take it for the variant: rs6025 resolved
+as C>C with no frequency. Such records are skipped, and rs6025 resolves as C>T.
+
+Array scoring is not touched: no file the scoring reaches changed.
+
+---
+
 ## 6.27.1 "Processivity"
 
 **Nothing the tool reads or reports changes. Reading an array takes less time.** For every marker
