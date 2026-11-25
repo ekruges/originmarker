@@ -67,4 +67,19 @@ bash "$POOL" submit x "$T/q-x" > /dev/null
 POOL_DRAIN=1 bash "$POOL" run
 out=$(bash "$POOL" wait x); rc=$?
 [ "$rc" -eq 1 ] && echo "$out" | grep -q 'good exit 0' && echo "$out" | grep -q 'bad exit 1' || fail "wait: $rc $out"
+# A new lane name starts level with the busiest lane; a lane named first goes before the rest.
+export POOL_DIR=$T/pool5
+printf 'o1\t%s\ttrue\no2\t%s\ttrue\no3\t%s\ttrue\n' "$T" "$T" "$T" > "$T/q-old"
+bash "$POOL" submit old "$T/q-old" > /dev/null
+POOL_JOBS=1 POOL_DRAIN=1 bash "$POOL" run
+printf 'z1\t%s\ttrue\n' "$T" > "$T/q-new"; printf 'p1\t%s\ttrue\np2\t%s\ttrue\n' "$T" "$T" > "$T/q-old2"
+bash "$POOL" submit old "$T/q-old2" > /dev/null; bash "$POOL" submit zz "$T/q-new" > /dev/null
+POOL_JOBS=1 POOL_DRAIN=1 bash "$POOL" run
+order=$(awk '{print $5}' "$POOL_DIR/pool.log" | tail -3 | tr '\n' ' ')
+[ "$order" = "p1 z1 p2 " ] || fail "a new lane jumped the queue: $order"
+printf 'f1\t%s\ttrue\nf2\t%s\ttrue\n' "$T" "$T" > "$T/q-f"; printf 'q1\t%s\ttrue\n' "$T" > "$T/q-o3"
+bash "$POOL" submit old "$T/q-o3" > /dev/null; bash "$POOL" submit late "$T/q-f" > /dev/null
+echo 99 > "$POOL_DIR/started/late"; bash "$POOL" first late > /dev/null
+POOL_JOBS=1 POOL_DRAIN=1 bash "$POOL" run
+[ "$(awk '{print $5}' "$POOL_DIR/pool.log" | tail -3 | tr '\n' ' ')" = "f1 f2 q1 " ] || fail "first lane not served first"
 echo "pool checks pass"

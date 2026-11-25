@@ -3,6 +3,7 @@
 #
 #   pool.sh submit <lane> <queue file>   queue lines "<label>\t<dir>\t<command>", the old sched.sh form
 #   pool.sh priority <lane> <weight>     a lane's share of starts (default 1; 2 starts twice as often)
+#   pool.sh first <lane>|-               serve one lane before every other (- clears it)
 #   pool.sh run                          the scheduler (one is enough; a second waits on the lock)
 #   pool.sh status                       queued, running and finished jobs, by lane
 #   pool.sh wait <lane>                  returns when the lane has nothing queued or running; prints
@@ -26,7 +27,14 @@
 #
 # Disk: no job starts while the pool's disk has under POOL_DISK_GB free (default 3).
 #
-# Lanes: the next job is taken from the lane with the fewest starts for its weight. Jobs run
+# Lanes: the next job is taken from the lane with the fewest starts for its weight. A lane seen for
+# the first time starts level with the lane that has started most, so a new name never jumps the
+# queue. `pool.sh first <lane>` puts one lane strictly before the rest while it has a job that fits;
+# `pool.sh first -` clears it.
+#
+# Restarting the scheduler is safe at any time, jobs running or not: they run detached, their state
+# is in running/, and a job is claimed by its move out of the queue, so a new scheduler adopts the
+# running ones and starts none of them again. Jobs run
 # detached (setsid, where there is one) under nice 19 and outlive the scheduler.
 set -uo pipefail
 P=${POOL_DIR:-/root/om-pool}
@@ -85,7 +93,9 @@ reap() {
 # first job, in queue order, whose class fits the memory given (no limit where none is given).
 next_job() {
   local l f g best='' bestScore='' s w budget=${1:-}
+  local first; first=$(cat "$P/first" 2>/dev/null)
   for l in $(ls "$P/queue"); do
+    if [ ! -e "$P/started/$l" ]; then m=$(cat "$P"/started/* 2>/dev/null | sort -n | tail -1); echo "${m:-0}" > "$P/started/$l"; fi
     f=''
     for g in $(ls "$P/queue/$l" 2>/dev/null | grep '\.job$' | sort); do
       if [ -z "$budget" ] || [ "$(need_kb "$(class_of "${l}__$g")")" -le "$budget" ]; then f=$g; break; fi
@@ -93,6 +103,7 @@ next_job() {
     [ -n "$f" ] || continue
     w=$(cat "$P/prio/$l" 2>/dev/null || echo 1)
     s=$(awk -v n="$(cat "$P/started/$l" 2>/dev/null || echo 0)" -v w="$w" 'BEGIN{printf "%012.4f", n / w}')
+    [ "$l" = "$first" ] && s=-0000001.0000
     if [ -z "$best" ] || [[ "$s" < "$bestScore" ]]; then best="$l/$f"; bestScore=$s; fi
   done
   echo "$best"
@@ -123,6 +134,9 @@ case "${1:-}" in
       printf '%s\t%s\t%s\n' "$label" "$dir" "$cmd" > "$P/queue/$lane/.$f.tmp" && mv "$P/queue/$lane/.$f.tmp" "$P/queue/$lane/$f"
     done < "$q"
     echo "$i jobs queued for $lane"
+    ;;
+  first)
+    if [ "$2" = - ]; then rm -f "$P/first"; echo "no lane first"; else echo "$2" > "$P/first"; echo "$2 first"; fi
     ;;
   priority)
     echo "$3" > "$P/prio/$2"; echo "$2 weight $3"
@@ -169,5 +183,5 @@ case "${1:-}" in
     for e in "$P"/done/*.exit; do [ -e "$e" ] && echo "  done $(basename "$e" .exit) exit $(cat "$e")"; done | tail -20
     echo "available $(( $(avail_kb) / 1048576 )) GB, load $(load1), at most $JOBS jobs"
     ;;
-  *) echo "usage: pool.sh submit <lane> <queue> | priority <lane> <weight> | run | status | wait <lane>" >&2; exit 2 ;;
+  *) echo "usage: pool.sh submit <lane> <queue> | priority <lane> <weight> | first <lane>|- | run | status | wait <lane>" >&2; exit 2 ;;
 esac
