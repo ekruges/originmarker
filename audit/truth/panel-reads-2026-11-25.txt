@@ -76,3 +76,4 @@ material	arrays counted	mean read	median read	min read	max read	mean not called	
 bulk DNA (ES cell line)	16	0.9186	0.9182	0.9068	0.9287	0.0339	0.0492	0.0481
 trophectoderm biopsy	8	0.8074	0.8094	0.7798	0.8274	0.1203	0.0822	0.0830
 single cell (blastomere)	14	0.4561	0.4922	0.2480	0.6219	0.3167	0.3398	0.3109
+couples behind the counted arrays (distinct father and mother arrays, from the trio list): single cell 1, trophectoderm biopsy 2, bulk DNA 1. The rates are those couples' material on this chip.

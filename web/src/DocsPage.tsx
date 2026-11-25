@@ -612,8 +612,10 @@ export function DocsPage({ health }: { health: Health | null }) {
             that give at least three readable with a 95% chance, and the coverage card and every
             export say how many and why. The share counts wrong calls in the parents' own arrays as
             failures too, because a panel's markers are picked from the parents' arrays in the same
-            way, so such a marker fails in the lab as well. Only markers the lab's chip carries are
-            offered: a probe of that chip at the position.
+            way, so such a marker fails in the lab as well. The rates rest on few families: the counted
+            single cells come from one couple, the biopsies from two and the bulk DNA lines from one, so
+            they are the rates of those couples' material on this chip. Only markers the lab's chip
+            carries are offered: a probe of that chip at the position.
           </Text>
         </Section>
 
