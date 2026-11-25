@@ -20,7 +20,7 @@
 import assert from 'node:assert/strict'
 import { relatednessAssessable, REL } from './relatedness.ts'
 import { headerMap, parseRow, accumulate, accumulateBaf, emptyBafSums, finishProfile } from './ingest.ts'
-import { emptyParent, collectParentRow, finishParent, emptyCollected, collectRow, scoreSample } from './scoreSample.ts'
+import { emptyParent, collectParentRow, finishParent, emptyCollected, collectRow, scoreSample, runNotUsedText } from './scoreSample.ts'
 import { mendelParent, runAlerts } from './defects.ts'
 import { buildReportPdf } from './syngamyPdf.ts'
 import { readFileSync } from 'node:fs'
@@ -1044,3 +1044,21 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   console.log('  a sample not reportable prints no timing rows')
 }
 
+
+// THE RUN SENTENCES EACH NAME THEIR OWN TEST. "None were loaded" is the case of no other array handed
+// to the sample, which with every sample scored against the whole run is a run of one array; the
+// drop-in test speaks of reading the run, never of grouping cells into an embryo.
+{
+  assert.ok(runNotUsedText('the mother', 'father', 'no-run').endsWith('none were loaded with this one.'))
+  assert.equal(runNotUsedText('a parent', 'mother', 'no-parent'),
+    'The run\'s other arrays were not used to read a parent: no parent array is loaded, and the reading needs one.')
+  for (const why of ['no-parent', 'sample-unfit', 'sample-not-a-draw', 'too-few-draws'] as const) {
+    const t = runNotUsedText('the mother', 'father', why, 1)
+    assert.ok(!t.includes('none were loaded'), t)
+    if (why === 'sample-unfit') assert.ok(!/embryo|place/.test(t) && t.includes('drop-in'), t)
+  }
+  const page = readFileSync(new URL('./Syngamy.tsx', import.meta.url), 'utf8')
+  assert.ok(page.indexOf('sampleGt.set(') < page.indexOf('readSample(s, othersOf(s.id))'),
+    'the page reads every sample\'s calls before it scores the first one')
+  console.log('  the run sentences name their own tests')
+}

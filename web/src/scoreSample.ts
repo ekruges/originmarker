@@ -81,7 +81,7 @@ import {
   gainReadAsLoss, emptyWeightedShare, addWeightedShare, weightedShareR, hetCallShare,
   otherCopyFromHetCalls, type WeightedShare,
 } from './oneParentGain.ts'
-import { motherFromRun, routeGains, type RunMarker, type RouteChrom } from './motherFromRun.ts'
+import { motherFromRun, routeGains, type RunMarker, type RouteChrom, type RunStatus } from './motherFromRun.ts'
 import {
   emptyCarryTally, addCarry, parentGenome, parentGenomeSentence, parentGenomeNotice, UNREAD,
   type CarryTally,
@@ -543,6 +543,25 @@ export function collectRow(
 }
 
 /**
+ * Why the run's other arrays were not used to read the other parent, each reason naming its own test.
+ * `no-run`: no other array was handed to this sample, which happens only where the run holds this one
+ * array, since every sample is scored against every other array of its run. `no-parent`: the reading
+ * needs the loaded parent's homozygous markers, and none is loaded. `whom` is "the mother" or "the
+ * father" with a parent loaded and "a parent" with none.
+ */
+export function runNotUsedText(whom: string, loaded: string, why: 'no-run' | 'no-parent' | Exclude<RunStatus, 'used'>, draws = 0): string {
+  return `The run's other arrays were not used to read ${whom}: ${
+    why === 'no-run' ? 'none were loaded with this one'
+    : why === 'no-parent' ? 'no parent array is loaded, and the reading needs one'
+    : why === 'sample-unfit' ? `this array's own drop-in, read at the ${loaded}'s homozygous markers, is too high `
+      + 'or could not be fitted, so it is not read against them'
+    : why === 'sample-not-a-draw' ? 'this array\'s own calls are too noisy, or show too little of the other '
+      + 'parent, to tell which arrays share its mother'
+    : `${draws} other draw${draws === 1 ? '' : 's'} of ${whom} (an embryo or a haploid product of hers), `
+      + 'and 2 are needed'}.`
+}
+
+/**
  * motherFromRun.ts wired in: the run's other arrays read for the other parent's genotype, and the
  * two-parent test run on it where the first build named no parent. Names gains only; every other verdict
  * stands. The limits say how many draws of the other parent were used, or why none were.
@@ -553,8 +572,15 @@ function readMotherFromRun(x: {
 }): void {
   const { acc, pat, sibs, shareCalls, result, soloRole, otherRole, log } = x
   const her = otherRole === 'maternal' ? 'mother' : 'father'
+  const loaded = soloRole === 'paternal' ? 'father' : 'mother'
+  // With no parent loaded there is no other parent to name, so the sentence speaks of a parent.
+  const whom = pat.absent ? 'a parent' : `the ${her}`
   if (!sibs.length) {
-    result.limits.push(`The run's other arrays were not used to read the ${her}: none were loaded with this one.`)
+    result.limits.push(runNotUsedText(whom, loaded, 'no-run'))
+    return
+  }
+  if (pat.absent) {
+    result.limits.push(runNotUsedText(whom, loaded, 'no-parent'))
     return
   }
   const freqB = (acc.panel as FounderPanel).freqB!
@@ -571,12 +597,7 @@ function readMotherFromRun(x: {
   result.motherFromRun = { status: run.status, draws: run.draws, drawArrays: run.drawArrays }
   acc.otherOpposite = run.opposite ?? null
   if (run.status !== 'used') {
-    result.limits.push(`The run's other arrays were not used to read the ${her}: ${
-      run.status === 'sample-unfit' ? 'this array\'s noise is too high to place it in an embryo'
-      : run.status === 'sample-not-a-draw' ? 'this array\'s own calls are too noisy, or show too little of the other '
-        + 'parent, to tell which arrays share its mother'
-      : `${run.draws} other draw${run.draws === 1 ? '' : 's'} of the ${her} (an embryo or a haploid product of hers), `
-        + 'and 2 are needed'}.`)
+    result.limits.push(runNotUsedText(whom, loaded, run.status, run.draws))
     return
   }
   result.limits.push(`The ${her}'s genotype was read from ${run.draws} other draws of the ${her} in this run `
@@ -2719,14 +2740,15 @@ export async function scoreSample(input: {
       gainByAlleles: autosomes.filter((c) => c.alleleGain?.verdict === 'gain' && c.aneuploidy !== 'gain').length,
       allelesStand: (uninterpretable && alleleClaims.size > 0) || intensityWithheld,
       normalFraction: normal,
+      stageCause,
     })
-    // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader nothing on the
-    // sample is reportable, which is the same to the person reading it. Recorded as soft.
+    // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader what on the sample
+    // is not reportable. Recorded as soft, under the cause the level rests on.
     if (result.integrity.level !== 'intact') {
       const m = result.integrity.measures
       result.refusals!.push({ claim: 'sample', gate: `integrity.${result.integrity.level}`,
-        cause: 'proxy', soft: true,
-        measured: { callRate: m.callRate, deviantFraction: m.deviantFraction,
+        cause: result.integrity.cause, soft: true,
+        measured: { autosomalCallRate: m.callRate, deviantFraction: m.deviantFraction,
           affectedAutosomes: m.affectedAutosomes, totalAutosomes: m.totalAutosomes } })
     }
     log(result.integrity.level === 'uninterpretable' ? 'WARN' : 'DONE',

@@ -4,6 +4,10 @@ export const int = (n: number) => n.toLocaleString('en-US')
 /** An allele frequency floor, one way everywhere: up to three decimals, no trailing zeros (0.2, 0.05). */
 export const mafText = (x: number) => String(Number(x.toFixed(3)))
 
+/** A share as a percent to one decimal: the one format every bar and rate of the whole-sample call is
+ *  printed in. */
+export const percent = (v: number): string => `${(100 * v).toFixed(1)}%`
+
 /** Signed bp distance, always with an explicit sign so side is unambiguous. */
 export const signedBp = (d: number) => `${d > 0 ? '+' : d < 0 ? '−' : ''}${int(Math.abs(d))}`
 

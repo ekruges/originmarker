@@ -58,7 +58,7 @@ import { plotData, type PlotData } from './plotSeries'
 import { CallFigure, CellFigure, defectMark, rowMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
 import { runAlerts, type Defect } from './defects'
 import {
-  callTitle, cardSays, chromCells, countText, defectsForResult, gainCells, notReportable, seenHeading, segmentKindText, drawnOf, figureNote, KIND_SAYS, MEASURED_SOURCE, measuredSentence,
+  callTitle, cardSays, chromCells, countText, defectsForResult, gainCells, notReportable, seenHeading, segmentKindText, drawnOf, figureNote, kindBesideWord, MEASURED_WHERE, measuredSentence,
   PARENT_SENTENCE, readAgainst, seenMarkText, sexLine, WORD, type ChangeList,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
@@ -674,10 +674,27 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         }), seen: notReportable(result) }
         // The 5 Mb window medians, kept because the sister reading in the post-pass needs this
         // cell's intensity after every cell's calls are known, and `acc` does not outlive this pass.
-        return { calls: acc.myGt, profile, gates, result, maternal, paired, series,
+        return { profile, gates, result, maternal, paired, series,
           windows: lrrWindows(acc.cnByChrom), pos: acc.markerPos }
       }
       const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
+      // EVERY SAMPLE IS SCORED AGAINST EVERY OTHER ARRAY OF THE RUN, whatever the order of loading:
+      // the genotype calls of all of them are read first, by the same tally the scoring keeps, so the
+      // first sample scored sees the run as the last one does. A file that cannot be read has none,
+      // and is left out of every other sample's run, as it is when it is scored. A run of one sample
+      // has no other samples, so its calls are not read ahead.
+      for (const s of queue.length > 1 ? queue : []) {
+        log('READ', `${s.file.name}: genotype calls, for the run's other samples`)
+        setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
+        try {
+          const acc = emptyCollected(pat, mat, await loadFounderPanel())
+          await profileFile(s.file, (r) => collectRow(r, pat, mat, acc), bar(s.id, s.file.size), log)
+          sampleGt.set(s.id, acc.myGt)
+        } catch {
+          // Said when the sample itself is scored below.
+        }
+        await breathe()
+      }
       let doneCount = 0
       for (const s of queue) {
         // Three things an operator can act on: which file, how many remain, and any refusal that
@@ -687,8 +704,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { calls, profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
-          sampleGt.set(s.id, calls)
+          const { profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
           // With no parent loaded there is no parent's absence to report, and soloRole is a placeholder.
           log('DONE', result.noParent
             ? `${s.file.name}: stage ${result.stage?.stage ?? 'unread'}, no parent loaded`
@@ -703,28 +719,6 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           const m = e instanceof Error ? e.message : String(e)
           log('WARN', `${s.file.name}: ${m}`)
           patch(s.id, { state: 'failed', error: m })
-        }
-      }
-
-      // AN ARRAY READ LATER STILL COUNTS. A sample is scored against the arrays finished before it.
-      // One left with a run under the span floor withheld is read once more when the run holds
-      // every array, so that an array of its embryo that came after it can settle the run. The last
-      // sample read has already seen the rest.
-      for (const f of finished.slice(0, -1)) {
-        if (!f.result.refusals?.some((x) => x.gate === 'other-parent.under-span')) continue
-        const s = queue.find((e) => e.id === f.id)
-        if (!s) continue
-        log('READ', `${s.file.name}: read again, now that the run holds every array`)
-        setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
-        try {
-          const { profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
-          f.result = result
-          f.windows = windows
-          f.pos = pos
-          await breathe()
-          patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
-        } catch (e) {
-          log('WARN', `${s.file.name}: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
 
@@ -1265,10 +1259,10 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
                 .filter((k) => !r.noParent && measuredSentence(k, setup) !== 'Not measured on the answer key in this setup.')
                 .map((k) => (
                   <Text key={k} size="xs" mb={2} style={{ maxWidth: 780, lineHeight: 1.45 }}>
-                    <b>{WORD[k]}</b>: {KIND_SAYS[k]} {measuredSentence(k, setup)}
+                    <b>{WORD[k]}</b>: {kindBesideWord(k)} {measuredSentence(k, setup)}
                   </Text>
                 ))}
-              <Text size="xs" c="dimmed" mt={4}>Counts from {MEASURED_SOURCE}.</Text>
+              <Text size="xs" c="dimmed" mt={4}>Counts are right of scored, by kind of call and setup, {MEASURED_WHERE}.</Text>
             </Section>
             {entry.series && (
               <Section title="What each row of the figure shows">
@@ -1760,12 +1754,17 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>
-              <Row label="Paternal alleles absent" obs={pct(r.genomeRate)}
-                ref_={pct(r.explainable)} basis="no-call rate x heterozygous fraction"
-              />
-              <Row label="Alleles the donor lacks" obs={pct(r.nonParentalRate)}
-                ref_={pct(r.secondParentExpected)} basis="half the donor's heterozygosity"
-              />
+              {/* A row about a parent prints only where one is loaded. */}
+              {!r.noParent && (
+                <Row label="Paternal alleles absent" obs={pct(r.genomeRate)}
+                  ref_={pct(r.explainable)} basis="no-call rate x heterozygous fraction"
+                />
+              )}
+              {!r.noParent && (
+                <Row label="Alleles the donor lacks" obs={pct(r.nonParentalRate)}
+                  ref_={pct(r.secondParentExpected)} basis="half the donor's heterozygosity"
+                />
+              )}
               <Row label="Heterozygous BAF band" obs={pct(r.hetBand)} ref_="8%"
                 basis="diploid 15-16%, uniparental 1.3-3.4%"
               />

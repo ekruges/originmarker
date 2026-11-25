@@ -219,7 +219,7 @@ for (const gsm of cells) {
   const emit = (kind: string, gate: string, claim: string, chrom: string, value: any, measured: any) => {
     const [dir, sc] = judge(claim, value, t.get(chrom))
     out.push([kind, gsm, stg, by, gate, claim, chrom, brief(value), t.get(chrom) ?? '', kary, dir, sc,
-      Number(measured?.heterozygosity ?? NaN).toFixed(3), Number(measured?.callRate ?? NaN).toFixed(3)].join('\t'))
+      Number(measured?.heterozygosity ?? NaN).toFixed(3), Number(measured?.callRate ?? measured?.autosomalCallRate ?? NaN).toFixed(3)].join('\t'))
   }
   // ONE ROW PER CELL with what gates the allele channel, so a hidden gate shows up as a number.
   const k = res.answerKeys

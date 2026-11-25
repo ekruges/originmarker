@@ -701,6 +701,8 @@ export interface StageFacts {
   /** Scattered: how far they spread, which tracks amplification. NaN where no BAF was supplied. */
   hetBafSd: number
   amplified: boolean | null
+  /** The spread over which an array is read as amplified: the bar `amplified` was decided on. */
+  amplifiedOver: number
   /** Set when heterozygosity alone would have said bulk and the spread overruled it. */
   demotedFromBulk: boolean
   dropout: number
@@ -723,6 +725,7 @@ export function stageFacts(
     hetRate: profile.hetRate,
     hetBafSd: known ? (sd as number) : NaN,
     amplified: known ? (sd as number) > bulkMaxBafSd : null,
+    amplifiedOver: bulkMaxBafSd,
     // Read from the reason rather than recomputed, so the panel can never disagree with the call.
     demotedFromBulk: call.why.includes('would have read as bulk'),
     dropout: call.dropout,
@@ -738,6 +741,6 @@ export function stageFacts(
 export const amplificationWord = (f: StageFacts): string => {
   if (f.amplified === null) return 'not measured, no allele fractions in this file'
   return f.amplified
-    ? 'whole-genome amplified, which scatters at 0.21 to 0.30'
-    : 'unamplified, consistent with genomic DNA at about 0.088'
+    ? `whole-genome amplified, a spread over the ${f.amplifiedOver} bar for unamplified DNA`
+    : `unamplified, a spread at or under the ${f.amplifiedOver} bar for unamplified DNA`
 }
