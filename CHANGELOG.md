@@ -72,6 +72,50 @@ stated normal XX or XY (141 cells) prints a sex change. The card and the overvie
 nothing moved outside the sex rows. Two X losses gain an origin word, "consistent with the gamete
 (two cells read)", on one pair of lab cells.
 
+**One statement of the sex chromosomes.** The sex line, the sex word, the badge and the new row now
+come from one reading, so they cannot disagree. A cell with no X and no Y left reads "No X and no Y
+found" on its line and "no sex named: no sex chromosome was found" as its word, where the line said
+"Not read" and the word named the stage. An XY the reading prints is "male", and a badge names only
+what the word names: "one X" and "XX or one X" badges go, and a sample not reportable shows none.
+The report prints its timing table whenever a gain or a loss of a grouped cell is timed; it sat
+under the extra-copy table, so a cell with no gain lost it (26 of 33 grouped cells with an origin
+word, the X-loss pair among them). The figure counts what it draws and says the sex-chromosome row
+is counted on the card and not drawn.
+
+---
+
+## 6.25.2 "Breakpoint"
+
+**Nothing the tool reads or reports changes.** The audit gate is faster: scored results are kept
+and reused where no scoring code changed, a planner says which stages a change needs, one job pool
+serves every lane on the scoring machine, and numeric sorts and medians are faster with the same
+result.
+
+Scored results are kept in a store keyed by a hash of the scoring code and of the input files'
+bytes (`audit/gate/store.ts`; `audit/truth/score-array.ts` is the scoring half of the audit runner,
+moved unchanged). The hash is over the top-level statements the scoring can reach
+(`audit/gate/closure.ts`), not over whole files, because `scoreSample.ts` imports `pageSays.ts`,
+where the wording lives. A change that moves only wording rebuilds every record from the store. The
+store reads an array only where the open list (`audit/gate/seal.py`, from the split file) names it;
+a sealed or exposed array is refused before a byte of it is read. The planner
+(`audit/gate/plan.ts <base> <head>`) prints, per stage, score, surfaces, run or nothing. The pool
+(`audit/gate/pool.sh`) starts up to the cores less one, admits a job by the measured memory of its
+kind, and never starts a job twice.
+
+`web/src/sortNumbers.ts` sorts numbers through a Float64Array, and takes a median or quantile that
+reads one sorted position by selection; where an array holds NaN, -0 or a non-number it falls back
+to the comparator, so every value is the one the comparator sort gave. It is used at the window,
+chromosome and genome medians, the gain-nomination quantile and the copy scans' window medians.
+`isAutosome` is a lookup over the names its pattern matches.
+
+On the 330 no-parent rows, the 252 rows with a parent and the 271 lab rows, the 4,332 records of the
+built events and the 18 suite files, every record and file is identical to 6.25.1. Measured: a
+wording-only gate about 15 minutes; a gate after a scoring change 12.1 job-hours against about 22
+(1 h 45 min on the pool with another lane on it).
+
+How a lane runs its gate: `plan.ts <base> <head>`; `audit/gate/ship.sh <head> <dir on tesla>`;
+`pool.sh submit <lane> <queue>`; `pool.sh wait <lane>`.
+
 ---
 
 ## 6.25.1 "Breakpoint"

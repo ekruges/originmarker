@@ -189,7 +189,7 @@ const noY: SexTally = {
   assert.equal(sexRow(gone, notShown)?.dir, 'none', 'one Y genome or two with no X: a finding')
   assert.equal(sexRow(read(hap, yes, 0.38), hap), null, 'a haploid Y genome has no X by nature')
   for (const m of [shown, notShown, hap]) {
-    assert.deepEqual(sexRow(read(m, noY, 0.4), m), { dir: 'loss', says: 'no X and no Y' })
+    assert.equal(sexRow(read(m, noY, 0.4), m)?.says, 'no X and no Y')
   }
   // A constitution stated as a fact is a change; one naming two possibilities is a finding.
   const as = (constitution: SexChromosomeCall['constitution']): SexChromosomeCall =>
@@ -199,6 +199,42 @@ const noY: SexTally = {
   assert.equal(sexRow(as('47,XXY'))?.dir, 'gain')
   assert.equal(sexRow(as('47,XXY or a mix of cells'))?.dir, 'none')
   for (const c of ['XX', 'XY', 'one X', 'XX or one X', 'unresolved'] as const) assert.equal(sexRow(as(c)), null, c)
+}
+
+// --- 6. THE SEX LINE, THE SEX WORD, THE BADGE AND THE X ROW SAY ONE THING -------------------------
+{
+  const { sexSays } = await import('./sexMaterial.ts')
+  const yes: SexTally = { ...noY, yCalled: 48, yLrr: Array(51).fill(0.3) }
+  const shown = sexMaterial({ parentLoaded: false, stage: stage({}), hetRate: 0.16, dropIn: 0.02 })
+  const notShown = sexMaterial({ parentLoaded: false, stage: stage({}), hetRate: 0.15, dropIn: 0.14 })
+  const hap = sexMaterial({ parentLoaded: false, stage: stage({ stage: 'haploid', ploidy: 'haploid' }), hetRate: 0.01, dropIn: NaN })
+  const read = (m: typeof shown, y: SexTally, xShift = -1.9, xCallFraction = 0.4) => callSexChromosomes({
+    diploid: m.diploid, material: m, twoInsideNoise: true, xShift, xZ: -20, y, xCallFraction })
+  // No X and no Y, on two copies not shown and on a haploid cell alike: one statement everywhere.
+  for (const m of [notShown, hap]) {
+    const c = read(m, noY)
+    const say = sexSays('ambiguous', m, c)
+    assert.ok(say.line.startsWith('No X and no Y found: '), say.line)
+    assert.equal(say.word, 'no sex named: no sex chromosome was found')
+    assert.equal(say.badge, 'no X, no Y')
+    assert.equal(sexRow(c, m)?.dir, 'loss')
+  }
+  assert.equal(sexSays('ambiguous', shown, read(shown, yes)).word, 'no sex named: no X was found')
+  const unsure = sexSays('ambiguous', notShown, read(notShown, yes))
+  assert.ok(unsure.line.startsWith('No X found; ') && unsure.word.startsWith('not read: no X was found') && unsure.badge === null)
+  // An XY the reading prints on two copies not shown is the word it names; not reportable, no badge.
+  const xy = read(notShown, yes, -0.45, 1)
+  assert.equal(xy.constitution, 'XY')
+  assert.equal(sexSays('ambiguous', notShown, xy).word, 'male')
+  assert.equal(sexSays('ambiguous', notShown, xy).badge, 'XY')
+  assert.equal(sexSays('ambiguous', notShown, xy, false).badge, null)
+  // Every reading keeps line, word and badge in step with its row.
+  for (const [m, y, x, cf] of [[shown, noY, -1.9, 0.4], [shown, yes, -1.9, 0.4], [notShown, yes, -1.9, 0.4],
+    [hap, yes, -1.9, 0.4], [notShown, yes, -0.45, 1], [shown, noY, 0.02, 1]] as const) {
+    const c = read(m, y, x, cf); const row = sexRow(c, m); const say = sexSays('ambiguous', m, c)
+    if (row) assert.ok(say.line.startsWith(row.head) && say.word === row.word && say.badge === row.badge, say.line)
+    if (say.badge && !row) assert.equal(say.badge, c.constitution)
+  }
 }
 
 console.log('sexMaterial.check.ts OK: no sex where two copies are not shown, and a chrX row with no parent')

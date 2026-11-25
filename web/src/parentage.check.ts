@@ -1039,3 +1039,12 @@ console.log('parentage.check.ts OK')
   assert.equal(build(-1.0, false).call.aneuploidy, 'loss',
     'a lost copy carries one allele by definition and must still be a loss')
 }
+
+// isAutosome answers by lookup exactly what its pattern answers.
+{
+  const { isAutosome } = await import('./parentage.ts')
+  const re = /^(?:[1-9]|1[0-9]|2[0-2])$/
+  for (const x of ['0', '01', '1', '9', '10', '22', '23', 'X', 'Y', 'MT', '', ' 1', '1 ', 'chr1', '2a', '100', ...Array.from({ length: 40 }, (_, i) => String(i - 5))]) {
+    assert.equal(isAutosome(x), re.test(x), x)
+  }
+}

@@ -390,7 +390,19 @@ function whatXAndYShow(
 }
 
 /** A row of the change list on the sex chromosomes: its direction and its words. */
-export interface SexRow { dir: 'loss' | 'gain' | 'none'; says: string }
+/**
+ * A row of the change list on the sex chromosomes, with every other statement made of the same
+ * reading: the head of the sex line, the sex word and the badge (sexMaterial.sexSays).
+ */
+export interface SexRow {
+  dir: 'loss' | 'gain' | 'none'
+  says: string
+  /** The sex line's head, before its reason. */
+  head: string
+  word: string
+  /** Null where the reading names two possibilities and no one constitution. */
+  badge: string | null
+}
 
 /**
  * The change-list row a sex-chromosome reading makes, or none. A constitution with a sex
@@ -402,21 +414,28 @@ export interface SexRow { dir: 'loss' | 'gain' | 'none'; says: string }
  * one; where the stage does not show which, the row is a finding.
  */
 export function sexRow(c: SexChromosomeCall, m?: SexMaterial): SexRow | null {
+  const stated = (says: string, dir: 'loss' | 'gain'): SexRow =>
+    ({ dir, says, head: c.constitution, word: says, badge: c.constitution })
   switch (c.constitution) {
-    case '45,X': return { dir: 'loss', says: '45,X: one X and no Y' }
-    case '47,XXX': return { dir: 'gain', says: '47,XXX: an extra X' }
-    case '47,XXY': return { dir: 'gain', says: '47,XXY: an extra X' }
-    case '47,XXY or a mix of cells': return { dir: 'none', says: '47,XXY or a mix of cells' }
+    case '45,X': return stated('45,X: one X and no Y', 'loss')
+    case '47,XXX': return stated('47,XXX: an extra X', 'gain')
+    case '47,XXY': return stated('47,XXY: an extra X', 'gain')
+    case '47,XXY or a mix of cells': return { dir: 'none', says: c.constitution, head: c.constitution,
+      word: `not read: ${c.constitution}`, badge: c.constitution }
     case 'unresolved': break
     default: return null
   }
   if (!c.xNone) return null
-  if (c.yBearing === false) return { dir: 'loss', says: 'no X and no Y' }
-  if (m?.diploid) return { dir: 'loss', says: 'no X' }
-  if (m?.haploid && c.yBearing === true) return null
-  return {
-    dir: 'none',
-    says: c.yBearing === true ? 'no X; one genome with a Y or two genomes with no X, which this file does not separate'
-      : 'no X, and chrY not read: a loss unless this cell is one genome with a Y',
+  if (c.yBearing === false) {
+    return { dir: 'loss', says: 'no X and no Y', head: 'No X and no Y found',
+      word: 'no sex named: no sex chromosome was found', badge: 'no X, no Y' }
   }
+  if (m?.diploid) return { dir: 'loss', says: 'no X', head: 'No X found', word: 'no sex named: no X was found', badge: 'no X' }
+  if (m?.haploid && c.yBearing === true) return null
+  return c.yBearing === true
+    ? { dir: 'none', says: 'no X; one genome with a Y or two genomes with no X, which this file does not separate',
+      head: 'No X found; one genome with a Y or two genomes with no X, which this file does not separate',
+      word: 'not read: no X was found, and one genome with a Y is not ruled out', badge: null }
+    : { dir: 'none', says: 'no X, and chrY not read: a loss unless this cell is one genome with a Y',
+      head: 'No X found, and chrY not read', word: 'not read: no X was found and chrY was not read', badge: null }
 }

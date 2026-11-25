@@ -63,7 +63,7 @@ import {
 import { groupUnits } from './abnormalities'
 import { ORIGIN_WORD, readingOf, split, stretchText, timeGroup } from './timing'
 import { stageFacts } from './stage'
-import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
+import { sexBadge as sexBadgeOf, sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
 import { withheldHeading, withheldRows } from './withheld'
 import { figureFooter } from './svgPdf'
@@ -1164,6 +1164,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
   const m = entry.maternal
   const originClass = entry.paired?.originClass ?? r.originClass
   const { setup, list, head, title } = cardSays(r, m, originClass, rebuilt)
+  const sexBadge = sexBadgeOf(r.sexChromosome, r.sexMaterial, !notReportable(r))
   const marks = marksOf(r, entry.series, list)
   // The ratio is kept for the reader and said to be what it is: pooled over every autosome, the
   // changed ones included, so a cell's own losses raise it.
@@ -1198,14 +1199,14 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             </Badge>
           )}
           {/* An aneuploid sex chromosome is an abnormality like any other and is coloured as one. */}
-          {r.sexChromosome && r.sexChromosome.constitution !== 'unresolved' && (
+          {sexBadge && (
             <Badge
               size="sm"
-              variant={r.sexChromosome.aneuploid ? 'filled' : 'outline'}
-              color={r.sexChromosome.aneuploid ? 'orange' : 'genomeGrey'}
-              title={r.sexChromosome.why}
+              variant={r.sexChromosome!.aneuploid ? 'filled' : 'outline'}
+              color={r.sexChromosome!.aneuploid ? 'orange' : 'genomeGrey'}
+              title={r.sexChromosome!.why}
             >
-              {r.sexChromosome.constitution}
+              {sexBadge}
             </Badge>
           )}
           {/* A chromosome with no row is the one result a reader cannot see, so it is named here. */}
@@ -1801,7 +1802,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
         <Section title={seenHeading(notReportable(r), 'Sex chromosomes')}>
           {r.sexChromosome && (
             <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
-              {sexLine(r.sexChromosome)}
+              {sexLine(r.sexChromosome, r.sexMaterial)}
             </Text>
           )}
           <ChromTable chroms={sex} ceiling={r.explainable} seen={notReportable(r)} rows={defectsForResult(r)} />
