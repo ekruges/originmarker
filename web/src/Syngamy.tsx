@@ -673,10 +673,26 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         }), seen: notReportable(result) }
         // The 5 Mb window medians, kept because the sister reading in the post-pass needs this
         // cell's intensity after every cell's calls are known, and `acc` does not outlive this pass.
-        return { calls: acc.myGt, profile, gates, result, maternal, paired, series,
+        return { profile, gates, result, maternal, paired, series,
           windows: lrrWindows(acc.cnByChrom), pos: acc.markerPos }
       }
       const othersOf = (id: string) => [...sampleGt.entries()].filter(([x]) => x !== id).map(([, m]) => m)
+      // EVERY SAMPLE IS SCORED AGAINST EVERY OTHER ARRAY OF THE RUN, whatever the order of loading:
+      // the genotype calls of all of them are read first, by the same tally the scoring keeps, so the
+      // first sample scored sees the run as the last one does. A file that cannot be read has none,
+      // and is left out of every other sample's run, as it is when it is scored.
+      for (const s of queue) {
+        log('READ', `${s.file.name}: genotype calls, for the run's other samples`)
+        setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
+        try {
+          const acc = emptyCollected(pat, mat, await loadFounderPanel())
+          await profileFile(s.file, (r) => collectRow(r, pat, mat, acc), bar(s.id, s.file.size), log)
+          sampleGt.set(s.id, acc.myGt)
+        } catch {
+          // Said when the sample itself is scored below.
+        }
+        await breathe()
+      }
       let doneCount = 0
       for (const s of queue) {
         // Three things an operator can act on: which file, how many remain, and any refusal that
@@ -686,8 +702,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
         patch(s.id, { state: 'running' })
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
-          const { calls, profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
-          sampleGt.set(s.id, calls)
+          const { profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
           // With no parent loaded there is no parent's absence to report, and soloRole is a placeholder.
           log('DONE', result.noParent
             ? `${s.file.name}: stage ${result.stage?.stage ?? 'unread'}, no parent loaded`
@@ -702,28 +717,6 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
           const m = e instanceof Error ? e.message : String(e)
           log('WARN', `${s.file.name}: ${m}`)
           patch(s.id, { state: 'failed', error: m })
-        }
-      }
-
-      // AN ARRAY READ LATER STILL COUNTS. A sample is scored against the arrays finished before it.
-      // One left with a run under the span floor withheld is read once more when the run holds
-      // every array, so that an array of its embryo that came after it can settle the run. The last
-      // sample read has already seen the rest.
-      for (const f of finished.slice(0, -1)) {
-        if (!f.result.refusals?.some((x) => x.gate === 'other-parent.under-span')) continue
-        const s = queue.find((e) => e.id === f.id)
-        if (!s) continue
-        log('READ', `${s.file.name}: read again, now that the run holds every array`)
-        setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
-        try {
-          const { profile, gates: g, result, maternal, paired, series, windows, pos } = await readSample(s, othersOf(s.id))
-          f.result = result
-          f.windows = windows
-          f.pos = pos
-          await breathe()
-          patch(s.id, { state: 'done', profile, gates: g, result, maternal, paired, series })
-        } catch (e) {
-          log('WARN', `${s.file.name}: ${e instanceof Error ? e.message : String(e)}`)
         }
       }
 
