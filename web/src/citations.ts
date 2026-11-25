@@ -283,6 +283,18 @@ export const CITATIONS: Record<string, Citation> = {
     url: 'https://doi.org/10.1023/a:1022532108472',
     note: 'Same-laboratory comparison of three cell types; first polar bodies, carrying one genome, showed the lowest dropout, so template count does not order these data.',
   },
+  georgakilas_2014: {
+    id: 'georgakilas_2014',
+    authors: 'Georgakilas et al.',
+    year: 2014,
+    title: 'Are common fragile sites merely structural domains or highly organized "functional" units susceptible to oncogenic stress?',
+    journal: 'Cellular and Molecular Life Sciences',
+    volume: '71',
+    page: '4519-4544',
+    doi: '10.1007/s00018-014-1717-x',
+    url: 'https://doi.org/10.1007/s00018-014-1717-x',
+    note: 'Table 3: 26 common fragile sites mapped to the base on GRCh37/hg19, the catalogue each printed break is looked up in.',
+  },
 }
 
 /** Vancouver-ish one-liner: 'Handyside et al. Karyomapping... J Med Genet. 2009;47:651-658.' */

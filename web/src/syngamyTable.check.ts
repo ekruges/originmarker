@@ -90,7 +90,7 @@ const ch = (over: Partial<import('./syngamyTable.ts').TableChange> = {}) => ({
     name: 'E', headline: 'ANDROGENETIC', originClass: 'androgenetic', zygosity: 'uniparental_homozygous', role: 'paternal',
     stage: 'esc-single', informative: 580_133,
     changes: [ch({ origin: 'paternal', band: 'inherited', inheritedMargin: 2.8, why: 'because', word: 'consistent',
-      when: 'after fertilisation' })],
+      when: 'after fertilisation', fragile: 'Break at 61.2 Mb in fragile site FRA3B' })],
   }
   const [head, row] = syngamyTable([s]).trim().split('\n')
   assert.equal(head.split('\t').length, COLUMNS.length)

@@ -23,6 +23,7 @@ FINAL = {
     "jun_2012":      "10.1016/j.ajhg.2012.09.004",
     "piyamongkol_2003": "10.1093/molehr/gag051",
     "rechitsky_1998":   "10.1023/a:1022532108472",
+    "georgakilas_2014": "10.1007/s00018-014-1717-x",
 }
 
 def get(doi):

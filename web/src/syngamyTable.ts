@@ -15,6 +15,7 @@
 import type { ParentageResult } from './parentage.ts'
 import { kindOf, NOT_REPORTED_SAYS, SEEN, seenLocus, WORD, type CardSays } from './pageSays.ts'
 import { directionOf, originText } from './timing.ts'
+import { fragileSiteText } from './fragileSites.ts'
 
 export type TableChange = {
   chrom: string
@@ -32,6 +33,8 @@ export type TableChange = {
   word?: string
   /** When it arose, as the page prints it (timing.originText): one word, or each stretch with its own. */
   when?: string
+  /** The fragile site a break of this piece falls in (fragileSites.ts), empty where none. */
+  fragile?: string
 }
 
 export type TableSample = {
@@ -74,7 +77,7 @@ export function tableSampleOf(name: string, r: ParentageResult, says: CardSays):
         chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
         origin: d.origin, band: d.band, confidence: d.confidence,
         inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
-        why: d.why, word: WORD[kindOf(d, says.setup)], when: originText(d),
+        why: d.why, word: WORD[kindOf(d, says.setup)], when: originText(d), fragile: fragileSiteText(d),
       })),
   }
 }
@@ -83,7 +86,7 @@ export const COLUMNS = [
   'sample', 'sample_headline', 'sample_origin_class', 'sample_zygosity', 'loaded_parent', 'material',
   'chrom', 'start_bp', 'end_bp', 'span_mb', 'class', 'word', 'when_it_arose',
   'parent', 'parent_basis', 'band', 'confidence', 'inherited_margin',
-  'independent_determination', 'informative_markers', 'evidence',
+  'independent_determination', 'informative_markers', 'fragile_site', 'evidence',
 ] as const
 
 /**
@@ -131,7 +134,7 @@ export function syngamyTable(samples: readonly TableSample[]): string {
         // them anyway would be the channel through which they are quoted.
         cell(c.band === 'A' || c.band === 'B' ? c.confidence : undefined),
         cell(c.inheritedMargin), independent,
-        cell(c.informative ?? s.informative), cell(c.why),
+        cell(c.informative ?? s.informative), cell(c.fragile), cell(c.why),
       ].join('\t'))
     }
   }

@@ -44,6 +44,7 @@ import { analyseRuns, measureClustering, parseLocus, type RunResult } from './ru
 import type { GainAnnotation } from './parentage'
 import { sexCall } from './sexing'
 import { type FeatureTrack } from './features'
+import { fragileSiteText } from './fragileSites'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { isInferredFile, parseInferredBanner, MARK_BYTES } from './inferredArray'
@@ -1856,6 +1857,10 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
                     >
                       {' '}{segmentCoords(sg).interval}
                     </Text>
+                    {notReportable(r) ? null : (() => {
+                      const f = fragileSiteText({ chrom: sg.chrom, startBp: segmentCoords(sg).start, endBp: segmentCoords(sg).end, arm: sg.arm })
+                      return f ? <Text size="xs" c="dimmed">{f}</Text> : null
+                    })()}
                   </Table.Td>
                   <Table.Td>{segmentKindText(notReportable(r), sg, r.role)}</Table.Td>
                   <Table.Td ta="right" ff="monospace">

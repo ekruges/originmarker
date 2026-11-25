@@ -41,6 +41,10 @@ run 'joy-common line reader' . audit/joy-common.check.ts
 # THE RESULTS FILES ARE READ BY PEOPLE WITHOUT THE CORPUS, and one of them drifted into naming
 # arrays by the tail of their accession. See the header of the check.
 run 'no tracked results file names an array' . audit/no-array-names.check.ts
+for f in fragile_sites.py fragile_lift.py; do
+  if python3 -I "audit/truth/$f" >/dev/null 2>&1; then printf '  ok   %s\n' "$f"
+  else printf '  FAIL %s\n' "$f"; python3 -I "audit/truth/$f" 2>&1 | tail -20 | sed 's/^/       /'; fails=$((fails + 1)); fi
+done
 
 echo "gate tools"
 for f in "$ROOT"/audit/gate/*.check.ts; do
