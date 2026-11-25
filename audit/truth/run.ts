@@ -18,7 +18,7 @@
  * card's own count of changes and findings; and, on a sample not reportable, the rows listed apart.
  *
  * `surfaces` holds what the other surfaces print of the same sample: the overview's count of
- * changes and findings for it alone, the changes download's words and loaded-parent values, and,
+ * changes and findings for it alone, the changes download's words, loaded-parent values and fragile-site lines, and,
  * on a sample not reportable or one whose sex line reads "47,XXY or a mix of cells", what its PDF
  * prints (pageSays, overview, syngamyTable, syngamyPdf); on a sample not reportable the run log's
  * gain, loss and stretch lines (`log`); and, where a whole call was withdrawn after the chromosome
@@ -188,6 +188,7 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
       overview: { changes: ov.get('changes with a gain or a loss'), findings: ov.get('findings (copy-neutral, uneven shares, complex genome)') },
       download: { rows: tsv.length, notReported: at('word').filter((w: string) => w === 'not reported').length,
         loadedParent: [...new Set(at('loaded_parent'))],
+        fragile: at('fragile_site').filter(Boolean),
         ...(s.list.notReported ? { classes: [...new Set(at('class'))], parents: [...new Set(at('parent'))],
           evidence: [...new Set(at('evidence'))] } : {}) },
       // Every sentence the card prints of a row with neither a gain nor a loss.
