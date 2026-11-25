@@ -19,8 +19,19 @@ is listed, and the bars of the run's other arrays only where there were any. A c
 named constant of the scoring code is neither a bar nor listed as one with its reason; 220 are
 placed today, 178 bars and 42 not. Under each sample the report prints "Withheld, and why: N":
 every refusal with its cause, the gate that fired and the numbers it fired on, and every row not
-reported; the page lists the same, closed by default. On the 15 named records the 85 withheld
-items equal the records' own counts. Every page names the version, or says it was not reported.
+reported; the page lists the same, closed by default. On the 15 named records the 81 withheld
+items equal the records' own counts. Every page names the version, or says it was not reported,
+and reads "page N of M".
+
+**What is withheld is said in plain words, and only what counts against a sample is listed.** Each
+number in a cause carries its name and its unit, a rate as a percent; a measured value with no
+plain name fails a check. A call rate inside a cause says it is over chromosomes 1 to 22, since
+the quality table beside it prints the rate over all markers and the two differ in the last
+digit. A whole-sample call is listed only where it counts against the sample (nothing reported,
+or copy number not read), in one sentence on what was found; a sample whose changes were measured
+against an undisturbed rest of the genome has no such entry. Of the 853 records, 291 lose an
+entry that withheld nothing and 209 keep theirs. A cause states no count of changes, so it cannot
+differ from the card's.
 
 **A methods paragraph for the run loaded.** Written in the past tense from the run itself: the chip,
 the genome build, which parent was loaded, the version, how copy number, parent of origin, the sex
@@ -29,7 +40,8 @@ registry. A sentence appears only for a step the run took: no parental sentence 
 no origin sentence for a single cell, a sentence on sex-chromosome rows only where a sample has
 one. Two citations, both from the checked literature list, each only where the code reads the
 measurement that paper made: Peiffer 2006 on every run, Verdyck 2022 with both parents. The page
-offers it with a copy button; the report prints it first under Methods.
+offers it with a copy button; the report prints it first under Methods. It states the markers in
+each file and how many of them were called on chromosomes 1 to 22.
 
 **Every figure saves as a vector PDF.** Beside each "Save SVG", a "Save PDF": lines and fills as
 paths, text as selectable text, no image, titled as the page titles the figure, with the version in
@@ -46,9 +58,24 @@ band and the quality gates' call rates were bare numbers and are named bars. No 
 853 records (330 published cells with no parent, 252 with a parent, 271 lab rows) are identical
 outside the report's own text, and the suite and the 4,382 built events did not move.
 
+**No name from the code in a printed sentence.** The stage explanation named a function, one
+sentence named a source file, and the withheld causes printed field names. A check
+(`web/src/prose.check.ts`) now reads every sentence the page and its report are built from and
+fails on a code identifier or a source file name. The report's table of bars keeps each bar's
+constant name in its own column, as the key to the public source.
+
+**Three faults of 6.26.0 corrected before it went live.** The sentence on the undrawn
+sex-chromosome row was printed twice in a figure's caption, in the title and in the note; it is
+in the note only (54 records). A sample not reportable printed a timing row for each reading
+that is neither a gain nor a loss; it prints one line, that no timing is read on such a sample.
+The run log's range of chromosomes ran from the first seen to the last seen ("chr3 to chr2"); it
+runs in chromosome order, as does a list of them (44 log lines on the 853 records).
+
 ---
 
 ## 6.26.0 "Gonosome"
+
+Went live together with 6.27.0.
 
 **The sex chromosomes are in the change list.** The list held chromosomes 1 to 22, so a cell with
 no X left printed no loss, and "47,XXY or a mix of cells" was counted nowhere. The sex reading the
