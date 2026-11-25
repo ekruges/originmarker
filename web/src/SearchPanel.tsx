@@ -100,10 +100,15 @@ interface Props {
   carrierFile?: File | null
 }
 
+let lastMode: Mode = 'search'
+
 export function SearchPanel({
   health, busy, onResolve, hero = false, onCarrierFile, carrierFile,
 }: Props) {
-  const [mode, setMode] = useState<Mode>('search')
+  // Kept outside the component: the page swaps one search box for another between the home
+  // view and the results view, and the mode the user chose must survive that.
+  const [mode, setModeState] = useState<Mode>(lastMode)
+  const setMode = (m: Mode) => { lastMode = m; setModeState(m) }
   const [text, setText] = useState('')
   const [nlError, setNlError] = useState<string | null>(null)
   const [parsing, setParsing] = useState(false)
@@ -491,7 +496,7 @@ export function SearchPanel({
             </Group>
 
             <Text size="xs" c="dimmed" mt={4}>
-              HGVS with a transcript (NM_…:c.…), an rsID, or the variant described in words.
+              HGVS with a transcript (NM_…:c.…){health?.nl_enabled ? ', an rsID, or the variant described in words.' : ' or an rsID.'}
             </Text>
 
             {nlError && (
@@ -527,7 +532,7 @@ export function SearchPanel({
               />
               <NumberInput
                 style={{ flex: '1 1 120px' }}
-                label="window_bp"
+                label="Window each side, base pairs"
                 description="± around variant"
                 min={1000}
                 max={2_000_000}
@@ -563,7 +568,7 @@ export function SearchPanel({
               />
               <NumberInput
                 style={{ flex: '0 0 110px' }}
-                label="common_maf"
+                label="Lowest allele frequency counted as common"
                 min={0}
                 max={0.5}
                 step={0.01}
@@ -574,7 +579,7 @@ export function SearchPanel({
               <Checkbox
                 mb={6}
                 size="xs"
-                label="cross_check"
+                label="Check marker positions against Ensembl"
                 checked={q.cross_check}
                 onChange={(e) => setQ({ ...q, cross_check: e.currentTarget.checked })}
               />
