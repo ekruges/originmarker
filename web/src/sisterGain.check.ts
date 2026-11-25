@@ -3,7 +3,7 @@
  */
 import assert from 'node:assert/strict'
 import {
-  lrrWindows, readInterval, sisterGains, oneGenome, sisterUnitOf, WHOLE, WINDOW_BP,
+  lrrWindows, readInterval, sisterGains, sisterGainsFor, oneGenome, sisterUnitOf, WHOLE, WINDOW_BP,
   MIN_WINDOW_MARKERS, SISTER_SHIFT, type LrrWindow, type SisterUnit,
 } from './sisterGain.ts'
 import type { AB } from './informativity.ts'
@@ -141,6 +141,8 @@ const THIN = genome(1000)
   ]), { reference: without('5', '16', '9') })
   const bystander = unit(cell(0.1))
   const [a, b, c] = sisterGains([loser, gainer, bystander])
+  // One cell read alone gives what the whole group's reading gives that cell.
+  assert.deepEqual([0, 1, 2].map((i) => sisterGainsFor([loser, gainer, bystander], i)), [a, b, c])
   assert.deepEqual(a, [], 'the cell that lost them is not asked about its own losses')
   assert.deepEqual(b.map((g) => [g.chrom, g.whole, g.from]), [['5', true, 0], ['16', false, 0]])
   assert.deepEqual(c, [])

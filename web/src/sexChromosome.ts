@@ -65,6 +65,8 @@ export interface SexChromosomeCall {
   why: string
   /** Where chrY was not read by its markers, why (sexing.ts sexCall). */
   yWhy?: string
+  /** chrX calls under CALL_COLLAPSE of the genome's rate: no X template, whatever else is read. */
+  xNone?: true
 }
 
 export interface SexChromosomeInput {
@@ -353,9 +355,12 @@ function whatXAndYShow(
   if (detects) {
     const cf = o.xCallFraction
     if (cf !== undefined && Number.isFinite(cf) && cf < CALL_COLLAPSE) {
-      return none(`${level}, and chrX calls at ${(cf * 100).toFixed(0)}% of the genome's median rate, `
-        + `under the ${(CALL_COLLAPSE * 100).toFixed(0)}% a chromosome that is there reaches: no X `
-        + `template. ${yText}`)
+      return {
+        ...none(`${level}, and chrX calls at ${(cf * 100).toFixed(0)}% of the genome's median rate, `
+          + `under the ${(CALL_COLLAPSE * 100).toFixed(0)}% a chromosome that is there reaches: no X `
+          + `template. ${yText}`),
+        xNone: true,
+      }
     }
     if (o.xShift <= -2 * COPY_SHIFT_FLOOR) {
       return none(`${level}: chromosome X sits further below the autosomes than one copy, and its calls `
@@ -382,4 +387,36 @@ function whatXAndYShow(
   }
   return say('XX or one X', null, 'X at the level of the autosomes, no Y read: XX if this cell holds '
     + `two genomes, one X if it holds one, and this file does not settle which (${level}; ${m.why})`)
+}
+
+/** A row of the change list on the sex chromosomes: its direction and its words. */
+export interface SexRow { dir: 'loss' | 'gain' | 'none'; says: string }
+
+/**
+ * The change-list row a sex-chromosome reading makes, or none. A constitution with a sex
+ * chromosome missing or extra is a change; one that names two possibilities, one of them a change,
+ * is a finding; a normal complement, or both possibilities normal, or no reading, is no row.
+ *
+ * NO X TEMPLATE IS A FACT THE PLOIDY DECIDES THE MEANING OF. With no chrY no sex chromosome is
+ * left, a loss in one genome or two. With a chrY it is a loss in two genomes and the normal state of
+ * one; where the stage does not show which, the row is a finding.
+ */
+export function sexRow(c: SexChromosomeCall, m?: SexMaterial): SexRow | null {
+  switch (c.constitution) {
+    case '45,X': return { dir: 'loss', says: '45,X: one X and no Y' }
+    case '47,XXX': return { dir: 'gain', says: '47,XXX: an extra X' }
+    case '47,XXY': return { dir: 'gain', says: '47,XXY: an extra X' }
+    case '47,XXY or a mix of cells': return { dir: 'none', says: '47,XXY or a mix of cells' }
+    case 'unresolved': break
+    default: return null
+  }
+  if (!c.xNone) return null
+  if (c.yBearing === false) return { dir: 'loss', says: 'no X and no Y' }
+  if (m?.diploid) return { dir: 'loss', says: 'no X' }
+  if (m?.haploid && c.yBearing === true) return null
+  return {
+    dir: 'none',
+    says: c.yBearing === true ? 'no X; one genome with a Y or two genomes with no X, which this file does not separate'
+      : 'no X, and chrY not read: a loss unless this cell is one genome with a Y',
+  }
 }

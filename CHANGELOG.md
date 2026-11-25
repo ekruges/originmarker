@@ -9,6 +9,52 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.26.0 "Gonosome"
+
+**The sex chromosomes are in the change list.** The list held chromosomes 1 to 22, so a cell with
+no X left printed no loss, and "47,XXY or a mix of cells" was counted nowhere. The sex reading the
+tool already makes now gives a row, with no new measurement: a constitution with a sex chromosome
+missing or extra (45,X, 47,XXX, 47,XXY) is a loss or a gain and counts as a change; a reading that
+names two possibilities is a finding; a normal complement, or no reading, gives no row. Where chrX
+calls under 60% of the genome's rate, so no X template is left, the ploidy decides: no X and no Y
+is a loss in one genome or two, no X is a loss in a cell shown to hold two genomes, nothing in a
+haploid cell with a Y, and a finding where the file does not show which. The row goes to every
+surface the card feeds (overview, download, report, origin by stretch, not reported on a sample
+not reportable). The figure draws chromosomes 1 to 22 only and says the sex row is not drawn.
+Where the sex chromosomes were read, the count sentence drops "on chromosomes 1 to 22".
+
+On the 853 records (330 published cells with no parent, 252 with a parent, 271 lab rows): 49
+findings, 36 of them "47,XXY or a mix of cells", and 11 losses, no gains; 6 of them on samples not
+reportable, listed as not reported. Of the 9 cells the lab's revised tables list as "chrX loss (no
+copy)", 4 print an X loss counted as a change and 1 a loss listed as not reported (its sample is
+not reportable). **The other 4 print a finding, not a loss:** they carry a Y, and the file does not
+show whether the cell holds one genome or two, so one genome with a Y is not ruled out. No cell
+stated normal XX or XY (141 cells) prints a sex change. The card and the overview agree on all 853;
+nothing moved outside the sex rows. Two X losses gain an origin word, "consistent with the gamete
+(two cells read)", on one pair of lab cells.
+
+---
+
+## 6.25.1 "Breakpoint"
+
+**Nothing the tool reads or reports changes.** The audit runner is faster, and the known-answer
+harness is now in the repository.
+
+The audit runner (`audit/truth/run.ts`) now writes the page's sister reading over each row's run,
+with the result's `copyReference`, and scores each array of a run once: an array that has its own
+row later in the shard is scored as that row and its record kept, and a row reads only the pairs
+that include it (`sisterGainsFor` in `web/src/sisterGain.ts`, the same loop the page's
+`sisterGains` now runs for each cell, with identical output). On two lab experiments read with their
+runs, 27 arrays took 56:40 before and 13:24 after, and 21 arrays 30:29 and 9:24, with every record
+identical. On the 330 no-parent rows, the 252 rows with a parent and the 271 lab rows, every field
+the runner wrote before is identical to the unchanged runner on 6.25.0.
+
+The known-answer harness (`audit/validate/known-answer.ts` and `known-answer-run.ts`), which builds
+gains and losses at known places and amounts into real cells and scores them with the shipped
+`scoreSample`, was run from copies outside the repository; it is now tracked.
+
+---
+
 ## 6.25.0 "Breakpoint"
 
 **An origin word belongs to a stretch of DNA, not to the shape of a call.** When a change came
