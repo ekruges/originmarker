@@ -21,7 +21,8 @@
 # group) every tick and keeps its peak; a finished job's peak is kept for its class (lane and label
 # without the trailing shard number). A job may start when available memory, less POOL_RESERVE_GB,
 # covers its class's largest peak seen (POOL_JOB_GB where none is), with a tenth more, plus the
-# growth still to come of every running job, each counted up to its own class's peak.
+# growth still to come of every running job, each counted up to its own class's peak (a quarter
+# more than it holds now, for a class with no peak measured yet).
 #
 # Disk: no job starts while the pool's disk has under POOL_DISK_GB free (default 3).
 #
@@ -68,7 +69,8 @@ reap() {
       rss=$(echo "$groups" | awk -v g="$pid" '$1==g{print $2}'); rss=${rss:-0}
       peak=$(cat "$j.peak" 2>/dev/null || echo 0)
       [ "$rss" -gt "$peak" ] && { peak=$rss; echo "$peak" > "$j.peak"; }
-      need=$(need_kb "$(class_of "$j")")
+      # A class with no measured peak yet may still grow by a quarter of what it holds.
+      if grep -q "^$(class_of "$j")	" "$P/peaks.tsv"; then need=$(need_kb "$(class_of "$j")"); else need=$((rss * 5 / 4)); fi
       [ "$need" -gt "$rss" ] && grow=$((grow + need - rss))
     else
       [ -e "$j.exit" ] || echo LOST > "$j.exit"
