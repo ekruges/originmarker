@@ -49,6 +49,9 @@ export default function App() {
   // The manual form as it stands (null in search mode): applied to the build, and read against
   // the panel on screen to say when it no longer matches.
   const [draft, setDraft] = useState<StructuredQuery | null>(null)
+  // A refusal of the form's fields, cleared as soon as the form changes.
+  const [fieldError, setFieldError] = useState<string | null>(null)
+  useEffect(() => { setFieldError(null) }, [draft])
   // Held here, not in SearchPanel: that component unmounts when the landing view collapses
   // into the results view, and the model-chosen-variant caveat has to outlive it.
   const [nl, setNl] = useState<NLResponse | null>(null)
@@ -179,14 +182,15 @@ export default function App() {
     // The build takes the form's knobs as they stand; a changed variant or build needs a resolve.
     if (!q && draft) {
       if (draft.variant !== use.variant || (draft.build ?? 'GRCh38') !== (use.build ?? 'GRCh38')) {
-        setError('The variant or build in the form has changed since it was resolved. Resolve again to build for it.')
+        setFieldError('The variant or build in the form has changed since it was resolved. Resolve again to build for it.')
         return
       }
       use = { ...use, window_bp: draft.window_bp, common_maf: draft.common_maf, material: draft.material,
         ancestry: draft.ancestry, cross_check: draft.cross_check, gene: draft.gene }
     }
     const problem = queryProblem(use)
-    if (problem) { setError(problem); return }
+    if (problem) { setFieldError(problem); return }
+    setFieldError(null)
     setQuery(use)
     setPhase('building')
     setError(null)
@@ -439,6 +443,11 @@ export default function App() {
               />
             )}
 
+        {fieldError && (
+          <Alert color="red" mb="sm" title="Not built" role="alert" withCloseButton onClose={() => setFieldError(null)}>
+            <Text size="xs">{fieldError}</Text>
+          </Alert>
+        )}
         {error && (
           <Alert color="red" mb="sm" title="Error" role="alert" withCloseButton onClose={() => setError(null)}>
             <Text size="xs">{error}</Text>

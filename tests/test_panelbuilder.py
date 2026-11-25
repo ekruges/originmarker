@@ -963,6 +963,17 @@ def test_counts_per_side_from_the_measured_rates():
         {"bulk": 4, "biopsy": 6, "single_cell": 12}
 
 
+def test_printed_percents_are_rounded_once_from_the_rates():
+    """Each printed percent is the value computed from the measured rates, rounded once."""
+    for k, m in pb.MATERIALS.items():
+        c = pb.marker_count(k)
+        exact = _tail(c["per_side"], 3, m["read"])
+        assert f"a chance of {exact:.1%}." in c["note"], (k, exact)
+        one = 1 - m["read"] - m["no_call"]
+        assert f"{m['read']:.1%} did, {m['no_call']:.1%} had no call and {one:.1%} read" in c["note"], k
+    assert "96.1%" in pb.marker_count("single_cell")["note"]
+
+
 def test_chance_reached_is_the_one_printed():
     for k in pb.MATERIALS:
         c = pb.marker_count(k)
@@ -1022,3 +1033,13 @@ def test_golden_panel_offers_only_chip_markers(result):
         assert "of 3)" not in f, f
     side = [f for f in result.coverage["flags"] if "meet the flanking criteria" in f]
     assert side and all("of 12)" in f for f in side), side
+
+
+def test_reference_allele_record_is_not_the_variant():
+    """rs6025 has a ClinVar record of the reference allele itself (c.1601=, C>C); the resolve
+    takes the real change instead. Recorded public ClinVar and Ensembl answers."""
+    v = pb.resolve_variant("rs6025")
+    assert v.vcf_ref != v.vcf_alt, v
+    assert (v.vcf_ref, v.gene, v.pos_grch38) == ("C", "F5", 169_549_811)
+    assert pb._is_reference_record({"title": "NM_000130.5(F5):c.1601= (p.Arg534=)"})
+    assert not pb._is_reference_record({"title": "NM_000130.5(F5):c.1601G>A (p.Arg534Gln)"})

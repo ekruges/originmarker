@@ -210,9 +210,14 @@ export function SearchPanel({
       // Recorded once the parse stands, so the half-typed identifier that failed on the way
       // to this one does not push a real query out of a capped list.
       setEntries(recordQuery(t, r.query.variant))
-      // Provenance only when a model actually chose the variant, so a typed identifier
-      // does not carry a caveat about a model that never ran.
-      onResolve(r.query, r.used_llm ? r : undefined)
+      // The form shows the values the build will use, read from the words or not.
+      setQ({ ...q, variant: r.query.variant, gene: r.query.gene ?? '', window_bp: r.query.window_bp ?? q.window_bp,
+        build: r.query.build ?? q.build, ancestry: r.query.ancestry ?? null,
+        common_maf: r.query.common_maf ?? q.common_maf, cross_check: r.query.cross_check ?? q.cross_check,
+        material: (r.query.material as Material | undefined) ?? q.material })
+      // The parse goes up always, so the card can say what was read from the words. Whether a
+      // model chose the variant is `used_llm`'s to say, never the presence of the parse.
+      onResolve(r.query, r)
     } catch (e) {
       setNlError(e instanceof ApiError ? e.message : 'Could not parse that request.')
     } finally {
@@ -221,6 +226,7 @@ export function SearchPanel({
   }
 
   const [formError, setFormError] = useState<string | null>(null)
+  useEffect(() => { setFormError(null) }, [q])   // a refusal is about the field as it was
   useEffect(() => {
     onDraft?.(mode === 'manual' ? { ...q, gene: q.gene.trim() || null, variant: q.variant.trim() } : null)
   }, [mode, q, onDraft])

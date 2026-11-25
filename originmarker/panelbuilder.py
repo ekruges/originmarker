@@ -726,6 +726,14 @@ def prefetch_for(v: "VariantRecord") -> None:
     _prefetch(urls)
 
 
+_REFERENCE_HGVS = re.compile(r":[cgnmr]\.[\d_+\-*?]+=")
+
+
+def _is_reference_record(cand: dict) -> bool:
+    """A ClinVar record of the reference allele (HGVS ending "=", such as "c.1601="): no change."""
+    return bool(_REFERENCE_HGVS.search(cand.get("title") or ""))
+
+
 def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     """Resolve an HGVS/rsID to a canonical GRCh38 record via live API only (R1).
 
@@ -779,6 +787,10 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
         try:
             _assert_record_matches(query, cand, cvset)
         except ApiError:
+            continue
+        if _is_reference_record(cand):
+            # ClinVar keeps records for the reference allele itself ("c.1601=", no change) under
+            # the same rsID. A base changed to itself is not a variant to build a panel around.
             continue
         if _is_combination(cand):
             # Reconciles but is not a point variant: remembered so the refusal below can
@@ -1360,7 +1372,7 @@ MATERIALS = {
     "single_cell": {"label": "a single cell", "name": "single cell", "read": 0.4561, "no_call": 0.3167, "arrays": 14},
 }
 for _m in MATERIALS.values():
-    _m["one_allele"] = round(1 - _m["read"] - _m["no_call"], 4)
+    _m["one_allele"] = 1 - _m["read"] - _m["no_call"]   # unrounded: printed once, as a percent
 # The chance that at least ESHRE_MIN_PER_SIDE markers read: the tool's error budget elsewhere,
 # alpha 0.05 (origin.r_min). Not from a paper; the owner's call.
 READ_CHANCE = 0.95
@@ -1398,7 +1410,7 @@ def marker_count(material: str) -> dict:
     The page and the exports print `note` verbatim."""
     m = MATERIALS[material]
     n = markers_per_side(m["read"])
-    reached = round(_at_least(n, ESHRE_MIN_PER_SIDE, m["read"]), 4)
+    reached = _at_least(n, ESHRE_MIN_PER_SIDE, m["read"])   # unrounded: printed once, as a percent
     note = (f"{n} markers asked on each side. In {m['label']}, of the markers that should read as "
             f"two alleles, {m['read']:.1%} did, {m['no_call']:.1%} had no call and "
             f"{m['one_allele']:.1%} read as one allele: {m['arrays']} arrays of the lab chip's "
@@ -1896,7 +1908,9 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         if len(met) < count["per_side"]:
             coverage.setdefault("flags", []).append(
                 f"Fewer than {count['per_side']} markers on the {side}-coordinate side "
-                f"meet the flanking criteria ({len(met)} of {count['per_side']}). "
+                f"meet the flanking criteria ({len(met)} of {count['per_side']}): "
+                f"{FLANKING_CRITERIA['summary'][0].lower()}{FLANKING_CRITERIA['summary'][1:]} "
+                f"Starred rows in the table meet them. "
                 f"{count['per_side']} are asked so that at least {ESHRE_MIN_PER_SIDE} read in "
                 f"{count['label']}; ESHRE recommends at least {ESHRE_MIN_PER_SIDE} on each side.")
 
