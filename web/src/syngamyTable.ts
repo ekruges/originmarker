@@ -15,7 +15,7 @@
 import type { ParentageResult } from './parentage.ts'
 import { kindOf, NOT_REPORTED_SAYS, SEEN, seenLocus, WORD, type CardSays } from './pageSays.ts'
 import { directionOf, originText } from './timing.ts'
-import { fragileSiteText } from './fragileSites.ts'
+import { countedBreakPieces, fragileSiteText } from './fragileSites.ts'
 
 export type TableChange = {
   chrom: string
@@ -33,7 +33,7 @@ export type TableChange = {
   word?: string
   /** When it arose, as the page prints it (timing.originText): one word, or each stretch with its own. */
   when?: string
-  /** The fragile site a break of this piece falls in (fragileSites.ts), empty where none. */
+  /** The fragile site a break of this piece falls in (fragileSites.ts), on a counted change only. */
   fragile?: string
 }
 
@@ -57,6 +57,7 @@ export type TableSample = {
  * reported", as on the card, and its class column states only how it read against the array.
  */
 export function tableSampleOf(name: string, r: ParentageResult, says: CardSays): TableSample {
+  const breaks = new Set(countedBreakPieces(says.list))
   return {
     name,
     headline: says.head.word,
@@ -77,7 +78,7 @@ export function tableSampleOf(name: string, r: ParentageResult, says: CardSays):
         chrom: d.chrom, startBp: d.startBp, endBp: d.endBp, kind: d.kind,
         origin: d.origin, band: d.band, confidence: d.confidence,
         inheritedMargin: d.inheritedMargin, stage: d.stage, informative: d.informative,
-        why: d.why, word: WORD[kindOf(d, says.setup)], when: originText(d), fragile: fragileSiteText(d),
+        why: d.why, word: WORD[kindOf(d, says.setup)], when: originText(d), fragile: breaks.has(d) ? fragileSiteText(d) : undefined,
       })),
   }
 }

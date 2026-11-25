@@ -2,7 +2,8 @@
  * The fragile site a printed break falls in, by Table 3 of Georgakilas et al. 2014 (hg19).
  *
  * The same rule as the break test in audit/truth/fragile_sites.py, so the page and the test agree:
- * a break is a printed piece edge that is not within 0.5 Mb of the chip's first or last marker on
+ * a break is an edge of a piece of a change the card counts (a gain or a loss of part of a
+ * chromosome; not a row seen once, a finding, or anything on a sample not reportable), an edge that is not within 0.5 Mb of the chip's first or last marker on
  * its chromosome, and not the unplaced edge of an arm-level call; it is in a site when
  * start <= coordinate <= end. The sites must equal audit/truth/fragile-sites-georgakilas2014.tsv
  * (fragileSites.check.ts compares them). Nothing here is read by the scoring.
@@ -60,4 +61,25 @@ export function fragileSiteText(p: { chrom: string; startBp: number; endBp: numb
     .map(([x, s]) => `${(x / 1e6).toFixed(1)} Mb in fragile site ${s}`)
   if (!hits.length) return undefined
   return `Break at ${hits.join(', and at ')} (${FRAGILE_CITE.authors} ${FRAGILE_CITE.year}, Table 3)`
+}
+
+const BREAK_KINDS = new Set(['copy-loss', 'copy-gain', 'parental-absence'])
+
+type Piece = { chrom: string; startBp: number; endBp: number; kind: string; arm?: string }
+
+/** The pieces whose edges are breaks: pieces of the card's counted rows that are not whole, gains and
+ *  losses only, none on a sample not reportable. */
+export function countedBreakPieces<P extends Piece>(list: {
+  counted: readonly { whole: boolean; pieces: readonly P[] }[]; notReported?: unknown
+}): P[] {
+  if (list.notReported) return []
+  return list.counted.filter((g) => !g.whole).flatMap((g) => g.pieces).filter((p) => BREAK_KINDS.has(p.kind))
+}
+
+/** One line per counted piece with a break in a site, e.g. "chr3: Break at 61.2 Mb in fragile site FRA3B (...)". */
+export function fragileLines(list: Parameters<typeof countedBreakPieces>[0]): string[] {
+  return countedBreakPieces(list).flatMap((p) => {
+    const t = fragileSiteText(p)
+    return t ? [`chr${p.chrom}: ${t}`] : []
+  })
 }

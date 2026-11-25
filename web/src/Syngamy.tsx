@@ -44,7 +44,7 @@ import { analyseRuns, measureClustering, parseLocus, type RunResult } from './ru
 import type { GainAnnotation } from './parentage'
 import { sexCall } from './sexing'
 import { type FeatureTrack } from './features'
-import { fragileSiteText } from './fragileSites'
+import { fragileLines } from './fragileSites'
 import type { Marker } from './informativity'
 import { buildReportPdf, reportId, sha256, type ReportFile } from './syngamyPdf'
 import { isInferredFile, parseInferredBanner, MARK_BYTES } from './inferredArray'
@@ -1230,6 +1230,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             return mk ? <CallFigure mark={seenMark(g.word === 'not reported', { ...mk, sentence: callTitle(g) })} data={entry.series} marks={marks} name={plotName(entry)} /> : null
           }}
         />
+        {fragileLines(list).map((f, i) => <Text key={i} size="xs" c="dimmed" mt={4}>{f}</Text>)}
         <Withheld r={r} list={list} />
         <CellFigure data={entry.series} marks={marks} name={plotName(entry)} title={title}
           note={figureNote(list, drawnOf(r, defectsForResult(r)))} />
@@ -1856,10 +1857,6 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
                     >
                       {' '}{segmentCoords(sg).interval}
                     </Text>
-                    {notReportable(r) ? null : (() => {
-                      const f = fragileSiteText({ chrom: sg.chrom, startBp: segmentCoords(sg).start, endBp: segmentCoords(sg).end, arm: sg.arm })
-                      return f ? <Text size="xs" c="dimmed">{f}</Text> : null
-                    })()}
                   </Table.Td>
                   <Table.Td>{segmentKindText(notReportable(r), sg, r.role)}</Table.Td>
                   <Table.Td ta="right" ff="monospace">

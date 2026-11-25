@@ -47,3 +47,5 @@ web/src/PreviewProducts.tsx
 web/src/previewData*.json
 # Per-array lab outputs and the barcode map live on the machine holding the data, never in the tree.
 audit/local/
+# Browser checks put array files here; they must never be committed.
+web/public/_check/

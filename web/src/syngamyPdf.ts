@@ -16,7 +16,7 @@ import {
   type ChromResult, type PairResult, type ParentageResult,
 } from './parentage.ts'
 import { segmentCoords } from './segments.ts'
-import { fragileSiteText } from './fragileSites.ts'
+import { fragileLines } from './fragileSites.ts'
 import {
   aneuploidyCells, cardSays, chromCells, countText, disturbedText, gainCells, kindSeen, notReportable, NOT_REPORTED_SAYS,
   readAgainst, seenHeading, seenLocus, segmentKindText, stateWord, summaryParts, verdictText, kindBesideWord, MEASURED, MEASURED_WHERE, pdfCells,
@@ -615,6 +615,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       }),
     )
     if (list.counted.length) changeTable(list.counted)
+    for (const f of fragileLines(list)) text(`${f}.`, 7.4, 'Helvetica', 2, GREY)
     if (list.once.length) {
       text('Seen once, not confirmed', 7.6, 'Helvetica-Bold', 2, GREY)
       changeTable(list.once)
@@ -872,10 +873,6 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
           int(sg.markers), pct(sg.rate, 1), pct(sg.nullRate, 1), sg.arm ? 'n/a' : sg.score.toFixed(0),
         ]),
       )
-      for (const sg of seen ? [] : r.segments) {
-        const f = fragileSiteText({ chrom: sg.chrom, startBp: segmentCoords(sg).start, endBp: segmentCoords(sg).end, arm: sg.arm })
-        if (f) text(`chr${sg.chrom}: ${f}.`, 7.4, 'Helvetica', 2, GREY)
-      }
     }
     // PARENT OF ORIGIN, GENOTYPE CHANNEL.
     if (r.oneParent?.length) {

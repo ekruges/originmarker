@@ -5,8 +5,8 @@
  */
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { FRAGILE_SITES, fragileSiteAt, fragileSiteText } from './fragileSites.ts'
-import { COLUMNS, syngamyTable } from './syngamyTable.ts'
+import { FRAGILE_SITES, fragileLines, fragileSiteAt, fragileSiteText } from './fragileSites.ts'
+import { COLUMNS, syngamyTable, tableSampleOf } from './syngamyTable.ts'
 
 // The constant is the catalogue file, row for row.
 const file = readFileSync(new URL('../../audit/truth/fragile-sites-georgakilas2014.tsv', import.meta.url), 'utf8')
@@ -49,4 +49,20 @@ assert.equal(t[0][col], 'fragile_site')
 assert.equal(t[1][col], 'Break at 61.2 Mb in fragile site FRA3B (Georgakilas et al. 2014, Table 3)')
 assert.equal(t[2][col], '')
 
-console.log('fragileSites: lookup, text and download column ok')
+// Only a change the card counts carries the line: a row seen once, a finding, a whole call and a
+// sample not reportable carry none, though each has an edge inside FRA3B.
+const piece = (o: object) => ({ chrom: '3', startBp: 61_200_000, endBp: 90_000_000, kind: 'copy-loss', locus: 'chr3:61.2-90.0Mb', ...o })
+const counted = piece({})
+const once = piece({ startBp: 62_000_000 })
+const upd = piece({ kind: 'segmental-upd', startBp: 63_000_000 })
+const whole = piece({ startBp: 62_500_000 })
+const list = { counted: [{ whole: false, pieces: [counted] }, { whole: false, pieces: [upd] }, { whole: true, pieces: [whole] }],
+  once: [{ whole: false, pieces: [once] }], seen: [] }
+assert.deepEqual(fragileLines(list), ['chr3: Break at 61.2 Mb in fragile site FRA3B (Georgakilas et al. 2014, Table 3)'])
+assert.deepEqual(fragileLines({ ...list, notReported: { rows: [] } }), [])
+const sample = tableSampleOf('s', { originClass: 'x', noParent: true } as never,
+  { head: { word: 'w' }, setup: 'no-parent', list, defects: [counted, once, upd, whole] } as never)
+assert.deepEqual(sample.changes.map((c) => c.fragile ?? ''),
+  ['Break at 61.2 Mb in fragile site FRA3B (Georgakilas et al. 2014, Table 3)', '', '', ''])
+
+console.log('fragileSites: lookup, text, counted changes only, download column ok')
