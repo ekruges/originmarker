@@ -1,6 +1,8 @@
 /** Display helpers. Coordinates never render without their build. */
 
 export const int = (n: number) => n.toLocaleString('en-US')
+/** An allele frequency floor, one way everywhere: up to three decimals, no trailing zeros (0.2, 0.05). */
+export const mafText = (x: number) => String(Number(x.toFixed(3)))
 
 /** Signed bp distance, always with an explicit sign so side is unambiguous. */
 export const signedBp = (d: number) => `${d > 0 ? '+' : d < 0 ? '−' : ''}${int(Math.abs(d))}`

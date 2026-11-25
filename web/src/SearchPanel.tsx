@@ -245,8 +245,12 @@ export function SearchPanel({
     }
   }
 
-  const [formError, setFormError] = useState<string | null>(null)
-  useEffect(() => { setFormError(null) }, [q])   // a refusal is about the field as it was
+  // A refusal is about the form as it was refused; it clears when the form differs from that.
+  const [refused, setRefused] = useState<{ text: string; form: string } | null>(null)
+  useEffect(() => {
+    setRefused((r) => (r && r.form !== JSON.stringify(asQuery(q)) ? null : r))
+  }, [q])
+  const formError = refused?.text ?? null
   useEffect(() => {
     onDraft?.(mode === 'manual' ? asQuery(q) : null)
   }, [mode, q, onDraft])
@@ -254,8 +258,9 @@ export function SearchPanel({
   const submitManual = () => {
     const now = asQuery(lastQ)
     if (!now.variant) return
-    setFormError(queryProblem(now))
-    if (queryProblem(now)) return
+    const problem = queryProblem(now)
+    setRefused(problem ? { text: problem, form: JSON.stringify(now) } : null)
+    if (problem) return
     onResolve({
       variant: now.variant,
       gene: now.gene,

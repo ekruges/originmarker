@@ -8,7 +8,7 @@ import {
   type LogLine, type NLResponse, type PanelRequest, type PanelResult, type ResolveResponse,
   type StructuredQuery,
 } from './api'
-import { int, orUnknown, utc } from './fmt'
+import { int, mafText, orUnknown, utc } from './fmt'
 import { BuildLog, LOG_CAP } from './BuildLog'
 import { SearchPanel, formNow } from './SearchPanel'
 import { VariantCard } from './VariantCard'
@@ -50,8 +50,15 @@ export default function App() {
   // the panel on screen to say when it no longer matches.
   const [draft, setDraft] = useState<StructuredQuery | null>(null)
   // A refusal of the form's fields, cleared as soon as the form changes.
-  const [fieldError, setFieldError] = useState<string | null>(null)
-  useEffect(() => { setFieldError(null) }, [draft])
+  // Held with the form it refused: cleared only when the form differs from that, so the render
+  // that hands up the value a click was refused for cannot clear the refusal it caused.
+  const [refusal, setRefusal] = useState<{ text: string; form: string } | null>(null)
+  useEffect(() => {
+    setRefusal((r) => (r && r.form !== JSON.stringify(draft) ? null : r))
+  }, [draft])
+  const fieldError = refusal?.text ?? null
+  const setFieldError = (text: string | null) =>
+    setRefusal(text ? { text, form: JSON.stringify(formNow()) } : null)
   // Held here, not in SearchPanel: that component unmounts when the landing view collapses
   // into the results view, and the model-chosen-variant caveat has to outlive it.
   const [nl, setNl] = useState<NLResponse | null>(null)
@@ -522,8 +529,9 @@ export default function App() {
                 <span>Panel</span>
                 <Text size="xs" c="dimmed">
                   {int(prov.candidate_n)} candidates · {result.recommended.length} shortlisted ·
-                  window ±{int(prov.window_bp)} bp · MAF ≥ {prov.common_maf}
+                  window ±{int(prov.window_bp)} bp · MAF ≥ {mafText(prov.common_maf)}
                   {prov.marker_count ? ` · built for ${materialName(prov.marker_count.material)}` : ''}
+                  {` · ancestry ${prov.ancestry_rank ?? 'Global'}`}
                   {typeof prov.elapsed_s === 'number' ? ` · built in ${prov.elapsed_s.toFixed(1)} s` : ''}
                 </Text>
               </Group>
@@ -720,7 +728,7 @@ function ResultProvenance({ result }: { result: PanelResult }) {
           Genetic map: {orUnknown(p.sources?.genetic_map)}
         </Text>
         <Text size="xs" c="dimmed" mt={2}>
-          Window ±{int(p.window_bp)} bp · MAF floor {p.common_maf} · {int(p.candidate_n)}{' '}
+          Window ±{int(p.window_bp)} bp · MAF floor {mafText(p.common_maf)} · {int(p.candidate_n)}{' '}
           candidates · built in {p.elapsed_s}s
         </Text>
         {approx && (
