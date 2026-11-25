@@ -4,6 +4,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { CAUSE_SAYS, CLAIM_SAYS, MEASURE_SAYS, measuredText, sampleCause, withheldRows } from './withheld.ts'
 import { PHYSICAL_CAUSES } from './refusals.ts'
+import { assessIntegrity } from './integrity.ts'
 
 const src = readFileSync(new URL('./scoreSample.ts', import.meta.url), 'utf8')
 // The keys of every object a refusal records as `measured`, and of the two records spread into them.
@@ -40,11 +41,51 @@ assert.equal(sampleCause({ level: 'disturbed', headline: 'x', limits: '', measur
 const nm = withheldRows({ refusals: [sampleRefusal, finding],
   integrity: { level: 'disturbed', headline: 'NO NORMAL MAJORITY: copy number is withheld', limits: 'Do not read copy number.', measures } }, {})
 assert.equal(nm.length, 2)
-assert.ok(nm[0].why.startsWith('Copy number is not read: fewer than 80.0% of the autosomes share one copy state'), nm[0].why)
+assert.ok(nm[0].why.startsWith('Copy number is not read: no normal level is shown, as fewer than 80.0% of the autosomes share one copy state'), nm[0].why)
 const bad = (m: Partial<typeof measures>) => sampleCause({ level: 'uninterpretable', headline: 'DAMAGED SAMPLE', limits: 'Nothing.', measures: { ...measures, ...m } })!
 assert.ok(bad({ stage: 'failed' }).includes('did not resolve to any material'))
 assert.ok(bad({ callRate: 0.5 }).includes('call rate on chromosomes 1 to 22 is under the 70.0%'))
 assert.ok(bad({ affectedAutosomes: 9 }).includes('9 of 22 autosomes read as changed'))
+
+// THE WHOLE-SAMPLE NOTE NAMES ITS PHYSICAL CAUSE. Every branch of the integrity call, under every
+// stage refusal: the call carries a physical cause, or `none` where it withholds nothing, and the
+// printed row says that cause's words. Only the three stand-ins named here may carry `proxy`: a
+// stage refused on a test that names no cause (the ceiling, a declared failure, an unread stage) and
+// a low call rate whose calls were never tested for chance. A new branch or stage refusal with no
+// physical cause fails here.
+{
+  const ok = { stage: 'single-cell' as const, callRate: 0.95, affectedAutosomes: 0, totalAutosomes: 22, events: 0, callsCarryGenome: true }
+  const cases: [string, Parameters<typeof assessIntegrity>[0], string][] = [
+    ['intact', ok, 'none'],
+    ['disturbed', { ...ok, affectedAutosomes: 1, events: 1 }, 'none'],
+    ['no normal majority', { ...ok, allelesStand: true, normalFraction: 0.5 }, 'no-intensity-reference'],
+    ['drop-in', { ...ok, allelesStand: true, normalFraction: 0.9 }, 'no-intensity-reference'],
+    ['stage: no genotype signal', { ...ok, stage: 'failed', stageCause: 'no-genotype-signal' }, 'no-genotype-signal'],
+    ['stage: second genome', { ...ok, stage: 'failed', stageCause: 'second-genome' }, 'second-genome'],
+    ['call rate', { ...ok, callRate: 0.5 }, 'no-template'],
+    ['affected autosomes', { ...ok, affectedAutosomes: 9, events: 9 }, 'no-intensity-reference'],
+    ['stand-in: stage on a test that names no cause', { ...ok, stage: 'failed', stageCause: 'proxy' }, 'proxy'],
+    ['stand-in: call rate, calls untested', { ...ok, callRate: 0.5, callsCarryGenome: false }, 'proxy'],
+  ]
+  for (const [name, input, cause] of cases) {
+    const call = assessIntegrity(input)
+    assert.equal(call.cause, cause, `${name}: cause ${call.cause}`)
+    const row = sampleCause(call)
+    if (cause === 'none') { assert.equal(row, null, `${name}: withholds nothing, so no row`); continue }
+    assert.ok(row, `${name}: a row`)
+    if (cause === 'proxy') continue
+    const words = CAUSE_SAYS[cause as keyof typeof CAUSE_SAYS]
+    assert.ok(row!.includes(words), `${name}: the row names its cause: ${row}`)
+    assert.ok(!row!.includes(CAUSE_SAYS.proxy) && !row!.includes('did not resolve'), `${name}: no stand-in words: ${row}`)
+    assert.ok(call.why.toLowerCase().includes(words.toLowerCase()) || call.level === 'disturbed' || call.cause === 'no-intensity-reference',
+      `${name}: the note says its cause: ${call.why}`)
+  }
+  // The stage refusals that name no cause are exactly the three of scoreSample's stageCause.
+  const src2 = readFileSync(new URL('./scoreSample.ts', import.meta.url), 'utf8')
+  const named = /const stageCause[^=]*= ([^\n]+\n[^\n]+)/.exec(src2)![1]
+  assert.deepEqual([...named.matchAll(/'([a-z-]+)'/g)].map((x) => x[1]).filter((x) => x !== 'proxy').sort(),
+    ['no-genotype-signal', 'second-genome'], 'a stage refusal that names a physical failure is passed as that failure')
+}
 const all = nm.map((w) => `${w.what} ${w.why} ${w.measured}`).join(' ')
 assert.ok(!/\b[a-z]+[A-Z]\w*\b/.test(all.replace(/\bchr[XY]\b/g, '')), all)
 assert.ok(all.includes('call rate on chromosomes 1 to 22 79.2%') && all.includes('autosomes in the commonest copy state 68.2%') && all.includes('drop-in not measured'), all)

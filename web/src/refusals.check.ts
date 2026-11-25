@@ -40,10 +40,12 @@ const src = readFileSync(new URL('./scoreSample.ts', import.meta.url), 'utf8')
   for (const p of pushes) {
     assert.ok(/cause:/.test(p), `a refusal record without a cause: {${p.trim().slice(0, 80)}}`)
     assert.ok(/measured:/.test(p), `a refusal record without its measurement: {${p.trim().slice(0, 80)}}`)
-    // A literal, or `stageCause`, the stage's own cause, typed to the same closed list.
+    // A literal, `stageCause` (the stage's own cause) or the integrity call's cause, each typed to
+    // the same closed list.
     const expr = /cause: ([^,\n]+)/.exec(p)?.[1] ?? ''
     const literals = [...expr.matchAll(/'([a-z-]+)'/g)].map((m) => m[1])
-    assert.ok(literals.length || /\bstageCause\b/.test(expr), `a cause that is neither a name nor stageCause: ${expr}`)
+    assert.ok(literals.length || /\bstageCause\b|\bintegrity\.cause\b/.test(expr),
+      `a cause that is neither a name, stageCause nor the integrity call's cause: ${expr}`)
     for (const cause of literals) {
       assert.ok(cause === 'proxy' || isPhysical(cause),
         `cause '${cause}' is neither physical nor 'proxy'. The closed list: ${PHYSICAL_CAUSES.join(', ')}`)

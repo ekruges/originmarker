@@ -2719,13 +2719,15 @@ export async function scoreSample(input: {
       gainByAlleles: autosomes.filter((c) => c.alleleGain?.verdict === 'gain' && c.aneuploidy !== 'gain').length,
       allelesStand: (uninterpretable && alleleClaims.size > 0) || intensityWithheld,
       normalFraction: normal,
+      stageCause,
+      callsCarryGenome: Number.isFinite(panelInformation) && panelInformation < NO_INFORMATION_MIN,
     })
-    // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader nothing on the
-    // sample is reportable, which is the same to the person reading it. Recorded as soft.
+    // A LABEL IS A REFUSAL TOO. These levels remove nothing, but tell the reader what on the sample
+    // is not reportable. Recorded as soft, under the cause the level rests on.
     if (result.integrity.level !== 'intact') {
       const m = result.integrity.measures
       result.refusals!.push({ claim: 'sample', gate: `integrity.${result.integrity.level}`,
-        cause: 'proxy', soft: true,
+        cause: result.integrity.cause, soft: true,
         measured: { callRate: m.callRate, deviantFraction: m.deviantFraction,
           affectedAutosomes: m.affectedAutosomes, totalAutosomes: m.totalAutosomes } })
     }

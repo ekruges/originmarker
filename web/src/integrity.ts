@@ -22,6 +22,7 @@
  */
 import { COMPLEX_DEVIANT_FRACTION, COMPLEX_CALL_RATE } from './abnormalities.ts'
 import type { Stage } from './stage.ts'
+import { CAUSE_SAYS, type Cause, type PhysicalCause } from './refusals.ts'
 
 export type Integrity =
   /** No change found, and the array met its own quality gates. */
@@ -41,6 +42,9 @@ export interface IntegrityCall {
   why: string
   /** What must not be done with this sample's rows. Empty when the sample is usable. */
   limits: string
+  /** The physical cause the level rests on, read from this array; `none` where nothing is withheld,
+   *  `proxy` only where the stage refused the array on a test that names no cause. */
+  cause: Cause
   measures: {
     affectedAutosomes: number
     totalAutosomes: number
@@ -77,7 +81,15 @@ export interface IntegrityInput {
   allelesStand?: boolean
   /** The disomic fraction the copy-number gate was decided on, for the label. */
   normalFraction?: number
+  /** The physical failure the stage refusal named, or `proxy` where its test names none. Read on a
+   *  failed stage only. */
+  stageCause?: PhysicalCause | 'proxy'
+  /** The calls made were shown to carry this genome: the information ratio was read against the
+   *  founder panel and is under its bar. */
+  callsCarryGenome?: boolean
 }
+
+const cap = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1)
 
 /**
  * The flag.
@@ -115,6 +127,7 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
       limits: 'Read the parental state of each chromosome. Do not read copy number, segment positions or '
         + 'event counts from this sample.',
       measures,
+      cause: 'no-intensity-reference',
     }
   }
   if (input.allelesStand) {
@@ -130,34 +143,49 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
       limits: 'Read the parent named on each chromosome, with the drop-in it was corrected for stated '
         + 'beside it. Do not read copy number, segment positions or event counts from this sample.',
       measures,
+      cause: 'no-intensity-reference',
     }
   }
 
   if (stage === 'failed') {
+    const cause = input.stageCause ?? 'proxy'
+    const named = cause !== 'proxy'
     return {
       level: 'uninterpretable',
-      headline: 'DAMAGED SAMPLE: this array did not resolve to any material',
-      why: 'The stage inference rejected this array on its own quality gates, so there is no '
-        + 'material whose dropout could parameterise a likelihood and no genome the statistics '
-        + 'could describe. Anything listed as seen on this sample was read by a measurement that is '
-        + 'not measuring a genome.',
+      headline: `DAMAGED SAMPLE: ${named ? CAUSE_SAYS[cause] : 'this array did not resolve to any material'}`,
+      why: (named
+        ? `The stage inference rejected this array on what it measured, ${CAUSE_SAYS[cause]}, `
+        : 'The stage inference rejected this array on its own quality gates, ')
+        + 'so there is no material whose dropout could parameterise a likelihood and no genome the '
+        + 'statistics could describe. Anything listed as seen on this sample was read by a measurement '
+        + 'that is not measuring a genome.',
       limits: 'Nothing on this sample is reportable. Do not read its changes, its parental calls '
         + 'or its counts, and do not include it in any comparison across samples.',
       measures,
+      cause,
     }
   }
 
   if (Number.isFinite(callRate) && callRate < COMPLEX_CALL_RATE) {
+    // The cause is missing DNA only where the calls made were shown to carry this genome; with
+    // that test not run, a low call rate names no cause.
+    const shown = input.callsCarryGenome === true
     return {
       level: 'uninterpretable',
       headline: `DAMAGED SAMPLE: call rate ${(callRate * 100).toFixed(1)}% is below the `
         + `${(COMPLEX_CALL_RATE * 100).toFixed(0)}% this tool can reference against`,
-      why: 'Every origin statistic here is measured against the rest of this array\'s own genome. '
+      why: (shown
+        ? `${cap(CAUSE_SAYS['no-template'])} at too many markers: the calls made carry this genome, by `
+          + 'the test against markers where unrelated people carry the same homozygote, and the markers '
+          + 'left have no call. '
+        : '')
+        + 'Every origin statistic here is measured against the rest of this array\'s own genome. '
         + 'Below this call rate there are not enough calls left for that reference to be stable, '
         + 'so a measured difference describes the reference as much as the target.',
       limits: 'Do not read parental calls from this sample. Positions may still be indicative, '
         + 'because position comes from intensity and needs no genotype, but they are not reportable.',
       measures,
+      cause: shown ? 'no-template' : 'proxy',
     }
   }
 
@@ -174,6 +202,7 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
         + 'reported, because with no undisturbed part left this cell\'s normal level cannot be told, '
         + 'and no parent is named on anything read, at any confidence.',
       measures,
+      cause: 'no-intensity-reference',
     }
   }
 
@@ -187,6 +216,7 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
         + 'against, which is the condition every origin statistic here depends on.',
       limits: '',
       measures,
+      cause: 'none',
     }
   }
 
@@ -196,5 +226,6 @@ export function assessIntegrity(input: IntegrityInput): IntegrityCall {
     why: `Call rate ${(callRate * 100).toFixed(1)}% and no autosome carries a detected change.`,
     limits: '',
     measures,
+    cause: 'none',
   }
 }

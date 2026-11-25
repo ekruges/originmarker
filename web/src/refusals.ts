@@ -37,6 +37,25 @@ export const PHYSICAL_CAUSES = [
 
 export type PhysicalCause = (typeof PHYSICAL_CAUSES)[number]
 
+/**
+ * What a record's cause is when it is not physical. `proxy`: a gate standing in for a physical cause
+ * it does not measure. `none`: a label that withholds nothing, so there is no cause to name (a
+ * sample whose changes were measured against an undisturbed remainder).
+ */
+export type Cause = PhysicalCause | 'proxy' | 'none'
+
+/** Each cause in the words every surface prints. `none` withholds nothing and is never printed. */
+export const CAUSE_SAYS: Record<Exclude<Cause, 'none'>, string> = {
+  'no-template': 'the DNA is not there',
+  'no-genotype-signal': 'most of the genotype calls are random',
+  'second-genome': 'a second person\'s DNA is in the reaction',
+  'no-intensity-reference': 'no normal level is left to read intensity against',
+  'parents-uninformative': 'the parents offer too few informative markers here',
+  'parent-not-loaded': 'it needs a parent array that was not loaded',
+  'baf-displaced': 'drop-in moved the allele fractions',
+  proxy: 'a gate that stands in for a physical cause',
+}
+
 /** Every claim kind a refusal can withhold. Derived rows (gains, losses, dosage, Mendelian) follow
  *  from these, so withholding at the source withholds them too. */
 export type ClaimKind =
@@ -49,8 +68,9 @@ export interface Refusal {
   chrom?: string
   /** The code path that withheld it, so a proxy can be traced to the line that fired. */
   gate: string
-  /** A physical cause, or `proxy` for a gate that stands in for one without measuring it. */
-  cause: PhysicalCause | 'proxy'
+  /** A physical cause, `proxy` for a gate that stands in for one without measuring it, or `none`
+   *  for a label that withholds nothing. */
+  cause: Cause
   /** The numbers the gate fired on. Never empty: a refusal without its measurement is a sentence. */
   measured: Record<string, number>
   /** What would have been reported. Kept for scoring, never shown. */

@@ -5,7 +5,7 @@
  * reportable (pageSays.changeList's notReported). The count of rows is the count the record keeps:
  * refusals plus rows not reported. The page and the report both print this list.
  */
-import type { Refusal } from './refusals.ts'
+import { CAUSE_SAYS, type Refusal } from './refusals.ts'
 import { NOT_REPORTED_SAYS, whereText, whoseText, type ChangeList } from './pageSays.ts'
 import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
 import { COMPLEX_CALL_RATE, COMPLEX_DEVIANT_FRACTION } from './abnormalities.ts'
@@ -25,16 +25,7 @@ export const CLAIM_SAYS: Record<string, string> = {
   sample: 'the sample as a whole',
 }
 
-export const CAUSE_SAYS: Record<string, string> = {
-  'no-template': 'the DNA is not there',
-  'no-genotype-signal': 'most of the genotype calls are random',
-  'second-genome': 'a second person\'s DNA is in the reaction',
-  'no-intensity-reference': 'no normal level is left to read intensity against',
-  'parents-uninformative': 'the parents offer too few informative markers here',
-  'parent-not-loaded': 'it needs a parent array that was not loaded',
-  'baf-displaced': 'drop-in moved the allele fractions',
-  proxy: 'a gate that stands in for a physical cause',
-}
+export { CAUSE_SAYS }
 
 const GATE_SAYS: Record<string, string> = {
   'normal-majority': 'most autosomes are not in one copy state',
@@ -86,27 +77,36 @@ export interface WithheldRow { what: string; why: string; measured: string }
 
 export interface IntegrityFacts {
   level: string; headline: string; limits: string
+  /** The cause the level rests on (integrity.ts); absent on a call made before it carried one. */
+  cause?: string
   measures: { callRate: number; stage: string; affectedAutosomes: number; totalAutosomes: number }
 }
 
 /**
- * What the whole-sample call found against the sample, in one sentence, or null where it found
- * nothing against it: a sample whose changes were measured against an undisturbed remainder is the
- * good outcome and withholds nothing. Mirrors the order integrity.ts decides in.
+ * What the whole-sample call found against the sample, in one sentence that names its cause, or null
+ * where it found nothing against it: a sample whose changes were measured against an undisturbed
+ * remainder is the good outcome and withholds nothing. Mirrors the order integrity.ts decides in.
+ * The cause is said in CAUSE_SAYS's words; only a stage refusal that names no cause, or a low call
+ * rate whose calls were not tested, keeps the gate's own words.
  */
 export function sampleCause(i: IntegrityFacts | undefined): string | null {
   if (!i || !i.limits) return null
   const m = i.measures
+  const says = i.cause && i.cause !== 'proxy' && i.cause !== 'none'
+    ? known(CAUSE_SAYS as Record<string, string>, i.cause, 'cause') : null
   if (i.level !== 'uninterpretable') {
+    const lead = `Copy number is not read: ${says ?? 'no normal level is shown'}, as `
     return /^NO NORMAL MAJORITY/.test(i.headline)
-      ? `Copy number is not read: fewer than ${pct(NORMAL_MAJORITY_MIN)} of the autosomes share one copy state, so no normal level is shown; which parent is read from the alleles.`
-      : 'Copy number is not read: the array reads more heterozygous than one genome can, from drop-in; which parent is read from the alleles.'
+      ? `${lead}fewer than ${pct(NORMAL_MAJORITY_MIN)} of the autosomes share one copy state; which parent is read from the alleles.`
+      : `${lead}the array reads more heterozygous than one genome can, from drop-in; which parent is read from the alleles.`
   }
-  if (m.stage === 'failed') return 'Nothing on this sample is reported: the array did not resolve to any material.'
+  if (m.stage === 'failed') {
+    return `Nothing on this sample is reported: ${says ?? 'the array did not resolve to any material'}.`
+  }
   if (Number.isFinite(m.callRate) && m.callRate < COMPLEX_CALL_RATE) {
-    return `Nothing on this sample is reported: its call rate on chromosomes 1 to 22 is under the ${pct(COMPLEX_CALL_RATE)} the rest of the array can be read against.`
+    return `Nothing on this sample is reported: ${says ? `${says} at too many markers; ` : ''}its call rate on chromosomes 1 to 22 is under the ${pct(COMPLEX_CALL_RATE)} the rest of the array can be read against.`
   }
-  return `Nothing on this sample is reported: ${m.affectedAutosomes} of ${m.totalAutosomes} autosomes read as changed, at or over the ${pct(COMPLEX_DEVIANT_FRACTION)} at which no undisturbed part is left to read them against.`
+  return `Nothing on this sample is reported: ${says ? `${says}, as ` : ''}${m.affectedAutosomes} of ${m.totalAutosomes} autosomes read as changed, at or over the ${pct(COMPLEX_DEVIANT_FRACTION)} at which no undisturbed part is left.`
 }
 
 /**
