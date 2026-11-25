@@ -94,6 +94,7 @@ import { nullScale, calibratedZ, median, intensityDetects, STATE_GAP, Z_WINDOW }
 import { reconcileStage } from './declaredStage.ts'
 import { assessIntegrity } from './integrity.ts'
 import { sortNumbers, kthNumber } from './sortNumbers.ts'
+import { ProbeMap, probeNumber, readerOf } from './probeIndex.ts'
 
 /** One parent's array, reduced to what every channel below reads. */
 export interface ParentIndex {
@@ -233,9 +234,11 @@ export interface Collected {
   absenceByChrom: Map<string, MarkerAbsence[]>
   cnByChrom: Map<string, { chrom: string; pos: number; called: boolean; log2R: number | null;
     baf: number | null }[]>
-  myGt: Map<string, string>
-  myBaf: Map<string, number>
-  markerPos: Map<string, { chrom: string; pos: number }>
+  myGt: ProbeMap<string>
+  myBaf: ProbeMap<number>
+  markerPos: ProbeMap<{ chrom: string; pos: number }>
+  /** Readers by probe number (probeIndex.ts) of the Maps collectRow reads a marker from. */
+  probe: ProbeReaders
   /** Chromosome Y of the SAMPLE. What one X means depends on it; see sexChromosome.ts. */
   sex: SexTally
   /**
@@ -285,6 +288,19 @@ export interface Collected {
  * The parent's assembly is stamped on the tallies here, so the pseudoautosomal boundaries are the
  * right ones. It is known before the sample streams and is the same across one experiment.
  */
+interface ProbeReaders {
+  patGt: ParentIndex['gt']; pat: (k: number, id: string) => AB | undefined
+  matGt: ParentIndex['gt'] | null; mat: ((k: number, id: string) => AB | undefined) | null
+  panelOf: ReadonlyMap<string, 'AA' | 'BB'> | null; panel: ((k: number, id: string) => 'AA' | 'BB' | undefined) | null
+  freq: ((k: number, id: string) => number | undefined) | null
+}
+const probeReaders = (pat: ParentIndex, mat: ParentIndex | null | undefined,
+  panel: ReadonlyMap<string, 'AA' | 'BB'> | null | undefined): ProbeReaders => {
+  const freqB = (panel as FounderPanel | null | undefined)?.freqB
+  return { patGt: pat.gt, pat: readerOf(pat.gt), matGt: mat ? mat.gt : null, mat: mat ? readerOf(mat.gt) : null,
+    panelOf: panel ?? null, panel: panel ? readerOf(panel) : null, freq: freqB ? readerOf(freqB) : null }
+}
+
 export function emptyCollected(
   pat: ParentIndex, mat?: ParentIndex | null, panel?: ReadonlyMap<string, 'AA' | 'BB'> | null,
 ): Collected {
@@ -318,12 +334,13 @@ export function emptyCollected(
     // region that is GONE stops producing calls, which the parental-absence indicator cannot see,
     // because a no-call is excluded from it as uninformative.
     cnByChrom: new Map(),
-    myGt: new Map(),
+    myGt: new ProbeMap(),
     // Allele dosage per marker, kept for EVERY marker rather than every CALLED marker. A no-call
     // still has an intensity reading, and on a chromosome whose call rate has collapsed those are
     // the only readings left. This is what the dosage channel runs on.
-    myBaf: new Map(),
-    markerPos: new Map(),
+    myBaf: new ProbeMap(),
+    markerPos: new ProbeMap(),
+    probe: probeReaders(pat, mat, panel),
     sex: emptySex(),
     informationPat: pat.inferred ? null : emptyHomTally(),
     informationMat: mat && !mat.inferred ? emptyHomTally() : null,
@@ -384,10 +401,15 @@ export function collectRow(
   accumulateSex(r, acc.sex)
   // Read once a row: whether the marker is on an autosome, and the second parent's genotype.
   const auto = isAutosome(r.chrom)
-  const mg = mat ? mat.gt.get(r.probesetId) : undefined
+  // The marker's number, and the Maps of the parents and the panel read through it (probeIndex.ts);
+  // a Map collectRow is handed that is not the one the tally was made with is read directly.
+  const id = r.probesetId
+  const k = probeNumber(id)
+  const pr = acc.probe
+  const mg = mat ? (mat.gt === pr.matGt && pr.mat ? pr.mat(k, id) : mat.gt.get(id)) : undefined
   // The marker's position is set below, for every autosomal marker, called or not.
-  if (auto && r.genotype !== 'NC') myGt.set(r.probesetId, r.genotype)
-  const fa = pat.gt.get(r.probesetId) ?? 'NC'
+  if (auto && r.genotype !== 'NC') myGt.setAt(k, r.genotype)
+  const fa = (pat.gt === pr.patGt ? pr.pat(k, id) : pat.gt.get(id)) ?? 'NC'
   tallyRow(fa, r, t)
   if (tm && mat) tallyRow(mg ?? 'NC', r, tm)
   // Shared homozygotes, for the information ratio. On this pass because a second read of an
@@ -398,14 +420,15 @@ export function collectRow(
       addHomozygous(acc.informationMat, r.genotype, mg ?? 'NC')
     }
     if (acc.sameHom && mat) addSameHom(acc.sameHom, r.genotype, fa, mg ?? 'NC')
-    const g = acc.panel?.get(r.probesetId)
+    const g = acc.panel ? (acc.panel === pr.panelOf && pr.panel ? pr.panel(k, id) : acc.panel.get(id)) : undefined
     if (g) {
       addSameHom(acc.panelSameHom!, r.genotype, g, g)
       addHomozygous(acc.informationPanel!, r.genotype, g)
     }
     // The one-parent copy state reads BAF, at no-calls too, against the founders' frequency.
     if (acc.shareByChrom) {
-      const fq = (acc.panel as FounderPanel).freqB!.get(r.probesetId)
+      const fb = (acc.panel as FounderPanel).freqB!
+      const fq = pr.freq && acc.panel === pr.panelOf ? pr.freq(k, id) : fb.get(id)
       if (fq !== undefined) {
         let st = acc.shareByChrom.get(r.chrom)
         if (!st) acc.shareByChrom.set(r.chrom, st = emptyShareTally())
@@ -437,8 +460,8 @@ export function collectRow(
   // Only a marker where the parent is homozygous and the sample is called can say
   // anything about presence, which is the same informative set the rates use.
   if (auto) {
-    markerPos.set(r.probesetId, { chrom: r.chrom, pos: r.pos })
-    if (r.baf !== null && Number.isFinite(r.baf)) myBaf.set(r.probesetId, r.baf)
+    markerPos.setAt(k, { chrom: r.chrom, pos: r.pos })
+    if (r.baf !== null && Number.isFinite(r.baf)) myBaf.setAt(k, r.baf)
     const cn = cnByChrom.get(r.chrom) ?? []
     // The B-allele frequency rides along: the gain arm reads it to ask whether a raised stretch
     // holds two different alleles (parentage.GAIN_OFF_POLE_MIN).
@@ -2562,17 +2585,18 @@ export async function scoreSample(input: {
     // second reading rests on missing heterozygosity and missing heterozygosity is what dropout
     // produces. Loading only the first parent therefore answered about half of all losses by the
     // unreliable direction. See bothParentsOrigin.ts.
+    const patAt = readerOf(pat.gt), matAt = mat ? readerOf(mat.gt) : null
     result.oneParent = mendelEvents.map((sg) => {
       const co = { start: sg.start, end: sg.end }
       const pairs: [string, string][] = []
       const otherPairs: [string, string][] = []
-      for (const [probe, gt] of myGt) {
-        const q = markerPos.get(probe)
+      for (const [k, probe, gt] of myGt.numbered()) {
+        const q = markerPos.getAt(k)
         if (!q || q.chrom !== sg.chrom || q.pos < co.start || q.pos > co.end) continue
-        const pg = pat.gt.get(probe)
+        const pg = patAt(k, probe)
         if (pg) pairs.push([pg, gt])
         if (mat) {
-          const mg = mat.gt.get(probe)
+          const mg = matAt!(k, probe)
           if (mg) otherPairs.push([mg, gt])
         }
       }
@@ -2654,8 +2678,8 @@ export async function scoreSample(input: {
     result.siblingCalls = result.segments.map((sg) => {
       const co = segmentCoords(sg)
       const obs: SibAB[] = []
-      for (const [probe, gt] of myGt) {
-        const pos = markerPos.get(probe)
+      for (const [k, probe, gt] of myGt.numbered()) {
+        const pos = markerPos.getAt(k)
         if (!pos || pos.chrom !== sg.chrom || pos.pos < co.start || pos.pos > co.end) continue
         let het = 0
         for (const sib of sibs) if (sib.get(probe) === 'AB') het += 1

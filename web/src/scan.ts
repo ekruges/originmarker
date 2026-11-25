@@ -11,6 +11,7 @@
 //
 // Nothing here decides anything. Detection, classification and origin all read these outputs.
 import { kthNumber } from './sortNumbers.ts'
+import { ProbeMap, readerOf } from './probeIndex.ts'
 
 
 /**
@@ -169,16 +170,22 @@ export const buildScanIndex = (src: GatherInput): ScanIndex => {
   }
   // Only markers the loaded parent has a genotype for reach the genotype channel at all, so the
   // rest are dropped once here rather than skipped once per finding.
-  for (const [probe, p] of src.markerPos) {
-    const pg = src.parentGt.get(probe)
+  // Read by probe number where the sample's Maps hold numbers (probeIndex.ts): the same values, in
+  // the same order, without hashing each id three times.
+  const { markerPos, myBaf, myGt } = src
+  const numbered = markerPos instanceof ProbeMap && myBaf instanceof ProbeMap && myGt instanceof ProbeMap
+  const pgOf = numbered ? readerOf(src.parentGt) : null
+  const each = numbered ? markerPos.numbered() : [...markerPos].map(([id, p]) => [-1, id, p] as [number, string, { chrom: string; pos: number }])
+  for (const [k, probe, p] of each) {
+    const pg = pgOf ? pgOf(k, probe) : src.parentGt.get(probe)
     if (!pg) continue
-    const b = src.myBaf.get(probe) ?? null
+    const b = (numbered ? (myBaf as ProbeMap<number>).getAt(k) : myBaf.get(probe)) ?? null
     const a = get(p.chrom)
     a.pos.push(p.pos)
     a.rows.push([pg, b])
     if (pg === 'AB') {
       a.untPos.push(p.pos)
-      a.untRows.push([pg, src.myGt.get(probe) ?? 'NC', b])
+      a.untRows.push([pg, (numbered ? (myGt as ProbeMap<string>).getAt(k) : myGt.get(probe)) ?? 'NC', b])
     }
   }
   for (const [ch, ms] of src.cnByChrom) {
