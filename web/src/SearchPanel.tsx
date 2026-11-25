@@ -105,15 +105,33 @@ interface Props {
 
 let lastMode: Mode = 'search'
 type ManualQuery = Required<Omit<StructuredQuery,
-  'gene' | 'ancestry' | 'material' | 'primer_scope' | 'primer_settings' | 'verify_primers'>> & {
+  'gene' | 'ancestry' | 'material' | 'window_bp' | 'common_maf' | 'primer_scope' | 'primer_settings'
+  | 'verify_primers'>> & {
   material: Material
   gene: string
   ancestry: string | null
+  /** As the number fields hold them: a part-typed value ("0.") is a string until it parses. */
+  window_bp: number | string
+  common_maf: number | string
 }
 let lastQ: ManualQuery = {
   variant: '', gene: '', window_bp: 250_000, build: 'GRCh38',
   ancestry: null, common_maf: 0.05, cross_check: true, material: 'single_cell',
 }
+let lastText = ''
+
+/** A number field's value as a number; empty or part-typed reads as not a number, so the range
+ *  check refuses it rather than a default standing in for it. */
+const num = (v: number | string): number => (typeof v === 'number' ? v : v.trim() === '' ? NaN : Number(v))
+const asQuery = (q: ManualQuery): StructuredQuery => ({
+  ...q, variant: q.variant.trim(), gene: q.gene.trim() || null, window_bp: num(q.window_bp), common_maf: num(q.common_maf),
+})
+
+/**
+ * The manual form's values as they are at this moment, or null in search mode. Read at the click,
+ * never through a copy handed up after a render: such a copy lags the field it copies.
+ */
+export const formNow = (): StructuredQuery | null => (lastMode === 'manual' ? asQuery(lastQ) : null)
 
 export function SearchPanel({
   health, busy, onResolve, hero = false, onCarrierFile, carrierFile, onDraft,
@@ -122,7 +140,8 @@ export function SearchPanel({
   // view and the results view, and the mode the user chose must survive that.
   const [mode, setModeState] = useState<Mode>(lastMode)
   const setMode = (m: Mode) => { lastMode = m; setModeState(m) }
-  const [text, setText] = useState('')
+  const [text, setTextState] = useState(lastText)
+  const setText = (t: string) => { lastText = t; setTextState(t) }
   const [nlError, setNlError] = useState<string | null>(null)
   const [parsing, setParsing] = useState(false)
 
@@ -149,7 +168,8 @@ export function SearchPanel({
   // Kept outside the component for the same reason as the mode: after a failed build the form
   // shows what the user typed.
   const [q, setQState] = useState<ManualQuery>(lastQ)
-  const setQ = (v: ManualQuery) => { lastQ = v; setQState(v) }
+  // Merged into the held values at once, so a click right after a change reads the change.
+  const setQ = (patch: Partial<ManualQuery>) => { lastQ = { ...lastQ, ...patch }; setQState(lastQ) }
 
   // Untouched until the fields are edited. The numbers are never held here: they come off
   // health, from the engine that will use them, so this side has no defaults to drift.
@@ -228,22 +248,23 @@ export function SearchPanel({
   const [formError, setFormError] = useState<string | null>(null)
   useEffect(() => { setFormError(null) }, [q])   // a refusal is about the field as it was
   useEffect(() => {
-    onDraft?.(mode === 'manual' ? { ...q, gene: q.gene.trim() || null, variant: q.variant.trim() } : null)
+    onDraft?.(mode === 'manual' ? asQuery(q) : null)
   }, [mode, q, onDraft])
 
   const submitManual = () => {
-    if (!q.variant.trim()) return
-    setFormError(queryProblem(q))
-    if (queryProblem(q)) return
+    const now = asQuery(lastQ)
+    if (!now.variant) return
+    setFormError(queryProblem(now))
+    if (queryProblem(now)) return
     onResolve({
-      variant: q.variant.trim(),
-      gene: q.gene.trim() || null,
-      window_bp: q.window_bp,
-      build: q.build,
-      ancestry: q.ancestry,
-      common_maf: q.common_maf,
-      cross_check: q.cross_check,
-      material: q.material,
+      variant: now.variant,
+      gene: now.gene,
+      window_bp: now.window_bp,
+      build: now.build,
+      ancestry: now.ancestry,
+      common_maf: now.common_maf,
+      cross_check: now.cross_check,
+      material: now.material,
       primer_scope: primerShown?.scope,
       primer_settings: primerShown?.settings,
       // Only where there is something to check and a server that can check it. Sending true
@@ -562,7 +583,7 @@ export function SearchPanel({
                 step={25_000}
                 thousandSeparator=","
                 value={q.window_bp}
-                onChange={(v) => setQ({ ...q, window_bp: typeof v === 'number' ? v : 250_000 })}
+                onChange={(v) => setQ({ window_bp: v })}
               />
               <Select
                 style={{ flex: '0 0 110px' }}
@@ -575,11 +596,10 @@ export function SearchPanel({
               <Select
                 style={{ flex: '0 0 110px' }}
                 label="ancestry"
-                placeholder="Global"
-                clearable
-                data={[...ANCESTRIES]}
-                value={q.ancestry}
-                onChange={(v) => setQ({ ...q, ancestry: v })}
+                data={[{ value: 'global', label: 'Global' }, ...ANCESTRIES]}
+                value={q.ancestry ?? 'global'}
+                allowDeselect={false}
+                onChange={(v) => setQ({ ancestry: !v || v === 'global' ? null : v })}
               />
               <Select
                 style={{ flex: '0 0 170px' }}
@@ -597,7 +617,7 @@ export function SearchPanel({
                 step={0.01}
                 decimalScale={3}
                 value={q.common_maf}
-                onChange={(v) => setQ({ ...q, common_maf: typeof v === 'number' ? v : 0.05 })}
+                onChange={(v) => setQ({ common_maf: v })}
               />
               <Checkbox
                 mb={6}

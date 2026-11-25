@@ -10,7 +10,7 @@ import {
 } from './api'
 import { int, orUnknown, utc } from './fmt'
 import { BuildLog, LOG_CAP } from './BuildLog'
-import { SearchPanel } from './SearchPanel'
+import { SearchPanel, formNow } from './SearchPanel'
 import { VariantCard } from './VariantCard'
 import { LocusTrack } from './LocusTrack'
 import { PanelTable } from './PanelTable'
@@ -179,7 +179,9 @@ export default function App() {
   const buildPanel = useCallback(async (q?: PanelRequest) => {
     let use = q ?? query
     if (!use) return
-    // The build takes the form's knobs as they stand; a changed variant or build needs a resolve.
+    // The build takes the form's knobs as they stand at the click; a changed variant or build
+    // needs a resolve.
+    const draft = formNow()
     if (!q && draft) {
       if (draft.variant !== use.variant || (draft.build ?? 'GRCh38') !== (use.build ?? 'GRCh38')) {
         setFieldError('The variant or build in the form has changed since it was resolved. Resolve again to build for it.')
@@ -269,7 +271,7 @@ export default function App() {
         }
       } catch { /* transient failure; keep polling */ }
     }, 3000)
-  }, [query, draft, settle])
+  }, [query, settle])
 
   /** Ask UCSC whether each pair gives one product. Deliberate, never automatic.
    *
@@ -512,7 +514,8 @@ export default function App() {
           </Paper>
         )}
 
-        {phase === 'done' && result && prov && (
+        {/* Until the next build starts: a refused or failed build leaves the last panel shown. */}
+        {result && prov && phase !== 'building' && phase !== 'resolving' && (
           <>
             <Paper mb="sm">
               <Group justify="space-between" className="om-section-title" wrap="nowrap">
