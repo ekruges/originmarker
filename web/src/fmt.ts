@@ -1,6 +1,8 @@
 /** Display helpers. Coordinates never render without their build. */
 
 export const int = (n: number) => n.toLocaleString('en-US')
+/** An allele frequency floor, one way everywhere: up to three decimals, no trailing zeros (0.2, 0.05). */
+export const mafText = (x: number) => String(Number(x.toFixed(3)))
 
 /** A share as a percent to one decimal: the one format every bar and rate of the whole-sample call is
  *  printed in. */

@@ -81,6 +81,7 @@ class PanelIn(BaseModel):
     ancestry: Optional[str] = None
     common_maf: float = pb.COMMON_MAF
     cross_check: bool = True
+    material: str = pb.StructuredQuery.material
     # Echoed back by the client from /api/nl so the exports can disclose that a model, not
     # the user, chose the variant. Provenance only: the build reads neither. Capped here
     # because both are rendered into the PDF; nl_text matches NLIn.text's ceiling.

@@ -12,7 +12,9 @@ import { readdirSync, readFileSync } from 'node:fs'
  * tool the report cites by name (chromInfo, cytoBand, refGene, wgEncodeUwRepliSeq, liftOver); and two
  * terms of the field, rsID (a dbSNP identifier) and gDNA (genomic DNA).
  */
-export const ALLOW = new Set(['chrX', 'chrY', 'chromInfo', 'cytoBand', 'refGene', 'wgEncodeUwRepliSeq', 'liftOver', 'rsID', 'gDNA'])
+export const ALLOW = new Set(['chrX', 'chrY', 'chromInfo', 'cytoBand', 'refGene', 'wgEncodeUwRepliSeq', 'liftOver', 'rsID', 'gDNA',
+  // The panel page's sources and units: the gnomAD and dbSNP databases, the deCODE map, cM, dNTP.
+  'gnomAD', 'dbSNP', 'deCODE', 'cM', 'dNTP'])
 const CAMEL = /\b[a-z]+[A-Z][A-Za-z0-9]*\b/g
 const FILE = /\b[\w-]+\.tsx?\b/g
 /** A path into the repository, printed or held for printing: a top folder of the repo, a slash, and a
@@ -92,6 +94,12 @@ assert.ok(closure.has('syngamyPdf.ts') && closure.has('scoreSample.ts') && closu
 const faults: string[] = []
 for (const f of [...closure].sort()) {
   for (const x of proseFaults(readFileSync(dir + f, 'utf8'))) faults.push(`${f}:${x}`)
+}
+// The marker panel's page: its prose, and its one-word labels, which a code name reads as.
+for (const f of ['SearchPanel.tsx', 'App.tsx', 'PanelTable.tsx', 'DocsPage.tsx']) {
+  const src = readFileSync(dir + f, 'utf8')
+  for (const x of proseFaults(src)) faults.push(`${f}:${x}`)
+  for (const m of src.matchAll(/\blabel="([^"\s]+)"/g)) if (/_|[a-z][A-Z]/.test(m[1])) faults.push(`${f}: label ${m[1]}`)
 }
 assert.deepEqual(faults, [], `code words or file names in printed prose:\n${faults.join('\n')}`)
 console.log('prose.check: ok')

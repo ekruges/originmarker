@@ -4,13 +4,13 @@ import {
   Select, Skeleton, Text,
 } from '@mantine/core'
 import {
-  ANCESTRIES, api, ApiError, asLogLine, withNlProvenance, type Health, type JobStatus,
+  ANCESTRIES, api, ApiError, asLogLine, MATERIALS, queryProblem, withNlProvenance, type Health, type JobStatus,
   type LogLine, type NLResponse, type PanelRequest, type PanelResult, type ResolveResponse,
   type StructuredQuery,
 } from './api'
-import { int, orUnknown, utc } from './fmt'
+import { int, mafText, orUnknown, utc } from './fmt'
 import { BuildLog, LOG_CAP } from './BuildLog'
-import { SearchPanel } from './SearchPanel'
+import { SearchPanel, formNow } from './SearchPanel'
 import { VariantCard } from './VariantCard'
 import { LocusTrack } from './LocusTrack'
 import { PanelTable } from './PanelTable'
@@ -46,6 +46,19 @@ export default function App() {
   const [phase, setPhase] = useState<Phase>('idle')
   const [error, setError] = useState<string | null>(null)
   const [query, setQuery] = useState<PanelRequest | null>(null)
+  // The manual form as it stands (null in search mode): applied to the build, and read against
+  // the panel on screen to say when it no longer matches.
+  const [draft, setDraft] = useState<StructuredQuery | null>(null)
+  // A refusal of the form's fields, cleared as soon as the form changes.
+  // Held with the form it refused: cleared only when the form differs from that, so the render
+  // that hands up the value a click was refused for cannot clear the refusal it caused.
+  const [refusal, setRefusal] = useState<{ text: string; form: string } | null>(null)
+  useEffect(() => {
+    setRefusal((r) => (r && r.form !== JSON.stringify(draft) ? null : r))
+  }, [draft])
+  const fieldError = refusal?.text ?? null
+  const setFieldError = (text: string | null) =>
+    setRefusal(text ? { text, form: JSON.stringify(formNow()) } : null)
   // Held here, not in SearchPanel: that component unmounts when the landing view collapses
   // into the results view, and the model-chosen-variant caveat has to outlive it.
   const [nl, setNl] = useState<NLResponse | null>(null)
@@ -171,8 +184,22 @@ export default function App() {
   // `q` becomes the stored query: `query` must describe the panel actually on screen, or
   // the next build reverts to the previous parameters.
   const buildPanel = useCallback(async (q?: PanelRequest) => {
-    const use = q ?? query
+    let use = q ?? query
     if (!use) return
+    // The build takes the form's knobs as they stand at the click; a changed variant or build
+    // needs a resolve.
+    const draft = formNow()
+    if (!q && draft) {
+      if (draft.variant !== use.variant || (draft.build ?? 'GRCh38') !== (use.build ?? 'GRCh38')) {
+        setFieldError('The variant or build in the form has changed since it was resolved. Resolve again to build for it.')
+        return
+      }
+      use = { ...use, window_bp: draft.window_bp, common_maf: draft.common_maf, material: draft.material,
+        ancestry: draft.ancestry, cross_check: draft.cross_check, gene: draft.gene }
+    }
+    const problem = queryProblem(use)
+    if (problem) { setFieldError(problem); return }
+    setFieldError(null)
     setQuery(use)
     setPhase('building')
     setError(null)
@@ -395,6 +422,7 @@ export default function App() {
                     onResolve={doResolve}
                     onCarrierFile={setCarrierFile}
                     carrierFile={carrierFile}
+                    onDraft={setDraft}
                     hero
                   />
                 </div>
@@ -420,9 +448,15 @@ export default function App() {
                 onResolve={doResolve}
                 onCarrierFile={setCarrierFile}
                 carrierFile={carrierFile}
+                onDraft={setDraft}
               />
             )}
 
+        {fieldError && (
+          <Alert color="red" mb="sm" title="Not built" role="alert" withCloseButton onClose={() => setFieldError(null)}>
+            <Text size="xs">{fieldError}</Text>
+          </Alert>
+        )}
         {error && (
           <Alert color="red" mb="sm" title="Error" role="alert" withCloseButton onClose={() => setError(null)}>
             <Text size="xs">{error}</Text>
@@ -487,17 +521,27 @@ export default function App() {
           </Paper>
         )}
 
-        {phase === 'done' && result && prov && (
+        {/* Until the next build starts: a refused or failed build leaves the last panel shown. */}
+        {result && prov && phase !== 'building' && phase !== 'resolving' && (
           <>
             <Paper mb="sm">
               <Group justify="space-between" className="om-section-title" wrap="nowrap">
                 <span>Panel</span>
                 <Text size="xs" c="dimmed">
                   {int(prov.candidate_n)} candidates · {result.recommended.length} shortlisted ·
-                  window ±{int(prov.window_bp)} bp · MAF ≥ {prov.common_maf}
+                  window ±{int(prov.window_bp)} bp · MAF ≥ {mafText(prov.common_maf)}
+                  {prov.marker_count ? ` · built for ${materialName(prov.marker_count.material)}` : ''}
+                  {` · ancestry ${prov.ancestry_rank ?? 'Global'}`}
                   {typeof prov.elapsed_s === 'number' ? ` · built in ${prov.elapsed_s.toFixed(1)} s` : ''}
                 </Text>
               </Group>
+              {staleAgainst(result, draft) && (
+                <Alert color="yellow" variant="light" mx={8} mt={8} title="The form no longer matches this panel">
+                  <Text size="xs">
+                    This panel was built for {staleAgainst(result, draft)}. Build again to apply the form.
+                  </Text>
+                </Alert>
+              )}
               <Group p={8} gap={8} wrap="wrap" align="flex-end">
                 <Select
                   size="xs"
@@ -684,7 +728,7 @@ function ResultProvenance({ result }: { result: PanelResult }) {
           Genetic map: {orUnknown(p.sources?.genetic_map)}
         </Text>
         <Text size="xs" c="dimmed" mt={2}>
-          Window ±{int(p.window_bp)} bp · MAF floor {p.common_maf} · {int(p.candidate_n)}{' '}
+          Window ±{int(p.window_bp)} bp · MAF floor {mafText(p.common_maf)} · {int(p.candidate_n)}{' '}
           candidates · built in {p.elapsed_s}s
         </Text>
         {approx && (
@@ -699,6 +743,20 @@ function ResultProvenance({ result }: { result: PanelResult }) {
       </div>
     </Paper>
   )
+}
+
+const materialName = (v: string) => MATERIALS.find((m) => m.value === v)?.label ?? v
+
+/** What the panel on screen was built for, where the manual form now asks for something else;
+ *  null where they agree or there is no form to compare. */
+function staleAgainst(result: PanelResult, draft: StructuredQuery | null): string | null {
+  const p = result.provenance
+  const mat = p.marker_count?.material
+  if (!draft || draft.variant !== result.variant.query) return null
+  const same = draft.window_bp === p.window_bp && draft.common_maf === p.common_maf
+    && (!mat || draft.material === mat)
+  return same ? null
+    : `${mat ? materialName(mat) : 'the material it names'}, window ±${int(p.window_bp)} bp, lowest frequency ${p.common_maf}`
 }
 
 function Coverage({ result }: { result: PanelResult }) {
@@ -740,6 +798,9 @@ function Coverage({ result }: { result: PanelResult }) {
         {/* Labelled by coordinate, not by arm: the engine's tel_/cen_ field names do not
             track which flank runs toward the telomere. That depends on the centromere
             position, which nothing here looks up. */}
+        {[result.provenance.marker_count?.note, result.provenance.marker_count?.shortlist_note,
+          result.provenance.chip?.note]
+          .filter(Boolean).map((t) => <Text key={t} size="xs" mb={6}>{t}</Text>)}
         <Group gap={24} wrap="wrap">
           <SideStat
             label="Lower coordinate"

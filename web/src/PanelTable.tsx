@@ -648,6 +648,7 @@ export function PanelTable({ result, ancestry, carrier, onRebuild, onVerify, ver
                         </Tooltip>
                       )}
                       {m.rsid}
+                      {m.chip_probe && <Text span size="xs" c="dimmed" className="om-mono">{m.chip_probe}</Text>}
                     </Group>
                   </Table.Td>
                   <Table.Td className="om-mono">{int(m.pos)}</Table.Td>

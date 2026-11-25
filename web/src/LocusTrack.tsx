@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Button, Checkbox, Group, Paper, Slider, Text, Tooltip } from '@mantine/core'
 import { isUpper, TIERS, TIER_LABEL, type Marker, type PanelResult, type Tier } from './api'
-import { axisLabel, int, num, shortCoord, sig2, signedBp } from './fmt'
+import { axisLabel, int, mafText, num, shortCoord, sig2, signedBp } from './fmt'
 import { ancestryHet, shownHet } from './rank'
 
 const H = 250
@@ -183,7 +183,7 @@ export function LocusTrack({ result, ancestry }: Props) {
 
         <Group gap={6} style={{ minWidth: 240, flex: '1 1 240px' }}>
           <Text size="xs" c="dimmed" style={{ whiteSpace: 'nowrap' }}>
-            MAF ≥ {minMaf.toFixed(2)}
+            MAF ≥ {mafText(minMaf)}
           </Text>
           <Slider
             style={{ flex: 1 }}
@@ -193,7 +193,7 @@ export function LocusTrack({ result, ancestry }: Props) {
             step={0.01}
             value={minMaf}
             onChange={setMinMaf}
-            label={(v) => v.toFixed(2)}
+            label={(v) => mafText(v)}
             aria-label="Minimum minor allele frequency"
           />
         </Group>

@@ -381,10 +381,20 @@ RELEASES: tuple[Release, ...] = (
             "the same sequence in less time, and copies it the same. Nothing the tool reads or "
             "reports changes here: each marker is looked up by a number and not by its name, and "
             "the same results come out sooner."),
+    Release("Flanking Marker",
+            "A marker on either side of a gene, close enough that a crossover between the two is "
+            "rare, so the marker's allele tells which copy of the gene an embryo holds. One can "
+            "fail to read, so several are asked on each side. How many now follows from how often "
+            "a marker reads in the material tested, and only markers the lab's chip carries are "
+            "offered."),
+    Release("Linkage Map",
+            "The order of markers along a chromosome and the distances between them, worked out "
+            "once and read off after that. The chip's markers now carry their position in both "
+            "genome builds, so a panel no longer asks an outside service where they are."),
 )
 
-VERSION = "6.27.1"
-CODENAME = "Processivity"
+VERSION = "6.28.1"
+CODENAME = "Linkage Map"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

@@ -69,12 +69,12 @@ export function VariantCard({
                 that is the variant you meant.
               </Text>
             )}
-            <Text size="xs" className="om-mono">
-              variant={nl.query.variant}
-              {nl.query.gene ? ` gene=${nl.query.gene}` : ''}
-              {nl.query.window_bp ? ` window_bp=${nl.query.window_bp}` : ''}
-              {nl.query.ancestry ? ` ancestry=${nl.query.ancestry}` : ''}
-              {nl.query.common_maf != null ? ` common_maf=${nl.query.common_maf}` : ''}
+            <Text size="xs">
+              Variant {nl.query.variant}
+              {nl.query.gene ? `; gene ${nl.query.gene}` : ''}
+              {nl.query.window_bp ? `; window ${nl.query.window_bp.toLocaleString('en-US')} base pairs each side` : ''}
+              {`; ancestry ${nl.query.ancestry ? `${nl.query.ancestry} (gnomAD population)` : 'global'}`}
+              {nl.query.common_maf != null ? `; lowest allele frequency counted as common ${nl.query.common_maf}` : ''}.
             </Text>
             {nl.note && (
               <Text size="xs" mt={2} c={nl.used_llm ? undefined : 'dimmed'}>

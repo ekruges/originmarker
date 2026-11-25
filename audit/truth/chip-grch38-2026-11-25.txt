@@ -1,0 +1,37 @@
+Ensembl release [116]
+chr1: 65,268 probes, 2,863 blocks
+chr10: 38,991 probes, 554 blocks
+chr11: 41,929 probes, 418 blocks
+chr12: 38,239 probes, 105 blocks
+chr13: 26,855 probes, 50 blocks
+chr14: 26,553 probes, 1,445 blocks
+chr15: 25,118 probes, 738 blocks
+chr16: 29,821 probes, 46 blocks
+chr17: 30,006 probes, 364 blocks
+chr18: 22,314 probes, 86 blocks
+chr19: 28,299 probes, 922 blocks
+chr2: 63,023 probes, 897 blocks
+chr20: 20,229 probes, 203 blocks
+chr21: 11,655 probes, 247 blocks
+chr22: 13,294 probes, 708 blocks
+chr3: 53,343 probes, 465 blocks
+chr4: 48,456 probes, 272 blocks
+chr5: 46,379 probes, 123 blocks
+chr6: 55,854 probes, 1,304 blocks
+chr7: 43,893 probes, 1,656 blocks
+chr8: 39,317 probes, 620 blocks
+chr9: 35,070 probes, 937 blocks
+chrX: 20,938 probes, 3,171 blocks
+chrY: 812 probes, 189 blocks
+probes 825,656
+  placed	824,084
+  no mapping	1,572
+  mapped to another chromosome	0
+  mapped to more than one place	0
+  in a block whose two sides differ in length	0
+Run 25 November 2026, 12:56 to 12:59 EST, one call per chromosome to rest.ensembl.org (pinned to
+193.62.193.83, the address a public resolver gave; host name and certificate check kept).
+Ensembl's whole-chromosome map returns only blocks on the same chromosome, so a probe whose region
+moved to another chromosome or is not in GRCh38 counts under "no mapping". All 1,572 are written
+with pos_grch38 empty and are never offered.
+Shipped: data/chip/axiom-ukb-probes.tsv.gz, 9,557,270 bytes, 825,656 probe rows.

@@ -1,0 +1,23 @@
+files 135, probes in the first 825,656
+every file the same probes, chromosomes and positions: True
+every probe the same class in every file: False
+  class differs: CallRateBelowThreshold in the first file, Other in another: 8,795,459 probe-file pairs
+  class differs: PolyHighResolution in the first file, CallRateBelowThreshold in another: 8,311,460 probe-file pairs
+  class differs: NoMinorHom in the first file, CallRateBelowThreshold in another: 6,678,459 probe-file pairs
+  class differs: NoMinorHom in the first file, Other in another: 4,515,298 probe-file pairs
+  class differs: Other in the first file, CallRateBelowThreshold in another: 3,974,244 probe-file pairs
+  class differs: CallRateBelowThreshold in the first file, OTV in another: 3,466,419 probe-file pairs
+  class differs: PolyHighResolution in the first file, Other in another: 2,338,310 probe-file pairs
+  class differs: OTV in the first file, Other in another: 2,113,819 probe-file pairs
+  class differs: CallRateBelowThreshold in the first file, PolyHighResolution in another: 1,682,644 probe-file pairs
+  class differs: Other in the first file, OTV in another: 1,192,888 probe-file pairs
+class	probes	call rate on the bulk donor arrays
+CallRateBelowThreshold	395,600	0.9119
+NoMinorHom	132,135	0.9404
+Other	124,960	0.8971
+PolyHighResolution	122,074	0.9333
+OTV	33,586	0.9404
+MonoHighResolution	16,489	0.9395
+Hemizygous	812	0.2254
+probes illegal under GRCh37: 0
+probes illegal under GRCh38: 6,315

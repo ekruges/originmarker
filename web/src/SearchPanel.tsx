@@ -4,7 +4,7 @@ import {
   NumberInput, Paper, SegmentedControl, Select, Text, TextInput, Tooltip, useCombobox,
 } from '@mantine/core'
 import {
-  ANCESTRIES, api, ApiError, PRIMER_DOCS, type Health, type NLResponse, type PrimerBuild,
+  ANCESTRIES, api, ApiError, MATERIALS, queryProblem, PRIMER_DOCS, type Health, type Material, type NLResponse, type PrimerBuild,
   type StructuredQuery,
 } from './api'
 import { clearHistory, forgetQuery, readHistory, recordQuery, type Entry } from './history'
@@ -98,13 +98,50 @@ interface Props {
    *  and nothing is uploaded at any point. */
   onCarrierFile?: (f: File | null) => void
   carrierFile?: File | null
+  /** The manual form's knobs as they stand, or null in search mode, so the page can tell a
+   *  build that no longer matches the form. */
+  onDraft?: (q: StructuredQuery | null) => void
 }
 
+let lastMode: Mode = 'search'
+type ManualQuery = Required<Omit<StructuredQuery,
+  'gene' | 'ancestry' | 'material' | 'window_bp' | 'common_maf' | 'primer_scope' | 'primer_settings'
+  | 'verify_primers'>> & {
+  material: Material
+  gene: string
+  ancestry: string | null
+  /** As the number fields hold them: a part-typed value ("0.") is a string until it parses. */
+  window_bp: number | string
+  common_maf: number | string
+}
+let lastQ: ManualQuery = {
+  variant: '', gene: '', window_bp: 250_000, build: 'GRCh38',
+  ancestry: null, common_maf: 0.05, cross_check: true, material: 'single_cell',
+}
+let lastText = ''
+
+/** A number field's value as a number; empty or part-typed reads as not a number, so the range
+ *  check refuses it rather than a default standing in for it. */
+const num = (v: number | string): number => (typeof v === 'number' ? v : v.trim() === '' ? NaN : Number(v))
+const asQuery = (q: ManualQuery): StructuredQuery => ({
+  ...q, variant: q.variant.trim(), gene: q.gene.trim() || null, window_bp: num(q.window_bp), common_maf: num(q.common_maf),
+})
+
+/**
+ * The manual form's values as they are at this moment, or null in search mode. Read at the click,
+ * never through a copy handed up after a render: such a copy lags the field it copies.
+ */
+export const formNow = (): StructuredQuery | null => (lastMode === 'manual' ? asQuery(lastQ) : null)
+
 export function SearchPanel({
-  health, busy, onResolve, hero = false, onCarrierFile, carrierFile,
+  health, busy, onResolve, hero = false, onCarrierFile, carrierFile, onDraft,
 }: Props) {
-  const [mode, setMode] = useState<Mode>('search')
-  const [text, setText] = useState('')
+  // Kept outside the component: the page swaps one search box for another between the home
+  // view and the results view, and the mode the user chose must survive that.
+  const [mode, setModeState] = useState<Mode>(lastMode)
+  const setMode = (m: Mode) => { lastMode = m; setModeState(m) }
+  const [text, setTextState] = useState(lastText)
+  const setText = (t: string) => { lastText = t; setTextState(t) }
   const [nlError, setNlError] = useState<string | null>(null)
   const [parsing, setParsing] = useState(false)
 
@@ -128,14 +165,11 @@ export function SearchPanel({
   // Manual mode: every StructuredQuery knob, no parsing in the way. The primer fields and
   // the bundled check are omitted because they are held in their own state below: they are
   // not simple values with a default, and the numbers are the server's rather than ours.
-  const [q, setQ] = useState<Required<Omit<StructuredQuery,
-    'gene' | 'ancestry' | 'primer_scope' | 'primer_settings' | 'verify_primers'>> & {
-    gene: string
-    ancestry: string | null
-  }>({
-    variant: '', gene: '', window_bp: 250_000, build: 'GRCh38',
-    ancestry: null, common_maf: 0.05, cross_check: true,
-  })
+  // Kept outside the component for the same reason as the mode: after a failed build the form
+  // shows what the user typed.
+  const [q, setQState] = useState<ManualQuery>(lastQ)
+  // Merged into the held values at once, so a click right after a change reads the change.
+  const setQ = (patch: Partial<ManualQuery>) => { lastQ = { ...lastQ, ...patch }; setQState(lastQ) }
 
   // Untouched until the fields are edited. The numbers are never held here: they come off
   // health, from the engine that will use them, so this side has no defaults to drift.
@@ -196,9 +230,14 @@ export function SearchPanel({
       // Recorded once the parse stands, so the half-typed identifier that failed on the way
       // to this one does not push a real query out of a capped list.
       setEntries(recordQuery(t, r.query.variant))
-      // Provenance only when a model actually chose the variant, so a typed identifier
-      // does not carry a caveat about a model that never ran.
-      onResolve(r.query, r.used_llm ? r : undefined)
+      // The form shows the values the build will use, read from the words or not.
+      setQ({ ...q, variant: r.query.variant, gene: r.query.gene ?? '', window_bp: r.query.window_bp ?? q.window_bp,
+        build: r.query.build ?? q.build, ancestry: r.query.ancestry ?? null,
+        common_maf: r.query.common_maf ?? q.common_maf, cross_check: r.query.cross_check ?? q.cross_check,
+        material: (r.query.material as Material | undefined) ?? q.material })
+      // The parse goes up always, so the card can say what was read from the words. Whether a
+      // model chose the variant is `used_llm`'s to say, never the presence of the parse.
+      onResolve(r.query, r)
     } catch (e) {
       setNlError(e instanceof ApiError ? e.message : 'Could not parse that request.')
     } finally {
@@ -206,16 +245,31 @@ export function SearchPanel({
     }
   }
 
+  // A refusal is about the form as it was refused; it clears when the form differs from that.
+  const [refused, setRefused] = useState<{ text: string; form: string } | null>(null)
+  useEffect(() => {
+    setRefused((r) => (r && r.form !== JSON.stringify(asQuery(q)) ? null : r))
+  }, [q])
+  const formError = refused?.text ?? null
+  useEffect(() => {
+    onDraft?.(mode === 'manual' ? asQuery(q) : null)
+  }, [mode, q, onDraft])
+
   const submitManual = () => {
-    if (!q.variant.trim()) return
+    const now = asQuery(lastQ)
+    if (!now.variant) return
+    const problem = queryProblem(now)
+    setRefused(problem ? { text: problem, form: JSON.stringify(now) } : null)
+    if (problem) return
     onResolve({
-      variant: q.variant.trim(),
-      gene: q.gene.trim() || null,
-      window_bp: q.window_bp,
-      build: q.build,
-      ancestry: q.ancestry,
-      common_maf: q.common_maf,
-      cross_check: q.cross_check,
+      variant: now.variant,
+      gene: now.gene,
+      window_bp: now.window_bp,
+      build: now.build,
+      ancestry: now.ancestry,
+      common_maf: now.common_maf,
+      cross_check: now.cross_check,
+      material: now.material,
       primer_scope: primerShown?.scope,
       primer_settings: primerShown?.settings,
       // Only where there is something to check and a server that can check it. Sending true
@@ -362,7 +416,8 @@ export function SearchPanel({
                 style={{ width: '100%' }}
                 className={hero ? 'om-hero-input' : undefined}
                 classNames={{ input: 'om-mono' }}
-                aria-label="Variant: HGVS, rsID, or free text"
+                aria-label={health?.nl_enabled ? 'Variant: HGVS, rsID, or free text'
+                  : 'Variant: HGVS or rsID, optionally with a window, ancestry or frequency floor'}
                 value={text}
                 disabled={busy}
                 onChange={(e) => {
@@ -489,7 +544,8 @@ export function SearchPanel({
             </Group>
 
             <Text size="xs" c="dimmed" mt={4}>
-              HGVS with a transcript (NM_…:c.…), an rsID, or the variant described in words.
+              HGVS with a transcript (NM_…:c.…){health?.nl_enabled ? ', an rsID, or the variant described in words.'
+                : ' or an rsID, optionally followed by a window, an ancestry or a frequency floor in words.'}
             </Text>
 
             {nlError && (
@@ -525,14 +581,14 @@ export function SearchPanel({
               />
               <NumberInput
                 style={{ flex: '1 1 120px' }}
-                label="window_bp"
+                label="Window each side, base pairs"
                 description="± around variant"
                 min={1000}
                 max={2_000_000}
                 step={25_000}
                 thousandSeparator=","
                 value={q.window_bp}
-                onChange={(v) => setQ({ ...q, window_bp: typeof v === 'number' ? v : 250_000 })}
+                onChange={(v) => setQ({ window_bp: v })}
               />
               <Select
                 style={{ flex: '0 0 110px' }}
@@ -545,26 +601,33 @@ export function SearchPanel({
               <Select
                 style={{ flex: '0 0 110px' }}
                 label="ancestry"
-                placeholder="Global"
-                clearable
-                data={[...ANCESTRIES]}
-                value={q.ancestry}
-                onChange={(v) => setQ({ ...q, ancestry: v })}
+                data={[{ value: 'global', label: 'Global' }, ...ANCESTRIES]}
+                value={q.ancestry ?? 'global'}
+                allowDeselect={false}
+                onChange={(v) => setQ({ ancestry: !v || v === 'global' ? null : v })}
+              />
+              <Select
+                style={{ flex: '0 0 170px' }}
+                label="material tested"
+                data={[...MATERIALS]}
+                value={q.material}
+                allowDeselect={false}
+                onChange={(v) => setQ({ ...q, material: (v ?? 'single_cell') as Material })}
               />
               <NumberInput
                 style={{ flex: '0 0 110px' }}
-                label="common_maf"
+                label="Lowest allele frequency counted as common"
                 min={0}
                 max={0.5}
                 step={0.01}
                 decimalScale={3}
                 value={q.common_maf}
-                onChange={(v) => setQ({ ...q, common_maf: typeof v === 'number' ? v : 0.05 })}
+                onChange={(v) => setQ({ common_maf: v })}
               />
               <Checkbox
                 mb={6}
                 size="xs"
-                label="cross_check"
+                label="Check marker positions against Ensembl"
                 checked={q.cross_check}
                 onChange={(e) => setQ({ ...q, cross_check: e.currentTarget.checked })}
               />
@@ -577,6 +640,11 @@ export function SearchPanel({
                 Panels are computed on GRCh38. A GRCh37 position is converted via ClinVar's assembly
                 mapping and the conversion is labelled on the resolved variant.
               </Text>
+            )}
+            {formError && (
+              <Alert color="red" mt={6} title="Not resolved" role="alert">
+                <Text size="xs">{formError}</Text>
+              </Alert>
             )}
 
             {/* The carrier's genotypes, chosen alongside the query rather than after the

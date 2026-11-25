@@ -66,6 +66,12 @@ MAX_WORKERS = 8                 # concurrent API fetches
 # Which markers get a primer pair. "starred" is the shortlist that met the flanking
 # criteria; "recommended" is the whole shortlist; "none" designs nothing.
 PRIMER_SCOPES = ("starred", "recommended", "none")
+# The material a panel query names when it names none: the one whose markers read least often,
+# so a query naming none never asks for too few. The owner's call.
+DEFAULT_MATERIAL = "single_cell"
+# The ranges a query is held to. The page mirrors them (web/src/api.ts QUERY_LIMITS).
+WINDOW_MIN, WINDOW_MAX = 1_000, 2_000_000
+MAF_FLOOR_MAX = 0.5
 CACHE_DIR = Path(os.environ.get("PANELBUILDER_CACHE", ".panelbuilder_cache"))
 # A week, because ClinVar publishes weekly. 0 disables expiry, which the offline fixture
 # suite needs: there the cache is the source of truth.
@@ -464,6 +470,8 @@ class Marker:
     # means no design was attempted; a design that ran and failed is a PrimerResult carrying
     # `error`. Absence and failure must never render alike.
     primer: Optional["primers.PrimerResult"] = None
+    # The lab chip's probe at this position (see keep_on_chip). Every offered marker has one.
+    chip_probe: Optional[str] = None
 
 
 @dataclass
@@ -502,6 +510,8 @@ class StructuredQuery:
     # through rather than mirrored: primers.PrimerSettings owns the defaults.
     primer_scope: str = "starred"       # see PRIMER_SCOPES
     primer_settings: Optional[dict] = None
+    # What the lab will genotype; sets how many markers are asked per side (see MATERIALS).
+    material: str = DEFAULT_MATERIAL
     # Provenance, never input: build() must not read these to decide anything. They record
     # that a model, not the user, chose `variant`, so the exports can say so.
     nl_text: Optional[str] = None       # the user's original prose, verbatim
@@ -512,15 +522,21 @@ class StructuredQuery:
             raise ValueError("StructuredQuery.variant is required")
         if self.build not in ("GRCh38", "GRCh37"):
             raise ValueError(f"unsupported build {self.build!r} (R6)")
-        if not 1_000 <= self.window_bp <= 2_000_000:
-            raise ValueError(f"window_bp out of range: {self.window_bp}")
-        if not 0.0 <= self.common_maf < 0.5:
-            raise ValueError(f"common_maf out of range: {self.common_maf}")
+        if not WINDOW_MIN <= self.window_bp <= WINDOW_MAX:
+            raise ValueError(f"The window each side must be {WINDOW_MIN:,} to {WINDOW_MAX:,} base "
+                             f"pairs; {self.window_bp:,} was asked.")
+        if not 0.0 <= self.common_maf < MAF_FLOOR_MAX:
+            raise ValueError(f"The lowest allele frequency counted as common must be at least 0 "
+                             f"and under {MAF_FLOOR_MAX}; {self.common_maf} was asked.")
         if self.ancestry:
             self.ancestry = self.ancestry.upper()
             if self.ancestry not in GNOMAD_POPS.values():
                 raise ValueError(f"unknown ancestry {self.ancestry!r}; "
                                  f"expected one of {sorted(GNOMAD_POPS.values())}")
+        if self.material not in MATERIALS:
+            raise ValueError(f"The material tested must be one of: "
+                             f"{', '.join(m['name'] for m in MATERIALS.values())}; "
+                             f"{self.material!r} was asked.")
         if self.primer_scope not in PRIMER_SCOPES:
             raise ValueError(f"unknown primer_scope {self.primer_scope!r}; expected one of "
                              f"{sorted(PRIMER_SCOPES)}")
@@ -710,6 +726,14 @@ def prefetch_for(v: "VariantRecord") -> None:
     _prefetch(urls)
 
 
+_REFERENCE_HGVS = re.compile(r":[cgnmr]\.[\d_+\-*?]+=")
+
+
+def _is_reference_record(cand: dict) -> bool:
+    """A ClinVar record of the reference allele (HGVS ending "=", such as "c.1601="): no change."""
+    return bool(_REFERENCE_HGVS.search(cand.get("title") or ""))
+
+
 def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
     """Resolve an HGVS/rsID to a canonical GRCh38 record via live API only (R1).
 
@@ -763,6 +787,10 @@ def resolve_variant(query: str, build: str = "GRCh38") -> VariantRecord:
         try:
             _assert_record_matches(query, cand, cvset)
         except ApiError:
+            continue
+        if _is_reference_record(cand):
+            # ClinVar keeps records for the reference allele itself ("c.1601=", no change) under
+            # the same rsID. A base changed to itself is not a variant to build a panel around.
             continue
         if _is_combination(cand):
             # Reconciles but is not a point variant: remembered so the refusal below can
@@ -1321,6 +1349,150 @@ FLANKING_CRITERIA = {
 }
 
 
+# How many markers to ask for on each side. ESHRE's 3 is the number that must READ; how many to
+# ask for follows from the chance that one marker reads in the material tested.
+#
+# The chance is the share of informative markers that give a usable heterozygous read: at sites
+# where the two parents' arrays are opposite homozygotes the sample must be heterozygous, and a
+# site fails by a no-call or by reading as one allele. Measured on the lab's chip, on the complete
+# trios of its public series GSE148488 (Axiom UK Biobank), counted only on arrays the tool reads as
+# carrying both parents and on their chromosomes with no change, by audit/truth/panel-reads.ts; the
+# numbers are the mean over those arrays and are in audit/truth/panel-reads-2026-11-25.txt. Bulk
+# DNA is the series' ES cell lines, which are not amplified; the biopsy is a trophectoderm biopsy;
+# the single cell is a blastomere.
+#
+# The one-allele share includes wrong calls in the parents' own arrays. That belongs in it: a
+# panel's markers are picked from the parents' arrays the same way, so such a marker fails in the
+# lab too. On bulk DNA it is that and nothing else: ES lines of the same parents read one allele at
+# the same sites, 74% of a line's sites against 2.8% if they failed apart
+# (audit/truth/panel-recur-2026-11-25.txt). So it is never called drop-out.
+MATERIALS = {
+    "bulk": {"label": "bulk DNA", "name": "bulk DNA", "read": 0.9186, "no_call": 0.0339, "arrays": 16},
+    "biopsy": {"label": "a trophectoderm biopsy", "name": "trophectoderm biopsy", "read": 0.8074, "no_call": 0.1203, "arrays": 8},
+    "single_cell": {"label": "a single cell", "name": "single cell", "read": 0.4561, "no_call": 0.3167, "arrays": 14},
+}
+for _m in MATERIALS.values():
+    _m["one_allele"] = 1 - _m["read"] - _m["no_call"]   # unrounded: printed once, as a percent
+# The chance that at least ESHRE_MIN_PER_SIDE markers read: the tool's error budget elsewhere,
+# alpha 0.05 (origin.r_min). Not from a paper; the owner's call.
+READ_CHANCE = 0.95
+
+
+# The shortlist's distance bands from the variant, in bp, and how many it takes from each per side.
+SHORTLIST_BANDS = ((0, 2_000), (2_000, 10_000), (10_000, 30_000), (30_000, 80_000),
+                   (80_000, 10**12))
+SHORTLIST_PER_BAND = 2
+
+
+def _kb(bp: int) -> str:
+    return f"{bp // 1000} kb" if bp else "0"
+
+
+def _at_least(n: int, k: int, p: float) -> float:
+    """P(Binomial(n, p) >= k)."""
+    from math import comb
+    return sum(comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k, n + 1))
+
+
+def markers_per_side(read: float, k: int = ESHRE_MIN_PER_SIDE,
+                     chance: float = READ_CHANCE) -> int:
+    """Smallest n with P(at least k of n markers read) >= chance, each reading with `read`."""
+    if not 0.0 < read <= 1.0:
+        raise ValueError(f"read chance out of range: {read}")
+    n = k
+    while _at_least(n, k, read) < chance:
+        n += 1
+    return n
+
+
+def marker_count(material: str) -> dict:
+    """The count asked per side for `material`, its numbers and its sentence, for provenance.
+    The page and the exports print `note` verbatim."""
+    m = MATERIALS[material]
+    n = markers_per_side(m["read"])
+    reached = _at_least(n, ESHRE_MIN_PER_SIDE, m["read"])   # unrounded: printed once, as a percent
+    note = (f"{n} markers asked on each side. In {m['label']}, of the markers that should read as "
+            f"two alleles, {m['read']:.1%} did, {m['no_call']:.1%} had no call and "
+            f"{m['one_allele']:.1%} read as one allele: {m['arrays']} arrays of the lab chip's "
+            f"public series GSE148488, at sites where the two parents' arrays are opposite "
+            f"homozygotes. With {n} on a side, at least {ESHRE_MIN_PER_SIDE} read with a chance of "
+            f"{reached:.1%}. ESHRE recommends at least {ESHRE_MIN_PER_SIDE} readable markers on "
+            f"each side.")
+    bands = ", ".join(f"{_kb(lo)} to {_kb(hi)}" if hi < 10**12 else f"beyond {_kb(lo)}"
+                      for lo, hi in SHORTLIST_BANDS)
+    shortlist = (f"The shortlist takes up to {SHORTLIST_PER_BAND} markers from each of "
+                 f"{len(SHORTLIST_BANDS)} distance bands on each side ({bands} from the variant); "
+                 f"a side left with fewer than {n} gets more in rank order until it has {n}. "
+                 + (f"So a side can hold up to {top}, more than the {n} asked."
+                    if (top := SHORTLIST_PER_BAND * len(SHORTLIST_BANDS)) > n
+                    else f"So a side holds {n} where the window has that many."))
+    return {"material": material, "label": m["label"], "per_side": n, "read": m["read"],
+            "no_call": m["no_call"], "one_allele": m["one_allele"], "arrays": m["arrays"],
+            "must_read": ESHRE_MIN_PER_SIDE, "chance_aimed": READ_CHANCE,
+            "chance_reached": reached, "note": note, "shortlist_note": shortlist}
+
+
+# The lab's chip, the one the tool reads (web/src/platform.ts PROVEN_CHIP). Its probes as the
+# chip's own export files list them: all 135 files of the public series GSE148488 (NCBI GEO),
+# probe ids, chromosomes and positions only, no genotype: GRCh37 as the files give it, and GRCh38
+# from Ensembl's assembly map, release 116 (audit/truth/chip-grch38-2026-11-25.txt); 9.6 MB.
+# Whether it ships in the public repo is the owner's call. Every probe on the list counts as read: Axiom's probe class differs between files of one series, so it is a property
+# of a batch, and on the bulk arrays every autosomal class is called at 0.90 to 0.94
+# (audit/truth/chip-probes-2026-11-25.txt).
+CHIP_NAME = "UK Biobank Axiom"
+CHIP_PROBES = Path(__file__).resolve().parent.parent / "data" / "chip" / "axiom-ukb-probes.tsv.gz"
+
+_chip_lock = threading.Lock()
+_chip: dict = {}
+
+
+def _chip_table() -> dict:
+    """{chrom: ([GRCh38 position], [probe id])}, sorted by position, read once. A probe with no
+    single GRCh38 position (its column empty) is left out, so it is never offered."""
+    with _chip_lock:
+        if not _chip:
+            rows: dict = {}
+            with gzip.open(CHIP_PROBES, "rt") as f:
+                for line in f:
+                    if line.startswith(("#", "probeset_id")):
+                        continue
+                    pid, ch, _, p38 = line.rstrip("\n").split("\t")
+                    if p38:
+                        rows.setdefault(ch, []).append((int(p38), pid))
+            for ch, r in rows.items():
+                r.sort()
+                _chip[ch] = ([p for p, _ in r], [i for _, i in r])
+        return _chip
+
+
+def chip_sites(chrom: str, lo: int, hi: int) -> dict[int, str]:
+    """{GRCh38 position: probe id} for the chip's probes in [lo, hi] on GRCh38. No network: the
+    positions ship with the probe list (audit/truth/chip-grch38.py)."""
+    import bisect
+    pos38, ids = _chip_table().get(chrom, ([], []))
+    return {pos38[i]: ids[i] for i in range(bisect.bisect_left(pos38, lo), bisect.bisect_right(pos38, hi))}
+
+
+def keep_on_chip(markers: list[Marker], sites: dict[int, str]) -> list[Marker]:
+    """Only candidates at a chip probe, each stamped with that probe's id."""
+    kept = []
+    for m in markers:
+        if m.pos in sites:
+            m.chip_probe = sites[m.pos]
+            kept.append(m)
+    if len(kept) < len(markers):
+        _emit(Tag.SKIP, f"{len(markers) - len(kept):,} common SNPs dropped: the lab's chip has "
+                        f"no probe there")
+    _emit(Tag.INFO, f"{len(kept):,} of {len(markers):,} common SNPs are read by the lab's chip")
+    return kept
+
+
+def chip_note(common: int, kept: int) -> dict:
+    return {"name": CHIP_NAME, "common": common, "offered": kept, "note": (
+        f"Only markers the lab's chip ({CHIP_NAME}) carries are offered: {kept:,} of the "
+        f"{common:,} common SNPs in the window have a probe of that chip at their position.")}
+
+
 def _hotspot_assessed(m: Marker) -> bool:
     """True only where the bundled map actually judged the span between marker and variant.
 
@@ -1369,7 +1541,8 @@ def _ranking_key_label(ancestry: Optional[str]) -> str:
 
 
 def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
-                 per_bin: int = 2) -> tuple[list[Marker], list[Marker], dict]:
+                 per_bin: int = SHORTLIST_PER_BAND, per_side: int = ESHRE_MIN_PER_SIDE
+                 ) -> tuple[list[Marker], list[Marker], dict]:
     # 2pq = 0 cannot say which parental haplotype an embryo inherited, so it is not a
     # marker. common_maf=0.0 is a legal floor, and would otherwise let monomorphic sites
     # fill a band and satisfy the coverage rule below carrying no information.
@@ -1391,13 +1564,16 @@ def select_panel(markers: list[Marker], ancestry: Optional[str] = None,
                         f"reads a site once, so multi-allelic sites keep their best allele")
     _emit(Tag.INFO, f"{len(pool):,} sites ranked by {_ranking_key_label(ancestry)}")
 
-    bands = [(0, 2_000), (2_000, 10_000), (10_000, 30_000),
-             (30_000, 80_000), (80_000, 10**12)]
     recommended: list[Marker] = []
     for want_higher in (False, True):
-        for lo, hi in bands:
+        for lo, hi in SHORTLIST_BANDS:
             recommended += [m for m in pool if (m.dist > 0) == want_higher
                             and lo <= abs(m.dist) < hi][:per_bin]
+        # At least per_side on each side where the pool has them, topped up in rank order.
+        side = [m for m in recommended if (m.dist > 0) == want_higher]
+        chosen = {m.pos for m in side}
+        recommended += [m for m in pool if (m.dist > 0) == want_higher
+                        and m.pos not in chosen][:max(0, per_side - len(side))]
     recommended.sort(key=lambda m: m.dist)   # total: one marker per site, so dist is unique
 
     lower = [m for m in recommended if m.dist < 0]
@@ -1675,8 +1851,17 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
     progress(f"annotating {len(raw)} variants", 0.75)
     markers = annotate(raw, v, q.common_maf)          # R4
 
+    progress("keeping markers the lab's chip reads", 0.8)
+    common_n = len(markers)
+    markers = keep_on_chip(markers, chip_sites(v.chrom, min(m.pos for m in markers),
+                                               max(m.pos for m in markers))
+                           if markers else {})
+    count = marker_count(q.material)
+    _emit(Tag.INFO, count["note"])
+
     progress("ranking + selecting panel", 0.85)
-    ranked, recommended, coverage = select_panel(markers, q.ancestry)  # R2, R5
+    ranked, recommended, coverage = select_panel(markers, q.ancestry,
+                                                 per_side=count["per_side"])  # R2, R5
 
     if q.cross_check:
         progress("cross-checking positions against Ensembl", 0.92)
@@ -1707,11 +1892,14 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         met = [m for m in recommended
                if (m.dist > 0) == want_higher and m.meets_eshre_flanking_criteria]
         coverage[f"{side}_flanking_count"] = len(met)
-        if len(met) < ESHRE_MIN_PER_SIDE:
+        if len(met) < count["per_side"]:
             coverage.setdefault("flags", []).append(
-                f"Fewer than {ESHRE_MIN_PER_SIDE} markers on the {side}-coordinate side "
-                f"meet the flanking criteria ({len(met)} of {ESHRE_MIN_PER_SIDE}). ESHRE "
-                f"recommends at least three SNPs on each side of the pathogenic variant.")
+                f"Fewer than {count['per_side']} markers on the {side}-coordinate side "
+                f"meet the flanking criteria ({len(met)} of {count['per_side']}): "
+                f"{FLANKING_CRITERIA['summary'][0].lower()}{FLANKING_CRITERIA['summary'][1:]} "
+                f"Starred rows in the table meet them. "
+                f"{count['per_side']} are asked so that at least {ESHRE_MIN_PER_SIDE} read in "
+                f"{count['label']}; ESHRE recommends at least {ESHRE_MIN_PER_SIDE} on each side.")
 
     # Here, and inside build(), because `raw` is still in scope: the mask is drawn from the whole
     # gnomAD pull, and a later pass would have only the candidate pool, which cannot mask an
@@ -1746,6 +1934,8 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
         "requested_build": q.build,
         "ranking_key": _ranking_key_label(q.ancestry),
         "flanking_criteria": FLANKING_CRITERIA,
+        "marker_count": count,
+        "chip": chip_note(common_n, len(markers)),
         "queried_utc": _utc(_flog["oldest"]) or _utc(time.time()),
         "built_utc": _utc(time.time()),
         "source_responses_from_cache": _flog["from_cache"],
@@ -1767,6 +1957,7 @@ def build(query: Union[str, "StructuredQuery"], window: int = DEFAULT_WINDOW,
     return PanelResult(v, rarity, ranked, recommended, coverage,
                        {"window": q.window_bp, "ancestry": q.ancestry,
                         "common_maf": q.common_maf, "build": q.build,
+                        "material": q.material,
                         # Inputs, beside the other inputs. asdict() of the engine's own
                         # settings, so the panel records the knobs it was actually built
                         # with rather than today's defaults.

@@ -102,8 +102,8 @@ def test_panel_job_reaches_done():
     assert j["status"] == "done", j.get("error")
 
     res = j["result"]
-    assert len(res["candidates"]) == 1202
-    assert len(res["recommended"]) == 20
+    assert len(res["candidates"]) == 95
+    assert len(res["recommended"]) == 24
     nearest = min(res["candidates"], key=lambda m: abs(m["dist"]))
     assert nearest["rsid"] == "rs757110" and nearest["dist"] == -125
     assert res["coverage"]["lower_count"] and res["coverage"]["higher_count"]
@@ -604,3 +604,10 @@ def test_index_html_is_never_cached():
         assert r.status_code == 200
         assert "no-store" not in r.headers.get("cache-control", ""), (
             "a content-hashed asset must stay cacheable; only the html is no-store")
+
+
+@pytest.mark.parametrize("bad", [{"common_maf": 0.6}, {"window_bp": 3_000_000}, {"material": "saliva"}])
+def test_panel_refuses_a_value_out_of_range(bad):
+    """The API holds the ranges itself; the page's own check is not relied on."""
+    r = client.post("/api/panel", json={"variant": "rs151344623", **bad})
+    assert r.status_code == 400 and "was asked" in r.json()["detail"], r.text

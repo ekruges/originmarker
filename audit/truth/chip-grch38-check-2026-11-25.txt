@@ -1,0 +1,8 @@
+recorded	chr11:17,149,990-17,646,796	old 522	new 522	identical
+live	chr1:169,300,000-169,800,000	old 214	new 214	identical
+live	chr7:117,300,000-117,800,000	old 240	new 240	identical
+live	chr17:43,000,000-43,250,000	old 679	new 679	identical
+live	chr13:20,100,000-20,400,000	old 218	new 218	identical
+live	chrX:153,900,000-154,200,000	old 191	new 191	identical
+live	chr19:11,000,000-11,300,000	old 971	new 971	identical
+all identical

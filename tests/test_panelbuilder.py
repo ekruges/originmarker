@@ -406,7 +406,9 @@ def test_rarity_forces_phasing(result):
 
 
 def test_candidate_pool(result):
-    assert len(result.candidates) > 1000
+    # The pool is the common SNPs the lab's chip carries, a small share of gnomAD's.
+    assert len(result.candidates) == result.provenance["chip"]["offered"] > 50
+    assert result.provenance["chip"]["common"] > 1000
     for m in result.candidates:
         assert m.maf >= pb.COMMON_MAF
         assert len(m.ref) == 1 and len(m.alt) == 1
@@ -911,3 +913,147 @@ def test_a_deletion_overhanging_the_template_is_still_masked():
     # and the anchor test, which is what shipped, drops it
     anchored = [s for s in hazards if lo <= s.pos <= hi]
     assert overhang not in anchored, "this test no longer reproduces the bug it pins"
+
+
+# --------------------------------------------------------------------------- #
+# How many markers per side (rule N) and only chip markers (rules C and R).
+# --------------------------------------------------------------------------- #
+
+def _tail(n, k, p):
+    from math import comb
+    return sum(comb(n, i) * p ** i * (1 - p) ** (n - i) for i in range(k, n + 1))
+
+
+def test_markers_per_side_is_the_smallest_n_that_reads_three():
+    assert pb.markers_per_side(1.0) == pb.ESHRE_MIN_PER_SIDE == 3
+    for step in range(5, 101):
+        p = step / 100
+        n = pb.markers_per_side(p)
+        assert _tail(n, 3, p) >= pb.READ_CHANCE, p
+        assert n == 3 or _tail(n - 1, 3, p) < pb.READ_CHANCE, p
+
+
+def test_amplified_dna_asks_for_more_than_three():
+    """The fixed three must never come back for amplified material."""
+    for mat in ("single_cell", "biopsy"):
+        c = pb.marker_count(mat)
+        assert c["per_side"] > 3, (mat, c)
+        assert c["per_side"] == pb.markers_per_side(pb.MATERIALS[mat]["read"])
+        assert f"{c['per_side']} markers asked on each side" in c["note"]
+    assert pb.marker_count("single_cell")["per_side"] >= pb.marker_count("biopsy")["per_side"]
+    assert pb.marker_count("biopsy")["per_side"] >= pb.marker_count("bulk")["per_side"]
+
+
+def test_measured_rates_are_the_results_file():
+    """The constants are the numbers the measurement printed, not typed-in guesses."""
+    txt = (Path(__file__).resolve().parent.parent / "audit" / "truth"
+           / "panel-reads-2026-11-25.txt").read_text()
+    table = txt.split("\nmaterial\t", 1)[1]
+    rows = {l.split("\t")[0]: l.split("\t") for l in table.splitlines() if "\t" in l}
+    for mat, label in (("bulk", "bulk DNA (ES cell line)"), ("biopsy", "trophectoderm biopsy"),
+                       ("single_cell", "single cell (blastomere)")):
+        r, m = rows[label], pb.MATERIALS[mat]
+        assert m["arrays"] == int(r[1]) and m["read"] == float(r[2]), mat
+        assert m["no_call"] == float(r[6]), mat
+        assert abs(m["read"] + m["no_call"] + m["one_allele"] - 1) < 1e-9, mat
+
+
+def test_counts_per_side_from_the_measured_rates():
+    assert {k: pb.marker_count(k)["per_side"] for k in pb.MATERIALS} == \
+        {"bulk": 4, "biopsy": 6, "single_cell": 12}
+
+
+def test_printed_percents_are_rounded_once_from_the_rates():
+    """Each printed percent is the value computed from the measured rates, rounded once."""
+    for k, m in pb.MATERIALS.items():
+        c = pb.marker_count(k)
+        exact = _tail(c["per_side"], 3, m["read"])
+        assert f"a chance of {exact:.1%}." in c["note"], (k, exact)
+        one = 1 - m["read"] - m["no_call"]
+        assert f"{m['read']:.1%} did, {m['no_call']:.1%} had no call and {one:.1%} read" in c["note"], k
+    assert "96.1%" in pb.marker_count("single_cell")["note"]
+
+
+def test_chance_reached_is_the_one_printed():
+    for k in pb.MATERIALS:
+        c = pb.marker_count(k)
+        assert c["chance_aimed"] == pb.READ_CHANCE <= c["chance_reached"]
+        assert f"a chance of {c['chance_reached']:.1%}." in c["note"], k
+        assert f"until it has {c['per_side']}." in c["shortlist_note"], k
+
+
+def test_no_sentence_calls_the_one_allele_share_drop_out():
+    for k in pb.MATERIALS:
+        assert "drop" not in pb.marker_count(k)["note"].lower(), k
+
+
+def test_unknown_material_is_refused():
+    with pytest.raises(ValueError, match="material tested must be one of: bulk DNA, "):
+        pb.StructuredQuery(variant="rs151344623", material="saliva")
+    with pytest.raises(ValueError, match="at least 0 and under 0.5; 0.6 was asked"):
+        pb.StructuredQuery(variant="rs151344623", common_maf=0.6)
+    with pytest.raises(ValueError, match="1,000 to 2,000,000 base pairs; 999 was asked"):
+        pb.StructuredQuery(variant="rs151344623", window_bp=999)
+    assert pb.StructuredQuery(variant="rs151344623").material == "single_cell"
+
+
+def test_shortlist_is_topped_up_to_the_count_asked():
+    # Eight lower-side markers all in one band: the bands alone give two.
+    ms = [_marker(1000 - 100 * i, 0.4) for i in range(1, 9)]
+    _, rec, _ = pb.select_panel(ms, per_side=7)
+    assert len([m for m in rec if m.dist < 0]) == 7
+    _, rec, _ = pb.select_panel(ms)
+    assert len([m for m in rec if m.dist < 0]) == 3
+
+
+def test_only_markers_the_chip_carries_are_kept():
+    ms = [_marker(p, 0.4) for p in (900, 950, 1100)]
+    kept = pb.keep_on_chip(ms, {900: "AX-1", 1100: "AX-2"})
+    assert [(m.pos, m.chip_probe) for m in kept] == [(900, "AX-1"), (1100, "AX-2")]
+
+
+def test_chip_sites_read_the_shipped_grch38_column(monkeypatch):
+    """Inside the window, by GRCh38 position, with no network call."""
+    monkeypatch.setattr(pb, "_chip_table", lambda: {"11": ([1100, 1200, 1900], ["AX-a", "AX-b", "AX-c"])})
+    monkeypatch.setattr(pb, "_http", lambda *a, **k: pytest.fail("the chip filter made a network call"))
+    assert pb.chip_sites("11", 1000, 1400) == {1100: "AX-a", 1200: "AX-b"}
+    assert pb.chip_sites("12", 1000, 1400) == {}
+
+
+def test_golden_panel_builds_with_the_network_blocked(monkeypatch):
+    """From recorded fixtures alone: nothing between the gnomAD fetch and the shortlist calls out."""
+    import urllib.request
+    def blocked(*a, **k):
+        raise AssertionError("network call while building the golden panel")
+    monkeypatch.setattr(urllib.request, "urlopen", blocked)
+    r = pb.build(GOLDEN_QUERY)
+    assert r.provenance["chip"]["offered"] == 95 and len(r.candidates) == 95
+
+
+def test_golden_chip_markers_are_the_recorded_ones(result):
+    """The 95 probes the live assembly map gave before the GRCh38 column shipped."""
+    want = json.loads((FIXTURES.parent / "golden-chip-probes.json").read_text())
+    assert {str(m.pos): m.chip_probe for m in result.candidates} == want
+
+
+def test_golden_panel_offers_only_chip_markers(result):
+    assert result.candidates
+    assert all(m.chip_probe and m.chip_probe.startswith("AX-") for m in result.candidates)
+    chip = result.provenance["chip"]
+    assert chip["offered"] == len(result.candidates) < chip["common"]
+    cnt = result.provenance["marker_count"]
+    assert cnt["material"] == "single_cell" and cnt["per_side"] > 3
+    for f in result.coverage["flags"]:
+        assert "of 3)" not in f, f
+    side = [f for f in result.coverage["flags"] if "meet the flanking criteria" in f]
+    assert side and all("of 12)" in f for f in side), side
+
+
+def test_reference_allele_record_is_not_the_variant():
+    """rs6025 has a ClinVar record of the reference allele itself (c.1601=, C>C); the resolve
+    takes the real change instead. Recorded public ClinVar and Ensembl answers."""
+    v = pb.resolve_variant("rs6025")
+    assert v.vcf_ref != v.vcf_alt, v
+    assert (v.vcf_ref, v.gene, v.pos_grch38) == ("C", "F5", 169_549_811)
+    assert pb._is_reference_record({"title": "NM_000130.5(F5):c.1601= (p.Arg534=)"})
+    assert not pb._is_reference_record({"title": "NM_000130.5(F5):c.1601G>A (p.Arg534Gln)"})

@@ -46,7 +46,7 @@ def _columns(anc=None, primers=False) -> list:
     ancestry-matched 2pq joins the table whenever one was selected. The same rule already
     covers the star: every quantity STAR_FIELD is decided on is a column below.
     """
-    return (["rsid", "chrom", "pos_grch38", "ref", "alt", "signed_dist_bp", "side", "tier",
+    return (["rsid", "chip_probe", "chrom", "pos_grch38", "ref", "alt", "signed_dist_bp", "side", "tier",
              "maf", "af", "gnomad_an", "het_2pq_prior_global", "het_2pq_prior_max_pop"]
             + ([f"het_2pq_prior_{anc}"] if anc else [])
             + [f"maf_{p}" for p in POPS]
@@ -347,6 +347,11 @@ def _facts(result) -> list[tuple[str, str]]:
         ("Coverage lower / higher coord", f"{cov['lower_count']} / {cov['higher_count']} markers; "
                                f"core-near {cov['lower_core_near']} / {cov['higher_core_near']}"),
         ("Coverage flags (R5)", "; ".join(cov["flags"]) or "none"),
+        # The engine's own sentences, verbatim. An older panel has neither and prints neither.
+        *([("Markers asked per side", prov["marker_count"]["note"]),
+           ("Shortlist", prov["marker_count"]["shortlist_note"])]
+          if prov.get("marker_count") else []),
+        *([("Lab chip", prov["chip"]["note"])] if prov.get("chip") else []),
         # Beside the coverage flags: both are per-side statements about the same shortlist.
         *_star_facts(result),
         *_primer_facts(result),
@@ -370,7 +375,7 @@ def _num(x) -> str:
 
 def _row(m, recommended_ids: set, anc=None, primers=False) -> list:
     """Values in _columns(anc, primers) order. Keep the two in step."""
-    return ([m.rsid, m.chrom, m.pos, m.ref, m.alt, m.dist, m.side, m.tier,
+    return ([m.rsid, m.chip_probe, m.chrom, m.pos, m.ref, m.alt, m.dist, m.side, m.tier,
              m.maf, m.af, m.an, m.het, m.het_max_pop]
             + ([_rank_het(m, anc)] if anc else [])
             + [m.per_pop_maf.get(p) for p in POPS]
@@ -1418,7 +1423,7 @@ if __name__ == "__main__":
     assert wb["All candidates"].max_row == len(r.candidates) + 3, "candidate row count"
 
     # R4/R6/R7 spot checks on the CSV header + table.
-    head, table = blobs["csv"].decode().split("rsid,chrom,pos_grch38", 1)
+    head, table = blobs["csv"].decode().split("rsid,chip_probe,chrom,pos_grch38", 1)
     for must in ("2pq", "prior", "GRCh38", "transcript sense", "minus strand",
                  pb.LAYER_B_STEPS[0], "C>T"):
         assert must in head, f"CSV header missing {must!r}"
@@ -1431,7 +1436,7 @@ if __name__ == "__main__":
     assert js["provenance"]["build"] == "GRCh38"
     # Pinned to the result, not a literal: the candidate count moves legitimately whenever
     # upstream QC filters change.
-    assert len(js["candidates"]) == len(r.candidates) > 1000
+    assert len(js["candidates"]) == len(r.candidates) > 50
     assert sum(m["in_recommended_panel"] for m in js["candidates"]) == len(r.recommended)
     assert js["variant"]["pos_grch38"] == 17397055
     assert js["rarity"]["population_LD_usable"] is False
@@ -1584,7 +1589,7 @@ if __name__ == "__main__":
     i = gap_row.index(m_gap.rsid)
     assert gap_row[i + 6] == "-", f"no-frequency marker must print '-', printed {gap_row[i + 6]!r}"
     assert "no EAS frequency" in _pdf_text(to_pdf(gap)), "PDF must footnote what the dash means"
-    assert _row(m_gap, set(), "EAS")[13] is None, "csv/xlsx cell must be empty, never a number"
+    assert _row(m_gap, set(), "EAS")[_columns("EAS").index("het_2pq_prior_EAS")] is None, "csv/xlsx cell must be empty, never a number"
 
     # 9. A model-chosen panel must SAY SO in all four formats. Synthesised: the golden
     # ABCC8 case was named by the user, so no fixture reaches this branch.
@@ -1707,7 +1712,10 @@ if __name__ == "__main__":
     assert 0 < star_n < len(r.recommended), \
         "the golden panel must star SOME markers and not all, or this proves nothing"
 
-    star_pdf = _pdf_text(blobs["pdf"])
+    # Page by page with each page's footer (the disclaimer and the "OriginMarker | ..." line)
+    # left out: a paragraph that runs over a page break is still one paragraph to a reader.
+    star_pdf = "\n".join(l for pg in _pdf_pages(blobs["pdf"]) for l in pg.split("\n")
+                          if l != pb.DISCLAIMER and not l.startswith("OriginMarker | "))
     star_xl = load_workbook(io.BytesIO(blobs["xlsx"]))
     # _wrap breaks a paragraph across drawString calls and a content stream escapes its
     # parens: undo both, so what is compared is the sentence the reader sees.

@@ -103,6 +103,9 @@ export interface Marker {
    *  once, and a mirror is a place to drift. Absent on a panel built before the rule
    *  shipped, which is silence, not false. */
   meets_eshre_flanking_criteria?: boolean
+  /** The lab chip's probe at this position. Absent on a panel built before only chip markers
+   *  were offered. */
+  chip_probe?: string | null
   /** The candidate genotyping pair for this marker, or the design's own account of why
    *  there is none. Absent means NO DESIGN WAS ATTEMPTED: only markers in scope are
    *  designed for. A design that ran and failed is a PrimerResult carrying `error`.
@@ -331,6 +334,16 @@ export interface Provenance {
   /** The star rule, in the engine's words. Read it through `flankingRule`, never directly:
    *  its presence alone does not mean the star is safe to draw. */
   flanking_criteria?: FlankingCriteria
+  /** How many markers were asked per side and why, in the engine's words (`note`). */
+  marker_count?: {
+    material: string; per_side: number; note: string
+    /** The chance aimed for that at least three markers read, and the chance the count asked reaches. */
+    chance_aimed: number; chance_reached: number
+    /** Why a side of the shortlist can hold more than `per_side`. */
+    shortlist_note: string
+  }
+  /** Which chip the markers were kept to, in the engine's words (`note`). */
+  chip?: { name: string; common: number; offered: number; note: string }
   /** The Ensembl release THIS panel was built against. Optional: older panels carry none
    *  and must render as unknown. Never substitute the live server's release, which is a
    *  fact about now, not about this panel. */
@@ -387,6 +400,32 @@ export interface ResolveResponse {
   // exactly one verdict and it is `rarity.reason`. Do not add it back.
 }
 
+/** panelbuilder.MATERIALS, with the words the query form shows. */
+export const MATERIALS = [
+  { value: 'single_cell', label: 'single cell' },
+  { value: 'biopsy', label: 'trophectoderm biopsy' },
+  { value: 'bulk', label: 'bulk DNA' },
+] as const
+export type Material = (typeof MATERIALS)[number]['value']
+
+/** panelbuilder's WINDOW_MIN, WINDOW_MAX and MAF_FLOOR_MAX. The API refuses outside them on its own. */
+export const QUERY_LIMITS = { windowMin: 1_000, windowMax: 2_000_000, mafMax: 0.5 }
+
+/** A plain sentence for a query field out of range, or null. */
+export function queryProblem(q: { window_bp?: number; common_maf?: number; material?: string }): string | null {
+  const { windowMin, windowMax, mafMax } = QUERY_LIMITS
+  if (q.window_bp !== undefined && !(q.window_bp >= windowMin && q.window_bp <= windowMax)) {
+    return `The window each side must be ${windowMin.toLocaleString('en-US')} to ${windowMax.toLocaleString('en-US')} base pairs.`
+  }
+  if (q.common_maf !== undefined && !(q.common_maf >= 0 && q.common_maf < mafMax)) {
+    return `The lowest allele frequency counted as common must be at least 0 and under ${mafMax}.`
+  }
+  if (q.material !== undefined && !MATERIALS.some((m) => m.value === q.material)) {
+    return `The material tested must be one of: ${MATERIALS.map((m) => m.label).join(', ')}.`
+  }
+  return null
+}
+
 export interface StructuredQuery {
   variant: string
   gene?: string | null
@@ -395,6 +434,8 @@ export interface StructuredQuery {
   ancestry?: string | null
   common_maf?: number
   cross_check?: boolean
+  /** What the lab will genotype: sets how many markers are asked per side. */
+  material?: Material
   /** Which markers get a pair. Inputs, beside the other inputs. */
   primer_scope?: PrimerScope
   /** Knob overrides, as primers.PrimerSettings names them. Partial: omitted asks for the
