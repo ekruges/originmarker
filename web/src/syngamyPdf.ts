@@ -18,7 +18,7 @@ import {
 import { segmentCoords } from './segments.ts'
 import {
   aneuploidyCells, cardSays, chromCells, countText, disturbedText, gainCells, kindSeen, notReportable, NOT_REPORTED_SAYS,
-  readAgainst, seenHeading, seenLocus, segmentKindText, stateWord, summaryParts, verdictText, KIND_SAYS, MEASURED, MEASURED_SOURCE, pdfCells,
+  readAgainst, seenHeading, seenLocus, segmentKindText, stateWord, summaryParts, verdictText, kindBesideWord, MEASURED, MEASURED_WHERE, pdfCells,
   PARENT_SENTENCE, sexLine, WORD,
   type CardSays, type ChangeRow,
 } from './pageSays.ts'
@@ -560,12 +560,12 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         [{ head: 'Word', w: 70 }, { head: 'Kind of call', w: 236 },
           { head: 'Both parents', w: 72, right: true }, { head: 'Father measured', w: 76, right: true },
           { head: 'Father rebuilt', w: 76, right: true }],
-        kinds.map((k) => [WORD[k], KIND_SAYS[k], cellOf(MEASURED[k]?.two), cellOf(MEASURED[k]?.measured),
+        kinds.map((k) => [WORD[k], kindBesideWord(k), cellOf(MEASURED[k]?.two), cellOf(MEASURED[k]?.measured),
           cellOf(MEASURED[k]?.rebuilt)]),
       )
     }
     text(PARENT_SENTENCE, 7.6, 'Helvetica-Bold', 2.4)
-    text(`Counts from ${MEASURED_SOURCE}. Right is the right place by the counting rule (calls and the `
+    text(`Counts ${MEASURED_WHERE}. Right is the right place by the counting rule (calls and the `
       + 'stated region joined per chromosome overlap by half of the longer) and, where both name one, '
       + 'the right parent. Wrong means the paper states no change there; some may be the paper\'s misses.',
     6.5, 'Helvetica-Oblique', 2, GREY)

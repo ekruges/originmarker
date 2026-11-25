@@ -244,8 +244,9 @@ export const WORD: Record<CallKind, Word> = {
 /** A change is counted in the headline when its word is one of these. */
 export const COUNTED: ReadonlySet<Word> = new Set<Word>(['found two ways', 'consistent', 'position only'])
 
-/** Where every count below was measured. */
-export const MEASURED_SOURCE = 'audit/truth/page-says-2026-11-17.txt'
+/** Where every count below was measured, in words a reader can follow. */
+export const MEASURED_WHERE = 'measured with this tool on the 31 published cells of Zuccaro 2020 Table S3 '
+  + '(GSE148488), 17 November 2026'
 
 /**
  * Right of scored, per kind of call and setup, on the 31 published cells of Zuccaro 2020 Table S3
@@ -291,6 +292,14 @@ export const KIND_SAYS: Record<CallKind, string> = {
   'no-parent': 'Read from copy number, with no parent loaded.',
   doubled: 'One reading: a copy lost here, reported by the copy scan and by an allele scan over the same stretch.',
   sex: 'Read from the sex-chromosome line: chrX against the autosomes, and chrY.',
+}
+
+/** The kind sentence beside its word: where the word already says "one reading", not said twice. */
+export function kindBesideWord(kind: CallKind): string {
+  const s = KIND_SAYS[kind]
+  if (WORD[kind] !== 'one reading' || !s.startsWith('One reading: ')) return s
+  const rest = s.slice('One reading: '.length)
+  return rest.charAt(0).toUpperCase() + rest.slice(1)
 }
 
 /** The measured count behind a word, in one sentence, or what stands in for it. */

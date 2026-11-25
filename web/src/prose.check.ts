@@ -15,6 +15,11 @@ import { readdirSync, readFileSync } from 'node:fs'
 export const ALLOW = new Set(['chrX', 'chrY', 'chromInfo', 'cytoBand', 'refGene', 'wgEncodeUwRepliSeq', 'liftOver', 'rsID', 'gDNA'])
 const CAMEL = /\b[a-z]+[A-Z][A-Za-z0-9]*\b/g
 const FILE = /\b[\w-]+\.tsx?\b/g
+/** A path into the repository, printed or held for printing: a top folder of the repo, a slash, and a
+ *  file with an extension. Read in every literal, prose or not, since a path is one word. */
+const REPO_PATH = /\b(?:audit|web|cli|originmarker|scripts|tools|docs|tests|deploy|data)\/[\w./-]*\.[a-z]{2,4}\b/g
+/** Any path with a file extension in prose: a word, a slash, more, and a dot. */
+const PROSE_PATH = /\b[\w-]+\/[\w./-]*\.(?:txt|tsv|csv|md|json|py|ts|tsx|sh)\b/g
 
 /** The string literals of one source text, template expressions removed. */
 export function literals(src: string): { text: string; line: number }[] {
@@ -52,10 +57,12 @@ export function literals(src: string): { text: string; line: number }[] {
 export function proseFaults(src: string): string[] {
   const out: string[] = []
   for (const { text, line } of literals(src)) {
+    for (const w of text.match(REPO_PATH) ?? []) out.push(`${line}: ${w}`)
     // Prose has a space; markup (attribute="value") and a web address are not prose.
     if (!/\S \S/.test(text) || /\w="/.test(text) || /^https?:\/\//.test(text)) continue
     for (const w of text.match(CAMEL) ?? []) if (!ALLOW.has(w)) out.push(`${line}: ${w}`)
     for (const w of text.match(FILE) ?? []) out.push(`${line}: ${w}`)
+    for (const w of text.match(PROSE_PATH) ?? []) if (!(text.match(REPO_PATH) ?? []).includes(w)) out.push(`${line}: ${w}`)
   }
   return out
 }
@@ -65,6 +72,9 @@ export function proseFaults(src: string): string[] {
   assert.deepEqual(proseFaults('const a = `a sentence ${fooBar} on chrX`'), [], 'template code is not prose, chrX is allowed')
   assert.deepEqual(proseFaults("// a comment naming fooBar.ts\nconst b = 'oneWord'"), [], 'comments and one-word strings are not prose')
   assert.deepEqual(proseFaults("const c = 'read in (timing.ts) here'"), ['1: timing.ts'])
+  assert.deepEqual(proseFaults("const d = 'audit/truth/page-says-2026-11-17.txt'"), ['1: audit/truth/page-says-2026-11-17.txt'],
+    'a repo path held in a one-word string is caught')
+  assert.deepEqual(proseFaults("const e = 'Counts from notes/counts.tsv here.'"), ['1: notes/counts.tsv'])
 }
 
 const dir = new URL('./', import.meta.url).pathname

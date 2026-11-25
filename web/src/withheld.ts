@@ -51,8 +51,10 @@ export const MEASURE_SAYS: Record<string, { label: string; fmt: (v: number) => s
   dropIn: { label: 'drop-in', fmt: pct },
   heterozygositySpread: { label: 'spread of heterozygosity between chromosomes', fmt: (v) => `${num(v)} (coefficient of variation)` },
   normalFraction: { label: 'autosomes in the commonest copy state', fmt: pct },
-  deviantFraction: { label: 'share of autosomes read as changed', fmt: pct },
-  affectedAutosomes: { label: 'autosomes read as changed', fmt: int },
+  // The whole-sample call counts changes of copy number, segments and findings; a whole chromosome
+  // missing one parent's copy by the alleles is counted apart (integrity.ts), and the label says so.
+  deviantFraction: { label: 'share of autosomes with a change of copy number, a segment or a finding', fmt: pct },
+  affectedAutosomes: { label: 'autosomes with such a change (a whole chromosome missing one parent\'s copy by the alleles is counted apart)', fmt: int },
   totalAutosomes: { label: 'autosomes read', fmt: int },
   spanBp: { label: 'span', fmt: (v) => `${(v / 1e6).toFixed(2)} Mb` },
   score: { label: 'scan score', fmt: (v) => `${num(v)} (log-likelihood ratio)` },

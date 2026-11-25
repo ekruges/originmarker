@@ -546,17 +546,18 @@ export function collectRow(
  * Why the run's other arrays were not used to read the other parent, each reason naming its own test.
  * `no-run`: no other array was handed to this sample, which happens only where the run holds this one
  * array, since every sample is scored against every other array of its run. `no-parent`: the reading
- * needs the loaded parent's homozygous markers, and none is loaded.
+ * needs the loaded parent's homozygous markers, and none is loaded. `whom` is "the mother" or "the
+ * father" with a parent loaded and "a parent" with none.
  */
-export function runNotUsedText(her: string, loaded: string, why: 'no-run' | 'no-parent' | Exclude<RunStatus, 'used'>, draws = 0): string {
-  return `The run's other arrays were not used to read the ${her}: ${
+export function runNotUsedText(whom: string, loaded: string, why: 'no-run' | 'no-parent' | Exclude<RunStatus, 'used'>, draws = 0): string {
+  return `The run's other arrays were not used to read ${whom}: ${
     why === 'no-run' ? 'none were loaded with this one'
-    : why === 'no-parent' ? `no parent array is loaded to read the ${her} against`
+    : why === 'no-parent' ? 'no parent array is loaded, and the reading needs one'
     : why === 'sample-unfit' ? `this array's own drop-in, read at the ${loaded}'s homozygous markers, is too high `
       + 'or could not be fitted, so it is not read against them'
     : why === 'sample-not-a-draw' ? 'this array\'s own calls are too noisy, or show too little of the other '
       + 'parent, to tell which arrays share its mother'
-    : `${draws} other draw${draws === 1 ? '' : 's'} of the ${her} (an embryo or a haploid product of hers), `
+    : `${draws} other draw${draws === 1 ? '' : 's'} of ${whom} (an embryo or a haploid product of hers), `
       + 'and 2 are needed'}.`
 }
 
@@ -572,12 +573,14 @@ function readMotherFromRun(x: {
   const { acc, pat, sibs, shareCalls, result, soloRole, otherRole, log } = x
   const her = otherRole === 'maternal' ? 'mother' : 'father'
   const loaded = soloRole === 'paternal' ? 'father' : 'mother'
+  // With no parent loaded there is no other parent to name, so the sentence speaks of a parent.
+  const whom = pat.absent ? 'a parent' : `the ${her}`
   if (!sibs.length) {
-    result.limits.push(runNotUsedText(her, loaded, 'no-run'))
+    result.limits.push(runNotUsedText(whom, loaded, 'no-run'))
     return
   }
   if (pat.absent) {
-    result.limits.push(runNotUsedText(her, loaded, 'no-parent'))
+    result.limits.push(runNotUsedText(whom, loaded, 'no-parent'))
     return
   }
   const freqB = (acc.panel as FounderPanel).freqB!
@@ -594,7 +597,7 @@ function readMotherFromRun(x: {
   result.motherFromRun = { status: run.status, draws: run.draws, drawArrays: run.drawArrays }
   acc.otherOpposite = run.opposite ?? null
   if (run.status !== 'used') {
-    result.limits.push(runNotUsedText(her, loaded, run.status, run.draws))
+    result.limits.push(runNotUsedText(whom, loaded, run.status, run.draws))
     return
   }
   result.limits.push(`The ${her}'s genotype was read from ${run.draws} other draws of the ${her} in this run `

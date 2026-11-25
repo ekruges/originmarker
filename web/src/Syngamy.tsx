@@ -57,7 +57,7 @@ import { plotData, type PlotData } from './plotSeries'
 import { CallFigure, CellFigure, defectMark, rowMark, segmentMark, withheldMark, withheldRuns, type Mark } from './CallPlot'
 import { runAlerts, type Defect } from './defects'
 import {
-  callTitle, cardSays, chromCells, countText, defectsForResult, gainCells, notReportable, seenHeading, segmentKindText, drawnOf, figureNote, KIND_SAYS, MEASURED_SOURCE, measuredSentence,
+  callTitle, cardSays, chromCells, countText, defectsForResult, gainCells, notReportable, seenHeading, segmentKindText, drawnOf, figureNote, kindBesideWord, MEASURED_WHERE, measuredSentence,
   PARENT_SENTENCE, readAgainst, seenMarkText, sexLine, WORD, type ChangeList,
 } from './pageSays'
 import { groupUnits } from './abnormalities'
@@ -680,8 +680,9 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       // EVERY SAMPLE IS SCORED AGAINST EVERY OTHER ARRAY OF THE RUN, whatever the order of loading:
       // the genotype calls of all of them are read first, by the same tally the scoring keeps, so the
       // first sample scored sees the run as the last one does. A file that cannot be read has none,
-      // and is left out of every other sample's run, as it is when it is scored.
-      for (const s of queue) {
+      // and is left out of every other sample's run, as it is when it is scored. A run of one sample
+      // has no other samples, so its calls are not read ahead.
+      for (const s of queue.length > 1 ? queue : []) {
         log('READ', `${s.file.name}: genotype calls, for the run's other samples`)
         setStage({ id: s.id, markers: 0, bytes: 0, total: s.file.size })
         try {
@@ -1257,10 +1258,10 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
                 .filter((k) => !r.noParent && measuredSentence(k, setup) !== 'Not measured on the answer key in this setup.')
                 .map((k) => (
                   <Text key={k} size="xs" mb={2} style={{ maxWidth: 780, lineHeight: 1.45 }}>
-                    <b>{WORD[k]}</b>: {KIND_SAYS[k]} {measuredSentence(k, setup)}
+                    <b>{WORD[k]}</b>: {kindBesideWord(k)} {measuredSentence(k, setup)}
                   </Text>
                 ))}
-              <Text size="xs" c="dimmed" mt={4}>Counts from {MEASURED_SOURCE}.</Text>
+              <Text size="xs" c="dimmed" mt={4}>Counts are right of scored, by kind of call and setup, {MEASURED_WHERE}.</Text>
             </Section>
             {entry.series && (
               <Section title="What each row of the figure shows">

@@ -1049,9 +1049,11 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
 // to the sample, which with every sample scored against the whole run is a run of one array; the
 // drop-in test speaks of reading the run, never of grouping cells into an embryo.
 {
-  assert.ok(runNotUsedText('mother', 'father', 'no-run').endsWith('none were loaded with this one.'))
+  assert.ok(runNotUsedText('the mother', 'father', 'no-run').endsWith('none were loaded with this one.'))
+  assert.equal(runNotUsedText('a parent', 'mother', 'no-parent'),
+    'The run\'s other arrays were not used to read a parent: no parent array is loaded, and the reading needs one.')
   for (const why of ['no-parent', 'sample-unfit', 'sample-not-a-draw', 'too-few-draws'] as const) {
-    const t = runNotUsedText('mother', 'father', why, 1)
+    const t = runNotUsedText('the mother', 'father', why, 1)
     assert.ok(!t.includes('none were loaded'), t)
     if (why === 'sample-unfit') assert.ok(!/embryo|place/.test(t) && t.includes('drop-in'), t)
   }

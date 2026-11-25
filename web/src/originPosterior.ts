@@ -273,7 +273,7 @@ export type MeasuredBand = Exclude<Band, 'F'>
  * back to the code that produced it. It expects the tab-separated probe export, not the
  * comma-separated GEO one, so re-running it needs the matching format.
  */
-const F_SERIES = 'the audit band measurement, audit/bands_measured_f_series.csv'
+const F_SERIES = 'the band measurement on real arrays of this platform'
 
 /**
  * Band accuracy per material, PAIRED WITH THE PRODUCER THAT MAKES IT, or with nothing.
@@ -636,7 +636,7 @@ export function originPosterior(
         + 'Measured on 140,000 injections carrying the real noise of 35 arrays of this platform, '
         + 'the raw posterior has an expected calibration error of 0.0039 and errs UNDER-confident '
         + 'in the middle bands by 2 to 3 points, so the band is a lower bound rather than an '
-        + 'overstatement (audit/calibration/FINDINGS.txt)'
+        + 'overstatement (the calibration measured for this tool)'
       : '')
 
   return {
