@@ -10,6 +10,8 @@
 // the same reason and after the same kind of failure.
 //
 // Nothing here decides anything. Detection, classification and origin all read these outputs.
+import { kthNumber } from './sortNumbers.ts'
+
 
 /**
  * Hand the event loop back so the page can paint the line just logged.
@@ -35,7 +37,7 @@ export type Window = {
 }
 
 const medianOf = (xs: number[]): number | undefined => (xs.length
-  ? xs.slice().sort((a, b) => a - b)[xs.length >> 1] : undefined)
+  ? kthNumber(xs, xs.length >> 1) : undefined)
 
 /** Last position seen on each chromosome. */
 export const chromEnds = (cnByChrom: Map<string, CnMarker[]>): Map<string, number> => {

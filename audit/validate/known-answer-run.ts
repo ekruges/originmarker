@@ -42,6 +42,7 @@ import { readFileSync, appendFileSync, existsSync } from 'node:fs'
 import { gunzipSync } from 'node:zlib'
 import { performance } from 'node:perf_hooks'
 import { applyEvent, signature, levelTable, X_MIN, type Row, type EventSpec } from './known-answer.ts'
+import { kthNumber } from '../../web/src/sortNumbers.ts'
 
 const W = new URL('../../web/src/', import.meta.url).pathname
 const ingest = await import(`${W}ingest.ts`)
@@ -128,7 +129,7 @@ const chromOf = (res: any, c: string) => {
 const r4 = (x: number) => (Number.isFinite(x) ? Math.round(x * 1e4) / 1e4 : null)
 const sig = (s: ReturnType<typeof signature>) => ({ markers: s.markers, lrr: r4(s.lrr), abShare: r4(s.abShare),
   noCall: r4(s.noCall), offPole: r4(s.offPole), bafHist: s.bafHist.map(r4) })
-const median = (xs: number[]) => { const q = xs.filter(Number.isFinite).sort((a, b) => a - b); return q.length ? q[q.length >> 1] : NaN }
+const median = (xs: number[]) => { const q = xs.filter(Number.isFinite); return q.length ? kthNumber(q, q.length >> 1) : NaN }
 const mad = (xs: number[], m: number) => 1.4826 * median(xs.map((x) => Math.abs(x - m)))
 
 function noise(rs: readonly Row[], ref: Set<string>) {
@@ -262,12 +263,19 @@ for (const job of jobs) {
     }
     return nullCache.get(k)!
   }
+  // Each reference list's median and scaled MAD, made once per list: the lists are fixed once built.
+  const centres = new WeakMap<number[], [number, number]>()
+  const centre = (xs: number[]): [number, number] => {
+    let c = centres.get(xs)
+    if (!c) { const m = median(xs); c = [m, mad(xs, m)]; centres.set(xs, c) }
+    return c
+  }
   /** A stretch in the cell's own units: z against the reference stretches of its span class. */
   const zOf = (v: Read, span: number, not: string) => {
     const s = refOf(span, not)
-    const z = (x: number, xs: number[]) => { if (xs.length < 8 || !Number.isFinite(x)) return null; const m = median(xs); return r4((x - m) / mad(xs, m)) }
+    const z = (x: number, xs: number[]) => { if (xs.length < 8 || !Number.isFinite(x)) return null; const [m, d] = centre(xs); return r4((x - m) / d) }
     return { zI: z(v.lrr, s.lrr), zMean: xp ? z(v.mean, s.mean) : null, zShare: xp ? z(v.share, s.share) : null,
-      refLrr: r4(median(s.lrr)), refMean: xp ? r4(median(s.mean)) : null, refShare: xp ? r4(median(s.share)) : null }
+      refLrr: r4(centre(s.lrr)[0]), refMean: xp ? r4(centre(s.mean)[0]) : null, refShare: xp ? r4(centre(s.share)[0]) : null }
   }
   const readOut = (v: Read, span: number, not: string) => ({ n: v.n, lrr: r4(v.lrr), xn: v.xn, mean: r4(v.mean), share: r4(v.share),
     span, ...zOf(v, span, not) })

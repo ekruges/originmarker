@@ -53,13 +53,15 @@
  * The direction of failure is safe either way: contamination inflates the null, so a contaminated
  * null refuses rather than over-calls. It costs power, never specificity.
  */
+import { sortNumbers, kthNumber, kthPair } from './sortNumbers.ts'
 
 /** Median of a list. Returns NaN on an empty one rather than a number nobody measured. */
 export function median(xs: readonly number[]): number {
   if (!xs.length) return NaN
-  const q = [...xs].sort((a, b) => a - b)
-  const m = q.length >> 1
-  return q.length % 2 ? q[m] : (q[m - 1] + q[m]) / 2
+  const m = xs.length >> 1
+  if (xs.length % 2) return kthNumber(xs, m)
+  const [a, b] = kthPair(xs, m)
+  return (a + b) / 2
 }
 
 /**
@@ -123,7 +125,7 @@ export const STATE_GAP = 0.20
 export function majorityScale(
   unitMeans: readonly number[], gap = STATE_GAP, minUnits = 8,
 ): NullScale & { lo: number; hi: number } {
-  const xs = unitMeans.filter((x) => Number.isFinite(x)).sort((a, b) => a - b)
+  const xs = sortNumbers(unitMeans.filter((x) => Number.isFinite(x)))
   const groups: number[][] = []
   for (const x of xs) {
     const g = groups[groups.length - 1]
