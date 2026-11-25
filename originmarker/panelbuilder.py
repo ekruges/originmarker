@@ -1434,9 +1434,9 @@ def marker_count(material: str) -> dict:
 
 # The lab's chip, the one the tool reads (web/src/platform.ts PROVEN_CHIP). Its probes as the
 # chip's own export files list them: all 135 files of the public series GSE148488 (NCBI GEO),
-# probe ids, chromosomes and GRCh37 positions only, no genotype; 6.25 MB. Whether it ships in the
-# public repo is the owner's call. Every probe on the list
-# counts as read: Axiom's probe class differs between files of one series, so it is a property
+# probe ids, chromosomes and positions only, no genotype: GRCh37 as the files give it, and GRCh38
+# from Ensembl's assembly map, release 116 (audit/truth/chip-grch38-2026-11-25.txt); 9.6 MB.
+# Whether it ships in the public repo is the owner's call. Every probe on the list counts as read: Axiom's probe class differs between files of one series, so it is a property
 # of a batch, and on the bulk arrays every autosomal class is called at 0.90 to 0.94
 # (audit/truth/chip-probes-2026-11-25.txt).
 CHIP_NAME = "UK Biobank Axiom"
@@ -1447,43 +1447,30 @@ _chip: dict = {}
 
 
 def _chip_table() -> dict:
-    """{chrom: ([pos37], [probe id])}, sorted by position. Read once."""
+    """{chrom: ([GRCh38 position], [probe id])}, sorted by position, read once. A probe with no
+    single GRCh38 position (its column empty) is left out, so it is never offered."""
     with _chip_lock:
         if not _chip:
+            rows: dict = {}
             with gzip.open(CHIP_PROBES, "rt") as f:
                 for line in f:
                     if line.startswith(("#", "probeset_id")):
                         continue
-                    pid, ch, pos = line.rstrip("\n").split("\t")
-                    t = _chip.setdefault(ch, ([], []))
-                    t[0].append(int(pos))
-                    t[1].append(pid)
+                    pid, ch, _, p38 = line.rstrip("\n").split("\t")
+                    if p38:
+                        rows.setdefault(ch, []).append((int(p38), pid))
+            for ch, r in rows.items():
+                r.sort()
+                _chip[ch] = ([p for p, _ in r], [i for _, i in r])
         return _chip
 
 
 def chip_sites(chrom: str, lo: int, hi: int) -> dict[int, str]:
-    """{GRCh38 position: probe id} for the chip's probes in [lo, hi] on GRCh38.
-
-    The chip lists GRCh37 positions. Ensembl's assembly map of the window (live, R1) gives
-    ungapped blocks, and a probe is placed only inside a block that maps back to this chromosome.
-    Raises if the map does not answer: without it no candidate can be shown to be on the chip.
-    """
+    """{GRCh38 position: probe id} for the chip's probes in [lo, hi] on GRCh38. No network: the
+    positions ship with the probe list (audit/truth/chip-grch38.py)."""
     import bisect
-    j = json.loads(_get(ENSEMBL, f"/map/human/GRCh38/{chrom}:{lo}..{hi}:1/GRCh37",
-                        {"content-type": "application/json"},
-                        label=f"Ensembl assembly map chr{chrom}:{lo:,}-{hi:,}"))
-    pos37, ids = _chip_table().get(chrom, ([], []))
-    out: dict[int, str] = {}
-    for mp in j.get("mappings") or []:
-        o, m = mp["original"], mp["mapped"]
-        if (m.get("seq_region_name") != chrom or m.get("assembly") != "GRCh37"
-                or m["end"] - m["start"] != o["end"] - o["start"]):
-            continue
-        for i in range(bisect.bisect_left(pos37, m["start"]), bisect.bisect_right(pos37, m["end"])):
-            off = pos37[i] - m["start"]
-            p38 = o["start"] + off if m["strand"] == o["strand"] else o["end"] - off
-            out[p38] = ids[i]
-    return out
+    pos38, ids = _chip_table().get(chrom, ([], []))
+    return {pos38[i]: ids[i] for i in range(bisect.bisect_left(pos38, lo), bisect.bisect_right(pos38, hi))}
 
 
 def keep_on_chip(markers: list[Marker], sites: dict[int, str]) -> list[Marker]:

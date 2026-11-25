@@ -1012,14 +1012,28 @@ def test_only_markers_the_chip_carries_are_kept():
     assert [(m.pos, m.chip_probe) for m in kept] == [(900, "AX-1"), (1100, "AX-2")]
 
 
-def test_chip_probe_is_placed_on_grch38_through_the_map(monkeypatch):
-    """One forward block: GRCh38 = GRCh37 + the block's offset; outside it, nothing."""
-    monkeypatch.setattr(pb, "_chip_table", lambda: {"11": ([100, 200, 900], ["AX-a", "AX-b", "AX-c"])})
-    reply = {"mappings": [{"original": {"start": 1100, "end": 1300, "strand": 1},
-                           "mapped": {"start": 100, "end": 300, "strand": 1,
-                                      "seq_region_name": "11", "assembly": "GRCh37"}}]}
-    monkeypatch.setattr(pb, "_get", lambda *a, **k: json.dumps(reply))
+def test_chip_sites_read_the_shipped_grch38_column(monkeypatch):
+    """Inside the window, by GRCh38 position, with no network call."""
+    monkeypatch.setattr(pb, "_chip_table", lambda: {"11": ([1100, 1200, 1900], ["AX-a", "AX-b", "AX-c"])})
+    monkeypatch.setattr(pb, "_http", lambda *a, **k: pytest.fail("the chip filter made a network call"))
     assert pb.chip_sites("11", 1000, 1400) == {1100: "AX-a", 1200: "AX-b"}
+    assert pb.chip_sites("12", 1000, 1400) == {}
+
+
+def test_golden_panel_builds_with_the_network_blocked(monkeypatch):
+    """From recorded fixtures alone: nothing between the gnomAD fetch and the shortlist calls out."""
+    import urllib.request
+    def blocked(*a, **k):
+        raise AssertionError("network call while building the golden panel")
+    monkeypatch.setattr(urllib.request, "urlopen", blocked)
+    r = pb.build(GOLDEN_QUERY)
+    assert r.provenance["chip"]["offered"] == 95 and len(r.candidates) == 95
+
+
+def test_golden_chip_markers_are_the_recorded_ones(result):
+    """The 95 probes the live assembly map gave before the GRCh38 column shipped."""
+    want = json.loads((FIXTURES.parent / "golden-chip-probes.json").read_text())
+    assert {str(m.pos): m.chip_probe for m in result.candidates} == want
 
 
 def test_golden_panel_offers_only_chip_markers(result):
