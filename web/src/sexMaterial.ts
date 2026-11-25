@@ -17,6 +17,7 @@
  */
 import type { Gate, Sex } from './ingest.ts'
 import { HAPLOID_MAX_HET, type StageCall } from './stage.ts'
+import { sexRow, type SexChromosomeCall } from './sexChromosome.ts'
 
 export interface SexMaterial {
   /** The array shows two copies of its autosomes, so chrX can be read as one X or two. */
@@ -74,11 +75,14 @@ export function sexMaterial(o: {
  * sexes. "male" needs a chrY and an X in the male band, "female" no chrY and an X in the female band;
  * a chrY not read gives no sex. The ambiguous band keeps its word. With no parent the word is printed
  * only where two copies are shown; elsewhere it would read female on a pronucleus. Without a
- * sex-chromosome call, as for a loaded parent, the X band stands alone.
+ * sex-chromosome call, as for a loaded parent, the X band stands alone. A reading that makes a
+ * sex-chromosome row, or prints XY or XX, gives the word its own statement names (sexSays).
  */
 export function shownSex(
-  sex: Sex, m: SexMaterial | undefined, sc?: { yBearing: boolean | null; yWhy?: string },
+  sex: Sex, m: SexMaterial | undefined, sc?: { yBearing: boolean | null; yWhy?: string; constitution?: string },
 ): string {
+  const said = sc?.constitution ? statedOf(sc as SexChromosomeCall, m) : undefined
+  if (said) return said.word
   if (m && !m.diploid) {
     return m.haploid ? 'not read: staged haploid, one sex chromosome is its normal complement'
       : 'not read: two copies of the autosomes not shown'
@@ -87,6 +91,40 @@ export function shownSex(
   if (sc.yBearing === null) return `not read: ${sc.yWhy ?? 'chrY was not read'}`
   if (sex === 'female') return sc.yBearing ? 'not read: chrY present with a heterozygous X' : 'female'
   return sc.yBearing ? 'male' : 'not read: chrX reads one copy by its calls and chrY is absent'
+}
+
+/** What a reading states of the cell where it states anything: its row's words, or XY or XX. */
+function statedOf(sc: SexChromosomeCall, m: SexMaterial | undefined): { head: string; word: string; badge: string | null } | undefined {
+  const row = sexRow(sc, m)
+  if (row) return row
+  // An XY or XX printed is the sex it names. On two copies of the autosomes not shown an XY rests
+  // on chrX a copy step under them with a chrY, which one genome cannot hold.
+  if (sc.constitution === 'XY') return { head: 'XY', word: 'male', badge: 'XY' }
+  if (sc.constitution === 'XX') return { head: 'XX', word: 'female', badge: 'XX' }
+  return undefined
+}
+
+/** The sex-chromosome line: the reading's statement and its reason. */
+export const sexLineOf = (sc: SexChromosomeCall, m?: SexMaterial): string => {
+  const head = statedOf(sc, m)?.head ?? (sc.constitution === 'unresolved' ? 'Not read' : sc.constitution)
+  return `${head}: ${sc.why}.`
+}
+
+/** The badge: what the word names, on a reportable sample only. */
+export const sexBadge = (sc: SexChromosomeCall | undefined, m: SexMaterial | undefined, reportable: boolean): string | null =>
+  (sc && reportable ? statedOf(sc, m)?.badge ?? null : null)
+
+/**
+ * Every statement a sample makes of its sex chromosomes, from one reading: the line, the word and
+ * the badge, which therefore cannot disagree. A sample not reportable shows no badge.
+ */
+export function sexSays(sex: Sex, m: SexMaterial | undefined, sc: SexChromosomeCall, reportable = true):
+{ line: string; word: string; badge: string | null } {
+  return {
+    line: sexLineOf(sc, m),
+    word: shownSex(sex, m, sc),
+    badge: sexBadge(sc, m, reportable),
+  }
 }
 
 /** The quality gates with the heterozygosity sex gate stated as not read, where two copies are not shown. */

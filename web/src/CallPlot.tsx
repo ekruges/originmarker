@@ -18,6 +18,7 @@ import { levelWord, saidOf } from './pageSays.ts'
 import { segmentCoords, type Segment } from './segments.ts'
 import { OTHER_MIN_SPAN_BP } from './otherParentLoss.ts'
 import type { Refusal } from './refusals.ts'
+import { savePdf } from './svgPdf.ts'
 
 const FATHER = 'var(--om-blue)'
 const MOTHER = 'var(--om-higher)'
@@ -144,6 +145,27 @@ function SaveSvg({ svg, name }: { svg: React.RefObject<SVGSVGElement | null>; na
       }}
     >
       Save SVG
+    </button>
+  )
+}
+
+/** Save figures as a vector PDF: one page per figure, the file titled as the page titles it. */
+function SavePdf({ svgs, name, title, label = 'Save PDF' }: {
+  svgs: () => SVGSVGElement[]; name: string; title: string; label?: string
+}) {
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        const parts = svgs()
+        if (parts.length) savePdf(parts.map((s) => ({ svg: s.outerHTML, title })), name, title)
+      }}
+      style={{
+        border: 0, background: 'none', font: 'inherit', fontSize: 11, padding: 0, cursor: 'pointer',
+        paddingLeft: 12, whiteSpace: 'nowrap', color: 'var(--om-blue)', textDecoration: 'underline',
+      }}
+    >
+      {label}
     </button>
   )
 }
@@ -526,6 +548,7 @@ export function WholeCell({ data, marks, name, numbers, focus, title, note, chip
       {save ? (
         <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
           <SaveSvg svg={svg} name={`${name}-cell`} />
+          <SavePdf svgs={() => (svg.current ? [svg.current] : [])} name={`${name}-cell`} title={title ?? 'Every chromosome of this cell'} />
         </div>
       ) : null}
     </div>
@@ -635,6 +658,7 @@ export function Zoom({ data, mark, marks, number, width, title, caption, saveNam
       {saveName ? (
         <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 2 }}>
           <SaveSvg svg={svg} name={saveName} />
+          <SavePdf svgs={() => (svg.current ? [svg.current] : [])} name={saveName} title={title ?? `Chromosome ${mark.chrom}: ${mark.word}`} />
         </div>
       ) : null}
     </div>
@@ -754,6 +778,8 @@ export function CellFigure({ data, marks, name, title, note }: {
           the cell and every zoom rather than the overview on its own. */}
       <div style={{ display: 'flex', fontSize: 11, color: DIM, marginTop: 4 }}>
         <SaveFigure box={box} name={`${name}-cell`} cols={cols} />
+        <SavePdf svgs={() => (box.current ? [...box.current.querySelectorAll('svg')] : [])}
+          name={`${name}-cell`} title={title} label="Save PDF, the cell and every zoom" />
       </div>
     </div>
   )
@@ -828,7 +854,8 @@ export function withheldMark(sg: Segment, loaded: Role | null): Mark {
 export function defectMark(
   d: Defect, segments: readonly Segment[], loaded: Role | null, endBp: number | undefined, deeper?: boolean,
 ): Mark | null {
-  if (d.chrom === 'genome') return null
+  // The figure has no X track: a sex-chromosome row is read on the card and in the report.
+  if (d.chrom === 'genome' || d.step === 'sex') return null
   const lines = [`${d.locus}${d.interval ? ` ${d.interval}` : ''}`,
     ...(d.informative !== undefined ? [`${d.informative.toLocaleString('en-US')} markers`] : []), d.why]
   const origin = d.origin

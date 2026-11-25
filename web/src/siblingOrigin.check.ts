@@ -12,7 +12,7 @@
 //   siblings.
 import assert from 'node:assert/strict'
 import {
-  callSiblingOrigin, expectedPhi, hetRule, DROP_IN, PHI_WALL, CALL_POSTERIOR, MIN_MARKERS,
+  callSiblingOrigin, expectedPhi, hetRule, DROP_IN, PHI_WALL, SISTER_CALL_POSTERIOR, SISTER_MIN_MARKERS,
   MIN_SIBLINGS, type AB,
 } from './siblingOrigin.ts'
 
@@ -33,7 +33,7 @@ const phased = (obs: AB[], sibs: number, ado = 0.308) =>
   assert.equal(lostOther.hypothesis, 'other-copy-lost')
   // Not exactly equal: false heterozygosity genuinely favours one side, which is the point of
   // reporting phi. But both must be callable, and the gap must be small at a sane phi.
-  assert.ok(lostRef.posterior > CALL_POSTERIOR && lostOther.posterior > CALL_POSTERIOR,
+  assert.ok(lostRef.posterior > SISTER_CALL_POSTERIOR && lostOther.posterior > SISTER_CALL_POSTERIOR,
     'both directions must be callable')
   assert.ok(Math.abs(lostRef.posterior - lostOther.posterior) < 0.05,
     `the two directions must be near-symmetric, got ${lostRef.posterior} and ${lostOther.posterior}`)
@@ -80,7 +80,7 @@ const phased = (obs: AB[], sibs: number, ado = 0.308) =>
 
   assert.equal(phased(rep('BB', 5), 4).hypothesis, 'refused',
     'too few markers is a refusal')
-  assert.ok(phased(rep('BB', 5), 4).why.includes(String(MIN_MARKERS)))
+  assert.ok(phased(rep('BB', 5), 4).why.includes(String(SISTER_MIN_MARKERS)))
 
   // Past the wall, no marker count rescues the reference-copy-lost arm.
   const past = callSiblingOrigin(rep('BB', 5000), 3, 0.308, 0.45, undefined, true)
@@ -94,7 +94,7 @@ const phased = (obs: AB[], sibs: number, ado = 0.308) =>
   // only at ado/2. Mixed evidence does not produce a marginal parental call either; it is absorbed
   // by no-deletion, which is what the third hypothesis is for. So the guard fires on degenerate
   // input rather than on real regions, and is checked as a threshold rather than a scenario.
-  assert.ok(CALL_POSTERIOR > 0.9 && CALL_POSTERIOR < 1,
+  assert.ok(SISTER_CALL_POSTERIOR > 0.9 && SISTER_CALL_POSTERIOR < 1,
     'the posterior bar must be a real bar, not a formality')
   const empty = phased([], 4)
   assert.equal(empty.hypothesis, 'refused', 'no markers at all must refuse')

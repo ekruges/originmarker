@@ -1013,7 +1013,7 @@ const COMMANDS: Record<string, () => void | Promise<void>> = {
       ['origin', 'DEFAULT_Q', oneParent.DEFAULT_Q, 'frequency of the allele the loaded parent lacks'],
       ['origin', 'GENOTYPE_ERROR', oneParent.GENOTYPE_ERROR, 'a homozygote read as the other homozygote'],
       ['origin', 'DROP_IN', oneParent.DROP_IN, 'false heterozygote at a truly homozygous marker, measured over 113 same-genome pairs'],
-      ['origin', 'MIN_MARKERS', oneParent.MIN_MARKERS, 'informative markers a region needs before any verdict'],
+      ['origin', 'REGION_MIN_MARKERS', oneParent.REGION_MIN_MARKERS, 'informative markers a region needs before any verdict'],
       ['origin', 'MAX_REGION_HET', oneParent.MAX_REGION_HET, 'above this the region\'s genotypes are not measuring it and no origin is called'],
       ['origin', 'CALL_POSTERIOR', oneParent.CALL_POSTERIOR, 'posterior a hypothesis must reach to be named'],
       ['dosage', 'ORIGIN_WITHOUT_CLASS.trophectoderm', dosage.ORIGIN_WITHOUT_CLASS.trophectoderm, 'fraction of detected TE events that resolve an ORIGIN but not a CLASS: emitting one verdict would refuse all of them'],

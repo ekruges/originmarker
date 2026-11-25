@@ -43,22 +43,17 @@
 /** Genotype as this codebase writes it elsewhere. */
 export type AB = 'AA' | 'AB' | 'BB' | 'NC'
 
-/**
- * Drop-in on this platform: a heterozygous call at a truly homozygous marker.
- *
- * MEASURED, on 113 same-genome array pairs across four experiments, being replicate and clonal
- * material where a marker the reference calls homozygous is homozygous in truth:
- *
- *     ROBLES  n=40  median 0.0525      DIETER  n=25  median 0.0435
- *     JENNA   n=16  median 0.0410      TREFF   n=32  median 0.0390
- *
- * The pooled median is used. An external assessment assumed 0.0854 from 7 arrays; every experiment
- * here sits below that, and the worst single pair observed was 0.0646.
- */
-export const DROP_IN = 0.0435
+import { DROP_IN } from './oneParentOrigin.ts'
 
-/** Genotyping error other than drop-in: a homozygote called as the wrong homozygote. */
-export const GENOTYPE_ERROR = 0.02
+/** Drop-in on this platform, the one measured figure the genotype channel also reads. */
+export { DROP_IN }
+
+/**
+ * Genotyping error other than drop-in: a homozygote called as the wrong homozygote. Not the
+ * genotype channel's GENOTYPE_ERROR, which also counts a spurious heterozygote; the two are equal
+ * today and bound different things.
+ */
+export const WRONG_HOMOZYGOTE_RATE = 0.02
 
 /**
  * False-het fraction above which no call is made.
@@ -69,11 +64,12 @@ export const GENOTYPE_ERROR = 0.02
  */
 export const PHI_WALL = 0.15
 
-/** Posterior a hypothesis must reach before the region is called. */
-export const CALL_POSTERIOR = 0.95
+/** Posterior a hypothesis must reach before a sister-referenced region is called. Its own bar,
+ *  equal today to the genotype channel's CALL_POSTERIOR. */
+export const SISTER_CALL_POSTERIOR = 0.95
 
 /** Fewest informative markers before a region is scored at all. */
-export const MIN_MARKERS = 20
+export const SISTER_MIN_MARKERS = 20
 
 /** Fewest event-free sibling cells that can establish heterozygosity. */
 export const MIN_SIBLINGS = 2
@@ -166,7 +162,7 @@ export function callSiblingOrigin(
   siblings: number,
   ado: number,
   dropIn = DROP_IN,
-  eps = GENOTYPE_ERROR,
+  eps = WRONG_HOMOZYGOTE_RATE,
   /** Whether `observations` are oriented to a consistent haplotype. Unphased input can still
    *  separate a deletion from a dropout cluster; it cannot say which side was lost. */
   phased = false,
@@ -190,10 +186,10 @@ export function callSiblingOrigin(
         + 'past which the reference-copy-lost hypothesis is unresolvable at any marker count',
     }
   }
-  if (used.length < MIN_MARKERS) {
+  if (used.length < SISTER_MIN_MARKERS) {
     return {
       ...base, hypothesis: 'refused', posterior: NaN,
-      why: `${used.length} informative markers is under the ${MIN_MARKERS} this needs`,
+      why: `${used.length} informative markers is under the ${SISTER_MIN_MARKERS} this needs`,
     }
   }
 
@@ -214,7 +210,7 @@ export function callSiblingOrigin(
   // and only the deletion/no-deletion contrast is reported.
   if (!phased) {
     const deletion = post[0] + post[1]
-    if (Math.max(deletion, post[2]) < CALL_POSTERIOR) {
+    if (Math.max(deletion, post[2]) < SISTER_CALL_POSTERIOR) {
       return {
         ...base, hypothesis: 'refused', posterior: Math.max(deletion, post[2]),
         why: 'evidence separates neither deletion nor an intact region',
@@ -237,10 +233,10 @@ export function callSiblingOrigin(
   let best = 0
   for (let i = 1; i < 3; i += 1) if (post[i] > post[best]) best = i
 
-  if (post[best] < CALL_POSTERIOR) {
+  if (post[best] < SISTER_CALL_POSTERIOR) {
     return {
       ...base, hypothesis: 'refused', posterior: post[best],
-      why: `best hypothesis reaches ${post[best].toFixed(3)}, under the ${CALL_POSTERIOR} needed; `
+      why: `best hypothesis reaches ${post[best].toFixed(3)}, under the ${SISTER_CALL_POSTERIOR} needed; `
         + 'the evidence does not separate them',
     }
   }

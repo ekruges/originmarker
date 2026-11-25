@@ -32,6 +32,10 @@ import type { Gate, SampleProfile } from './ingest.ts'
 import type { RunResult } from './runlength.ts'
 import { int, utc } from './fmt.ts'
 import { EXAMPLE_CITATION, EXAMPLE_DENSITY } from './examples.ts'
+import { barIn, barsApplied, barValue, type Setup } from './bars.ts'
+import { withheldHeading, withheldRows } from './withheld.ts'
+import { methodsParagraph, type Methods } from './methods.ts'
+import { PROVEN_CHIP } from './platform.ts'
 
 export const DISCLAIMER = 'Research use only. Parent of origin here is a statistical call from '
   + 'array genotypes and requires confirmation by an independent method in a qualified genetics '
@@ -86,11 +90,47 @@ export interface ReportInput {
     eventSizeBp?: number
     bySample: { name: string; results: RunResult[] }[]
   } | null
+  /** Other arrays read beside these in the run, where the scoring had more than the report holds. */
+  runArrays?: number
 }
 
-/** Constants of the parental test, left out of a report with no parental array. */
-const PARENTAL_CONSTANTS = new Set(['Mendelian inconsistency floor', 'Paternal-absence noise bound',
-  'Absence calling margin', 'Residual absence floor', 'Second-parent signal'])
+/** The setup the registry's bars are chosen by: parents loaded, other arrays in the run, comparison. */
+export function reportSetup(input: Pick<ReportInput, 'files' | 'runArrays' | 'comparison'>): Setup {
+  const loaded = (input.files.some((f) => f.role === 'donor') ? 1 : 0) + (input.files.some((f) => f.role === 'oocyte') ? 1 : 0)
+  // A result read against a parent counts that parent, whatever files the report was handed.
+  const read = Math.max(0, ...input.files.filter((f) => f.result).map((f) => (f.result!.noParent ? 0 : f.maternal ? 2 : 1)))
+  const samples = input.files.filter((f) => f.result).length
+  // A result grouped with other cells was read beside them, whatever the report holds.
+  const grouped = input.files.some((f) => (f.result?.units ?? 0) > 1)
+  return { parents: Math.max(loaded, read) as 0 | 1 | 2, run: grouped || (input.runArrays ?? samples - 1) > 0, comparison: !!input.comparison }
+}
+
+/** The methods paragraph of a report's run: the same function the page's copy block reads. */
+export function reportMethods(input: Pick<ReportInput, 'files' | 'runArrays' | 'comparison' | 'tool'>): Methods {
+  const donor = input.files.find((f) => f.role === 'donor')
+  const results = input.files.filter((f) => f.result)
+  return methodsParagraph({
+    tool: input.tool, chip: PROVEN_CHIP,
+    builds: [...new Set(results.map((f) => f.profile?.build.build ?? 'undetermined'))],
+    samples: results.length,
+    father: donor ? (donor.inferred ? 'rebuilt' : 'measured')
+      : results.some((f) => !f.result!.noParent && f.result!.role === 'paternal') ? 'measured' : 'none',
+    mother: input.files.some((f) => f.role === 'oocyte')
+      || results.some((f) => !f.result!.noParent && (!!f.maternal || f.result!.role === 'maternal')),
+    grouped: Math.max(0, ...results.map((f) => f.result!.units ?? 0)),
+    sexRows: results.filter((f) => {
+      const l = cardSays(f.result!, f.maternal, f.paired?.originClass ?? f.result!.originClass, !!donor?.inferred).list
+      return [...l.counted, ...l.once, ...l.seen, ...l.notReported?.rows ?? []].some((g) => g.pieces[0]?.step === 'sex')
+    }).length,
+    applied: barsApplied(reportSetup(input)),
+  })
+}
+
+/** The timing section of a sample not reportable: one line, no rows. */
+export const NO_TIMING_SAYS = 'No timing is read on a sample that is not reportable.'
+
+/** The tool string, or a plain statement that the server gave no version. */
+export const toolLine = (tool: string): string => (/\d/.test(tool) ? tool : `${tool}, version not reported`)
 
 interface Col { head: string; w: number; right?: boolean; font?: FontName; size?: number }
 
@@ -232,7 +272,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     }
     pdf.setFont('Helvetica', 6.5)
     pdf.setFillColor(GREY)
-    pdf.drawString(L, 26, `Syngamy | ${input.tool} | report ${input.reportId} | generated `
+    pdf.drawString(L, 26, `Syngamy | ${toolLine(input.tool)} | report ${input.reportId} | generated `
       + `${input.generatedAt} | page ${page}`)
     pdf.setFillColor(INK)
   }
@@ -353,6 +393,9 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   // NO PARENTAL ARRAY, NO PARENTAL SENTENCE. Every text below that describes a donor's alleles, an
   // absence ratio or an inference from one is printed only where a parent was loaded.
   const noParent = !donor && !oocyte
+  // The bars this run was decided by, from the registry: the table near the end and every value
+  // quoted in the text read them, so a printed bar cannot differ from the one the scoring used.
+  const applied = barsApplied(reportSetup(input))
   // The headline and the change list, from the module the card reads, so the two cannot differ.
   const fatherRebuilt = !!donor?.inferred
   const saysOf = new Map<ReportFile, CardSays>()
@@ -367,7 +410,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     ['Report:', input.reportId],
     ['Generated:', input.generatedAt],
     ['Run started:', input.startedAt ? utc(input.startedAt) : 'not recorded'],
-    ['Software:', `${input.tool}, Syngamy module`],
+    ['Software:', `${toolLine(input.tool)}, Syngamy module`],
     ['Sperm donor:', donor ? `${donor.name}  (${int(donor.markers)} markers, SHA-256 `
       + `${donor.sha256.slice(0, 16)})` : 'none'],
     // The inference sentence holds only where a father was loaded; with no parent nothing is inferred.
@@ -485,7 +528,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   if (!noParent) text('Absence is the rate at which the donor\'s obligate allele is missing where he is '
     + 'homozygous. Ceiling is what this sample\'s own noise can manufacture: its no-call rate '
     + 'times its heterozygous fraction. A sample is called as lacking a paternal contribution '
-    + 'only above 3x that ceiling, and as carrying one only at or below it; in between it is '
+    + `only above ${barValue(barIn(applied, 'ABSENCE_MARGIN'))} that ceiling,`
+    + ' and as carrying one only at or below it; in between it is '
     + 'left uncalled. No confidence percentage is reported, deliberately: see Interpretation.',
   6.5, 'Helvetica-Oblique', 2, GREY)
 
@@ -579,6 +623,15 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       if (list.notReported.rows.length) changeTable(list.notReported.rows)
       if (list.notReported.disturbed) text(disturbedText(list.notReported, false), 7.6, 'Helvetica', 2, GREY)
     }
+    // Every refusal and every row not reported, with its cause, as the page lists them.
+    {
+      const held = withheldRows(r, list)
+      text(withheldHeading(held.length), 7.6, 'Helvetica-Bold', 2, GREY)
+      if (held.length) {
+        table([{ head: 'What', w: 190 }, { head: 'Why', w: 220 }, { head: 'Measured', w: 122 }],
+          held.map((w) => [w.what, { v: w.why, colour: GREY }, { v: w.measured || '-', colour: GREY }]))
+      }
+    }
 
     // THE FEATURE COMPARISON IS NO LONGER PRINTED HERE. It answers a different question from the
     // rest of this report: everything else asks whose a change is, that asks whether the change
@@ -636,11 +689,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       ['Alleles the donor lacks', pct(r.nonParentalRate), pct(r.secondParentExpected),
         'half the donor\'s heterozygosity. A second parent supplies an allele he lacks only '
         + 'where he is homozygous, at sum(pq), and his heterozygosity is sum(2pq).'],
-      ['Heterozygous BAF band', pct(r.hetBand), '8.00%',
+      ['Heterozygous BAF band', pct(r.hetBand), pct(barIn(applied, 'HET_BAND_DIPLOID').value),
         'measured at 15-16% for diploid genomes and 1.3-3.4% for uniparental ones. Dropout does '
         + 'not mimic this: a biparental embryo at 33% dropout still reads 22.2%.'],
       ['Spread between chromosomes',
-        Number.isFinite(r.dispersion) ? r.dispersion.toFixed(2) : '-', '0.35',
+        Number.isFinite(r.dispersion) ? r.dispersion.toFixed(2) : '-', barValue(barIn(applied, 'UNIFORM_CV')),
         'coefficient of variation of the per-chromosome rate. Measured at 1.11 for two arrays '
         + 'of one man and 0.76 for a degraded true offspring, against 0.10 for an unrelated '
         + 'adult and 0.10 for two genomes blended in one tube. Below the reference the '
@@ -673,7 +726,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     const sex = r.chroms.filter((c) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
     if (sex.length) {
       heading(seenHeading(seen, 'Sex chromosomes'), 8.6)
-      if (r.sexChromosome) text(sexLine(r.sexChromosome), 7.6, 'Helvetica', 2)
+      if (r.sexChromosome) text(sexLine(r.sexChromosome, r.sexMaterial), 7.6, 'Helvetica', 2)
       chromTable(sex, r.explainable, seen, defects)
     }
     const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed
@@ -726,28 +779,6 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         )
       }
 
-      // TIMING, WHICH ONLY EXISTS WHEN TWO UNITS OF ONE EMBRYO WERE ARRAYED.
-      if (r.uniformity?.length) {
-        heading('Gamete-borne or post-fertilisation', 8.6)
-        text('Whether a change was carried by the gamete or arose after fertilisation cannot be '
-          + 'read on one cell. Across the units of one embryo, read on each stretch between the '
-          + 'breakpoints of all its cells: a change every unit carries, same direction and parent, '
-          + 'is from the gamete with three units or more and only consistent with it with two; one '
-          + 'unit gaining what another loses, or a change some units carry while another reads that '
-          + 'stretch normal, arose after fertilisation. A change over stretches that read '
-          + 'differently has a line for each. The units were grouped by genotype concordance rather '
-          + 'than by their labels.',
-        7.4, 'Helvetica', 2.4, GREY)
-        table(
-          [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
-          timingRows(r.uniformity).map((u) => [
-            u.where,
-            { v: seen ? verdictText(true, u.mechanism) : stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
-            { v: u.why, colour: GREY },
-          ]),
-        )
-      }
-
       // WHAT WAS LOOKED FOR AND CANNOT BE ANSWERED. Without this table a report that lists what was
       // found says nothing about what was never checked, and on this platform the difference
       // between "no heterodisomy present" and "heterodisomy is unreachable from an embryo alone" is
@@ -789,6 +820,28 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'POSITIVE: no confirmed gain with a known origin exists in the material behind these '
         + 'thresholds, so this has been shown to refuse correctly and never to fire correctly.',
       6.5, 'Helvetica-Oblique', 2, GREY)
+    }
+    // TIMING, WHICH ONLY EXISTS WHEN TWO UNITS OF ONE EMBRYO WERE ARRAYED, whether or not a gain was read.
+    if (timingRows(r.uniformity ?? []).length) {
+      heading('Gamete-borne or post-fertilisation', 8.6)
+      text('Whether a change was carried by the gamete or arose after fertilisation cannot be '
+        + 'read on one cell. Across the units of one embryo, read on each stretch between the '
+        + 'breakpoints of all its cells: a change every unit carries, same direction and parent, '
+        + 'is from the gamete with three units or more and only consistent with it with two; one '
+        + 'unit gaining what another loses, or a change some units carry while another reads that '
+        + 'stretch normal, arose after fertilisation. A change over stretches that read '
+        + 'differently has a line for each. The units were grouped by genotype concordance rather '
+        + 'than by their labels.',
+      7.4, 'Helvetica', 2.4, GREY)
+      if (seen) text(NO_TIMING_SAYS, 7.6, 'Helvetica', 2, GREY)
+      else table(
+        [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
+        timingRows(r.uniformity!).map((u) => [
+          u.where,
+          { v: stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
+          { v: u.why, colour: GREY },
+        ]),
+      )
     }
     if (r.segments.length) {
       heading(seenHeading(seen, 'Segmental change'), 8.6)
@@ -1081,6 +1134,13 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
   // --- methods --------------------------------------------------------------------------------
   newPage()
   heading('Methods', 11)
+  {
+    const methods = reportMethods(input)
+    text(methods.text, 8, 'Helvetica', 2.6)
+    for (const c of methods.cites) text(c.ref, 7.4, 'Helvetica', 2.2, GREY)
+    y -= 3
+  }
+  heading('How each reading works', 9.5)
   const assembly = builds.length === 1 && builds[0] !== 'undetermined' ? builds[0] : null
   if (noParent) {
     text(`No parental array was supplied. Each of ${results.length} sample(s) was read from its own SNP `
@@ -1093,7 +1153,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     + 'called, and compared against the rate that sample\'s own genotyping noise can produce, '
     + 'taken as the product of its no-call rate and its heterozygous fraction. A sample was '
     + 'called as lacking a paternal contribution only where the observed rate exceeded that '
-    + 'bound by 3-fold, and as carrying one only where it fell at or below the bound; rates '
+    + `bound by ${barValue(barIn(applied, 'ABSENCE_MARGIN'))},`
+    + ' and as carrying one only where it fell at or below the bound; rates '
     + 'between the two were left uncalled. Whether a second parent contributed was assessed from '
     + 'the rate at which the sample carries alleles the sperm donor does not possess, against '
     + 'half his heterozygosity, which is the contribution a second parent makes. Zygosity was '
@@ -1135,11 +1196,11 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     text('Segmental loss was scanned for within each chromosome, because a chromosome that is '
       + 'only partly lost reads as neither present nor absent and its whole-chromosome verdict '
       + 'is therefore uninformative. A multiscale likelihood-ratio scan over windows of at least '
-      + '2,400 called informative markers was scored against a robust external null, the median '
+      + `${barValue(barIn(applied, 'MIN_SEGMENT_MARKERS'))}, called and informative, was scored against a robust external null, the median `
       + "per-chromosome absence rate of that sample's OTHER chromosomes, so that one event cannot "
       + 'inflate the rate it is tested against. The calling threshold is empirical rather than a '
       + 'closed-form tail: absence artefact on amplified material is spatially clustered, so a '
-      + 'tail computed under independence reports artefact as significant. It was set at 250 '
+      + `tail computed under independence reports artefact as significant. It was set at ${barValue(barIn(applied, 'SEGMENT_LRT'))} `
       + 'against a maximum of 139 reached by five genomes known to carry no event over 110 '
       + 'chromosome scans, and the weakest real event at the marker floor scores 431. A '
       + 'chromosome withheld by the allelic-ratio gate is not scanned. Reported spans are the '
@@ -1150,8 +1211,8 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
       + "asks where a parent's alleles are missing, which a region can be while its DNA is "
       + 'entirely present. The copy-number channel asks where the DNA itself is gone, read from '
       + 'the array no longer calling at all, and a region is reported only where that no-call '
-      + 'rate rises AND the median intensity departs from the rest of the genome by at least 1.0 '
-      + 'log2. That second requirement is load-bearing: across 46 arrays the scan without it '
+      + `rate rises AND the median intensity departs from the rest of the genome by at least ${barValue(barIn(applied, 'SEGMENT_LRR_SHIFT'))}`
+      + '. That second requirement is load-bearing: across 46 arrays the scan without it '
       + 'returns 31 regions including a 44.9 Mb loss on a bulk diploid adult who cannot carry '
       + 'one, and with it 17 survive with none on any of the six bulk diploid arrays. The sign of '
       + 'the shift then gives the direction. Extra copies use the same machinery reversed; no '
@@ -1259,66 +1320,16 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     y -= 6
   }
 
-  heading('Constants and where they come from', 10)
+  heading('Bars applied in this run', 10)
+  text('Every named bar the scoring compared a measurement against in this run, read from the code '
+    + 'itself. Bars of a step this run did not take (a parent not loaded, no other arrays, no '
+    + 'comparison) are not listed. Assembly was read against the UCSC chromInfo and gap tables, hg19 '
+    + 'and hg38; no liftOver chain file is used or shipped.', 7.4, 'Helvetica', 2.4, GREY)
   table([
-    { head: 'Constant', w: 132 },
-    { head: 'Value', w: 118 },
-    { head: 'Provenance', w: 282 },
-  ], [
-    ['Mendelian inconsistency floor', '0.0063',
-      'Kothiyal 2019, 0.63% of variant sites across 1,314 nuclear families. A lower bound on the '
-      + 'spurious-violation rate, never the value itself.'],
-    ['Paternal-absence noise bound', 'no-call rate x heterozygous fraction',
-      'Derived per sample, not fitted. Bounds every related pair measured, within 2x: 0.13% '
-      + 'predicted against 0.05% observed, 0.18% against 0.16%, 10.4% against 9.69%.'],
-    ['Absence calling margin', '3x',
-      'How far above the noise bound an absence must sit before it is called.'],
-    ['Residual absence floor', '0.005',
-      'Absence on clean data from genotyping error alone, measured at 0.03% and 0.05%. Added to '
-      + 'the bound so a near-perfect array still has a non-zero reference.'],
-    ['Second-parent signal', 'half the donor\'s heterozygosity',
-      'Derived. A second parent supplies an allele the donor lacks only where he is homozygous, '
-      + 'at sum(pq); his heterozygosity is sum(2pq) over the same markers.'],
-    ['Diploid heterozygous BAF band', '0.08 of markers in 0.35-0.65',
-      'Measured at 15-16% for diploid genomes and 1.3-3.4% for uniparental ones. Dropout does '
-      + 'not mimic this: a biparental embryo at 33% dropout still reads 22.2%.'],
-    ['Segment floor', '2,400 called informative markers',
-      'Titrated on real spliced genomes. At 1,200 markers the weakest construction scores 1.09x '
-      + 'the null maximum, which is not a detection; at 2,400 it scores 3.1x. A marker count is '
-      + 'not a resolution: array spacing runs from 1 bp to 21 kb.'],
-    ['Segment threshold', '250 log-likelihood ratio',
-      'Empirical, and fitted rather than validated. Five genomes carrying no event reached a '
-      + 'maximum of 139 over 110 chromosome scans; the weakest real event at the floor scores '
-      + '431. Awaits an out-of-sample clean cohort.'],
-    ['Segment intensity shift', '1.0 log2, on top of the call-rate rise',
-      'What separates a real copy-number change from a region the array merely failed on. Across '
-      + '46 arrays the scan without it returns 31 regions including a 44.9 Mb loss on a bulk '
-      + 'diploid adult; with it 17 survive and none fall on the six bulk diploid arrays. Rejected '
-      + 'regions carry -0.72 to +0.38, kept ones -0.97 to -1.94.'],
-    ['Aneuploidy call rate', '0.60 of the genome median',
-      'A chromosome that is gone cannot be genotyped. Over 1,012 chromosome observations from 46 '
-      + 'arrays, eleven sat at 0.20x to 0.41x and the other 1,001 at 0.78x to 1.16x. The gap is '
-      + 'empty by a factor of 1.9, and all eleven also carried |log2R| of 1.59 to 2.04 where the '
-      + 'rest never left -0.79 to +0.42.'],
-    ['Loss against gain', 'sign of the intensity shift',
-      'Used only once the call rate has established that something is wrong. Six of the eleven '
-      + 'sat at -1.59 to -2.04 and five at +1.60 to +1.95, so this is a direction rather than a '
-      + 'threshold on a noisy quantity.'],
-    ['Mosaic contrast', '8 standard deviations',
-      'Per chromosome, on the heterozygous allelic ratio against the same sample\'s other '
-      + 'chromosomes. Four bulk diploid arrays with no mosaic ran -1.65 to 5.18 over 88 '
-      + 'chromosome observations; a titrated mosaic reads 9.7 to 22.7 at a third of cells and '
-      + '11.7 to 48.5 at half. The genotype cannot see one below nine tenths at all.'],
-    ['Allelic-ratio floor', '0.40 of BAFs outside 0.15-0.85',
-      'Below this a chromosome mis-clustered and its genotypes are not measuring it. Correctly '
-      + 'clustered chromosomes run 0.752 to 0.976; one reported ABSENT at 18.36% ran 0.130.'],
-    ['Per-chromosome minimum', '200 informative markers',
-      'Below this a chromosome is not reported: the rate is too noisy to place against the '
-      + 'ceiling.'],
-    ['Assembly tables', 'UCSC chromInfo and gap, hg19 and hg38',
-      'Freely redistributable. No liftOver chain file is used or shipped: those carry a '
-      + 'non-commercial field-of-use restriction Apache 2.0 cannot sublicense.'],
-  ].filter((row) => !noParent || !PARENTAL_CONSTANTS.has(row[0] as string)))
+    { head: 'Bar', w: 150 },
+    { head: 'Value', w: 62, right: true },
+    { head: 'What it decides', w: 320 },
+  ], applied.map((b) => [{ v: b.name, colour: INK }, barValue(b), { v: b.says, colour: GREY }]))
 
   // --- inventory ------------------------------------------------------------------------------
   heading('Files read', 10)

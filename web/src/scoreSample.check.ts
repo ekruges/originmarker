@@ -920,6 +920,19 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   const out = await pdfOf()
   assert.equal(out.match(/\(not reported\)/g)?.length, nr.rows.length, 'every listed row marked not reported')
   assert.ok(out.includes('(not reportable)'), 'the summary column says not reportable')
+  // The timing table does not depend on a gain: a grouped cell with only losses still gets it, and
+  // on a sample not reportable its cell reads not read.
+  const timed = await (async () => {
+    const x = { ...r, gains: [], uniformity: [{ chrom: 'X', startBp: 0, endBp: 0, kind: 'copy-loss', whole: true,
+      mechanism: 'none' as const, why: 'the sample is not reportable, so no origin is read on it' }] }
+    return Buffer.from(await (await buildReportPdf({
+      files: [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: x }],
+      donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+      tool: 'OriginMarker', reportId: 'CHECK', fromExamples: true,
+    } as never)).arrayBuffer()).toString('latin1')
+  })()
+  assert.ok(timed.includes('(Gamete-borne or post-fertilisation)'), 'the timing table is printed with no gain')
+  assert.ok(/\(not read: the sample/.test(timed), 'its cell reads not read')
   assert.ok(out.includes(`(${says.head.word})`), 'the bar is the headline word with no count after it')
   // With no parent loaded the sample line names no parent.
   const parentLine = async (x: typeof r) => Buffer.from(await (await buildReportPdf({
@@ -949,3 +962,84 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
     'the father alone keeps the methods sentence')
   console.log('  the report carries the sex-chromosome line, and a sample not reportable states no change')
 }
+
+// ---------------------------------------------------------------- the report's outputs: withheld, bars, methods
+// The report lists every refusal and row not reported with its cause and their count, the bars of
+// the registry that this setup applied and no other, and the methods paragraph with its citations.
+{
+  const { cardSays } = await import('./pageSays.ts')
+  const { withheldRows, withheldHeading } = await import('./withheld.ts')
+  const { barsApplied, barValue } = await import('./bars.ts')
+  const { CHECKED } = await import('./methods.ts')
+  const { reportMethods } = await import('./syngamyPdf.ts')
+  const strings = (txt: string) => [...txt.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1]
+    .replace(/\\([0-7]{3})|\\(.)/g, (_, o, c) => (o ? String.fromCharCode(parseInt(o, 8)) : c)))
+  const report = async (r: Awaited<ReturnType<typeof run>>, father: boolean, tool = 'OriginMarker 9.9.9 (Check)') => {
+    const files: never[] = [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: r } as never]
+    if (father) files.unshift({ name: 'donor', size: 1, sha256: '0'.repeat(64), role: 'donor', markers: 1 } as never)
+    const input = { files, donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+      tool, reportId: 'CHECK', fromExamples: false }
+    const txt = Buffer.from(await (await buildReportPdf(input as never)).arrayBuffer()).toString('latin1')
+    return { txt, s: strings(txt), all: strings(txt).join(' ').replace(/\s+/g, ' '), methods: reportMethods(input as never) }
+  }
+  const withF = await run()
+  const none = { ...withF, noParent: true } as typeof withF
+  for (const [r, father] of [[withF, true], [none, false]] as const) {
+    const { txt, s, all, methods } = await report(r, father)
+    const held = withheldRows(r, cardSays(r, undefined, r.originClass, false).list)
+    assert.equal(held.length, (r.refusals ?? []).length
+      + (cardSays(r, undefined, r.originClass, false).list.notReported?.rows.length ?? 0),
+    'one withheld row per refusal and per row not reported')
+    assert.ok(s.includes(withheldHeading(held.length)), 'the report carries the withheld count')
+    for (const w of held) assert.ok(all.includes(w.what.split(' ').slice(0, 3).join(' ')), `withheld row printed: ${w.what}`)
+    const applied = barsApplied({ parents: father ? 1 : 0, run: false, comparison: false })
+    const listed = s.filter((x) => applied.some((b) => b.name === x))
+    assert.deepEqual([...new Set(listed)].sort(), [...new Set(applied.map((b) => b.name))].sort(), 'the report lists exactly the bars applied')
+    for (const b of applied) assert.ok(s.includes(barValue(b)), `${b.name} prints its value`)
+    if (!father) {
+      assert.ok(!s.includes('ABSENCE_MARGIN') && !s.includes('SURVIVOR_MIN'), 'no parental bar with no parent')
+      assert.ok(methods.text.includes('No parental array was loaded.') && !/father|mother|parent's/.test(methods.text),
+        'no parental sentence with no parent')
+    } else assert.ok(methods.text.includes("The father's array was loaded"))
+    assert.ok(all.includes(methods.text.split('. ')[1]), 'the methods paragraph is printed')
+    assert.ok(methods.cites.every((c) => Object.values(CHECKED).includes(c)), 'citations only from the checked list')
+    assert.ok(!methods.cites.includes(CHECKED.verdyck2022), 'the two-parent citation only with both parents')
+    assert.ok(!/units of one embryo/.test(methods.text), 'no origin sentence for one cell')
+    assert.ok(!/\/Image|\/XObject|\sBI\s/.test(txt), 'the report holds no image')
+    assert.ok(!s.includes('Constants and where they come from'))
+    const pages = (txt.match(/\/Type \/Page /g) ?? []).length
+    assert.equal(s.filter((x) => x.includes('OriginMarker 9.9.9 (Check)') && x.includes(' | page ')).length, pages,
+      'every page carries the version')
+  }
+  const bare = await report(withF, true, 'OriginMarker')
+  assert.ok(bare.s.some((x) => x.includes('OriginMarker, version not reported | report')), 'no version given is said')
+  console.log('  the report lists what was withheld, the bars applied and the methods paragraph')
+}
+
+// ---------------------------------------------------------------- no timing on a sample not reportable
+// The report's timing section of a sample not reportable is one line and no row; a reportable one
+// keeps its rows.
+{
+  const { NO_TIMING_SAYS } = await import('./syngamyPdf.ts')
+  const r = await run()
+  assert.equal(r.integrity?.level, 'uninterpretable')
+  const rows = [
+    { chrom: '3', kind: 'copy-gain', startBp: 1e6, endBp: 9e6, mechanism: 'meiotic', why: 'every unit carries it', stretches: [] },
+    { chrom: '5', kind: 'copy-loss', startBp: 1e6, endBp: 9e6, mechanism: 'mitotic', why: 'one unit reads it normal', stretches: [] },
+    { chrom: '7', kind: 'cnn-loh', startBp: 1e6, endBp: 9e6, mechanism: 'none', why: 'a finding', stretches: [] },
+  ]
+  const pdfOf = async (x: unknown) => [...Buffer.from(await (await buildReportPdf({
+    files: [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: x }],
+    donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+    tool: 'OriginMarker 9.9.9 (Check)', reportId: 'CHECK', fromExamples: false,
+  } as never)).arrayBuffer()).toString('latin1').matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1])
+  const seen = await pdfOf({ ...r, uniformity: rows, units: 2 })
+  assert.equal(seen.filter((x) => x === NO_TIMING_SAYS).length, 1, 'one line on a sample not reportable')
+  assert.ok(!seen.some((x) => /^chr[357] 1\.0-9\.0Mb$/.test(x)), 'and none of its timing rows')
+  const reportable = { ...r, refusals: (r.refusals ?? []).filter((x) => x.claim !== 'sample'), uniformity: rows, units: 2 }
+  const kept = await pdfOf(reportable)
+  assert.ok(!kept.includes(NO_TIMING_SAYS) && kept.includes('chr3 1.0-9.0Mb') && kept.includes('chr5 1.0-9.0Mb'),
+    'a reportable sample keeps its gain and loss rows')
+  console.log('  a sample not reportable prints no timing rows')
+}
+

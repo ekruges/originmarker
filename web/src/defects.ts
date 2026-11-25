@@ -33,6 +33,7 @@ export interface Defect {
   kind: 'copy-loss' | 'copy-gain' | 'parental-absence' | 'whole-chromosome'
     | 'cnn-loh' | 'isodisomy' | 'segmental-upd' | 'triploidy' | 'haploidy' | 'complex'
     | 'monosomy' | 'trisomy' | 'segmental-deletion' | 'segmental-duplication' | 'gamete-de-novo'
+    | 'sex-chromosomes'
   /** The region in genome-browser form, chr6:39,302-294,904. */
   locus: string
   /** Refined interval text where the breakpoint was localised, e.g. '+/- 61 kb'; on an arm-level
@@ -116,7 +117,9 @@ export interface Defect {
    * so the chip word is chosen from this (pageSays.kindOf).
    */
   step?: 'whole-alleles' | 'whole-intensity' | 'imbalance' | 'run' | 'allele-scan' | 'window'
-    | 'intensity' | 'finding'
+    | 'intensity' | 'finding' | 'sex'
+  /** A sex-chromosome row's own words (sexChromosome.sexRow): what the reading says the cell holds. */
+  sexSays?: string
   /** The one-parent Mendelian test over the same interval, where it ran. */
   second?: { verdict: string; parent?: 'paternal' | 'maternal' | null }
   /** The scan's own pair: the missing-copy signal inside the call and with both copies present. */
@@ -333,6 +336,7 @@ export const KIND_WORD: Record<string, string> = {
   haploidy: 'one chromosome set only',
   complex: 'genome too disturbed to reference against',
   'gamete-de-novo': 'segment changed, gamete or post-fertilisation',
+  'sex-chromosomes': 'the sex chromosomes read two ways',
 }
 
 /** Which way the copies went. A class that is neither a plain loss nor a plain gain has no

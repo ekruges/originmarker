@@ -63,8 +63,11 @@ import {
 import { groupUnits } from './abnormalities'
 import { ORIGIN_WORD, readingOf, split, stretchText, timeGroup } from './timing'
 import { stageFacts } from './stage'
-import { sexGates, shownSex, type SexMaterial } from './sexMaterial'
+import { sexBadge as sexBadgeOf, sexGates, shownSex, type SexMaterial } from './sexMaterial'
 import { OTHER_LRT } from './otherParentLoss'
+import { withheldHeading, withheldRows } from './withheld'
+import { figureFooter } from './svgPdf'
+import { reportMethods } from './syngamyPdf'
 import {
   addCandidateRow, candidateGenomes, emptyCandidateTallies, findParent, fatherSearchText, type ParentSearchText,
 } from './findParent'
@@ -305,6 +308,8 @@ async function loadFeatureTrack(): Promise<FeatureTrack | null> {
 }
 
 export function SyngamyPage({ health }: { health?: Health | null }) {
+  // Every figure file the page saves prints this version line.
+  figureFooter.tool = health ? `OriginMarker ${health.version} (${health.release_codename})` : 'OriginMarker, version not reported'
   const [entries, setEntries] = useState<Entry[]>([])
   const [arms, setArms] = useState<Arms | null>(null)
   useEffect(() => { void loadFeatureTrack().then((t) => setArms(t ? armsFrom(t.gaps) : null)) }, [])
@@ -1015,7 +1020,7 @@ export function SyngamyPage({ health }: { health?: Health | null }) {
       )}
 
       <RunInformation
-        entries={entries} startedAt={startedAt} health={health} examples={!!examples}
+        entries={entries} startedAt={startedAt} health={health} examples={!!examples} comparison={comparison}
         father={fatherEntry?.state === 'done' ? fatherEntry.file.name : undefined}
       />
     </>
@@ -1159,6 +1164,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
   const m = entry.maternal
   const originClass = entry.paired?.originClass ?? r.originClass
   const { setup, list, head, title } = cardSays(r, m, originClass, rebuilt)
+  const sexBadge = sexBadgeOf(r.sexChromosome, r.sexMaterial, !notReportable(r))
   const marks = marksOf(r, entry.series, list)
   // The ratio is kept for the reader and said to be what it is: pooled over every autosome, the
   // changed ones included, so a cell's own losses raise it.
@@ -1193,14 +1199,14 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             </Badge>
           )}
           {/* An aneuploid sex chromosome is an abnormality like any other and is coloured as one. */}
-          {r.sexChromosome && r.sexChromosome.constitution !== 'unresolved' && (
+          {sexBadge && (
             <Badge
               size="sm"
-              variant={r.sexChromosome.aneuploid ? 'filled' : 'outline'}
-              color={r.sexChromosome.aneuploid ? 'orange' : 'genomeGrey'}
-              title={r.sexChromosome.why}
+              variant={r.sexChromosome!.aneuploid ? 'filled' : 'outline'}
+              color={r.sexChromosome!.aneuploid ? 'orange' : 'genomeGrey'}
+              title={r.sexChromosome!.why}
             >
-              {r.sexChromosome.constitution}
+              {sexBadge}
             </Badge>
           )}
           {/* A chromosome with no row is the one result a reader cannot see, so it is named here. */}
@@ -1229,6 +1235,7 @@ function ResultCard({ entry, donorName, oocyteName, rebuilt, expect }: {
             return mk ? <CallFigure mark={seenMark(g.word === 'not reported', { ...mk, sentence: callTitle(g) })} data={entry.series} marks={marks} name={plotName(entry)} /> : null
           }}
         />
+        <Withheld r={r} list={list} />
         <CellFigure data={entry.series} marks={marks} name={plotName(entry)} title={title}
           note={figureNote(list, drawnOf(r, defectsForResult(r)))} />
         <Group gap={12} align="center" mt={8}>
@@ -1580,12 +1587,12 @@ const segmentLines = (sg: Segment, role: 'paternal' | 'maternal', seen = false):
 }
 
 /** A figure mark on a sample not reportable: what was seen, with no lines that name a change. */
-const seenMark = (seen: boolean, m: Mark): Mark => (seen ? { ...m, ...seenMarkText(m), lines: [], said: undefined } : m)
+export const seenMark = (seen: boolean, m: Mark): Mark => (seen ? { ...m, ...seenMarkText(m), lines: [], said: undefined } : m)
 
 const plotName = (e: Entry): string => e.file.name.replace(/\.[^.]*$/, '')
 
 /** The loaded parent's role, or none. */
-const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.noParent ? null : r.role)
+export const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.noParent ? null : r.role)
 
 /** Every printed change and every run found and withheld, as the cell figures mark them. */
 /**
@@ -1595,7 +1602,7 @@ const loadedRole = (r: ParentageResult): 'paternal' | 'maternal' | null => (r.no
  * and the figure's list says so on the line. A figure that marked eleven things under a headline of
  * ten changes, with nothing to tell them apart, reads as a contradiction.
  */
-function marksOf(r: ParentageResult, data: PlotData | undefined, list?: ChangeList): Mark[] {
+export function marksOf(r: ParentageResult, data: PlotData | undefined, list?: ChangeList): Mark[] {
   // Matched on what a change IS, not on object identity: the card builds its own list from its own
   // pass over the result, so the two sets of rows are equal in value and different in identity.
   const key = (d: Defect) => `${d.chrom}|${d.startBp}|${d.endBp}|${d.kind}`
@@ -1795,7 +1802,7 @@ function SampleDetail({ result: r, maternal, profile, gates: g, series, name }: 
         <Section title={seenHeading(notReportable(r), 'Sex chromosomes')}>
           {r.sexChromosome && (
             <Text size="xs" c="dimmed" mb={6} style={{ maxWidth: 780, lineHeight: 1.5 }}>
-              {sexLine(r.sexChromosome)}
+              {sexLine(r.sexChromosome, r.sexMaterial)}
             </Text>
           )}
           <ChromTable chroms={sex} ceiling={r.explainable} seen={notReportable(r)} rows={defectsForResult(r)} />
@@ -2241,15 +2248,56 @@ function LocusTest({ entries, donor, oocyte, log, onResult }: {
 
 
 /** What a citation needs and nothing else. The reasoning behind the numbers is in the PDF. */
-function RunInformation({ entries, startedAt, health, examples, father }: {
+/** What this sample withheld, and why: every refusal and every row not reported, closed by default. */
+function Withheld({ r, list }: { r: ParentageResult; list: ChangeList }) {
+  const rows = withheldRows(r, list)
+  return (
+    <details style={{ fontSize: 12, marginTop: 8 }}>
+      <summary style={{ cursor: 'pointer', color: 'var(--om-text-dim)' }}>{withheldHeading(rows.length)}</summary>
+      {rows.map((w, i) => (
+        <div key={i} style={{ padding: '2px 0 2px 12px' }}>
+          <b>{w.what}</b>: {w.why}{w.measured ? ` (${w.measured})` : ''}
+        </div>
+      ))}
+    </details>
+  )
+}
+
+/** The methods paragraph for the run, as the report prints it, with a button to copy it. */
+function MethodsText({ text, refs }: { text: string; refs: string[] }) {
+  const [copied, setCopied] = useState(false)
+  const all = [text, ...refs].join('\n\n')
+  return (
+    <div style={{ marginTop: 8, fontSize: 12 }}>
+      <Group gap={8} align="center">
+        <Text fw={600} size="xs" tt="uppercase" c="dimmed" style={{ letterSpacing: '0.04em' }}>Methods</Text>
+        <button type="button" className="om-primer-toggle"
+          onClick={() => { void navigator.clipboard?.writeText(all).then(() => setCopied(true)) }}>
+          {copied ? 'Copied' : 'Copy'}
+        </button>
+      </Group>
+      <p style={{ margin: '4px 0' }}>{text}</p>
+      {refs.map((x) => <p key={x} style={{ margin: '2px 0', color: 'var(--om-text-dim)' }}>{x}</p>)}
+    </div>
+  )
+}
+
+function RunInformation({ entries, startedAt, health, examples, father, comparison }: {
   entries: Entry[]
   startedAt: string | null
   health?: Health | null
   examples: boolean
   father?: string
+  comparison?: ComparisonResult | null
 }) {
   const done = entries.filter((e) => e.state === 'done')
   if (!done.length) return null
+  const tool = health ? `OriginMarker ${health.version} (${health.release_codename})` : 'OriginMarker'
+  const methods = reportMethods({
+    tool, comparison: comparison ?? undefined,
+    files: done.map((e) => ({ name: e.file.name, size: e.file.size, sha256: '', role: e.role, markers: 0,
+      profile: e.profile, result: e.result, maternal: e.maternal, paired: e.paired, inferred: e.inferred })),
+  })
   const samples = done.filter((e) => e.result)
   const builds = [...new Set(done.map((e) => e.profile?.build.build ?? 'undetermined'))]
 
@@ -2270,6 +2318,7 @@ function RunInformation({ entries, startedAt, health, examples, father }: {
           : []),
       ]}
       />
+      <MethodsText text={methods.text} refs={methods.cites.map((c) => c.ref)} />
     </Paper>
   )
 }

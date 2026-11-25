@@ -561,3 +561,71 @@ const cellA: Defect[] = [
   assert.ok(/levelWord\(seen, copyWord/.test(plot), 'the figure bar level comes from pageSays')
   console.log('  one guard: a sample not reportable prints only what was seen, in every table, note and bar')
 }
+
+// ---------------------------------------------------------------- the sex chromosomes in the change list
+{
+  const { cardSays, cardCounts, drawnOf, figureNote, SEX_COUNTED_NOT_DRAWN } = await import('./pageSays.ts')
+  const loss: Defect = { chrom: '17', startBp: 0, endBp: 5e7, kind: 'copy-loss', locus: 'chr17:0-50000000',
+    origin: 'unclear', why: 'x', step: 'intensity' }
+  const result = (constitution: string, yBearing: boolean | null, xNone: boolean, diploid: boolean) => ({
+    noParent: true, role: 'paternal', zygosity: 'diploid', originClass: 'unclear', refusals: [],
+    chroms: [], segments: [], gains: [], losses: [], findings: [], oneParent: [], dosageCalls: [],
+    stage: { stage: 'single-cell' }, genomeRate: NaN, explainable: NaN,
+    sexChromosome: { xCopies: null, yBearing, constitution, aneuploid: false, why: 'chrX calls at 38%', ...(xNone ? { xNone: true } : {}) },
+    sexMaterial: { diploid, haploid: false, staged: true, why: '' },
+  }) as never
+  // No X template on two genomes: an X loss, counted, on every surface the card feeds.
+  const s = cardSays(result('unresolved', true, true, true), undefined, 'unclear', false)
+  const [x] = s.list.counted
+  assert.equal(x.chrom, 'X')
+  assert.equal(rowLine(x), 'chrX, whole chromosome · no X · position only')
+  assert.deepEqual(cardCounts(s.list), { changes: 1, findings: 0 })
+  // The list now covers the sex chromosomes, so the sentence names no scope.
+  assert.equal(changesText(s.list), '1 change found.')
+  // The figure has no X track: it draws none of it, counts none of it and says so.
+  assert.deepEqual(drawnOf({ refusals: [] }, s.defects), { listed: 0, withheld: 0 })
+  assert.equal(figureNote(s.list, { listed: 0, withheld: 0 }), SEX_COUNTED_NOT_DRAWN)
+  // Said once per caption: the note carries it, the title does not.
+  assert.ok(s.title.endsWith('No gain or loss was found on chromosomes 1 to 22.') && !s.title.includes(SEX_COUNTED_NOT_DRAWN), s.title)
+  const caption = `${s.title} ${figureNote(s.list, { listed: 0, withheld: 0 })}`
+  assert.equal(caption.split(SEX_COUNTED_NOT_DRAWN).length - 1, 1, 'the sentence appears once in title and note')
+  const both = { ...s.list, counted: [...changeList([loss], 'none').counted, x] }
+  // The caption counts what is drawn and names the undrawn sex row, so its numbers add up.
+  const note = figureNote(both, { listed: 1, withheld: 0 })!
+  assert.ok(note.includes('The card counts 2 changes and 0 findings; drawn are 1 change and 0 findings, as 1 reading'), note)
+  assert.ok(note.endsWith(SEX_COUNTED_NOT_DRAWN), note)
+  // The same reading where two copies are not shown is a finding, not a change.
+  const f = cardSays(result('unresolved', true, true, false), undefined, 'unclear', false)
+  assert.deepEqual(cardCounts(f.list), { changes: 0, findings: 1 })
+  assert.equal(changesText(f.list), 'No gain or loss found, 1 finding.')
+  assert.ok(whoseText(f.list.counted[0]).startsWith('no X; one genome with a Y'))
+  // A normal reading makes no row and the list covers the sex chromosomes; no reading keeps the scope.
+  assert.equal(changesText(cardSays(result('XY', true, false, true), undefined, 'unclear', false).list), 'No gain or loss found.')
+  assert.equal(changesText(cardSays(result('unresolved', null, false, true), undefined, 'unclear', false).list),
+    'No gain or loss found on chromosomes 1 to 22.')
+  // With a parent the row is its own kind and is counted.
+  assert.equal(kindOf({ ...x.pieces[0] }, 'measured'), 'sex')
+  assert.ok(COUNTED.has(WORD.sex))
+  // A sample not reportable lists it as not reported, like any other row.
+  const nr = changeList(s.defects, 'none', false)
+  assert.equal(nr.notReported!.rows[0].word, 'not reported')
+  assert.equal(whoseText(nr.notReported!.rows[0]), 'lower than the rest of this array')
+  assert.ok(!figureNote(nr, { listed: 0, withheld: 0 })!.includes('counted on the card'), 'a row not reported is not counted')
+  // No origin word on it, and the report's timing cell reads not read.
+  const { timeGroup, readingOf } = await import('./timing.ts')
+  const { timingRows } = await import('./syngamyPdf.ts')
+  const { verdictText } = await import('./pageSays.ts')
+  const xr = s.defects.filter((d) => d.chrom === 'X')
+  const [seenRows] = timeGroup([readingOf(xr, {}, false), readingOf(xr, {})])
+  assert.equal(seenRows[0].mechanism, 'none')
+  assert.deepEqual(timingRows(seenRows).map((u) => verdictText(true, u.mechanism)), ['not read: the sample is not reportable'])
+  console.log('  a sex-chromosome row is a loss, a gain or a finding, counted on the card, not drawn on the figure')
+}
+
+// ---------------------------------------------------------------- a chromosome range runs in chromosome order
+{
+  const { listChroms } = await import('./pageSays.ts')
+  const at = ['chr3:1', 'chr10:2', 'chr2:3', 'chr22:1', 'chrX:1', 'chr1:5', 'chr7:1', 'chr12:1']
+  assert.equal(listChroms(at), '8 chromosomes, chr1 to chrX', 'first to last in chromosome order, X after 22')
+  assert.equal(listChroms(['chr9:1', 'chr2:1']), 'chr2, chr9')
+}

@@ -41,6 +41,7 @@
  * Run: node --experimental-strip-types audit/truth/run.ts <list.tsv> <shard> <shards> <out.jsonl>
  */
 import { readFileSync, appendFileSync, existsSync } from 'node:fs'
+import { gzipSync } from 'node:zlib'
 import { ChipRefused, panel, calls, chromOf, collectArray, scoreArray as scoreFresh } from './score-array.ts'
 import { openStore, openList, treeKey, only } from '../gate/store.ts'
 
@@ -57,6 +58,17 @@ const table = await import(`${W}syngamyTable.ts`)
 const reportPdf = await import(`${W}syngamyPdf.ts`)
 const defectsMod = await import(`${W}defects.ts`)
 const S = await import(`${W}sisterGain.ts`)
+const barsMod = await import(`${W}bars.ts`)
+const withheldMod = await import(`${W}withheld.ts`)
+const svgPdf = await import(`${W}svgPdf.ts`)
+const plotSeries = await import(`${W}plotSeries.ts`)
+const buildInfo = readFileSync(new URL('../../originmarker/build_info.py', import.meta.url), 'utf8')
+const TOOL = `OriginMarker ${/VERSION = "([^"]+)"/.exec(buildInfo)?.[1]} (${/CODENAME = "([^"]+)"/.exec(buildInfo)?.[1]})`
+/** With OM_DUMP set, the result, the mother's result, the pair and the figure series of each record,
+ *  for the figure gate, which renders the page's React figures where Vite is installed. */
+const DUMP = process.env.OM_DUMP
+const enc = (_k: string, v: unknown) => (v instanceof Map ? { __map: [...v] } : typeof v === 'number' && !Number.isFinite(v)
+  ? { __num: String(v) } : v === undefined ? { __undef: 1 } : v)
 
 const [listFile, shard, shards, out] = [process.argv[2], Number(process.argv[3]), Number(process.argv[4]), process.argv[5]]
 const done = new Set<string>()
@@ -65,6 +77,9 @@ if (existsSync(out)) {
     if (l.startsWith('{')) { const r = JSON.parse(l); done.add(`${r.id}|${r.tag}`) }
   }
 }
+/** Each row's line in the list file, for the figure dumps. */
+const lineOf = new Map(readFileSync(listFile, 'utf8').split('\n').filter(Boolean)
+  .map((l, i) => { const f = l.split('\t'); return [`${f[0]}|${f[3]}`, i + 1] as const }))
 const list = readFileSync(listFile, 'utf8').split('\n').filter(Boolean).map((l) => l.split('\t'))
   .filter((_, i) => i % shards === shard)
 
@@ -160,7 +175,8 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
     const l = says().list
     return { counted: l.counted.map(cardRow), once: l.once.length, disturbed: !!l.disturbed,
       ...pageSays.cardCounts(l), countText: pageSays.countText(l), line: says().head.line,
-      figure: { drawn: pageSays.drawnOf(res, says().defects), note: pageSays.figureNote(l, pageSays.drawnOf(res, says().defects)) ?? null },
+      figure: { drawn: pageSays.drawnOf(res, says().defects), note: pageSays.figureNote(l, pageSays.drawnOf(res, says().defects)) ?? null,
+        title: says().title },
       ...(l.notReported ? { notReported: l.notReported.rows.map(cardRow) } : {}) }
   }
   const surfaces = async () => {
@@ -216,13 +232,15 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
           pageSays.seenMarkText({ ...g, dir: pageSays.rowDirection(g) }).sentence])].filter(Boolean)
     }
     {
-      const files: any[] = [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1, result: res,
+      // The sample's profile goes in as the page passes it, so the report names the build it read.
+      const files: any[] = [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1, result: res, profile,
         maternal: maternal ?? undefined, paired, inferred: false }]
       if (!res.noParent && res.role === 'paternal') files.unshift({ name: 'donor', size: 1, sha256: '0'.repeat(64), role: 'donor', markers: 1 })
       if (!res.noParent && (maternal || res.role === 'maternal')) files.unshift({ name: 'oocyte', size: 1, sha256: '0'.repeat(64), role: 'oocyte', markers: 1 })
       const txt = Buffer.from(await (await reportPdf.buildReportPdf({
         files,
-        donorHeterozygosity: NaN, startedAt: null, generatedAt: '', tool: 'OriginMarker', reportId: 'GATE', fromExamples: false,
+        donorHeterozygosity: NaN, startedAt: null, generatedAt: '', tool: TOOL, reportId: 'GATE', fromExamples: false,
+        runArrays: run.length,
       } as never)).arrayBuffer()).toString('latin1')
       // Every string the PDF draws, unescaped; a wrapped sentence is its lines joined by spaces.
       const strings = [...txt.matchAll(/\(((?:\\.|[^\\)])*)\) Tj/g)].map((m) => m[1]
@@ -231,7 +249,7 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
       const all = flat(strings.join(' '))
       out.pdf = { notReported: strings.filter((x) => x === 'not reported').length,
         bar: strings.includes(`${s.head.word}${pageSays.countText(s.list)}`),
-        sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome))) : null,
+        sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome, res.sexMaterial))) : null,
         inferred: all.includes('inferred from paternal absence'), noParentLine: all.includes('sample no parent loaded'),
         vsDonor: all.includes('sample vs donor'),
         noParentMethods: all.includes('No parental array was supplied.'),
@@ -244,6 +262,30 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
           || /^(LOST|GAINED):/.test(x)) : [],
         seenHeadings: s.list.notReported ? strings.filter((x) => x.endsWith(': readings seen on this array, not reported')).length : 0,
         changeBanner: (all.match(/Chromosomal change in 1 of 1 sample\(s\): (.*?)\. Coordinates/) ?? [])[1] ?? null }
+      // What the outputs print: the withheld count, the bars listed, the methods paragraph, the file itself.
+      const input = { files, tool: TOOL, runArrays: run.length }
+      const facts = svgPdf.pdfFacts(txt)
+      const names = new Set(barsMod.BARS.map((b: any) => b.name))
+      const methods = reportPdf.reportMethods(input as never)
+      out.outputs = {
+        figureTitle: s.title,
+        withheldHeading: strings.find((x) => x.startsWith('Withheld, and why: ')) ?? null,
+        withheldRows: withheldMod.withheldRows(res, s.list).length,
+        barsListed: [...new Set(strings.filter((x) => names.has(x)))],
+        barsApplied: [...new Set(barsMod.barsApplied(reportPdf.reportSetup(input as never)).map((b: any) => b.name))],
+        barValues: barsMod.barsApplied(reportPdf.reportSetup(input as never)).map((b: any) => barsMod.barValue(b)),
+        typedTable: all.includes('Constants and where they come from'),
+        methods: methods.text, cites: methods.cites.map((c: any) => c.doi),
+        methodsPrinted: all.includes(flat(methods.text)),
+        xrefOk: facts.xrefOk, images: facts.images, pages: facts.pages,
+        footers: strings.filter((x) => x.includes(` | ${TOOL} | report `) && x.includes(' | page ')).length,
+      }
+      if (DUMP) {
+        const series = { ...plotSeries.plotData(acc as never, { loaded: pat.absent ? null : { role: role === 'maternal' ? 'maternal' : 'paternal', gt: pat.gt },
+          second: mat?.gt ?? null }), seen: pageSays.notReportable(res) }
+        appendFileSync(`${DUMP}/dump-${tag}-${lineOf.get(`${id}|${tag}`) ?? 0}.json.gz`, gzipSync(JSON.stringify({ line: lineOf.get(`${id}|${tag}`) ?? 0,
+          tag, others: run.length, res, maternal: maternal ?? null, paired: paired ?? null, series, profile, tool: TOOL }, enc)))
+      }
     }
     return out
   }
@@ -265,6 +307,8 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
     y: { yBearing: y.yBearing, callRatio: y.callRatio, lrrShift: y.lrrShift, yBafShare: y.yBafShare ?? null,
       bafFloor: y.bafFloor ?? null, why: y.why ?? null },
     sexWhy: res.sexChromosome?.why ?? '', sexWord: sexMaterial.shownSex(profile.sex, res.sexMaterial, res.sexChromosome),
+    sexLine: res.sexChromosome ? pageSays.sexLine(res.sexChromosome, res.sexMaterial) : '',
+    sexBadge: sexMaterial.sexBadge(res.sexChromosome, res.sexMaterial, !pageSays.notReportable(res)),
     spermType: res.spermType ?? null, parentSanity: res.parentSanity ?? null, matSanity: res.parentSanityOther ?? null,
     parentSex: { pat: pat.sex ?? null, mat: mat?.sex ?? null },
     chroms: (res.chroms ?? []).map((c: any) => ({ chrom: c.chrom, aneuploidy: c.aneuploidy ?? '',

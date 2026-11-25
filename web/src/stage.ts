@@ -60,7 +60,7 @@
  */
 import type { SampleProfile } from './ingest.ts'
 import { NO_INFORMATION_MIN } from './informationRatio.ts'
-import { DROP_IN } from './oneParentOrigin.ts'
+import { BULK_HETEROZYGOSITY, DROP_IN } from './oneParentOrigin.ts'
 import { NORMAL_MAJORITY_MIN, type CopyState } from './oneParentState.ts'
 
 export type Stage =
@@ -106,17 +106,8 @@ export interface StageCall {
   why: string
 }
 
-/**
- * Heterozygosity of a diploid genome on this platform, measured on bulk gDNA under this project's
- * marker QC.
- *
- * A PANEL AND ANCESTRY PROPERTY, NOT A CONSTANT OF NATURE. Common-SNP panels run 0.32 to 0.44
- * expected heterozygosity in Europeans, so 0.168 implies roughly half this panel is rare content;
- * any change to marker QC moves it. Relative to a European anchor, mean expected heterozygosity is
- * 0.99 in South Asian, 0.93 in African and 0.81 in East Asian samples, and that last ratio alone
- * biases a shortfall estimate by +0.155.
- */
-export const BULK_HETEROZYGOSITY = 0.168
+/** Defined once beside the dropout it is read against: oneParentOrigin.BULK_HETEROZYGOSITY. */
+export { BULK_HETEROZYGOSITY }
 
 /**
  * Chromosomes that must state a copy state against the loaded parent before the alleles may say how

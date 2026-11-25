@@ -113,6 +113,8 @@ export class Pdf {
   readonly width: number
   readonly height: number
   private pages: string[] = []
+  /** A page's own size, where it differs from the document's. */
+  private sizes: ([number, number] | undefined)[] = []
   private buf: string[] = []
   private font: FontName = 'Helvetica'
   private size = 10
@@ -151,6 +153,9 @@ export class Pdf {
     this.buf.push(`${f2(x)} ${f2(y)} ${f2(w)} ${f2(h)} re ${fill ? 'f' : 'S'}`)
   }
 
+  /** Dashed strokes from here on; no arguments for solid. */
+  setDash(on = 0, off = 0): void { this.buf.push(on ? `[${f2(on)} ${f2(off)}] 0 d` : '[] 0 d') }
+
   line(x1: number, y1: number, x2: number, y2: number): void {
     this.buf.push(`${f2(x1)} ${f2(y1)} m ${f2(x2)} ${f2(y2)} l S`)
   }
@@ -176,7 +181,8 @@ export class Pdf {
     this.buf.push(fill ? 'f' : 'S')
   }
 
-  showPage(): void {
+  showPage(size?: [number, number]): void {
+    this.sizes.push(size)
     this.pages.push(this.buf.join('\n'))
     this.buf = []
   }
@@ -196,10 +202,11 @@ export class Pdf {
       .map((n, i) => `/${FONT_KEY[n]} ${fonts[i]} 0 R`).join(' ')} >> >>`
 
     const kids: number[] = []
-    for (const content of this.pages) {
+    for (const [i, content] of this.pages.entries()) {
+      const [pw, ph] = this.sizes[i] ?? [this.width, this.height]
       const stream = push(`<< /Length ${content.length} >>\nstream\n${content}\nendstream`)
       kids.push(push(`<< /Type /Page /Parent ${pagesObj} 0 R /MediaBox `
-        + `[0 0 ${this.width} ${this.height}] /Resources ${res} /Contents ${stream} 0 R >>`))
+        + `[0 0 ${f2(pw)} ${f2(ph)}] /Resources ${res} /Contents ${stream} 0 R >>`))
     }
     objs[catalog - 1] = `<< /Type /Catalog /Pages ${pagesObj} 0 R >>`
     objs[pagesObj - 1] = `<< /Type /Pages /Kids [${kids.map((k) => `${k} 0 R`).join(' ')}] `

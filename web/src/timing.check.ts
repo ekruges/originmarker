@@ -236,3 +236,15 @@ console.log('timing.check.ts OK: rule B1 read per stretch of the embryo, with di
   assert.deepEqual(where, ['chr5 10.0-40.0Mb', 'chr5 60.0-90.0Mb'], 'each gain or loss once; findings have their own table')
   assert.equal(new Set(where).size, where.length)
 }
+
+// --- ON A SAMPLE NOT REPORTABLE THE TIMING TABLE LISTS ITS GAINS AND LOSSES ONLY, THE SEX ROW TOO ----
+{
+  const { timingRows } = await import('./syngamyPdf.ts')
+  const x = (kind: string) => ch('X', kind, 'unclear', 0, 155e6, true)
+  const seen = unit([x('sex-chromosomes'), ch('3', 'cnn-loh', 'unclear', 0, 198e6, false), ch('7', 'copy-loss', 'unclear', 0, 159e6, true)],
+    { shown: false })
+  const [rows] = timeGroup([seen, unit([ch('7', 'copy-loss', 'unclear', 0, 159e6, true)])])
+  assert.deepEqual(timingRows(rows).map((r) => r.where), ['chr7, whole chromosome'], 'a finding, the sex finding included, is not timed')
+  const [lost] = timeGroup([unit([x('copy-loss')], { shown: false }), unit([x('copy-loss')])])
+  assert.deepEqual(timingRows(lost).map((r) => [r.where, r.mechanism]), [['chrX, whole chromosome', 'none']])
+}

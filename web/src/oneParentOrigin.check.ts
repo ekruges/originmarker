@@ -12,7 +12,7 @@
 import assert from 'node:assert/strict'
 import {
   SYSTEMATIC_ERROR_BOUND, VALIDATION_UNITS,
-  callOneParentOrigin, informative, inferDropout, CALL_POSTERIOR, MIN_MARKERS, DEFAULT_Q,
+  callOneParentOrigin, informative, inferDropout, CALL_POSTERIOR, REGION_MIN_MARKERS, DEFAULT_Q,
   MAX_REGION_HET, DROP_IN, OBVIOUS_EVENT_ACCURACY,
 } from './oneParentOrigin.ts'
 import { parentNamed } from './defects.ts'

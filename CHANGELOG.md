@@ -9,6 +9,81 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.27.0 "Metaphase Spread"
+
+**The report says what decided each sample and what it held back.** It listed fifteen constants
+typed out by hand, the same for every run, and no refusal at all. It now lists every bar the
+scoring compared a measurement against in this run, each read from the constant itself with a
+one-line description, from one registry (`web/src/bars.ts`): with no parent loaded no parental bar
+is listed, and the bars of the run's other arrays only where there were any. A check fails when a
+named constant of the scoring code is neither a bar nor listed as one with its reason; 220 are
+placed today, 178 bars and 42 not. Under each sample the report prints "Withheld, and why: N":
+every refusal with its cause, the gate that fired and the numbers it fired on, and every row not
+reported; the page lists the same, closed by default. On the 15 named records the 85 withheld
+items equal the records' own counts. Every page names the version, or says it was not reported.
+
+**A methods paragraph for the run loaded.** Written in the past tense from the run itself: the chip,
+the genome build, which parent was loaded, the version, how copy number, parent of origin, the sex
+chromosomes and origin across cells were read, and the bars applied, every number read from the
+registry. A sentence appears only for a step the run took: no parental sentence with no parent,
+no origin sentence for a single cell, a sentence on sex-chromosome rows only where a sample has
+one. Two citations, both from the checked literature list, each only where the code reads the
+measurement that paper made: Peiffer 2006 on every run, Verdyck 2022 with both parents. The page
+offers it with a copy button; the report prints it first under Methods.
+
+**Every figure saves as a vector PDF.** Beside each "Save SVG", a "Save PDF": lines and fills as
+paths, text as selectable text, no image, titled as the page titles the figure, with the version in
+a footer; the cell figure also saves one file of the cell and every zoom. A sex-chromosome row has
+no figure (the figures draw chromosomes 1 to 22) and the cell figure's note says so. On the 15 named
+records all 85 figure files parse, hold no image and carry the page's title.
+
+**One name and one definition for each bar.** Two pairs of bars shared a name and bound different
+things; they are now the ploidy and trisomy band half-widths and the one-parent and sister region
+marker floors. Drop-in and bulk heterozygosity, each defined twice with one value, are defined once.
+The sister reading's error rate and call posterior are named apart from the genotype channel's,
+which they only equal today. The per-chromosome marker floor, the heterozygous allele-fraction
+band and the quality gates' call rates were bare numbers and are named bars. No value changed: the
+853 records (330 published cells with no parent, 252 with a parent, 271 lab rows) are identical
+outside the report's own text, and the suite and the 4,382 built events did not move.
+
+---
+
+## 6.26.0 "Gonosome"
+
+**The sex chromosomes are in the change list.** The list held chromosomes 1 to 22, so a cell with
+no X left printed no loss, and "47,XXY or a mix of cells" was counted nowhere. The sex reading the
+tool already makes now gives a row, with no new measurement: a constitution with a sex chromosome
+missing or extra (45,X, 47,XXX, 47,XXY) is a loss or a gain and counts as a change; a reading that
+names two possibilities is a finding; a normal complement, or no reading, gives no row. Where chrX
+calls under 60% of the genome's rate, so no X template is left, the ploidy decides: no X and no Y
+is a loss in one genome or two, no X is a loss in a cell shown to hold two genomes, nothing in a
+haploid cell with a Y, and a finding where the file does not show which. The row goes to every
+surface the card feeds (overview, download, report, origin by stretch, not reported on a sample
+not reportable). The figure draws chromosomes 1 to 22 only and says the sex row is not drawn.
+Where the sex chromosomes were read, the count sentence drops "on chromosomes 1 to 22".
+
+On the 853 records (330 published cells with no parent, 252 with a parent, 271 lab rows): 49
+findings, 36 of them "47,XXY or a mix of cells", and 11 losses, no gains; 6 of them on samples not
+reportable, listed as not reported. Of the 9 cells the lab's revised tables list as "chrX loss (no
+copy)", 4 print an X loss counted as a change and 1 a loss listed as not reported (its sample is
+not reportable). **The other 4 print a finding, not a loss:** they carry a Y, and the file does not
+show whether the cell holds one genome or two, so one genome with a Y is not ruled out. No cell
+stated normal XX or XY (141 cells) prints a sex change. The card and the overview agree on all 853;
+nothing moved outside the sex rows. Two X losses gain an origin word, "consistent with the gamete
+(two cells read)", on one pair of lab cells.
+
+**One statement of the sex chromosomes.** The sex line, the sex word, the badge and the new row now
+come from one reading, so they cannot disagree. A cell with no X and no Y left reads "No X and no Y
+found" on its line and "no sex named: no sex chromosome was found" as its word, where the line said
+"Not read" and the word named the stage. An XY the reading prints is "male", and a badge names only
+what the word names: "one X" and "XX or one X" badges go, and a sample not reportable shows none.
+The report prints its timing table whenever a gain or a loss of a grouped cell is timed; it sat
+under the extra-copy table, so a cell with no gain lost it (26 of 33 grouped cells with an origin
+word, the X-loss pair among them). The figure counts what it draws and says the sex-chromosome row
+is counted on the card and not drawn.
+
+---
+
 ## 6.25.2 "Breakpoint"
 
 **Nothing the tool reads or reports changes.** The audit gate is faster: scored results are kept

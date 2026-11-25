@@ -23,7 +23,10 @@
 
 import type { AB } from './informativity.ts'
 import { CHROM_LEN, GAPS, type Build } from './buildref.ts'
-import { isAutosome } from './parentage.ts'
+import { CALL_RATE_FLOOR, CHROM_MIN_MARKERS, HET_BAND_HI, HET_BAND_LO, isAutosome } from './parentage.ts'
+
+/** Call rate at or over which a sample's calls are usable without remark; under it, marginal. */
+export const CALL_RATE_USABLE = 0.75
 import { COLUMN_NAMES, REQUIRED_COLUMNS, SIGNAL_COLUMNS, matches } from './platform.ts'
 
 export type { Build }
@@ -431,13 +434,13 @@ export function gates(p: SampleProfile, inferred = false, role: 'parent' | 'samp
   out.push({
     name: 'call rate',
     value: cr,
-    verdict: cr < 0.60 ? below : cr < 0.75 ? 'marginal' : 'usable',
-    detail: cr < 0.60
+    verdict: cr < CALL_RATE_FLOOR ? below : cr < CALL_RATE_USABLE ? 'marginal' : 'usable',
+    detail: cr < CALL_RATE_FLOOR
       ? (role === 'sample'
         ? 'below 60%, under the only published threshold measured on amplified material (Natesan 2014). '
           + 'Not excluded on it: calls that are noise and chromosomes without DNA are measured directly'
         : 'below 60%: excluded (Natesan 2014, the only published threshold measured on amplified material)')
-      : cr < 0.75
+      : cr < CALL_RATE_USABLE
         ? 'between 60% and 75%: below the published usable band, interpret with care'
         : cr > 0.97
           ? 'inside the vendor bulk-DNA band'
@@ -451,11 +454,11 @@ export function gates(p: SampleProfile, inferred = false, role: 'parent' | 'samp
     name: 'het-to-hom asymmetry valid',
     value: cr,
     // A reconstruction emits no heterozygous calls, so none of them can be erroneous.
-    verdict: inferred ? 'report_only' : cr < 0.60 ? below : cr < 0.75 ? 'marginal' : 'usable',
+    verdict: inferred ? 'report_only' : cr < CALL_RATE_FLOOR ? below : cr < CALL_RATE_USABLE ? 'marginal' : 'usable',
     detail: inferred
       ? 'not applicable: a reconstructed reference emits no heterozygous calls, so there are none '
         + 'to be erroneous'
-      : cr < 0.60
+      : cr < CALL_RATE_FLOOR
         ? 'SUSPENDED: below 60% call rate erroneous heterozygous calls are common, so a het call is '
           + 'no longer robust and the key/non-key partition loses its guarantee'
         : 'holds within the usable call-rate band',
@@ -490,7 +493,7 @@ export function gates(p: SampleProfile, inferred = false, role: 'parent' | 'samp
   // intact ones diluted the genome-wide figure to 32%: under both thresholds below, so nothing
   // fired. The failure is per-chromosome and the test has to be too.
   const perChrom = [...p.byChrom]
-    .filter(([c, s2]) => /^(?:[1-9]|1[0-9]|2[0-2])$/.test(c) && s2.called >= 200)
+    .filter(([c, s2]) => /^(?:[1-9]|1[0-9]|2[0-2])$/.test(c) && s2.called >= CHROM_MIN_MARKERS)
     .map(([c, s2]) => [c, s2.het / s2.called] as const)
   const worst = perChrom.reduce<readonly [string, number]>(
     (a, b) => (b[1] > a[1] ? b : a), ['', 0])
@@ -962,7 +965,7 @@ export function accumulateBaf(row: ProbeRow, s: BafSums): void {
   if (row.baf === null) return
   if (isAutosome(row.chrom)) {
     s.nBand += 1
-    if (row.baf >= 0.35 && row.baf <= 0.65) s.band += 1
+    if (row.baf >= HET_BAND_LO && row.baf <= HET_BAND_HI) s.band += 1
   }
   if (row.genotype === 'AA') { s.hom0 += row.baf; s.n0++ }
   else if (row.genotype === 'BB') { s.hom2 += row.baf; s.n2++ }
