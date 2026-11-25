@@ -42,65 +42,6 @@ export function openList(file: string | undefined): Set<string> {
 }
 
 const INT = '\u0000om-int32-deltas'
-const COLS = '\u0000om-columns'
-
-/**
- * A long array of plain objects that all have the same keys, in the same order, each value a
- * number, a boolean, a string, null or undefined, held as one column per key: numbers in a
- * Float64Array (which keeps NaN and -0), booleans in a Uint8Array, strings as indexes into their
- * distinct values, with a code per cell for null and undefined. Null where the array is not such.
- */
-function columns(x: unknown[]): object | null {
-  const n = x.length
-  const first = x[0]
-  if (!first || typeof first !== 'object' || Array.isArray(first) || Object.getPrototypeOf(first) !== Object.prototype) return null
-  const keys = Object.keys(first)
-  const kinds: string[] = []
-  const out: Record<string, unknown> = {}
-  for (const k of keys) {
-    let kind = ''
-    for (let i = 0; i < n && !kind; i++) {
-      const v = (x[i] as any)?.[k]
-      if (v !== null && v !== undefined) kind = typeof v
-    }
-    if (kind && kind !== 'number' && kind !== 'boolean' && kind !== 'string') return null
-    kinds.push(kind || 'number')
-  }
-  const data = keys.map((_, j) => (kinds[j] === 'number' ? new Float64Array(n) : kinds[j] === 'boolean' ? new Uint8Array(n) : new Int32Array(n)))
-  const absent = keys.map(() => new Uint8Array(n))
-  const dicts = keys.map(() => new Map<string, number>())
-  for (let i = 0; i < n; i++) {
-    const o = x[i] as any
-    if (!o || typeof o !== 'object' || Array.isArray(o) || Object.getPrototypeOf(o) !== Object.prototype || !(i in x)) return null
-    const ok = Object.keys(o)
-    if (ok.length !== keys.length) return null
-    for (let j = 0; j < keys.length; j++) {
-      if (ok[j] !== keys[j]) return null
-      const v = o[keys[j]]
-      if (v === null) { absent[j][i] = 1; continue }
-      if (v === undefined) { absent[j][i] = 2; continue }
-      if (typeof v !== kinds[j]) return null
-      if (kinds[j] === 'number') (data[j] as Float64Array)[i] = v
-      else if (kinds[j] === 'boolean') (data[j] as Uint8Array)[i] = v ? 1 : 0
-      else { let d = dicts[j].get(v); if (d === undefined) dicts[j].set(v, d = dicts[j].size); (data[j] as Int32Array)[i] = d }
-    }
-  }
-  out.n = n; out.keys = keys; out.kinds = kinds; out.data = data; out.absent = absent; out.dicts = dicts.map((d) => [...d.keys()])
-  return out
-}
-function rows(c: any): unknown[] {
-  const o: unknown[] = new Array(c.n)
-  for (let i = 0; i < c.n; i++) {
-    const r: Record<string, unknown> = {}
-    for (let j = 0; j < c.keys.length; j++) {
-      const a = c.absent[j][i]
-      r[c.keys[j]] = a === 1 ? null : a === 2 ? undefined : c.kinds[j] === 'number' ? c.data[j][i]
-        : c.kinds[j] === 'boolean' ? c.data[j][i] === 1 : c.dicts[j][c.data[j][i]]
-    }
-    o[i] = r
-  }
-  return o
-}
 /** The differences of an array of integers, where each fits an int32; null otherwise. */
 function deltas(x: unknown[]): Int32Array | null {
   const d = new Int32Array(x.length)
@@ -115,51 +56,31 @@ function deltas(x: unknown[]): Int32Array | null {
   return d
 }
 /** A copy with every long array of int32 integers held as deltas; shared references stay shared. */
-/** How many times each object is reached in a graph. */
-function refCounts(x: unknown, n = new Map<object, number>()): Map<object, number> {
-  const stack: unknown[] = [x]
-  while (stack.length) {
-    const v = stack.pop()
-    if (!v || typeof v !== 'object') continue
-    const c = n.get(v) ?? 0
-    n.set(v, c + 1)
-    if (c) continue
-    if (ArrayBuffer.isView(v) || v instanceof Date || v instanceof RegExp || v instanceof Error) continue
-    if (v instanceof Map) { for (const [k, w] of v) stack.push(k, w); continue }
-    if (v instanceof Set) { for (const w of v) stack.push(w); continue }
-    for (const k of Object.keys(v)) stack.push((v as any)[k])
-  }
-  return n
-}
-
-export function pack(x: unknown, seen = new Map<object, unknown>(), refs = refCounts(x)): unknown {
+export function pack(x: unknown, seen = new Map<object, unknown>()): unknown {
   if (!x || typeof x !== 'object') return x
   if (seen.has(x)) return seen.get(x)
   if (Array.isArray(x)) {
     const d = x.length >= 64 && Object.keys(x).length === x.length ? deltas(x) : null
     if (d) { const o = { [INT]: d }; seen.set(x, o); return o }
-    // Objects held as columns lose their own identity, so only where no element is reached twice.
-    const c = x.length >= 64 && Object.keys(x).length === x.length && x.every((e) => refs.get(e as object) === 1) ? columns(x) : null
-    if (c) { const o = { [COLS]: c }; seen.set(x, o); return o }
     const o: unknown[] = new Array(x.length)
     seen.set(x, o)
-    for (let i = 0; i < x.length; i++) if (i in x) o[i] = pack(x[i], seen, refs)
+    for (let i = 0; i < x.length; i++) if (i in x) o[i] = pack(x[i], seen)
     return o
   }
   if (x instanceof Map) {
     const o = new Map(); seen.set(x, o)
-    for (const [k, v] of x) o.set(pack(k, seen, refs), pack(v, seen, refs))
+    for (const [k, v] of x) o.set(pack(k, seen), pack(v, seen))
     return o
   }
   if (x instanceof Set) {
     const o = new Set(); seen.set(x, o)
-    for (const v of x) o.add(pack(v, seen, refs))
+    for (const v of x) o.add(pack(v, seen))
     return o
   }
   if (ArrayBuffer.isView(x) || x instanceof Date || x instanceof RegExp || x instanceof Error) return x
   const o: Record<string, unknown> = {}
   seen.set(x, o)
-  for (const k of Object.keys(x)) o[k] = pack((x as any)[k], seen, refs)
+  for (const k of Object.keys(x)) o[k] = pack((x as any)[k], seen)
   return o
 }
 export function unpack(x: unknown, seen = new Map<object, unknown>()): unknown {
@@ -173,8 +94,6 @@ export function unpack(x: unknown, seen = new Map<object, unknown>()): unknown {
   if (x instanceof Map) { const o = new Map(); seen.set(x, o); for (const [k, v] of x) o.set(unpack(k, seen), unpack(v, seen)); return o }
   if (x instanceof Set) { const o = new Set(); seen.set(x, o); for (const v of x) o.add(unpack(v, seen)); return o }
   if (ArrayBuffer.isView(x) || x instanceof Date || x instanceof RegExp || x instanceof Error) return x
-  const c = (x as any)[COLS]
-  if (c && Object.keys(x).length === 1) { const o = rows(c); seen.set(x, o); return o }
   const d = (x as any)[INT]
   if (d instanceof Int32Array && Object.keys(x).length === 1) {
     const o = new Array(d.length); let s = 0

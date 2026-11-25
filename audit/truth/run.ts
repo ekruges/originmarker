@@ -78,9 +78,8 @@ const held = (w: any) => (w && typeof w === 'object' && 'kind' in w && 'startBp'
 // With OM_STORE, a scored array is read from the store (audit/gate/store.ts) where one is kept for
 // the same scoring closure and inputs, and kept there where not. An array whose inputs are not all
 // on the open list (OM_OPEN) is scored and never stored. What the record reads of the
-// parents and the collected tallies is held by name. The per-marker LRR tracks the sister reading
-// reads are kept for an array scored with a run, and collected again from the array, not scored,
-// for one scored without.
+// parents and the collected tallies is held by name; the LRR tracks the sister reading reads are
+// collected again from the array, not scored.
 const store = process.env.OM_STORE
   ? openStore(process.env.OM_STORE, treeKey(new URL('../..', import.meta.url).pathname, 'rows'), openList(process.env.OM_OPEN))
   : null
@@ -93,7 +92,7 @@ async function scoreArray(id: string, path: string, parentPath: string, otherPat
   if (!v) {
     const s = await scoreFresh(id, path, parentPath, otherPath, role, sibPaths)
     v = { res: s.res, profile: s.profile, sameHom: s.sameHom, homTally: s.homTally, maternal: s.maternal,
-      acc: { sex: (s.acc as any).sex, ...(sibPaths.length ? { cnByChrom: (s.acc as any).cnByChrom } : {}) },
+      acc: { sex: (s.acc as any).sex },
       pat: { sex: s.pat.sex }, mat: s.mat ? { sex: s.mat.sex, heterozygosity: s.mat.heterozygosity } : null }
     store.put(key, v)
     return s

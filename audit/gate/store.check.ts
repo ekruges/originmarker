@@ -45,29 +45,6 @@ const roundTrip = (x: unknown) => unpack(deserialize(serialize(pack(x))))
   assert.ok(gz(pack({ pos })) < gz({ pos }) / 2, 'positions are held small')
 }
 
-// Records held as columns come back key for key, value for value, in order; shared or uneven ones
-// are kept as they are.
-{
-  const cn = Array.from({ length: 300 }, (_, i) => ({ chrom: String(1 + (i % 3)), pos: i * 10, called: i % 4 !== 0,
-    log2R: i % 7 === 0 ? null : i % 11 === 0 ? NaN : i % 13 === 0 ? -0 : (i - 150) / 37, baf: i % 5 === 0 ? undefined : i / 300 }))
-  const y: any = roundTrip({ m: new Map([['1', cn]]) })
-  const back = y.m.get('1')
-  assert.equal(back.length, cn.length)
-  for (let i = 0; i < cn.length; i++) {
-    assert.deepEqual(Object.keys(back[i]), Object.keys(cn[i]))
-    for (const k of Object.keys(cn[i])) assert.ok(Object.is(back[i][k], (cn[i] as any)[k]), `${i} ${k}`)
-  }
-  const sh = { a: 1 }; const withShared = [sh, ...Array.from({ length: 80 }, (_, i) => ({ a: i }))]
-  const z: any = roundTrip({ xs: withShared, again: sh })
-  assert.equal(z.xs[0], z.again, 'an element reached twice stays one object')
-  const uneven = Array.from({ length: 80 }, (_, i) => (i === 40 ? { a: 1, b: 2 } : { a: i }))
-  assert.deepEqual(roundTrip(uneven), uneven)
-  const nested = Array.from({ length: 80 }, (_, i) => ({ a: i, inner: { q: i } }))
-  assert.deepEqual(roundTrip(nested), nested)
-  const gz = (v: unknown) => gzipSync(serialize(v)).length
-  assert.ok(gz(pack({ cn })) < gz({ cn }), 'columns are smaller')
-}
-
 // Keys, the open list, put and get.
 const dir = mkdtempSync(join(tmpdir(), 'om-store-check-'))
 try {
