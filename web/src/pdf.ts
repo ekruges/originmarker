@@ -189,6 +189,11 @@ export class Pdf {
 
   get pageCount(): number { return this.pages.length }
 
+  /** Replace a token in every finished page, for text known only once the last page is drawn. */
+  substitute(token: string, value: string): void {
+    this.pages = this.pages.map((p) => p.split(token).join(value))
+  }
+
   save(): Blob {
     if (this.buf.length) this.showPage()
     const objs: string[] = []

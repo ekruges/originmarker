@@ -42,24 +42,60 @@ const GATE_SAYS: Record<string, string> = {
   'stage.second-genome': 'the stage found a second genome',
   'stage.heterozygosity-ceiling': 'heterozygosity over what one genome can carry',
   'stage.declared': 'the array did not resolve to any material',
+  'stage.unknown': 'the stage was not read',
   'copy-scan.chaotic-genome': 'the copy-number scan found the genome too disturbed',
   'other-parent.under-span': `under ${OTHER_MIN_SPAN_BP / 1e6} Mb, no second line`,
 }
 
+const pct = (v: number): string => `${(100 * v).toFixed(1)}%`
+const num = (v: number): string => String(+v.toPrecision(3))
+const int = (v: number): string => Math.round(v).toLocaleString('en-US')
+
+/** Every number a refusal records, in plain words with its unit. A key with no entry here throws. */
+export const MEASURE_SAYS: Record<string, { label: string; fmt: (v: number) => string }> = {
+  callRate: { label: 'call rate', fmt: pct },
+  heterozygosity: { label: 'heterozygosity', fmt: pct },
+  dropIn: { label: 'drop-in', fmt: pct },
+  heterozygositySpread: { label: 'spread of heterozygosity between chromosomes', fmt: (v) => `${num(v)} (coefficient of variation)` },
+  normalFraction: { label: 'autosomes in the commonest copy state', fmt: pct },
+  deviantFraction: { label: 'share of autosomes read as changed', fmt: pct },
+  affectedAutosomes: { label: 'autosomes read as changed', fmt: int },
+  totalAutosomes: { label: 'autosomes read', fmt: int },
+  spanBp: { label: 'span', fmt: (v) => `${(v / 1e6).toFixed(2)} Mb` },
+  score: { label: 'scan score', fmt: (v) => `${num(v)} (log-likelihood ratio)` },
+  markers: { label: 'markers', fmt: int },
+  lrrZ: { label: 'intensity', fmt: (v) => `${num(v)} spreads from the cell's own level` },
+}
+
+const known = <T>(map: Record<string, T>, key: string, what: string): T => {
+  const v = map[key]
+  if (v === undefined) throw new Error(`withheld: no words for the ${what} ${key}`)
+  return v
+}
+
+/** The numbers a refusal fired on, each with its label and unit. */
+export const measuredText = (m: Record<string, number> | undefined): string =>
+  Object.entries(m ?? {}).map(([k, v]) => {
+    const say = known(MEASURE_SAYS, k, 'measurement')
+    return `${say.label} ${Number.isFinite(v) ? say.fmt(v) : 'not measured'}`
+  }).join(', ')
+
 export interface WithheldRow { what: string; why: string; measured: string }
 
-const num = (v: number): string => (Number.isFinite(v) ? String(+v.toPrecision(3)) : 'not measured')
-
-/** Every refusal and every row not reported of one sample, in that order. */
+/**
+ * Every refusal and every row not reported of one sample, in that order. A refusal of the whole
+ * sample is said in the integrity call's own reason, which counts no change, so it cannot disagree
+ * with the card's count.
+ */
 export function withheldRows(
-  r: { refusals?: readonly Refusal[]; integrity?: { headline: string } },
+  r: { refusals?: readonly Refusal[]; integrity?: { why: string } },
   list: Pick<ChangeList, 'notReported'>,
 ): WithheldRow[] {
   const refused = (r.refusals ?? []).map((x): WithheldRow => ({
-    what: `${CLAIM_SAYS[x.claim] ?? x.claim}${x.chrom ? `, chr${x.chrom}` : ''}${x.soft ? ' (labelled, not removed)' : ''}`,
-    why: x.claim === 'sample' && r.integrity ? r.integrity.headline
-      : `${GATE_SAYS[x.gate] ?? x.gate}: ${CAUSE_SAYS[x.cause] ?? x.cause}`,
-    measured: Object.entries(x.measured ?? {}).map(([k, v]) => `${k} ${num(v)}`).join(', '),
+    what: `${known(CLAIM_SAYS, x.claim, 'claim')}${x.chrom ? `, chr${x.chrom}` : ''}${x.soft ? ' (labelled, not removed)' : ''}`,
+    why: x.claim === 'sample' && r.integrity ? r.integrity.why
+      : `${known(GATE_SAYS, x.gate, 'gate')}: ${known(CAUSE_SAYS, x.cause, 'cause')}`,
+    measured: measuredText(x.measured),
   }))
   const seen = (list.notReported?.rows ?? []).map((g): WithheldRow => ({
     what: `${whereText(g)}: ${whoseText(g)}`, why: NOT_REPORTED_SAYS, measured: '',

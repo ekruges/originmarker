@@ -279,6 +279,16 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
         methodsPrinted: all.includes(flat(methods.text)),
         xrefOk: facts.xrefOk, images: facts.images, pages: facts.pages,
         footers: strings.filter((x) => x.includes(` | ${TOOL} | report `) && x.includes(' | page ')).length,
+        // Every footer that reads "page N of M" with M the page count.
+        pagesOfM: strings.filter((x) => new RegExp(` \\| page \\d+ of ${facts.pages}$`).test(x)).length,
+        // Words from the code and source file names in what the report and the withheld list print.
+        codeWords: [...new Set([...strings, ...withheldMod.withheldRows(res, s.list).flatMap((w: any) => [w.what, w.why, w.measured])]
+          .flatMap((x) => x.match(/\b[a-z]+[A-Z][A-Za-z0-9]*\b/g) ?? []))],
+        fileNames: [...new Set(strings.flatMap((x) => x.match(/\b[\w-]+\.tsx?\b/g) ?? []))],
+        withheldTexts: withheldMod.withheldRows(res, s.list).map((w: any) => `${w.what} | ${w.why} | ${w.measured}`),
+        // The run's own marker counts, read off the profile here rather than through the report.
+        markers: profile.markers,
+        autosomalCalled: [...profile.byChrom].reduce((n: number, [c, x]: any) => n + (/^(?:[1-9]|1[0-9]|2[0-2])$/.test(c) ? x.called : 0), 0),
       }
       if (DUMP) {
         const series = { ...plotSeries.plotData(acc as never, { loaded: pat.absent ? null : { role: role === 'maternal' ? 'maternal' : 'paternal', gt: pat.gt },
