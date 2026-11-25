@@ -376,10 +376,15 @@ RELEASES: tuple[Release, ...] = (
             "Chromosomes caught at metaphase and spread flat on a slide, so each can be counted, "
             "drawn and filed. Every figure now saves as a vector file, and the report names each bar "
             "it was read by and everything it withheld."),
+    Release("Processivity",
+            "How far a polymerase runs along a strand before it lets go. One that holds on copies "
+            "the same sequence in less time, and copies it the same. Nothing the tool reads or "
+            "reports changes here: each marker is looked up by a number and not by its name, and "
+            "the same results come out sooner."),
 )
 
-VERSION = "6.27.0"
-CODENAME = "Metaphase Spread"
+VERSION = "6.27.1"
+CODENAME = "Processivity"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

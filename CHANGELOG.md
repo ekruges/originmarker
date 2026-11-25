@@ -9,6 +9,29 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.27.1 "Processivity"
+
+**Nothing the tool reads or reports changes. Reading an array takes less time.** For every marker
+the scoring looked the probe's name up in several tables: the reference panel and its frequencies,
+each parent's genotypes, and the sample's own call, allele fraction and position. Most of the time
+of the per-marker tally went to those lookups. Each probe name now gets a number the first time it
+is seen (`web/src/probeIndex.ts`), and the tables are read and written by that number. The number
+is never written into a result. Measured on one machine at the same load, a batch of built
+known-answer events takes 26% less time, arrays read with no parent 15% less, and arrays read with
+a parent 32% less.
+
+**Nothing changed in any record.** The 853 real arrays, the 4,332 built events and the 18 suite
+files were scored again with this build: every record is identical to 6.27.0's in every field.
+In the browser, the three built-in examples (both parents, one parent, no parent) and a full-size
+trio with a second embryo added printed the same page text, the same figures, the same table and
+the same run log on 6.27.0 and on this build.
+
+**The gate's job pool** (`audit/gate/pool.sh`). A lane the pool sees for the first time starts
+level with the busiest lane and no longer goes ahead of work already queued, and
+`pool.sh first <lane>` puts one lane before the rest.
+
+---
+
 ## 6.27.0 "Metaphase Spread"
 
 **The report says what decided each sample and what it held back.** It listed fifteen constants
