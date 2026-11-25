@@ -920,6 +920,19 @@ console.log('scoreSample.check.ts: a refusal names the array when the array is w
   const out = await pdfOf()
   assert.equal(out.match(/\(not reported\)/g)?.length, nr.rows.length, 'every listed row marked not reported')
   assert.ok(out.includes('(not reportable)'), 'the summary column says not reportable')
+  // The timing table does not depend on a gain: a grouped cell with only losses still gets it, and
+  // on a sample not reportable its cell reads not read.
+  const timed = await (async () => {
+    const x = { ...r, gains: [], uniformity: [{ chrom: 'X', startBp: 0, endBp: 0, kind: 'copy-loss', whole: true,
+      mechanism: 'none' as const, why: 'the sample is not reportable, so no origin is read on it' }] }
+    return Buffer.from(await (await buildReportPdf({
+      files: [{ name: 'sample', size: 1, sha256: 'x', role: 'sample', markers: 1000, result: x }],
+      donorHeterozygosity: 0.17, startedAt: null, generatedAt: '2026-01-01 00:00:00Z',
+      tool: 'OriginMarker', reportId: 'CHECK', fromExamples: true,
+    } as never)).arrayBuffer()).toString('latin1')
+  })()
+  assert.ok(timed.includes('(Gamete-borne or post-fertilisation)'), 'the timing table is printed with no gain')
+  assert.ok(/\(not read: the sample/.test(timed), 'its cell reads not read')
   assert.ok(out.includes(`(${says.head.word})`), 'the bar is the headline word with no count after it')
   // With no parent loaded the sample line names no parent.
   const parentLine = async (x: typeof r) => Buffer.from(await (await buildReportPdf({

@@ -673,7 +673,7 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
     const sex = r.chroms.filter((c) => c.chrom === 'X' || c.chrom === 'Y' || c.chrom === '23')
     if (sex.length) {
       heading(seenHeading(seen, 'Sex chromosomes'), 8.6)
-      if (r.sexChromosome) text(sexLine(r.sexChromosome), 7.6, 'Helvetica', 2)
+      if (r.sexChromosome) text(sexLine(r.sexChromosome, r.sexMaterial), 7.6, 'Helvetica', 2)
       chromTable(sex, r.explainable, seen, defects)
     }
     const aneu = r.chroms.filter((c) => c.aneuploidy || c.lostParent || c.mixed
@@ -726,28 +726,6 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         )
       }
 
-      // TIMING, WHICH ONLY EXISTS WHEN TWO UNITS OF ONE EMBRYO WERE ARRAYED.
-      if (r.uniformity?.length) {
-        heading('Gamete-borne or post-fertilisation', 8.6)
-        text('Whether a change was carried by the gamete or arose after fertilisation cannot be '
-          + 'read on one cell. Across the units of one embryo, read on each stretch between the '
-          + 'breakpoints of all its cells: a change every unit carries, same direction and parent, '
-          + 'is from the gamete with three units or more and only consistent with it with two; one '
-          + 'unit gaining what another loses, or a change some units carry while another reads that '
-          + 'stretch normal, arose after fertilisation. A change over stretches that read '
-          + 'differently has a line for each. The units were grouped by genotype concordance rather '
-          + 'than by their labels.',
-        7.4, 'Helvetica', 2.4, GREY)
-        table(
-          [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
-          timingRows(r.uniformity).map((u) => [
-            u.where,
-            { v: seen ? verdictText(true, u.mechanism) : stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
-            { v: u.why, colour: GREY },
-          ]),
-        )
-      }
-
       // WHAT WAS LOOKED FOR AND CANNOT BE ANSWERED. Without this table a report that lists what was
       // found says nothing about what was never checked, and on this platform the difference
       // between "no heterodisomy present" and "heterodisomy is unreachable from an embryo alone" is
@@ -789,6 +767,27 @@ export async function buildReportPdf(input: ReportInput): Promise<Blob> {
         + 'POSITIVE: no confirmed gain with a known origin exists in the material behind these '
         + 'thresholds, so this has been shown to refuse correctly and never to fire correctly.',
       6.5, 'Helvetica-Oblique', 2, GREY)
+    }
+    // TIMING, WHICH ONLY EXISTS WHEN TWO UNITS OF ONE EMBRYO WERE ARRAYED, whether or not a gain was read.
+    if (timingRows(r.uniformity ?? []).length) {
+      heading('Gamete-borne or post-fertilisation', 8.6)
+      text('Whether a change was carried by the gamete or arose after fertilisation cannot be '
+        + 'read on one cell. Across the units of one embryo, read on each stretch between the '
+        + 'breakpoints of all its cells: a change every unit carries, same direction and parent, '
+        + 'is from the gamete with three units or more and only consistent with it with two; one '
+        + 'unit gaining what another loses, or a change some units carry while another reads that '
+        + 'stretch normal, arose after fertilisation. A change over stretches that read '
+        + 'differently has a line for each. The units were grouped by genotype concordance rather '
+        + 'than by their labels.',
+      7.4, 'Helvetica', 2.4, GREY)
+      table(
+        [{ head: 'Where', w: 132 }, { head: 'Timing', w: 118 }, { head: 'Evidence', w: 282 }],
+        timingRows(r.uniformity!).map((u) => [
+          u.where,
+          { v: seen ? verdictText(true, u.mechanism) : stretchWord(u), colour: u.mechanism === 'none' ? GREY : INK },
+          { v: u.why, colour: GREY },
+        ]),
+      )
     }
     if (r.segments.length) {
       heading(seenHeading(seen, 'Segmental change'), 8.6)

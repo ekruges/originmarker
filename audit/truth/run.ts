@@ -233,7 +233,8 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
     const l = says().list
     return { counted: l.counted.map(cardRow), once: l.once.length, disturbed: !!l.disturbed,
       ...pageSays.cardCounts(l), countText: pageSays.countText(l), line: says().head.line,
-      figure: { drawn: pageSays.drawnOf(res, says().defects), note: pageSays.figureNote(l, pageSays.drawnOf(res, says().defects)) ?? null },
+      figure: { drawn: pageSays.drawnOf(res, says().defects), note: pageSays.figureNote(l, pageSays.drawnOf(res, says().defects)) ?? null,
+        title: says().title },
       ...(l.notReported ? { notReported: l.notReported.rows.map(cardRow) } : {}) }
   }
   const surfaces = async () => {
@@ -304,7 +305,7 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
       const all = flat(strings.join(' '))
       out.pdf = { notReported: strings.filter((x) => x === 'not reported').length,
         bar: strings.includes(`${s.head.word}${pageSays.countText(s.list)}`),
-        sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome))) : null,
+        sexLine: res.sexChromosome ? all.includes(flat(pageSays.sexLine(res.sexChromosome, res.sexMaterial))) : null,
         inferred: all.includes('inferred from paternal absence'), noParentLine: all.includes('sample no parent loaded'),
         vsDonor: all.includes('sample vs donor'),
         noParentMethods: all.includes('No parental array was supplied.'),
@@ -338,6 +339,8 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
     y: { yBearing: y.yBearing, callRatio: y.callRatio, lrrShift: y.lrrShift, yBafShare: y.yBafShare ?? null,
       bafFloor: y.bafFloor ?? null, why: y.why ?? null },
     sexWhy: res.sexChromosome?.why ?? '', sexWord: sexMaterial.shownSex(profile.sex, res.sexMaterial, res.sexChromosome),
+    sexLine: res.sexChromosome ? pageSays.sexLine(res.sexChromosome, res.sexMaterial) : '',
+    sexBadge: sexMaterial.sexBadge(res.sexChromosome, res.sexMaterial, !pageSays.notReportable(res)),
     spermType: res.spermType ?? null, parentSanity: res.parentSanity ?? null, matSanity: res.parentSanityOther ?? null,
     parentSex: { pat: pat.sex ?? null, mat: mat?.sex ?? null },
     chroms: (res.chroms ?? []).map((c: any) => ({ chrom: c.chrom, aneuploidy: c.aneuploidy ?? '',

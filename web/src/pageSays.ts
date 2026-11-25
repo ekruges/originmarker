@@ -24,7 +24,8 @@ import {
 } from './defects.ts'
 import { segmentCoords } from './segments.ts'
 import { directionOf, split, stretchWhere, stretchWord } from './timing.ts'
-import { sexRow } from './sexChromosome.ts'
+import { sexRow, type SexChromosomeCall } from './sexChromosome.ts'
+import { sexLineOf, type SexMaterial } from './sexMaterial.ts'
 
 export type Parent = 'paternal' | 'maternal'
 
@@ -484,7 +485,7 @@ export function figureNote(l: ChangeList, drawn: { listed: number; withheld: num
   const marked = rows.filter(onFigure).length
   const parts = drawn.listed - marked
   const total = drawn.listed + drawn.withheld
-  const sex = rows.some(isSexRow) ? ' ' + SEX_NOT_DRAWN : ''
+  const sex = rows.some(isSexRow) ? ` ${l.counted.some(isSexRow) ? SEX_COUNTED_NOT_DRAWN : SEX_NOT_DRAWN}` : ''
   if (!total) return sex ? sex.trim() : undefined
   if (!l.notReported && !drawn.withheld && !parts && !l.once.length && !l.seen.length && !sex) return undefined
   const extra = [
@@ -498,7 +499,13 @@ export function figureNote(l: ChangeList, drawn: { listed: number; withheld: num
   // How many drawn readings the counted rows are, so the sentence adds up with what is drawn.
   const counted = l.counted.filter(onFigure).reduce((n, g) => n + g.pieces.length, 0)
   const rest = total - counted
-  return `${head} The card counts ${plural(changes, 'change')} and ${plural(findings, 'finding')}, drawn as `
+  // The figure's own counts, apart from the card's where the card counts the undrawn sex row.
+  const fig = cardCounts({ ...l, counted: l.counted.filter((g) => !isSexRow(g)) })
+  const counts = fig.changes === changes && fig.findings === findings
+    ? `The card counts ${plural(changes, 'change')} and ${plural(findings, 'finding')}, drawn as `
+    : `The card counts ${plural(changes, 'change')} and ${plural(findings, 'finding')}; drawn are `
+      + `${plural(fig.changes, 'change')} and ${plural(fig.findings, 'finding')}, as `
+  return `${head} ${counts}`
     + `${plural(counted, 'reading')}${!rest ? '' : rest === 1
       ? '; the other 1 is drawn as an outline and says on its own line why it is not counted'
       : `; the other ${rest} are drawn as outlines and say on their own line why they are not counted`}.${sex}`
@@ -508,6 +515,7 @@ export function figureNote(l: ChangeList, drawn: { listed: number; withheld: num
 const isSexRow = (g: ChangeRow): boolean => g.pieces[0]?.step === 'sex'
 const onFigure = (g: ChangeRow): boolean => g.chrom !== 'genome' && !isSexRow(g)
 export const SEX_NOT_DRAWN = 'The sex-chromosome row is not drawn: this figure draws chromosomes 1 to 22.'
+export const SEX_COUNTED_NOT_DRAWN = 'The sex-chromosome row is counted on the card and not drawn: this figure draws chromosomes 1 to 22.'
 
 /**
  * A sample in the fewest words, as the report's summary prints it: its changes and the stretches
@@ -897,8 +905,7 @@ export function readAgainst(
 }
 
 /** The sex-chromosome line the page and the PDF print: the constitution and its reason. */
-export const sexLine = (sc: { constitution: string; why: string }): string =>
-  (sc.constitution === 'unresolved' ? `Not read: ${sc.why}.` : `${sc.constitution}: ${sc.why}.`)
+export const sexLine = (sc: SexChromosomeCall, m?: SexMaterial): string => sexLineOf(sc, m)
 
 /** One line per row, the same text on the card, in the PDF and in the check. */
 export function rowLine(g: ChangeRow): string {
@@ -913,6 +920,11 @@ const count = (n: number, one: string, many: string): string => `${n <= 10 ? NUM
  * the card, never how a bar is computed.
  */
 export function figureTitle(head: Headline, l: ChangeList, h: HeadInput): string {
+  const t = drawnTitle(head, l, h)
+  return l.counted.some(isSexRow) ? `${t} ${SEX_COUNTED_NOT_DRAWN}` : t
+}
+
+function drawnTitle(head: Headline, l: ChangeList, h: HeadInput): string {
   if (l.notReported) {
     return `${h.noParent ? 'Copy number along every chromosome' : head.line.split('. ')[0].replace(/\.$/, '')}. `
       + 'This sample is not reportable, so nothing marked is reported.'
@@ -1162,7 +1174,7 @@ export function defectsForResult(r: ParentageResult): Defect[] {
   const sex = sx ? [{
     chrom: 'X', startBp: 0, endBp: chromEndOf(r, 'X'), locus: 'chrX', origin: 'unclear' as const,
     kind: sx.dir === 'gain' ? 'copy-gain' as const : sx.dir === 'loss' ? 'copy-loss' as const : 'sex-chromosomes' as const,
-    step: 'sex' as const, sexSays: sx.says, stage: r.stage?.stage, why: sexLine(sc),
+    step: 'sex' as const, sexSays: sx.says, stage: r.stage?.stage, why: sexLine(sc, r.sexMaterial),
   }] : []
 
   return withMechanism([
