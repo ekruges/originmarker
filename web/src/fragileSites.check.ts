@@ -65,4 +65,13 @@ const sample = tableSampleOf('s', { originClass: 'x', noParent: true } as never,
 assert.deepEqual(sample.changes.map((c) => c.fragile ?? ''),
   ['Break at 61.2 Mb in fragile site FRA3B (Georgakilas et al. 2014, Table 3)', '', '', ''])
 
-console.log('fragileSites: lookup, text, counted changes only, download column ok')
+// Two pieces meeting at one break inside FRA6E: one line on the card, a cell on each download row.
+const left = { chrom: '6', startBp: 88_020_521, endBp: 162_369_660, kind: 'copy-loss', locus: 'a' }
+const right = { chrom: '6', startBp: 162_371_842, endBp: 169_074_455, kind: 'copy-loss', locus: 'b' }
+const meet = { counted: [{ whole: false, pieces: [left, right] }], once: [], seen: [] }
+assert.deepEqual(fragileLines(meet), ['chr6: Break at 162.4 Mb in fragile site FRA6E (Georgakilas et al. 2014, Table 3)'])
+const met = tableSampleOf('s', { originClass: 'x', noParent: true } as never,
+  { head: { word: 'w' }, setup: 'no-parent', list: meet, defects: [left, right] } as never)
+assert.deepEqual(met.changes.map((c) => c.fragile), Array(2).fill('Break at 162.4 Mb in fragile site FRA6E (Georgakilas et al. 2014, Table 3)'))
+
+console.log('fragileSites: lookup, text, counted changes only, one line per break, download column ok')

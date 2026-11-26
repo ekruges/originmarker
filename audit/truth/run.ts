@@ -18,7 +18,7 @@
  * card's own count of changes and findings; and, on a sample not reportable, the rows listed apart.
  *
  * `surfaces` holds what the other surfaces print of the same sample: the overview's count of
- * changes and findings for it alone, the changes download's words, loaded-parent values and fragile-site lines, and,
+ * changes and findings for it alone, the changes download's words, loaded-parent values and fragile-site cells, the card's and the PDF's fragile-site lines (`cardFragile`), and,
  * on a sample not reportable or one whose sex line reads "47,XXY or a mix of cells", what its PDF
  * prints (pageSays, overview, syngamyTable, syngamyPdf); on a sample not reportable the run log's
  * gain, loss and stretch lines (`log`); and, where a whole call was withdrawn after the chromosome
@@ -58,6 +58,7 @@ const table = await import(`${W}syngamyTable.ts`)
 const reportPdf = await import(`${W}syngamyPdf.ts`)
 const defectsMod = await import(`${W}defects.ts`)
 const S = await import(`${W}sisterGain.ts`)
+const fragileMod = await import(`${W}fragileSites.ts`)
 const barsMod = await import(`${W}bars.ts`)
 const withheldMod = await import(`${W}withheld.ts`)
 const svgPdf = await import(`${W}svgPdf.ts`)
@@ -191,6 +192,8 @@ async function recordOf(id: string, path: string, parentPath: string, tag: strin
         fragile: at('fragile_site').filter(Boolean),
         ...(s.list.notReported ? { classes: [...new Set(at('class'))], parents: [...new Set(at('parent'))],
           evidence: [...new Set(at('evidence'))] } : {}) },
+      // The fragile-site lines the card and the PDF print (fragileSites.fragileLines).
+      cardFragile: fragileMod.fragileLines(s.list),
       // Every sentence the card prints of a row with neither a gain nor a loss.
       findingTexts: s.list.counted.filter((g: any) => pageSays.rowDirection(g) === 'none')
         .map((g: any) => [pageSays.whoseText(g), pageSays.rowSays(g, s.setup), pageSays.callTitle(g)].join(' | ')),

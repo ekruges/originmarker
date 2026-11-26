@@ -76,10 +76,14 @@ export function countedBreakPieces<P extends Piece>(list: {
   return list.counted.filter((g) => !g.whole).flatMap((g) => g.pieces).filter((p) => BREAK_KINDS.has(p.kind))
 }
 
-/** One line per counted piece with a break in a site, e.g. "chr3: Break at 61.2 Mb in fragile site FRA3B (...)". */
+/**
+ * One line per break in a site, e.g. "chr3: Break at 61.2 Mb in fragile site FRA3B (...)". Two pieces
+ * that meet at one break give the same line (same chromosome, printed coordinate and site), and the
+ * card shows one row for both, so the line is printed once.
+ */
 export function fragileLines(list: Parameters<typeof countedBreakPieces>[0]): string[] {
-  return countedBreakPieces(list).flatMap((p) => {
+  return [...new Set(countedBreakPieces(list).flatMap((p) => {
     const t = fragileSiteText(p)
     return t ? [`chr${p.chrom}: ${t}`] : []
-  })
+  }))]
 }
