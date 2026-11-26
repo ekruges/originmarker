@@ -391,10 +391,16 @@ RELEASES: tuple[Release, ...] = (
             "The order of markers along a chromosome and the distances between them, worked out "
             "once and read off after that. The chip's markers now carry their position in both "
             "genome builds, so a panel no longer asks an outside service where they are."),
+    Release("Fragile Site",
+            "A stretch of a chromosome that breaks more readily than the rest when its copying is "
+            "under stress. A printed break that falls in one now says so, and the breaks were "
+            "tested against two lists of such sites: they fall there no more often than chance. A "
+            "sample's note names what its array measured, and a cell reads the same whatever "
+            "order its run was loaded in."),
 )
 
-VERSION = "6.28.1"
-CODENAME = "Linkage Map"
+VERSION = "6.29.0"
+CODENAME = "Fragile Site"
 
 BUILD = f'Build {VERSION} "{CODENAME}"'
 

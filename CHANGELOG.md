@@ -9,6 +9,65 @@ whether to trust a panel from an older build deserves to know exactly what it go
 
 ---
 
+## 6.29.0 "Fragile Site"
+
+**A cell reads the same whatever order its run was loaded in.** The page scored each cell against
+the arrays loaded before it, so the first cell of a run was read without the others. Scored that
+way, 56 of 91 cells in 19 runs changed with the order of loading: the calls taken from sister
+cells on 40, the mother read from the run on 29. The page now reads every array's genotype calls
+first and scores each cell against all the others, and 0 of 91 change in any order. The audit
+runner already scored this way, so no record moves. The sentences on why a run's other arrays
+were not used each name their own test, and with no parent loaded they name no parent.
+
+**The note on a whole sample names the cause the array measured.** The record of a whole-sample
+call carried a stand-in cause on every branch. It now carries what was measured: most of the
+genotype calls are random, where the stage failed on that; no normal level is left to read
+intensity against, where 30% or more of the autosomes are changed or fewer than 80% share one
+copy state; and no cause where the label withholds nothing. On the 148 open lab arrays and the
+124 records of the 31 published cells the stand-ins fall from 84 and 107 to 12 and 7. No call and
+no number moves on any of the 853 rows.
+
+**A sample under the 70% call rate keeps its stand-in, and says only what was measured.** Those
+12 and 7 are one branch. On 49 of the 64 open arrays under that line the markers with no call
+still carry intensity (their median is not below the tenth percentile of the called markers'),
+so the tool does not say the DNA is missing there. The line is one the tool draws, and reading
+those samples is its own piece of work.
+
+**Wording on damaged samples.** Each printed call rate names the markers it was counted over:
+the stage's rate is over all markers, the whole-sample rate over chromosomes 1 to 22, and the
+two were printed under one label. A value that was not measured is not listed. The 70.0% bar is
+printed one way. A row about a parent is not printed with no parent loaded. The amplification
+word states the 0.11 bar it was read against. A count of changed autosomes says what it counts.
+No path into the repository is printed on a card, and a check fails on one.
+
+**A break in a fragile site says so.** The edge of a counted gain or loss of part of a chromosome
+that falls in one of the 26 fragile sites mapped to the base (Georgakilas et al. 2014, Table 3)
+is marked: one line per break under the card's change list and in the report, and a
+`fragile_site` column in the download. Nothing is marked on a row seen once, on a finding or on
+a sample not reported.
+
+**Breaks fall in fragile sites no more often than chance.** The test was written before it ran:
+each break redrawn 10,000 times on its own chromosome among stretches of the same marker count;
+breaks within 1 Mb of a guide site left out (20); the cells of one embryo counted once. Of 260
+breaks, 6 fall in a site against 13.3 expected (one-sided share 0.997). On the second list, the
+124 band-sized sites of HumCFS (Kumar et al. 2019), 88 against 83.3 (0.27). The first expectation
+is tilted by one site: the chip carries FRA6H, the HLA region, at about 4.6 times the marker
+density of the rest of chromosome 6, and 6.9 of the 13.3 fall there. Redrawn by length, which is
+not the test's rule and is given for comparison, the expectation is 7.5. Five embryos carry 80
+of the 260 breaks, so a share from this test is less certain than it looks. A second count with
+separate code gives the same numbers (`audit/truth/fragile-sites-2026-11-25.txt`).
+
+**What was run.** The 853 real arrays: against 6.27.1 no call, count, segment, origin or number
+moves; the fields that move are the whole-sample cause (418 records), the withheld and
+not-reported texts, the 70.0% strings (19), the page count of 15 reports, and the new fragile
+field. The 4,332 built events are identical. Of the 30 suite files 24 are identical; the six
+invariance files differ on 116 lines, each only in the whole-sample cause. In the browser, the
+merged build on eight samples with real arrays, alone and with a parent.
+
+Browser checks put array files under `web/public/_check/`; that folder is now ignored by git.
+
+---
+
 ## 6.28.1 "Linkage Map"
 
 **A panel build no longer needs Ensembl to tell which markers the chip carries.** 6.28.0 asked
